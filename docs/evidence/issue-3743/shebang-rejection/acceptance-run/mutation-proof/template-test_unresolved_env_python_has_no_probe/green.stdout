@@ -5,4 +5,4 @@
     if asyncio.iscoroutinefunction(func):
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-1 passed, 13 warnings in 0.16s
+1 passed, 13 warnings in 0.09s

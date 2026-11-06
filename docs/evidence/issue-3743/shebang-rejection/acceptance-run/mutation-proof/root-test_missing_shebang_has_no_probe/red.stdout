@@ -20,8 +20,8 @@ launcher = PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no
         for executable in ("pytest", str(launcher)):
             command = (executable, "tests/test_named.py::test_named")
 >           assert helper["_pyyaml_probe_command"](command, launcher.parent) is None
-E           assert ('/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") is None
-E            +  where ('/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") = <function _pyyaml_probe_command at 0x738f794971c0>(('pytest', 'tests/test_named.py::test_named'), PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no_pr0/bin'))
+E           assert ('/opt/anaconda3/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") is None
+E            +  where ('/opt/anaconda3/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") = <function _pyyaml_probe_command at 0x7fc0d423b270>(('pytest', 'tests/test_named.py::test_named'), PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no_pr0/bin'))
 E            +    where PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no_pr0/bin') = PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no_pr0/bin/pytest').parent
 
 tests/scripts/test_check_deliberate_break_shebang_rejection.py:38: AssertionError
@@ -32,7 +32,7 @@ tests/scripts/test_check_deliberate_break_shebang_rejection.py:38: AssertionErro
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ============================
-FAILED tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[root] - assert ('/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") is None
- +  where ('/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") = <function _pyyaml_probe_command at 0x738f794971c0>(('pytest', 'tests/test_named.py::test_named'), PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no_pr0/bin'))
+FAILED tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[root] - assert ('/opt/anaconda3/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") is None
+ +  where ('/opt/anaconda3/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") = <function _pyyaml_probe_command at 0x7fc0d423b270>(('pytest', 'tests/test_named.py::test_named'), PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no_pr0/bin'))
  +    where PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no_pr0/bin') = PosixPath('/tmp/pytest-of-runner/pytest-4/test_missing_shebang_has_no_pr0/bin/pytest').parent
-1 failed, 13 warnings in 0.20s
+1 failed, 13 warnings in 0.11s

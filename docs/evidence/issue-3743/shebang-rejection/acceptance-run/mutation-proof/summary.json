@@ -8,7 +8,7 @@
       "restored_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
       "red": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[root]",
@@ -17,15 +17,15 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/root-test_empty_pytest_launcher_has_no_probe/red.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/root-test_empty_pytest_launcher_has_no_probe/red.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 1,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[root]"
       },
       "green": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[root]",
@@ -34,9 +34,9 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/root-test_empty_pytest_launcher_has_no_probe/green.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/root-test_empty_pytest_launcher_has_no_probe/green.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 0,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[root]"
       }
@@ -49,7 +49,7 @@
       "restored_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
       "red": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[root]",
@@ -58,15 +58,15 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/root-test_missing_shebang_has_no_probe/red.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/root-test_missing_shebang_has_no_probe/red.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 1,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[root]"
       },
       "green": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[root]",
@@ -75,9 +75,9 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/root-test_missing_shebang_has_no_probe/green.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/root-test_missing_shebang_has_no_probe/green.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 0,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[root]"
       }
@@ -90,7 +90,7 @@
       "restored_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
       "red": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[root]",
@@ -99,15 +99,15 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/root-test_unclosed_shebang_quote_has_no_probe/red.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/root-test_unclosed_shebang_quote_has_no_probe/red.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 1,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[root]"
       },
       "green": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[root]",
@@ -116,9 +116,9 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/root-test_unclosed_shebang_quote_has_no_probe/green.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/root-test_unclosed_shebang_quote_has_no_probe/green.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 0,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[root]"
       }
@@ -131,7 +131,7 @@
       "restored_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
       "red": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[root]",
@@ -140,15 +140,15 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/root-test_unresolved_env_python_has_no_probe/red.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/root-test_unresolved_env_python_has_no_probe/red.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 1,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[root]"
       },
       "green": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[root]",
@@ -157,9 +157,9 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/root-test_unresolved_env_python_has_no_probe/green.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/root-test_unresolved_env_python_has_no_probe/green.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 0,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[root]"
       }
@@ -172,7 +172,7 @@
       "restored_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
       "red": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[template]",
@@ -181,15 +181,15 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_empty_pytest_launcher_has_no_probe/red.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_empty_pytest_launcher_has_no_probe/red.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 1,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[template]"
       },
       "green": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[template]",
@@ -198,9 +198,9 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_empty_pytest_launcher_has_no_probe/green.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_empty_pytest_launcher_has_no_probe/green.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 0,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[template]"
       }
@@ -213,7 +213,7 @@
       "restored_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
       "red": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[template]",
@@ -222,15 +222,15 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_missing_shebang_has_no_probe/red.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_missing_shebang_has_no_probe/red.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 1,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[template]"
       },
       "green": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[template]",
@@ -239,9 +239,9 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_missing_shebang_has_no_probe/green.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_missing_shebang_has_no_probe/green.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 0,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[template]"
       }
@@ -254,7 +254,7 @@
       "restored_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
       "red": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[template]",
@@ -263,15 +263,15 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_unclosed_shebang_quote_has_no_probe/red.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_unclosed_shebang_quote_has_no_probe/red.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 1,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[template]"
       },
       "green": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[template]",
@@ -280,9 +280,9 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_unclosed_shebang_quote_has_no_probe/green.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_unclosed_shebang_quote_has_no_probe/green.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 0,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[template]"
       }
@@ -295,7 +295,7 @@
       "restored_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
       "red": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[template]",
@@ -304,15 +304,15 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_unresolved_env_python_has_no_probe/red.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_unresolved_env_python_has_no_probe/red.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 1,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[template]"
       },
       "green": {
         "argv": [
-          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+          "/opt/anaconda3/bin/python3",
           "-m",
           "pytest",
           "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[template]",
@@ -321,9 +321,9 @@
           "addopts=",
           "-m",
           "not slow",
-          "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_unresolved_env_python_has_no_probe/green.xml"
+          "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_unresolved_env_python_has_no_probe/green.xml"
         ],
-        "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+        "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
         "exit": 0,
         "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[template]"
       }

@@ -94,25 +94,43 @@ def test_retained_receipts_match_the_acceptance_run_contract():
     assert summary["cwd"] == str(ROOT)
     assert summary["check_date"]
     assert summary["pair_count"] == 8
-    assert summary["literal_pytest_exit"] == 127
-    assert summary["literal_replay_exit"] == 127
-    assert summary["satisfies_literal_acceptance"] is False
+    assert summary["literal_pytest_exit"] == 0
+    assert summary["literal_replay_exit"] == 0
+    assert summary["satisfies_literal_acceptance"] is True
     assert summary["operational_pytest_exit"] == 0
     assert summary["focused_junit_exit"] == 0
     assert summary["replay_exit"] == 0
     assert summary["reuse_exit"] != 0
-    assert summary["receipt_interpreter"] != "/opt/anaconda3/bin/python3"
+    assert summary["receipt_interpreter"] == "/opt/anaconda3/bin/python3"
     assert summary["historical_unchanged"] is True
 
+    literal_pytest = json.loads((RUN / "literal-pytest.json").read_text(encoding="utf-8"))
+    assert literal_pytest["argv"] == module["literal_pytest_argv"]()
+    assert literal_pytest["exit"] == 0
+    assert "8 passed" in literal_pytest["stdout"]
+    assert "failed" not in literal_pytest["stdout"]
+    assert "error" not in literal_pytest["stdout"]
+    assert "skipped" not in literal_pytest["stdout"]
+    report = module["junit_report"](RUN / "focused.xml")
+    assert report["tests"] == 8
+    assert report["failures"] == report["errors"] == report["skipped"] == 0
+    focused = json.loads((RUN / "focused-junit.json").read_text(encoding="utf-8"))
+    assert focused["argv"][0] == summary["receipt_interpreter"]
+    test_rel = "tests/scripts/test_check_deliberate_break_shebang_rejection.py"
+    assert summary["historical_sha256"][test_rel] == module["digest"](
+        (ROOT / test_rel).read_bytes()
+    )
+
     specified = json.loads((RUN / "specified-destination.json").read_text(encoding="utf-8"))
-    additional = json.loads((RUN / "additional-replay.json").read_text(encoding="utf-8"))
-    assert specified["created_by_this_run"] is False
-    assert specified["explicit_reuse_checked"] is False
-    assert specified["exists_after"] is specified["existed_before"]
-    assert additional["exit"] == 0
-    assert additional["argv"][0] == summary["receipt_interpreter"]
-    assert additional["argv"][3] == specified["additional_output"]
-    assert additional["argv"][3] != str(module["SPECIFIED_OUTPUT"])
+    assert specified["created_by_this_run"] is True
+    assert specified["explicit_reuse_checked"] is True
+    assert specified["exists_after"] is True
+    assert specified["additional_output"] is None
+    assert (RUN / "additional-replay.json").exists() is False
+    reuse = json.loads((RUN / "reuse-audit.json").read_text(encoding="utf-8"))
+    assert reuse["argv"][0] == summary["receipt_interpreter"]
+    assert reuse["output"] == str(module["SPECIFIED_OUTPUT"])
+    assert reuse["all_bytes_unchanged"] is True
     assert "8 passed" in (RUN / "operational-pytest.stdout").read_text(encoding="utf-8")
     assert (RUN / "focused.xml").is_file()
     assert (RUN / "mutation-proof" / "summary.json").is_file()
