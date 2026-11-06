@@ -30,14 +30,25 @@ def test_read_preflight_reports_transport_failure(tmp_path, monkeypatch, capsys,
             return Response()
 
     args = SimpleNamespace(
-        repos="owner/repo",
+        repos="owner/repo,owner/custom",
         manifest=str(tmp_path / "manifest.yml"),
         canaries="unused.json",
         report_json=str(tmp_path / "report.json"),
-        summary="",
+        summary=str(tmp_path / "summary.md"),
     )
     Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
-    compiled = SimpleNamespace(to_plan=lambda: {"plan_id": "sha256:" + "a" * 64})
+    source = tmp_path / "gate.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened, synchronize]\n", encoding="utf-8")
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        sync_mode="create_only",
+        skip_repos=(SkipRepo(repo="owner/custom", reason="Custom Gate"),),
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+    )
     monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
     monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _: compiled)
     monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_: set())
@@ -65,9 +76,18 @@ def test_read_preflight_reports_transport_failure(tmp_path, monkeypatch, capsys,
     assert "ConnectionError" in diagnostics["rejected"][0]["reason"]
     assert ("/contents/" in diagnostics["rejected"][0]["reason"]) == (failed_probe == "contents")
     output = capsys.readouterr().out
-    assert "gate triggers: all match" not in output + report_text
+    expected = [
+        f"gate triggers: {repo} unknown (Gate/tree unavailable)"
+        for repo in ("owner/repo", "owner/custom")
+    ]
+    assert report["gate_triggers"] == expected
+    summary = Path(args.summary).read_text(encoding="utf-8")
+    for line in expected:
+        assert line in output
+        assert line in summary
+    assert "gate triggers: all match" not in output + report_text + summary
     for private_detail in ("private request details", "test-value"):
-        assert private_detail not in output + report_text
+        assert private_detail not in output + report_text + summary
 
 
 def test_comparable_lines_ignores_leading_comment_and_blank_headers() -> None:

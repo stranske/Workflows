@@ -1029,6 +1029,14 @@ def main() -> int:
         )
         return 1
 
+    gate_entry = next(
+        (
+            entry
+            for entry in compiled.section("workflows")
+            if entry.target == ".github/workflows/pr-00-gate.yml"
+        ),
+        None,
+    )
     session, token_diagnostics = select_read_token(
         candidates=candidates,
         repos=repos,
@@ -1036,17 +1044,22 @@ def main() -> int:
     )
     if session is None:
         print("::error::No usable GitHub token available for consumer repo contents reads")
-        write_report_json(
-            args.report_json,
-            build_report(
-                repos=repos,
-                drift=set(),
-                missing=set(),
-                errors={"No usable GitHub token available for consumer repo contents reads"},
-                obsolete=set(),
-                token_diagnostics=token_diagnostics,
-            ),
+        report = build_report(
+            repos=repos,
+            drift=set(),
+            missing=set(),
+            errors={"No usable GitHub token available for consumer repo contents reads"},
+            obsolete=set(),
+            token_diagnostics=token_diagnostics,
         )
+        if gate_entry is not None:
+            # No consumer tree was read; preserve that uncertainty in every output.
+            gate_lines = gate_trigger_lines(repos, gate_entry, {}, lambda *_args: None)
+            report["gate_triggers"] = gate_lines
+            for line in gate_lines:
+                print(line)
+        write_report_json(args.report_json, report)
+        write_summary_markdown(args.summary, report)
         return 1
 
     drift: set[str] = set()
@@ -1162,14 +1175,6 @@ def main() -> int:
         token_diagnostics=token_diagnostics,
         current_plan_id=current_plan_id,
         candidate_repos=candidate_repos,
-    )
-    gate_entry = next(
-        (
-            entry
-            for entry in compiled.section("workflows")
-            if entry.target == ".github/workflows/pr-00-gate.yml"
-        ),
-        None,
     )
     if gate_entry is not None:
         gate_lines = gate_trigger_lines(repos, gate_entry, remote_trees, read_blob)
