@@ -1477,12 +1477,26 @@ def test_explicit_model2_stays_on_the_second_auto_selected_slot(
 def test_slot_provider_override_selects_the_github_builder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A slot provider override selects the GitHub builder on the auto-select path."""
+    """A resolved GitHub slot selects the GitHub builder on the auto-select path.
+
+    The registry refuses to reintroduce retired github-models through
+    LANGCHAIN_SLOT*_PROVIDER, so the slot is supplied directly.
+    """
     fake_openai = _install_fake_langchain_openai(monkeypatch)
     _clear_client_environment(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
-    monkeypatch.setenv(f"{langchain_client.ENV_SLOT_PREFIX}1_PROVIDER", "github-models")
     reviewed = _reviewed_model(langchain_client.PROVIDER_OPENAI)
+    monkeypatch.setattr(
+        langchain_client,
+        "_resolve_slots",
+        lambda: [
+            llm_registry.SlotDefinition(
+                name="slot1",
+                provider=langchain_client.PROVIDER_GITHUB,
+                model=reviewed,
+            )
+        ],
+    )
 
     resolved = langchain_client.build_chat_client()
 
@@ -1497,12 +1511,22 @@ def test_slot_provider_override_selects_the_github_builder(
 def test_paired_slot_provider_override_selects_the_github_builder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Paired auto-select uses the same GitHub slot the single-client path selects."""
+    """Paired auto-select uses the same resolved GitHub slot as the single-client path."""
     fake_openai = _install_fake_langchain_openai(monkeypatch)
     _clear_client_environment(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
-    monkeypatch.setenv(f"{langchain_client.ENV_SLOT_PREFIX}1_PROVIDER", "github-models")
     reviewed = _reviewed_model(langchain_client.PROVIDER_OPENAI)
+    monkeypatch.setattr(
+        langchain_client,
+        "_resolve_slots",
+        lambda: [
+            llm_registry.SlotDefinition(
+                name="slot1",
+                provider=langchain_client.PROVIDER_GITHUB,
+                model=reviewed,
+            )
+        ],
+    )
 
     clients = langchain_client.build_chat_clients()
 
