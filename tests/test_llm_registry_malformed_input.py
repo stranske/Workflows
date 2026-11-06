@@ -236,9 +236,9 @@ def slot_registry(request, monkeypatch):
     "history_provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
 )
 @pytest.mark.parametrize(
-    "override_position",
-    [None, 1, 2, 3],
-    ids=["no-override", "invalid-slot", "retired-slot", "valid-slot"],
+    "override_position, provider_only",
+    [(None, False), (1, False), (2, False), (2, True), (3, False)],
+    ids=["no-override", "invalid-slot", "retired-slot", "retired-provider-only", "valid-slot"],
 )
 def test_a_missing_provider_cannot_become_a_retired_slot(
     registry_at,
@@ -248,6 +248,7 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
     provider_fields,
     history_provider_fields,
     override_position,
+    provider_only,
 ):
     """Reject missing providers without shifting numbered overrides onto other slots."""
     _clear_slot_env(monkeypatch)
@@ -257,7 +258,15 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
                 {"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"},
                 {"provider": "anthropic", "model_id": "claude-y", "lifecycle": "current"},
             ],
-            "selections": [],
+            "selections": [
+                {
+                    "provider": "anthropic",
+                    "model_id": "claude-y",
+                    "profile": "verifier-balanced",
+                    "status": "approved",
+                    "evidence_ids": ["review-1"],
+                }
+            ],
             "selection_history": [
                 {
                     "profile": "verifier-balanced",
@@ -285,7 +294,7 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
         name="retired", provider="openai", model="old-model"
     )
     valid_slot = slot_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-x")
-    if override_position is not None:
+    if override_position is not None and not provider_only:
         monkeypatch.setenv(f"LANGCHAIN_SLOT{override_position}_MODEL", "claude-y")
     if override_position == 2:
         monkeypatch.setenv("LANGCHAIN_SLOT2_PROVIDER", "anthropic")
@@ -304,6 +313,7 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
     if override_position == 2:
         # The provider guard must retain valid retired placeholders so an override
         # can replace them, even when a preceding invalid slot was discarded.
+        # Without a model override, use the new provider's reviewed selection.
         expected_slots.insert(
             0,
             slot_registry.SlotDefinition(name="retired", provider="anthropic", model="claude-y"),
