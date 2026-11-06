@@ -200,6 +200,11 @@ markers = [
 ]
 filterwarnings = [
     "error",
+    # Preinstalled LangSmith's pytest plugin calls asyncio.iscoroutinefunction while
+    # loading. That deprecation aborts collection when warnings are errors, before
+    # any repository test runs. Match the message only; other DeprecationWarnings
+    # still fail the run.
+    "ignore:.*asyncio\\.iscoroutinefunction.*:DeprecationWarning",
 ]
 
 [tool.coverage.run]
