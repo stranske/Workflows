@@ -3567,7 +3567,10 @@ main has moved ahead; mixed campaign sources refuse before dispatch. An
 immutable-identity block may request
 `refresh-candidate-from-exact-plan` only with a complete full-scope campaign
 tuple and a freshly authenticated candidate for the same compiled plan. Mixed
-plan/source requests refuse before dispatch. The refresh step persists
+plan/source requests refuse before dispatch. A later same-payload Maint 68
+success retires an older failure or cancellation, so that stale non-success
+does not hold a new recovery key for the rest of the six-hour window. A
+non-success newer than every matching success still holds. The refresh step persists
 `canary_refresh.refresh_dispatched`, `held_plans`, and `drainable` in the merge
 report after dispatch. It also emits a `candidate refresh receipt:` line in
 the refresh step's logs and summary, binding those counts to `source_commit`

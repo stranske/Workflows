@@ -754,6 +754,41 @@ for (const fault of ['unavailable campaign source', 'substituted campaign source
     assert.ok(!f.summaries.some(line => line.startsWith('candidate refresh receipt:')));
   });
 }
+test('exact-plan refresh dispatches after a later success retires an older cancellation', async t => {
+  const f = reportFixture(t, { scope: 'full' });
+  const now = Date.now();
+  const title = (drift = '') => `Maint 68 canary full source=${source} candidates=owner/a dry=false${drift ? ` drift=${drift}` : ''}`;
+  const run = (id, conclusion, at, drift = '') => producer('full', {
+    id, conclusion, created_at: at, updated_at: at, run_started_at: at, display_title: title(drift),
+  });
+  const cancelledAt = new Date(now - 3 * 60 * 60 * 1000).toISOString();
+  const successAt = new Date(now - 30 * 60 * 1000).toISOString();
+  const history = [
+    run(21, 'success', successAt, 'ab'.repeat(32)),
+    run(20, 'cancelled', cancelledAt),
+  ];
+  f.github.rest.actions.listWorkflowRuns = async args => ({ data: {
+    workflow_runs: args.status ? [] : history,
+  } });
+  const refreshed = await f.call();
+  assert.equal(refreshed.dispatched, true);
+  assert.equal(refreshed.state, 'requested');
+  assert.equal(f.writes.length, 1);
+  assert.equal(f.writes[0].inputs.scope_head_sha, source);
+  assert.equal(f.writes[0].inputs.expected_plan_id, id);
+  assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
+  assert.equal(f.report.canary_refresh.refresh_dispatched, 1);
+  assert.deepEqual(f.report.canary_refresh.held_plans, [id]);
+  const accounted = structuredClone(f.report.canary_refresh);
+
+  const freshCancel = new Date(now - 5 * 60 * 1000).toISOString();
+  history.unshift(run(22, 'cancelled', freshCancel));
+  const held = await f.call();
+  assert.equal(held.dispatched, false);
+  assert.equal(held.state, 'cancelled');
+  assert.equal(f.writes.length, 1, 'a cancellation newer than the last success still holds the recovery key');
+  assert.deepEqual(f.report.canary_refresh, accounted);
+});
 for (const historicalSource of ['campaign', 'newer main']) {
   test(`exact-plan recovery survives an unkeyed ${historicalSource} success and deduplicates its keyed receipt`, async t => {
     const f = reportFixture(t, { scope: 'full' });

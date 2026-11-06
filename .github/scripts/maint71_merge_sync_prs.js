@@ -280,8 +280,22 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const active = matching.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status));
   const writer = runs.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status)
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
-  const recent = matching.find((run) => run.status === 'completed' && run.conclusion !== 'success'
-    && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
+  // A later same-payload success means the producer ran past an older failure
+  // or cancellation. That stale non-success must not hold a new recovery key
+  // for the rest of the debounce window. A non-success newer than every
+  // matching success still holds, including an unkeyed failure for a new head.
+  const observedAt = (run) => Date.parse(run.updated_at || run.created_at);
+  const newestSuccessAt = matching.reduce((latest, run) => {
+    if (run.refresh_not_started || run.status !== 'completed' || run.conclusion !== 'success') return latest;
+    const at = observedAt(run);
+    return Number.isFinite(at) && at > latest ? at : latest;
+  }, 0);
+  const recent = matching.find((run) => {
+    const at = observedAt(run);
+    return run.status === 'completed' && run.conclusion !== 'success'
+      && Number.isFinite(at) && at > newestSuccessAt
+      && now - at < CANARY_REFRESH_DEBOUNCE_MS;
+  });
   const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
   const prior = active || writer || unknown || successful || recent;
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
