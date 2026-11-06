@@ -2655,7 +2655,10 @@ jobs:
             let guardedMergeLogin = guardedMergeTokenSource === 'github.token' ? 'github-actions[bot]' : '';
             let guardedMergeScopes = 'unavailable';
             try {
-              const identity = await github.rest.users.getAuthenticated();
+              const identity = await withRetry(
+                (client) => client.rest.users.getAuthenticated(),
+                { tokenRegistry: null, github },
+              );
               guardedMergeLogin = String(identity?.data?.login || guardedMergeLogin || 'unavailable');
               const reportedScopes = identity?.headers?.['x-oauth-scopes'];
               guardedMergeScopes = reportedScopes
@@ -3507,12 +3510,15 @@ jobs:
                             const response = await withRetry(async (client) => {
                               // Stay on the step token. A balancer switch would retry the 403
                               // secret (AGENTS_AUTOMATION_PAT) that cannot merge.
-                              const credentialSource = guardedMergeCredentialSource();
-                              try {
-                                const identity = await client.rest.users.getAuthenticated();
-                                core.info(`Guarded merge credential source=${credentialSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
-                              } catch (identityError) {
-                                core.info(`Guarded merge credential source=${credentialSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
+                              // The scan harness evaluates this block without the helper in scope.
+                              if (typeof guardedMergeCredentialSource === 'function') {
+                                const credentialSource = guardedMergeCredentialSource();
+                                try {
+                                  const identity = await client.rest.users.getAuthenticated();
+                                  core.info(`Guarded merge credential source=${credentialSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
+                                } catch (identityError) {
+                                  core.info(`Guarded merge credential source=${credentialSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
+                                }
                               }
                               return client.rest.pulls.merge({
                                 owner,
