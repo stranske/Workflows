@@ -172,6 +172,118 @@ test('keepalive completion ignores quoted or fenced diagnostic copies', () => {
   );
 });
 
+test('keepalive tasks-complete markers inside unterminated fences are not accepted', () => {
+  const valid = '<!-- keepalive-state:v1 {"last_action":"stop","last_reason":"tasks-complete"} -->';
+  
+  // Unterminated backtick fence
+  assert.equal(
+    isKeepaliveTasksComplete(['```js', valid].join('\n')),
+    false,
+    'Unterminated backtick fence should not accept keepalive marker'
+  );
+  
+  // Unterminated tilde fence
+  assert.equal(
+    isKeepaliveTasksComplete(['~~~javascript', valid].join('\n')),
+    false,
+    'Unterminated tilde fence should not accept keepalive marker'
+  );
+  
+  // Unterminated fence with multiple lines
+  assert.equal(
+    isKeepaliveTasksComplete(['```', 'some code', valid].join('\n')),
+    false,
+    'Unterminated fence with multiple lines should not accept keepalive marker'
+  );
+});
+
+test('keepalive tasks-complete markers after closed fences are accepted', () => {
+  const valid = '<!-- keepalive-state:v1 {"last_action":"stop","last_reason":"tasks-complete"} -->';
+  
+  // Marker after properly closed fence
+  assert.equal(
+    isKeepaliveTasksComplete(['```js', 'code', '```', valid].join('\n')),
+    true,
+    'Keepalive marker after closed fence should be accepted'
+  );
+  
+  // Multiple closed fences, then marker
+  assert.equal(
+    isKeepaliveTasksComplete(['```', 'fence1', '```', '```js', 'fence2', '```', valid].join('\n')),
+    true,
+    'Keepalive marker after multiple closed fences should be accepted'
+  );
+});
+
+test('keepalive tasks-complete with later non-matching state still returns true', () => {
+  const complete = '<!-- keepalive-state:v1 {"last_action":"stop","last_reason":"tasks-complete"} -->';
+  const other = '<!-- keepalive-state:v1 {"last_action":"continue"} -->';
+  
+  // Complete marker appears before other marker
+  assert.equal(
+    isKeepaliveTasksComplete([complete, other].join('\n')),
+    true,
+    'First complete marker should authorize completion even if other markers follow'
+  );
+});
+
+test('verify handoff markers inside unterminated language-tagged fences are not accepted', () => {
+  const id = { closureId: '3001', sourcePr: '2454' };
+  const marker = formatVerifyHandoffMarker(id);
+  
+  // Unterminated fence with backticks
+  assert.equal(
+    parseVerifyHandoffMarker(['```js', marker].join('\n')),
+    null,
+    'Unterminated backtick fence should not accept marker'
+  );
+  
+  // Unterminated fence with tildes
+  assert.equal(
+    parseVerifyHandoffMarker(['~~~javascript', marker].join('\n')),
+    null,
+    'Unterminated tilde fence should not accept marker'
+  );
+  
+  // Multiple unterminated fences
+  assert.equal(
+    parseVerifyHandoffMarker(['```', 'some code', marker].join('\n')),
+    null,
+    'Multiple unterminated fences should not accept marker'
+  );
+});
+
+test('verify handoff markers after closed fences are accepted', () => {
+  const id = { closureId: '3001', sourcePr: '2454' };
+  const marker = formatVerifyHandoffMarker(id);
+  
+  // Marker after a properly closed fence
+  assert.deepEqual(
+    parseVerifyHandoffMarker(['```js', 'code', '```', marker].join('\n')),
+    { closureId: '3001', sourcePr: '2454' },
+    'Marker after closed fence should be accepted'
+  );
+  
+  // Multiple closed fences, then marker
+  assert.deepEqual(
+    parseVerifyHandoffMarker(['```', 'fence1', '```', '```js', 'fence2', '```', marker].join('\n')),
+    { closureId: '3001', sourcePr: '2454' },
+    'Marker after multiple closed fences should be accepted'
+  );
+});
+
+test('verify handoff markers in nested blockquotes within fences are not accepted', () => {
+  const id = { closureId: '3001', sourcePr: '2454' };
+  const marker = formatVerifyHandoffMarker(id);
+  
+  // Blockquote inside fence
+  assert.equal(
+    parseVerifyHandoffMarker(['```', '> ' + marker, '```'].join('\n')),
+    null,
+    'Blockquote inside fence should not accept marker'
+  );
+});
+
 test('verify handoff marker must be a standalone line with workflow JSON', () => {
   const id = { closureId: '3001', sourcePr: '2454' };
   const line = formatVerifyHandoffMarker(id);

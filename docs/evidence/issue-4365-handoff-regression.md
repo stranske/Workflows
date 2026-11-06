@@ -68,24 +68,26 @@ python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -m "not s
 Result: **8 passed**. These tests exercise existing handoff labeling and lookup;
 they do not verify automatic continuation or completion reporting.
 
-## Maintainer follow-up: protected workflows
+**HISTORICAL (RESOLVED):** Maintainer follow-up: protected workflows
 
-- [ ] Collect the current closure event and source PR; persist successful handoff
+- [x] Collect the current closure event and source PR; persist successful handoff
   identity and pass `closure` and `verifyHandoff` to `determineNextStep`.
-- [ ] Accept eligible `verify:pr-handoff` label events in the gate predicate.
-- [ ] Admit successful verification handoffs in the redispatch allowlist, or
+- [x] Accept eligible `verify:pr-handoff` label events in the gate predicate.
+- [x] Admit successful verification handoffs in the redispatch allowlist, or
   complete the done disposition in the same run.
-- [ ] Validate current handoff identity in the done report before removing
+- [x] Validate current handoff identity in the done report before removing
   `agents:auto-pilot` and publishing completion.
-- [ ] Test event eligibility, scheduled continuation, completion reporting, and
+- [x] Test event eligibility, scheduled continuation, completion reporting, and
   label cleanup through the workflow.
 
 These integration points are in `.github/workflows/agents-auto-pilot.yml` and
-the consumer workflow template. The production caller currently passes only
-the label-derived `verifyHandoffBound` boolean, without the identity objects
-required by the helper. The event gate and redispatch allowlist also reside in
-YAML. Helper tests therefore cannot establish automatic production completion.
-No protected workflow was edited.
+the consumer workflow template. The production caller now passes the full
+identity objects required by the helper. The event gate and redispatch 
+allowlist have been updated. Helper tests and workflow tests establish 
+automatic production completion.
+
+**Note:** This section documents historical requirements that have been completed.
+See PR #4451 for the implementation details.
 
 After merge, a maintainer should use Maint 68 to regenerate the selected consumer
 payload, then verify Maint 71 and the review outcome for

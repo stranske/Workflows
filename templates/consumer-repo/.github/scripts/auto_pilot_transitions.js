@@ -122,7 +122,8 @@ function findStandaloneVerifyHandoffMarkerLine(body) {
   let inFence = false;
   let fenceDelim = '';
   const lines = text.split(/\r?\n/);
-  for (let i = lines.length - 1; i >= 0; i -= 1) {
+  let latestMatch = null;
+  for (let i = 0; i < lines.length; i += 1) {
     const ctx = lineOutsideStructuralContext(lines[i], { inFence, fenceDelim });
     inFence = ctx.inFence;
     fenceDelim = ctx.fenceDelim;
@@ -132,10 +133,10 @@ function findStandaloneVerifyHandoffMarkerLine(body) {
     const trimmed = lines[i].trim();
     const match = trimmed.match(VERIFY_HANDOFF_MARKER_LINE);
     if (match) {
-      return match[1];
+      latestMatch = match[1];
     }
   }
-  return null;
+  return latestMatch;
 }
 
 function isKeepaliveTasksComplete(body) {
@@ -143,7 +144,7 @@ function isKeepaliveTasksComplete(body) {
   let inFence = false;
   let fenceDelim = '';
   const lines = text.split(/\r?\n/);
-  for (let i = lines.length - 1; i >= 0; i -= 1) {
+  for (let i = 0; i < lines.length; i += 1) {
     const ctx = lineOutsideStructuralContext(lines[i], { inFence, fenceDelim });
     inFence = ctx.inFence;
     fenceDelim = ctx.fenceDelim;
@@ -156,7 +157,9 @@ function isKeepaliveTasksComplete(body) {
       continue;
     }
     const data = parsed.data;
-    return data.last_action === 'stop' && data.last_reason === 'tasks-complete';
+    if (data.last_action === 'stop' && data.last_reason === 'tasks-complete') {
+      return true;
+    }
   }
   return false;
 }
