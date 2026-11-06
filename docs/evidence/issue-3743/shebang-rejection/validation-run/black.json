@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "attempt": 1,
+  "limit_seconds": 600,
+  "env_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "BLACK_CACHE_DIR": "/tmp/shebang-rejection-validation-black-cache"
+  },
+  "exit": 0,
+  "stdout": "",
+  "stderr": "All done! \u2728 \ud83c\udf70 \u2728\n923 files would be left unchanged.\n",
+  "stopped": null,
+  "duration_seconds": 0.828
+}
