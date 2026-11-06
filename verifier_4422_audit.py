@@ -768,8 +768,17 @@ def resolve_production_surfaces(
 
 LIVE_PR_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_live_pr.json"
 LIVE_REPORT_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_live_report.json"
+HISTORICAL_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_historical.json"
 DEFAULT_RUN_LIST_CREATED = "2026-10-18T02:30:00Z..2026-10-18T02:40:00Z"
 CAMPAIGN_CHECK_DATE = "2026-10-24"
+# Check-date clock is unknown in the recovered definition. Evaluations that need an
+# instant on that date use end-of-UTC-day and record that limit explicitly.
+CAMPAIGN_CHECK_INSTANT_UTC_END = "2026-10-24T23:59:59Z"
+CLOSURE_WITHIN_HOURS = 2.0
+SEVEN_DAYS_SECONDS = 7 * 24 * 3600
+_CONCERNS_VERDICT_RE = re.compile(
+    r"(?i)(?:\|\s*CONCERNS\s*\||\*\*Verdict:\*\*\s*CONCERNS|Verdict:\s*CONCERNS)"
+)
 _FILES_REVIEWED_LINE_RE = re.compile(r"- ([A-Za-z0-9_.-]+): files reviewed (\d+) of (\d+)")
 _UPLOAD_RE = re.compile(
     r"Artifact (\S+) has been successfully uploaded! "
@@ -1399,6 +1408,425 @@ def _print_json(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
 
 
+def _load_historical_evidence() -> dict[str, Any]:
+    return json.loads(HISTORICAL_EVIDENCE_PATH.read_text(encoding="utf-8"))
+
+
+def report_is_truncation_concerns(body: str) -> bool:
+    """True when a report cites ``truncated`` with a CONCERNS verdict."""
+    if "truncated" not in body:
+        return False
+    return _CONCERNS_VERDICT_RE.search(body) is not None
+
+
+def _hours_between(start: str, end: str) -> float:
+    return (_parse_timestamp(end) - _parse_timestamp(start)).total_seconds() / 3600.0
+
+
+def _within_seven_days_after_merge(merged_at: str, report_at: str) -> bool:
+    delta = (_parse_timestamp(report_at) - _parse_timestamp(merged_at)).total_seconds()
+    return 0 <= delta <= SEVEN_DAYS_SECONDS
+
+
+def _qualifying_reports(
+    reports: Sequence[Mapping[str, Any]],
+    *,
+    merged_at: str | None,
+    check_instant: str,
+) -> list[dict[str, Any]]:
+    """Reports at or before the check instant and within 7 days after merge."""
+    selected: list[dict[str, Any]] = []
+    for report in reports:
+        created = report.get("created_at")
+        body = str(report.get("body") or "")
+        if not created:
+            continue
+        if _parse_timestamp(str(created)) > _parse_timestamp(check_instant):
+            continue
+        if merged_at and not _within_seven_days_after_merge(str(merged_at), str(created)):
+            continue
+        selected.append(
+            {
+                "id": report.get("id"),
+                "created_at": created,
+                "url": report.get("url"),
+                "truncation_concerns": report_is_truncation_concerns(body),
+                "contains_truncated": "truncated" in body,
+                "contains_concerns_verdict": _CONCERNS_VERDICT_RE.search(body) is not None,
+            }
+        )
+    return selected
+
+
+def _first_qualifying_closure(
+    timeline: Sequence[Mapping[str, Any]],
+    *,
+    merged_at: str,
+) -> dict[str, Any] | None:
+    """First closed event at or after merge. Reopens after that stay visible."""
+    merge_ts = _parse_timestamp(merged_at)
+    for event in timeline:
+        if event.get("event") != "closed":
+            continue
+        created = str(event.get("created_at") or "")
+        if not created:
+            continue
+        if _parse_timestamp(created) < merge_ts:
+            continue
+        return {
+            "event": "closed",
+            "created_at": created,
+            "actor": event.get("actor"),
+        }
+    return None
+
+
+def _two_hour_deadline(merged_at: str) -> str:
+    deadline = _parse_timestamp(merged_at).timestamp() + CLOSURE_WITHIN_HOURS * 3600.0
+    return datetime.fromtimestamp(deadline, tz=_parse_timestamp(merged_at).tzinfo).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+
+
+def classify_historical_pull_request(
+    pull: Mapping[str, Any],
+    *,
+    check_date: str = CAMPAIGN_CHECK_DATE,
+    check_instant: str = CAMPAIGN_CHECK_INSTANT_UTC_END,
+) -> dict[str, Any]:
+    """Emit one population record. Unknown eligibility stays unknown."""
+    repo = str(pull["repository"])
+    if is_owner_excluded(repo):
+        raise OwnerExcludedRepository(repo)
+
+    rules = campaign_definition()["rules"]
+    missing: list[str] = []
+    eligibility_reasons = [
+        f"eligibility_window_start is {rules['eligibility_window_start']}",
+        f"eligibility_window_end is {rules['eligibility_window_end']}",
+        f"agent_pr_definition is {rules['agent_pr_definition']}",
+        f"released_issue_definition is {rules['released_issue_definition']}",
+        (
+            "Collection window bounds are not a substitute for the unknown "
+            "campaign eligibility window."
+        ),
+    ]
+    labels = [str(item) for item in pull.get("labels") or []]
+    merged_at = pull.get("merged_at")
+    merge_sha = pull.get("merge_commit_sha")
+    if not merged_at:
+        missing.append("merged_at")
+    if not merge_sha:
+        missing.append("merge_commit_sha")
+
+    reports = _qualifying_reports(
+        list(pull.get("reports") or []),
+        merged_at=str(merged_at) if merged_at else None,
+        check_instant=check_instant,
+    )
+    truncation_classification: str
+    qualifying_report_timestamp: str | None = None
+    if not reports:
+        truncation_classification = UNKNOWN
+        missing.append("no_provider_comparison_report_within_7_days_before_check_instant")
+    elif any(item["truncation_concerns"] for item in reports):
+        truncation_classification = "truncation-CONCERNS"
+        qualifying_report_timestamp = next(
+            str(item["created_at"]) for item in reports if item["truncation_concerns"]
+        )
+    else:
+        truncation_classification = "not-truncation-CONCERNS"
+        qualifying_report_timestamp = str(reports[0]["created_at"])
+
+    source_issues = list(pull.get("source_issues") or [])
+    source_issue_number: int | None = None
+    closure_timestamp: str | None = None
+    elapsed_hours: float | None = None
+    closed_within_two_hours: str | bool = UNKNOWN
+    state_at_two_hours: str | None = None
+    if not source_issues:
+        missing.append("source_issue")
+        closure_status = UNKNOWN
+    else:
+        source = source_issues[0]
+        source_issue_number = int(source["number"])
+        timeline = list(source.get("timeline") or [])
+        if not merged_at:
+            closure_status = UNKNOWN
+            missing.append("closure_requires_merged_at")
+        elif not timeline and not source.get("closed_at"):
+            closure_status = UNKNOWN
+            missing.append("source_issue_timeline_and_closed_at_missing")
+        else:
+            # "CLOSED within 2 hours" means the issue state at merge+2h is closed.
+            # A merge-minute close that is immediately reopened does not count.
+            deadline = _two_hour_deadline(str(merged_at))
+            if timeline:
+                state = issue_state_as_of(timeline, deadline)
+                state_at_two_hours = str(state["state"])
+                closed_within_two_hours = state_at_two_hours == "closed"
+                if state["last_event"] and state["last_event"]["event"] == "closed":
+                    closure_timestamp = state["last_event"]["created_at"]
+                elif closed_within_two_hours is False:
+                    # Still record the first post-merge close for evidence, if any.
+                    first_close = _first_qualifying_closure(timeline, merged_at=str(merged_at))
+                    if first_close is not None:
+                        closure_timestamp = str(first_close["created_at"])
+                        missing.append(
+                            "source issue was not closed at merge+2h "
+                            f"(state_at_two_hours={state_at_two_hours}); "
+                            f"first post-merge close was {closure_timestamp}"
+                        )
+            else:
+                # Timeline missing: fall back to issue closed_at with an explicit limit.
+                api_closed = source.get("closed_at")
+                missing.append(
+                    "source_issue timeline missing; using issue closed_at only "
+                    f"(closure_timestamp_source is {rules['closure_timestamp_source']})"
+                )
+                if not api_closed:
+                    closure_status = UNKNOWN
+                    closed_within_two_hours = UNKNOWN
+                else:
+                    closure_timestamp = str(api_closed)
+                    elapsed_hours = _hours_between(str(merged_at), closure_timestamp)
+                    closed_within_two_hours = elapsed_hours <= CLOSURE_WITHIN_HOURS
+                    state_at_two_hours = (
+                        "closed" if closed_within_two_hours else "open-or-closed-later"
+                    )
+
+            if rules["closure_timestamp_source"] == UNKNOWN:
+                missing.append(
+                    "closure_timestamp_source unknown; state at merge+2h uses the "
+                    "issue timeline when present"
+                )
+            if closure_timestamp and elapsed_hours is None:
+                elapsed_hours = _hours_between(str(merged_at), closure_timestamp)
+            if isinstance(closed_within_two_hours, bool):
+                closure_status = (
+                    "closed-within-two-hours"
+                    if closed_within_two_hours
+                    else "not-closed-within-two-hours"
+                )
+            else:
+                closure_status = UNKNOWN
+
+    later_than_check = False
+    if merged_at and str(merged_at)[:10] > check_date:
+        later_than_check = True
+        missing.append(
+            f"merged_at {merged_at} is after check date {check_date}; "
+            "not counted as historical achievement"
+        )
+
+    return {
+        "repository": repo,
+        "pull_request": int(pull["number"]),
+        "title": pull.get("title"),
+        "url": pull.get("url"),
+        "labels": labels,
+        "eligibility": UNKNOWN,
+        "eligibility_reasons": eligibility_reasons,
+        "eligibility_signals": {
+            "agent_auto_label": "agent:auto" in labels,
+            "has_source_issue": bool(source_issues),
+            "merged_at": merged_at,
+            "selection_note": pull.get("selection_note"),
+        },
+        "immutable_merge_sha": merge_sha,
+        "merged_at": merged_at,
+        "report_outcome": {
+            "classification": truncation_classification,
+            "qualifying_report_count": len(reports),
+            "qualifying_reports": reports,
+            "qualifying_report_timestamp": qualifying_report_timestamp,
+        },
+        "truncation_concerns_classification": truncation_classification,
+        "source_issue": source_issue_number,
+        "issue_closure_timestamp": closure_timestamp,
+        "elapsed_closure_hours": elapsed_hours,
+        "closed_within_two_hours": closed_within_two_hours,
+        "state_at_two_hours": state_at_two_hours,
+        "closure_status": closure_status,
+        "missing_data_reasons": missing,
+        "later_than_check_date": later_than_check,
+        "check_date": check_date,
+        "check_instant_used": check_instant,
+        "check_instant_limit": (
+            "Campaign check_date_clock is unknown. This record uses end-of-UTC-day "
+            f"{check_instant} when comparing report timestamps to the check date."
+        ),
+        "counts_as_known_eligible": False,
+    }
+
+
+def evaluate_historical_campaign(
+    evidence: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Replay saved historical evidence into population records and aggregates.
+
+    Owner exclusion runs before any population record is added. Unknown eligibility
+    keeps both original targets indeterminate. A later successful live run is not
+    loaded here and cannot count as 2026-10-24 achievement.
+    """
+    record = dict(evidence or _load_historical_evidence())
+    excluded = str(
+        record.get("owner_excluded_repository")
+        or campaign_definition()["rules"]["owner_excluded_repository"]
+    )
+    if is_owner_excluded(excluded) is False:
+        # Still enforce the canonical exclusion even if the saved field is wrong.
+        excluded = "stranske/collab-admin"
+
+    queried = [str(item) for item in record.get("repositories_queried") or []]
+    for repo in queried:
+        if is_owner_excluded(repo):
+            raise OwnerExcludedRepository(repo)
+
+    population: list[dict[str, Any]] = []
+    for pull in record.get("pull_requests") or []:
+        repo = str(pull["repository"])
+        if is_owner_excluded(repo):
+            raise OwnerExcludedRepository(repo)
+        if repo == excluded:
+            raise OwnerExcludedRepository(repo)
+        population.append(classify_historical_pull_request(pull))
+
+    truncation_known = [
+        item for item in population if item["truncation_concerns_classification"] != UNKNOWN
+    ]
+    truncation_hits = [
+        item
+        for item in truncation_known
+        if item["truncation_concerns_classification"] == "truncation-CONCERNS"
+    ]
+    truncation_unknown = [
+        item for item in population if item["truncation_concerns_classification"] == UNKNOWN
+    ]
+
+    closure_known = [
+        item for item in population if isinstance(item["closed_within_two_hours"], bool)
+    ]
+    closure_success = [item for item in closure_known if item["closed_within_two_hours"] is True]
+    closure_unknown = [item for item in population if item["closed_within_two_hours"] == UNKNOWN]
+    closure_denominator = len(closure_known)
+    closure_numerator = len(closure_success)
+    closure_percent: float | str
+    if closure_denominator == 0:
+        closure_percent = UNKNOWN
+    else:
+        closure_percent = round(100.0 * closure_numerator / closure_denominator, 2)
+
+    known_eligible = [item for item in population if item["counts_as_known_eligible"]]
+    # Recovered definition does not close eligibility, so targets stay indeterminate.
+    truncation_target = "indeterminate"
+    closure_target = "indeterminate"
+    unknown_effects = [
+        (
+            "Every population record has eligibility=unknown because the recovered "
+            "campaign definition leaves eligibility_window_start, eligibility_window_end, "
+            "agent_pr_definition, and released_issue_definition unknown."
+        ),
+        (
+            "The truncation-CONCERNS target (0) and the two-hour closure target (>=80%) "
+            "therefore remain indeterminate for the original eligible population."
+        ),
+        (
+            "Candidate-level counts below use the saved evidence collection window only. "
+            "They are not a claim that the unknown eligibility window was reconstructed."
+        ),
+        (
+            f"{len(truncation_unknown)} record(s) lack a qualifying report classification "
+            "and stay visible without being dropped."
+        ),
+        (
+            f"{len(closure_unknown)} record(s) lack a known post-merge closure timing "
+            "and stay visible without being dropped."
+        ),
+        (
+            "The live post-merge packet from run 41736356184 (2026-11-03) is not part of "
+            "this historical evidence and is not counted as 2026-10-24 achievement."
+        ),
+    ]
+
+    return {
+        "network_used_for_replay": False,
+        "evidence_path": str(HISTORICAL_EVIDENCE_PATH.name),
+        "collected_at": record.get("collected_at"),
+        "check_date": record.get("check_date") or CAMPAIGN_CHECK_DATE,
+        "check_instant_used": CAMPAIGN_CHECK_INSTANT_UTC_END,
+        "check_instant_limit": (
+            "check_date_clock is unknown in the recovered definition; "
+            f"report comparisons use {CAMPAIGN_CHECK_INSTANT_UTC_END}."
+        ),
+        "timestamp_boundaries": {
+            "collection_window": record.get("collection_window"),
+            "campaign_check_date": CAMPAIGN_CHECK_DATE,
+            "campaign_check_date_clock": UNKNOWN,
+            "closure_within_hours": CLOSURE_WITHIN_HOURS,
+            "truncation_window": "within 7 days after merge",
+            "seven_day_window_start_rule": UNKNOWN,
+            "timezone": "UTC for stated Z timestamps",
+        },
+        "owner_excluded_repository": excluded,
+        "repositories_queried": queried,
+        "repositories_not_queried": list(record.get("repositories_not_queried") or [excluded]),
+        "collection_commands": list(record.get("collection_commands") or []),
+        "population_records": population,
+        "population_count": len(population),
+        "known_eligible_count": len(known_eligible),
+        "aggregates": {
+            "truncation_concerns": {
+                "target_count": 0,
+                "candidate_count_with_known_report": len(truncation_known),
+                "truncation_concerns_count": len(truncation_hits),
+                "unknown_report_count": len(truncation_unknown),
+                "target_status": truncation_target,
+                "pull_requests_with_truncation_concerns": [
+                    f"{item['repository']}#{item['pull_request']}" for item in truncation_hits
+                ],
+            },
+            "two_hour_closure": {
+                "target_percent": 80,
+                "numerator": closure_numerator,
+                "denominator": closure_denominator,
+                "percent": closure_percent,
+                "unknown_closure_count": len(closure_unknown),
+                "target_status": closure_target,
+                "pull_requests_closed_within_two_hours": [
+                    f"{item['repository']}#{item['pull_request']}" for item in closure_success
+                ],
+            },
+        },
+        "unknown_effects_on_conclusions": unknown_effects,
+        "production_repairs": {
+            "count": 0,
+            "note": (
+                "No production-code repair was required for the selected live complete "
+                "report path. The earlier run 39090617832 first broken step was an expired "
+                "comparison artifact (evidence availability), not an implementation defect "
+                "with a before/after regression in this audit."
+            ),
+        },
+    }
+
+
+def historical_campaign_report(
+    *,
+    repo: str = WORKFLOWS_REPO,
+    loader: Callable[[], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Replay the saved historical packet. Repository exclusion runs first."""
+    if is_owner_excluded(repo):
+        raise OwnerExcludedRepository(repo)
+    evidence = (loader or _load_historical_evidence)()
+    # Guard before records are built: never load excluded repositories from the packet.
+    for pull in evidence.get("pull_requests") or []:
+        if is_owner_excluded(str(pull.get("repository"))):
+            raise OwnerExcludedRepository(str(pull.get("repository")))
+    return evaluate_historical_campaign(evidence)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1427,7 +1855,14 @@ def main(argv: list[str] | None = None) -> int:
             "request, report, issue, and artifact API reads. The replay prints the "
             "same acceptance record, including the merge SHA, deployed verifier "
             "revision, reviewed-file inventory, and the statement that the run is "
-            "not 2026-10-24 campaign evidence."
+            "not 2026-10-24 campaign evidence. "
+            "historical-campaign replays verifier_4422_historical.json without "
+            "network access and prints per-PR population records plus aggregate "
+            "truncation-CONCERNS and two-hour closure metrics. Evidence collection "
+            "for that file used GitHub search and GraphQL pull-request, comment, and "
+            "issue-timeline reads on stranske/Workflows and stranske/Counter_Risk only; "
+            "stranske/collab-admin was excluded before any query. Replay command: "
+            "`python3 verifier_4422_audit.py historical-campaign`."
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1468,6 +1903,16 @@ def main(argv: list[str] | None = None) -> int:
             "truncated marker."
         ),
     )
+    subparsers.add_parser(
+        "historical-campaign",
+        help=(
+            "Replay verifier_4422_historical.json without network access. "
+            "Print per-PR eligibility, merge SHA, truncation-CONCERNS classification, "
+            "closure timing, missing-data reasons, and aggregate metrics. "
+            "Collection used gh search/GraphQL on Workflows and Counter_Risk only; "
+            "stranske/collab-admin was never queried."
+        ),
+    )
     args = parser.parse_args(argv)
     if args.command == "campaign-definition":
         _print_json(campaign_definition())
@@ -1480,6 +1925,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "live-report-acceptance":
         _print_json(live_report_acceptance_packet())
+        return 0
+    if args.command == "historical-campaign":
+        _print_json(historical_campaign_report())
         return 0
     result = run_initial_evidence()
     _print_json(result)

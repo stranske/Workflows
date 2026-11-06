@@ -868,3 +868,427 @@ python3 verifier_4422_audit.py live-report-acceptance
   "truncated_substring_count": 0
 }
 ```
+
+## Historical campaign evaluation (2026-10-24 targets)
+
+Evidence collection queried `stranske/Workflows` and `stranske/Counter_Risk` only.
+The owner-excluded repository `stranske/collab-admin` was rejected before any search,
+GraphQL pull-request read, comment load, or issue-timeline read. It contributes no
+population records, aggregates, handoffs or report entries.
+
+Collection window (evidence bounds only, not a claimed eligibility window):
+`2026-10-17T00:00:00Z` .. `2026-10-24T23:59:59Z` UTC. Campaign
+`eligibility_window_start` and `eligibility_window_end` remain unknown.
+
+Check date: `2026-10-24`. Check-date clock: unknown. Report comparisons use end-of-UTC-day
+`2026-10-24T23:59:59Z` and record that limit. Closure scoring uses issue state at
+merge+2 hours so a merge-minute close that is immediately reopened does not count.
+
+Candidate selection in the saved packet: `agent:auto` merges in the collection window
+(Workflows capped at 8 earliest merges in the search page, plus explicit
+Workflows#4065 from the #4036 multi-file citation; Counter_Risk includes every
+`agent:auto` merge in the window). Full fleet expansion is a follow-up; this packet is
+enough to exercise the evaluator and keep unknowns visible.
+
+Help documents collection and replay:
+
+```text
+python3 verifier_4422_audit.py --help
+```
+
+Replay command, no network:
+
+```text
+python3 verifier_4422_audit.py historical-campaign
+```
+
+`python3` is the repository interpreter. `/opt/anaconda3/bin/python3` is not installed here.
+
+Published summary (full per-PR evidence is in the command output and in
+`verifier_4422_historical.json`):
+
+```json
+{
+  "aggregates": {
+    "truncation_concerns": {
+      "candidate_count_with_known_report": 14,
+      "pull_requests_with_truncation_concerns": [
+        "stranske/Workflows#3990",
+        "stranske/Workflows#3950",
+        "stranske/Workflows#3960",
+        "stranske/Workflows#4029",
+        "stranske/Workflows#4058",
+        "stranske/Counter_Risk#1172",
+        "stranske/Counter_Risk#1171",
+        "stranske/Counter_Risk#1170",
+        "stranske/Counter_Risk#1169",
+        "stranske/Counter_Risk#1168",
+        "stranske/Workflows#4065"
+      ],
+      "target_count": 0,
+      "target_status": "indeterminate",
+      "truncation_concerns_count": 11,
+      "unknown_report_count": 2
+    },
+    "two_hour_closure": {
+      "denominator": 13,
+      "numerator": 3,
+      "percent": 23.08,
+      "pull_requests_closed_within_two_hours": [
+        "stranske/Workflows#3991",
+        "stranske/Workflows#3997",
+        "stranske/Counter_Risk#1184"
+      ],
+      "target_percent": 80,
+      "target_status": "indeterminate",
+      "unknown_closure_count": 3
+    }
+  },
+  "check_date": "2026-10-24",
+  "check_instant_limit": "check_date_clock is unknown in the recovered definition; report comparisons use 2026-10-24T23:59:59Z.",
+  "check_instant_used": "2026-10-24T23:59:59Z",
+  "collected_at": "2026-11-06T22:09:19Z",
+  "evidence_path": "verifier_4422_historical.json",
+  "known_eligible_count": 0,
+  "network_used_for_replay": false,
+  "owner_excluded_repository": "stranske/collab-admin",
+  "population_count": 16,
+  "population_records": [
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0002777777777777778,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "242660f371eab11e79df16d12c3bc96faa9bc46e",
+      "issue_closure_timestamp": "2026-10-17T01:19:18Z",
+      "merged_at": "2026-10-17T01:19:17Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-17T01:19:18Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 3990,
+      "qualifying_report_timestamp": "2026-10-17T01:31:46Z",
+      "repository": "stranske/Workflows",
+      "source_issue": 3987,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": true,
+      "elapsed_closure_hours": 0.0005555555555555556,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "fc143d1b7cb8a4fa90548999ca7bbe00fcb00a11",
+      "issue_closure_timestamp": "2026-10-17T01:19:52Z",
+      "merged_at": "2026-10-17T01:19:50Z",
+      "missing_data_reasons": [
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 3991,
+      "qualifying_report_timestamp": "2026-10-17T03:31:19Z",
+      "repository": "stranske/Workflows",
+      "source_issue": 3988,
+      "state_at_two_hours": "closed",
+      "truncation_concerns_classification": "not-truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0002777777777777778,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "a1a82675c0f0ce4b723d66b3fba88b84e3852026",
+      "issue_closure_timestamp": "2026-10-17T01:21:16Z",
+      "merged_at": "2026-10-17T01:21:15Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-17T01:21:16Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 3950,
+      "qualifying_report_timestamp": "2026-10-17T01:29:08Z",
+      "repository": "stranske/Workflows",
+      "source_issue": 3904,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0002777777777777778,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "314895ec5d0b1e102fc80aff8001eae2545ed7fa",
+      "issue_closure_timestamp": "2026-10-17T02:46:45Z",
+      "merged_at": "2026-10-17T02:46:44Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-17T02:46:45Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 3960,
+      "qualifying_report_timestamp": "2026-10-17T03:29:52Z",
+      "repository": "stranske/Workflows",
+      "source_issue": 3956,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": true,
+      "elapsed_closure_hours": 0.0002777777777777778,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "992e31201c538c6c46975597b4f0f9221b743ae2",
+      "issue_closure_timestamp": "2026-10-17T08:00:12Z",
+      "merged_at": "2026-10-17T08:00:11Z",
+      "missing_data_reasons": [
+        "no_provider_comparison_report_within_7_days_before_check_instant",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 3997,
+      "qualifying_report_timestamp": null,
+      "repository": "stranske/Workflows",
+      "source_issue": 3989,
+      "state_at_two_hours": "closed",
+      "truncation_concerns_classification": "unknown"
+    },
+    {
+      "closed_within_two_hours": "unknown",
+      "elapsed_closure_hours": null,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "45abe59e15a750087ff395b41233819cdd2b7174",
+      "issue_closure_timestamp": null,
+      "merged_at": "2026-10-17T10:08:25Z",
+      "missing_data_reasons": [
+        "source_issue"
+      ],
+      "pull_request": 4029,
+      "qualifying_report_timestamp": "2026-10-17T10:15:40Z",
+      "repository": "stranske/Workflows",
+      "source_issue": null,
+      "state_at_two_hours": null,
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0005555555555555556,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "efa95c0f3558823bab0fbf88286de883c41b1289",
+      "issue_closure_timestamp": "2026-10-17T12:48:55Z",
+      "merged_at": "2026-10-17T12:48:53Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-17T12:48:55Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 4030,
+      "qualifying_report_timestamp": "2026-10-17T12:57:14Z",
+      "repository": "stranske/Workflows",
+      "source_issue": 4026,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "not-truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": "unknown",
+      "elapsed_closure_hours": null,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "dcd9db6c72a9954c8f57bc98093ff10eda71836d",
+      "issue_closure_timestamp": null,
+      "merged_at": "2026-10-17T23:00:26Z",
+      "missing_data_reasons": [
+        "source_issue"
+      ],
+      "pull_request": 4058,
+      "qualifying_report_timestamp": "2026-10-17T23:07:33Z",
+      "repository": "stranske/Workflows",
+      "source_issue": null,
+      "state_at_two_hours": null,
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": true,
+      "elapsed_closure_hours": 0.0005555555555555556,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "57332e855688172f98bf1b292f2b4897f7ba13a5",
+      "issue_closure_timestamp": "2026-10-24T08:04:09Z",
+      "merged_at": "2026-10-24T08:04:07Z",
+      "missing_data_reasons": [
+        "no_provider_comparison_report_within_7_days_before_check_instant",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 1184,
+      "qualifying_report_timestamp": null,
+      "repository": "stranske/Counter_Risk",
+      "source_issue": 1182,
+      "state_at_two_hours": "closed",
+      "truncation_concerns_classification": "unknown"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0005555555555555556,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "232743d24097a9b13aaa617560dbecab20c597ca",
+      "issue_closure_timestamp": "2026-10-19T00:03:48Z",
+      "merged_at": "2026-10-19T00:03:46Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-19T00:03:48Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 1180,
+      "qualifying_report_timestamp": "2026-10-19T00:11:29Z",
+      "repository": "stranske/Counter_Risk",
+      "source_issue": 1163,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "not-truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": "unknown",
+      "elapsed_closure_hours": null,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "a9041717ea4b4386a738fcdd3a9b341d626d574e",
+      "issue_closure_timestamp": null,
+      "merged_at": "2026-10-17T12:17:24Z",
+      "missing_data_reasons": [
+        "source_issue"
+      ],
+      "pull_request": 1172,
+      "qualifying_report_timestamp": "2026-10-17T12:24:19Z",
+      "repository": "stranske/Counter_Risk",
+      "source_issue": null,
+      "state_at_two_hours": null,
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0005555555555555556,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "67f3927bc0b0163a5c5a9ecae77c2dd7ad710367",
+      "issue_closure_timestamp": "2026-10-17T04:43:59Z",
+      "merged_at": "2026-10-17T04:43:57Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-17T04:43:59Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 1171,
+      "qualifying_report_timestamp": "2026-10-17T04:51:04Z",
+      "repository": "stranske/Counter_Risk",
+      "source_issue": 1162,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0002777777777777778,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "c06f1cda48848a26e1e1a5c53421bea6a2728886",
+      "issue_closure_timestamp": "2026-10-17T05:18:51Z",
+      "merged_at": "2026-10-17T05:18:50Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-17T05:18:51Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 1170,
+      "qualifying_report_timestamp": "2026-10-17T05:25:49Z",
+      "repository": "stranske/Counter_Risk",
+      "source_issue": 1161,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0002777777777777778,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "db30d4b963b2302a095940447db6c9d98775e5e2",
+      "issue_closure_timestamp": "2026-10-17T11:07:07Z",
+      "merged_at": "2026-10-17T11:07:06Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-17T11:07:07Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 1169,
+      "qualifying_report_timestamp": "2026-10-17T11:13:51Z",
+      "repository": "stranske/Counter_Risk",
+      "source_issue": 1159,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0002777777777777778,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "7d66f8380a57f395cef6c085a0d8a1fbeb6a0e3f",
+      "issue_closure_timestamp": "2026-10-17T04:12:09Z",
+      "merged_at": "2026-10-17T04:12:08Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-17T04:12:09Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 1168,
+      "qualifying_report_timestamp": "2026-10-17T04:18:50Z",
+      "repository": "stranske/Counter_Risk",
+      "source_issue": 1158,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    },
+    {
+      "closed_within_two_hours": false,
+      "elapsed_closure_hours": 0.0002777777777777778,
+      "eligibility": "unknown",
+      "immutable_merge_sha": "7ccda2ad80ccac05348ad305fb2248b02b0c2c81",
+      "issue_closure_timestamp": "2026-10-18T02:27:02Z",
+      "merged_at": "2026-10-18T02:27:01Z",
+      "missing_data_reasons": [
+        "source issue was not closed at merge+2h (state_at_two_hours=open); first post-merge close was 2026-10-18T02:27:02Z",
+        "closure_timestamp_source unknown; state at merge+2h uses the issue timeline when present"
+      ],
+      "pull_request": 4065,
+      "qualifying_report_timestamp": "2026-10-18T02:33:31Z",
+      "repository": "stranske/Workflows",
+      "source_issue": 4063,
+      "state_at_two_hours": "open",
+      "truncation_concerns_classification": "truncation-CONCERNS"
+    }
+  ],
+  "production_repairs": {
+    "count": 0,
+    "note": "No production-code repair was required for the selected live complete report path. The earlier run 39090617832 first broken step was an expired comparison artifact (evidence availability), not an implementation defect with a before/after regression in this audit."
+  },
+  "repositories_not_queried": [
+    "stranske/collab-admin"
+  ],
+  "repositories_queried": [
+    "stranske/Workflows",
+    "stranske/Counter_Risk"
+  ],
+  "timestamp_boundaries": {
+    "campaign_check_date": "2026-10-24",
+    "campaign_check_date_clock": "unknown",
+    "closure_within_hours": 2.0,
+    "collection_window": {
+      "end": "2026-10-24T23:59:59Z",
+      "note": "Evidence collection bounds only. Campaign eligibility_window_start and eligibility_window_end remain unknown in the recovered definition.",
+      "start": "2026-10-17T00:00:00Z",
+      "timezone": "UTC"
+    },
+    "seven_day_window_start_rule": "unknown",
+    "timezone": "UTC for stated Z timestamps",
+    "truncation_window": "within 7 days after merge"
+  },
+  "unknown_effects_on_conclusions": [
+    "Every population record has eligibility=unknown because the recovered campaign definition leaves eligibility_window_start, eligibility_window_end, agent_pr_definition, and released_issue_definition unknown.",
+    "The truncation-CONCERNS target (0) and the two-hour closure target (>=80%) therefore remain indeterminate for the original eligible population.",
+    "Candidate-level counts below use the saved evidence collection window only. They are not a claim that the unknown eligibility window was reconstructed.",
+    "2 record(s) lack a qualifying report classification and stay visible without being dropped.",
+    "3 record(s) lack a known post-merge closure timing and stay visible without being dropped.",
+    "The live post-merge packet from run 41736356184 (2026-11-03) is not part of this historical evidence and is not counted as 2026-10-24 achievement."
+  ]
+}
+```
+
+Target outcomes under the recovered campaign definition:
+
+- Truncation-CONCERNS target (0): **indeterminate** — known-eligible count is 0 because
+  eligibility rules are unknown. Candidate-level count in this packet:
+  11 truncation-CONCERNS
+  among 14 known
+  report classifications (2 unknown).
+- Two-hour closure target (>=80%): **indeterminate** — same eligibility limit.
+  Candidate-level share in this packet:
+  3/13
+  = 23.08%
+  (3 unknown).
+- A later successful live run (41736356184 on 2026-11-03) is not in this historical
+  evidence and is not counted as 2026-10-24 achievement.
+- Production-code repairs in this audit: 0. The incomplete earlier live packet failed on
+  an expired comparison artifact (evidence availability), not on an implementation defect
+  with a before/after regression here.

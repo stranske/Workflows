@@ -545,5 +545,107 @@ def test_live_report_command_matches_the_replay_and_audit_record() -> None:
     )
     text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
     blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
-    assert json.loads(blocks[-1]) == payload["acceptance"]
+    acceptance_blocks = [
+        json.loads(block)
+        for block in blocks
+        if '"criterion_live_report_identified"' in block or '"criterion_complete_report"' in block
+    ]
+    assert acceptance_blocks
+    assert acceptance_blocks[-1] == payload["acceptance"]
     assert "python3 verifier_4422_audit.py live-report-acceptance" in text
+
+
+def test_help_documents_historical_collection_and_replay() -> None:
+    help_text = subprocess.run(
+        ["python3", "verifier_4422_audit.py", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert help_text.returncode == 0
+    stdout = help_text.stdout
+    assert "historical-campaign" in stdout
+    assert "verifier_4422_historical.json" in stdout
+    assert "without network access" in stdout
+    assert "stranske/collab-admin" in stdout
+    assert "python3 verifier_4422_audit.py historical-campaign" in stdout
+
+
+def test_historical_campaign_replay_keeps_unknowns_and_excludes_owner_repo() -> None:
+    report = audit.historical_campaign_report()
+    assert report["network_used_for_replay"] is False
+    assert report["known_eligible_count"] == 0
+    assert report["population_count"] >= 1
+    assert report["owner_excluded_repository"] == EXCLUDED_REPO
+    assert EXCLUDED_REPO in report["repositories_not_queried"]
+    assert EXCLUDED_REPO not in report["repositories_queried"]
+    assert all(item["eligibility"] == audit.UNKNOWN for item in report["population_records"])
+    assert all(item["repository"] != EXCLUDED_REPO for item in report["population_records"])
+    trunc = report["aggregates"]["truncation_concerns"]
+    closure = report["aggregates"]["two_hour_closure"]
+    assert trunc["target_count"] == 0
+    assert trunc["target_status"] == "indeterminate"
+    assert closure["target_percent"] == 80
+    assert closure["target_status"] == "indeterminate"
+    assert isinstance(closure["numerator"], int)
+    assert isinstance(closure["denominator"], int)
+    assert "unknown" in json.dumps(report["unknown_effects_on_conclusions"]).lower()
+    assert "41736356184" in json.dumps(report["unknown_effects_on_conclusions"])
+    assert report["production_repairs"]["count"] == 0
+    # Counter_Risk#1168 is the campaign's cited reopen example: closed then reopened.
+    cited = [
+        item
+        for item in report["population_records"]
+        if item["repository"] == "stranske/Counter_Risk" and item["pull_request"] == 1168
+    ]
+    assert cited
+    assert cited[0]["truncation_concerns_classification"] == "truncation-CONCERNS"
+    assert cited[0]["closed_within_two_hours"] is False
+    assert cited[0]["state_at_two_hours"] == "open"
+    assert EXCLUDED_REPO not in json.dumps(report["population_records"])
+
+
+def test_historical_campaign_rejects_owner_excluded_repository_before_load() -> None:
+    def loader() -> dict[str, object]:
+        raise AssertionError("saved historical evidence must not load")
+
+    with pytest.raises(audit.OwnerExcludedRepository):
+        audit.historical_campaign_report(repo=EXCLUDED_REPO, loader=loader)
+
+
+def test_historical_campaign_command_matches_replay_and_audit_record() -> None:
+    completed = subprocess.run(
+        ["python3", "verifier_4422_audit.py", "historical-campaign"],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload == audit.historical_campaign_report()
+    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
+    assert "python3 verifier_4422_audit.py historical-campaign" in text
+    assert "## Historical campaign evaluation (2026-10-24 targets)" in text
+    assert "indeterminate" in text
+    blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
+    historical_blocks = [json.loads(block) for block in blocks if '"known_eligible_count"' in block]
+    assert historical_blocks
+    published = historical_blocks[-1]
+    assert published["aggregates"] == payload["aggregates"]
+    assert published["population_count"] == payload["population_count"]
+    assert published["known_eligible_count"] == 0
+    assert published["network_used_for_replay"] is False
+
+
+def test_report_is_truncation_concerns_requires_both_markers() -> None:
+    assert audit.report_is_truncation_concerns(
+        "## Provider Comparison Report\n| openai | gpt | CONCERNS | 80% | truncated input |\n"
+    )
+    assert not audit.report_is_truncation_concerns(
+        "## Provider Comparison Report\n| openai | gpt | PASS | 80% | truncated acceptance artifact |\n"
+    )
+    assert not audit.report_is_truncation_concerns(
+        "## Provider Comparison Report\n| openai | gpt | CONCERNS | 80% | real defect |\n"
+    )
