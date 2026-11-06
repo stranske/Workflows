@@ -315,16 +315,36 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
     "provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
 )
 @pytest.mark.parametrize("override", [False, True], ids=["no-override", "model-override"])
+@pytest.mark.parametrize("retired_history", [False, True], ids=["no-history", "invalid-history"])
 def test_an_allowlist_with_only_a_missing_provider_remains_empty(
-    registry_at, slots_at, monkeypatch, slot_registry, provider_fields, override
+    registry_at, slots_at, monkeypatch, slot_registry, provider_fields, override, retired_history
 ):
     """An invalid identity cannot enable defaults or acquire an identity via overrides."""
     _clear_slot_env(monkeypatch)
     registry_at(
         {
             "models": [{"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"}],
-            "selections": [],
+            "selections": [
+                {
+                    "provider": "anthropic",
+                    "model_id": "claude-x",
+                    "profile": "verifier-balanced",
+                    "status": "approved",
+                    "evidence_ids": ["review-1"],
+                }
+            ],
+            "selection_history": (
+                [{"profile": "verifier-balanced", "superseded_by": "retired", **provider_fields}]
+                if retired_history
+                else []
+            ),
         }
+    )
+    # Make the fail-closed assertion meaningful: a reviewed default is available,
+    # but an explicit invalid allowlist must not enable it.
+    assert (
+        slot_registry.SlotDefinition(name="slot2", provider="anthropic", model="claude-x")
+        in slot_registry.default_slots()
     )
     slots_at({"slots": [{"name": "invalid", "model": "claude-x", **provider_fields}]})
     if override:
@@ -332,6 +352,9 @@ def test_an_allowlist_with_only_a_missing_provider_remains_empty(
         monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "anthropic")
         monkeypatch.setenv("LANGCHAIN_SLOT1_MODEL", "claude-x")
 
+    # A malformed retirement record must not turn the missing provider into a
+    # placeholder that an environment override can revive.
+    assert slot_registry._load_positional_slots() == []
     assert slot_registry.load_slot_config() == []
     assert slot_registry.resolve_slots() == []
     assert slot_registry.configured_model_for_provider("anthropic", fallback="claude-x") == ""
