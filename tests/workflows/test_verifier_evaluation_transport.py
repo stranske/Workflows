@@ -508,6 +508,8 @@ def test_original_and_retained_redaction_metadata_stay_distinct(tmp_path, locati
     assert ref["retained_redacted"] is (location != "none")
     assert ref["redacted"] == ref["original_redacted"]
     assert secret not in result.stdout + result.stderr
+    if location != "none":
+        assert secret not in (tmp_path / "evaluation-stderr.log").read_text()
     assert len((tmp_path / "evaluation-stderr.log").read_bytes()) <= 1024 * 1024
 
 
