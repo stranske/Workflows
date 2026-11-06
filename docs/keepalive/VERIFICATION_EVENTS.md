@@ -257,6 +257,8 @@ fails closed, and a lost POST response is reconciled by reading, never by a seco
 No `verifier-event-state` or terminal record is written, so the original attempt remains the
 latest canonical work. The marker grants no verdict, acceptance or same-event retry; a later
 changed-input admission still has to collect sufficient, demonstrably changed material.
+An archive inventory row with `reason: expired` is rejected. The published marker does not
+authenticate unavailable archive bytes, and no fresh provider evaluation is authorized.
 
 ## Provider-free retained-output recovery
 

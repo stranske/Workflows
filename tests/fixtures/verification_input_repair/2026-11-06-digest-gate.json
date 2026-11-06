@@ -1,0 +1,39 @@
+{
+  "checked_at": "2026-11-06T21:40:00Z",
+  "command": "node --test tests/scripts/test_verification_event.js tests/scripts/test_verification_input_repair.js",
+  "removed": "|| found[0].raw_sha256!==claim.raw_sha256",
+  "production_file": ".github/scripts/verification_event.js",
+  "needle_count_before": 1,
+  "syntax_check_after_removal": 0,
+  "broken_exit": 1,
+  "broken_fail_count": 2,
+  "broken_tests": [
+    "#4231 negative matrix: wrong artifact digest is rejected",
+    "#4235 negative matrix: wrong artifact digest is rejected"
+  ],
+  "broken_assertion": "Missing expected exception. The wrong-artifact-digest cases no longer throw once the production equality check is removed.",
+  "restored_byte_exact": true,
+  "before_sha256": "6f736df16f222bd71f3490b306f5c2be289ffdc70837ea7cc61d148f6e895106",
+  "restored_sha256": "6f736df16f222bd71f3490b306f5c2be289ffdc70837ea7cc61d148f6e895106",
+  "template_sha256": "6f736df16f222bd71f3490b306f5c2be289ffdc70837ea7cc61d148f6e895106",
+  "restored_exit": 0,
+  "restored_tests": 57,
+  "restored_fail": 0,
+  "restored_duration_ms": 210.375945,
+  "post_delivery_collector": {
+    "command": "python3 tools/verifier_event_recovery.py --revalidate-retained",
+    "exit_code": 1,
+    "first_broken_step": "FileNotFoundError: verification-recovery-origin.json",
+    "artifact_http_status": {
+      "12579928048": 404,
+      "12584318436": 404
+    },
+    "classify_command": "python3 tools/verifier_event_recovery.py --classify-retained-artifact tests/fixtures/verification_input_repair/2026-11-06-collector-observations.json",
+    "classify_exit_code": 0,
+    "operational_outcome": "explicit expired-artifact rejection",
+    "provider_calls": 0,
+    "native_admission_succeeded": false,
+    "evidence_source": "github_rest_get_2026-11-06",
+    "fixture_dedup_evidence_source": "tests/scripts/test_verification_input_repair.js repeating the changed event"
+  }
+}

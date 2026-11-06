@@ -211,7 +211,18 @@ test(`#${n} negative matrix: unavailable archive is rejected`, () => {
     run_id: Number(s.state.run_id), artifact_id: s.inventory()[0].artifact_id, status: 'unavailable',
     reason: 'expired', member_inventory_complete: false, members: null,
   }];
-  assert.throws(() => buildVerificationEvent(expired), NOT_AUTH);
+  assert.throws(() => buildVerificationEvent(expired), /Retained artifact expired/);
+});
+
+test(`#${n} negative matrix: reuse of the original event is rejected`, () => {
+  const s = scenario(n);
+  const input = s.base();
+  input.predecessorEventId = s.original.verification_event.event_id;
+  input.assessmentIdentity = s.assessment;
+  input.evidence.event_history.records = [...s.stateComments, s.markerComment()];
+  input.evidence.diagnostics.archive_inventory = s.inventory();
+  assert.equal(buildVerificationEvent(s.base()).verification_event.event_id, s.original.verification_event.event_id);
+  assert.throws(() => buildVerificationEvent(input), NOT_AUTH);
 });
 
 test(`#${n} negative matrix: wrong artifact digest is rejected`, () => {

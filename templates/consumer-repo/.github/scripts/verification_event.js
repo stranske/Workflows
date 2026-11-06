@@ -559,9 +559,19 @@ function authenticateInputRepair(event,predecessor,latest,current,comments,evide
         || canonical(before.required_evidence)===canonical(material.required_evidence)) return false;
     // Artifact binding: the retained result and receipt bytes must be the collector's
     // complete inventory of exactly one archive of the original run.
-    const archives=(evidence.diagnostics?.archive_inventory || []).filter(record=>String(record.run_id)===String(marker.run_id)
+    const inventory=evidence.diagnostics?.archive_inventory || [];
+    const archives=inventory.filter(record=>String(record.run_id)===String(marker.run_id)
       && (record.members || []).some(member=>members.some(([,path])=>member.path===path || member.name===path)));
-    if (archives.length!==1 || !archives[0].member_inventory_complete) return false;
+    if (archives.length!==1 || !archives[0].member_inventory_complete) {
+      // agents_verifier_context records reason "expired" and leaves members null.
+      // A published marker is not a substitute for those archive bytes.
+      if (inventory.some(record=>String(record.run_id)===String(marker.run_id) && record.reason==='expired')) {
+        const error=new Error('Retained artifact expired; unauthenticated evidence is rejected');
+        error.code='RETAINED_ARTIFACT_EXPIRED';
+        throw error;
+      }
+      return false;
+    }
     for (const [key,path] of members) {
       const claim=marker[key];
       const found=archives[0].members.filter(member=>member.path===path || member.name===path);
@@ -570,7 +580,10 @@ function authenticateInputRepair(event,predecessor,latest,current,comments,evide
           || found[0].raw_sha256!==claim.raw_sha256) return false;
     }
     return true;
-  } catch { return false; }
+  } catch (error) {
+    if (error && error.code==='RETAINED_ARTIFACT_EXPIRED') throw error;
+    return false;
+  }
 }
 
 function knownNoEvaluationAttempt(current,comments) {
