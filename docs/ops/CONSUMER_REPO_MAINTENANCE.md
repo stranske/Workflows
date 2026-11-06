@@ -3708,7 +3708,15 @@ tip/head pair as a SHA-256 `refresh_key` (`drift=` in the title). The live branc
 API supplies the tip, cached once per behind consumer per run. Unknown tip/head,
 diff, configuration, or bounded history evidence fails closed. Active canary or
 promotion writers hold refresh across all plans. Failed producer retries use
-`CANARY_REFRESH_DEBOUNCE_MS` (six hours). Source-delta, dry-run, other-branch or
+`CANARY_REFRESH_DEBOUNCE_MS` (six hours). One infrastructure failure per plan,
+source, and candidate set does not. The guard classifies it from that run's
+`actions.listJobsForWorkflowRunAttempt` jobs: `Prepare sync from manifest` failed
+and no `Sync <repo>` job started (rate limit, or a runner or transport failure
+before any consumer job). A second consecutive infrastructure failure for the
+same key keeps the six-hour debounce, as does any run whose consumer sync jobs
+ran and failed. `canaryRefreshDiagnostics` records each classified run as
+`infrastructure` or `consumer` without native error text. Missing job evidence
+keeps the six-hour hold. Source-delta, dry-run, other-branch or
 subset runs cannot supply full-set success. No canary uses `pulls.updateBranch`.
 Producer success never substitutes for passing consumer CI, settled review,
 valid signatures or an exact-head sealed Gate before promotion/merge.
