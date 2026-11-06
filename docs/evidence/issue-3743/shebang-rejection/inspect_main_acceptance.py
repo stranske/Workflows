@@ -240,13 +240,51 @@ def binding_rows(root: Path) -> list[dict]:
     return rows
 
 
+def _show_origin_main(root: Path, relative: str) -> bytes:
+    """Read a blob from origin/main, fetching that ref on shallow CI checkouts."""
+    spec = f"origin/main:{relative}"
+    command = ["git", "show", spec]
+
+    def show() -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(command, cwd=root, capture_output=True, check=False)
+
+    result = show()
+    # fetch-depth: 1 pull_request checkouts do not include refs/remotes/origin/main.
+    if result.returncode != 0 and b"invalid object name" in result.stderr:
+        fetch = subprocess.run(
+            [
+                "git",
+                "fetch",
+                "--depth=1",
+                "origin",
+                "+refs/heads/main:refs/remotes/origin/main",
+            ],
+            cwd=root,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+        if fetch.returncode == 0:
+            result = show()
+        else:
+            result = subprocess.CompletedProcess(
+                command,
+                result.returncode,
+                result.stdout,
+                result.stderr + b"\n" + fetch.stderr,
+            )
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(
+            result.returncode, command, output=result.stdout, stderr=result.stderr
+        )
+    return result.stdout
+
+
 def production_helpers(root: Path) -> dict:
     root_bytes = (root / HELPER).read_bytes()
     template_bytes = (root / TEMPLATE_HELPER).read_bytes()
-    base_root = subprocess.check_output(["git", "show", f"origin/main:{HELPER}"], cwd=root)
-    base_template = subprocess.check_output(
-        ["git", "show", f"origin/main:{TEMPLATE_HELPER}"], cwd=root
-    )
+    base_root = _show_origin_main(root, HELPER)
+    base_template = _show_origin_main(root, TEMPLATE_HELPER)
     return {
         "equal_each_other": root_bytes == template_bytes,
         "root_equals_origin_main": root_bytes == base_root,
@@ -448,9 +486,9 @@ def run_focused_pytest(root: Path) -> dict:
 def _junit_counts(path: Path) -> dict:
     if not path.is_file():
         return {}
-    import xml.etree.ElementTree as ET
+    from defusedxml.ElementTree import parse
 
-    root = ET.parse(path).getroot()
+    root = parse(path).getroot()
     cases = list(root.iter("testcase"))
     return {
         "tests": len(cases),
