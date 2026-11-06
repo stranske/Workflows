@@ -3,7 +3,8 @@
 The frozen ``llm_evaluate`` script is the step at
 ``9d88a0f572d5a9bd1bba62de9a0f926ed037df6f``, the parent of
 ``7d37a60ea5dbe59a52d9da91a31af283376df7e2``. Each case is the behavior that
-shell produced with an inert evaluator. The authored shell is run immediately
+shell produced with an inert evaluator. The subprocess PATH contains only
+that evaluator and cat, grep, and cut. The authored shell is run immediately
 afterward so a regression that brings one of those failures back fails here.
 """
 
@@ -14,6 +15,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -22,6 +24,29 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
+LOCAL_UTILITIES = ("cat", "grep", "cut")
+
+
+def _bash() -> str:
+    """Resolve bash from the parent environment before the closed PATH is installed."""
+    bash = shutil.which("bash")
+    if bash is None:
+        raise AssertionError("bash is unavailable")
+    return bash
+
+
+def _local_command_path(bin_path: Path) -> str:
+    """Keep the replay on the inert stubs and the utilities the frozen shell calls."""
+    for name in LOCAL_UTILITIES:
+        source = shutil.which(name)
+        if source is None:
+            raise AssertionError(f"local utility unavailable: {name}")
+        destination = bin_path / name
+        if not destination.exists():
+            destination.symlink_to(source)
+    return str(bin_path)
+
+
 PRE_CORRECTION_SHELL = (
     ROOT / "tests/fixtures/verifier_evaluation_transport/pre_correction_llm_evaluate.sh"
 )
@@ -95,7 +120,8 @@ def _python_wrapper(failure):
             "import contextlib, io, json, os, sys",
             f"fault = {failure!r}",
             "if sys.argv[1:] != ['-']:",
-            f"    os.execv({sys.executable!r}, [sys.executable, *sys.argv[1:]])",
+            "    sys.stderr.write('refusing non-stdin python3: %s\\n' % sys.argv[1:])",
+            "    sys.exit(98)",
             "code = sys.stdin.read()",
             "generator = 'secret_names = (' in code",
             "checker = \"status = receipt['status']\" in code",
@@ -172,7 +198,7 @@ def _execute(work, step, failure):
     python3.chmod(0o755)
     output = work / "outputs"
     env = {
-        "PATH": str(binaries) + os.pathsep + os.defpath,
+        "PATH": _local_command_path(binaries),
         "PYTHONPATH": ".workflows-lib",
         "PYTHONDONTWRITEBYTECODE": "1",
         "GITHUB_REPOSITORY": "owner/repo",
@@ -188,7 +214,7 @@ def _execute(work, step, failure):
         "HOME": str(work),
     }
     result = subprocess.run(
-        ["bash", "-c", _render(step["run"])],
+        [_bash(), "-c", _render(step["run"])],
         cwd=work,
         env=env,
         text=True,

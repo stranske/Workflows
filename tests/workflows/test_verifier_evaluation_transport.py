@@ -1,4 +1,9 @@
-"""Execute the authored evaluate shell with an inert provider-command boundary."""
+"""Execute the authored evaluate shell with an inert provider-command boundary.
+
+The subprocess PATH contains only that boundary plus cat, grep, and cut. python3
+accepts the receipt's stdin scripts and refuses every other command, so these
+tests cannot reach a provider CLI or a hosted verification run.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +12,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +22,27 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
+LOCAL_UTILITIES = ("cat", "grep", "cut")
+
+
+def _bash() -> str:
+    """Resolve bash from the parent environment before the closed PATH is installed."""
+    bash = shutil.which("bash")
+    if bash is None:
+        raise AssertionError("bash is unavailable")
+    return bash
+
+
+def _local_command_path(bin_path: Path) -> str:
+    """Keep the shell on the inert stubs and the three utilities it actually calls."""
+    for name in LOCAL_UTILITIES:
+        source = shutil.which(name)
+        if source is None:
+            raise AssertionError(f"local utility unavailable: {name}")
+        destination = bin_path / name
+        if not destination.exists():
+            destination.symlink_to(source)
+    return str(bin_path)
 
 
 def _run(
@@ -98,6 +125,9 @@ def _run(
         "import contextlib, io, os, sys\n"
         f"fault = {fault!r}\n"
         "if sys.argv[1:] != ['-']:\n"
+        "    if any(arg.endswith('pr_verifier.py') for arg in sys.argv[1:]):\n"
+        "        sys.stderr.write('refusing provider entrypoint: %s\\n' % sys.argv[1:])\n"
+        "        sys.exit(98)\n"
         "    os.execv(sys.executable, [sys.executable, *sys.argv[1:]])\n"
         "code = sys.stdin.read()\n"
         "generator = 'secret_names = (' in code\n"
@@ -132,7 +162,7 @@ def _run(
     python3.chmod(0o755)
     # No real credentials or tracing configuration reaches the subprocess.
     env = {
-        "PATH": str(bin_path) + os.pathsep + os.defpath,
+        "PATH": _local_command_path(bin_path),
         "PYTHONPATH": ".workflows-lib",
         "PYTHONDONTWRITEBYTECODE": "1",
         "GITHUB_REPOSITORY": "owner/repo",
@@ -143,7 +173,7 @@ def _run(
         "VERIFIER_EVIDENCE_PROFILE": "expanded",
     }
     identity_result = subprocess.run(
-        ["bash", "-c", identity["run"]],
+        [_bash(), "-c", identity["run"]],
         cwd=tmp_path,
         env={**env, **{k: render(v) for k, v in identity["env"].items()}},
         text=True,
@@ -155,7 +185,7 @@ def _run(
         output_directory.mkdir()
         env["GITHUB_OUTPUT"] = str(output_directory)
     result = subprocess.run(
-        ["bash", "-c", render(step["run"])],
+        [_bash(), "-c", render(step["run"])],
         cwd=tmp_path,
         env={
             **env,
@@ -437,7 +467,7 @@ def test_failed_evaluation_comment_publication_is_not_a_success(tmp_path, failur
     (binary / "gh").chmod(0o755)
     result = subprocess.run(
         [
-            "bash",
+            _bash(),
             "-c",
             step["run"].replace(
                 "${{ steps.context.outputs.pr_number }}",
@@ -445,7 +475,7 @@ def test_failed_evaluation_comment_publication_is_not_a_success(tmp_path, failur
             ),
         ],
         cwd=tmp_path,
-        env={"PATH": str(binary) + os.pathsep + os.defpath},
+        env={"PATH": str(binary)},
         capture_output=True,
         text=True,
     )
@@ -453,6 +483,7 @@ def test_failed_evaluation_comment_publication_is_not_a_success(tmp_path, failur
     invoked = invocations.read_text() if invocations.exists() else ""
     if failure == "api_failure":
         assert "pr comment 4175 --body-file evaluation-comment.md" in invoked
+        assert "workflow" not in invoked
         assert "Could not publish evaluation evidence comment" in result.stdout
     else:
         assert invoked == ""
