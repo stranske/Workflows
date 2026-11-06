@@ -1196,3 +1196,78 @@ test('github.token HTTP 403 after the PAT still publishes one receipt', async ()
   assert.ok(actions.some(([kind, warning]) => kind === 'warning' && warning === note));
   assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
 });
+
+test('PAT permission failure reaches the exact-head merge through the real retry helper', async () => {
+  const { c, actions } = mergeScanHarness();
+  installJobTokenFallback(c, actions, async (args) => {
+    actions.push(['merge-fallback', args]);
+    return { status: 200, data: { merged: true } };
+  });
+  // Existing scan tests stub withRetry to honor options.github. Exercise the
+  // shipped wrapper too: losing that override silently reuses the rejected PAT.
+  const { createTokenAwareRetry } = require('../github-api-with-retry');
+  const retry = await createTokenAwareRetry({
+    github: c.github,
+    core: c.core,
+    env: {},
+    tokenRegistry: {
+      isInitialized: () => false,
+      initializeTokenRegistry: () => assert.fail('the sanitized merge environment has no credentials'),
+      getOptimalToken: () => assert.fail('merge attempts must stay on their selected client'),
+    },
+  });
+  c.withRetry = retry.withRetry;
+
+  await c.runScan();
+
+  assert.equal(actions.filter(([kind]) => kind === 'merge-primary').length, 1);
+  assert.equal(actions.filter(([kind]) => kind === 'merge-fallback').length, 1);
+  assert.deepEqual({ ...actions.find(([kind]) => kind === 'merge-fallback')[1] }, {
+    owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+  });
+  assert.deepEqual(actions.filter(([kind, line]) => kind === 'info' && line.startsWith('PUT /repos/')), [
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 200'],
+  ]);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[42]']]);
+});
+
+test('direct github.token failure updates one bot receipt without requiring GET /user', async () => {
+  const { c, actions, comments } = mergeScanHarness();
+  c.actions = actions;
+  c.comments = comments;
+  const actor = installMergeFailurePublisher(c);
+  Object.assign(actor, { login: 'github-actions[bot]', id: 41898282, type: 'Bot' });
+  c.guardedMergeCredentialSource = () => 'github.token';
+  c.process = { env: {} };
+  c.require = () => assert.fail('a selected github.token must not construct a fallback client');
+  c.github.rest.users.getAuthenticated = async () => {
+    actions.push(['identity-denied']);
+    const error = new Error('Resource not accessible by integration');
+    error.status = 403;
+    throw error;
+  };
+
+  for (const [status, message] of [
+    [403, 'Resource not accessible by integration'],
+    [405, 'Branch policy prevents merge'],
+  ]) {
+    actions.length = 0;
+    failMerge(c, { status, message });
+
+    await c.runScan();
+
+    const note = `Merge failed: HTTP ${status} ${message}`;
+    assert.equal(comments.length, 1, 'installation-token failures must reuse the bot receipt');
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+    assert.equal(actions.filter(([kind]) => kind === 'identity-denied').length, 1,
+      'only the merge diagnostic calls GET /user; the bot receipt must not depend on it');
+    assert.equal(actions.filter(([kind]) => kind === 'create').length, status === 403 ? 1 : 0);
+    assert.equal(actions.filter(([kind]) => kind === 'update').length, status === 405 ? 1 : 0);
+    assert.ok(actions.some(([kind, line]) => kind === 'info'
+      && line === `PUT /repos/o/r/pulls/42/merge - ${status}`));
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+    assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+  }
+});
