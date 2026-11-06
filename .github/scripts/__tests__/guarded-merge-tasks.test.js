@@ -1232,6 +1232,77 @@ test('PAT permission failure reaches the exact-head merge through the real retry
   assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[42]']]);
 });
 
+for (const blocker of ['none', 'failed check', 'active review thread']) {
+  test(`credential fallback preserves shipped check/thread guards: ${blocker}`, async () => {
+    const { c, actions } = mergeScanHarness();
+    installJobTokenFallback(c, actions, async (args) => {
+      actions.push(['merge-fallback', args]);
+      return { status: 200, data: { merged: true } };
+    });
+    const { createTokenAwareRetry } = require('../github-api-with-retry');
+    const retry = await createTokenAwareRetry({ github: c.github, core: c.core, env: {} });
+    c.withRetry = retry.withRetry;
+    c.okConclusions = ['success', 'skipped'];
+    c.github.rest.repos.getCombinedStatusForRef = async (args) => {
+      actions.push(['status-read', args.ref]);
+      return { data: { state: 'pending', total_count: 0 } };
+    };
+    c.github.rest.checks = { listForRef() {} };
+    const paginate = c.paginateWithRetry;
+    let checkReads = 0;
+    c.paginateWithRetry = async (method, args) => {
+      if (method !== c.github.rest.checks.listForRef) return paginate(method, args);
+      actions.push(['check-read', args.ref]);
+      checkReads += 1;
+      // The initial snapshot is green. A new failure at the final snapshot
+      // must still prevent either credential from reaching pulls.merge.
+      return [
+        { name: 'Gate', status: 'completed', conclusion: blocker === 'failed check'
+          && checkReads > 1 ? 'failure' : 'success' },
+        { name: 'Optional', status: 'completed', conclusion: 'skipped' },
+      ];
+    };
+    c.github.graphql = async (_query, args) => {
+      actions.push(['thread-read', args.number]);
+      return { repository: { pullRequest: { reviewThreads: {
+        nodes: blocker === 'active review thread'
+          ? [{ isResolved: false, isOutdated: false }] : [],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      } } } };
+    };
+    const guardsStart = source.indexOf('            async function activeReviewThreadFailure(');
+    const guardsEnd = source.indexOf('            async function reviewGuardFailure(', guardsStart);
+    assert.ok(guardsStart >= 0 && guardsEnd > guardsStart, 'shipped API guards must exist');
+    vm.runInContext(source.slice(guardsStart, guardsEnd), c);
+
+    await c.runScan();
+
+    const expectedReads = blocker === 'none' ? 3 : 2;
+    assert.deepEqual(actions.filter(([kind]) => kind === 'check-read'),
+      Array.from({ length: expectedReads }, () => ['check-read', 'current-head']));
+    assert.deepEqual(actions.filter(([kind]) => kind === 'thread-read'),
+      Array.from({ length: blocker === 'failed check' ? 0 : blocker === 'none' ? 2 : 1 },
+        () => ['thread-read', 42]));
+    if (blocker === 'none') {
+      assert.equal(actions.filter(([kind]) => kind === 'merge-primary').length, 1);
+      assert.deepEqual({ ...actions.find(([kind]) => kind === 'merge-fallback')[1] }, {
+        owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+      });
+      assert.ok(actions.some(([kind, line]) => kind === 'info'
+        && line === 'PUT /repos/o/r/pulls/42/merge - 200'));
+    } else {
+      assert.equal(actions.some(([kind]) => ['merge-primary', 'merge-fallback', 'remove-label']
+        .includes(kind)), false);
+      const rows = actions.find(([kind]) => kind === 'summary')[1];
+      assert.match(rows[1][2], blocker === 'failed check'
+        ? /Gate concluded failure/ : /1 active non-outdated review thread/);
+    }
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', blocker === 'none' ? '[42]' : '[]'],
+    ]);
+  });
+}
+
 test('direct github.token failure updates one bot receipt without requiring GET /user', async () => {
   const { c, actions, comments } = mergeScanHarness();
   c.actions = actions;
