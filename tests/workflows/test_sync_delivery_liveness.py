@@ -23,7 +23,16 @@ def test_maint68_and_maint71_serialize_stable_pr_writers_across_final_read_patch
     maint71_group, maint71_cancel = _top_level_concurrency(maint71)
 
     expected_group = "consumer-sync-stable-pr-writers-${{ github.repository }}"
-    assert maint68_group == maint71_group == expected_group
+    assert maint68_group == expected_group
+    # Maint 71 keeps every writer run in the shared group; only the request-only
+    # reassessment event (no body/head write) is routed to its own group so the next
+    # Maint 82 dispatch cannot silently replace a queued request (2026-11-06).
+    assert maint71_group == (
+        "${{ github.event.action == 'maint71-review-reassessment' && "
+        "format('maint71-review-reassessment-dispatch-{0}', github.repository) || "
+        "format('consumer-sync-stable-pr-writers-{0}', github.repository) }}"
+    )
+    maint71_writer_group = "consumer-sync-stable-pr-writers-${{ github.repository }}"
     assert maint68_cancel == maint71_cancel == "false"
     for partition in (
         "github.workflow",
@@ -52,7 +61,7 @@ def test_maint68_and_maint71_serialize_stable_pr_writers_across_final_read_patch
         return locks.setdefault(group, threading.Lock())
 
     def maint71_writer() -> None:
-        with group_lock(maint71_group):
+        with group_lock(maint71_writer_group):
             final_read.set()
             assert release_maint71.wait(timeout=2)
 
