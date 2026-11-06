@@ -282,8 +282,15 @@ function canaryRefreshDiagnostics(state) {
     omitted_refusals: Math.max(0, unknown.length - 8) };
 }
 async function reportCanaryRefreshDiagnostics({ core, state }) {
-  if (state.refresh_plan?.plan_scope !== 'source-delta') return;
-  const encoded = JSON.stringify(canaryRefreshDiagnostics(state));
+  // Source-delta always prints (native refusal inventory). Full/auto canary
+  // refreshes only print when a failure was classified, so Maint 68 live logs
+  // can show why an infrastructure miss did not debounce the next attempt.
+  const diagnostic = canaryRefreshDiagnostics(state);
+  const scoped = state.refresh_plan?.plan_scope === 'source-delta';
+  const classified = diagnostic.inventory.infrastructure_failures > 0
+    || diagnostic.inventory.consumer_failures > 0;
+  if (!scoped && !classified) return;
+  const encoded = JSON.stringify(diagnostic);
   core.notice(`canary-refresh-diagnostics: ${encoded}`);
   await core.summary.addRaw(`\nCanary refresh diagnostics\n\n\`\`\`json\n${encoded}\n\`\`\`\n`).write();
 }

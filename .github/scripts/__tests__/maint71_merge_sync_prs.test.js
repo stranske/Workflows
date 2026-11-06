@@ -2769,7 +2769,9 @@ test('Maint 68 guard allows the next refresh after one same-digest infrastructur
     { env: { SOURCE_COMMIT: 'a'.repeat(40), PLAN_ID: '', PLAN_SCOPE: 'full', SCOPE_BASE_SHA: '', REFRESH_KEY: '', FORCE: 'false', GITHUB_RUN_ATTEMPT: '1' } },
   );
   await invoke();
-  assert.deepEqual(noticed, ['refresh: allowed (unseen)']);
+  assert.equal(noticed.at(-1), 'refresh: allowed (unseen)');
+  assert.match(noticed[0], /^canary-refresh-diagnostics:/);
+  assert.match(noticed[0], /"classification":"infrastructure"/);
   assert.equal(outputs.allowed, 'true');
   const state = await readCanaryRefreshState({ ...api, sourceSha: 'a'.repeat(40), ignoreRunId: 42249799768 });
   assert.equal(state.eligible, true);
@@ -2778,8 +2780,47 @@ test('Maint 68 guard allows the next refresh after one same-digest infrastructur
   runs.unshift(failedRun(42239701777, 20));
   noticed.length = 0;
   await invoke();
-  assert.deepEqual(noticed, ['refresh: skipped (failure)']);
+  assert.equal(noticed.at(-1), 'refresh: skipped (failure)');
+  assert.match(noticed[0], /^canary-refresh-diagnostics:/);
   assert.equal(outputs.allowed, 'false');
+});
+
+test('full-scope refresh diagnostics print classified infrastructure failures for Maint 68 live logs', async () => {
+  const failed = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+  ]);
+  const state = canaryRefreshDecision({
+    runs: [failed], sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow,
+    refreshPlan: { plan_scope: 'full' },
+  });
+  assert.equal(state.eligible, true);
+  const notices = [];
+  await reportCanaryRefreshDiagnostics({
+    state,
+    core: {
+      notice: line => notices.push(line),
+      summary: { addRaw() { return this; }, async write() {} },
+    },
+  });
+  assert.equal(notices.length, 1);
+  assert.match(notices[0], /^canary-refresh-diagnostics:/);
+  assert.match(notices[0], /"infrastructure_failures":1/);
+  assert.match(notices[0], /"classification":"infrastructure"/);
+  const quiet = [];
+  await reportCanaryRefreshDiagnostics({
+    state: canaryRefreshDecision({
+      runs: [], sha: 'a'.repeat(40),
+      candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow,
+      refreshPlan: { plan_scope: 'full' },
+    }),
+    core: {
+      notice: line => quiet.push(line),
+      summary: { addRaw() { return this; }, async write() {} },
+    },
+  });
+  assert.deepEqual(quiet, []);
 });
 
 test('unreadable refresh jobs and a failed Sync job keep the six-hour debounce', async () => {
