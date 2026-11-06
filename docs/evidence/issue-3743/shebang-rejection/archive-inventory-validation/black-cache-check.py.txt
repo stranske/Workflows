@@ -1,0 +1,36 @@
+"""Check tracked Python files serially, then run the full Black gate with its cache."""
+import gzip
+import json
+import os
+import subprocess
+import time
+from pathlib import Path
+
+os.environ['BLACK_CACHE_DIR'] = '/tmp/shebang-inventory-black-cache'
+
+import black
+from click.testing import CliRunner
+out = Path('docs/evidence/issue-3743/shebang-rejection/archive-inventory-validation')
+paths = subprocess.check_output(['git', 'ls-files', '-z', '*.py']).decode().split('\0')
+paths.append('tests/scripts/test_shebang_rejection_delivered_archives.py')
+runner = CliRunner()
+rows = []
+for path in sorted(set(filter(None, paths))):
+    if any(part in {'.workflows-lib', 'node_modules', 'archive'} for part in Path(path).parts):
+        continue
+    args = ['--config', 'pyproject.toml', '--check', '--line-length', '100', path]
+    result = runner.invoke(black.main, args)
+    rows.append({'argv': ['black', *args], 'exit': result.exit_code, 'output': result.output})
+    if result.exit_code:
+        break
+with gzip.open(out/'black-serial.json.gz', 'wt', encoding='utf-8') as f:
+    json.dump({'cwd': str(Path.cwd()), 'env_overrides': {'BLACK_CACHE_DIR': os.environ['BLACK_CACHE_DIR']}, 'commands': rows}, f)
+if any(row['exit'] for row in rows):
+    raise SystemExit('Serial Black check failed; see receipt')
+argv = ['black', '--check', '--line-length', '100', '--exclude', r'(\.workflows-lib|node_modules)', '.']
+env = dict(os.environ, BLACK_NUM_WORKERS='1')
+started = time.monotonic()
+p = subprocess.run(argv, capture_output=True, text=True, timeout=120, env=env)
+record = {'argv': argv, 'cwd': str(Path.cwd()), 'exit': p.returncode, 'stdout': p.stdout, 'stderr': p.stderr, 'duration_seconds': round(time.monotonic()-started,3), 'env_overrides': {'BLACK_CACHE_DIR': os.environ['BLACK_CACHE_DIR'], 'BLACK_NUM_WORKERS': '1'}}
+(out/'black-final.json').write_text(json.dumps(record, indent=2)+'\n')
+print(json.dumps(record, indent=2))

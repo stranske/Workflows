@@ -1,0 +1,16 @@
+{
+  "preexisting_evidence_files": 289,
+  "all_preexisting_evidence_unchanged": true,
+  "inventory_sha256": "a8e59bf377ae68bc7d5cba270bc6172c8d4ab2d0064f6e88faba6940bbee2c12",
+  "production_equals_origin_main_and_each_other": true,
+  "production_helpers": {
+    "scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    }
+  }
+}

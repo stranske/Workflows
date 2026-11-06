@@ -1,0 +1,46 @@
+{
+  "role": "Current discovery-based archive inventory validation; prior evidence preserved.",
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+  "input_sha256": {
+    "scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py": {
+      "sha256": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+      "bytes": 2093
+    },
+    "tests/scripts/test_shebang_rejection_delivered_archives.py": {
+      "sha256": "1ad046adc6067d3c92fb26721905dc3a92d19b88887c26e01bb15b689269d3c6",
+      "bytes": 2064
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay.py": {
+      "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "bytes": 6406
+    },
+    "docs/evidence/issue-3743/shebang-rejection/verify_archives.py": {
+      "sha256": "9b763a11cd189951da674c67b57ac7bbad568bae5403ff02895b3e4339a0c89b",
+      "bytes": 14070
+    }
+  },
+  "archive": {
+    "path": "proof.tar.gz",
+    "sha256": "b4472533dad1f265f048e0a57c67113034fb6e40d76dbca7080fc126f5f3ca5f",
+    "bytes": 20818,
+    "manifest_sha256": "b9e0238716e04aaa6eaf4ebc9f9ff4578a3ac227b63a1c3d0ada4ee84adf989e",
+    "verified_manifest_members": 19
+  },
+  "measured_file_counts": {
+    "workflows_directory_yml": 130,
+    "template_directory_yml": 35,
+    "manifest_workflow_targets": 35,
+    "strict_validation_inputs": 166,
+    "black_files": 928,
+    "ruff_files": 16
+  },
+  "literal_acceptance_blocked": true
+}

@@ -1,0 +1,19 @@
+{
+  "black": {
+    "exit": 124,
+    "stdout": "",
+    "stderr": "",
+    "stopped": "timeout",
+    "argv": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "--exclude",
+      "(\\.workflows-lib|node_modules)",
+      "."
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 180.106
+  }
+}
