@@ -2548,6 +2548,22 @@ test('an infrastructure-failed canary refresh does not debounce the next attempt
     { name: 'Sync stranske/Template', status: 'completed', conclusion: 'skipped' },
   ]);
   assert.equal(decide([skippedSync]).eligible, true, 'a Sync job that never started is not a consumer failure');
+  // Maint 68 leaves the matrix unexpanded when Prepare fails, so the skipped
+  // consumer job keeps the literal workflow name. That shape is the live
+  // rate-limit failure: the follow-up guard must print refresh: allowed.
+  const livePrepare = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+    { name: 'Generate summary', status: 'completed', conclusion: 'success' },
+    { name: 'Create failure issue', status: 'completed', conclusion: 'success' },
+    { name: 'Validate sync files', status: 'completed', conclusion: 'skipped' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+    { name: 'Start generated delivery reconciliation', status: 'completed', conclusion: 'skipped' },
+  ]);
+  const live = decide([livePrepare]);
+  assert.equal(live.eligible, true);
+  assert.equal(live.state, 'unseen');
+  assert.equal(canaryRefreshDiagnostics(live).failure_classification[0].classification, 'infrastructure');
+  assert.equal(`refresh: ${live.eligible ? 'allowed' : 'skipped'} (${live.state})`, 'refresh: allowed (unseen)');
 });
 
 test('a consumer-failed canary refresh still debounces for six hours', () => {
