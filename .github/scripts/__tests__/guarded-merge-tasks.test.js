@@ -986,6 +986,88 @@ function failMerge(c, { status = 403, message = 'Resource not accessible by inte
   };
 }
 
+for (const writer of ['SERVICE_BOT_PAT', 'github.token']) {
+  test(`${writer} reuses one receipt as task refusals alternate with HTTP merge failures`, async () => {
+    const { c, actions, comments } = mergeScanHarness();
+    c.actions = actions;
+    c.comments = comments;
+    const actor = installMergeFailurePublisher(c);
+    c.guardedMergeCredentialSource = () => writer;
+    if (writer === 'github.token') {
+      Object.assign(actor, { login: 'github-actions[bot]', id: 41898282, type: 'Bot' });
+    }
+    c.authenticatedLogin = actor.login;
+    const ordinaryComment = { id: 10, user: { ...actor }, body: 'Review discussion' };
+    comments.push(ordinaryComment);
+    const loadPullRequest = c.loadPullRequest;
+    let hasUncheckedTask = true;
+    c.loadPullRequest = async (number) => {
+      const pr = await loadPullRequest(number);
+      return hasUncheckedTask ? { ...pr, body: pr.body + '\n- [ ] Reviewer request' } : pr;
+    };
+    failMerge(c);
+    let receiptId;
+
+    for (const unchecked of [true, false, true, false]) {
+      hasUncheckedTask = unchecked;
+      actions.length = 0;
+
+      await c.runScan();
+
+      const note = unchecked
+        ? 'PR #42: Refusing auto-merge: linked issue/PR has unchecked tasks.'
+        : 'Merge failed: HTTP 403 Resource not accessible by integration';
+      const body = unchecked
+        ? `${mergeFailureMarker}\nHead: current-head\nTask precheck refused: Refusing auto-merge: linked issue/PR has unchecked tasks.`
+        : `${mergeFailureMarker}\n${note}`;
+      assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+      const receipts = comments.filter((comment) => comment.body.startsWith(mergeFailureMarker));
+      assert.equal(receipts.length, 1, 'both publishers must reuse the same writer receipt');
+      assert.equal(receipts[0].body, body);
+      if (receiptId === undefined) {
+        receiptId = receipts[0].id;
+        assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+      } else {
+        assert.equal(receipts[0].id, receiptId);
+        assert.equal(actions.filter(([kind]) => kind === 'update').length, 1);
+        assert.equal(actions.some(([kind]) => kind === 'create'), false);
+      }
+      assert.equal(comments.length, 2);
+      assert.equal(ordinaryComment.body, 'Review discussion');
+      assert.equal(actions.filter(([kind]) => kind === 'merge-attempt').length, unchecked ? 0 : 1);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+      assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+    }
+  });
+}
+
+for (const status of [403, 409]) {
+  test(`nested HTTP ${status} and response message reach both warning and receipt`, async () => {
+    const { c, actions, comments } = mergeScanHarness();
+    c.actions = actions;
+    c.comments = comments;
+    installMergeFailurePublisher(c);
+    const message = status === 403 ? 'Resource not accessible by integration' : 'Head changed';
+    c.github.rest.pulls.merge = async () => {
+      throw Object.assign(new Error('Generic transport error'), {
+        response: { status, data: { message } },
+      });
+    };
+
+    await c.runScan();
+
+    const note = `Merge failed: HTTP ${status} ${message}`;
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+    assert.ok(actions.some(([kind, line]) => kind === 'info'
+      && line === `PUT /repos/o/r/pulls/42/merge - ${status}`));
+    const rows = actions.find(([kind]) => kind === 'summary')[1];
+    assert.deepEqual([...rows[1]], ['#42', 'error', note]);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+  });
+}
+
 test('HTTP merge failure publishes one warning and one marker receipt, then updates it', async () => {
   const harness = mergeScanHarness();
   const { c, actions, comments } = harness;
