@@ -153,3 +153,11 @@ Every new test must FAIL when the code it covers is deliberately broken and PASS
 Negative-cache warning, verbatim:
 
 > Watch for the negative-cache pattern (cache.get(key) is None used as a 'not yet cached' check, which can't tell 'never queried' from 'queried and got nothing')
+
+## Repository measurements
+
+Pre-round and current whole-suite figures are in `coverage-measurement.md` and
+`coverage-measurement.json`. Checked 2026-11-06. Recovered pre-round Gate
+displays are 81.83% and 81.84%, and the issue snapshot is 82.29%. All three are
+below 90%, so the close-without-a-PR exception does not apply. Current blended
+coverage is 91.08%. The about-180 rule remains the numerical rule.
