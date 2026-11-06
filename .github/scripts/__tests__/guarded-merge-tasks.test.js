@@ -557,6 +557,72 @@ test('opener shape with a fully checked PR block reaches the runtime guard log l
   ]);
 });
 
+// Counter_Risk#1235 / issue #1183 is still open: the preamble repeats meta:issue
+// once, and the source issue keeps four unchecked tasks. Unique-marker binding
+// must treat that repeat as one issue and still reach the runtime guard.
+const repeatedMarkerBody = [
+  '<!-- meta:issue:1183 -->',
+  'Closes #1183',
+  '<!-- pr-preamble:start -->',
+  '<!-- meta:issue:1183 -->',
+  '> **Source:** Issue #1183',
+  'Closes #1183',
+  '<!-- pr-preamble:end -->',
+  '<!-- auto-status-summary:start -->',
+  '#### Tasks',
+  '- [x] Add the Dry-Run Discovery button handler',
+  '- [x] Add the Ask-about button handler',
+  '- [x] Extend the runner workbook button expectations',
+  '#### Acceptance criteria',
+  '- [x] Named test passes',
+  '- [x] Deliberate-break then revert passes',
+  '<!-- auto-status-summary:end -->',
+].join('\n');
+const repeatedMarkerIssueBody = [
+  '- [ ] Add the Dry-Run Discovery button handler',
+  '- [ ] Add the Ask-about button handler',
+  '- [ ] Extend the runner workbook button expectations',
+  '- [ ] Document the operator click path',
+].join('\n');
+
+test('repeated source marker with a fully checked PR block reaches the runtime guard log line (#4389)', async () => {
+  const { c, actions } = mergeScanHarness({ body: repeatedMarkerBody });
+  const readIssue = c.github.rest.issues.get;
+  c.github.rest.issues.get = async (args) => {
+    const response = await readIssue(args);
+    assert.equal(args.issue_number, 1183);
+    return { data: { ...response.data, body: repeatedMarkerIssueBody } };
+  };
+
+  await c.runScan();
+
+  const advisory = 'PR #42: source issue #1183 keeps 4 unchecked task box(es); the PR task block is authoritative.';
+  const advisoryIndex = actions.findIndex(([kind, message]) => kind === 'info' && message === advisory);
+  const runtimeIndex = actions.findIndex(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
+  assert.ok(advisoryIndex >= 0, 'four leftover source boxes must stay advisory');
+  assert.ok(runtimeIndex > advisoryIndex, 'a repeated source marker must not block the runtime guard line');
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'warning' && String(message).includes('unchecked tasks')), false);
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'warning' && String(message).includes('Ambiguous')), false);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), true);
+
+  const uncheckedTaskFailure = c.uncheckedTaskFailure;
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  c.uncheckedTaskFailure = (pr, linkedIssueSnapshot) =>
+    uncheckedTaskFailure(pr, linkedIssueSnapshot)
+    || (c.countUnchecked(linkedIssueSnapshot?.body) > 0 ? reason : '');
+  actions.length = 0;
+  await c.runScan();
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.'), false);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`],
+  ]);
+});
+
 test('guarded scan reaches runtime guard and exact-head merge with unchecked source tasks', async () => {
   const { c, actions } = mergeScanHarness();
   await c.runScan();
