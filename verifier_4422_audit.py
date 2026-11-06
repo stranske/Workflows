@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from scripts.list_registered_consumer_repos import is_owner_excluded
@@ -332,6 +335,436 @@ def _default_runner(argv: Sequence[str], timeout: float) -> subprocess.Completed
     )
 
 
+REPO_ROOT = Path(__file__).resolve().parent
+TEMPLATE_PREFIX = "templates/consumer-repo/"
+WORKFLOWS_LIB_PREFIX = ".workflows-lib/"
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+REUSABLE_USES_RE = re.compile(
+    r"uses:\s*(stranske/Workflows/\.github/workflows/reusable-agents-verifier\.yml)@(\S+)"
+)
+INVOCATION_RE = re.compile(r"python\s+(\.workflows-lib/scripts/langchain/pr_verifier\.py)\b")
+REQUIRE_RE = re.compile(
+    r"['\"](\./)?(\.workflows-lib/)?(\.github/scripts/(?:agents_verifier_context|verifier_closure)\.js)['\"]"
+)
+SPARSE_CHECKOUT_RE = re.compile(r"sparse-checkout:\s*\|\n(?P<body>(?:[ \t]+.+\n)+)")
+USES_RE = re.compile(r"uses:\s*(stranske/Workflows/\.github/workflows/\S+?\.yml)@(\S+)")
+
+SURFACE_NAMES = (
+    "pr_verifier.py",
+    "verifier_config.py",
+    "agents_verifier_context.js",
+    "verifier_closure.js",
+    "agents-verifier.yml",
+    "reusable-agents-verifier.yml",
+    "agents-issue-intake.yml",
+    "GoalsAndPlumbing.md",
+)
+
+# Saved from the selected run on 2026-11-06. Replay does not call GitHub.
+# gh api repos/stranske/Workflows/actions/runs/39090617832
+# gh run view 39090617832 --repo stranske/Workflows --log
+SELECTED_RUN_EVIDENCE: dict[str, Any] = {
+    "collected_by": [
+        "gh api repos/stranske/Workflows/actions/runs/39090617832",
+        "gh run view 39090617832 --repo stranske/Workflows --log",
+    ],
+    "repository": WORKFLOWS_REPO,
+    "run_id": INITIAL_EVIDENCE_RUN_ID,
+    "event": "workflow_dispatch",
+    "display_title": "Agents Verifier",
+    "head_branch": "main",
+    "head_sha": "021ec67ef580c83a88402a1574e27ea34db14dde",
+    "path": ".github/workflows/agents-verifier.yml",
+    "run_started_at": "2026-10-18T02:35:09Z",
+    "updated_at": "2026-10-18T02:39:02Z",
+    "referenced_workflows": [
+        {
+            "path": "stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main",
+            "ref": "refs/heads/main",
+            "sha": "021ec67ef580c83a88402a1574e27ea34db14dde",
+        }
+    ],
+    "script_checkout": {
+        "job": "verifier / Run post-merge verifier",
+        "resolved_ref": "main",
+        "fetch_at": "2026-10-18T02:35:39.7063036Z",
+        "checkout_command": "git checkout --progress --force -B main refs/remotes/origin/main",
+        "printed_sha": None,
+        "executed_invocation": "python .workflows-lib/scripts/langchain/pr_verifier.py",
+    },
+    "other_checkouts": [
+        {
+            "job": "Verify named gates on immutable merge commit",
+            "sha": "7ccda2ad80ccac05348ad305fb2248b02b0c2c81",
+            "role": "subject immutable merge checkout",
+            "verifier_implementation": False,
+        }
+    ],
+}
+
+
+def _parse_timestamp(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def resolve_tracked_locations(paths: Sequence[str]) -> dict[str, list[str]]:
+    """Map each requested verifier surface to the tracked paths that actually use its name."""
+    found = {name: [] for name in SURFACE_NAMES}
+    for path in paths:
+        name = path.rsplit("/", 1)[-1]
+        if name in found:
+            found[name].append(path)
+    return {name: sorted(set(paths_for_name)) for name, paths_for_name in found.items()}
+
+
+def tracked_path_for_runtime_path(runtime_path: str) -> str:
+    """Map a workflow checkout path back to the repository path it names."""
+    path = runtime_path.strip()
+    if path.startswith("./"):
+        path = path[2:]
+    if path.startswith(WORKFLOWS_LIB_PREFIX):
+        path = path[len(WORKFLOWS_LIB_PREFIX) :]
+    return path
+
+
+def parse_reusable_verifier_use(caller_text: str) -> dict[str, str] | None:
+    match = REUSABLE_USES_RE.search(caller_text)
+    if match is None:
+        return None
+    return {"workflow": match.group(1), "ref": match.group(2)}
+
+
+def parse_pr_verifier_invocations(workflow_text: str) -> list[str]:
+    return list(dict.fromkeys(INVOCATION_RE.findall(workflow_text)))
+
+
+def parse_runtime_script_paths(workflow_text: str) -> list[str]:
+    found: list[str] = []
+    for dot, prefix, relative in REQUIRE_RE.findall(workflow_text):
+        runtime = f"{dot}{prefix}{relative}"
+        if runtime not in found:
+            found.append(runtime)
+    return found
+
+
+def parse_sparse_checkout(workflow_text: str) -> list[str]:
+    match = SPARSE_CHECKOUT_RE.search(workflow_text)
+    if match is None:
+        return []
+    entries: list[str] = []
+    for line in match.group("body").splitlines():
+        stripped = line.strip()
+        if not stripped or ":" in stripped:
+            break
+        entries.append(stripped)
+    return entries
+
+
+def parse_workflow_delegations(workflow_text: str) -> list[dict[str, str]]:
+    delegations: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for workflow, ref in USES_RE.findall(workflow_text):
+        key = (workflow, ref)
+        if key in seen:
+            continue
+        seen.add(key)
+        tracked = workflow.removeprefix("stranske/Workflows/")
+        delegations.append({"workflow": workflow, "ref": ref, "tracked_path": tracked})
+    return delegations
+
+
+def implementation_revision(
+    *,
+    referenced_sha: str,
+    fetch_at: str,
+    checkout_command: str,
+    printed_sha: str | None,
+    next_commit_at: str | None,
+    history_available: bool,
+    referenced_sha_on_main: bool,
+) -> dict[str, str]:
+    """Identify the script checkout SHA without treating a moved branch as the pinned SHA.
+
+    ``next_commit_at`` is the committer time of the first later first-parent commit on
+    ``main``. ``None`` with the SHA on ``main`` means that SHA is still the tip.
+    """
+    if printed_sha and SHA_RE.fullmatch(printed_sha):
+        return {"revision": printed_sha, "source": "checkout-log"}
+    if "refs/remotes/origin/main" not in checkout_command:
+        return {"revision": UNKNOWN, "source": "script-checkout-was-not-origin-main"}
+    if not history_available or not SHA_RE.fullmatch(referenced_sha):
+        return {"revision": UNKNOWN, "source": "main-history-unavailable"}
+    if not referenced_sha_on_main:
+        return {"revision": UNKNOWN, "source": "referenced-sha-not-on-main"}
+    if next_commit_at is None:
+        return {"revision": referenced_sha, "source": "referenced-sha-is-the-tip-of-main"}
+    if _parse_timestamp(next_commit_at) > _parse_timestamp(fetch_at):
+        return {
+            "revision": referenced_sha,
+            "source": "origin-main-unchanged-between-referenced-pin-and-script-fetch",
+        }
+    return {"revision": UNKNOWN, "source": "origin-main-moved-before-script-fetch"}
+
+
+def _git(
+    repo: Path, args: Sequence[str], runner: CommandRunner | None = None
+) -> subprocess.CompletedProcess[str]:
+    command = ["git", *args]
+    if runner is not None:
+        return runner(command, 30.0)
+    return subprocess.run(
+        command,
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _tracked_paths(repo: Path, rev: str, runner: CommandRunner | None) -> list[str]:
+    completed = _git(repo, ["ls-tree", "-r", "--name-only", rev], runner)
+    if completed.returncode != 0:
+        raise RuntimeError((completed.stderr or completed.stdout or "").strip())
+    return [line for line in completed.stdout.splitlines() if line]
+
+
+def _file_text(repo: Path, rev: str, path: str, runner: CommandRunner | None) -> str:
+    completed = _git(repo, ["show", f"{rev}:{path}"], runner)
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout
+
+
+def _blob(repo: Path, rev: str, path: str, runner: CommandRunner | None) -> str | None:
+    completed = _git(repo, ["rev-parse", f"{rev}:{path}"], runner)
+    if completed.returncode != 0:
+        return None
+    blob = completed.stdout.strip()
+    return blob or None
+
+
+def _next_main_commit(
+    repo: Path, sha: str, runner: CommandRunner | None
+) -> tuple[bool, bool, dict[str, str] | None]:
+    """Return history availability, whether ``sha`` is on the ref, and the next commit.
+
+    The next commit is the first later first-parent commit on ``origin/main``, or on
+    ``HEAD`` when ``origin/main`` cannot be read. An empty descendant list is the tip
+    only when the ref resolves to ``sha``.
+    """
+    for ref in ("origin/main", "HEAD"):
+        ancestor = _git(repo, ["merge-base", "--is-ancestor", sha, ref], runner)
+        if ancestor.returncode not in {0, 1}:
+            continue
+        on_ref = ancestor.returncode == 0
+        if not on_ref:
+            return True, False, None
+        tip = _git(repo, ["rev-parse", ref], runner)
+        if tip.returncode != 0:
+            return False, False, None
+        if tip.stdout.strip() == sha:
+            return True, True, None
+        completed = _git(
+            repo,
+            ["rev-list", "--first-parent", "--ancestry-path", "--reverse", f"{sha}..{ref}"],
+            runner,
+        )
+        if completed.returncode != 0:
+            return False, True, None
+        descendants = [line for line in completed.stdout.splitlines() if line]
+        if not descendants:
+            return False, True, None
+        meta = _git(repo, ["log", "-1", "--format=%H%n%cI%n%s", descendants[0]], runner)
+        if meta.returncode != 0:
+            return False, True, None
+        commit_sha, committed_at, subject = (meta.stdout.splitlines() + ["", "", ""])[:3]
+        return True, True, {"sha": commit_sha, "committed_at": committed_at, "subject": subject}
+    return False, False, None
+
+
+def _citation_lines(text: str, needles: Sequence[str], limit: int = 4) -> list[str]:
+    lines: list[str] = []
+    for line in text.splitlines():
+        if any(needle in line for needle in needles):
+            lines.append(line.strip())
+        if len(lines) >= limit:
+            break
+    return lines
+
+
+def _location_records(
+    repo: Path,
+    rev: str,
+    locations: Mapping[str, Sequence[str]],
+    runner: CommandRunner | None,
+) -> dict[str, list[dict[str, str]]]:
+    records: dict[str, list[dict[str, str]]] = {}
+    for name, paths in locations.items():
+        entries: list[dict[str, str]] = []
+        for path in paths:
+            blob = _blob(repo, rev, path, runner)
+            entries.append(
+                {
+                    "path": path,
+                    "role": "template" if path.startswith(TEMPLATE_PREFIX) else "repository",
+                    "blob": blob or UNKNOWN,
+                }
+            )
+        records[name] = entries
+    return records
+
+
+def resolve_production_surfaces(
+    repo: Path | None = None,
+    *,
+    repo_slug: str = WORKFLOWS_REPO,
+    evidence: Mapping[str, Any] | None = None,
+    runner: CommandRunner | None = None,
+) -> dict[str, Any]:
+    """Resolve verifier surfaces at the selected run's pinned workflow SHA.
+
+    The owner exclusion is applied before git is invoked. The run evidence is the
+    saved API and log record, so this function does not use the network.
+    """
+    if is_owner_excluded(repo_slug):
+        raise OwnerExcludedRepository(repo_slug)
+    record = dict(evidence or SELECTED_RUN_EVIDENCE)
+    if record.get("repository") != repo_slug:
+        raise ValueError(f"saved run evidence is for {record.get('repository')}, not {repo_slug}")
+    root = repo or REPO_ROOT
+    referenced = record["referenced_workflows"][0]
+    revision = str(referenced["sha"])
+    checkout = record["script_checkout"]
+    history_available, referenced_on_main, next_commit = _next_main_commit(root, revision, runner)
+    identified = implementation_revision(
+        referenced_sha=revision,
+        fetch_at=str(checkout["fetch_at"]),
+        checkout_command=str(checkout["checkout_command"]),
+        printed_sha=checkout.get("printed_sha"),
+        next_commit_at=None if next_commit is None else next_commit["committed_at"],
+        history_available=history_available,
+        referenced_sha_on_main=referenced_on_main,
+    )
+    tree_rev = revision if SHA_RE.fullmatch(revision) else record["head_sha"]
+    paths = _tracked_paths(root, tree_rev, runner)
+    locations = resolve_tracked_locations(paths)
+    location_records = _location_records(root, tree_rev, locations, runner)
+    caller_text = _file_text(root, tree_rev, str(record["path"]), runner)
+    reusable_path = str(referenced["path"]).split("@", 1)[0].removeprefix("stranske/Workflows/")
+    reusable_text = _file_text(root, tree_rev, reusable_path, runner)
+    invocations = parse_pr_verifier_invocations(reusable_text)
+    invocation = invocations[0] if invocations else UNKNOWN
+    tracked_implementation = (
+        tracked_path_for_runtime_path(invocation.split()[-1]) if invocation != UNKNOWN else UNKNOWN
+    )
+    runtime_scripts = parse_runtime_script_paths(reusable_text)
+    caller_scripts = parse_runtime_script_paths(caller_text)
+    sparse = parse_sparse_checkout(reusable_text)
+    implementation_text = (
+        _file_text(root, tree_rev, tracked_implementation, runner)
+        if tracked_implementation != UNKNOWN
+        else ""
+    )
+    imports_verifier_config = "from scripts.langchain.verifier_config import" in implementation_text
+    pr_verifier_entries = location_records.get("pr_verifier.py", [])
+    template_entry = next(
+        (item for item in pr_verifier_entries if item["role"] == "template"), None
+    )
+    repository_entry = next(
+        (item for item in pr_verifier_entries if item["path"] == tracked_implementation),
+        None,
+    )
+    intake_paths = locations.get("agents-issue-intake.yml", [])
+    intake_path = intake_paths[0] if len(intake_paths) == 1 else UNKNOWN
+    intake_text = _file_text(root, tree_rev, intake_path, runner) if intake_path != UNKNOWN else ""
+    goals_paths = locations.get("GoalsAndPlumbing.md", [])
+    goals_path = goals_paths[0] if len(goals_paths) == 1 else UNKNOWN
+    goals_text = _file_text(root, tree_rev, goals_path, runner) if goals_path != UNKNOWN else ""
+    root_intake = ".github/workflows/agents-issue-intake.yml"
+    gaps = []
+    if checkout.get("printed_sha") is None:
+        gaps.append(
+            "The workflows-lib checkout log fetches origin/main and does not print a commit SHA."
+        )
+    if root_intake not in paths:
+        gaps.append(f"{root_intake} is not a tracked file at {tree_rev}.")
+    if identified["revision"] == UNKNOWN:
+        gaps.append("The verifier implementation revision is unknown from the saved evidence.")
+    log_invocation = str(checkout.get("executed_invocation") or "")
+    return {
+        "repository": repo_slug,
+        "run_id": record["run_id"],
+        "tree_revision": tree_rev,
+        "locations": location_records,
+        "absent_root_paths": [root_intake] if root_intake not in paths else [],
+        "selected_run": {
+            "workflow_path": record["path"],
+            "workflow_revision": record["head_sha"],
+            "workflow_revision_source": "actions run head_sha for the recorded workflow path",
+            "reusable_workflow": {
+                "uses": parse_reusable_verifier_use(caller_text),
+                "referenced": referenced,
+                "blob": _blob(root, tree_rev, reusable_path, runner) or UNKNOWN,
+                "invocations": invocations,
+                "runtime_scripts": runtime_scripts,
+                "tracked_runtime_scripts": [
+                    tracked_path_for_runtime_path(path) for path in runtime_scripts
+                ],
+                "caller_runtime_scripts": caller_scripts,
+                "tracked_caller_runtime_scripts": [
+                    tracked_path_for_runtime_path(path) for path in caller_scripts
+                ],
+                "sparse_checkout": sparse,
+                "sparse_checkout_includes_template": any(
+                    entry.startswith("templates/") for entry in sparse
+                ),
+            },
+            "verifier_implementation": {
+                "invocation": invocation,
+                "log_invocation": log_invocation,
+                "log_invocation_matches_workflow": (
+                    log_invocation.endswith(invocation)
+                    if invocation != UNKNOWN and log_invocation
+                    else False
+                ),
+                "tracked_path": tracked_implementation,
+                "revision": identified["revision"],
+                "revision_source": identified["source"],
+                "blob": None if repository_entry is None else repository_entry["blob"],
+                "template_copy_executed": tracked_implementation.startswith(TEMPLATE_PREFIX),
+                "template_copy_same_blob": bool(
+                    repository_entry
+                    and template_entry
+                    and repository_entry["blob"] == template_entry["blob"]
+                    and repository_entry["blob"] != UNKNOWN
+                ),
+                "imports_verifier_config": imports_verifier_config,
+                "printed_checkout_sha": checkout.get("printed_sha"),
+            },
+            "intake_workflow": {
+                "tracked_paths": list(intake_paths),
+                "used_by_selected_run": False,
+                "delegations": parse_workflow_delegations(intake_text),
+            },
+            "goals_and_plumbing": {
+                "tracked_paths": list(goals_paths),
+                "used_by_selected_run": False,
+                "citations": _citation_lines(
+                    goals_text,
+                    (
+                        "verifier_config.py",
+                        "reusable-agents-verifier.yml",
+                        "agents-verifier.yml",
+                    ),
+                ),
+            },
+            "next_main_commit": next_commit,
+            "other_checkouts": list(record["other_checkouts"]),
+        },
+        "evidence_gaps": gaps,
+    }
+
+
 def _print_json(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -344,7 +777,13 @@ def main(argv: list[str] | None = None) -> int:
             "eligibility and timing fields unknown. "
             "initial-evidence prints one cited GitHub Actions run and stops after "
             f"{INITIAL_EVIDENCE_MAX_ATTEMPTS} attempts or "
-            f"{int(INITIAL_EVIDENCE_MAX_ELAPSED_SECONDS)} seconds."
+            f"{int(INITIAL_EVIDENCE_MAX_ELAPSED_SECONDS)} seconds. "
+            "resolve-production-surfaces reads the local git tree at the saved "
+            f"run {INITIAL_EVIDENCE_RUN_ID} workflow SHA and prints tracked verifier "
+            "locations plus the implementation revision. It does not use the network. "
+            "The saved evidence was collected with "
+            "`gh api repos/stranske/Workflows/actions/runs/39090617832` and "
+            "`gh run view 39090617832 --repo stranske/Workflows --log`."
         )
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -360,9 +799,19 @@ def main(argv: list[str] | None = None) -> int:
             "One command, at most two attempts, 120 second budget."
         ),
     )
+    subparsers.add_parser(
+        "resolve-production-surfaces",
+        help=(
+            "Print tracked verifier locations and the implementation used by run "
+            f"{INITIAL_EVIDENCE_RUN_ID}. Local git only; replays saved run evidence."
+        ),
+    )
     args = parser.parse_args(argv)
     if args.command == "campaign-definition":
         _print_json(campaign_definition())
+        return 0
+    if args.command == "resolve-production-surfaces":
+        _print_json(resolve_production_surfaces())
         return 0
     result = run_initial_evidence()
     _print_json(result)

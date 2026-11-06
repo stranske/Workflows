@@ -306,6 +306,224 @@ Ran once on 2026-11-06 immediately after 2026-11-06T18:26:25Z. Wall time was 0.5
 - Workflow conclusion `success` is the Actions result. It is not a provider verdict and it is not the 2026-10-24 campaign result.
 - No production verifier file was edited before or during this check.
 
+## Production surfaces for run 39090617832
+
+Command, no network. It reads the local git tree at the saved run's workflow SHA:
+
+```text
+python3 verifier_4422_audit.py resolve-production-surfaces
+```
+
+The saved evidence inside that command was collected on 2026-11-06 with:
+
+```text
+gh api repos/stranske/Workflows/actions/runs/39090617832
+gh run view 39090617832 --repo stranske/Workflows --log
+```
+
+`python3` is the repository interpreter. `/opt/anaconda3/bin/python3` is not installed here.
+
+The Actions API records the caller path `.github/workflows/agents-verifier.yml` at head SHA `021ec67ef580c83a88402a1574e27ea34db14dde`. Its `referenced_workflows` entry pins `reusable-agents-verifier.yml@main` to that same SHA. The verifier job log then checks out `.workflows-lib` with `ref: main` and `git checkout --progress --force -B main refs/remotes/origin/main` at `2026-10-18T02:35:39.7063036Z`. That checkout line does not print a commit SHA. The first later first-parent commit on `origin/main` is `fc3a9a46de3f28b72c7841799b6c3c0eaa1e512a` at `2026-10-17T21:49:57-05:00` (`2026-10-18T02:49:57Z`), after the fetch, so the fetched tip is the pinned SHA.
+
+The reusable workflow at that SHA runs `python .workflows-lib/scripts/langchain/pr_verifier.py`. The log contains the same invocation. The sparse checkout lists `scripts` and does not list `templates/`, so the executed file is `scripts/langchain/pr_verifier.py` blob `5dd1cb1e3854c2e66c0e67a5c9b52d1655e791ff`. The template copy at `templates/consumer-repo/scripts/langchain/pr_verifier.py` has the same blob and was not the file executed. That implementation imports `scripts.langchain.verifier_config`, whose only tracked path at this revision is `scripts/langchain/verifier_config.py`.
+
+`agents-issue-intake.yml` is tracked only at `templates/consumer-repo/.github/workflows/agents-issue-intake.yml`. `.github/workflows/agents-issue-intake.yml` is absent. The selected run's path is the verifier caller, so the intake workflow was not the workflow that ran. `docs/keepalive/GoalsAndPlumbing.md` is the tracked copy of that document and was not executed.
+
+The gate job checks out `7ccda2ad80ccac05348ad305fb2248b02b0c2c81`. That is the subject pull request's immutable merge checkout, not the verifier implementation.
+
+```json
+{
+  "absent_root_paths": [
+    ".github/workflows/agents-issue-intake.yml"
+  ],
+  "evidence_gaps": [
+    "The workflows-lib checkout log fetches origin/main and does not print a commit SHA.",
+    ".github/workflows/agents-issue-intake.yml is not a tracked file at 021ec67ef580c83a88402a1574e27ea34db14dde."
+  ],
+  "locations": {
+    "GoalsAndPlumbing.md": [
+      {
+        "blob": "68a4dfb1df3a4e5bc9edfc876eb5a818a094aa56",
+        "path": "docs/keepalive/GoalsAndPlumbing.md",
+        "role": "repository"
+      }
+    ],
+    "agents-issue-intake.yml": [
+      {
+        "blob": "3f7afb13efe867485f6f33a212ee5c2ae389e154",
+        "path": "templates/consumer-repo/.github/workflows/agents-issue-intake.yml",
+        "role": "template"
+      }
+    ],
+    "agents-verifier.yml": [
+      {
+        "blob": "d20dcd04abed81b72e36128d2975a516b3816008",
+        "path": ".github/workflows/agents-verifier.yml",
+        "role": "repository"
+      },
+      {
+        "blob": "f0e98f8610ff53bd22230e79a14960c1afb95578",
+        "path": "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+        "role": "template"
+      }
+    ],
+    "agents_verifier_context.js": [
+      {
+        "blob": "936f2f2a185f99ed1c29902e35829725d019e226",
+        "path": ".github/scripts/agents_verifier_context.js",
+        "role": "repository"
+      },
+      {
+        "blob": "936f2f2a185f99ed1c29902e35829725d019e226",
+        "path": "templates/consumer-repo/.github/scripts/agents_verifier_context.js",
+        "role": "template"
+      }
+    ],
+    "pr_verifier.py": [
+      {
+        "blob": "5dd1cb1e3854c2e66c0e67a5c9b52d1655e791ff",
+        "path": "scripts/langchain/pr_verifier.py",
+        "role": "repository"
+      },
+      {
+        "blob": "5dd1cb1e3854c2e66c0e67a5c9b52d1655e791ff",
+        "path": "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+        "role": "template"
+      }
+    ],
+    "reusable-agents-verifier.yml": [
+      {
+        "blob": "5467ae7fd3dff1cec35278b9b02fcfdd0001a6c7",
+        "path": ".github/workflows/reusable-agents-verifier.yml",
+        "role": "repository"
+      }
+    ],
+    "verifier_closure.js": [
+      {
+        "blob": "2634929dc18bc264dc9aaaf22579011b91c1ccdb",
+        "path": ".github/scripts/verifier_closure.js",
+        "role": "repository"
+      },
+      {
+        "blob": "2634929dc18bc264dc9aaaf22579011b91c1ccdb",
+        "path": "templates/consumer-repo/.github/scripts/verifier_closure.js",
+        "role": "template"
+      }
+    ],
+    "verifier_config.py": [
+      {
+        "blob": "f6b78186312812e998fe3bcdabd2e2979dab45b2",
+        "path": "scripts/langchain/verifier_config.py",
+        "role": "repository"
+      }
+    ]
+  },
+  "repository": "stranske/Workflows",
+  "run_id": "39090617832",
+  "selected_run": {
+    "goals_and_plumbing": {
+      "citations": [
+        "`scripts/langchain/verifier_config.py`.",
+        "`reusable-agents-verifier.yml` exports its verdict and immutable target to the",
+        "`agents-verifier.yml` caller. The caller applies two source-issue closing rules"
+      ],
+      "tracked_paths": [
+        "docs/keepalive/GoalsAndPlumbing.md"
+      ],
+      "used_by_selected_run": false
+    },
+    "intake_workflow": {
+      "delegations": [
+        {
+          "ref": "main",
+          "tracked_path": ".github/workflows/reusable-agents-issue-bridge.yml",
+          "workflow": "stranske/Workflows/.github/workflows/reusable-agents-issue-bridge.yml"
+        },
+        {
+          "ref": "main",
+          "tracked_path": ".github/workflows/agents-63-issue-intake.yml",
+          "workflow": "stranske/Workflows/.github/workflows/agents-63-issue-intake.yml"
+        }
+      ],
+      "tracked_paths": [
+        "templates/consumer-repo/.github/workflows/agents-issue-intake.yml"
+      ],
+      "used_by_selected_run": false
+    },
+    "next_main_commit": {
+      "committed_at": "2026-10-17T21:49:57-05:00",
+      "sha": "fc3a9a46de3f28b72c7841799b6c3c0eaa1e512a",
+      "subject": "chore(main): release 1.43.1 (#4062)"
+    },
+    "other_checkouts": [
+      {
+        "job": "Verify named gates on immutable merge commit",
+        "role": "subject immutable merge checkout",
+        "sha": "7ccda2ad80ccac05348ad305fb2248b02b0c2c81",
+        "verifier_implementation": false
+      }
+    ],
+    "reusable_workflow": {
+      "blob": "5467ae7fd3dff1cec35278b9b02fcfdd0001a6c7",
+      "caller_runtime_scripts": [
+        "./.github/scripts/verifier_closure.js"
+      ],
+      "invocations": [
+        ".workflows-lib/scripts/langchain/pr_verifier.py"
+      ],
+      "referenced": {
+        "path": "stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main",
+        "ref": "refs/heads/main",
+        "sha": "021ec67ef580c83a88402a1574e27ea34db14dde"
+      },
+      "runtime_scripts": [
+        "./.workflows-lib/.github/scripts/agents_verifier_context.js",
+        "./.workflows-lib/.github/scripts/verifier_closure.js"
+      ],
+      "sparse_checkout": [
+        ".github/actions/setup-api-client",
+        ".github/actions/verifier-codex-cli",
+        ".github/agents/registry.yml",
+        ".github/scripts",
+        ".github/codex/prompts",
+        "config",
+        "scripts",
+        "tools"
+      ],
+      "sparse_checkout_includes_template": false,
+      "tracked_caller_runtime_scripts": [
+        ".github/scripts/verifier_closure.js"
+      ],
+      "tracked_runtime_scripts": [
+        ".github/scripts/agents_verifier_context.js",
+        ".github/scripts/verifier_closure.js"
+      ],
+      "uses": {
+        "ref": "main",
+        "workflow": "stranske/Workflows/.github/workflows/reusable-agents-verifier.yml"
+      }
+    },
+    "verifier_implementation": {
+      "blob": "5dd1cb1e3854c2e66c0e67a5c9b52d1655e791ff",
+      "imports_verifier_config": true,
+      "invocation": ".workflows-lib/scripts/langchain/pr_verifier.py",
+      "log_invocation": "python .workflows-lib/scripts/langchain/pr_verifier.py",
+      "log_invocation_matches_workflow": true,
+      "printed_checkout_sha": null,
+      "revision": "021ec67ef580c83a88402a1574e27ea34db14dde",
+      "revision_source": "origin-main-unchanged-between-referenced-pin-and-script-fetch",
+      "template_copy_executed": false,
+      "template_copy_same_blob": true,
+      "tracked_path": "scripts/langchain/pr_verifier.py"
+    },
+    "workflow_path": ".github/workflows/agents-verifier.yml",
+    "workflow_revision": "021ec67ef580c83a88402a1574e27ea34db14dde",
+    "workflow_revision_source": "actions run head_sha for the recorded workflow path"
+  },
+  "tree_revision": "021ec67ef580c83a88402a1574e27ea34db14dde"
+}
+```
+
 ## Follow-ups
 
-Later tasks still have to locate the deployed verifier revision, download the report, reconcile files, and reconstruct the historical population. Those steps are outside this initial check.
+The deployed workflow revision and verifier implementation for run 39090617832 are recorded above. Later tasks still have to download the complete report, reconcile the changed-file inventory, and reconstruct the historical population.

@@ -151,3 +151,178 @@ def test_audit_markdown_records_the_definition_and_stop_rule() -> None:
     assert "Eligibility window start | unknown" in text
     assert "stranske/collab-admin" in text
     assert "does not query it" in text
+
+
+def test_tracked_locations_use_actual_paths_and_keep_missing_root_intake_absent() -> None:
+    paths = [
+        "scripts/langchain/pr_verifier.py",
+        "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+        "scripts/langchain/verifier_config.py",
+        "tests/scripts/test_pr_verifier_compare.py",
+        ".github/scripts/agents_verifier_context.js",
+        "templates/consumer-repo/.github/scripts/agents_verifier_context.js",
+        ".github/scripts/verifier_closure.js",
+        "templates/consumer-repo/.github/scripts/verifier_closure.js",
+        ".github/workflows/agents-verifier.yml",
+        "templates/consumer-repo/.github/workflows/agents-verifier.yml",
+        ".github/workflows/reusable-agents-verifier.yml",
+        "templates/consumer-repo/.github/workflows/agents-issue-intake.yml",
+        "docs/keepalive/GoalsAndPlumbing.md",
+    ]
+    resolved = audit.resolve_tracked_locations(paths)
+    assert resolved["pr_verifier.py"] == [
+        "scripts/langchain/pr_verifier.py",
+        "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+    ]
+    assert resolved["verifier_config.py"] == ["scripts/langchain/verifier_config.py"]
+    assert ".github/workflows/agents-issue-intake.yml" not in resolved["agents-issue-intake.yml"]
+    assert resolved["agents-issue-intake.yml"] == [
+        "templates/consumer-repo/.github/workflows/agents-issue-intake.yml"
+    ]
+    assert "tests/scripts/test_pr_verifier_compare.py" not in resolved["pr_verifier.py"]
+
+
+def test_workflow_parser_maps_the_reusable_invocation_away_from_the_template_copy() -> None:
+    caller = "uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main\n"
+    reusable = """
+          sparse-checkout: |
+            .github/scripts
+            scripts
+          sparse-checkout-cone-mode: false
+          python .workflows-lib/scripts/langchain/pr_verifier.py "${args[@]}" \\
+            const file = './.workflows-lib/.github/scripts/agents_verifier_context.js';
+            require('./.workflows-lib/.github/scripts/verifier_closure.js');
+    """
+    parsed = audit.parse_reusable_verifier_use(caller)
+    assert parsed == {
+        "workflow": "stranske/Workflows/.github/workflows/reusable-agents-verifier.yml",
+        "ref": "main",
+    }
+    invocations = audit.parse_pr_verifier_invocations(reusable)
+    assert invocations == [".workflows-lib/scripts/langchain/pr_verifier.py"]
+    assert audit.tracked_path_for_runtime_path(invocations[0]) == (
+        "scripts/langchain/pr_verifier.py"
+    )
+    assert audit.parse_sparse_checkout(reusable) == [".github/scripts", "scripts"]
+    assert audit.parse_runtime_script_paths(reusable) == [
+        "./.workflows-lib/.github/scripts/agents_verifier_context.js",
+        "./.workflows-lib/.github/scripts/verifier_closure.js",
+    ]
+
+
+def test_implementation_revision_uses_a_printed_checkout_sha() -> None:
+    printed = "a" * 40
+    result = audit.implementation_revision(
+        referenced_sha="b" * 40,
+        fetch_at="2026-10-18T02:35:39.7063036Z",
+        checkout_command="git checkout --progress --force -B main refs/remotes/origin/main",
+        printed_sha=printed,
+        next_commit_at="2026-10-18T02:30:00Z",
+        history_available=True,
+        referenced_sha_on_main=True,
+    )
+    assert result["revision"] == printed
+    assert result["source"] == "checkout-log"
+
+
+def test_implementation_revision_keeps_the_pin_when_main_moves_after_the_fetch() -> None:
+    pinned = "021ec67ef580c83a88402a1574e27ea34db14dde"
+    result = audit.implementation_revision(
+        referenced_sha=pinned,
+        fetch_at="2026-10-18T02:35:39.7063036Z",
+        checkout_command="git checkout --progress --force -B main refs/remotes/origin/main",
+        printed_sha=None,
+        next_commit_at="2026-10-18T02:49:57Z",
+        history_available=True,
+        referenced_sha_on_main=True,
+    )
+    assert result["revision"] == pinned
+    assert result["source"] == ("origin-main-unchanged-between-referenced-pin-and-script-fetch")
+
+
+def test_implementation_revision_stays_unknown_when_main_moved_before_the_fetch() -> None:
+    result = audit.implementation_revision(
+        referenced_sha="021ec67ef580c83a88402a1574e27ea34db14dde",
+        fetch_at="2026-10-18T02:35:39.7063036Z",
+        checkout_command="git checkout --progress --force -B main refs/remotes/origin/main",
+        printed_sha=None,
+        next_commit_at="2026-10-18T02:35:39.7063036Z",
+        history_available=True,
+        referenced_sha_on_main=True,
+    )
+    assert result["revision"] == audit.UNKNOWN
+    assert result["source"] == "origin-main-moved-before-script-fetch"
+
+
+def test_implementation_revision_stays_unknown_without_main_history() -> None:
+    result = audit.implementation_revision(
+        referenced_sha="021ec67ef580c83a88402a1574e27ea34db14dde",
+        fetch_at="2026-10-18T02:35:39.7063036Z",
+        checkout_command="git checkout --progress --force -B main refs/remotes/origin/main",
+        printed_sha=None,
+        next_commit_at=None,
+        history_available=False,
+        referenced_sha_on_main=False,
+    )
+    assert result["revision"] == audit.UNKNOWN
+    assert result["source"] == "main-history-unavailable"
+
+
+def test_owner_excluded_repository_is_rejected_before_surface_resolution() -> None:
+    def runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        raise AssertionError(f"git must not run for an excluded repository: {argv} {timeout}")
+
+    with pytest.raises(audit.OwnerExcludedRepository):
+        audit.resolve_production_surfaces(repo_slug=EXCLUDED_REPO, runner=runner)
+
+
+def test_resolve_production_surfaces_identifies_the_selected_run_revision() -> None:
+    resolved = audit.resolve_production_surfaces(REPO_ROOT)
+    locations = resolved["locations"]
+    assert [item["path"] for item in locations["pr_verifier.py"]] == [
+        "scripts/langchain/pr_verifier.py",
+        "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+    ]
+    assert [item["path"] for item in locations["verifier_config.py"]] == [
+        "scripts/langchain/verifier_config.py"
+    ]
+    assert ".github/workflows/agents-issue-intake.yml" in resolved["absent_root_paths"]
+    assert locations["agents-issue-intake.yml"][0]["path"] == (
+        "templates/consumer-repo/.github/workflows/agents-issue-intake.yml"
+    )
+    assert locations["GoalsAndPlumbing.md"][0]["path"] == "docs/keepalive/GoalsAndPlumbing.md"
+    selected = resolved["selected_run"]
+    assert selected["workflow_path"] == ".github/workflows/agents-verifier.yml"
+    assert selected["workflow_revision"] == "021ec67ef580c83a88402a1574e27ea34db14dde"
+    implementation = selected["verifier_implementation"]
+    assert implementation["tracked_path"] == "scripts/langchain/pr_verifier.py"
+    assert implementation["revision"] == selected["workflow_revision"]
+    assert implementation["template_copy_executed"] is False
+    assert implementation["template_copy_same_blob"] is True
+    assert implementation["imports_verifier_config"] is True
+    assert implementation["log_invocation_matches_workflow"] is True
+    assert implementation["printed_checkout_sha"] is None
+    assert selected["reusable_workflow"]["sparse_checkout_includes_template"] is False
+    assert selected["intake_workflow"]["used_by_selected_run"] is False
+    assert selected["other_checkouts"][0]["verifier_implementation"] is False
+    assert EXCLUDED_REPO not in json.dumps(resolved)
+    blobs = {item["role"]: item["blob"] for item in locations["pr_verifier.py"]}
+    assert blobs["repository"] == blobs["template"]
+    assert re.fullmatch(r"[0-9a-f]{40}", blobs["repository"])
+
+
+def test_resolve_command_matches_the_library_and_audit_record() -> None:
+    completed = subprocess.run(
+        ["python3", "verifier_4422_audit.py", "resolve-production-surfaces"],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload == audit.resolve_production_surfaces(REPO_ROOT)
+    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
+    assert json.loads(blocks[2]) == payload
+    assert "python3 verifier_4422_audit.py resolve-production-surfaces" in text
