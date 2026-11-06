@@ -2217,6 +2217,17 @@ a substantive rationale, the existing targeted request URL and originating
 completion URL, and nonempty `validation` entries containing command,
 `exit_code=0` and `negative_control=failed-before-fix`.
 
+When the originating reviewer is out of capacity (Copilot most months), its
+finding must not latch. If the targeted reassessment request has stood for
+`finding_verification_fallback.unanswered_reassessment_minutes` (policy) and
+the originating reviewer has posted nothing in that thread since the request,
+the result may record `reviewer_unanswered=true` with
+`originating_completion_url=null`; Maint 71 then accepts it without an
+originating completion. A reviewer answer in the thread after the request
+refuses this path (`originating_reviewer_answered`), an earlier assessment
+refuses it (`reassessment_window_open`), and every other binding, validation,
+freshness and re-read check above still applies.
+
 Pass the normal resolution proof with
 `acceptance_mode=independent-verification` and
 `reviewer_acceptance_url=<durable-issue>#issuecomment-<id>`. Maint 71 fetches
@@ -2901,6 +2912,11 @@ require a completed general review. It requests only an exact finding answer,
 never edits, resolution, sealing or merge, and grants no reviewer acceptance.
 The CodeRabbit profile uses this finding-only conversation path instead of a
 full-review command. Existing Codex disposition/retry preconditions are unchanged.
+A profile may also list `reassessment_review_request` logins; with the initial
+in-thread request, Maint 71 asks those accounts for a review once, best effort
+(the result reports `review_requested`). The Copilot profile uses this because
+Copilot re-reviews only on request; its failure never blocks, since the thread
+drains through the unanswered-reassessment window.
 
 
 If the originating provider reports a terminal failure instead of completing
