@@ -17,7 +17,7 @@ import io
 import json
 import logging
 import os
-import re
+import re as _stdlib_re
 import sys
 from time import monotonic
 from collections.abc import Callable
@@ -63,6 +63,82 @@ from tools.verifier_capture_obligation_manifest import parse_context_source_cove
 from tools.verifier_semantic_acceptance import canonical_digest
 from tools.verifier_semantic_execution import MAX_NATIVE_SECONDS, execute_semantic_matrix
 from tools.verifier_semantic_rules import prepare_residual_all_input, prepare_reviewed_execution
+
+
+class _GrammarRegex:
+    """Compile this module's grammar with a cache the stdlib 512-entry cache cannot evict.
+
+    Channel classification builds dozens of multi-kilobyte expressions. A full Gate
+    worker compiles other patterns between cases and drops those expressions, so the
+    next case parses them again. Resident copies keep a warm classification on the
+    order of a single scan instead of a fresh parse of the largest expressions.
+    """
+
+    _LARGE_PATTERN_CHARS = 256
+    _LARGE_PATTERN_LIMIT = 256
+    _PATTERN_LIMIT = 1024
+
+    def __init__(self) -> None:
+        self._patterns: dict[tuple[str, int], _stdlib_re.Pattern[str]] = {}
+        self._large_patterns = 0
+        self._compile = _stdlib_re.compile
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_stdlib_re, name)
+
+    def _flags(self, flags: int) -> int:
+        if isinstance(flags, _stdlib_re.RegexFlag):
+            return int(flags)
+        return flags
+
+    def compile(self, pattern: str | _stdlib_re.Pattern[str], flags: int = 0):
+        if isinstance(pattern, _stdlib_re.Pattern):
+            if flags:
+                raise ValueError("cannot process flags argument with a compiled pattern")
+            return pattern
+        if not isinstance(pattern, str):
+            return self._compile(pattern, flags)
+        flags_value = self._flags(flags)
+        key = (pattern, flags_value)
+        compiled = self._patterns.get(key)
+        if compiled is not None:
+            return compiled
+        compiled = self._compile(pattern, flags_value)
+        large = len(pattern) >= self._LARGE_PATTERN_CHARS
+        if large and self._large_patterns < self._LARGE_PATTERN_LIMIT:
+            self._patterns[key] = compiled
+            self._large_patterns += 1
+        elif not large and len(self._patterns) < self._PATTERN_LIMIT:
+            self._patterns[key] = compiled
+        return compiled
+
+    def search(self, pattern, string, flags: int = 0):
+        return self.compile(pattern, flags).search(string)
+
+    def match(self, pattern, string, flags: int = 0):
+        return self.compile(pattern, flags).match(string)
+
+    def fullmatch(self, pattern, string, flags: int = 0):
+        return self.compile(pattern, flags).fullmatch(string)
+
+    def finditer(self, pattern, string, flags: int = 0):
+        return self.compile(pattern, flags).finditer(string)
+
+    def findall(self, pattern, string, flags: int = 0):
+        return self.compile(pattern, flags).findall(string)
+
+    def sub(self, pattern, repl, string, count: int = 0, flags: int = 0):
+        return self.compile(pattern, flags).sub(repl, string, count)
+
+    def subn(self, pattern, repl, string, count: int = 0, flags: int = 0):
+        return self.compile(pattern, flags).subn(repl, string, count)
+
+    def split(self, pattern, string, maxsplit: int = 0, flags: int = 0):
+        return self.compile(pattern, flags).split(string, maxsplit)
+
+
+# Module code calls ``re`` and must keep using the resident grammar cache.
+re = _GrammarRegex()
 
 # The shared client builder returns the ClientInfo ``provider_label`` for the
 # verifier (the historical ``_get_llm_client`` returned that field). Bound under
