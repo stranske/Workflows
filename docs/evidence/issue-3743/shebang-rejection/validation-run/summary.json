@@ -25,8 +25,8 @@
     "template_directory_yml": 35,
     "manifest_workflow_targets": 35,
     "strict_validation_inputs": 166,
-    "black_files": 923,
-    "ruff_files": 11
+    "black_files": 927,
+    "ruff_files": 15
   },
   "commands": {
     "black": {
@@ -42,13 +42,13 @@
       "cwd": "/home/runner/work/Workflows/Workflows",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.828,
+      "duration_seconds": 72.154,
       "env_overrides": {
         "BLACK_NUM_WORKERS": "1",
         "BLACK_CACHE_DIR": "/tmp/shebang-rejection-validation-black-cache"
       },
       "stdout": "",
-      "stderr": "All done! \u2728 \ud83c\udf70 \u2728\n923 files would be left unchanged.\n"
+      "stderr": "All done! \u2728 \ud83c\udf70 \u2728\n927 files would be left unchanged.\n"
     },
     "ruff": {
       "argv": [
@@ -56,20 +56,24 @@
         "check",
         "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py",
         "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py",
+        "docs/evidence/issue-3743/shebang-rejection/compare_matched.py",
         "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py",
         "docs/evidence/issue-3743/shebang-rejection/replay.py",
+        "docs/evidence/issue-3743/shebang-rejection/verify_archives.py",
         "scripts/check_deliberate_break.py",
         "templates/consumer-repo/scripts/check_deliberate_break.py",
         "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
         "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
         "tests/scripts/test_shebang_rejection_acceptance_run.py",
+        "tests/scripts/test_shebang_rejection_archive_bindings.py",
+        "tests/scripts/test_shebang_rejection_matched_comparison.py",
         "tests/scripts/test_shebang_rejection_replay.py",
         "tests/scripts/test_shebang_rejection_validation_run.py"
       ],
       "cwd": "/home/runner/work/Workflows/Workflows",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.007,
+      "duration_seconds": 0.012,
       "env_overrides": {},
       "stdout": "\u001b[1;32mAll checks passed!\u001b[0m\n",
       "stderr": ""
@@ -91,7 +95,7 @@
       "cwd": "/home/runner/work/Workflows/Workflows",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.164,
+      "duration_seconds": 0.143,
       "env_overrides": {
         "GITHUB_STEP_SUMMARY": "/tmp/shebang-rejection-validation/template-summary.md"
       },
@@ -107,7 +111,7 @@
       "cwd": "/home/runner/work/Workflows/Workflows",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.014,
+      "duration_seconds": 0.005,
       "env_overrides": {},
       "stdout": "",
       "stderr": ""
@@ -183,9 +187,9 @@
     },
     "docs/evidence/issue-3743/shebang-rejection/acceptance-run": {
       "kind": "tree",
-      "sha256": "07e08976b211994c97769660dd8d5ae4bed343e8378e507cd5b2dc0706b74b01",
-      "bytes": 1316239,
-      "files": 114
+      "sha256": "a5af64cb294ec1ec7882b2e666c16b3c4853460dbfb9e32a8873fd94bd18abb4",
+      "bytes": 1315709,
+      "files": 111
     },
     "scripts/check_deliberate_break.py": {
       "kind": "file",
@@ -213,8 +217,8 @@
     },
     "tests/scripts/test_shebang_rejection_acceptance_run.py": {
       "kind": "file",
-      "sha256": "02901bdfc790a529133ecc14c26ed2ca78e5333ec5f17d3c360e15232574ef9f",
-      "bytes": 5033,
+      "sha256": "6d7c3f3a1a8f231be506c4866db7f028117528460397dd51c01349014d6f9c3e",
+      "bytes": 5953,
       "files": 1
     },
     "tests/scripts/test_shebang_rejection_acceptance_inspection.py": {

@@ -4,13 +4,17 @@
     "check",
     "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py",
     "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py",
+    "docs/evidence/issue-3743/shebang-rejection/compare_matched.py",
     "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py",
     "docs/evidence/issue-3743/shebang-rejection/replay.py",
+    "docs/evidence/issue-3743/shebang-rejection/verify_archives.py",
     "scripts/check_deliberate_break.py",
     "templates/consumer-repo/scripts/check_deliberate_break.py",
     "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
     "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
     "tests/scripts/test_shebang_rejection_acceptance_run.py",
+    "tests/scripts/test_shebang_rejection_archive_bindings.py",
+    "tests/scripts/test_shebang_rejection_matched_comparison.py",
     "tests/scripts/test_shebang_rejection_replay.py",
     "tests/scripts/test_shebang_rejection_validation_run.py"
   ],
@@ -22,5 +26,5 @@
   "stdout": "\u001b[1;32mAll checks passed!\u001b[0m\n",
   "stderr": "",
   "stopped": null,
-  "duration_seconds": 0.007
+  "duration_seconds": 0.012
 }

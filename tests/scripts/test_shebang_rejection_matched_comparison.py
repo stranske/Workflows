@@ -164,7 +164,10 @@ def test_retained_matched_comparison_meets_the_acceptance_contract():
     module = load_compare()
     summary = module["validate_retained"](ROOT)
     comparison = summary["comparison"]
-    assert comparison["baseline_nodes"] + 8 == comparison["candidate_nodes"]
+    assert comparison["baseline_nodes"] == 340
+    assert comparison["candidate_nodes"] == 348
+    assert comparison["baseline_pass"] == 340
+    assert comparison["candidate_pass"] == 348
     assert len(comparison["added_nodes"]) == 8
     assert comparison["added_outcomes"] == ["passed"] * 8
     assert comparison["removed_nodes"] == []
@@ -173,6 +176,9 @@ def test_retained_matched_comparison_meets_the_acceptance_contract():
     assert comparison["exclusions"] == 0
     assert comparison["covered_line_regressions"] == []
     assert comparison["covered_branch_regressions"] == []
+    for delta in comparison["deltas"].values():
+        assert delta["removed_lines"] == []
+        assert delta["removed_branches"] == []
     assert summary["historical_unchanged"] is True
     assert summary["interpreter"]["literal_anaconda_available"] is False
     assert summary["interpreter"]["path"]
