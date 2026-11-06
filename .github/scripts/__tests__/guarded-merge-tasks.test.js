@@ -904,3 +904,54 @@ for (const publicationFails of [false, true]) {
     }
   });
 }
+
+// Bodies captured from the 2026-11-02 fleet latch (and the still-open Counter_Risk
+// successor). Each PR task block is fully checked while the source issue is not.
+const fleetOpenerFixtures = [
+  ['Inv-Man-Intake#1062', 'inv-man-intake-1062-pr.md', 'inv-man-intake-1061-issue.md', 1061, 2],
+  ['Ready#663', 'ready-663-pr.md', 'ready-662-issue.md', 662, 2],
+  ['Counter_Risk#1235', 'counter-risk-1235-pr.md', 'counter-risk-1183-issue.md', 1183, 4],
+].map(([name, prFile, issueFile, issueNumber, unchecked]) => ({
+  name,
+  issueNumber,
+  unchecked,
+  pr: fs.readFileSync(path.join(__dirname, 'fixtures/issue-4389', prFile), 'utf8'),
+  issue: fs.readFileSync(path.join(__dirname, 'fixtures/issue-4389', issueFile), 'utf8'),
+}));
+
+for (const fleet of fleetOpenerFixtures) {
+  test(`${fleet.name} reaches the runtime guard log line with its unchecked source issue (#4389)`, async () => {
+    const { c, actions } = mergeScanHarness({ body: fleet.pr });
+    c.github.rest.issues.get = async (args) => {
+      actions.push(['issue', { ...args }]);
+      assert.equal(args.issue_number, fleet.issueNumber);
+      return { data: { body: fleet.issue, updated_at: '2026-11-02T00:00:00Z' } };
+    };
+
+    await c.runScan();
+
+    const advisory = `PR #42: source issue #${fleet.issueNumber} keeps ${fleet.unchecked} unchecked task box(es); the PR task block is authoritative.`;
+    const advisoryIndex = actions.findIndex(([kind, message]) => kind === 'info' && message === advisory);
+    const runtimeIndex = actions.findIndex(([kind, message]) =>
+      kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
+    assert.ok(advisoryIndex >= 0, `${fleet.name} must record advisory source boxes`);
+    assert.ok(runtimeIndex > advisoryIndex, `${fleet.name} must reach the runtime guard line`);
+    assert.equal(actions.some(([kind, message]) =>
+      kind === 'warning' && String(message).includes('unchecked tasks')), false);
+    assert.equal(actions.some(([kind]) => kind === 'merge'), true);
+
+    const uncheckedTaskFailure = c.uncheckedTaskFailure;
+    const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+    c.uncheckedTaskFailure = (pr, linkedIssueSnapshot) =>
+      uncheckedTaskFailure(pr, linkedIssueSnapshot)
+      || (c.countUnchecked(linkedIssueSnapshot?.body) > 0 ? reason : '');
+    actions.length = 0;
+    await c.runScan();
+    assert.equal(actions.some(([kind, message]) =>
+      kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.'), false);
+    assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+      ['warning', `PR #42: ${reason}`],
+    ]);
+  });
+}
