@@ -1,5 +1,37 @@
 # Issue #4365: handoff regression verification
 
+## Continuation acceptance contract (2026-11-06, 21:54 UTC)
+
+Real input: open source PR #4451 on `closer/issue-4365`, initially
+`8734263bd9fff4ebac312f953be1c33250901ad5`, and consumer
+`stranske/Portable-Alpha-Extension-Model#2454`.
+
+Outcome 1 is established only after current-head review disposition and passing
+source gates permit guarded merge, Maint 68 deploys the selected consumer,
+and subsequent Maint 71 and sync-core observations show the original thread
+absent and no further #4365 bumps. It is currently **unverified**.
+
+Read-only proving commands (each inspection is bounded to two minutes):
+
+```sh
+gh pr view 4451 -R stranske/Workflows --json state,headRefOid,isDraft,statusCheckRollup
+gh run view 42290128697 -R stranske/Workflows --log
+gh pr view 2454 -R stranske/Portable-Alpha-Extension-Model --json state,headRefOid,isDraft
+gh run list -R stranske/Workflows --workflow maint-71-merge-sync-prs.yml --limit 5
+gh issue view 4365 -R stranske/Workflows --comments
+```
+
+The last two commands require inspecting the actual relevant run output and
+comment timestamps; an empty search or a successful dispatch alone is insufficient.
+Record the selected Maint 68/71 run IDs below after delivery.
+
+Stop rule: one attempt per acceptance step; stop at the first actual failure or
+at 22:19 UTC (25 minutes after starting). Preserve the first failure and all
+existing implementation; do not expand repairs. Blocked/drainable pair:
+merge and deployment are blocked until review and exact-head gates clear;
+read-only evidence retrieval and per-thread evidence preparation remain drainable.
+No full local suite will be run: use the successful same-head Gate logs.
+
 Verified locally on 2026-11-04 for PR #4447. Reviewed prior commits
 `e4c3bf7c`, `3e91bbc9`, `8e055ec0`, and `7d26be7c` before continuing.
 
@@ -294,3 +326,96 @@ editable install rejects **Python 3.12.2** because the temp consumer requires
 **>=3.13** — host interpreter constraint, not auto-pilot logic. **Maint 71 /
 Portable-Alpha-Extension-Model#2454 / sync-core stop bumping #4365** still
 require remote observation after merge; not claimed here.
+
+## Continuation evidence and first blocked step (2026-11-06)
+
+Read back PR #4451 as **open, non-draft**, head
+`8734263bd9fff4ebac312f953be1c33250901ad5`. Fetch confirmed local and remote
+`closer/issue-4365` have zero divergence. No implementation or dependency pin
+was changed in this continuation.
+
+### Retrieved source CI evidence
+
+[Gate run 42290128697](https://github.com/stranske/Workflows/actions/runs/42290128697)
+completed successfully. Retrieved the actual job logs, rather than inferring
+test results from its green aggregate:
+
+- [Node job 128141997036](https://github.com/stranske/Workflows/actions/runs/42290128697/job/128141997036)
+  checked out exactly `8734263bd9fff4ebac312f953be1c33250901ad5` and used Node
+  **24.22.2**. Exact command: `node --test .github/scripts/__tests__/*.test.js`.
+  Final outer summary at 20:41:49 UTC: **3493 tests, 3492 pass, 0 fail,
+  1 skipped**. Earlier nested deliberate-failure fixture output is not the
+  final outer result. The same job's separate `pytest tests/workflows/github_scripts`
+  run printed **123 passed in 0.54s**.
+- [Python job 128142242799](https://github.com/stranske/Workflows/actions/runs/42290128697/job/128142242799)
+  used **Python 3.14.10**, pytest **9.2.0**, interpreter directory
+  `/opt/hostedtoolcache/Python/3.14.10/x64`. It checked out GitHub's synthetic
+  merge `09f852b5f96af77b3f7119591c53c19856764ded`, merging the exact PR head
+  into base `408651629f027292c94f38f2c5aa0c1d3e24fe79`.
+  Actual invocation in the log: `pytest -p ci_test_growth "${args[@]}"`, with
+  JUnit/coverage options, four xdist workers (`--dist=loadgroup`), and
+  `PYTEST_MARKERS="not quarantine and not slow"`. Final summary at 20:51:42 UTC:
+  **49817 passed, 27 skipped, 3 xfailed in 550.41s**; finalization printed
+  **Total failures: 0** and **All checks passed!**.
+
+The hosted Python result proves the configured Gate selection on the supported
+runtime and integration merge. It does **not** establish the literal unfiltered
+`python -m pytest -q tests/` on the branch head. That exact acceptance remains
+unverified. No local full suite was run, as requested. The local default
+`/opt/anaconda3/bin/python3 --version` printed **Python 3.12.2**, below the
+repository's `requires-python = ">=3.13"`; it was not used to repeat the known
+consumer-install failure. Historical commands retain their actual interpreter
+paths as provenance, not as portable environment setup instructions.
+
+### Per-thread evidence prepared; remote dispositions not applied
+
+Live query returned **16 unresolved threads: 9 current and 7 outdated**.
+Outdated status alone is not a disposition. The following are individual
+current-head findings, not a blanket dismissal; comment IDs identify the
+original review conversations. Paths and line references describe head
+`8734263bd9fff4ebac312f953be1c33250901ad5`.
+
+| Review comment | Evidence-backed proposed disposition |
+| --- | --- |
+| 4472740088 (source author authentication) | Already fixed: `.github/scripts/auto_pilot_transitions.js:356-375` checks login and account type before parsing. `auto-pilot-transitions.test.js:431-467` exercises forged, missing-author, mismatched account type, quoted trusted, and later valid markers for both helpers. |
+| 4472740122 (consumer author authentication) | Already fixed in the consumer helper's same `isTrustedVerifyHandoffAuthor` and `findLatestVerifyHandoff` functions. The test loop at `auto-pilot-transitions.test.js:427-431` explicitly loads the consumer module and runs the author rejection cases. |
+| 4472740146 (consumer fixture selection) | Already fixed: `tests/workflows/test_auto_pilot_verify_handoff.py:243-246` checks `"consumer-repo" in workflow.parts` and selects the template helper. Python Gate evidence above is scoped to its actual CI selection. |
+| 4493674877 (source meta regex) | Inapplicable injection claim: `textReferencesIssue` at source lines 379-385 rejects everything except a positive decimal ID with `/^[1-9]\\d*$/` before interpolation. No regex metacharacter can enter the pattern. Selection regression at `auto-pilot-transitions.test.js:469-478` also rejects prefix issue references. No suppression or regex rewrite needed. |
+| 4493674930 (source closing regex) | Same digit-only guard precedes the second `RegExp` at source lines 386-389. Both patterns contain only fixed regex syntax plus validated digits; no attacker-selected quantifier or grouping is interpolated. |
+| 4493674949 (consumer meta regex) | Consumer `textReferencesIssue` contains the same positive-decimal guard before the meta pattern; the shared regression loop loads the consumer helper independently. |
+| 4493674975 (consumer closing regex) | Consumer closing-reference pattern is also downstream of the same digit-only guard. This finding does not justify changing the existing implementation or security gate. |
+| 4493745964 (interpreter path) | Rejected as a change to historical evidence: owner instructions require the actual supported selected interpreter and exact commands. Replacing an observed executable with generic `python3` would obscure the Python 3.12.2 mismatch. Current supported hosted runtime and command are recorded above. |
+| 4493745983 (consumer marker position) | Already fixed: `findStandaloneVerifyHandoffMarkerLine` and `lineOutsideStructuralContext` at helper lines 98-139 reject fences/blockquotes and require the anchored marker line. Parser tests and the quoted trusted-bot regression run for both modules; full Node Gate passed. |
+| 4472665742 (outdated source PR selection) | Already fixed: `selectMergedClosingPr` is shared by context, Verify, and Done; regression at `auto-pilot-transitions.test.js:469-478` skips newer unmerged and prefix references. |
+| 4472740100 (outdated selection and step count) | Same shared selector; both workflows' step-count filter matches the emitted `🤖 **Auto-pilot step` prefix. No new implementation needed. |
+| 4472740112 (outdated keepalive docs) | Already fixed: `docs/keepalive/Agents.md:90-103` describes closure identity, trusted marker, event admission, found-only redispatch, and pending Maint 68/71 observations. |
+| 4472740135 (outdated consumer PR selection) | Consumer workflow uses `selectMergedClosingPr` for the same caller surfaces; both-module selection and workflow caller regressions are retained. |
+| 4493745915 (outdated source import path) | Already fixed: helper imports use `scriptsPath` / `WORKFLOWS_SCRIPTS_PATH`; workflow assertion at `auto-pilot-transitions.test.js:817` checks every transition import for source and consumer. |
+| 4493745951 (outdated evidence checklist) | Already fixed near this document's original protected-workflow checklist: explicitly marked HISTORICAL (RESOLVED), five checked items, and a pointer to #4451. Other older run reports remain historical records. |
+| 4493745991 (outdated consumer import path) | Same import-path correction and both-workflow assertion as 4493745915; no duplicate rewrite needed. |
+
+### First failed step and retained delivery boundary
+
+The first remote disposition attempt was a specific evidence reply to comment
+**4472740088** through `github_reply_to_review_comment`. The connector rejected
+it with: **"MCP tool call requires approval, but approval policy is never"**.
+No reply was posted, no thread was resolved, and no alternative write route
+was attempted. The first-failure stop rule therefore ended acceptance execution.
+The local evidence record is preserved on the existing branch for continuation.
+
+Blocking/drainable pair at stop: remote review dispositions are blocked by the
+connector approval policy; documenting already retrieved evidence and committing
+this evidence-only record remain drainable. Existing review, exact-head checks,
+post-push floor, merge guard, and verification requirements remain intact.
+
+- [ ] Apply individually justified remote dispositions using an authorized review writer.
+- [ ] Establish the required exact Python source-gate acceptance; hosted marker-filtered CI is recorded without claiming equivalence.
+- [ ] Qualify the new documentation commit's checks and review floor before guarded merge.
+- [ ] After guarded merge, deploy the named consumer through Maint 68, preserving its canary/promotion contract.
+- [ ] Record Maint 68/71 run IDs and actual #2454 thread disposition.
+- [ ] Observe subsequent sync-core activity and establish that #4365 bumps cease.
+
+No merge, consumer dispatch, Maint 71 observation, or bump-cessation result is
+claimed. PR-body completion claims predating this continuation do not override
+these remaining evidence gaps. Resumption requires an authorized review-write
+path; the existing closer retains the target and implementation.
