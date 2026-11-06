@@ -236,7 +236,9 @@ def slot_registry(request, monkeypatch):
     "history_provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
 )
 @pytest.mark.parametrize(
-    "override_position", [None, 1, 3], ids=["no-override", "invalid-slot", "valid-slot"]
+    "override_position",
+    [None, 1, 2, 3],
+    ids=["no-override", "invalid-slot", "retired-slot", "valid-slot"],
 )
 def test_a_missing_provider_cannot_become_a_retired_slot(
     registry_at,
@@ -285,6 +287,8 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
     valid_slot = slot_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-x")
     if override_position is not None:
         monkeypatch.setenv(f"LANGCHAIN_SLOT{override_position}_MODEL", "claude-y")
+    if override_position == 2:
+        monkeypatch.setenv("LANGCHAIN_SLOT2_PROVIDER", "anthropic")
 
     assert slot_registry._load_positional_slots() == [
         (2, "verifier-balanced", retired_slot, True),
@@ -296,7 +300,15 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
         if override_position == 3
         else valid_slot
     )
-    assert slot_registry.resolve_slots() == [expected_slot]
+    expected_slots = [expected_slot]
+    if override_position == 2:
+        # The provider guard must retain valid retired placeholders so an override
+        # can replace them, even when a preceding invalid slot was discarded.
+        expected_slots.insert(
+            0,
+            slot_registry.SlotDefinition(name="retired", provider="anthropic", model="claude-y"),
+        )
+    assert slot_registry.resolve_slots() == expected_slots
 
 
 @pytest.mark.parametrize(
