@@ -200,11 +200,10 @@ markers = [
 ]
 filterwarnings = [
     "error",
-    # LangSmith's pytest plugin still calls asyncio.iscoroutinefunction while
-    # loading. Python 3.14 deprecates that helper, which aborts collection
-    # (including `python3 -m pytest -q tests/`) when warnings are errors.
-    # Match the message only; other DeprecationWarnings still fail the run.
-    "ignore:.*asyncio\\.iscoroutinefunction.*:DeprecationWarning",
+    # LangSmith still calls asyncio.iscoroutinefunction while its pytest plugin
+    # loads. Python 3.14 deprecates that helper, which aborts the unmodified
+    # `python3 -m pytest -q tests/` gate before collection. Other warnings stay errors.
+    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning",
 ]
 
 [tool.coverage.run]
