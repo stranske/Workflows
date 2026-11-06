@@ -1,0 +1,179 @@
+version: 1
+issue: 4485
+base: main
+branch: codex/issue-4485
+tasks:
+  - id: task-01
+    title: Fix the source of the incompatible `provider` argument to `SlotDefinition`
+      at `tools/llm_registry.py:580`.
+    status: doing
+    started_at: '2026-11-06T18:24:59Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Locate the canonical source file that ships tools/llm_registry.py to consumer
+      repos (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'confirm the line that passes the optional provider to SlotDefinition (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Fix the type of the provider value passed to SlotDefinition by narrowing
+      or validating it so it is always a str before the call (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Run mypy on the fixed source file (verify: typecheck passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'confirm the arg-type error at the SlotDefinition call is gone (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: Add or extend a regression test reproducing the failure, using `pytest`
+      or `node --test`, whichever the source uses.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Add a pytest test that calls the llm_registry code path with a missing
+      provider value (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Add a pytest test that calls the llm_registry code path with asserts the
+      expected behavior (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Add a pytest test that calls the llm_registry code path with such as a
+      clear error or a defined default (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Add a pytest test that runs mypy on tools/llm_registry.py (verify: typecheck
+      passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'asserts a zero exit code, only if the repository already has a pattern
+      for this (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: '`Shipment-caused: Python CI / typecheck-mypy fails on synced tools/llm_`
+      passes on regenerated sync PR stranske/trip-planner#1957, verified with `gh
+      run view <run-id>`, and the repository''s test command passes locally.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      restores a passing test.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: The next sync-core round classifies stranske/trip-planner#1957 without
+      this finding.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: 'Fix the failure named in the title (`Shipment-caused: Python CI / typecheck-mypy
+      fails on synced tools/llm_`) at its source; the failing check''s log is linked
+      under Evidence and the sync PR is stranske/trip-planner#1957.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-17
+    title: Add or extend a test that reproduces the failure and passes after the fix
+      (`pytest` or `node --test`, whichever the source uses).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-18
+    title: 'Acceptance: the check passes on regenerated sync PR stranske/trip-planner#1957,
+      verified with `gh run view <run-id>`. (This depends on `.github/workflows/maint-68-sync-consumer-repos.yml`
+      regenerating the sync PR, and on CI in another repository. The agent cannot
+      modify workflows, retry CI pipelines, or trigger a regeneration. It also cannot
+      edit the generated sync PR, per the Non-Goals. | Have the agent limit its work
+      to fixing the source and passing local checks (mypy and pytest). A human or
+      the scheduled sync workflow should handle regeneration and verification on the
+      sync PR.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-19
+    title: 'Acceptance: the next sync-core round classifies stranske/trip-planner#1957
+      without this finding. (This is an external, asynchronous outcome of a sync-core
+      round. The agent cannot trigger or observe it. | Move this to a post-merge manual
+      verification step for a maintainer, outside the agent''s completion criteria.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-20
+    title: 'Acceptance: re-introduce the reported behaviour, confirm the test fails,
+      then revert. (This is a process step, not a code deliverable. The agent can
+      do it locally, but the result is not visible in the final diff. | Ask the agent
+      to describe the deliberate-break check in the PR description, or rephrase it
+      as a criterion: the regression test fails on the pre-fix code and passes on
+      the fixed code.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
