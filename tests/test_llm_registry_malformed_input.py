@@ -211,6 +211,35 @@ def _clear_slot_env(monkeypatch):
             monkeypatch.delenv(key, raising=False)
 
 
+@pytest.mark.parametrize(
+    "provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
+)
+def test_a_missing_provider_cannot_become_a_retired_slot(
+    registry_at, slots_at, monkeypatch, provider_fields
+):
+    """Malformed retirement history must not admit a SlotDefinition with provider=None."""
+    _clear_slot_env(monkeypatch)
+    registry_at(
+        {
+            "models": [{"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"}],
+            "selections": [],
+            "selection_history": [{"profile": "verifier-balanced", "superseded_by": "retired"}],
+        }
+    )
+    slots_at(
+        {
+            "slots": [
+                {"name": "invalid", "model": "unusable", **provider_fields},
+                {"name": "valid", "provider": "anthropic", "model": "claude-x"},
+            ]
+        }
+    )
+    valid_slot = llm_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-x")
+
+    assert llm_registry._load_positional_slots() == [(2, "verifier-balanced", valid_slot, False)]
+    assert llm_registry.load_slot_config() == [valid_slot]
+
+
 def test_a_skipped_retired_slot_does_not_shift_numbered_overrides(slots_at, monkeypatch):
     _clear_slot_env(monkeypatch)
     slots_at(

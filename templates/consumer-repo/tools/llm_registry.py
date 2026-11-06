@@ -571,7 +571,7 @@ def _load_positional_slots(
         explicit_model = str(entry.get("model", "")).strip()
         configured_profile = str(entry.get("profile") or "").strip()
         profile = configured_profile or DEFAULT_SELECTION_PROFILE
-        if (profile, provider) in retired:
+        if provider is not None and (profile, provider) in retired:
             name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
             slots.append(
                 (

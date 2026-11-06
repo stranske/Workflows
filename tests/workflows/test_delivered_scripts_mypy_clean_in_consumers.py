@@ -46,3 +46,29 @@ def test_delivered_ledger_scripts_type_check_in_a_consumer_layout(tmp_path):
     )
     assert result.returncode == 0, result.stdout
     assert "Success: no issues found in 3 source files" in result.stdout
+
+
+@pytest.mark.skipif(not mypy_available, reason="mypy is not installed")
+@pytest.mark.parametrize("source_tree", [".", "templates/consumer-repo"])
+def test_delivered_llm_registry_type_checks_in_a_consumer_layout(tmp_path, source_tree):
+    """Consumer settings must catch optional providers passed to SlotDefinition (#4485)."""
+    package = tmp_path / "tools"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    shutil.copy(ROOT / source_tree / "tools/llm_registry.py", package / "llm_registry.py")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "tools/llm_registry.py",
+            "--warn-unused-ignores",
+            "--no-incremental",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
