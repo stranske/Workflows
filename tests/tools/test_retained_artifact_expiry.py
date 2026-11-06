@@ -238,7 +238,14 @@ def test_cli_rejects_classify_with_manifest():
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "tools/verifier_event_recovery.py"
     completed = subprocess.run(
-        [sys.executable, str(script), "--classify-retained-artifact", "x.json", "--manifest", "y.json"],
+        [
+            sys.executable,
+            str(script),
+            "--classify-retained-artifact",
+            "x.json",
+            "--manifest",
+            "y.json",
+        ],
         check=False,
         capture_output=True,
         text=True,

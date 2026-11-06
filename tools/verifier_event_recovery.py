@@ -897,7 +897,10 @@ def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str,
             else (OWNER_EXPIRY_DECISION if not actions_authenticated else None)
         ),
     }
-    if outcome == AUTHENTICATED_RETAINED_READBACK and observation.get("admission_result_evidence") is True:
+    if (
+        outcome == AUTHENTICATED_RETAINED_READBACK
+        and observation.get("admission_result_evidence") is True
+    ):
         result["native_admission_succeeded"] = True
     return result
 
@@ -945,10 +948,13 @@ def classify_retained_artifact_report(payload: dict[str, Any]) -> dict[str, Any]
     comment_ids = [row["comment_id"] for row in classified]
     known_comment_ids = set(KNOWN_RETAINED_ARTIFACTS.keys())
     pair_complete = len(classified) == 2 and set(comment_ids) == known_comment_ids
-    any_incomplete = any(row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE for row in classified)
+    any_incomplete = any(
+        row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE for row in classified
+    )
     outcomes = {row["outcome"] for row in classified}
     clean = bool(classified) and all(
-        row["original_event_accepting"] is False and row["provider_calls"] == 0 for row in classified
+        row["original_event_accepting"] is False and row["provider_calls"] == 0
+        for row in classified
     )
     only_known_comments = bool(comment_ids) and all(cid in known_comment_ids for cid in comment_ids)
     incomplete_observation_set = not pair_complete and (
