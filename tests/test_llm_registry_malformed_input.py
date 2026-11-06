@@ -15,8 +15,11 @@ nobody allowed — so the failure is silent by construction and the contract was
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
+import sys
+from pathlib import Path
 
 import pytest
 from tools import llm_registry
@@ -211,6 +214,21 @@ def _clear_slot_env(monkeypatch):
             monkeypatch.delenv(key, raising=False)
 
 
+@pytest.fixture(params=["canonical", "consumer-template"])
+def slot_registry(request, monkeypatch):
+    """Exercise provider validation in both the source and the shipped template."""
+    if request.param == "canonical":
+        return llm_registry
+    path = Path(__file__).resolve().parents[1] / "templates/consumer-repo/tools/llm_registry.py"
+    spec = importlib.util.spec_from_file_location("consumer_slot_registry", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # Dataclasses resolve their defining module through sys.modules during import.
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+    return module
+
+
 @pytest.mark.parametrize(
     "provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
 )
@@ -221,7 +239,13 @@ def _clear_slot_env(monkeypatch):
     "override_position", [None, 1, 3], ids=["no-override", "invalid-slot", "valid-slot"]
 )
 def test_a_missing_provider_cannot_become_a_retired_slot(
-    registry_at, slots_at, monkeypatch, provider_fields, history_provider_fields, override_position
+    registry_at,
+    slots_at,
+    monkeypatch,
+    slot_registry,
+    provider_fields,
+    history_provider_fields,
+    override_position,
 ):
     """Reject missing providers without shifting numbered overrides onto other slots."""
     _clear_slot_env(monkeypatch)
@@ -255,22 +279,24 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
             ]
         }
     )
-    retired_slot = llm_registry.SlotDefinition(name="retired", provider="openai", model="old-model")
-    valid_slot = llm_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-x")
+    retired_slot = slot_registry.SlotDefinition(
+        name="retired", provider="openai", model="old-model"
+    )
+    valid_slot = slot_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-x")
     if override_position is not None:
         monkeypatch.setenv(f"LANGCHAIN_SLOT{override_position}_MODEL", "claude-y")
 
-    assert llm_registry._load_positional_slots() == [
+    assert slot_registry._load_positional_slots() == [
         (2, "verifier-balanced", retired_slot, True),
         (3, "verifier-balanced", valid_slot, False),
     ]
-    assert llm_registry.load_slot_config() == [valid_slot]
+    assert slot_registry.load_slot_config() == [valid_slot]
     expected_slot = (
-        llm_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-y")
+        slot_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-y")
         if override_position == 3
         else valid_slot
     )
-    assert llm_registry.resolve_slots() == [expected_slot]
+    assert slot_registry.resolve_slots() == [expected_slot]
 
 
 @pytest.mark.parametrize(
@@ -278,7 +304,7 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
 )
 @pytest.mark.parametrize("override", [False, True], ids=["no-override", "model-override"])
 def test_an_allowlist_with_only_a_missing_provider_remains_empty(
-    registry_at, slots_at, monkeypatch, provider_fields, override
+    registry_at, slots_at, monkeypatch, slot_registry, provider_fields, override
 ):
     """An invalid identity cannot enable defaults or acquire an identity via overrides."""
     _clear_slot_env(monkeypatch)
@@ -294,9 +320,9 @@ def test_an_allowlist_with_only_a_missing_provider_remains_empty(
         monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "anthropic")
         monkeypatch.setenv("LANGCHAIN_SLOT1_MODEL", "claude-x")
 
-    assert llm_registry.load_slot_config() == []
-    assert llm_registry.resolve_slots() == []
-    assert llm_registry.configured_model_for_provider("anthropic", fallback="claude-x") == ""
+    assert slot_registry.load_slot_config() == []
+    assert slot_registry.resolve_slots() == []
+    assert slot_registry.configured_model_for_provider("anthropic", fallback="claude-x") == ""
 
 
 def test_a_skipped_retired_slot_does_not_shift_numbered_overrides(slots_at, monkeypatch):
