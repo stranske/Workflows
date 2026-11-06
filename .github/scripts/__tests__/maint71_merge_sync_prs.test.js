@@ -2526,6 +2526,33 @@ test('refresh identity includes the sorted candidate set, scope, source, branch 
   assert.equal(decide([failure]).eligible, false);
 });
 
+test('later same-payload success closes an older cancelled refresh window', () => {
+  const drift = 'ab'.repeat(32);
+  const candidates = ['stranske/Ready', 'stranske/Template'];
+  const sha = 'a'.repeat(40);
+  const now = Date.parse('2026-11-06T12:54:41Z');
+  const cancelled = producerRun({ id: 42220291945, conclusion: 'cancelled',
+    created_at: '2026-11-06T12:46:55Z', run_started_at: '2026-11-06T12:46:55Z',
+    updated_at: '2026-11-06T12:47:30Z' });
+  const success = producerRun({ id: 42220562715, created_at: '2026-11-06T12:49:03Z',
+    run_started_at: '2026-11-06T12:49:03Z' });
+  const held = canaryRefreshDecision({ runs: [cancelled], sha, candidates, driftKey: drift, now });
+  assert.equal(held.eligible, false);
+  assert.equal(held.state, 'cancelled');
+  const released = canaryRefreshDecision({ runs: [success, cancelled], sha, candidates, driftKey: drift, now });
+  assert.equal(released.eligible, true, 'older cancellation must not skip a recovery after delivery');
+  assert.equal(released.state, 'unseen');
+  assert.equal(released.producer_succeeded, false, 'unkeyed success does not consume the new recovery key');
+  const plain = canaryRefreshDecision({ runs: [success, cancelled], sha, candidates, now });
+  assert.equal(plain.eligible, false);
+  assert.equal(plain.state, 'success');
+  const newerCancel = producerRun({ id: 99, conclusion: 'cancelled',
+    created_at: '2026-11-06T12:53:00Z', run_started_at: '2026-11-06T12:53:00Z' });
+  const stillHeld = canaryRefreshDecision({ runs: [newerCancel, success], sha, candidates, driftKey: drift, now });
+  assert.equal(stillHeld.eligible, false);
+  assert.equal(stillHeld.state, 'cancelled');
+});
+
 test('unreadable or truncated history and changed main configuration fail closed', async () => {
   for (const truncated of [false, true]) {
     const pages = [];

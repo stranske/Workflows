@@ -258,8 +258,14 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const active = matching.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status));
   const writer = runs.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status)
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
+  // A later same-payload success closes the retry window. An older cancelled
+  // or failed producer must not keep a new recovery key in `skipped (cancelled)`
+  // after that delivery. A newer non-success still holds every key.
+  const newestSuccess = matching.filter((run) => !run.refresh_not_started && !run.refresh_unknown
+    && run.status === 'completed' && run.conclusion === 'success').sort(newestRefreshExecution)[0];
   const recent = matching.find((run) => run.status === 'completed' && run.conclusion !== 'success'
-    && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
+    && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS
+    && !(newestSuccess && newestRefreshExecution(newestSuccess, run) < 0));
   const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
   const prior = active || writer || unknown || successful || recent;
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
