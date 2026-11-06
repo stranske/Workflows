@@ -3565,10 +3565,18 @@ Coordinated negative subjects use shared descriptor-aware URL tokens and a bound
 ### Stable canary refresh clock
 
 Full-scope report refreshes retain the verified campaign source commit and pass
-its expected plan ID to Maint 68. An immutable-identity block may request
+its expected plan ID to Maint 68. The in-loop stable refresh does the same
+when the canary carries that sha256 plan and source, including when current
+main has moved ahead; mixed campaign sources refuse before dispatch. An
+immutable-identity block may request
 `refresh-candidate-from-exact-plan` only with a complete full-scope campaign
 tuple and a freshly authenticated candidate for the same compiled plan. Mixed
-plan/source requests refuse before dispatch. The refresh step persists
+plan/source requests refuse before dispatch. A later same-payload Maint 68
+success retires an older failure or cancellation, so that stale non-success
+does not hold a new recovery key for the rest of the six-hour window. A
+guarded success that skipped `Authorize canary payload mutation` is not that
+delivery: it does not consume the recovery key. A non-success newer than every
+authorizing success still holds. The refresh step persists
 `canary_refresh.refresh_dispatched`, `held_plans`, and `drainable` in the merge
 report after dispatch. It also emits a `candidate refresh receipt:` line in
 the refresh step's logs and summary, binding those counts to `source_commit`

@@ -177,6 +177,13 @@ def test_external_merge_lanes_require_runtime_ac_guard():
     guarded_merge_job = template_followups_text.split("guarded-merge:", 1)[1]
     guarded_merge_checkout = guarded_merge_job.split("- name: Merge labelled agent PRs", 1)[0]
     assert ".github/scripts/runtime_ac_merge_guard.js" in guarded_merge_checkout
+    # The job log prints the inline script. The pass sentence must stay in the
+    # required helper so it appears only when that helper actually runs.
+    assert "Runtime AC merge guard passed" not in template_followups_text
+    guard_text = template_guard.read_text(encoding="utf-8")
+    root_guard_text = Path(".github/scripts/runtime_ac_merge_guard.js").read_text(encoding="utf-8")
+    assert guard_text == root_guard_text
+    assert "core.info(`Runtime AC merge guard passed for PR #${prNumber}.`)" in guard_text
 
     merge_workflows = [
         *WORKFLOWS_DIR.glob("*.yml"),
@@ -316,8 +323,14 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "mergeBoundaryLinkedIssue !== finalLinkedIssue",
         "Linked issue changed at the final merge boundary.",
         "const mergeBoundaryTaskFailure = uncheckedTaskFailure(",
-        "const linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr)",
+        "Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}",
+        "await reportTaskRefusal(prNumber, expectedHead, reason)",
+        "linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr)",
         "taskFailure = uncheckedTaskFailure(pr, linkedIssueSnapshot)",
+        # Option (a): progress is the PR body. The source snapshot is identity and
+        # version only, so a fully checked PR is not latched by raw issue boxes.
+        "const unchecked = countUnchecked(pr?.body)",
+        "Source identity/version remain binding; progress lives in the PR.",
         "mergeBoundaryLinkedIssueSnapshot.body !== finalLinkedIssueSnapshot.body",
         "mergeBoundaryLinkedIssueSnapshot.updatedAt !== finalLinkedIssueSnapshot.updatedAt",
         "Linked issue changed during final merge validation.",
@@ -333,6 +346,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "const triggeringObservation = await reviewWindowObservation(",
         "reviewObservationKey(triggeringPrNumber, triggeringHeadSha)",
         "(issue) => Number(issue.number) === triggeringPrNumber",
+        "the PR task block is authoritative.",
         "sha: headSha",
         "const cleanupPr = await loadPullRequest(prNumber)",
         "inferIssue(cleanupPr)",
@@ -341,6 +355,29 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         assert contract in guarded_merge
     assert re.search(r"paginateWithRetry\(\s*github\.rest\.checks\.listForRef", guarded_merge)
     assert "inferIssue(pr?.body || '') || 0" not in guarded_merge
+    task_failure = re.search(
+        r"function uncheckedTaskFailure\(pr, linkedIssueSnapshot\) \{(?P<body>.*?)\n            \}",
+        guarded_merge,
+        re.DOTALL,
+    )
+    assert task_failure, "uncheckedTaskFailure must stay a single guarded-merge helper"
+    task_failure_body = task_failure.group("body")
+    assert task_failure_body.count("countUnchecked(") == 1
+    assert "countUnchecked(linkedIssueSnapshot" not in task_failure_body
+    assert "linkedIssueSnapshot.body" not in task_failure_body
+    assert "linkedIssueSnapshot?.body" not in task_failure_body
+    boundary_refusal = re.search(
+        r"if \(mergeBoundaryTaskFailure\) \{(?P<body>.*?)\n                \}",
+        guarded_merge,
+        re.DOTALL,
+    )
+    assert boundary_refusal, "merge-boundary task refusal must stay explicit"
+    assert "await reportTaskRefusal(prNumber, expectedHead, reason)" in boundary_refusal.group(
+        "body"
+    )
+    assert boundary_refusal.group("body").index(
+        "await reportTaskRefusal("
+    ) < boundary_refusal.group("body").index("return reason")
     assert ".github/scripts/source_context.js" in guarded_merge
     assert guarded_merge.index("mergeBoundaryPr,") > guarded_merge.index("const finalThreadFailure")
     assert guarded_merge.index("client.rest.pulls.merge") > guarded_merge.index(
