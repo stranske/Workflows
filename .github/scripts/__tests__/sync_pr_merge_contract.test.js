@@ -82,6 +82,7 @@ const {
   validateCanaryEvidence,
   validateExpectedCandidateIdentity,
   validateSourceDeltaEvidenceBinding,
+  refreshedSourceRepin,
 } = require('../sync_pr_merge_contract');
 const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
 const {
@@ -4297,4 +4298,35 @@ test('canary packet provenance must match its row even with zero review debt', (
     }
     assert.equal(packet.reviewThreads.length, count);
   }
+});
+
+
+test('refreshedSourceRepin re-pins only a canary-phase candidate produced by a successful Maint 68 run', () => {
+  const refreshed = 'c'.repeat(40);
+  const expected = 'e'.repeat(40);
+  const metadata = { plan_id: 'sha256:' + 'a'.repeat(64), plan_scope: 'full', source_commit: refreshed,
+    source_sha: refreshed, sync_phase: 'canary', consumer_repo: 'stranske/Ready' };
+  const deliveryRecord = { plan_id: metadata.plan_id, source_commit: refreshed };
+  const errors = ['metadata_source_commit_mismatch', 'metadata_source_sha_mismatch', 'delivery_source_commit_mismatch'];
+  const run = (overrides = {}) => ({ id: 7, status: 'completed', conclusion: 'success', head_branch: 'main',
+    display_title: `Maint 68 canary full source=${refreshed} candidates=* dry=false`, ...overrides });
+  const base = { metadata, deliveryRecord, identityErrors: errors, expectedPlanId: metadata.plan_id,
+    expectedPlanScope: 'full', expectedScopeBaseSha: '', expectedSourceCommit: expected,
+    repository: 'stranske/Ready', branch: 'sync/workflows-candidate', refreshRuns: [run()], defaultBranch: 'main' };
+  assert.deepEqual(refreshedSourceRepin(base), { plan_id: metadata.plan_id, plan_scope: 'full', scope_base_sha: '',
+    source_commit: refreshed, repinned_from: expected, refresh_run_id: 7 });
+  // a promoted delivery PR is never re-pinned by a canary run
+  assert.equal(refreshedSourceRepin({ ...base, branch: 'sync/workflows-delivery' }), null);
+  assert.equal(refreshedSourceRepin({ ...base, branch: 'refs/heads/sync/workflows-delivery' }), null);
+  // a candidate outside the canary phase is not
+  assert.equal(refreshedSourceRepin({ ...base, metadata: { ...metadata, sync_phase: 'promote' } }), null);
+  // any identity error beyond the three source fields keeps the block
+  assert.equal(refreshedSourceRepin({ ...base, identityErrors: [...errors, 'metadata_plan_id_mismatch'] }), null);
+  // an inconsistent candidate (record disagrees with metadata) keeps the block
+  assert.equal(refreshedSourceRepin({ ...base, deliveryRecord: { ...deliveryRecord, source_commit: 'f'.repeat(40) } }), null);
+  // the producing run must be successful, on the source default branch, and cover this consumer
+  assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ conclusion: 'failure' })] }), null);
+  assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ head_branch: 'master' })] }), null);
+  assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ display_title: `Maint 68 canary full source=${refreshed} candidates=stranske/trip-planner dry=false` })] }), null);
+  assert.equal(refreshedSourceRepin({ ...base, defaultBranch: 'master', refreshRuns: [run({ head_branch: 'master' })] }).refresh_run_id, 7);
 });

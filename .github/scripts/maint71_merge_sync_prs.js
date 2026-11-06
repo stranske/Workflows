@@ -4738,8 +4738,10 @@ async function run({ github, context, core }) {
             expectedScopeBaseSha,
             expectedSourceCommit,
             repository: `${owner}/${repo}`,
+            branch: pr.head.ref,
             refreshRuns: await listCanaryRefreshRuns(),
-            defaultBranch: pr.base?.repo?.default_branch || 'main',
+            // the runs live in THIS repository (Workflows), so its default branch is the one that counts
+            defaultBranch: context.payload?.repository?.default_branch || 'main',
           });
           if (repin) {
             console.log(`Candidate source refreshed by Maint 68 run ${repin.refresh_run_id}: re-pinning the campaign handoff `
@@ -4762,6 +4764,11 @@ async function run({ github, context, core }) {
               source_commit: repin.source_commit,
               repinned_from: repin.repinned_from,
               refresh_run_id: repin.refresh_run_id,
+              // The baseline evidence input is validated against the OLD expected source and would be
+              // rejected on the next run; the re-pinned continuation starts without it and Maint 71's
+              // normal evidence path (candidate_evidence_required -> Maint 68) reacquires it for the
+              // refreshed source when a no-change canary needs it.
+              canary_baseline_evidence_json: '',
               identity_errors: identity.errors,
             });
             continue;

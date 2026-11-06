@@ -1652,12 +1652,17 @@ function refreshedSourceRepin({
   expectedScopeBaseSha = '',
   expectedSourceCommit = '',
   repository = '',
+  branch = '',
   refreshRuns = [],
   defaultBranch = 'main',
 } = {}) {
+  // Only a canary-phase candidate is produced by a canary refresh run. A promoted delivery PR with
+  // the same three source errors is not re-pinned: a canary run proves nothing about a delivery.
+  if (branchNameFromRef(branch) !== SYNC_CANDIDATE_BRANCH) return null;
+  if (!metadata || !deliveryRecord) return null;
+  if (String(metadata.sync_phase || '').trim() !== 'canary') return null;
   const errors = (Array.isArray(identityErrors) ? identityErrors : []).map((error) => String(error));
   if (errors.length === 0 || !errors.every((error) => REFRESHED_SOURCE_ERRORS.has(error))) return null;
-  if (!metadata || !deliveryRecord) return null;
   const refreshed = String(metadata.source_commit || '').trim().toLowerCase();
   if (!/^[a-f0-9]{40}$/.test(refreshed)) return null;
   if (String(metadata.source_sha || '').trim().toLowerCase() !== refreshed) return null;
