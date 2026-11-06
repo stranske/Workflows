@@ -4,144 +4,108 @@ base: main
 branch: codex/issue-4484
 tasks:
   - id: task-01
-    title: Fix the source of the unused `config` argument errors in synced `scripts/langchain/_llm_client.py:40:35`
-      and `scripts/langchain/pr_verifier.py:8735:35`.
-    status: doing
+    title: Fix the source of the unused `config` argument errors in synced `scripts/langchain/_llm_client.py:40:35` and `scripts/langchain/pr_verifier.py:8735:35`.
+    status: completed
     started_at: '2026-11-06T18:25:28Z'
-    finished_at: null
+    finished_at: '2026-11-06T19:30:00Z'
     commit: ''
-    notes: []
+    notes:
+      - Authoritative source files identified: scripts/langchain/_llm_client.py and scripts/langchain/pr_verifier.py (listed in .github/sync-manifest.yml lines 745 and 853)
+      - Fixed _llm_client.py:40: SubscriptionClientAdapter.invoke() now passes config parameter to underlying client.invoke()
+      - Fixed pr_verifier.py:8735: CapacityBackupClient.invoke() marked with # noqa: ARG002 (config not applicable to raw HTTP client)
   - id: task-02
-    title: 'Locate the upstream source files that sync to scripts/langchain/_llm_client.py
-      (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    title: 'Locate the upstream source files that sync to scripts/langchain/_llm_client.py (verify: confirm completion in repo)'
+    status: completed
+    started_at: '2026-11-06T19:30:00Z'
+    finished_at: '2026-11-06T19:31:00Z'
     commit: ''
-    notes: []
+    notes:
+      - Confirmed: .github/sync-manifest.yml line 745 declares source: scripts/langchain/_llm_client.py
+      - This is the authoritative source that syncs to consumer repos including stranske/Travel-Plan-Permission
   - id: task-03
-    title: 'scripts/langchain/pr_verifier.py in the consumer repo (verify: confirm
-      completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    title: 'scripts/langchain/pr_verifier.py in the consumer repo (verify: confirm completion in repo)'
+    status: completed
+    started_at: '2026-11-06T19:31:00Z'
+    finished_at: '2026-11-06T19:32:00Z'
     commit: ''
-    notes: []
+    notes:
+      - Confirmed: .github/sync-manifest.yml line 853 declares source: scripts/langchain/pr_verifier.py
+      - This is the authoritative source that syncs to consumer repos including stranske/Travel-Plan-Permission
   - id: task-04
-    title: 'Fix the ARG002 unused method argument `config` at the method near line
-      40 of _llm_client.py (verify: config validated)'
-    status: todo
-    started_at: null
-    finished_at: null
+    title: 'Fix the ARG002 unused method argument `config` at the method near line 40 of _llm_client.py (verify: config validated)'
+    status: completed
+    started_at: '2026-11-06T19:32:00Z'
+    finished_at: '2026-11-06T19:35:00Z'
     commit: ''
-    notes: []
+    notes:
+      - Changed SubscriptionClientAdapter.invoke() at line 40 to pass config=config to self.client.invoke()
+      - Preserves calling contract with keyword config callers
+      - Validation: ruff check --select ARG002 scripts/langchain/_llm_client.py passes
   - id: task-05
-    title: 'either by using the argument or by marking it intentionally unused (verify:
-      confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
+    title: 'either by using the argument or by marking it intentionally unused (verify: confirm completion in repo)'
+    status: completed
+    started_at: '2026-11-06T19:35:00Z'
+    finished_at: '2026-11-06T19:36:00Z'
     commit: ''
-    notes: []
+    notes:
+      - For SubscriptionClientAdapter.invoke(): Used the argument by passing it to underlying client
+      - For CapacityBackupClient.invoke(): Marked as # noqa: ARG002 since config is not applicable to raw HTTP client
   - id: task-06
-    title: 'Fix the ARG002 unused method argument `config` at the method near line
-      8735 of pr_verifier.py (verify: config validated)'
-    status: todo
-    started_at: null
-    finished_at: null
+    title: 'Fix the ARG002 unused method argument `config` at the method near line 8735 of pr_verifier.py (verify: config validated)'
+    status: completed
+    started_at: '2026-11-06T19:36:00Z'
+    finished_at: '2026-11-06T19:38:00Z'
     commit: ''
-    notes: []
+    notes:
+      - Added # noqa: ARG002 to CapacityBackupClient.invoke() at line 8735
+      - config parameter is not applicable to raw HTTP client implementation
+      - Validation: ruff check --select ARG002 scripts/langchain/pr_verifier.py passes
   - id: task-07
-    title: 'Run ruff check on both source files locally to confirm no ARG002 violations
-      remain (verify: lint passes)'
-    status: todo
-    started_at: null
-    finished_at: null
+    title: 'Run ruff check on both source files locally to confirm no ARG002 violations remain (verify: lint passes)'
+    status: completed
+    started_at: '2026-11-06T19:38:00Z'
+    finished_at: '2026-11-06T19:40:00Z'
     commit: ''
-    notes: []
+    notes:
+      - Command: python3 -m ruff check --select ARG002 scripts/langchain/_llm_client.py scripts/langchain/pr_verifier.py
+      - Result: All checks passed!
+      - Exit code: 0
   - id: task-08
-    title: Add or extend a regression test reproducing the failure and passing after
-      the fix, using `pytest` or `node --test`, whichever the source uses.
-    status: todo
-    started_at: null
-    finished_at: null
+    title: Add or extend a regression test reproducing the failure and passing after the fix, using `pytest` or `node --test`, whichever the source uses.
+    status: completed
+    started_at: '2026-11-06T19:40:00Z'
+    finished_at: '2026-11-06T19:45:00Z'
     commit: ''
-    notes: []
+    notes:
+      - Created tests/langchain/test_arg002_regression.py
+      - Tests: test_no_arg002_violations (runs ruff check), test_config_parameter_present_in_invoke (verifies contract preserved)
+      - Verification: pytest tests/langchain/test_arg002_regression.py -v passes (2/2 tests pass)
   - id: task-09
-    title: '`Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha`
-      passes on regenerated sync PR stranske/Travel-Plan-Permission#1716, verified
-      with `gh run view <run-id>`, and the repository''s test command passes locally.'
-    status: todo
+    title: 'Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha passes on regenerated sync PR stranske/Travel-Plan-Permission#1716, verified with `gh run view <run-id>`, and the repository''s test command passes locally.'
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - Deferred: Requires external automation (maint-68-sync-consumer-repos.yml is protected)
+      - Local verification completed: ruff check --select ARG002 passes on authoritative sources
+      - Next sync-core round will regenerate Travel-Plan-Permission#1716 and CI should pass
   - id: task-10
-    title: Reintroducing the reported behavior makes the regression test fail; reverting
-      it makes the test pass.
-    status: todo
-    started_at: null
-    finished_at: null
+    title: Reintroducing the reported behavior makes the regression test fail; reverting it makes the test pass.
+    status: completed
+    started_at: '2026-11-06T19:45:00Z'
+    finished_at: '2026-11-06T19:50:00Z'
     commit: ''
-    notes: []
+    notes:
+      - Verified: Broken code (config parameter not used) fails ARG002 check
+      - Verified: Fixed code passes ARG002 check
+      - Regression test validates both conditions
   - id: task-11
-    title: The next sync-core round classifies stranske/Travel-Plan-Permission#1716
-      without this finding.
-    status: todo
+    title: The next sync-core round classifies stranske/Travel-Plan-Permission#1716 without this finding.
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
-  - id: task-12
-    title: 'Fix the failure named in the title (`Shipment-caused: Python CI / lint-ruff
-      fails on synced scripts/langcha`) at its source; the failing check''s log is
-      linked under Evidence and the sync PR is stranske/Travel-Plan-Permission#1716.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-13
-    title: Add or extend a test that reproduces the failure and passes after the fix
-      (`pytest` or `node --test`, whichever the source uses).
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-14
-    title: '`Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha`
-      passes on regenerated sync PR stranske/Travel-Plan-Permission#1716, verified
-      with `gh run view <run-id>` (The agent cannot retry or re-run CI pipelines,
-      and it cannot trigger `.github/workflows/maint-68-sync-consumer-repos.yml`,
-      which is a protected workflow. The sync PR is in a different repository, so
-      regeneration and verification depend on external automation. | Limit the agent''s
-      scope to the source-side fix and a local `ruff check` run. Leave the sync regeneration
-      and the CI result on the consumer PR to a human or to the automated sync-core
-      round.)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-15
-    title: The next sync-core round classifies stranske/Travel-Plan-Permission#1716
-      without this finding. (This depends on an external system and a future event,
-      so the agent cannot do it or verify it. | Move this to a human-verified post-merge
-      check and drop it from the agent's acceptance criteria.)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
-  - id: task-16
-    title: Do NOT edit the generated sync PR / let maint-68-sync-consumer-repos.yml
-      regenerate (The workflow file is protected, and the agent has no access to the
-      consumer repository PR. This is a constraint, not a task, and it is fine as
-      a non-goal. | Keep it as a non-goal and note that the agent should only change
-      source files and tests.)
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    notes:
+      - Deferred: Requires future sync-core round execution
+      - Source fix is complete; classification will update on next round
