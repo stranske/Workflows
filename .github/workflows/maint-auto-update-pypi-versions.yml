@@ -40,13 +40,27 @@ jobs:
     name: Check PyPI for updates
     runs-on: ubuntu-latest
     steps:
+      # This lane commits a file under .github/workflows, which needs a token with workflow
+      # write. The Workflows App token (the same one Maint 68 uses to write workflow files
+      # into every consumer) is the primary credential; OWNER_PR_PAT is a fallback that must
+      # still be a classic PAT with the workflow scope. Until 2026-11-06 the lane required
+      # OWNER_PR_PAT alone, and it lacked that scope, so no proposal could be made.
+      - name: Mint Workflows App proposal token
+        id: proposal_app_token
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ secrets.WORKFLOWS_APP_ID }}
+          private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+
       - name: Checkout Workflows
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
-          # This lane commits a file under .github/workflows; the default
-          # Actions token cannot push that branch.
-          token: ${{ secrets.OWNER_PR_PAT || github.token }}
+          token: ${{ steps.proposal_app_token.outputs.token || secrets.OWNER_PR_PAT || github.token }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
@@ -86,12 +100,17 @@ jobs:
           && steps.policy.outputs.should_propose == 'true'
           && inputs.dry_run != true
         env:
-          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          GH_TOKEN: ${{ steps.proposal_app_token.outputs.token || secrets.OWNER_PR_PAT }}
+          APP_TOKEN_MINTED: ${{ steps.proposal_app_token.outputs.token != '' }}
         run: |
           set -euo pipefail
           if [ -z "$GH_TOKEN" ]; then
-            echo "OWNER_PR_PAT is required for a canonical source proposal" >&2
+            echo "No proposal token: the Workflows App token could not be minted and OWNER_PR_PAT is unset" >&2
             exit 1
+          fi
+          if [ "$APP_TOKEN_MINTED" = "true" ]; then
+            echo "Using the Workflows App token (contents, pull-requests and workflows: write)"
+            exit 0
           fi
           scopes=$(gh auth status --active --hostname github.com --json hosts --jq '.hosts["github.com"][0].scopes')
           if ! grep -Eq '(^|[,[:space:]])workflow([,[:space:]]|$)' <<<"$scopes"; then
@@ -145,7 +164,7 @@ jobs:
           && steps.policy.outputs.should_propose == 'true'
           && inputs.dry_run != true
         env:
-          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          GH_TOKEN: ${{ steps.proposal_app_token.outputs.token || secrets.OWNER_PR_PAT }}
         run: |
           # Configure git
           git config user.name "github-actions[bot]"
@@ -237,7 +256,7 @@ jobs:
           && inputs.dry_run != true
           && steps.create_pr.outputs.source_pr != ''
         env:
-          GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}
+          GH_TOKEN: ${{ steps.proposal_app_token.outputs.token || secrets.OWNER_PR_PAT }}
           SOURCE_PR: ${{ steps.create_pr.outputs.source_pr }}
         run: |
           set -euo pipefail
