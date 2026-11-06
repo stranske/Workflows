@@ -360,6 +360,45 @@ def test_an_allowlist_with_only_a_missing_provider_remains_empty(
     assert slot_registry.configured_model_for_provider("anthropic", fallback="claude-x") == ""
 
 
+def test_a_missing_provider_with_a_reviewed_profile_preserves_valid_slots(
+    registry_at, slots_at, monkeypatch, slot_registry
+):
+    """A reviewed profile supplies a model only after the slot identifies its provider."""
+    _clear_slot_env(monkeypatch)
+    profile = "explicit-review"
+    registry_at(
+        {
+            "models": [{"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"}],
+            "selections": [
+                {
+                    "provider": "anthropic",
+                    "model_id": "claude-x",
+                    "profile": profile,
+                    "status": "approved",
+                    "evidence_ids": ["review-1"],
+                }
+            ],
+            "selection_history": [{"profile": profile, "superseded_by": "retired"}],
+        }
+    )
+    slots_at(
+        {
+            "slots": [
+                {"name": "invalid", "profile": profile},
+                {"name": "reviewed", "provider": "anthropic", "profile": profile},
+            ]
+        }
+    )
+    # A provider-less retirement key must never create a provider-less placeholder,
+    # even though this profile has a valid reviewed model for another slot.
+    valid_slot = slot_registry.SlotDefinition(
+        name="reviewed", provider="anthropic", model="claude-x"
+    )
+    assert slot_registry._load_positional_slots() == [(2, profile, valid_slot, False)]
+    assert slot_registry.load_slot_config() == [valid_slot]
+    assert slot_registry.resolve_slots() == [valid_slot]
+
+
 def test_a_skipped_retired_slot_does_not_shift_numbered_overrides(slots_at, monkeypatch):
     _clear_slot_env(monkeypatch)
     slots_at(
