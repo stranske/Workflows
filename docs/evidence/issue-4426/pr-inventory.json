@@ -1,0 +1,250 @@
+{
+  "schema": "workflows.issue-4426-pr-inventory/v1",
+  "checked_on": "2026-11-06",
+  "observed_origin_main": "d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4",
+  "branch_main_ancestor": "7b92760527da7c9a7a5282005009b75f7d01cd2e",
+  "commands": [
+    "gh pr view 4000 --repo stranske/Workflows --json number,title,state,isDraft,mergedAt,mergeCommit,headRefOid,baseRefOid,url,files,body",
+    "gh pr view 4405 --repo stranske/Workflows --json number,title,state,isDraft,mergedAt,mergeCommit,headRefOid,baseRefOid,url,files,body",
+    "gh pr checks 4000 --repo stranske/Workflows",
+    "gh pr checks 4405 --repo stranske/Workflows",
+    "gh pr diff 4000 --repo stranske/Workflows",
+    "gh pr diff 4405 --repo stranske/Workflows",
+    "gh run view 39003191738 --repo stranske/Workflows",
+    "gh run view 41572113305 --repo stranske/Workflows",
+    "gh run view 38993296895 --repo stranske/Workflows",
+    "gh api repos/stranske/Workflows/actions/runs/39003191738/artifacts",
+    "gh api repos/stranske/Workflows/actions/runs/38993296895/artifacts",
+    "gh run download 41572113305 --repo stranske/Workflows",
+    "gh api --allow-escape-sequences repos/stranske/Workflows/actions/jobs/125707379450/logs"
+  ],
+  "pull_requests": {
+    "4000": {
+      "url": "https://github.com/stranske/Workflows/pull/4000",
+      "title": "test: cover verifier artifact boundary cases",
+      "state": "MERGED",
+      "is_draft": false,
+      "merged_at": "2026-10-17T04:35:51Z",
+      "head_oid": "faab1a08c210db85b803f4a54af408cc60bf792d",
+      "head_present_in_this_clone": false,
+      "head_confirmed_on_github": true,
+      "base_oid": "21c87da23935bb2466cb55361d3296d225a92b7e",
+      "merge_commit": "5b1c6424716c413871d4eda7f6a125fa070e097f",
+      "merge_commit_on_observed_main": true,
+      "body_path": "docs/evidence/issue-4426/pr-4000.body.md",
+      "body_sha256": "29647c755234eb8a9a5d33b79691fab29c659090a8c15d384c56c186bdfbe12c",
+      "files": [
+        {
+          "path": "tests/scripts/test_verifier_config.py",
+          "additions": 28,
+          "deletions": 0
+        }
+      ],
+      "added_tests": [
+        "test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts",
+        "test_terminal_artifact_coercion_and_pending_stage_edges",
+        "test_artifact_text_without_report_marker_and_duplicate_verdicts"
+      ],
+      "tests_on_observed_main": true,
+      "ci": {
+        "gate_run_id": 39003191738,
+        "gate_url": "https://github.com/stranske/Workflows/actions/runs/39003191738",
+        "gate_conclusion": "success",
+        "gate_head_sha": "faab1a08c210db85b803f4a54af408cc60bf792d",
+        "gate_event": "pull_request",
+        "gate_created_at": "2026-10-17T04:36:20Z",
+        "python_jobs": [
+          "python ci / python 3.12 pass",
+          "python ci / python 3.13 pass"
+        ],
+        "selftest_run_id": 38993296895,
+        "selftest_conclusion": "success",
+        "selftest_head_sha": "faab1a08c210db85b803f4a54af408cc60bf792d",
+        "selftest_url": "https://github.com/stranske/Workflows/actions/runs/38993296895"
+      },
+      "coverage_artifacts": {
+        "gate_run_total_count": 0,
+        "selftest_run_total_count": 0,
+        "available": false,
+        "unavailable_reason": "GitHub reports total_count 0 for Gate run 39003191738 and Selftest run 38993296895. No coverage artifact could be downloaded. This is missing evidence, not a measured coverage delta."
+      }
+    },
+    "4405": {
+      "url": "https://github.com/stranske/Workflows/pull/4405",
+      "title": "fix: finish stranske/Workflows#3998 (closer repair)",
+      "state": "OPEN",
+      "is_draft": false,
+      "merged_at": null,
+      "merge_commit": null,
+      "head_oid": "a60b49b4944297401630ddb31a733c61d74fc2c1",
+      "base_oid": "3e513d30e1b11b30bd6a2fdc224adbca97d85930",
+      "synthetic_merge_oid": "a1908589812a0bf736c52a8a2f61c69034582921",
+      "synthetic_merge_message": "Merge a60b49b4944297401630ddb31a733c61d74fc2c1 into 3e513d30e1b11b30bd6a2fdc224adbca97d85930",
+      "head_on_observed_main": false,
+      "body_path": "docs/evidence/issue-4426/pr-4405.body.md",
+      "body_sha256": "dda28a757d1f55c94ef7ae5a8d6071a6fca5fddc80c9f0efc4d52c969ae07f3c",
+      "files": [
+        {
+          "path": "tests/scripts/test_pr_verifier_config_and_report.py",
+          "additions": 11,
+          "deletions": 0
+        },
+        {
+          "path": "tests/scripts/test_pr_verifier_diff_path_parsing.py",
+          "additions": 158,
+          "deletions": 0
+        },
+        {
+          "path": "tests/scripts/test_verifier_config.py",
+          "additions": 10,
+          "deletions": 0
+        },
+        {
+          "path": "tests/tools/test_langchain_client.py",
+          "additions": 191,
+          "deletions": 0
+        }
+      ],
+      "added_tests_on_observed_main": false,
+      "added_tests": {
+        "tests/scripts/test_pr_verifier_config_and_report.py": [
+          "test_load_prompt_reads_prompt_file_when_present"
+        ],
+        "tests/scripts/test_pr_verifier_diff_path_parsing.py": [
+          "test_split_diff_files_parses_quoted_git_paths",
+          "test_split_diff_files_handles_rename_to_metadata",
+          "test_split_diff_files_rejects_malformed_quoted_header",
+          "test_split_diff_files_handles_copy_to_metadata",
+          "test_split_diff_files_treats_dev_null_as_empty_path",
+          "test_prompt_coverage_render_lists_optional_omissions_and_many_partials",
+          "test_budget_from_env_uses_positive_override",
+          "test_code_fence_marker_distinguishes_info_strings",
+          "test_summary_destination_paths_parses_encoded_and_plain_entries",
+          "test_summary_destination_paths_rejects_malformed_encoded_marker",
+          "test_summary_destination_paths_rejects_empty_encoded_destination",
+          "test_latest_verifier_report_rejects_malformed_comment_history"
+        ],
+        "tests/scripts/test_verifier_config.py": [
+          "test_slot_config_wrappers_delegate_to_registry"
+        ],
+        "tests/tools/test_langchain_client.py": [
+          "test_auto_select_skips_blocked_slot_model",
+          "test_build_chat_client_explicit_anthropic_provider",
+          "test_build_chat_client_auto_select_can_include_github_models_slot",
+          "test_build_chat_clients_skips_blocked_slot_model",
+          "test_build_chat_clients_auto_select_can_include_github_models_slot",
+          "test_build_chat_clients_warns_when_slot_has_no_resolved_model"
+        ]
+      },
+      "ci": {
+        "gate_run_id": 41572113305,
+        "gate_url": "https://github.com/stranske/Workflows/actions/runs/41572113305",
+        "gate_conclusion": "failure",
+        "gate_head_sha": "a60b49b4944297401630ddb31a733c61d74fc2c1",
+        "gate_event": "pull_request",
+        "gate_created_at": "2026-11-03T03:25:26Z",
+        "pytest_3_13": {
+          "conclusion": "success",
+          "tests": 50366,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 30
+        },
+        "pytest_3_14": {
+          "conclusion": "success",
+          "tests": 50366,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 30
+        },
+        "lint_ruff": {
+          "conclusion": "failure",
+          "job_id": 125707379450,
+          "message": "tests/tools/test_langchain_client.py:1391:5: F841 Local variable `FakeChatOpenAI` is assigned to but never used"
+        },
+        "summary_job": {
+          "conclusion": "failure",
+          "job_id": 125711119205
+        },
+        "lint_format_workflow_run_id": 41572113341,
+        "lint_format_workflow_conclusion": "failure"
+      },
+      "coverage_artifacts": {
+        "available": true,
+        "download_command": "gh run download 41572113305 --repo stranske/Workflows",
+        "coverage_json_sha256": "165ded8b0e301705966a8ec99b690d6a734c2092b5b8e311ab62c7fe6f1174a4",
+        "coverage_json_bytes": 3912536,
+        "coverage_tool": {
+          "format": 3,
+          "version": "7.17.0",
+          "branch_coverage": true,
+          "timestamp": "2026-11-03T03:35:58.157999"
+        },
+        "identity_note": "gh run view reports headSha a60b49b4944297401630ddb31a733c61d74fc2c1. gate-summary.md inside the same run names a1908589812a0bf736c52a8a2f61c69034582921, the pull_request synthetic merge of that head into base 3e513d30e1b11b30bd6a2fdc224adbca97d85930. coverage.json itself has no git SHA. These counters describe that unmerged run, not main.",
+        "python_3_14": {
+          "num_statements": 49421,
+          "covered_lines": 45694,
+          "missing_lines": 3727,
+          "num_branches": 19802,
+          "covered_branches": 17321,
+          "missing_branches": 2481,
+          "num_partial_branches": 1837,
+          "percent_covered_display": "91.03",
+          "percent_statements_covered_display": "92.46",
+          "summary_json_percent": 92.46,
+          "summary_json_percent_source": "coverage.json percent_statements_covered, not the blended percent_covered"
+        },
+        "python_3_13": {
+          "pytest_junit": true,
+          "coverage_json": false,
+          "coverage_xml": false,
+          "unavailable_reason": "The 3.13 summary.json records coverage_json false and coverage_xml false. The downloaded artifact has pytest junit, collection, and resources only. No 3.13 line or branch counters were recovered."
+        },
+        "targets": {
+          "scripts/sync_test_dependencies.py": {
+            "num_statements": 339,
+            "missing_lines": 3,
+            "num_branches": 158,
+            "missing_branches": 5,
+            "num_partial_branches": 5
+          },
+          "scripts/langchain/issue_pr_context.py": {
+            "num_statements": 359,
+            "missing_lines": 13,
+            "num_branches": 150,
+            "missing_branches": 9,
+            "num_partial_branches": 5
+          },
+          "scripts/langchain/verifier_config.py": {
+            "num_statements": 144,
+            "missing_lines": 0,
+            "num_branches": 70,
+            "missing_branches": 0,
+            "num_partial_branches": 0
+          },
+          "tools/langchain_client.py": {
+            "num_statements": 278,
+            "missing_lines": 1,
+            "num_branches": 104,
+            "missing_branches": 1,
+            "num_partial_branches": 1
+          },
+          "scripts/langchain/task_validator.py": {
+            "num_statements": 248,
+            "missing_lines": 3,
+            "num_branches": 70,
+            "missing_branches": 3,
+            "num_partial_branches": 3
+          },
+          "scripts/langchain/pr_verifier.py": {
+            "num_statements": 3221,
+            "missing_lines": 158,
+            "num_branches": 1316,
+            "missing_branches": 116,
+            "num_partial_branches": 80
+          }
+        }
+      }
+    }
+  }
+}

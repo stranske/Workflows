@@ -95,10 +95,25 @@ def parse_created_after(value: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
+def timestamp_text(record: Any, *keys: str) -> str | None:
+    """Return the first non-empty timestamp string among REST and ``gh`` CLI keys."""
+    if not isinstance(record, dict):
+        return None
+    for key in keys:
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return None
+
+
 def job_duration_seconds(job: dict[str, Any]) -> float | None:
-    """Return wall-clock seconds for a completed job, or None if timestamps missing."""
-    started = parse_github_timestamp(job.get("started_at") if isinstance(job, dict) else None)
-    completed = parse_github_timestamp(job.get("completed_at") if isinstance(job, dict) else None)
+    """Return wall-clock seconds for a completed job, or None if timestamps missing.
+
+    Accepts Actions REST names (``started_at``) and ``gh run view --json`` names
+    (``startedAt``). Issue #4284 retains the latter command's output.
+    """
+    started = parse_github_timestamp(timestamp_text(job, "started_at", "startedAt"))
+    completed = parse_github_timestamp(timestamp_text(job, "completed_at", "completedAt"))
     if started is None or completed is None:
         return None
     seconds = (completed - started).total_seconds()

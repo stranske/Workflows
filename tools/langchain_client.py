@@ -568,17 +568,31 @@ def build_chat_clients(
         if len(candidate_slots) >= 2:
             break
 
+    # A blocked override is a stored refusal for that provider. Consume it and
+    # keep the slot's reviewed model. Do not retry the refused model on the next
+    # provider when the caller did not name a second model. An unblocked model1
+    # still fills both slots, matching the previous shared-override behavior.
     primary_override = model1 or os.environ.get(ENV_MODEL)
-    secondary_override = model2 or model1
-    model_overrides = [primary_override, secondary_override]
+    used_override = False
     for idx, slot in enumerate(candidate_slots):
-        slot_model = model_overrides[idx] if idx < len(model_overrides) else None
-        slot_model = slot_model or slot.model
+        if idx == 0:
+            requested: str | None = primary_override
+        elif model2:
+            requested = model2
+        elif used_override or not model1:
+            requested = None
+        else:
+            requested = model1
+        if requested and _is_model_blocked(slot.provider, requested, registry=registry):
+            logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, requested)
+            used_override = True
+            requested = None
+        slot_model = requested or slot.model
         if not slot_model:
             logger.warning("Skipping LLM slot without a resolved model: %s", slot.name)
             continue
         if _is_model_blocked(slot.provider, slot_model, registry=registry):
-            logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, slot_model)
+            logger.warning("Skipping blocked LLM model: %s/%s", slot.provider, slot_model)
             continue
         if slot.provider == PROVIDER_OPENAI and openai_token and chat_openai_cls:
             with contextlib.suppress(Exception):
