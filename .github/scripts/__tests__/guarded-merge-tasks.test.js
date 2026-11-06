@@ -1044,7 +1044,7 @@ test('merge failure receipt regression fails when the publisher is removed and p
   assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
 });
 
-function installJobTokenFallback(c, actions, fallbackMerge) {
+function installJobTokenFallback(c, actions, fallbackMerge, primaryStatus = 403) {
   c.guardedMergeCredentialSource = () => 'SERVICE_BOT_PAT';
   c.process = { env: { GUARDED_MERGE_GITHUB_TOKEN: 'job-token' } };
   const fallback = {
@@ -1073,8 +1073,8 @@ function installJobTokenFallback(c, actions, fallbackMerge) {
   c.github.rest.pulls.merge = async () => {
     actions.push(['merge-primary']);
     const error = new Error('Resource not accessible by integration');
-    error.status = 403;
-    error.response = { status: 403, data: { message: 'Resource not accessible by integration' } };
+    error.status = primaryStatus;
+    error.response = { status: primaryStatus, data: { message: 'Resource not accessible by integration' } };
     throw error;
   };
   c.github.rest.users.getAuthenticated = async () => ({
@@ -1084,26 +1084,89 @@ function installJobTokenFallback(c, actions, fallbackMerge) {
   return fallback;
 }
 
-test('PAT HTTP 403 falls through to github.token and logs PUT 200', async () => {
-  const { c, actions } = mergeScanHarness();
-  installJobTokenFallback(c, actions, async (args) => {
-    actions.push(['merge-fallback', args]);
-    return { status: 200, data: { merged: true, merge_method: 'squash' } };
+for (const primaryStatus of [401, 403]) {
+  test(`PAT HTTP ${primaryStatus} falls through to github.token and logs PUT 200`, async () => {
+    const { c, actions } = mergeScanHarness();
+    installJobTokenFallback(c, actions, async (args) => {
+      actions.push(['merge-fallback', args]);
+      return { status: 200, data: { merged: true, merge_method: 'squash' } };
+    }, primaryStatus);
+
+    await c.runScan();
+
+    assert.deepEqual(actions.filter(([kind, message]) => kind === 'info' && String(message).startsWith('PUT /repos/')), [
+      ['info', `PUT /repos/o/r/pulls/42/merge - ${primaryStatus}`],
+      ['info', 'PUT /repos/o/r/pulls/42/merge - 200'],
+    ]);
+    assert.equal(actions.filter(([kind]) => kind === 'merge-primary').length, 1);
+    assert.equal(actions.filter(([kind]) => kind === 'merge-fallback').length, 1);
+    assert.deepEqual({ ...actions.find(([kind]) => kind === 'merge-fallback')[1] }, {
+      owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+    }, 'the fallback must merge only the head validated by the guards');
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[42]'],
+    ]);
+    assert.equal(actions.some(([kind, message]) =>
+      kind === 'warning' && String(message).includes(mergeFailureMarker)), false);
   });
+}
 
-  await c.runScan();
+for (const status of [405, 409, 422, 500]) {
+  test(`HTTP ${status} refuses merge without trying a different credential`, async () => {
+    const { c, actions, comments } = mergeScanHarness();
+    installJobTokenFallback(c, actions, async () => {
+      assert.fail('only authentication/authorization failures permit credential fallback');
+    });
+    c.actions = actions;
+    c.comments = comments;
+    installMergeFailurePublisher(c);
+    const message = 'Merge refused by GitHub';
+    failMerge(c, { status, message });
 
-  assert.deepEqual(actions.filter(([kind, message]) => kind === 'info' && String(message).startsWith('PUT /repos/')), [
-    ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
-    ['info', 'PUT /repos/o/r/pulls/42/merge - 200'],
-  ]);
-  assert.equal(actions.filter(([kind]) => kind === 'merge-primary').length, 1);
-  assert.equal(actions.filter(([kind]) => kind === 'merge-fallback').length, 1);
-  assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
-    ['output', 'merged', '[42]'],
-  ]);
-  assert.equal(actions.some(([kind, message]) =>
-    kind === 'warning' && String(message).includes(mergeFailureMarker)), false);
+    await c.runScan();
+
+    const note = `Merge failed: HTTP ${status} ${message}`;
+    assert.deepEqual(actions.filter(([kind]) => kind === 'merge-attempt'), [
+      ['merge-attempt', status],
+    ]);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+  });
+}
+
+test('a non-merged fallback response warns and upserts the final HTTP result', async () => {
+  const { c, actions, comments } = mergeScanHarness();
+  let finalStatus = 405;
+  let message = 'Branch policy prevents merge';
+  installJobTokenFallback(c, actions, async () => ({
+    status: finalStatus, data: { merged: false, message },
+  }));
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+
+  for (const status of [405, 409]) {
+    finalStatus = status;
+    message = status === 405 ? 'Branch policy prevents merge' : 'Head changed';
+    actions.length = 0;
+    await c.runScan();
+
+    const note = `Merge failed: HTTP ${status} ${message}`;
+    assert.deepEqual(actions.filter(([kind, warning]) => kind === 'warning'
+      && warning.startsWith('Merge failed:')), [['warning', note]]);
+    assert.equal(comments.length, 1, 'repeated failures must reuse the writer receipt');
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+    assert.ok(actions.some(([kind, line]) => kind === 'info'
+      && line === `PUT /repos/o/r/pulls/42/merge - ${status}`));
+    assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+  }
 });
 
 test('github.token HTTP 403 after the PAT still publishes one receipt', async () => {
