@@ -3642,9 +3642,9 @@ test('Maint 68 verified no-op keeps the existing head source identity in the bod
     `git() { printf '%s\\n' "$MSG"; }\nmatching_existing=${matching}\nmigrating_legacy_lifecycle=false\n${block}\n`
     + 'printf "%s|%s" "$body_source_commit" "$matching_existing"'], {
     encoding: 'utf8', env: { ...process.env, MSG: message, PLAN_ID: plan, PLAN_SCOPE: 'full',
-      PLAN_SOURCE_COMMIT: 'f'.repeat(40), existing_pr: '1716', existing_head: 'h'.repeat(40) } });
-  const trailers = (planId, scope, source) => ['chore: sync workflow templates from Workflows repo', '',
-    `Consumer-sync plan ID: ${planId}`, `Plan scope: ${scope}`, 'Scope base SHA: full', `Source commit: ${source}`].join('\n');
+      PLAN_SOURCE_COMMIT: 'f'.repeat(40), existing_pr: '1716', existing_head: 'h'.repeat(40), SCOPE_BASE_SHA: '' } });
+  const trailers = (planId, scope, source, base = 'full') => ['chore: sync workflow templates from Workflows repo', '',
+    `Consumer-sync plan ID: ${planId}`, `Plan scope: ${scope}`, `Scope base SHA: ${base}`, `Source commit: ${source}`].join('\n');
   // same plan, head produced from an older source: keep the head's source, keep the head
   let result = run(trailers(plan, 'full', 'c'.repeat(40)), 'true');
   assert.equal(result.status, 0, result.stderr);
@@ -3652,6 +3652,8 @@ test('Maint 68 verified no-op keeps the existing head source identity in the bod
   // trailers name another plan: regenerate a signed delivery under this run's source
   result = run(trailers(`sha256:${'b'.repeat(64)}`, 'full', 'c'.repeat(40)), 'true');
   assert.equal(result.stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope base (source-delta plans can share a plan id across bases): regenerate
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40), 'b'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
   // another scope, or a malformed source trailer: regenerate
   assert.equal(run(trailers(plan, 'source-delta', 'c'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
   assert.equal(run(trailers(plan, 'full', 'not-a-sha'), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);

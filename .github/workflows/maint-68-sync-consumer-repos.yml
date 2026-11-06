@@ -1464,16 +1464,18 @@ jobs:
             existing_message=$(git log -1 --format=%B "$existing_head" 2>/dev/null || true)
             existing_plan_trailer=$(sed -n 's/^Consumer-sync plan ID:[[:space:]]*//p' <<<"$existing_message" | head -n 1)
             existing_scope_trailer=$(sed -n 's/^Plan scope:[[:space:]]*//p' <<<"$existing_message" | head -n 1)
+            existing_base_trailer=$(sed -n 's/^Scope base SHA:[[:space:]]*//p' <<<"$existing_message" | head -n 1)
             existing_source_trailer=$(sed -n 's/^Source commit:[[:space:]]*//p' <<<"$existing_message" | head -n 1)
             if [ "$existing_plan_trailer" = "$PLAN_ID" ] \
               && [ "$existing_scope_trailer" = "$PLAN_SCOPE" ] \
+              && [ "$existing_base_trailer" = "${SCOPE_BASE_SHA:-full}" ] \
               && [[ "$existing_source_trailer" =~ ^[0-9a-f]{40}$ ]]; then
               body_source_commit="$existing_source_trailer"
               if [ "$body_source_commit" != "$PLAN_SOURCE_COMMIT" ]; then
                 echo "Existing PR #$existing_pr head was produced from $body_source_commit for this plan; keeping that source identity"
               fi
             else
-              echo "Existing PR #$existing_pr head's native trailers do not name plan $PLAN_ID ($PLAN_SCOPE); regenerating a signed delivery"
+              echo "Existing PR #$existing_pr head's native trailers do not name plan $PLAN_ID ($PLAN_SCOPE, base ${SCOPE_BASE_SHA:-full}); regenerating a signed delivery"
               matching_existing=false
               migrating_legacy_lifecycle=false
             fi
