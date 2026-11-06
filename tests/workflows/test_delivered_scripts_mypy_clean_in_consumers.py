@@ -76,6 +76,10 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
             "-m",
             "mypy",
             "tools/llm_registry.py",
+            # Exercise strict consumer checks without Workflows' tools.* override,
+            # which ignores errors and would hide the shipped arg-type failure.
+            "--disallow-untyped-defs",
+            "--warn-return-any",
             "--warn-unused-ignores",
             "--no-incremental",
         ],
@@ -86,9 +90,11 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
 
     if restore_bug:
         assert result.returncode == 1, result.stdout + result.stderr
+        errors = [line for line in result.stdout.splitlines() if ": error:" in line]
+        assert len(errors) == 1, result.stdout + result.stderr
         assert (
             'Argument "provider" to "SlotDefinition" has incompatible type "str | None"; '
             'expected "str"  [arg-type]'
-        ) in result.stdout
+        ) in errors[0]
     else:
         assert result.returncode == 0, result.stdout + result.stderr
