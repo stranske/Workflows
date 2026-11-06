@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from functools import lru_cache
+from datetime import UTC, datetime, timedelta
+from functools import cache, lru_cache
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from scripts import update_versions_from_pypi
+from scripts.dev_tool_update_policy import ROUTINE_WINDOW_WEEKDAY, should_propose_update
 from scripts.update_versions_from_pypi import (
     PACKAGE_MAPPING,
     VersionInfo,
@@ -48,6 +50,64 @@ def _pypi_reachable() -> bool:
 def _skip_if_pypi_unreachable() -> None:
     if not _pypi_reachable():
         pytest.skip("PyPI not reachable in this test environment")
+
+
+# The stale-pin gate and its drain must measure the same window (Workflows#4454).
+# The updater (`maint-auto-update-pypi-versions.yml`) proposes pin bumps only inside the
+# Monday UTC window (`scripts/dev_tool_update_policy.py`), so a pin that lags a release
+# published AFTER the most recent window started could not have been bumped yet and must
+# not fail every pull request until Monday. A pin that lags a release the updater could
+# already have proposed (published before that window started), or any lag inside the
+# window itself, is still a failure.
+ROUTINE_WINDOW_HOUR_UTC = 3  # the updater's cron: `0 3 * * 1`
+
+
+def _last_routine_window_start(now: datetime) -> datetime:
+    """The most recent Monday 03:00 UTC at or before ``now``."""
+    now = now.astimezone(UTC)
+    days_back = (now.weekday() - ROUTINE_WINDOW_WEEKDAY) % 7
+    start = (now - timedelta(days=days_back)).replace(
+        hour=ROUTINE_WINDOW_HOUR_UTC, minute=0, second=0, microsecond=0
+    )
+    if start > now:
+        start -= timedelta(days=7)
+    return start
+
+
+def _stale_pin_is_binding(
+    pinned: str, latest: str, latest_released_at: datetime | None, now: datetime
+) -> bool:
+    """Whether a pin lagging ``latest`` is a failure at ``now`` (see the note above)."""
+    if pinned == latest:
+        return False
+    if should_propose_update(now, security_override=False):
+        return True
+    if latest_released_at is None:
+        return True  # unknown release time: keep the strict reading
+    return latest_released_at.astimezone(UTC) <= _last_routine_window_start(now)
+
+
+@cache
+def _latest_release(package_name: str) -> tuple[str | None, datetime | None]:
+    """The latest PyPI version and the time its first file was uploaded."""
+    version = get_latest_pypi_version(package_name)
+    if not version:
+        return None, None
+    try:
+        url = f"https://pypi.org/pypi/{package_name}/{version}/json"
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            payload = json.load(resp)
+    except Exception:
+        return version, None
+    uploads = [
+        entry.get("upload_time_iso_8601")
+        for entry in payload.get("urls") or []
+        if entry.get("upload_time_iso_8601")
+    ]
+    if not uploads:
+        return version, None
+    released_at = datetime.fromisoformat(min(uploads).replace("Z", "+00:00"))
+    return version, released_at.astimezone(UTC)
 
 
 def _get_pypi_version_or_skip(package_name: str) -> str:
@@ -391,14 +451,16 @@ class TestConsumerRepoSampling:
                 continue
 
             current_version = current_pins[env_key]
-            latest_version = get_latest_pypi_version(package_name)
+            latest_version, released_at = _latest_release(package_name)
 
             if latest_version is None:
                 continue  # Skip if we can't reach PyPI
 
-            if current_version != latest_version:
+            now = datetime.now(UTC)
+            if _stale_pin_is_binding(current_version, latest_version, released_at, now):
                 stale_packages.append(
                     f"{package_name}: pinned={current_version}, latest={latest_version}"
+                    + (f" (released {released_at.isoformat()})" if released_at else "")
                 )
 
         if stale_packages:
@@ -408,6 +470,33 @@ class TestConsumerRepoSampling:
                 + "\n  ".join(stale_packages)
                 + "\n\nRun: python scripts/update_versions_from_pypi.py --apply"
             )
+
+    def test_stale_check_is_window_aware(self) -> None:
+        """Workflows#4454: the gate measures the same window its drain runs in.
+
+        (a) Wednesday, pin 7.17.1, 7.17.2 released Tuesday (after Monday's window) -> not binding;
+        (b) Monday (the window), same pins -> binding;
+        (c) any day, the pin lags a release published before the last window started -> binding.
+        """
+        monday = datetime(2026, 11, 2, 3, 0, tzinfo=UTC)
+        tuesday_release = datetime(2026, 11, 3, 18, 0, tzinfo=UTC)
+        wednesday = datetime(2026, 11, 4, 12, 0, tzinfo=UTC)
+        assert _last_routine_window_start(wednesday) == monday
+        assert _last_routine_window_start(monday) == monday
+        before_window = datetime(2026, 11, 2, 2, 59, tzinfo=UTC)
+        assert _last_routine_window_start(before_window) == monday - timedelta(days=7)
+        # (a)
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", tuesday_release, wednesday) is False
+        # (b)
+        next_monday = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", tuesday_release, next_monday) is True
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", None, monday) is True
+        # (c)
+        old_release = datetime(2026, 10, 30, 0, 0, tzinfo=UTC)
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", old_release, wednesday) is True
+        # unknown release time keeps the strict reading; an equal pin is never binding
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", None, wednesday) is True
+        assert _stale_pin_is_binding("7.17.2", "7.17.2", tuesday_release, wednesday) is False
 
     def test_template_sync_script_has_all_packages(self) -> None:
         """Verify the template sync script maps all the same packages."""
@@ -447,9 +536,10 @@ class TestConsumerRepoSampling:
                 continue
 
             our_version = current_pins[env_key]
-            pypi_version = get_latest_pypi_version(package_name)
+            pypi_version, released_at = _latest_release(package_name)
 
-            if pypi_version and our_version != pypi_version:
+            now = datetime.now(UTC)
+            if pypi_version and _stale_pin_is_binding(our_version, pypi_version, released_at, now):
                 mismatches.append(f"{package_name}: we have {our_version}, PyPI has {pypi_version}")
 
         if mismatches:

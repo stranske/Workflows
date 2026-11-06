@@ -10,7 +10,10 @@ name: Maint Auto-Update PyPI Versions
 
 on:
   schedule:
-    # Monday 03:00 UTC, before the consumer propagation window.
+    # Monday 03:00 UTC, before the consumer propagation window. The stale-pin test
+    # (tests/scripts/test_update_versions_from_pypi.py) is aware of this window: a pin that
+    # lags a release published after the window started is not a failure until the next
+    # window, so the gate and its drain measure the same period (Workflows#4454).
     - cron: '0 3 * * 1'
   workflow_dispatch:
     inputs:
