@@ -955,3 +955,91 @@ for (const fleet of fleetOpenerFixtures) {
     ]);
   });
 }
+
+const mergeFailureMarker = '<!-- agents-guarded-merge-result:v1 -->';
+
+function installMergeFailurePublisher(c) {
+  const actor = { login: 'stranske-automation-bot', id: 4242, type: 'User' };
+  c.guardedMergeCredentialSource = () => 'SERVICE_BOT_PAT';
+  c.github.rest.users.getAuthenticated = async () => ({ data: actor, headers: {} });
+  c.github.rest.issues.createComment = async (args) => {
+    c.actions.push(['create', args]);
+    c.comments.push({ id: 100 + c.comments.length, user: { ...actor }, body: args.body });
+  };
+  const reportStart = source.indexOf('            async function reportMergeFailure');
+  const reportEnd = source.indexOf('            // Resolve the default branch', reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'reportMergeFailure must be in the template');
+  vm.runInContext(source.slice(reportStart, reportEnd), c);
+  return actor;
+}
+
+function failMerge(c, { status = 403, message = 'Resource not accessible by integration' } = {}) {
+  c.github.rest.pulls.merge = async () => {
+    c.actions.push(['merge-attempt', status]);
+    const error = new Error(message);
+    error.status = status;
+    error.response = { status, data: { message } };
+    throw error;
+  };
+}
+
+test('HTTP merge failure publishes one warning and one marker receipt, then updates it', async () => {
+  const harness = mergeScanHarness();
+  const { c, actions, comments } = harness;
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+  const message = 'Resource not accessible by integration';
+  const note = `Merge failed: HTTP 403 ${message}`;
+  failMerge(c, { message });
+
+  await c.runScan();
+
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+  assert.equal(actions.some(([kind]) => kind === 'update'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+    ['output', 'merged', '[]'],
+  ]);
+
+  actions.length = 0;
+  await c.runScan();
+
+  assert.equal(comments.length, 1, 'a second failure must upsert the writer receipt');
+  assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 0);
+  assert.equal(actions.filter(([kind]) => kind === 'update').length, 1);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+});
+
+test('merge failure receipt regression fails when the publisher is removed and passes when restored', async () => {
+  const { c, actions, comments } = mergeScanHarness();
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+  const message = 'Repository rule violations found';
+  const note = `Merge failed: HTTP 405 ${message}`;
+  failMerge(c, { status: 405, message });
+  const publish = c.reportMergeFailure;
+
+  c.reportMergeFailure = async () => {};
+  await assert.rejects(async () => {
+    await c.runScan();
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  }, { code: 'ERR_ASSERTION' });
+  assert.equal(comments.length, 0);
+  assert.ok(actions.some(([kind]) => kind === 'merge-attempt'));
+  const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+  assert.deepEqual([...summaryRows[1]], ['#42', 'error', note]);
+
+  c.reportMergeFailure = publish;
+  comments.length = 0;
+  actions.length = 0;
+  await c.runScan();
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+});
