@@ -135,6 +135,7 @@ for (const [surface, workflowPath] of SURFACES) {
       prs: seed.prs || [],
       runs: seed.runs || [],
       knownLabels: new Set(seed.knownLabels || []),
+      labelCreateRaces: new Set(seed.labelCreateRaces || []),
       prLabels: new Map(Object.entries(seed.prLabels || {}).map(([k, v]) => [Number(k), new Set(v)])),
       issueLabels: new Set(seed.issueLabels || ['agents:auto-pilot']),
       timeline: seed.timeline || [],
@@ -226,6 +227,11 @@ for (const [surface, workflowPath] of SURFACES) {
           createLabel: async (params) => {
             record('issues.createLabel', params);
             if (denyLabelWrites) throw denied();
+            if (world.labelCreateRaces.has(params.name)) {
+              // another run created it between our 404 and this request
+              world.knownLabels.add(params.name);
+              throw Object.assign(new Error('Validation Failed: already_exists'), { status: 422 });
+            }
             world.knownLabels.add(params.name);
             return { data: { name: params.name } };
           },
@@ -358,6 +364,16 @@ for (const [surface, workflowPath] of SURFACES) {
     assert.equal(result.outputs.verify_handoff, 'found');
     assert.equal(world.calls.filter((c) => c.method === 'issues.createLabel').length, 0);
     assert.ok(!world.labelWrites.some((w) => w.issue === PR), 'PR label rewritten');
+    assert.ok(world.labelWrites.some((w) => w.issue === ISSUE && w.labels.includes('verify:pr-handoff')));
+  });
+
+  test(`${surface}: verify: a concurrent label creation (422) still completes the handoff`, async () => {
+    // Workflows#4366 review finding: two runs both see the label missing; the loser's
+    // createLabel answers 422. The handoff must re-read the label and continue.
+    const world = createWorld({ prs: [mergedPr(PR, ISSUE)], labelCreateRaces: ['verify:pr-handoff'] });
+    const result = await runVerify(world);
+    assert.equal(result.outcome, 'success', result.failures.join('; ') || result.error?.message);
+    assert.ok(world.calls.some((c) => c.method === 'issues.createLabel' && c.params.name === 'verify:pr-handoff'));
     assert.ok(world.labelWrites.some((w) => w.issue === ISSUE && w.labels.includes('verify:pr-handoff')));
   });
 

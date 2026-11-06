@@ -16,6 +16,7 @@ nobody allowed — so the failure is silent by construction and the contract was
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 from tools import llm_registry
@@ -199,3 +200,54 @@ def test_a_missing_registry_file_is_empty_not_an_exception(tmp_path, monkeypatch
     monkeypatch.setenv(llm_registry.ENV_MODEL_REGISTRY_CONFIG, str(tmp_path / "absent.json"))
     assert llm_registry.load_model_registry() == []
     assert llm_registry.load_selection_decisions() == []
+
+
+# --- Workflows#4367: overrides address configured positions; retirement is judged after overrides
+
+
+def _clear_slot_env(monkeypatch):
+    for key in list(os.environ):
+        if key.startswith("LANGCHAIN_SLOT") or key == "LANGCHAIN_MODEL":
+            monkeypatch.delenv(key, raising=False)
+
+
+def test_a_skipped_retired_slot_does_not_shift_numbered_overrides(slots_at, monkeypatch):
+    _clear_slot_env(monkeypatch)
+    slots_at(
+        {
+            "slots": [
+                {"name": "slot1", "provider": "github-models", "model": "openai/gpt-5"},
+                {"name": "slot2", "provider": "openai"},
+                {"name": "slot3", "provider": "anthropic"},
+            ]
+        }
+    )
+    anthropic = llm_registry.select_model_for_profile(provider="anthropic")
+    # The operator overrides slot 2 (openai); before the fix it landed on anthropic,
+    # because the retired slot 1 had been dropped before numbering.
+    monkeypatch.setenv("LANGCHAIN_SLOT2_MODEL", "gpt-6.1-terra")
+    resolved = llm_registry.resolve_slots()
+    assert [(s.name, s.provider) for s in resolved] == [("slot2", "openai"), ("slot3", "anthropic")]
+    assert resolved[0].model == "gpt-6.1-terra"
+    assert resolved[1].model == anthropic
+    # load_slot_config keeps its contract: usable slots only, retired one excluded
+    assert [s.provider for s in llm_registry.load_slot_config()] == ["openai", "anthropic"]
+
+
+def test_an_override_cannot_reintroduce_a_retired_selection(slots_at, monkeypatch):
+    _clear_slot_env(monkeypatch)
+    slots_at({"slots": [{"name": "slot1", "provider": "openai"}, {"name": "slot2", "provider": "anthropic"}]})
+    monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "github-models")
+    monkeypatch.setenv("LANGCHAIN_SLOT1_MODEL", "openai/gpt-5")
+    resolved = llm_registry.resolve_slots()
+    assert "github-models" not in [s.provider for s in resolved]
+    assert llm_registry.configured_model_for_provider("github-models") == ""
+
+
+def test_an_override_may_replace_a_retired_slot_with_a_current_selection(slots_at, monkeypatch):
+    _clear_slot_env(monkeypatch)
+    slots_at({"slots": [{"name": "slot1", "provider": "github-models"}, {"name": "slot2", "provider": "anthropic"}]})
+    monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "openai")
+    monkeypatch.setenv("LANGCHAIN_SLOT1_MODEL", "gpt-6.1-sol")
+    resolved = llm_registry.resolve_slots()
+    assert [(s.name, s.provider, s.model) for s in resolved][0] == ("slot1", "openai", "gpt-6.1-sol")
