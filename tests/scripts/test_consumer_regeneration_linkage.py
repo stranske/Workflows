@@ -6,6 +6,7 @@ import copy
 import subprocess
 from pathlib import Path
 
+import pytest
 from scripts.consumer_regeneration_linkage import (
     FULL_CONSUMER_REGENERATION_3900,
     regeneration_gaps,
@@ -51,7 +52,21 @@ def test_full_regeneration_links_qualification_promotion_and_reconciliation() ->
     assert len(delivered) == 16
 
 
+def _commit_present(sha: str) -> bool:
+    completed = subprocess.run(
+        ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+        cwd=REPO,
+        check=False,
+        capture_output=True,
+    )
+    return completed.returncode == 0
+
+
 def test_source_commit_contains_merged_3900() -> None:
+    # Gate Python CI checks out with fetch-depth 1, so historical SHAs are absent.
+    # Exit 128 from merge-base is "not a valid commit", not a failed ancestry check.
+    if not _commit_present(DEPENDENCY) or not _commit_present(SOURCE):
+        pytest.skip("dependency and source commits are absent from this checkout")
     completed = subprocess.run(
         ["git", "merge-base", "--is-ancestor", DEPENDENCY, SOURCE],
         cwd=REPO,
