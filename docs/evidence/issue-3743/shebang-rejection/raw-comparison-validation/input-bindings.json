@@ -8,8 +8,8 @@
     "bytes": 6653
   },
   "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
-    "sha256": "be46263796affc1b3bbe7aba545c492e2e798d6c7e6521f2991fd75e75840133",
-    "bytes": 27209
+    "sha256": "840ba69d31ef5d86ec0ecc98dbf075e9dbc3093a9f30985a54e5fd78c6a7f968",
+    "bytes": 27201
   },
   "scripts/check_deliberate_break.py": {
     "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",

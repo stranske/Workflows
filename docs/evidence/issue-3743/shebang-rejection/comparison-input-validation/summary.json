@@ -8,8 +8,8 @@
       "bytes": 12039
     },
     "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
-      "sha256": "be46263796affc1b3bbe7aba545c492e2e798d6c7e6521f2991fd75e75840133",
-      "bytes": 27209
+      "sha256": "840ba69d31ef5d86ec0ecc98dbf075e9dbc3093a9f30985a54e5fd78c6a7f968",
+      "bytes": 27201
     },
     "docs/evidence/issue-3743/shebang-rejection/replay.py": {
       "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
@@ -70,10 +70,10 @@
   },
   "archive": {
     "path": "proof.tar.gz",
-    "sha256": "c7c5c1b5cbbbf56ade1082f2e852ff1b2de72428b5242a8b0c454dd4b9683458",
-    "bytes": 42513,
+    "sha256": "62b84461a598e51b1ce59fe8fddba1ca0bba6df1733e7b2a9cf1808be4e1261d",
+    "bytes": 42520,
     "verified_manifest_members": 46,
-    "manifest_sha256": "4bfe89ac8e15bef4ae4ae51eea464cfbc12b1dfb48bdfa676273ab506799584e"
+    "manifest_sha256": "84ecff9a0a3e3d5418eafd531473fc7990c30f867d3934bf361ef14e9d688bcb"
   },
   "commands": {
     "literal-pytest": {

@@ -12,8 +12,8 @@
       "bytes": 6653
     },
     "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
-      "sha256": "be46263796affc1b3bbe7aba545c492e2e798d6c7e6521f2991fd75e75840133",
-      "bytes": 27209
+      "sha256": "840ba69d31ef5d86ec0ecc98dbf075e9dbc3093a9f30985a54e5fd78c6a7f968",
+      "bytes": 27201
     },
     "scripts/check_deliberate_break.py": {
       "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
@@ -111,10 +111,10 @@
   "stop_rule": "One literal attempt per command, 120 seconds each; no interpreter substitution for literal acceptance. Independent validation commands have 180-second limits.",
   "archive": {
     "path": "proof.tar.gz",
-    "sha256": "ba37b99ef0480bed32768eebf091d519cfbc2a14fb5ab1934a34ef42dc70329e",
-    "bytes": 26164,
+    "sha256": "54ab36ea0dfac98ae4aa75c64f065ca0df80d9360f677eb4c3c73282f528021f",
+    "bytes": 26168,
     "verified_manifest_members": 37,
-    "manifest_sha256": "251307b7dd7647176e40642ab451b8cf2b751069b885ffbc148bc8cf76246f76"
+    "manifest_sha256": "86e959690d4f61b58ab760c33a5c5d42474c40c4adcf042fd0d58b093f64a580"
   },
   "commands": {
     "literal-pytest": 127,
