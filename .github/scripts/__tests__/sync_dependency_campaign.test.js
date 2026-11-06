@@ -1993,3 +1993,39 @@ test('formatCampaignBody omits inactive superseded details from issue marker', (
   const summary = formatCampaignRunSummaryMarkdown(state);
   assert.equal(summary.includes('stale-excluded-warning'), false);
 });
+
+
+test('refreshed delivery handoff re-pins the continuation\'s immutable handoff', () => {
+  // Workflows#4466: Maint 71 reports delivery_handoff_repin for a candidate an accepted refresh moved to a
+  // newer source; the retained record for the same PR still pins the old source. The newer record wins and
+  // the next candidate continuation carries the refreshed source.
+  const base = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Travel', pr: 11,
+    branch: 'sync/workflows-candidate', delivery_generation: 'g1', plan_id: `sha256:${'a'.repeat(64)}`,
+    plan_scope: 'full', scope_base_sha: '', check_state: 'checks_pending', review_state: 'clear',
+  };
+  const stale = {
+    ...base, head_sha: 'old-head', source_commit: 'e'.repeat(40), disposition: 'source-binding-blocked',
+    blocker_owner: 'maint-68', next_command: 'refresh-candidate-from-exact-plan',
+    continuation: { class: 'transient', lane: 'candidate', reason: 'stable_base_refresh_required',
+      resume_after: '2026-11-06T01:00:00Z' },
+    observed_at: '2026-11-06T00:50:00Z',
+  };
+  const repinned = {
+    ...base, head_sha: 'new-head', source_commit: 'c'.repeat(40), disposition: 'source-repinned',
+    blocker_owner: 'maint-82', next_command: 'rerun-with-repinned-handoff',
+    continuation: { class: 'transient', lane: 'candidate', reason: 'delivery_handoff_repin',
+      resume_after: '2026-11-06T01:05:00Z' },
+    observed_at: '2026-11-06T01:05:00Z',
+  };
+  const merged = mergeDeliveryHandoffs([stale], [repinned], '2026-11-06T01:05:00Z');
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].source_commit, 'c'.repeat(40));
+  const planned = planMaint71Continuations(merged, { now: '2026-11-06T01:06:00Z' });
+  assert.deepEqual(planned.map((item) => item.lane), ['candidate']);
+  assert.equal(planned[0].immutable_handoff.source_commit, 'c'.repeat(40));
+  assert.equal(planned[0].immutable_handoff.plan_id, `sha256:${'a'.repeat(64)}`);
+  // Deliberate-break witness: with only the stale record, the continuation still pins the old source.
+  assert.equal(planMaint71Continuations([stale], { now: '2026-11-06T01:06:00Z' })[0]
+    .immutable_handoff.source_commit, 'e'.repeat(40));
+});

@@ -2112,6 +2112,18 @@ plan ID mismatch establishes lack of ownership, not supersession: Maint 71 repor
 transient Maint 82 continuation bound to the owning plan, source, scope and head. Stale-PR cleanup is likewise restricted to the selected plan.
 This prevents a delayed prior campaign from closing a newer candidate or delivery.
 
+The handoff follows the refresh. When a candidate carries the expected plan but
+a different source commit, consistently in its sync metadata and delivery record,
+and a successful `Maint 68 canary … source=<that commit>` run on the default
+branch produced it for that consumer, Maint 71 reports `delivery_handoff_repin`
+(`source-repinned`, owner `maint-82`, next command
+`rerun-with-repinned-handoff`) with the refreshed source instead of
+`delivery_contract_blocked`. Maint 82 retains that newer record for the PR and
+pins the next candidate continuation to the refreshed source, so an accepted
+refresh that moved past the handoff is re-bound on the following run rather
+than refused until the daily compile re-pins it. An inconsistent candidate, or
+one no Maint 68 run produced, stays `delivery_contract_blocked`.
+
 Active non-outdated findings remain visible and pass the shared relevance
 contract above; unknown and shared/sync-caused findings block. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated
