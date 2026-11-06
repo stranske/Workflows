@@ -308,7 +308,10 @@ for (const [surface, workflowPath] of SURFACES) {
     };
     const requireStub = (name) => {
       if (name.endsWith('/.github/scripts/github-api-with-retry.js')) return retryModule;
-      if (name.endsWith('/.github/scripts/auto_pilot_transitions.js')) {
+      if (
+        name === './.github/scripts/auto_pilot_transitions.js'
+        || name.endsWith('/.github/scripts/auto_pilot_transitions.js')
+      ) {
         return require('../../.github/scripts/auto_pilot_transitions.js');
       }
       throw new Error(`Unexpected require: ${name}`);

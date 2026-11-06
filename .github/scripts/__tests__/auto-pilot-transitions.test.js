@@ -19,6 +19,7 @@ const {
   formatVerifyHandoffMarker,
   isKeepaliveTasksComplete,
   normalizeForceStep,
+  parseVerifyHandoffMarker,
   redispatchForceStep,
   resolveCurrentState,
   transition,
@@ -145,7 +146,42 @@ test('keepalive completion guard matches compact state marker currently emitted 
   );
   assert.equal(
     isKeepaliveTasksComplete('<!-- keepalive-state:v1 {"last_action": "stop", "last_reason": "tasks-complete"} -->'),
+    true,
+  );
+});
+
+test('keepalive completion ignores quoted or fenced diagnostic copies', () => {
+  const valid = '<!-- keepalive-state:v1 {"last_action":"stop","last_reason":"tasks-complete"} -->\n';
+  assert.equal(
+    isKeepaliveTasksComplete(`diag: ${JSON.stringify(valid.trim())}`),
     false,
+  );
+  assert.equal(
+    isKeepaliveTasksComplete(['```', valid.trim(), '```'].join('\n')),
+    false,
+  );
+  assert.equal(
+    isKeepaliveTasksComplete(
+      valid
+        .trim()
+        .split('\n')
+        .map((line) => `> ${line}`)
+        .join('\n'),
+    ),
+    false,
+  );
+});
+
+test('verify handoff marker must be a standalone line with workflow JSON', () => {
+  const id = { closureId: '3001', sourcePr: '2454' };
+  const line = formatVerifyHandoffMarker(id);
+  assert.deepEqual(parseVerifyHandoffMarker(line), { closureId: '3001', sourcePr: '2454' });
+  assert.equal(parseVerifyHandoffMarker(`> ${line}`), null);
+  assert.equal(parseVerifyHandoffMarker(`"${line}"`), null);
+  assert.equal(parseVerifyHandoffMarker(['```', line, '```'].join('\n')), null);
+  assert.equal(
+    parseVerifyHandoffMarker(`quoted <!-- auto-pilot-verify-handoff:v1 ${JSON.stringify(id)} -->`),
+    null,
   );
 });
 
@@ -303,6 +339,11 @@ for (const [surface, transitions] of [
       closureId: '3001',
       sourcePr: '2454',
     });
+    const quotedTrusted = {
+      body: `"${marker}"`,
+      user: { login: 'github-actions[bot]', type: 'Bot' },
+    };
+    assert.equal(transitions.findLatestVerifyHandoff([quotedTrusted]), null);
     const newerTrusted = {
       body: transitions.formatVerifyHandoffMarker({ closureId: 3002, sourcePr: 2455 }),
       user: { login: 'stranske-automation-bot', type: 'User' },
@@ -475,11 +516,15 @@ for (const [surface, root] of [
     `);
     const scriptPath = path.join(temp, 'report.cjs');
     const outputPath = path.join(temp, 'result.json');
+    const transitionsPath = path.join(root, '.github/scripts/auto_pilot_transitions.js');
     const patchedScript = script
       .replace(/^ {12}/gm, '')
       .replace(
-        /require\('\.\/\.github\/scripts\/auto_pilot_transitions\.js'\)/g,
-        `require(${JSON.stringify(path.join(root, '.github/scripts/auto_pilot_transitions.js'))})`,
+        new RegExp(
+          'require\\(`\\$\\{scriptsPath\\}/\\.github/scripts/auto_pilot_transitions\\.js`\\)',
+          'g',
+        ),
+        `require(${JSON.stringify(transitionsPath)})`,
       )
       .replace(
         /require\('\.\/\.github\/scripts\/github-api-with-retry\.js'\)/g,
@@ -518,6 +563,8 @@ for (const [surface, root] of [
           CLOSURE_SOURCE_PR: identity.sourcePr ?? '',
           VERIFY_HANDOFF_CLOSURE_ID: identity.handoffClosureId ?? '',
           VERIFY_HANDOFF_SOURCE_PR: identity.handoffSourcePr ?? '',
+          WORKFLOWS_SCRIPTS_PATH: root,
+          GITHUB_WORKSPACE: root,
           RESULT_PATH: outputPath,
         },
         stdio: 'inherit',
@@ -653,5 +700,26 @@ for (const [surface, root] of [
     assert.ok(redispatch, 'workflow must define verify continuation redispatch');
     assert.match(redispatch, /steps\.next\.outputs\.next_step == 'verify'/);
     assert.match(redispatch, /steps\.verify_step\.outputs\.verify_handoff == 'found'/);
+  });
+
+  test(`${surface} workflow: every auto_pilot_transitions import uses scriptsPath or WORKFLOWS_SCRIPTS_PATH`, () => {
+    const workflow = fs.readFileSync(
+      path.join(root, '.github/workflows/agents-auto-pilot.yml'),
+      'utf8',
+    );
+    assert.doesNotMatch(
+      workflow,
+      /require\(['"]\.\/\.github\/scripts\/auto_pilot_transitions\.js['"]\)/,
+      'transition helper must not load from the workspace-relative ./ path',
+    );
+    assert.match(
+      workflow,
+      /require\(`\$\{scriptsPath\}\/\.github\/scripts\/auto_pilot_transitions\.js`\)/,
+    );
+    assert.match(
+      workflow,
+      /require\(\s*`\$\{process\.env\.WORKFLOWS_SCRIPTS_PATH\}\/\.github\/scripts\/auto_pilot_transitions\.js`\s*\)/,
+    );
+    assert.match(workflow, /const autoPilotTransitions = require\(`\$\{scriptsPath\}/);
   });
 }

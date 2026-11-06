@@ -256,3 +256,39 @@ black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
 ```
 
 Result: Node **114 passed**, Python **64 passed**, Black **891 files unchanged**.
+
+## Closer continuation (2026-11-06): scripts-path imports and marker parsers
+
+- **Behavioral change:** `auto_pilot_transitions` loads only from
+  `WORKFLOWS_SCRIPTS_PATH` / `scriptsPath` in github-script and embedded
+  `node` steps; `Determine next step` exports `WORKFLOWS_SCRIPTS_PATH` for the
+  whole run step so PR keepalive fetch and transition calls share the selected
+  checkout. Verify handoff markers must be a **standalone line** matching the
+  workflow JSON shape; quoted copies, blockquotes, and fenced bodies are
+  ignored. Keepalive **tasks-complete** detection uses `parseStateComment` on
+  standalone lines only (still accepts spaced JSON inside the marker).
+- **Deliberate break / restore (local):** Reverting to substring
+  `lastIndexOf` for the verify marker or accepting the prior string-match for
+  keepalive completion fails the new **quoted / fenced / blockquote** and
+  **workflow import path** regressions; restoration passes the focused Node
+  file again.
+
+```sh
+node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js tests/workflows/auto_pilot_verify_handoff.test.js
+/opt/anaconda3/bin/python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -p no:langsmith_plugin
+```
+
+Focused results (2026-11-06): Node **120 passed, 0 failed**; pytest **64 passed**.
+
+```sh
+node --test .github/scripts/__tests__/*.test.js
+/opt/anaconda3/bin/python3 -m pytest -q tests/ -p no:langsmith_plugin
+```
+
+Full gates (2026-11-06, same head): Node **3486 passed, 0 failed**, 1 skipped;
+pytest **49743 passed, 1 failed, 28 skipped**, exit **1**. The failure is
+`tests/test_integration_repo_template.py::test_integration_template_installs_and_tests`:
+editable install rejects **Python 3.12.2** because the temp consumer requires
+**>=3.13** — host interpreter constraint, not auto-pilot logic. **Maint 71 /
+Portable-Alpha-Extension-Model#2454 / sync-core stop bumping #4365** still
+require remote observation after merge; not claimed here.

@@ -198,7 +198,10 @@ const requireStub = (name) => {
       }),
     };
   }
-  if (name === './.github/scripts/auto_pilot_transitions.js') {
+  if (
+    name === './.github/scripts/auto_pilot_transitions.js'
+    || name.endsWith('/.github/scripts/auto_pilot_transitions.js')
+  ) {
     return requireModule(process.env.TRANSITIONS_MODULE);
   }
   throw new Error('Unexpected require: ' + name);

@@ -291,6 +291,7 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
+            const autoPilotTransitions = require(`${scriptsPath}/.github/scripts/auto_pilot_transitions.js`);
             const retryHelpers = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
             const { createTokenAwareRetry } = retryHelpers;
             const isRateLimitError = retryHelpers.isRateLimitError || ((error) => {
@@ -497,7 +498,7 @@ jobs:
               findLatestClosureEvent,
               findLatestVerifyHandoff,
               selectMergedClosingPr,
-            } = require('./.github/scripts/auto_pilot_transitions.js');
+            } = autoPilotTransitions;
             const latestClosure = findLatestClosureEvent(timelineEvents);
             const persistedHandoff = findLatestVerifyHandoff(comments);
             // Same merged-PR rule as Execute step - Verify. The last timeline
@@ -694,6 +695,7 @@ jobs:
           VERIFY_HANDOFF_SOURCE_PR: ${{ steps.context.outputs.verify_handoff_source_pr }}
         run: |
           SCRIPTS_PATH="${WORKFLOWS_SCRIPTS_PATH:-$GITHUB_WORKSPACE}"
+          export WORKFLOWS_SCRIPTS_PATH="$SCRIPTS_PATH"
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
           HAS_FORMAT="${{ steps.context.outputs.has_format }}"
           HAS_OPTIMIZER_OUTPUT="${{ steps.context.outputs.has_optimizer_output }}"
@@ -705,7 +707,7 @@ jobs:
           # Force step if specified (not 'auto')
           if [[ -n "$FORCE_STEP" && "$FORCE_STEP" != "auto" ]]; then
             set -e
-            WORKFLOWS_SCRIPTS_PATH="$SCRIPTS_PATH" FORCE_STEP="$FORCE_STEP" node - <<'NODE'
+            FORCE_STEP="$FORCE_STEP" node - <<'NODE'
           const fs = require('fs');
           const { determineNextStep } = require(
             `${process.env.WORKFLOWS_SCRIPTS_PATH}/.github/scripts/auto_pilot_transitions.js`
@@ -726,7 +728,8 @@ jobs:
           if [[ -n "$LINKED_PR" ]] && ! LINKED_PR="$LINKED_PR" node - <<'NODE' > "$PR_STATE_FILE"
           (async () => {
             const { Octokit } = require('@octokit/rest');
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
+            const { createTokenAwareRetry } = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
             const core = { info: () => {}, warning: console.warn, debug: () => {} };
             const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
             const { paginateWithRetry } = await createTokenAwareRetry({
@@ -2376,8 +2379,9 @@ jobs:
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { selectMergedClosingPr } = require('./.github/scripts/auto_pilot_transitions.js');
+            const { selectMergedClosingPr } = require(`${scriptsPath}/.github/scripts/auto_pilot_transitions.js`);
             const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -2446,7 +2450,7 @@ jobs:
             const {
               findLatestClosureEvent,
               formatVerifyHandoffMarker,
-            } = require('./.github/scripts/auto_pilot_transitions.js');
+            } = require(`${scriptsPath}/.github/scripts/auto_pilot_transitions.js`);
             let closureTimeline = [];
             try {
               closureTimeline = await paginateWithRetry(
@@ -4263,12 +4267,13 @@ jobs:
           VERIFY_HANDOFF_SOURCE_PR: ${{ steps.context.outputs.verify_handoff_source_pr }}
         with:
           script: |
+            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const {
               buildDetermineNextStepEventFromEnv,
               determineNextStep,
               selectMergedClosingPr,
-            } = require('./.github/scripts/auto_pilot_transitions.js');
+            } = require(`${scriptsPath}/.github/scripts/auto_pilot_transitions.js`);
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,

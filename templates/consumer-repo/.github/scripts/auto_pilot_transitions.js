@@ -1,5 +1,7 @@
 'use strict';
 
+const { parseStateComment } = require('./keepalive_state.js');
+
 const STATES = Object.freeze({
   CLOSED_VERIFIED: 'closed-verified',
   CLOSED_NEEDS_VERIFY: 'closed-needs-verify',
@@ -89,10 +91,74 @@ function normalizeForceStep(forceStep) {
   return step;
 }
 
+const VERIFY_HANDOFF_MARKER_LINE = new RegExp(
+  '^<!--\\s*auto-pilot-verify-handoff:v1\\s+(\\{[^]*\\})\\s*-->$',
+);
+
+function lineOutsideStructuralContext(line, { inFence, fenceDelim }) {
+  const t = String(line ?? '');
+  const trimmed = t.trim();
+  if (!trimmed) {
+    return { inFence, fenceDelim, usable: false };
+  }
+  if (inFence) {
+    if (fenceDelim && trimmed === fenceDelim) {
+      return { inFence: false, fenceDelim: '', usable: false };
+    }
+    return { inFence, fenceDelim, usable: false };
+  }
+  if (/^(`{3,}|~{3,})/.test(trimmed)) {
+    const delim = trimmed.match(/^(`{3,}|~{3,})/)[0];
+    return { inFence: true, fenceDelim: delim, usable: false };
+  }
+  if (trimmed.startsWith('>')) {
+    return { inFence, fenceDelim, usable: false };
+  }
+  return { inFence, fenceDelim, usable: true };
+}
+
+function findStandaloneVerifyHandoffMarkerLine(body) {
+  const text = String(body ?? '');
+  let inFence = false;
+  let fenceDelim = '';
+  const lines = text.split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const ctx = lineOutsideStructuralContext(lines[i], { inFence, fenceDelim });
+    inFence = ctx.inFence;
+    fenceDelim = ctx.fenceDelim;
+    if (!ctx.usable) {
+      continue;
+    }
+    const trimmed = lines[i].trim();
+    const match = trimmed.match(VERIFY_HANDOFF_MARKER_LINE);
+    if (match) {
+      return match[1];
+    }
+  }
+  return null;
+}
+
 function isKeepaliveTasksComplete(body) {
   const text = String(body ?? '');
-  return text.includes('"last_action":"stop"') &&
-    text.includes('"last_reason":"tasks-complete"');
+  let inFence = false;
+  let fenceDelim = '';
+  const lines = text.split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const ctx = lineOutsideStructuralContext(lines[i], { inFence, fenceDelim });
+    inFence = ctx.inFence;
+    fenceDelim = ctx.fenceDelim;
+    if (!ctx.usable) {
+      continue;
+    }
+    const trimmed = lines[i].trim();
+    const parsed = parseStateComment(trimmed);
+    if (!parsed || !parsed.data || typeof parsed.data !== 'object') {
+      continue;
+    }
+    const data = parsed.data;
+    return data.last_action === 'stop' && data.last_reason === 'tasks-complete';
+  }
+  return false;
 }
 
 function hasCurrentVerifyHandoff(event) {
@@ -273,18 +339,12 @@ function formatVerifyHandoffMarker(identity) {
 }
 
 function parseVerifyHandoffMarker(text) {
-  const body = String(text ?? '');
-  const start = body.lastIndexOf(VERIFY_HANDOFF_MARKER_PREFIX);
-  if (start < 0) {
-    return null;
-  }
-  const payloadStart = start + VERIFY_HANDOFF_MARKER_PREFIX.length;
-  const end = body.indexOf(' -->', payloadStart);
-  if (end < 0) {
+  const jsonSlice = findStandaloneVerifyHandoffMarkerLine(text);
+  if (!jsonSlice) {
     return null;
   }
   try {
-    return normalizeHandoffIdentity(JSON.parse(body.slice(payloadStart, end)));
+    return normalizeHandoffIdentity(JSON.parse(jsonSlice));
   } catch {
     return null;
   }
