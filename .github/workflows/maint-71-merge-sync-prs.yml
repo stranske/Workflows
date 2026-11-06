@@ -173,8 +173,13 @@ permissions:
 # selector, phase, plan, generation, head, or ref. GitHub retains at most one
 # pending holder and may replace it with a newer arrival; durable reconciliation
 # must replay displaced work from its immutable inputs.
+# The request-only maint71-review-reassessment event is not a body/head writer: it
+# reads the bound delivery and posts one thread reply (plus a best-effort review
+# request). In the shared group a queued request was silently replaced by the next
+# Maint 82 dispatch (2026-11-06: three of five requests cancelled before any job ran),
+# so it serializes only with other reassessment requests (its job-level group).
 concurrency:
-  group: consumer-sync-stable-pr-writers-${{ github.repository }}
+  group: ${{ github.event.action == 'maint71-review-reassessment' && format('maint71-review-reassessment-dispatch-{0}', github.repository) || format('consumer-sync-stable-pr-writers-{0}', github.repository) }}
   cancel-in-progress: false
 
 jobs:
