@@ -36,11 +36,13 @@ tasks:
     title: Add mypy regression test for consumer layout in test_delivered_scripts_mypy_clean_in_consumers.py
     status: done
     started_at: '2026-11-06T18:24:59Z'
-    finished_at: '2026-11-06T18:24:59Z'
-    commit: 15007d8c9c2cba28f7f35af8e03882db3d3e904f
+    finished_at: '2026-11-06T23:40:00Z'
+    commit: 749de0614bba309890324bf757bd1f9daadfed69
     notes:
       - task-12 assertion rolled into test_delivered_llm_registry_type_checks_in_a_consumer_layout
       - Tests both fixed and pre-fix (restore_bug) variants for canonical and consumer-template
+      - Mirrors trip-planner mypy.ini (explicit_package_bases / namespace_packages) and asserts
+        returncode == 0 so Workflows tools.* ignore_errors cannot hide the shipped arg-type bug
   - id: task-14
     title: Reintroducing the reported behavior makes the regression test fail; reverting
       restores a passing test.

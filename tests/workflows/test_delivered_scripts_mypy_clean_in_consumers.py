@@ -54,7 +54,12 @@ def test_delivered_ledger_scripts_type_check_in_a_consumer_layout(tmp_path):
 def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
     tmp_path, source_tree, restore_bug
 ):
-    """Consumer settings must catch optional providers passed to SlotDefinition (#4485)."""
+    """Consumer settings must catch optional providers passed to SlotDefinition (#4485).
+
+    Mirror trip-planner's mypy gate (explicit_package_bases / namespace_packages) rather
+    than Workflows' pyproject, which sets ignore_errors for tools.* and would hide the
+    shipped arg-type failure that sync-core reported on tools/llm_registry.py:580.
+    """
     package = tmp_path / "tools"
     package.mkdir()
     (package / "__init__.py").write_text("")
@@ -70,18 +75,23 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
             source.replace(guard, "if (profile, provider) in retired:"), encoding="utf-8"
         )
 
+    # Match the consumer pyproject knobs that surfaced the shipment-caused failure.
+    (tmp_path / "mypy.ini").write_text(
+        "[mypy]\nexplicit_package_bases = true\nnamespace_packages = true\n",
+        encoding="utf-8",
+    )
+
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "mypy",
-            "tools/llm_registry.py",
-            # Exercise strict consumer checks without Workflows' tools.* override,
-            # which ignores errors and would hide the shipped arg-type failure.
-            "--disallow-untyped-defs",
-            "--warn-return-any",
-            "--warn-unused-ignores",
+            "--config-file",
+            "mypy.ini",
+            "--cache-dir",
+            str(tmp_path / "mypy-cache"),
             "--no-incremental",
+            "tools/llm_registry.py",
         ],
         cwd=tmp_path,
         capture_output=True,
@@ -97,4 +107,6 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
             'expected "str"  [arg-type]'
         ) in errors[0]
     else:
+        # Zero exit code is the shipment gate; keep it explicit like other consumer
+        # typecheck regressions (tests/scripts/test_consumer_script_typecheck.py).
         assert result.returncode == 0, result.stdout + result.stderr
