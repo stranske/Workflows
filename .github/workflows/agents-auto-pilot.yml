@@ -2413,13 +2413,25 @@ jobs:
                 }));
               } catch (err) {
                 if (err?.status !== 404) throw err;
-                await withRetry((client) => client.rest.issues.createLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name,
-                  color,
-                  description,
-                }));
+                try {
+                  await withRetry((client) => client.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                    color,
+                    description,
+                  }));
+                } catch (createErr) {
+                  // A concurrent run for another issue can create the label between our
+                  // 404 and this request; GitHub then answers 422. Proceed only if the
+                  // label now exists (Workflows#4366 review finding).
+                  if (createErr?.status !== 422) throw createErr;
+                  await withRetry((client) => client.rest.issues.getLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                  }));
+                }
               }
             }
 
