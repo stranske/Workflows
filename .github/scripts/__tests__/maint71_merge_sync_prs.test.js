@@ -27,7 +27,7 @@ const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
   parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
   canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
-  CANARY_REFRESH_DEBOUNCE_MS, CANARY_SEALED_REFRESH_WAIT_MS, deferSealedCanaryRefresh, canaryRefreshDecision, readCanaryRefreshState,
+  CANARY_REFRESH_DEBOUNCE_MS, CANARY_SEALED_REFRESH_WAIT_MS, deferSealedCanaryRefresh, canaryRefreshDecision, canaryRefreshDiagnostics, readCanaryRefreshState,
   dispatchCanaryRefresh, dispatchCanaryPromotion,
   isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate, CANCELLED_GATE_MAX_ATTEMPT,
   missingCanaryDrains,
@@ -2524,6 +2524,118 @@ test('refresh identity includes the sorted candidate set, scope, source, branch 
   assert.equal(decide([failure]).eligible, true);
   failure.created_at = new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS + 1).toISOString();
   assert.equal(decide([failure]).eligible, false);
+});
+
+function refreshFailureJobs(jobs) {
+  return producerRun({ conclusion: 'failure', jobs });
+}
+
+test('an infrastructure-failed canary refresh does not debounce the next attempt', () => {
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const prepareOnly = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+  ]);
+  const state = decide([prepareOnly]);
+  assert.equal(state.eligible, true);
+  assert.equal(state.state, 'unseen');
+  const diagnostic = canaryRefreshDiagnostics(state);
+  assert.equal(diagnostic.inventory.infrastructure_failures, 1);
+  assert.deepEqual(diagnostic.failure_classification, [{ classification: 'infrastructure', run_id: prepareOnly.id }]);
+  const skippedSync = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+    { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'skipped' },
+    { name: 'Sync stranske/Template', status: 'completed', conclusion: 'skipped' },
+  ]);
+  assert.equal(decide([skippedSync]).eligible, true, 'a Sync job that never started is not a consumer failure');
+});
+
+test('a consumer-failed canary refresh still debounces for six hours', () => {
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const consumer = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+    { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'failure' },
+  ]);
+  const state = decide([consumer]);
+  assert.equal(state.eligible, false);
+  assert.equal(state.state, 'failure');
+  assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'consumer');
+  const atBoundary = { ...consumer, created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS).toISOString() };
+  assert.equal(decide([atBoundary]).eligible, true);
+  const insideWindow = { ...consumer, created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS + 1).toISOString() };
+  assert.equal(decide([insideWindow]).eligible, false);
+});
+
+test('a second consecutive infrastructure failure debounces for the same plan, source and candidates', () => {
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const infra = (id, minutesAgo) => producerRun({ id, conclusion: 'failure',
+    created_at: new Date(refreshNow - minutesAgo * 60000).toISOString(),
+    jobs: [{ name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' }] });
+  assert.equal(decide([infra(1, 30), infra(2, 5)]).eligible, false);
+  const otherSource = producerRun({ id: 9, conclusion: 'failure', head_sha: 'b'.repeat(40),
+    display_title: producerRun().display_title.replaceAll('a'.repeat(40), 'b'.repeat(40)),
+    jobs: [{ name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' }] });
+  assert.equal(decide([infra(1, 5), otherSource]).eligible, true,
+    'an infrastructure failure for a different source does not consume this key');
+  const consumer = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+    { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure' },
+  ]);
+  assert.equal(decide([infra(1, 20), consumer]).eligible, false, 'a consumer failure still holds beside one infrastructure failure');
+});
+
+test('the guard reads listJobsForWorkflowRunAttempt and exempts one prepare failure', async () => {
+  const failed = producerRun({ conclusion: 'failure', run_attempt: 2 });
+  const calls = [];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+    listJobsForWorkflowRunAttempt: async params => {
+      calls.push(params);
+      assert.equal(params.run_id, failed.id);
+      assert.equal(params.attempt_number, 2);
+      return { data: { total_count: 1, jobs: [
+        { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+      ] } };
+    },
+  } });
+  const state = await readCanaryRefreshState(api);
+  assert.equal(calls.length, 1);
+  assert.equal(state.eligible, true);
+  assert.equal(state.state, 'unseen');
+  assert.deepEqual(canaryRefreshDiagnostics(state).failure_classification, [
+    { classification: 'infrastructure', run_id: failed.id, run_attempt: 2 },
+  ]);
+  const aged = producerRun({ conclusion: 'failure', created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS).toISOString() });
+  const quiet = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [aged] } }),
+    listJobsForWorkflowRunAttempt: async () => { throw new Error('must not read jobs outside the debounce window'); },
+  } });
+  assert.equal((await readCanaryRefreshState(quiet)).eligible, true, 'an expired failure no longer holds');
+});
+
+test('unreadable refresh jobs and a failed Sync job keep the six-hour debounce', async () => {
+  const failed = producerRun({ conclusion: 'failure' });
+  const unreadable = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+    listJobsForWorkflowRunAttempt: async () => { throw new Error('API rate limit exceeded token=SECRET'); },
+  } });
+  const held = await readCanaryRefreshState(unreadable);
+  assert.equal(held.eligible, false);
+  assert.equal(held.state, 'failure');
+  assert.deepEqual(canaryRefreshDiagnostics(held).failure_classification, []);
+  const consumer = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+    listJobsForWorkflowRunAttempt: async () => ({ data: { total_count: 2, jobs: [
+      { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+      { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'failure' },
+    ] } }),
+  } });
+  const state = await readCanaryRefreshState(consumer);
+  assert.equal(state.eligible, false);
+  assert.equal(state.state, 'failure');
+  assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'consumer');
 });
 
 test('unreadable or truncated history and changed main configuration fail closed', async () => {

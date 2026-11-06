@@ -221,16 +221,62 @@ function refreshReceiptDiagnostic(run, receipt = {}, reason = receipt.reason) {
   if (['full', 'source-delta'].includes(receipt.plan_scope)) result.plan_scope = receipt.plan_scope;
   return result;
 }
+function syncJobStarted(job) {
+  if (!job || typeof job.name !== 'string' || !/^Sync \S/.test(job.name)) return false;
+  if (job.conclusion === 'skipped' || job.status === 'skipped' || job.conclusion == null) return false;
+  if (job.conclusion === 'cancelled') {
+    const steps = Array.isArray(job.steps) ? job.steps : [];
+    const executed = steps.some(step => step && step.conclusion && step.conclusion !== 'skipped');
+    const runner = (typeof job.runner_name === 'string' && job.runner_name !== '') || Number(job.runner_id) > 0;
+    return executed || runner;
+  }
+  return job.status === 'in_progress' || ['success', 'failure', 'timed_out', 'action_required'].includes(job.conclusion);
+}
+
+// Job evidence already read by the guard. Prepare dying before any Sync job
+// starts is infrastructure (rate limit, runner, or transport). A Sync job that
+// actually ran is a consumer failure and keeps the six-hour debounce.
+function canaryRefreshFailureClass(run) {
+  if (!run || run.status !== 'completed' || run.conclusion !== 'failure') return null;
+  const jobs = Array.isArray(run.refresh_jobs) ? run.refresh_jobs : Array.isArray(run.jobs) ? run.jobs : null;
+  if (!jobs) return null;
+  const prepareFailed = jobs.some(job => job?.name === 'Prepare sync from manifest' && job.conclusion === 'failure'
+    && job.status !== 'queued' && job.status !== 'in_progress' && job.status !== 'waiting');
+  const syncStarted = jobs.some(syncJobStarted);
+  if (prepareFailed && !syncStarted) return 'infrastructure';
+  if (syncStarted) return 'consumer';
+  return null;
+}
+
+function canaryRefreshFailureRows(runs) {
+  const rows = [];
+  for (const run of runs) {
+    const classification = canaryRefreshFailureClass(run);
+    if (classification !== 'infrastructure' && classification !== 'consumer') continue;
+    const row = { classification };
+    if (Number.isSafeInteger(run.id) && run.id > 0) row.run_id = run.id;
+    const attempt = Number(run.run_attempt);
+    if (Number.isSafeInteger(attempt) && attempt > 0) row.run_attempt = attempt;
+    rows.push(row);
+  }
+  return rows;
+}
+
 function canaryRefreshDiagnostics(state) {
   const runs = Array.isArray(state.runs) ? state.runs : [];
   const unknown = runs.filter(run => run.refresh_unknown);
+  const failureClassification = canaryRefreshFailureRows(runs);
   return { schema: 'workflows.canary-refresh-diagnostics/v1',
     state: ['unknown', 'success', 'unseen', 'writer-active', ...ACTIVE_SYNC_STATES,
       'failure', 'cancelled', 'timed_out', 'action_required', 'completed', 'sealed-cycle'].includes(state.state)
       ? state.state : 'unknown', eligible: state.eligible === true,
     inventory: { observed: runs.length, native_receipts: runs.filter(run => run.refresh_receipt).length,
       unknown: unknown.length, potential_overwrites: runs.filter(run => run.refresh_potential_overwrite).length,
-      confirmed_not_started: runs.filter(run => run.refresh_not_started).length },
+      confirmed_not_started: runs.filter(run => run.refresh_not_started).length,
+      infrastructure_failures: failureClassification.filter(row => row.classification === 'infrastructure').length,
+      consumer_failures: failureClassification.filter(row => row.classification === 'consumer').length },
+    failure_classification: failureClassification.slice(0, 8),
+    omitted_failure_classifications: Math.max(0, failureClassification.length - 8),
     blocking_receipt: unknown.find(run => run.id === state.run_id)?.refresh_receipt || null,
     refusals: unknown.slice(0, 8).map(run => run.refresh_receipt || refreshReceiptDiagnostic(run)),
     omitted_refusals: Math.max(0, unknown.length - 8) };
@@ -290,12 +336,20 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
     const at = observedAt(run);
     return Number.isFinite(at) && at > latest ? at : latest;
   }, 0);
-  const recent = matching.find((run) => {
+  const recentCandidates = matching.filter((run) => {
     const at = observedAt(run);
     return run.status === 'completed' && run.conclusion !== 'success'
       && Number.isFinite(at) && at > newestSuccessAt
       && now - at < CANARY_REFRESH_DEBOUNCE_MS;
   });
+  // `matching` is one (plan, source, candidates) key. A single infrastructure
+  // failure in that key does not debounce the next attempt. A second consecutive
+  // infrastructure failure falls back to this same six-hour hold so an outage
+  // cannot dispatch on every observation. Consumer-job failures always hold.
+  const infrastructureFailures = recentCandidates.filter(run => canaryRefreshFailureClass(run) === 'infrastructure');
+  const exemptInfrastructure = infrastructureFailures.length === 1;
+  const recent = recentCandidates.find(run => !exemptInfrastructure
+    || canaryRefreshFailureClass(run) !== 'infrastructure');
   const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
   const prior = active || writer || unknown || successful || recent;
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
@@ -305,6 +359,45 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
       : recent ? recent.conclusion || 'completed' : 'unseen',
     run_id: prior?.id,
     debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
+}
+
+async function listCanaryRefreshAttemptJobs(client, params) {
+  const actions = client.rest?.actions;
+  if (typeof actions?.listJobsForWorkflowRunAttempt !== 'function') return null;
+  const jobs = [];
+  for (let page = 1; page <= 10; page++) {
+    const response = await actions.listJobsForWorkflowRunAttempt({ ...params, per_page: 100, page });
+    const data = response?.data && typeof response.data === 'object' ? response.data : response;
+    const chunk = data?.jobs;
+    if (!Array.isArray(chunk)) return null;
+    jobs.push(...chunk);
+    if (chunk.length < 100) return jobs;
+    if (Number.isSafeInteger(data.total_count) && jobs.length >= data.total_count) return jobs;
+  }
+  // A truncated job list could hide a Sync job and look like infrastructure.
+  return null;
+}
+
+async function attachCanaryRefreshFailureEvidence({ runs, withRetry, location, now }) {
+  for (const run of runs) {
+    if (run.status !== 'completed' || run.conclusion !== 'failure') continue;
+    if (Array.isArray(run.refresh_jobs) || Array.isArray(run.jobs)) continue;
+    const at = Date.parse(run.updated_at || run.created_at);
+    if (!Number.isFinite(at) || now - at >= CANARY_REFRESH_DEBOUNCE_MS) continue;
+    const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
+    if (!/^Maint 68 canary (?:full|auto|source-delta)\s+source=[a-f0-9]{40} candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/.test(title)) continue;
+    const runId = Number(run.id);
+    const attempt = Number(run.run_attempt || 1);
+    if (!Number.isSafeInteger(runId) || runId <= 0 || !Number.isSafeInteger(attempt) || attempt < 1) continue;
+    try {
+      const jobs = await withRetry(client => listCanaryRefreshAttemptJobs(client, {
+        ...location, run_id: runId, attempt_number: attempt,
+      }));
+      if (Array.isArray(jobs)) run.refresh_jobs = jobs;
+    } catch {
+      // Unreadable job evidence keeps the six-hour debounce. Do not echo native error text.
+    }
+  }
 }
 
 async function readCanaryRefreshState({ withRetry, context, expectedCanaries, driftKey = '',
@@ -460,6 +553,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
       if (sameRefreshPlan(run.refresh_plan, refreshPlan)) run.delivery_digest = payload?.digest;
     }
   }
+  await attachCanaryRefreshFailureEvidence({ runs: observed, withRetry, location, now });
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,
     defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, refreshPlan, now });
   if (refreshPlan.plan_scope === 'source-delta' && !payload) {
