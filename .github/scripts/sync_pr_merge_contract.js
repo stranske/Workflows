@@ -1482,6 +1482,7 @@ function summarizeResults(results) {
     merged: 0,
     merge_failed: 0,
     delivery_contract_blocked: 0,
+    delivery_handoff_repin: 0,
     delivery_plan_handoff: 0,
     evidence_recovered: 0,
     error: 0,
@@ -1511,6 +1512,7 @@ function deriveHandoffCheckState(result = {}) {
     || status === 'sealed_head_mismatch'
     || status === 'stable_base_refresh_required'
     || status === 'dev_tool_base_refresh_required'
+    || status === 'delivery_handoff_repin'
     || status === 'head_changed'
   ) {
     return 'checks_pending';
@@ -1590,7 +1592,8 @@ function parseResumeAfter(result = {}, observedAt = new Date().toISOString()) {
     reviewer_settlement_pending: 7,
     stable_base_refresh_required: 10,
     dev_tool_base_refresh_required: 10,
-  }[String(result.status || '')] || 10;
+    delivery_handoff_repin: 0,
+  }[String(result.status || '')] ?? 10;
   return new Date(observed.getTime() + delayMinutes * 60 * 1000).toISOString();
 }
 
@@ -1611,6 +1614,7 @@ function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISO
     'reviewer_settlement_pending',
     'stable_base_refresh_required',
     'dev_tool_base_refresh_required',
+    'delivery_handoff_repin',
   ]);
   if (terminal.has(status)) {
     return { class: 'terminal', lane, reason: status, resume_after: '' };
@@ -1624,6 +1628,61 @@ function classifyDeliveryContinuation(result = {}, observedAt = new Date().toISO
     };
   }
   return { class: 'actionable', lane, reason: status || 'unknown', resume_after: '' };
+}
+
+const REFRESHED_SOURCE_ERRORS = new Set([
+  'metadata_source_commit_mismatch',
+  'metadata_source_sha_mismatch',
+  'delivery_source_commit_mismatch',
+]);
+const CANARY_REFRESH_TITLE = /^Maint 68 canary (?:full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/;
+
+// The handoff follows the refresh (owner decision 2026-11-06, Workflows#4466). When the only identity
+// errors are the three source fields, the candidate names ONE other source consistently (metadata and
+// delivery record agree, so Maint 68 wrote both), and a successful Maint 68 canary run on the default
+// branch produced exactly that source for this consumer, the candidate is an accepted refresh that moved
+// past the campaign handoff; Maint 82 must re-pin to it instead of Maint 71 refusing every run until the
+// daily compile happens to agree. Anything else stays a contract block.
+function refreshedSourceRepin({
+  metadata = null,
+  deliveryRecord = null,
+  identityErrors = [],
+  expectedPlanId = '',
+  expectedPlanScope = 'full',
+  expectedScopeBaseSha = '',
+  expectedSourceCommit = '',
+  repository = '',
+  refreshRuns = [],
+  defaultBranch = 'main',
+} = {}) {
+  const errors = (Array.isArray(identityErrors) ? identityErrors : []).map((error) => String(error));
+  if (errors.length === 0 || !errors.every((error) => REFRESHED_SOURCE_ERRORS.has(error))) return null;
+  if (!metadata || !deliveryRecord) return null;
+  const refreshed = String(metadata.source_commit || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(refreshed)) return null;
+  if (String(metadata.source_sha || '').trim().toLowerCase() !== refreshed) return null;
+  if (String(deliveryRecord.source_commit || '').trim().toLowerCase() !== refreshed) return null;
+  const expected = String(expectedSourceCommit || '').trim().toLowerCase();
+  if (!expected || refreshed === expected) return null;
+  const repo = String(repository || '').trim();
+  const producer = (Array.isArray(refreshRuns) ? refreshRuns : []).find((run) => {
+    const title = String(run?.display_title || '').trim().replace(/\s+/g, ' ');
+    const match = title.match(CANARY_REFRESH_TITLE);
+    if (!match || match[1] !== refreshed) return false;
+    if (run.status !== 'completed' || run.conclusion !== 'success') return false;
+    if (String(run.head_branch || '') !== defaultBranch) return false;
+    const candidates = match[2] === '*' ? null : match[2].split(',').map((item) => item.trim());
+    return candidates === null || !repo || candidates.includes(repo);
+  });
+  if (!producer) return null;
+  return {
+    plan_id: String(expectedPlanId || '').trim(),
+    plan_scope: String(expectedPlanScope || '').trim() || 'full',
+    scope_base_sha: String(expectedScopeBaseSha || '').trim().toLowerCase(),
+    source_commit: refreshed,
+    repinned_from: expected,
+    refresh_run_id: Number(producer.id) || null,
+  };
 }
 
 function candidateRefreshDecision({ report = {} } = {}) {
@@ -2081,6 +2140,7 @@ module.exports = {
   selectMergeEligibleSyncPr,
   selectLatestMergedCandidatePr,
   selectLatestMergedSyncPr,
+  refreshedSourceRepin,
   validateExpectedCandidateIdentity,
   validateCanaryEvidence,
   validateSourceDeltaEvidenceBinding,

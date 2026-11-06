@@ -2944,6 +2944,7 @@ async function run({ github, context, core }) {
     syncBranchForHash,
     syncSelectorForRepository,
     validateCanaryEvidence,
+    refreshedSourceRepin,
     validateExpectedCandidateIdentity,
     validateSourceDeltaEvidenceBinding,
   } = require('./sync_pr_merge_contract.js');
@@ -3618,6 +3619,23 @@ async function run({ github, context, core }) {
   const canaryEvidence = [];
   const stableCanaries = [];
   
+  let canaryRefreshRunsCache = null;
+  async function listCanaryRefreshRuns() {
+    if (canaryRefreshRunsCache) return canaryRefreshRunsCache;
+    try {
+      const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+        owner: context.repo.owner, repo: context.repo.repo,
+        workflow_id: 'maint-68-sync-consumer-repos.yml', status: 'success', per_page: 100,
+      }));
+      canaryRefreshRunsCache = Array.isArray(data?.workflow_runs) ? data.workflow_runs : [];
+    } catch (error) {
+      rethrowPrimaryRateLimit(error);
+      console.log(`Unable to list Maint 68 canary runs for source re-pin: ${String(error?.message || error)}`);
+      canaryRefreshRunsCache = [];
+    }
+    return canaryRefreshRunsCache;
+  }
+
   function syncMetadata(pr) {
     const match = String(pr.body || '').match(
       /<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/,
@@ -4708,6 +4726,46 @@ async function run({ github, context, core }) {
           repository: `${owner}/${repo}`,
         });
         if (!identity.ok) {
+          // Workflows#4466: a consistent other source produced by a successful Maint 68 canary run is an
+          // accepted refresh; hand the refreshed source back to Maint 82 so the next run's expected
+          // identity matches, instead of refusing until the daily compile re-pins by accident.
+          const repin = refreshedSourceRepin({
+            metadata,
+            deliveryRecord: selection.deliveryRecord,
+            identityErrors: identity.errors,
+            expectedPlanId,
+            expectedPlanScope,
+            expectedScopeBaseSha,
+            expectedSourceCommit,
+            repository: `${owner}/${repo}`,
+            refreshRuns: await listCanaryRefreshRuns(),
+            defaultBranch: pr.base?.repo?.default_branch || 'main',
+          });
+          if (repin) {
+            console.log(`Candidate source refreshed by Maint 68 run ${repin.refresh_run_id}: re-pinning the campaign handoff `
+              + `${repin.repinned_from.slice(0, 12)} -> ${repin.source_commit.slice(0, 12)}`);
+            results.push({
+              owner,
+              repo,
+              pr: pr.number,
+              branch: pr.head.ref,
+              head_sha: pr.head.sha,
+              delivery_generation: selection.deliveryRecord?.generation || '',
+              status: 'delivery_handoff_repin',
+              delivery_disposition: 'source-repinned',
+              blocker_owner: 'maint-82',
+              next_command: 'rerun-with-repinned-handoff',
+              delivery_reason: 'candidate_source_refreshed',
+              plan_id: repin.plan_id,
+              plan_scope: repin.plan_scope,
+              scope_base_sha: repin.scope_base_sha,
+              source_commit: repin.source_commit,
+              repinned_from: repin.repinned_from,
+              refresh_run_id: repin.refresh_run_id,
+              identity_errors: identity.errors,
+            });
+            continue;
+          }
           console.log(`Candidate immutable identity mismatch: ${identity.errors.join(', ')}`);
           results.push({
             owner,

@@ -2619,6 +2619,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     merged: 0,
     merge_failed: 0,
     delivery_contract_blocked: 0,
+    delivery_handoff_repin: 0,
     delivery_plan_handoff: 0,
     evidence_recovered: 0,
     error: 0,
