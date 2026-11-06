@@ -3255,7 +3255,9 @@ jobs:
                   mergeBoundaryLinkedIssueSnapshot
                 );
                 if (mergeBoundaryTaskFailure) {
-                  return `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
+                  const reason = `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
+                  await reportTaskRefusal(prNumber, expectedHead, reason);
+                  return reason;
                 }
                 if (
                   mergeBoundaryLinkedIssueSnapshot.body !== finalLinkedIssueSnapshot.body
@@ -3374,8 +3376,9 @@ jobs:
                         // PR tasks carry progress. Bind the linked issue identity/version without
                         // treating its unreconciled source checkboxes as current progress.
                         let taskFailure = '';
+                        let linkedIssueSnapshot = null;
                         if (checksOk && !bootstrapOnly) {
-                          const linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr);
+                          linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr);
                           taskFailure = uncheckedTaskFailure(pr, linkedIssueSnapshot);
                         }
 
@@ -3388,6 +3391,12 @@ jobs:
                           await reportTaskRefusal(prNumber, headSha, taskFailure);
                         } else {
                           try {
+                            const advisorySourceBoxes = countUnchecked(linkedIssueSnapshot?.body);
+                            if (advisorySourceBoxes > 0) {
+                              core.info(
+                                `PR #${prNumber}: source issue #${linkedIssueSnapshot.issueNumber} keeps ${advisorySourceBoxes} unchecked task box(es); the PR task block is authoritative.`
+                              );
+                            }
                             await assertRuntimeAcMergeAllowed({
                               github,
                               core,

@@ -369,12 +369,18 @@ test('final snapshot task refusal publishes the warning and PR receipt before re
 });
 
 test('a reviewer task introduced only at the merge boundary still refuses merge', async () => {
-  const { c, actions } = finalGuardHarness({
+  const { c, actions, comments } = finalGuardHarness({
     boundaryBody: complete.body + '\n- [ ] Late reviewer request',
   });
   const reason = await c.finalMergeGuardFailure(42, 'current-head');
   assert.match(reason, /Final merge-boundary task validation failed: .*unchecked tasks/);
   assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [['pull', 1], ['pull', 2]]);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`],
+  ]);
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body,
+    `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
 });
 
 function mergeScanHarness({ body = complete.body, finalBody = body, boundaryBody = finalBody } = {}) {
@@ -498,6 +504,125 @@ for (const phase of ['initial scan', 'final snapshot']) {
   });
 }
 
+test('pass line is produced by the runtime guard, not echoed from workflow source', () => {
+  // github-script prints the inline script into the job log. The acceptance
+  // signal has to come from executing runtime_ac_merge_guard.js, so a refused
+  // run must not already contain this sentence in the workflow text.
+  assert.equal(source.includes('Runtime AC merge guard passed'), false);
+});
+
+const openerBody = [
+  '<!-- meta:issue:1061 -->',
+  'Closes #1061',
+  '<!-- auto-status-summary:start -->',
+  '## Tasks',
+  '- [x] CI Gate runs `test_headless_ingest_runbook_quickstart_succeeds_on_fresh_layout`',
+  '- [x] Deliberate-break → revert on runbook text (per issue acceptance)',
+  '- [x] Replace the quickstart in `docs/runbooks/headless_ingest.md:13-19` with a fresh-checkout command.',
+  '- [x] Add `tests/docs/test_headless_ingest_runbook.py` that asserts the documented command exits 0.',
+  '## Acceptance Criteria',
+  '- [x] Named test: `test_headless_ingest_runbook_quickstart_succeeds_on_fresh_layout` exits 0 and writes `run.json`.',
+  '- [x] Deliberate-break → revert: restore the broken fixture-only example, confirm the named test fails, then revert.',
+  '<!-- auto-status-summary:end -->',
+].join('\n');
+
+test('opener shape with a fully checked PR block reaches the runtime guard log line (#4389)', async () => {
+  const { c, actions } = mergeScanHarness({ body: openerBody });
+  await c.runScan();
+  const advisory = 'PR #42: source issue #1061 keeps 2 unchecked task box(es); the PR task block is authoritative.';
+  const advisoryIndex = actions.findIndex(([kind, message]) => kind === 'info' && message === advisory);
+  const runtimeIndex = actions.findIndex(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
+  assert.ok(advisoryIndex >= 0, 'checked opener tasks must record that source boxes stay advisory');
+  assert.ok(runtimeIndex > advisoryIndex, 'checked opener tasks must reach the runtime guard line after the advisory note');
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'warning' && String(message).includes('unchecked tasks')), false);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), true);
+  assert.equal(actions.filter(([kind]) => kind === 'issue').length, 3);
+
+  const uncheckedTaskFailure = c.uncheckedTaskFailure;
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  c.uncheckedTaskFailure = (pr, linkedIssueSnapshot) =>
+    uncheckedTaskFailure(pr, linkedIssueSnapshot)
+    || (c.countUnchecked(linkedIssueSnapshot?.body) > 0 ? reason : '');
+  actions.length = 0;
+  await c.runScan();
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.'), false);
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'info' && String(message).includes('the PR task block is authoritative.')), false);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`],
+  ]);
+});
+
+// Counter_Risk#1235 / issue #1183 is still open: the preamble repeats meta:issue
+// once, and the source issue keeps four unchecked tasks. Unique-marker binding
+// must treat that repeat as one issue and still reach the runtime guard.
+const repeatedMarkerBody = [
+  '<!-- meta:issue:1183 -->',
+  'Closes #1183',
+  '<!-- pr-preamble:start -->',
+  '<!-- meta:issue:1183 -->',
+  '> **Source:** Issue #1183',
+  'Closes #1183',
+  '<!-- pr-preamble:end -->',
+  '<!-- auto-status-summary:start -->',
+  '#### Tasks',
+  '- [x] Add the Dry-Run Discovery button handler',
+  '- [x] Add the Ask-about button handler',
+  '- [x] Extend the runner workbook button expectations',
+  '#### Acceptance criteria',
+  '- [x] Named test passes',
+  '- [x] Deliberate-break then revert passes',
+  '<!-- auto-status-summary:end -->',
+].join('\n');
+const repeatedMarkerIssueBody = [
+  '- [ ] Add the Dry-Run Discovery button handler',
+  '- [ ] Add the Ask-about button handler',
+  '- [ ] Extend the runner workbook button expectations',
+  '- [ ] Document the operator click path',
+].join('\n');
+
+test('repeated source marker with a fully checked PR block reaches the runtime guard log line (#4389)', async () => {
+  const { c, actions } = mergeScanHarness({ body: repeatedMarkerBody });
+  const readIssue = c.github.rest.issues.get;
+  c.github.rest.issues.get = async (args) => {
+    const response = await readIssue(args);
+    assert.equal(args.issue_number, 1183);
+    return { data: { ...response.data, body: repeatedMarkerIssueBody } };
+  };
+
+  await c.runScan();
+
+  const advisory = 'PR #42: source issue #1183 keeps 4 unchecked task box(es); the PR task block is authoritative.';
+  const advisoryIndex = actions.findIndex(([kind, message]) => kind === 'info' && message === advisory);
+  const runtimeIndex = actions.findIndex(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
+  assert.ok(advisoryIndex >= 0, 'four leftover source boxes must stay advisory');
+  assert.ok(runtimeIndex > advisoryIndex, 'a repeated source marker must not block the runtime guard line');
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'warning' && String(message).includes('unchecked tasks')), false);
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'warning' && String(message).includes('Ambiguous')), false);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), true);
+
+  const uncheckedTaskFailure = c.uncheckedTaskFailure;
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  c.uncheckedTaskFailure = (pr, linkedIssueSnapshot) =>
+    uncheckedTaskFailure(pr, linkedIssueSnapshot)
+    || (c.countUnchecked(linkedIssueSnapshot?.body) > 0 ? reason : '');
+  actions.length = 0;
+  await c.runScan();
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.'), false);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`],
+  ]);
+});
+
 test('guarded scan reaches runtime guard and exact-head merge with unchecked source tasks', async () => {
   const { c, actions } = mergeScanHarness();
   await c.runScan();
@@ -554,27 +679,68 @@ for (const lateTask of ['managed task', 'reviewer task']) {
     const boundaryBody = lateTask === 'managed task'
       ? complete.body.replace('- [x] Implementation', '- [ ] Implementation')
       : complete.body + '\n- [ ] Late reviewer request';
-    const { c, actions } = mergeScanHarness({ boundaryBody });
+    const { c, actions, comments } = mergeScanHarness({ boundaryBody });
 
     await c.runScan();
 
+    const reason = 'Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.';
     assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [
       ['pull', 1], ['pull', 2], ['pull', 3], ['pull', 4],
     ]);
-    assert.ok(actions.some(([kind, message]) => kind === 'info'
-      && message === 'Runtime AC merge guard passed for PR #42.'),
-    'the initial task check must pass before the final boundary rejects the new task');
+    const runtimeIndex = actions.findIndex(([kind, message]) => kind === 'info'
+      && message === 'Runtime AC merge guard passed for PR #42.');
+    const warningIndex = actions.findIndex(([kind, message]) =>
+      kind === 'warning' && message === `PR #42: ${reason}`);
+    assert.ok(runtimeIndex >= 0, 'the initial task check must pass before the final boundary rejects the new task');
+    assert.ok(warningIndex > runtimeIndex, 'the boundary refusal must be visible after the runtime guard');
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body,
+      `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
     assert.equal(actions.some(([kind]) => kind === 'merge'), false);
     const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
     assert.deepEqual([...summaryRows[1]], [
-      '#42', 'error',
-      'Merge failed: Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.',
+      '#42', 'error', `Merge failed: ${reason}`,
     ]);
     assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
       ['output', 'merged', '[]'],
     ]);
   });
 }
+
+test('merge-boundary refusal visibility fails when the publisher is skipped and passes when restored', async () => {
+  const boundaryBody = complete.body + '\n- [ ] Late reviewer request';
+  const reason = 'Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  const assertVisibleBoundaryRefusal = async (c, actions, comments) => {
+    await c.runScan();
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+    assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+      ['warning', `PR #42: ${reason}`],
+    ]);
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body,
+      `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+  };
+
+  // A second scan in one harness continues the pull-read counter, so the break
+  // and the restoration each load the shipped scan from a fresh fixture.
+  const broken = mergeScanHarness({ boundaryBody });
+  broken.c.reportTaskRefusal = async () => {};
+  await assert.rejects(
+    () => assertVisibleBoundaryRefusal(broken.c, broken.actions, broken.comments),
+    { code: 'ERR_ASSERTION' },
+  );
+  assert.equal(broken.comments.length, 0);
+  const summaryRows = broken.actions.find(([kind]) => kind === 'summary')[1];
+  assert.deepEqual([...summaryRows[1]], ['#42', 'error', `Merge failed: ${reason}`]);
+  assert.ok(broken.actions.some(([kind, message]) => kind === 'info'
+    && message === 'Runtime AC merge guard passed for PR #42.'));
+
+  const restored = mergeScanHarness({ boundaryBody });
+  await assertVisibleBoundaryRefusal(restored.c, restored.actions, restored.comments);
+});
 
 for (const phase of ['initial scan', 'final snapshot']) {
   test(`ambiguous source introduced at the ${phase} publishes an owned refusal without fetching an arbitrary issue`, async () => {
@@ -736,5 +902,56 @@ for (const publicationFails of [false, true]) {
       assert.equal(comments[0].body,
         `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
     }
+  });
+}
+
+// Bodies captured from the 2026-11-02 fleet latch (and the still-open Counter_Risk
+// successor). Each PR task block is fully checked while the source issue is not.
+const fleetOpenerFixtures = [
+  ['Inv-Man-Intake#1062', 'inv-man-intake-1062-pr.md', 'inv-man-intake-1061-issue.md', 1061, 2],
+  ['Ready#663', 'ready-663-pr.md', 'ready-662-issue.md', 662, 2],
+  ['Counter_Risk#1235', 'counter-risk-1235-pr.md', 'counter-risk-1183-issue.md', 1183, 4],
+].map(([name, prFile, issueFile, issueNumber, unchecked]) => ({
+  name,
+  issueNumber,
+  unchecked,
+  pr: fs.readFileSync(path.join(__dirname, 'fixtures/issue-4389', prFile), 'utf8'),
+  issue: fs.readFileSync(path.join(__dirname, 'fixtures/issue-4389', issueFile), 'utf8'),
+}));
+
+for (const fleet of fleetOpenerFixtures) {
+  test(`${fleet.name} reaches the runtime guard log line with its unchecked source issue (#4389)`, async () => {
+    const { c, actions } = mergeScanHarness({ body: fleet.pr });
+    c.github.rest.issues.get = async (args) => {
+      actions.push(['issue', { ...args }]);
+      assert.equal(args.issue_number, fleet.issueNumber);
+      return { data: { body: fleet.issue, updated_at: '2026-11-02T00:00:00Z' } };
+    };
+
+    await c.runScan();
+
+    const advisory = `PR #42: source issue #${fleet.issueNumber} keeps ${fleet.unchecked} unchecked task box(es); the PR task block is authoritative.`;
+    const advisoryIndex = actions.findIndex(([kind, message]) => kind === 'info' && message === advisory);
+    const runtimeIndex = actions.findIndex(([kind, message]) =>
+      kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
+    assert.ok(advisoryIndex >= 0, `${fleet.name} must record advisory source boxes`);
+    assert.ok(runtimeIndex > advisoryIndex, `${fleet.name} must reach the runtime guard line`);
+    assert.equal(actions.some(([kind, message]) =>
+      kind === 'warning' && String(message).includes('unchecked tasks')), false);
+    assert.equal(actions.some(([kind]) => kind === 'merge'), true);
+
+    const uncheckedTaskFailure = c.uncheckedTaskFailure;
+    const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+    c.uncheckedTaskFailure = (pr, linkedIssueSnapshot) =>
+      uncheckedTaskFailure(pr, linkedIssueSnapshot)
+      || (c.countUnchecked(linkedIssueSnapshot?.body) > 0 ? reason : '');
+    actions.length = 0;
+    await c.runScan();
+    assert.equal(actions.some(([kind, message]) =>
+      kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.'), false);
+    assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+      ['warning', `PR #42: ${reason}`],
+    ]);
   });
 }
