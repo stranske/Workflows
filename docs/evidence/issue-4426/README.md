@@ -185,3 +185,17 @@ landed by #4000 were run again for artifact coercion, nested-list handling,
 payload handling, and duplicate-verdict parsing. The earlier #4000 and #4405
 transcripts were not recoverable. Production mutations are not left in the
 tree. The about-180 rule is unchanged.
+
+## Cache miss and selected paths
+
+Checked 2026-11-06T19:51:20Z. `_required_evidence_channels` and
+`_required_evidence_options` store an empty classification as a hit. A second
+call does not treat that empty result as a miss. In
+`tools/langchain_client.py`, a blank slot-model override and a blocked slot
+model are misses and do not become a client. A blocked `model1` on paired
+auto-select was a real bug: the block is provider-specific, and copying
+`model1` onto the next slot built the refused OpenAI model as an Anthropic
+client. The fix consumes that override and keeps each slot's reviewed model.
+An unblocked `model1` still fills both slots, and an explicit `model2` stays
+on the second slot. Receipts are in `mutation-receipts.md`. The about-180
+rule is unchanged. No production mutation remains.

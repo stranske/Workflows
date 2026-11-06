@@ -1,6 +1,6 @@
 {
   "schema": "workflows.issue-4426-mutation-receipts/v1",
-  "checked_on": "2026-11-06T19:13:08Z",
+  "checked_on": "2026-11-06T19:51:20Z",
   "unavailable_prior_receipts": {
     "pr_4000": "PR #4000 body describes one coercion mutation and names one pytest command. It does not record stdout, the assertion text, or exit codes for nested-list or duplicate-verdict tests. Gate run 39003191738 has no downloadable artifacts.",
     "pr_4405": "PR #4405 body cites /tmp/3998-mutation-transcript.txt on the repair runner. That path is not in this clone and is not a GitHub Actions artifact. The #4405 tests themselves are unmerged, so they are not reproduced here."
@@ -805,6 +805,664 @@
         "elapsed_seconds": 1.691,
         "output": ".                                                                        [100%]\n1 passed in 0.50s\n"
       }
+    },
+    {
+      "id": "explicit-anthropic-selection",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_explicit_anthropic_selection_returns_constructed_client",
+      "behavior": "An explicit Anthropic provider returns the constructed client.",
+      "original_snippet": "            return ClientInfo(client=client, provider=PROVIDER_ANTHROPIC, model=selected_model)\n",
+      "mutant_snippet": "            return ClientInfo(client=client, provider=\"not-anthropic\", model=selected_model)\n",
+      "source_start_line": 343,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "3837824e73169371be60117e94201de35fd318bade127c1606c19b47ab385bb0",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_explicit_anthropic_selection_returns_constructed_client",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.344,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'not-anthropic' == 'anthropic'\n      \n      - anthropic\n      + not-anthropic\n      ? ++++\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1379: AssertionError: assert 'not-anthropic' == 'anthropic'\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_explicit_anthropic_selection_returns_constructed_client - AssertionError: assert 'not-anthropic' == 'anthropic'\n  \n  - anthropic\n  + not-anthropic\n  ? ++++\n1 failed in 1.11s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_explicit_anthropic_selection_returns_constructed_client",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.363,
+        "output": ".                                                                        [100%]\n1 passed in 1.13s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_explicit_anthropic_selection_returns_constructed_client - AssertionError: assert 'not-anthropic' == 'anthropic'"
+    },
+    {
+      "id": "blank-slot-model-single",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_the_default_client",
+      "behavior": "A blank slot model is a miss and does not become the default client.",
+      "original_snippet": "        if not slot_model:\n            continue\n        if _is_model_blocked(slot.provider, slot_model):\n",
+      "mutant_snippet": "        if not slot_model:\n            slot_model = DEFAULT_MODEL\n        if _is_model_blocked(slot.provider, slot_model):\n",
+      "source_start_line": 357,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "3375cbbe6c5d3a0f80a39137a3c532b6a476577f77dc5c6faa433cba5eb7d221",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_the_default_client",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.186,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7d715b44d550>, provider='openai', model='') is None\n     +  where ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7d715b44d550>, provider='openai', model='') = <function build_chat_client at 0x7d715b2fb740>()\n     +    where <function build_chat_client at 0x7d715b2fb740> = langchain_client.build_chat_client\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1396: AssertionError: assert ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7d715b44d550>, provider='openai', model='') is None\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_the_default_client - AssertionError: assert ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7d715b44d550>, provider='openai', model='') is None\n +  where ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7d715b44d550>, provider='openai', model='') = <function build_chat_client at 0x7d715b2fb740>()\n +    where <function build_chat_client at 0x7d715b2fb740> = langchain_client.build_chat_client\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_the_default_client",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.128,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_the_default_client - AssertionError: assert ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7d715b44d550>, provider='openai', model='') is None"
+    },
+    {
+      "id": "blank-slot-model-paired",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_a_paired_client",
+      "behavior": "Paired auto-select skips a slot whose override resolved to no model.",
+      "original_snippet": "        if not slot_model:\n            logger.warning(\"Skipping LLM slot without a resolved model: %s\", slot.name)\n            continue\n",
+      "mutant_snippet": "        if not slot_model:\n            logger.warning(\"Skipping LLM slot without a resolved model: %s\", slot.name)\n            slot_model = DEFAULT_MODEL\n",
+      "source_start_line": 591,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "37f92f0414914f0171611e5595e88ff77fe0ca83582435b0644fdc55c2ebb222",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_a_paired_client",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.114,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert [ClientInfo(c...i', model='')] == []\n      \n      Left contains one more item: ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7ef73f24b620>, provider='openai', model='')\n      \n      Full diff: (-: missing in left side, +: extra in left side)\n      - []\n      + [\n      +     ClientInfo(\n      +         client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7ef73f24b620>,\n      +         provider='openai',\n      +         model='',\n      +     ),\n      + ]\n------------------------------ Captured log call -------------------------------\nWARNING  tools.langchain_client:langchain_client.py:592 Skipping LLM slot without a resolved model: slot1\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1409: AssertionError: assert [ClientInfo(c...i', model='')] == []\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_a_paired_client - AssertionError: assert [ClientInfo(c...i', model='')] == []\n  \n  Left contains one more item: ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7ef73f24b620>, provider='openai', model='')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n  - []\n  + [\n  +     ClientInfo(\n  +         client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7ef73f24b620>,\n  +         provider='openai',\n  +         model='',\n  +     ),\n  + ]\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_a_paired_client",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.109,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_blank_slot_model_override_does_not_become_a_paired_client - AssertionError: assert [ClientInfo(c...i', model='')] == []"
+    },
+    {
+      "id": "blocked-override-not-retried",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override",
+      "behavior": "A blocked model1 is consumed and is not rebuilt on the next provider.",
+      "original_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, requested)\n            used_override = True\n            requested = None\n",
+      "mutant_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, requested)\n            requested = None\n",
+      "source_start_line": 587,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "aa0e03a83c3811b24dc4cf3db65a866d417220aa7846c8d80dc0cf18ee1443a9",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.115,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]\n      \n      At index 1 diff: ('anthropic', 'gpt-blocked') != ('anthropic', 'claude-safe')\n      \n      Full diff: (-: missing in left side, +: extra in left side)\n        [\n            (\n                'openai',\n                'gpt-safe',\n            ),\n            (\n                'anthropic',\n      -         'claude-safe',\n      +         'gpt-blocked',\n            ),\n        ]\n------------------------------ Captured log call -------------------------------\nWARNING  tools.langchain_client:langchain_client.py:587 Skipping blocked LLM model override: openai/gpt-blocked\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1428: AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override - AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]\n  \n  At index 1 diff: ('anthropic', 'gpt-blocked') != ('anthropic', 'claude-safe')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-safe',\n        ),\n        (\n            'anthropic',\n  -         'claude-safe',\n  +         'gpt-blocked',\n        ),\n    ]\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.108,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override - AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]"
+    },
+    {
+      "id": "unblocked-model1-shared",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots",
+      "behavior": "An unblocked model1 still fills both auto-selected slots when model2 is omitted.",
+      "original_snippet": "            requested = model1\n",
+      "mutant_snippet": "            requested = None  # mutant-drops-shared-model1\n",
+      "source_start_line": 585,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "ed8f0dbb681e60468c5df11a1298a0e9840bfccdcd2a8fe547b3868093de9062",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.096,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]\n      \n      At index 1 diff: ('anthropic', 'claude-sonnet-5-5') != ('anthropic', 'gpt-shared-override')\n      \n      Full diff: (-: missing in left side, +: extra in left side)\n        [\n            (\n                'openai',\n                'gpt-shared-override',\n            ),\n            (\n                'anthropic',\n      -         'gpt-shared-override',\n      +         'claude-sonnet-5-5',\n            ),\n        ]\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1450: AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots - AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]\n  \n  At index 1 diff: ('anthropic', 'claude-sonnet-5-5') != ('anthropic', 'gpt-shared-override')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-shared-override',\n        ),\n        (\n            'anthropic',\n  -         'gpt-shared-override',\n  +         'claude-sonnet-5-5',\n        ),\n    ]\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.161,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots - AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]"
+    },
+    {
+      "id": "explicit-model2",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot",
+      "behavior": "An explicit model2 stays on the second slot.",
+      "original_snippet": "            requested = model2\n",
+      "mutant_snippet": "            requested = model1  # mutant-copies-model1-over-model2\n",
+      "source_start_line": 581,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "f4ddfa18425fc1001a5065955554176c5b409e5701e89eedb488e84101269651",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.14,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]\n      \n      At index 1 diff: ('anthropic', 'gpt-first-override') != ('anthropic', 'claude-second-override')\n      \n      Full diff: (-: missing in left side, +: extra in left side)\n        [\n            (\n                'openai',\n                'gpt-first-override',\n            ),\n            (\n                'anthropic',\n      -         'claude-second-override',\n      +         'gpt-first-override',\n            ),\n        ]\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1471: AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot - AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]\n  \n  At index 1 diff: ('anthropic', 'gpt-first-override') != ('anthropic', 'claude-second-override')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-first-override',\n        ),\n        (\n            'anthropic',\n  -         'claude-second-override',\n  +         'gpt-first-override',\n        ),\n    ]\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.139,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot - AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]"
+    },
+    {
+      "id": "github-slot-selection",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_slot_provider_override_selects_the_github_builder",
+      "behavior": "A slot provider override selects the GitHub builder.",
+      "original_snippet": "                return ClientInfo(client=client, provider=PROVIDER_GITHUB, model=slot_model)\n",
+      "mutant_snippet": "                return ClientInfo(client=client, provider=\"not-github\", model=slot_model)\n",
+      "source_start_line": 403,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "9c9606010f4fa7ae8276fa782f82daf1f711b5ef07316f794c261c56041e951f",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_slot_provider_override_selects_the_github_builder",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.092,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'not-github' == 'github-models'\n      \n      - github-models\n      + not-github\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1490: AssertionError: assert 'not-github' == 'github-models'\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_slot_provider_override_selects_the_github_builder - AssertionError: assert 'not-github' == 'github-models'\n  \n  - github-models\n  + not-github\n1 failed in 0.96s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_slot_provider_override_selects_the_github_builder",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.138,
+        "output": ".                                                                        [100%]\n1 passed in 0.98s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_slot_provider_override_selects_the_github_builder - AssertionError: assert 'not-github' == 'github-models'"
+    },
+    {
+      "id": "github-slot-selection-paired",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_paired_slot_provider_override_selects_the_github_builder",
+      "behavior": "Paired auto-select uses the GitHub builder for a slot provider override.",
+      "original_snippet": "                        client=_build_github_client(\n                            chat_openai_cls,\n                            model=slot_model,\n                            token=github_token,\n                            timeout=selected_timeout,\n                            max_retries=selected_retries,\n                        ),\n                        provider=PROVIDER_GITHUB,\n                        model=slot_model,\n",
+      "mutant_snippet": "                        client=_build_github_client(\n                            chat_openai_cls,\n                            model=slot_model,\n                            token=github_token,\n                            timeout=selected_timeout,\n                            max_retries=selected_retries,\n                        ),\n                        provider=\"not-github\",\n                        model=slot_model,\n",
+      "source_start_line": 631,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "bae1b44203ec516ca2bab59e95633134e6b4b8b62bb71d0ed8181f2403cfa027",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_slot_provider_override_selects_the_github_builder",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.192,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert [('not-github...gpt-6.1-sol')] == [('github-mod...gpt-6.1-sol')]\n      \n      At index 0 diff: ('not-github', 'gpt-6.1-sol') != ('github-models', 'gpt-6.1-sol')\n      \n      Full diff: (-: missing in left side, +: extra in left side)\n        [\n            (\n      -         'github-models',\n      ?                -------\n      +         'not-github',\n      ?          ++++\n                'gpt-6.1-sol',\n            ),\n        ]\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1509: AssertionError: assert [('not-github...gpt-6.1-sol')] == [('github-mod...gpt-6.1-sol')]\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_paired_slot_provider_override_selects_the_github_builder - AssertionError: assert [('not-github...gpt-6.1-sol')] == [('github-mod...gpt-6.1-sol')]\n  \n  At index 0 diff: ('not-github', 'gpt-6.1-sol') != ('github-models', 'gpt-6.1-sol')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n  -         'github-models',\n  ?                -------\n  +         'not-github',\n  ?          ++++\n            'gpt-6.1-sol',\n        ),\n    ]\n1 failed in 1.00s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_slot_provider_override_selects_the_github_builder",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.194,
+        "output": ".                                                                        [100%]\n1 passed in 0.99s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_paired_slot_provider_override_selects_the_github_builder - AssertionError: assert [('not-github...gpt-6.1-sol')] == [('github-mod...gpt-6.1-sol')]"
+    },
+    {
+      "id": "github-constructor-miss",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot",
+      "behavior": "A GitHub constructor failure selects the next available slot.",
+      "original_snippet": "        if slot.provider == PROVIDER_GITHUB and github_token and chat_openai_cls:\n            with contextlib.suppress(Exception):\n                client = _build_github_client(\n",
+      "mutant_snippet": "        if slot.provider == PROVIDER_GITHUB and github_token and chat_openai_cls:\n            with contextlib.suppress(type(None)):\n                client = _build_github_client(\n",
+      "source_start_line": 393,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "222a770fc58b92ea6b500bdbbd12fc081fafdb4dff1b8b969cb0a8fa5951d45a",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.116,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   RuntimeError: github constructor failed\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1524: RuntimeError: github constructor failed\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot - RuntimeError: github constructor failed\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.106,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot - RuntimeError: github constructor failed"
+    },
+    {
+      "id": "blocked-slot-model-single",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built",
+      "behavior": "A blocked slot model returned by the resolver is not built.",
+      "original_snippet": "        if _is_model_blocked(slot.provider, slot_model):\n            logger.warning(\"Skipping blocked LLM model: %s/%s\", slot.provider, slot_model)\n            continue\n",
+      "mutant_snippet": "        if False and _is_model_blocked(slot.provider, slot_model):\n            logger.warning(\"Skipping blocked LLM model: %s/%s\", slot.provider, slot_model)\n            continue\n",
+      "source_start_line": 359,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "a416d32378305469901b4830dd7ac0d0e8dba747363b1f971dbcbff60c3e2208",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.112,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7fa0ed689550>, provider='openai', model='gpt-blocked') is None\n     +  where ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7fa0ed689550>, provider='openai', model='gpt-blocked') = <function build_chat_client at 0x7fa0ed4ff690>()\n     +    where <function build_chat_client at 0x7fa0ed4ff690> = langchain_client.build_chat_client\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1567: AssertionError: assert ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7fa0ed689550>, provider='openai', model='gpt-blocked') is None\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built - AssertionError: assert ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7fa0ed689550>, provider='openai', model='gpt-blocked') is None\n +  where ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7fa0ed689550>, provider='openai', model='gpt-blocked') = <function build_chat_client at 0x7fa0ed4ff690>()\n +    where <function build_chat_client at 0x7fa0ed4ff690> = langchain_client.build_chat_client\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.12,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built - AssertionError: assert ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x7fa0ed689550>, provider='openai', model='gpt-blocked') is None"
+    },
+    {
+      "id": "blocked-slot-model-paired",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built",
+      "behavior": "Paired auto-select skips a blocked slot model returned by the resolver.",
+      "original_snippet": "        if _is_model_blocked(slot.provider, slot_model, registry=registry):\n            logger.warning(\"Skipping blocked LLM model: %s/%s\", slot.provider, slot_model)\n            continue\n",
+      "mutant_snippet": "        if False and _is_model_blocked(slot.provider, slot_model, registry=registry):\n            logger.warning(\"Skipping blocked LLM model: %s/%s\", slot.provider, slot_model)\n            continue\n",
+      "source_start_line": 594,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "655205fcee94f059cc728fb84635af2b8f7db5d23049f4e4c68e0b7a7a9dbff7",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.114,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert [ClientInfo(c...gpt-blocked')] == []\n      \n      Left contains one more item: ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x780fb6e8b620>, provider='openai', model='gpt-blocked')\n      \n      Full diff: (-: missing in left side, +: extra in left side)\n      - []\n      + [\n      +     ClientInfo(\n      +         client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x780fb6e8b620>,\n      +         provider='openai',\n      +         model='gpt-blocked',\n      +     ),\n      + ]\n------------------------------ Captured log call -------------------------------\nWARNING  tools.langchain_client:langchain_client.py:360 Skipping blocked LLM model: openai/gpt-blocked\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1568: AssertionError: assert [ClientInfo(c...gpt-blocked')] == []\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built - AssertionError: assert [ClientInfo(c...gpt-blocked')] == []\n  \n  Left contains one more item: ClientInfo(client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x780fb6e8b620>, provider='openai', model='gpt-blocked')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n  - []\n  + [\n  +     ClientInfo(\n  +         client=<tests.tools.test_langchain_client._install_fake_langchain_openai.<locals>.FakeChatOpenAI object at 0x780fb6e8b620>,\n  +         provider='openai',\n  +         model='gpt-blocked',\n  +     ),\n  + ]\n1 failed in 0.20s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.108,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_resolver_blocked_slot_model_is_not_built - AssertionError: assert [ClientInfo(c...gpt-blocked')] == []"
+    },
+    {
+      "id": "configured-slot-file-miss",
+      "source": "tools/langchain_client.py",
+      "symbol": "_load_slot_config",
+      "nodeid": "tests/tools/test_langchain_client.py::test_slot_wrappers_keep_configured_miss_distinct_from_defaults",
+      "behavior": "A missing configured slot file stays an empty miss instead of the default slots.",
+      "original_snippet": "    return load_slot_config(github_default_model=DEFAULT_MODEL)\n",
+      "mutant_snippet": "    return _default_slots()  # mutant-treats-configured-miss-as-default-cache\n",
+      "source_start_line": 124,
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "fe706a71e20506b813b3d29f2d5c50a33cc62fabb5332ee4e54c7d8d63100325",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_slot_wrappers_keep_configured_miss_distinct_from_defaults",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.126,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert [SlotDefiniti...-sonnet-5-5')] == []\n      \n      Left contains 2 more items, first extra item: SlotDefinition(name='slot1', provider='openai', model='gpt-6.1-sol')\n      \n      Full diff: (-: missing in left side, +: extra in left side)\n      - []\n      + [\n      +     SlotDefinition(\n      +         name='slot1',\n      +         provider='openai',\n      +         model='gpt-6.1-sol',\n      +     ),\n      +     SlotDefinition(\n      +         name='slot2',\n      +         provider='anthropic',\n      +         model='claude-sonnet-5-5',\n      +     ),\n      + ]\n/home/runner/work/Workflows/Workflows/tests/tools/test_langchain_client.py:1580: AssertionError: assert [SlotDefiniti...-sonnet-5-5')] == []\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_slot_wrappers_keep_configured_miss_distinct_from_defaults - AssertionError: assert [SlotDefiniti...-sonnet-5-5')] == []\n  \n  Left contains 2 more items, first extra item: SlotDefinition(name='slot1', provider='openai', model='gpt-6.1-sol')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n  - []\n  + [\n  +     SlotDefinition(\n  +         name='slot1',\n  +         provider='openai',\n  +         model='gpt-6.1-sol',\n  +     ),\n  +     SlotDefinition(\n  +         name='slot2',\n  +         provider='anthropic',\n  +         model='claude-sonnet-5-5',\n  +     ),\n  + ]\n1 failed in 0.19s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_slot_wrappers_keep_configured_miss_distinct_from_defaults",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.125,
+        "output": ".                                                                        [100%]\n1 passed in 0.19s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_slot_wrappers_keep_configured_miss_distinct_from_defaults - AssertionError: assert [SlotDefiniti...-sonnet-5-5')] == []"
+    },
+    {
+      "id": "empty-channel-cache-hit",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "_required_evidence_channels",
+      "nodeid": "tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_channel_result_is_a_cache_hit",
+      "behavior": "An empty evidence-channel classification is a cache hit on the second call.",
+      "original_snippet": "    return set(_cached_evidence_channels(acceptance, _bind_attached))\n",
+      "mutant_snippet": "    _cached_evidence_channels.cache_clear()\n    return set(_cached_evidence_channels(acceptance, _bind_attached))\n",
+      "source_start_line": 5820,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "dc8b682edf58b6bf3352f95e98b305b1f21596e2652d9060a9d98a01283c5965",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_channel_result_is_a_cache_hit",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.272,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   assert 0 == (0 + 1)\n     +  where 0 = CacheInfo(hits=0, misses=1, maxsize=512, currsize=1).hits\n     +  and   0 = CacheInfo(hits=0, misses=1, maxsize=512, currsize=1).hits\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_evidence_cache_miss.py:29: assert 0 == (0 + 1)\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_channel_result_is_a_cache_hit - assert 0 == (0 + 1)\n +  where 0 = CacheInfo(hits=0, misses=1, maxsize=512, currsize=1).hits\n +  and   0 = CacheInfo(hits=0, misses=1, maxsize=512, currsize=1).hits\n1 failed in 1.22s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_channel_result_is_a_cache_hit",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.341,
+        "output": ".                                                                        [100%]\n1 passed in 1.28s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_channel_result_is_a_cache_hit - assert 0 == (0 + 1)"
+    },
+    {
+      "id": "empty-option-cache-hit",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "_required_evidence_options",
+      "nodeid": "tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_option_result_is_a_cache_hit",
+      "behavior": "An empty evidence-option classification is a cache hit on the second call.",
+      "original_snippet": "        set(option) for option in _cached_evidence_options(acceptance, _required_evidence_channels)\n",
+      "mutant_snippet": "        set(option)\n        for option in (_cached_evidence_options.cache_clear() or _cached_evidence_options(acceptance, _required_evidence_channels))\n",
+      "source_start_line": 5991,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "4eecf783df75d2f79ef15230ca054ba1a0f0605bbd037595bd97c89fcf0ee26d",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_option_result_is_a_cache_hit",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.37,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   assert 0 == (0 + 1)\n     +  where 0 = CacheInfo(hits=0, misses=1, maxsize=512, currsize=1).hits\n     +  and   0 = CacheInfo(hits=0, misses=1, maxsize=512, currsize=1).hits\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_evidence_cache_miss.py:48: assert 0 == (0 + 1)\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_option_result_is_a_cache_hit - assert 0 == (0 + 1)\n +  where 0 = CacheInfo(hits=0, misses=1, maxsize=512, currsize=1).hits\n +  and   0 = CacheInfo(hits=0, misses=1, maxsize=512, currsize=1).hits\n1 failed in 1.31s\n"
+      },
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_option_result_is_a_cache_hit",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.403,
+        "output": ".                                                                        [100%]\n1 passed in 1.32s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_option_result_is_a_cache_hit - assert 0 == (0 + 1)"
     }
   ]
 }

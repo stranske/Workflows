@@ -1,6 +1,6 @@
 # Issue #4426 deliberate-break receipts
 
-Checked 2026-11-06T19:13:08Z. Machine-readable output is
+Checked 2026-11-06T19:51:20Z. Machine-readable output is
 `mutation-receipts.json`. Each row is one pytest process against one
 mutation of the named production symbol. The mutation was then removed and
 the same command was run again. Both production files match the restored
@@ -22,6 +22,7 @@ mutant. Green exit 0 is the restored source.
 | --- | --- |
 | `scripts/langchain/pr_verifier.py` | `bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886` |
 | `scripts/langchain/verifier_config.py` | `18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7` |
+| `tools/langchain_client.py` | `dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174` |
 
 ## `expanded_comparison_verdict`
 
@@ -70,3 +71,40 @@ and duplicate-verdict parsing.
 different assertions: line 139 is the list of terminal artifacts, and line
 142 is the nested payload. The duplicate-verdict mutant changes `max` to
 `min`, so PASS outranks FAIL.
+
+## Cache miss and selected client paths
+
+These receipts cover the evidence-classification caches and the client
+selection paths in `tools/langchain_client.py`. An empty classification is a
+stored hit. A blank slot model and a blocked slot model are misses. A blocked
+`model1` is consumed for that provider and is not rebuilt on the next
+provider. The same command as above produced red exit 1 and green exit 0 for
+every row. `tools/langchain_client.py` was restored to
+`dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174`.
+`scripts/langchain/pr_verifier.py` stayed at the hash above. The about 180
+rule is unchanged.
+
+| Receipt | Named failure | Result |
+| --- | --- | --- |
+| `explicit-anthropic-selection` | `assert 'not-anthropic' == 'anthropic'` | red exit 1, green exit 0 |
+| `blank-slot-model-single` | `test_langchain_client.py:1396` `assert ClientInfo` | red exit 1, green exit 0 |
+| `blank-slot-model-paired` | `test_langchain_client.py:1409` `assert [ClientInfo` | red exit 1, green exit 0 |
+| `blocked-override-not-retried` | `assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]` | red exit 1, green exit 0 |
+| `unblocked-model1-shared` | `assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]` | red exit 1, green exit 0 |
+| `explicit-model2` | `assert [('openai', '...st-override')] == [('openai', '...nd-override')]` | red exit 1, green exit 0 |
+| `github-slot-selection` | `assert 'not-github' == 'github-models'` | red exit 1, green exit 0 |
+| `github-slot-selection-paired` | `assert [('not-github...gpt-6.1-sol')] == [('github-mod...gpt-6.1-sol')]` | red exit 1, green exit 0 |
+| `github-constructor-miss` | `RuntimeError: github constructor failed` | red exit 1, green exit 0 |
+| `blocked-slot-model-single` | `test_langchain_client.py:1567` `assert ClientInfo` | red exit 1, green exit 0 |
+| `blocked-slot-model-paired` | `test_langchain_client.py:1568` `assert [ClientInfo` | red exit 1, green exit 0 |
+| `configured-slot-file-miss` | `assert [SlotDefiniti` | red exit 1, green exit 0 |
+| `empty-channel-cache-hit` | `test_pr_verifier_evidence_cache_miss.py:29` `assert 0 == (0 + 1)` | red exit 1, green exit 0 |
+| `empty-option-cache-hit` | `test_pr_verifier_evidence_cache_miss.py:48` `assert 0 == (0 + 1)` | red exit 1, green exit 0 |
+
+`blocked-slot-model-single` and `blocked-slot-model-paired` exercise
+`test_resolver_blocked_slot_model_is_not_built`. The single-client mutant
+builds `gpt-blocked`. The paired mutant returns that client in the list.
+`blocked-override-not-retried` drops `used_override = True`, so the blocked
+OpenAI model is constructed for Anthropic. `empty-channel-cache-hit` and
+`empty-option-cache-hit` clear the cache on every lookup, so the second call
+stays a miss.

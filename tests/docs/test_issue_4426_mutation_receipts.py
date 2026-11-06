@@ -43,6 +43,20 @@ FAILURE_TEXT = {
     "nested-payload": "test_verifier_config.py:142: AssertionError: assert False",
     "artifact-coercion": "test_verifier_config.py:154: AssertionError: assert False",
     "duplicate-verdicts": "test_verifier_config.py:162: AssertionError: assert 'PASS' == 'FAIL'",
+    "explicit-anthropic-selection": "test_langchain_client.py:1379: AssertionError: assert 'not-anthropic' == 'anthropic'",
+    "blank-slot-model-single": "test_langchain_client.py:1396: AssertionError: assert ClientInfo",
+    "blank-slot-model-paired": "test_langchain_client.py:1409: AssertionError: assert [ClientInfo",
+    "blocked-override-not-retried": "test_langchain_client.py:1428: AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]",
+    "unblocked-model1-shared": "test_langchain_client.py:1450: AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]",
+    "explicit-model2": "test_langchain_client.py:1471: AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]",
+    "github-slot-selection": "test_langchain_client.py:1490: AssertionError: assert 'not-github' == 'github-models'",
+    "github-slot-selection-paired": "test_langchain_client.py:1509: AssertionError: assert [('not-github...gpt-6.1-sol')] == [('github-mod...gpt-6.1-sol')]",
+    "github-constructor-miss": "test_langchain_client.py:1524: RuntimeError: github constructor failed",
+    "blocked-slot-model-single": "test_langchain_client.py:1567: AssertionError: assert ClientInfo",
+    "blocked-slot-model-paired": "test_langchain_client.py:1568: AssertionError: assert [ClientInfo",
+    "configured-slot-file-miss": "test_langchain_client.py:1580: AssertionError: assert [SlotDefiniti",
+    "empty-channel-cache-hit": "test_pr_verifier_evidence_cache_miss.py:29: assert 0 == (0 + 1)",
+    "empty-option-cache-hit": "test_pr_verifier_evidence_cache_miss.py:48: assert 0 == (0 + 1)",
 }
 
 
@@ -116,7 +130,7 @@ def test_every_added_comparison_test_has_one_restored_receipt() -> None:
     receipts = record["receipts"]
     by_id = {item["id"]: item for item in receipts}
     assert record["schema"] == "workflows.issue-4426-mutation-receipts/v1"
-    assert record["checked_on"] == "2026-11-06T19:13:08Z"
+    assert record["checked_on"] == "2026-11-06T19:51:20Z"
     assert record["production_restored"] is True
     assert set(by_id) == set(FAILURE_TEXT)
 
@@ -178,6 +192,55 @@ def test_landed_verifier_config_receipts_cover_coercion_lists_and_verdicts() -> 
     assert "test_verifier_config.py:139:" in selected["nested-list"]["red"]["output"]
     assert "test_verifier_config.py:142:" in selected["nested-payload"]["red"]["output"]
     assert selected["nested-list"]["red"]["output"] != selected["nested-payload"]["red"]["output"]
+
+
+CACHE_MISS_IDS = (
+    "explicit-anthropic-selection",
+    "blank-slot-model-single",
+    "blank-slot-model-paired",
+    "blocked-override-not-retried",
+    "unblocked-model1-shared",
+    "explicit-model2",
+    "github-slot-selection",
+    "github-slot-selection-paired",
+    "github-constructor-miss",
+    "blocked-slot-model-single",
+    "blocked-slot-model-paired",
+    "configured-slot-file-miss",
+    "empty-channel-cache-hit",
+    "empty-option-cache-hit",
+)
+
+
+def test_cache_miss_receipts_name_a_restored_failure() -> None:
+    record = _load()
+    by_id = {item["id"]: item for item in record["receipts"]}
+    assert set(CACHE_MISS_IDS) <= set(by_id)
+    client = ROOT / "tools/langchain_client.py"
+    verifier = ROOT / "scripts/langchain/pr_verifier.py"
+    digests = {
+        "tools/langchain_client.py": _sha256(client),
+        "scripts/langchain/pr_verifier.py": _sha256(verifier),
+    }
+    sources = {
+        "tools/langchain_client.py": client.read_text(encoding="utf-8"),
+        "scripts/langchain/pr_verifier.py": verifier.read_text(encoding="utf-8"),
+    }
+    assert digests["tools/langchain_client.py"] == (
+        "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174"
+    )
+    assert digests["scripts/langchain/pr_verifier.py"] == (
+        "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886"
+    )
+    blocked = [
+        by_id["blocked-slot-model-single"]["nodeid"],
+        by_id["blocked-slot-model-paired"]["nodeid"],
+    ]
+    assert blocked[0] == blocked[1]
+    assert blocked[0].endswith("test_resolver_blocked_slot_model_is_not_built")
+    for item_id in CACHE_MISS_IDS:
+        item = by_id[item_id]
+        validate_receipt(item, sources[item["source"]], source_sha256=digests[item["source"]])
 
 
 def test_prior_mutation_transcripts_stay_unavailable() -> None:
