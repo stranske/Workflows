@@ -144,3 +144,41 @@ not validation of the unchanged repository ledger.
 Guarded source delivery remains blocked by ledger validation. Consumer lint on
 an automatically regenerated PR and the next sync-core classification remain
 unproven and must follow source delivery. The generated consumer PR was not edited.
+
+## Consumer-template regression extension
+
+The lint regression now checks the consumer-template verifier as well as both
+copy-delivered source files. There is no separate `_llm_client.py` template;
+the sync manifest delivers that file from the root source.
+
+- [x] Extend the regression test and verify that reintroducing the unused
+  `config` argument fails it, then restore the fix and verify it passes.
+
+Each of `subscription-source`, `verifier-source`, and `verifier-template` in
+`tests/langchain/test_arg002_regression.py::test_no_arg002_violations` failed
+with `ARG002 Unused method argument: config` after deliberately removing its
+fix. Each passed after restoration. No deliberate-break edits were retained.
+
+On Python 3.14.10, this focused command passed with **124 passed in 3.13s**:
+
+```bash
+python -m pytest -q tests/langchain/test_arg002_regression.py tests/scripts/test_verifier_capacity_backup.py tests/scripts/test_pr_verifier_sync_manifest.py -m 'not slow'
+```
+
+Both the repository Ruff configuration and an isolated `--select ARG002` check
+passed on the two source files and the verifier template. The repository check
+also included the changed regression test.
+
+A broader run including `tests/scripts/test_llm_client_shared.py` stalled after
+43 tests and was interrupted; it is not recorded as passing. GitHub API access
+failed, so PR readiness, regenerated consumer CI, and the next sync-core round
+remain unverified. No consumer PR or workflow was changed.
+
+Black formatting and its single-file check passed for the changed Python test.
+The required repository-wide Black command failed when its default workers
+could not bind the forkserver socket in the sandbox. A single-worker retry
+stalled and was interrupted; a fork-mode diagnostic retry timed out after
+45 seconds. The full formatting gate remains unverified.
+
+Staging the two changed files failed with `Unable to create .git/index.lock:
+Read-only file system`. No commit or push was made.

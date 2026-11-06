@@ -15,10 +15,18 @@ from tools.subscription_llm import SubscriptionClient
 ROOT = Path(__file__).resolve().parents[2]
 
 
-@pytest.mark.parametrize("filename", ["_llm_client.py", "pr_verifier.py"])
-def test_no_arg002_violations(filename: str) -> None:
-    """Check each copy-delivered source with the consumer's unused-argument rule."""
-    source = ROOT / "scripts" / "langchain" / filename
+@pytest.mark.parametrize(
+    "source_path",
+    [
+        "scripts/langchain/_llm_client.py",
+        "scripts/langchain/pr_verifier.py",
+        "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+    ],
+    ids=["subscription-source", "verifier-source", "verifier-template"],
+)
+def test_no_arg002_violations(source_path: str) -> None:
+    """Check shipped sources and the verifier template with the consumer's rule."""
+    source = ROOT / source_path
     result = subprocess.run(
         [sys.executable, "-m", "ruff", "check", "--isolated", "--select", "ARG002", str(source)],
         capture_output=True,
