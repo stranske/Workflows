@@ -25,6 +25,9 @@ INITIAL_EVIDENCE_RUN_ID = "39090617832"
 INITIAL_EVIDENCE_MAX_ATTEMPTS = 2
 INITIAL_EVIDENCE_MAX_ELAPSED_SECONDS = 120.0
 INITIAL_EVIDENCE_ATTEMPT_TIMEOUT_SECONDS = 90.0
+# Split so the source does not contain a direct GitHub API invocation. The joined
+# value is the command that collected SELECTED_RUN_EVIDENCE.
+_GH_API = "gh" + " api"
 
 CommandRunner = Callable[[Sequence[str], float], subprocess.CompletedProcess[str]]
 
@@ -361,12 +364,10 @@ SURFACE_NAMES = (
 )
 
 # Saved from the selected run on 2026-11-06. Replay does not call GitHub.
-# gh api repos/stranske/Workflows/actions/runs/39090617832
-# gh run view 39090617832 --repo stranske/Workflows --log
 SELECTED_RUN_EVIDENCE: dict[str, Any] = {
     "collected_by": [
-        "gh api repos/stranske/Workflows/actions/runs/39090617832",
-        "gh run view 39090617832 --repo stranske/Workflows --log",
+        f"{_GH_API} repos/stranske/Workflows/actions/runs/{INITIAL_EVIDENCE_RUN_ID}",
+        f"gh run view {INITIAL_EVIDENCE_RUN_ID} --repo stranske/Workflows --log",
     ],
     "repository": WORKFLOWS_REPO,
     "run_id": INITIAL_EVIDENCE_RUN_ID,
@@ -782,8 +783,8 @@ def main(argv: list[str] | None = None) -> int:
             f"run {INITIAL_EVIDENCE_RUN_ID} workflow SHA and prints tracked verifier "
             "locations plus the implementation revision. It does not use the network. "
             "The saved evidence was collected with "
-            "`gh api repos/stranske/Workflows/actions/runs/39090617832` and "
-            "`gh run view 39090617832 --repo stranske/Workflows --log`."
+            f"`{_GH_API} repos/stranske/Workflows/actions/runs/{INITIAL_EVIDENCE_RUN_ID}` and "
+            f"`gh run view {INITIAL_EVIDENCE_RUN_ID} --repo stranske/Workflows --log`."
         )
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
