@@ -3834,3 +3834,44 @@ test('a producing run for another consumer does not re-pin this one', async (t) 
   assert.equal(report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission').status,
     'delivery_contract_blocked');
 });
+
+test('Maint 68 verified no-op keeps the existing head source identity in the body', () => {
+  // 2026-11-06: a refresh from a newer main with an unchanged plan kept the signed head (trailer
+  // `Source commit: 298200cb…`) but relabelled the body with the new source, so Maint 71 failed every
+  // canary with canary_refresh_native_scope_mismatch. The body must carry the head's own source.
+  const { spawnSync } = require('node:child_process');
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const start = workflow.indexOf('          body_source_commit="$PLAN_SOURCE_COMMIT"');
+  const end = workflow.indexOf('          if [ -n "$existing_pr" ] \\\n            && { [ "$matching_existing" != "true" ]', start);
+  assert.ok(start >= 0 && end > start, 'no-op source block present');
+  const block = workflow.slice(start, end);
+  const plan = `sha256:${'a'.repeat(64)}`;
+  const run = (message, matching) => spawnSync('bash', ['-c',
+    `git() { printf '%s\\n' "$MSG"; }\nmatching_existing=${matching}\nmigrating_legacy_lifecycle=false\n${block}\n`
+    + 'printf "%s|%s" "$body_source_commit" "$matching_existing"'], {
+    encoding: 'utf8', env: { ...process.env, MSG: message, PLAN_ID: plan, PLAN_SCOPE: 'full',
+      PLAN_SOURCE_COMMIT: 'f'.repeat(40), existing_pr: '1716', existing_head: 'h'.repeat(40), SCOPE_BASE_SHA: '' } });
+  const trailers = (planId, scope, source, base = 'full') => ['chore: sync workflow templates from Workflows repo', '',
+    `Consumer-sync plan ID: ${planId}`, `Plan scope: ${scope}`, `Scope base SHA: ${base}`, `Source commit: ${source}`].join('\n');
+  // same plan, head produced from an older source: keep the head's source, keep the head
+  let result = run(trailers(plan, 'full', 'c'.repeat(40)), 'true');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim().split('\n').pop(), `${'c'.repeat(40)}|true`);
+  // trailers name another plan: regenerate a signed delivery under this run's source
+  result = run(trailers(`sha256:${'b'.repeat(64)}`, 'full', 'c'.repeat(40)), 'true');
+  assert.equal(result.stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope base (source-delta plans can share a plan id across bases): regenerate
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40), 'b'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope, or a malformed source trailer: regenerate
+  assert.equal(run(trailers(plan, 'source-delta', 'c'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  assert.equal(run(trailers(plan, 'full', 'not-a-sha'), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // not a no-op: the new commit carries this run's source, so the body does too
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40)), 'false').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // every body field that names the source uses the reconciled value; the new commit's trailer does not
+  const body = workflow.slice(workflow.indexOf('          sync_marker=$(jq -nc'), workflow.indexOf('**Template hash:**'));
+  assert.match(body, /--arg source_sha "\$body_source_commit"/);
+  assert.equal((body.match(/--arg source_commit "\$body_source_commit"/g) || []).length, 2);
+  assert.match(body, /\*\*Source SHA:\*\* \\`\$body_source_commit\\`/);
+  assert.doesNotMatch(body, /PLAN_SOURCE_COMMIT/);
+  assert.match(workflow, /\n {10}Source commit: \$PLAN_SOURCE_COMMIT\n/);
+});

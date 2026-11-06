@@ -37,6 +37,7 @@ on:
           - capability-check
           - agent
           - verify
+          - done
 
 permissions:
   contents: read
@@ -481,7 +482,7 @@ jobs:
               if ((isCrossRef || isConnected) && repoMatch && sourceIssue?.pull_request) {
                 const prBody = sourceIssue.body || '';
                 const prTitle = sourceIssue.title || '';
-                const hasMeta = prBody.includes(`meta:issue:${issueNumber}`);
+                const hasMeta = new RegExp(`meta:issue:${issueNumber}(?!\\d)`).test(prBody);
                 const hasReference = matchesIssueReference(prBody, issueNumber) ||
                   matchesIssueReference(prTitle, issueNumber);
                 if (hasMeta || hasReference) {
@@ -629,7 +630,6 @@ jobs:
         id: next
         env:
           FORCE_STEP: ${{ inputs.force_step }}
-          VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
         run: |
           SCRIPTS_PATH="${WORKFLOWS_SCRIPTS_PATH:-$GITHUB_WORKSPACE}"
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
@@ -703,7 +703,6 @@ jobs:
             HAS_AGENT="$HAS_AGENT" \
             LINKED_PR="$LINKED_PR" \
             HAS_VERIFY="$HAS_VERIFY" \
-            VERIFY_HANDOFF_BOUND="$VERIFY_HANDOFF_BOUND" \
             PR_STATE_FILE="$PR_STATE_FILE" \
             PR_STATE_FETCH_FAILED="$PR_STATE_FETCH_FAILED" \
             node - <<'NODE'
@@ -723,7 +722,6 @@ jobs:
             hasAgent: process.env.HAS_AGENT,
             linkedPr: process.env.LINKED_PR,
             hasVerify: process.env.HAS_VERIFY,
-            verifyHandoffBound: process.env.VERIFY_HANDOFF_BOUND,
             keepaliveState,
             prStateFetchFailed: process.env.PR_STATE_FETCH_FAILED === 'true',
           });
@@ -2350,7 +2348,7 @@ jobs:
             function matchesLinkedIssue(pr) {
               return Boolean(
                 pr?.merged_at && (
-                  pr.body?.includes(`meta:issue:${issueNumber}`) ||
+                  new RegExp(`meta:issue:${issueNumber}(?!\\d)`).test(pr.body || '') ||
                   matchesIssueReference(pr.body, issueNumber) ||
                   matchesIssueReference(pr.title, issueNumber)
                 )
@@ -2415,13 +2413,25 @@ jobs:
                 }));
               } catch (err) {
                 if (err?.status !== 404) throw err;
-                await withRetry((client) => client.rest.issues.createLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name,
-                  color,
-                  description,
-                }));
+                try {
+                  await withRetry((client) => client.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                    color,
+                    description,
+                  }));
+                } catch (createErr) {
+                  // A concurrent run for another issue can create the label between our
+                  // 404 and this request; GitHub then answers 422. Proceed only if the
+                  // label now exists (Workflows#4366 review finding).
+                  if (createErr?.status !== 422) throw createErr;
+                  await withRetry((client) => client.rest.issues.getLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                  }));
+                }
               }
             }
 
@@ -4039,9 +4049,16 @@ jobs:
           steps.apply_step.outputs.stop_autopilot != 'true' &&
           steps.create_pr_step.outputs.stop_autopilot != 'true' &&
           steps.monitor_pr_step.outputs.stop_autopilot != 'true' &&
-          contains(
-            fromJSON('["format","optimize","apply","capability-check","create-pr","monitor-pr"]'),
-            steps.next.outputs.next_step
+          (
+            contains(
+              fromJSON('["format","optimize","apply","capability-check","create-pr","monitor-pr"]'),
+              steps.next.outputs.next_step
+            ) ||
+            (
+              steps.next.outputs.next_step == 'verify' &&
+              steps.verify_step.outcome == 'success' &&
+              steps.verify_step.outputs.verify_handoff == 'found'
+            )
           )
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
@@ -4147,8 +4164,8 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
-          VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
           VERIFY_HANDOFF: ${{ steps.verify_step.outputs.verify_handoff }}
+          VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
         with:
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
@@ -4157,12 +4174,111 @@ jobs:
               core,
               env: process.env,
               task: 'auto-pilot-report-done',
-              capabilities: ['issues:write', 'contents:read']
+              capabilities: ['issues:write', 'contents:read', 'pulls:read', 'actions:read']
             });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
-            const handoffBound = process.env.VERIFY_HANDOFF_BOUND === 'true';
-            const verifyTriggered = handoffBound || process.env.VERIFY_HANDOFF === 'found';
+            // Helper to check if a PR matches this issue
+            function matchesIssueReference(text, num) {
+              if (!text) return false;
+              const pattern = new RegExp(
+                `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`, 'i'
+              );
+              return pattern.test(text);
+            }
+
+            function matchesLinkedIssue(pr, issueNum) {
+              return Boolean(
+                pr?.merged_at && (
+                  new RegExp(`meta:issue:${issueNum}(?!\\d)`).test(pr.body || '') ||
+                  matchesIssueReference(pr.body, issueNum) ||
+                  matchesIssueReference(pr.title, issueNum)
+                )
+              );
+            }
+
+            function isApplicableVerifierRun(run, prNumber, headSha) {
+              if (!run || !headSha) return false;
+              const dispatchBound = run.event === 'workflow_dispatch' &&
+                run.display_title === `Verifier PR #${prNumber} head=${headSha} mode=evaluate`;
+              const prBound = run.event === 'pull_request_target' &&
+                (run.pull_requests || []).some((pr) =>
+                  pr.number === prNumber && pr.head?.sha === headSha
+                );
+              if (!dispatchBound && !prBound) return false;
+              return ['queued', 'in_progress'].includes(run.status) ||
+                (run.status === 'completed' && run.conclusion === 'success');
+            }
+
+            async function checkVerificationEvidence(issueNum, retryFn) {
+              // Find merged PR for this issue (bounded search)
+              const maxPages = 10;
+              const perPage = 100;
+              let linkedPr = null;
+
+              for (let page = 1; page <= maxPages; page += 1) {
+                const { data: pageItems } = await retryFn((client) => client.rest.pulls.list({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'closed',
+                  sort: 'updated',
+                  direction: 'desc',
+                  per_page: perPage,
+                  page,
+                }));
+                const batch = Array.isArray(pageItems) ? pageItems : [];
+                linkedPr = batch.find((pr) => matchesLinkedIssue(pr, issueNum)) || null;
+                if (linkedPr) break;
+                if (batch.length < perPage) break;
+              }
+
+              if (!linkedPr) {
+                core.info(`No merged PR found for issue #${issueNum} during re-validation`);
+                return false;
+              }
+
+              let headSha = linkedPr.head?.sha || '';
+              if (!headSha) {
+                const { data: prDetails } = await retryFn((client) => client.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: linkedPr.number,
+                }));
+                headSha = prDetails?.head?.sha || '';
+              }
+
+              if (!headSha) {
+                core.info(`No head SHA for PR #${linkedPr.number}`);
+                return false;
+              }
+
+              // Check for existing verifier run
+              const { data: runs } = await retryFn((client) =>
+                client.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'agents-verifier.yml',
+                  per_page: 20,
+                })
+              );
+              const existingRun = (runs.workflow_runs || []).find(
+                (run) => isApplicableVerifierRun(run, linkedPr.number, headSha)
+              );
+
+              return Boolean(existingRun);
+            }
+
+            // Accept direct evidence from verify_step in this execution.
+            let verifyTriggered = process.env.VERIFY_HANDOFF === 'found';
+            
+            // If verify_step did not run in this execution but the issue has a
+            // verify:pr-handoff label, re-check the actual verification state to
+            // prevent stale labels from bypassing verification.
+            if (!verifyTriggered && process.env.VERIFY_HANDOFF_BOUND === 'true') {
+              core.info('Re-validating verification handoff from label presence');
+              verifyTriggered = await checkVerificationEvidence(issueNumber, withRetry);
+            }
+            
             if (!verifyTriggered) {
               await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
