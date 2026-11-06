@@ -25,6 +25,8 @@ def workflow(request: pytest.FixtureRequest) -> Path:
 
 
 ISSUE_NUMBER = 42
+MERGED_HEAD_SHA = "c" * 40
+UNRELATED_HEAD_SHA = "d" * 40
 
 
 def _extract_verify_script(workflow: Path) -> str:
@@ -41,6 +43,10 @@ def _run_verify(
     workflow: Path,
     *,
     fixture_overrides: dict[str, Any] | None = None,
+    pr_labels: tuple[str, ...] = (),
+    fail_on_page: int | None = None,
+    dispatch_unavailable: bool = False,
+    existing_runs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Execute the workflow verify_step script against a mocked pulls.list result set."""
     node = shutil.which("node")
@@ -62,7 +68,11 @@ const labelsCreated = [];
 const labelsRemoved = [];
 const comments = [];
 const pageCalls = [];
+const dispatchCalls = [];
+const runQueries = [];
 const knownLabels = new Set(fixture.knownLabels || []);
+const prLabels = new Set(fixture.prLabels || []);
+let scriptError = null;
 
 const core = {
   setOutput(name, value) { outputs[name] = String(value); },
@@ -82,8 +92,46 @@ const github = {
         const page = Number(params.page) || 1;
         const perPage = Number(params.per_page) || 100;
         pageCalls.push({ page, per_page: perPage, state: params.state });
+        if (page === fixture.failOnPage) {
+          throw new Error('Later PR page is unavailable');
+        }
         const start = (page - 1) * perPage;
         return { data: fixture.prs.slice(start, start + perPage) };
+      },
+      get: async (params) => ({
+        data: {
+          ...fixture.prs.find(pr => pr.number === params.pull_number),
+          labels: [...prLabels].map(name => ({ name })),
+        },
+      }),
+    },
+    repos: {
+      get: async () => ({ data: { default_branch: 'main' } }),
+    },
+    actions: {
+      listWorkflowRuns: async (params) => {
+        runQueries.push(params);
+        const runs = (fixture.existingRuns || []).filter((run) => {
+          if (params.head_sha && run.head_sha !== params.head_sha) {
+            return false;
+          }
+          if (
+            params.workflow_id
+            && run.path
+            && !String(run.path).includes(String(params.workflow_id).replace('.yml', ''))
+          ) {
+            return false;
+          }
+          return true;
+        });
+        return { data: { total_count: runs.length, workflow_runs: runs } };
+      },
+      createWorkflowDispatch: async (params) => {
+        dispatchCalls.push(params);
+        if (!fixture.dispatchUnavailable) return { status: 204 };
+        const error = new Error('No triggering credential is available');
+        error.status = 403;
+        throw error;
       },
     },
     issues: {
@@ -119,7 +167,11 @@ const github = {
           issue_number: params.issue_number,
           labels: [...params.labels],
         });
-        return { data: [] };
+        // The API succeeds even when every requested PR label already exists.
+        if (fixture.prs.some(pr => pr.number === params.issue_number)) {
+          for (const name of params.labels) prLabels.add(name);
+        }
+        return { data: [...prLabels].map(name => ({ name })) };
       },
       removeLabel: async (params) => {
         labelsRemoved.push({
@@ -153,6 +205,7 @@ const requireStub = (name) => {
 };
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+try {
 await new AsyncFunction('require', 'github', 'context', 'core', 'process', process.env.SCRIPT)(
   requireStub,
   github,
@@ -160,6 +213,9 @@ await new AsyncFunction('require', 'github', 'context', 'core', 'process', proce
   core,
   process,
 );
+} catch (error) {
+  scriptError = error.message;
+}
 
 process.stdout.write(JSON.stringify({
   outputs,
@@ -169,6 +225,9 @@ process.stdout.write(JSON.stringify({
   labelsRemoved,
   comments,
   pageCalls,
+  dispatchCalls,
+  runQueries,
+  scriptError,
 }));
 """
     completed = subprocess.run(
@@ -183,14 +242,29 @@ process.stdout.write(JSON.stringify({
                 if "consumer" in workflow.parts
                 else ROOT / ".github/scripts/auto_pilot_transitions.js"
             ),
-            "FIXTURE": json.dumps({"prs": prs, "knownLabels": [], **(fixture_overrides or {})}),
+            "FIXTURE": json.dumps(
+                {
+                    "prs": prs,
+                    "knownLabels": list(pr_labels),
+                    "prLabels": list(pr_labels),
+                    "failOnPage": fail_on_page,
+                    "dispatchUnavailable": dispatch_unavailable,
+                    "existingRuns": existing_runs or [],
+                    **(fixture_overrides or {}),
+                }
+            ),
         },
         text=True,
         capture_output=True,
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
-    return json.loads(completed.stdout)
+    result = json.loads(completed.stdout)
+    allowed_errors = (
+        (None, "No triggering credential is available") if dispatch_unavailable else (None,)
+    )
+    assert result["scriptError"] in allowed_errors, result["scriptError"]
+    return result
 
 
 def _filler_prs(count: int) -> list[dict[str, Any]]:
@@ -211,6 +285,8 @@ def _matching_pr(number: int) -> dict[str, Any]:
         "merged_at": "2026-02-01T00:00:00Z",
         "title": f"Fix closes #{ISSUE_NUMBER}",
         "body": f"<!-- meta:issue:{ISSUE_NUMBER} -->\nCloses #{ISSUE_NUMBER}",
+        "head": {"sha": MERGED_HEAD_SHA},
+        "merge_commit_sha": MERGED_HEAD_SHA,
     }
 
 
@@ -261,6 +337,50 @@ def test_handoff_truncated_lookup_reports_incomplete_not_verified(workflow: Path
     assert any("incomplete" in failure for failure in result["failures"])
     assert any(f"#{ISSUE_NUMBER}" in failure for failure in result["failures"])
     assert max(call["page"] for call in result["pageCalls"]) == 10
+    assert [call["page"] for call in result["pageCalls"]] == list(range(1, 11))
+
+
+@pytest.mark.parametrize("already_labeled", [False, True], ids=("fallback", "already-labeled"))
+def test_handoff_requires_dispatched_or_existing_verifier_run(
+    workflow: Path, already_labeled: bool
+) -> None:
+    """A successful label write alone cannot authorize either completion marker."""
+    result = _run_verify(
+        [_matching_pr(555)],
+        workflow,
+        pr_labels=("verify:evaluate",) if already_labeled else (),
+        dispatch_unavailable=True,
+    )
+
+    assert not any(
+        entry["issue_number"] == ISSUE_NUMBER and "verify:pr-handoff" in entry["labels"]
+        for entry in result["labelsAdded"]
+    ), "Issue handoff marker was recorded without a dispatched or existing verifier run"
+    assert (
+        result["outputs"].get("verify_handoff") != "found"
+    ), "Report - Done treats verify_handoff=found as a completed verifier handoff"
+    assert result["scriptError"] is None
+    assert len(result["dispatchCalls"]) == 1
+    assert result["failures"]
+    assert result["labelsAdded"] == []
+
+
+def test_handoff_page_one_match_stops_search_immediately(workflow: Path) -> None:
+    """Even ten full pages must cost one request when the first page matches."""
+    result = _run_verify([_matching_pr(555)] + _filler_prs(999), workflow)
+
+    assert [call["page"] for call in result["pageCalls"]] == [1]
+
+
+def test_handoff_page_one_match_does_not_request_failing_later_page(workflow: Path) -> None:
+    """A later API failure cannot invalidate an already found merged PR."""
+    result = _run_verify(
+        [_matching_pr(555)] + _filler_prs(999),
+        workflow,
+        fail_on_page=2,
+    )
+
+    assert [call["page"] for call in result["pageCalls"]] == [1]
 
 
 def test_handoff_successful_pr_bound_labels_merged_pr_and_issue(workflow: Path) -> None:
@@ -312,3 +432,241 @@ def test_handoff_without_closure_event_withholds_identity_marker(workflow: Path)
     assert result["failures"]
     assert result["outputs"].get("verify_handoff") != "found"
     assert not any("auto-pilot-verify-handoff:v1" in comment["body"] for comment in result["comments"])
+
+
+def _verifier_run(
+    *, head_sha: str, status: str = "completed", conclusion: str = "success"
+) -> dict[str, Any]:
+    return {
+        "id": 9001,
+        "head_sha": head_sha,
+        "status": status,
+        "conclusion": conclusion,
+        "path": ".github/workflows/agents-verifier.yml",
+        "event": "pull_request_target",
+        "pull_requests": [{"number": 555, "head": {"sha": head_sha}}],
+    }
+
+
+def test_handoff_dispatches_verifier_before_recording_markers(workflow: Path) -> None:
+    result = _run_verify([_matching_pr(555)], workflow)
+
+    assert result["dispatchCalls"] == [
+        {
+            "owner": "stranske",
+            "repo": "Workflows",
+            "workflow_id": "agents-verifier.yml",
+            "ref": "main",
+            "inputs": {"pr_number": "555", "pr_head_sha": MERGED_HEAD_SHA, "mode": "evaluate"},
+        }
+    ]
+    assert result["failures"] == []
+    assert result["outputs"].get("verify_handoff") == "found"
+
+
+def test_handoff_existing_verifier_run_authorizes_without_dispatch(workflow: Path) -> None:
+    result = _run_verify(
+        [_matching_pr(555)],
+        workflow,
+        dispatch_unavailable=True,
+        existing_runs=[_verifier_run(head_sha=MERGED_HEAD_SHA)],
+    )
+
+    assert result["scriptError"] is None
+    assert result["failures"] == []
+    assert result["dispatchCalls"] == []
+    assert result["outputs"].get("verify_handoff") == "found"
+    assert any(
+        entry["issue_number"] == ISSUE_NUMBER and "verify:pr-handoff" in entry["labels"]
+        for entry in result["labelsAdded"]
+    )
+
+
+def test_handoff_unrelated_verifier_run_does_not_authorize_handoff(workflow: Path) -> None:
+    result = _run_verify(
+        [_matching_pr(555)],
+        workflow,
+        dispatch_unavailable=True,
+        existing_runs=[_verifier_run(head_sha=UNRELATED_HEAD_SHA)],
+    )
+
+    assert len(result["dispatchCalls"]) == 1
+    assert result["outputs"].get("verify_handoff") != "found"
+    assert not any(
+        entry["issue_number"] == ISSUE_NUMBER and "verify:pr-handoff" in entry["labels"]
+        for entry in result["labelsAdded"]
+    )
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        [],
+        [{"number": 556, "head": {"sha": MERGED_HEAD_SHA}}],
+        [{"number": 555, "head": {"sha": UNRELATED_HEAD_SHA}}],
+    ],
+    ids=("unbound", "wrong-pr", "wrong-pr-head"),
+)
+def test_handoff_same_sha_without_target_pr_binding_is_not_reused(
+    workflow: Path, binding: list[dict[str, Any]]
+) -> None:
+    run = _verifier_run(head_sha=MERGED_HEAD_SHA)
+    run["pull_requests"] = binding
+    result = _run_verify(
+        [_matching_pr(555)], workflow, dispatch_unavailable=True, existing_runs=[run]
+    )
+    assert len(result["dispatchCalls"]) == 1
+    assert result["outputs"].get("verify_handoff") != "found"
+    assert result["labelsAdded"] == []
+    assert result["failures"]
+
+
+def test_handoff_reuses_dispatched_run_on_default_branch(workflow: Path) -> None:
+    run = _verifier_run(head_sha=UNRELATED_HEAD_SHA)
+    run.update(
+        event="workflow_dispatch",
+        pull_requests=[],
+        display_title=f"Verifier PR #555 head={MERGED_HEAD_SHA} mode=evaluate",
+    )
+    result = _run_verify(
+        [_matching_pr(555)], workflow, dispatch_unavailable=True, existing_runs=[run]
+    )
+    assert result["dispatchCalls"] == []
+    assert result["outputs"].get("verify_handoff") == "found"
+    assert result["failures"] == []
+
+
+@pytest.mark.parametrize("provenance_only", [False, True], ids=("evaluation", "provenance-only"))
+@pytest.mark.parametrize("status", ["queued", "in_progress", "completed"])
+def test_handoff_excludes_provenance_only_dispatch(
+    workflow: Path, provenance_only: bool, status: str
+) -> None:
+    # Render the caller's actual run-name so removing its suffix breaks this proof.
+    title = yaml.safe_load(workflow.with_name("agents-verifier.yml").read_text())["run-name"]
+    for expression, value in (
+        ("${{ inputs.pr_number || github.event.pull_request.number }}", "555"),
+        ("${{ inputs.pr_head_sha || github.event.pull_request.head.sha }}", MERGED_HEAD_SHA),
+        ("${{ inputs.mode || 'label' }}", "evaluate"),
+        (
+            "${{ inputs.verification_provenance != '' && ' provenance-only' || '' }}",
+            " provenance-only" if provenance_only else "",
+        ),
+    ):
+        title = title.replace(expression, value)
+    assert "${{" not in title
+    run = _verifier_run(head_sha=UNRELATED_HEAD_SHA, status=status)
+    run.update(event="workflow_dispatch", pull_requests=[], display_title=title)
+    result = _run_verify(
+        [_matching_pr(555)], workflow, dispatch_unavailable=True, existing_runs=[run]
+    )
+    assert len(result["dispatchCalls"]) == int(provenance_only)
+    if provenance_only:
+        assert result["outputs"].get("verify_handoff") != "found"
+        assert result["labelsAdded"] == []
+        assert result["failures"]
+    else:
+        assert result["outputs"].get("verify_handoff") == "found"
+        assert result["failures"] == []
+
+
+@pytest.mark.parametrize("conclusion", ["cancelled", "skipped", "failure"])
+def test_handoff_unsuccessful_run_does_not_authorize(workflow: Path, conclusion: str) -> None:
+    result = _run_verify(
+        [_matching_pr(555)],
+        workflow,
+        dispatch_unavailable=True,
+        existing_runs=[_verifier_run(head_sha=MERGED_HEAD_SHA, conclusion=conclusion)],
+    )
+    assert len(result["dispatchCalls"]) == 1
+    assert result["outputs"].get("verify_handoff") != "found"
+    assert result["labelsAdded"] == []
+
+
+@pytest.mark.parametrize(
+    "wrong_title",
+    [
+        f"Verifier PR #556 head={MERGED_HEAD_SHA} mode=evaluate",
+        f"Verifier PR #555 head={UNRELATED_HEAD_SHA} mode=evaluate",
+        f"Verifier PR #555 head={MERGED_HEAD_SHA} mode=checkbox",
+    ],
+)
+def test_handoff_dispatched_run_requires_exact_pr_head_and_mode(
+    workflow: Path, wrong_title: str
+) -> None:
+    run = _verifier_run(head_sha=UNRELATED_HEAD_SHA)
+    run.update(event="workflow_dispatch", pull_requests=[], display_title=wrong_title)
+    result = _run_verify(
+        [_matching_pr(555)], workflow, dispatch_unavailable=True, existing_runs=[run]
+    )
+    assert len(result["dispatchCalls"]) == 1
+    assert result["outputs"].get("verify_handoff") != "found"
+    assert result["labelsAdded"] == []
+
+
+def test_verifier_entry_point_exposes_dispatch_binding(workflow: Path) -> None:
+    verifier = workflow.with_name("agents-verifier.yml")
+    document = yaml.safe_load(verifier.read_text())
+    assert document["run-name"] == (
+        "Verifier PR #${{ inputs.pr_number || github.event.pull_request.number }} "
+        "head=${{ inputs.pr_head_sha || github.event.pull_request.head.sha }} "
+        "mode=${{ inputs.mode || 'label' }}"
+        "${{ inputs.verification_provenance != '' && ' provenance-only' || '' }}"
+    )
+    inputs = document.get("on", document.get(True))["workflow_dispatch"]["inputs"]
+    assert inputs["pr_head_sha"]["required"] is False
+    verify = yaml.safe_load(workflow.read_text())
+    step = next(
+        step
+        for job in verify["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("id") == "verify_step"
+    )
+    assert step["with"]["github-token"] == "${{ steps.app_token.outputs.token || github.token }}"
+
+
+@pytest.mark.parametrize("matches_head", [True, False], ids=("matches", "stale"))
+def test_verifier_dispatch_checks_expected_head(workflow: Path, matches_head: bool) -> None:
+    verifier = yaml.safe_load(workflow.with_name("agents-verifier.yml").read_text())
+    script = next(
+        step["with"]["script"]
+        for step in verifier["jobs"]["check"]["steps"]
+        if step.get("id") == "check"
+    )
+    # Execute the actual dispatch entry branch, with its normal setup already done.
+    script = script.split("// Handle workflow_dispatch trigger", 1)[1]
+    script = script.split("// Handle pull_request_target trigger", 1)[0]
+    harness = r"""
+const outputs = {}, failures = [];
+const core = { setOutput: (k,v) => outputs[k]=v, setFailed: s => failures.push(s), info() {} };
+const context = {eventName:'workflow_dispatch', repo:{owner:'stranske',repo:'Workflows'},
+  payload:{inputs:{pr_number:'555',mode:'evaluate',pr_head_sha:process.env.EXPECTED_HEAD}}};
+const client = {rest:{pulls:{get:async()=>({data:{merged:true,head:{sha:process.env.PR_HEAD}}})}}};
+const withRetry = async fn => fn(client);
+const setPlanSourceFingerprint = async () => true;
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+await new AsyncFunction('context','core','withRetry','setPlanSourceFingerprint',process.env.SCRIPT)(
+  context,core,withRetry,setPlanSourceFingerprint);
+process.stdout.write(JSON.stringify({outputs,failures}));
+"""
+    node = shutil.which("node")
+    if node is None:  # pragma: no cover - host dependent
+        message = "node is required to execute the verifier dispatch script"
+        if os.environ.get("CI"):
+            pytest.fail(message)
+        pytest.skip(message)
+    completed = subprocess.run(
+        [node, "--input-type=module", "-e", harness],
+        env={
+            **os.environ,
+            "SCRIPT": script,
+            "PR_HEAD": MERGED_HEAD_SHA,
+            "EXPECTED_HEAD": MERGED_HEAD_SHA if matches_head else UNRELATED_HEAD_SHA,
+        },
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=10,
+    )
+    result = json.loads(completed.stdout)
+    assert result["outputs"]["should_run"] == ("true" if matches_head else "false")
+    assert bool(result["failures"]) is not matches_head

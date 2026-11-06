@@ -2112,6 +2112,18 @@ plan ID mismatch establishes lack of ownership, not supersession: Maint 71 repor
 transient Maint 82 continuation bound to the owning plan, source, scope and head. Stale-PR cleanup is likewise restricted to the selected plan.
 This prevents a delayed prior campaign from closing a newer candidate or delivery.
 
+The handoff follows the refresh. When a candidate carries the expected plan but
+a different source commit, consistently in its sync metadata and delivery record,
+and a successful `Maint 68 canary … source=<that commit>` run on the default
+branch produced it for that consumer, Maint 71 reports `delivery_handoff_repin`
+(`source-repinned`, owner `maint-82`, next command
+`rerun-with-repinned-handoff`) with the refreshed source instead of
+`delivery_contract_blocked`. Maint 82 retains that newer record for the PR and
+pins the next candidate continuation to the refreshed source, so an accepted
+refresh that moved past the handoff is re-bound on the following run rather
+than refused until the daily compile re-pins it. An inconsistent candidate, or
+one no Maint 68 run produced, stays `delivery_contract_blocked`.
+
 Active non-outdated findings remain visible and pass the shared relevance
 contract above; unknown and shared/sync-caused findings block. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated
@@ -3049,7 +3061,11 @@ for `ruff`, `black`, `mypy`, `pytest`, `coverage`, `isort`, and `docformatter`.
 The matching `pyproject.toml`, consumer template, integration template, and
 direct `requirements.lock` pins must move in the same Workflows PR. Maint 52
 also updates managed `.pre-commit-config.yaml` hook revisions and direct tool pins in a consumer's `requirements-dev.lock` when that
-additional generated lockfile exists.
+additional generated lockfile exists. When `.github/workflows/pages-wasm-demo.yml`
+exists, the same apply rewrites quoted exact pins of those managed tools in that
+workflow, and the dev-tool commit stages the file. That keeps the WASM
+contract-test install on the development pytest pin. Other consumer-owned
+workflows stay untouched, and Maint 68 still does not copy this workflow.
 
 Direct pin replacement is not lock regeneration. Maint 52 applies
 `sync_dev_dependencies.py --apply --pre-commit --resolve-locks` before publishing
@@ -3543,6 +3559,21 @@ Evidence selection and incidental fallback share one clause classification with 
 Coordinated negative subjects use shared descriptor-aware URL tokens and a bounded scan of separators, avoiding repeated regex partitions. Commas cannot be URL-token content; run/workflow-run descriptors are subject members, while colon-labelled descriptive evidence declarations reopen affirmative scope. Oversized32768-character prose lines make reference-scope/artifact completeness unavailable before classification; raw body/comments and typed evidence remain preserved. Native4290325535/4290325565, CodeRabbit4290327270, real earlier-head timeout and cap RED controls plus full160tests/16892coordination checks are retained.
 
 ### Stable canary refresh clock
+
+Full-scope report refreshes retain the verified campaign source commit and pass
+its expected plan ID to Maint 68. An immutable-identity block may request
+`refresh-candidate-from-exact-plan` only with a complete full-scope campaign
+tuple and a freshly authenticated candidate for the same compiled plan. Mixed
+plan/source requests refuse before dispatch. The refresh step persists
+`canary_refresh.refresh_dispatched`, `held_plans`, and `drainable` in the merge
+report after dispatch. It also emits a `candidate refresh receipt:` line in
+the refresh step's logs and summary, binding those counts to `source_commit`
+and `plan_id`. This line remains observable when the workflow uploaded its
+report artifact before refresh; the earlier artifact lacks the new accounting.
+A held or failed dispatch emits no success receipt. This receipt is not
+production completion. Confirm the next Maint 71 run reaches the review/seal
+path without an identity mismatch.
+
 
 Maint 71 uses `STALE_CANARY_HOURS = 6` against the producer's
 `head_observed_at` to recover blocked or non-mergeable canaries. Green,

@@ -217,12 +217,25 @@ Claude runner). `tools/subscription_llm.py` resolves the cheap-tier model from
 passes only account-auth environment values to the read-only CLI. Codex analysis
 disables shell/unified_exec and related tools, runs ephemeral with an empty cwd,
 and never relies on sandbox read-only alone to protect `CODEX_HOME/auth.json`.
-Claude analysis uses `--tools ""`. API-provider, GitHub, and tracing keys are
+Claude analysis uses `--tools ""`. Its availability check looks for `.credentials.json`
+under `CLAUDE_CONFIG_DIR` when set, otherwise under `~/.claude`, matching the
+configuration directory passed to the child CLI. API-provider, GitHub, and tracing keys are
 excluded from the child environment. Missing CLI, account auth, timeout, or
 invalid CLI output never falls back to an API. Optional Cursor/Gemini/Muse
 analysis skips with `llm-analysis-run=false` without an already
 installed/authenticated Codex CLI. Progress review prepares Codex from the existing
 subscription secret and uses the same transport, without LangChain dependencies.
+
+The shared `scripts/langchain/_llm_client.py` factory keeps ordinary chat callers
+on the standard client factory, including when `WORKFLOWS_ANALYSIS_CLI` is set.
+Provider/model selections (including `force_openai` and the
+`LANGCHAIN_PROVIDER`/`LANGCHAIN_MODEL` environment overrides) retain their standard
+routing. Auxiliary progress review explicitly calls `build_auxiliary_client()`
+in subscription mode to request the registry analysis profile, independently of
+chat defaults. That entrypoint wraps subscription clients in a callable adapter
+accepted by LangChain's `template | client` composition and renders prompt values
+with `to_string()` before invoking the CLI. Subscription failures propagate
+without an API retry, and auxiliary analysis requires no LangChain dependency.
 
 The summary prints `llm-ticked-tasks: N`: checkboxes actually changed by LLM
 analysis, excluding boxes the agent had already checked and commit-only matches.

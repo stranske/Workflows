@@ -118,6 +118,8 @@ function resolveCurrentState(event = {}) {
   const linkedPr = hasLinkedPr(event.linkedPr);
 
   if (issueState === 'closed') {
+    // Label-only verify:pr-handoff cannot bypass verification. Completion
+    // requires the persisted handoff identity to match the current closure.
     return hasCurrentVerifyHandoff(event)
       ? STATES.CLOSED_VERIFIED
       : STATES.CLOSED_NEEDS_VERIFY;
@@ -221,7 +223,9 @@ function redispatchForceStep(currentStep) {
     [NEXT_STEPS.CAPABILITY_CHECK]: 'auto',
     [NEXT_STEPS.CREATE_PR]: 'auto',
     [NEXT_STEPS.MONITOR_PR]: 'auto',
-    [NEXT_STEPS.VERIFY]: 'auto',
+    // Only dispatched after verify_step confirms a PR/head-bound handoff;
+    // Report - Done re-validates that evidence before completing.
+    [NEXT_STEPS.VERIFY]: NEXT_STEPS.DONE,
   };
   return nextStepMap[step] || 'auto';
 }

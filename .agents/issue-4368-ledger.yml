@@ -1,0 +1,156 @@
+version: 1
+issue: 4368
+base: main
+branch: codex/issue-4368
+tasks:
+  - id: task-01
+    title: Fix `config/model_registry.json` so the retirement relies on a configured,
+      validated consumer backup or explicitly documents that this consumer has no
+      backup.
+    status: doing
+    started_at: '2026-11-04T13:35:54Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Update the retirement entry in config/model_registry.json so its replacement
+      text no longer names Muse as the backup for consumers without a capacity_backup
+      block (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Add an explicit note in config/model_registry.json stating that consumers
+      lacking a capacity_backup block in config/llm_slots.json have no configured
+      backup (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Write a validation check that fails when a retirement entry names a replacement
+      backup that the consumer''s llm_slots.json does not configure (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: Add or extend a test beside `config/model_registry.json` that fails on
+      the reported behavior and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Add a pytest test under tests/ that loads config/model_registry.json (verify:
+      tests pass)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'fails when a retirement entry names Muse as the replacement backup without
+      a matching capacity_backup configuration (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Test that the retirement entry passes the check once it either references
+      a configured backup or explicitly documents that no backup exists (verify: config
+      validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js`
+      for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      that deliberate break restores a passing result.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454
+      without this review thread, and sync-core stops bumping this issue.
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - Post-merge; maint-71-merge-sync-prs.yml and sync-core own completion after source merge.
+  - id: task-12
+    title: 'Fix the finding at its source in `stranske/Workflows`: `config/model_registry.json`
+      (the consumer PR stranske/Portable-Alpha-Extension-Model#2454 is generated from
+      it by `.github/workflows/maint-68-sync-consumer-repos.yml` and must not be edited
+      by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add or extend a test beside `config/model_registry.json` that fails on
+      the behaviour the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2454
+      is resolved.
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - Post-merge; maint-68-sync-consumer-repos.yml owns consumer regeneration and thread resolution.
+  - id: task-15
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2454
+      is resolved. (This task appears only in the Original Issue block. It requires
+      triggering or waiting on a protected workflow and confirming a review thread
+      in another repository. The agent cannot modify workflow files, retry CI pipelines,
+      or act on the consumer PR. The reviewer or the sync automation resolves the
+      thread. | Leave this as a post-merge human or automation step, not an agent
+      task. The top-level Tasks list already omits it, so keep it out. Describe it
+      in Implementation Notes as the expected downstream effect.)
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - Duplicate downstream automation step; maint-68/maint-71 own completion after source merge.
+  - id: task-16
+    title: 'Fix `config/model_registry.json` so the retirement relies on a configured,
+      validated consumer backup (Configuring the backup means adding a `capacity_backup`
+      block to the consumer''s create-only `config/llm_slots.json`. That file is outside
+      this repository''s scope, and the Non-Goals forbid editing the consumer PR or
+      branch. | Choose the documentation path: state in the registry that this consumer
+      has no backup. Alternatively, make the registry text conditional on the consumer
+      having a configured backup. Open a separate issue for the consumer''s `llm_slots.json`.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

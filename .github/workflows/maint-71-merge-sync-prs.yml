@@ -672,19 +672,6 @@ jobs:
             }));
             core.notice(`Dispatched Health 83 completion measurement for ${planId}`);
 
-      - name: Upload sync PR merge report
-        id: merge_artifact
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          retention-days: 30
-          name: sync-pr-merge-and-canary-evidence
-          path: |
-            artifacts/sync-pr-merge-report.json
-            artifacts/sync-canary-evidence.json
-            artifacts/sync-campaign-commit-authorization.json
-          if-no-files-found: warn
-
       - name: Refresh stale candidate bases
         id: refresh_candidate
         env:
@@ -726,6 +713,7 @@ jobs:
             await dispatchCandidateRefreshFromReport({ withRetry, context, core, report,
               trustedActors: String(process.env.TRUSTED_SYNC_ACTORS || '').split(',').filter(Boolean),
               expectedCanaries: (config.canaries || []).map((entry) => entry.repo) });
+            fs.writeFileSync('artifacts/sync-pr-merge-report.json', JSON.stringify(report, null, 2));
 
       - name: Refresh stale delivery bases
         id: refresh_delivery
@@ -775,6 +763,19 @@ jobs:
               decision, expectedCanaries, withRetry, context, core,
               cleanupBranches: report.inputs.cleanup_branches,
             });
+
+      - name: Upload sync PR merge report
+        id: merge_artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          retention-days: 30
+          name: sync-pr-merge-and-canary-evidence
+          path: |
+            artifacts/sync-pr-merge-report.json
+            artifacts/sync-canary-evidence.json
+            artifacts/sync-campaign-commit-authorization.json
+          if-no-files-found: warn
 
       - name: Promote complete exact-plan canary evidence
         id: promote

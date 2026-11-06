@@ -156,7 +156,8 @@ test('redispatch map preserves current workflow force_step contract', () => {
   assert.equal(redispatchForceStep('capability-check'), 'auto');
   assert.equal(redispatchForceStep('create-pr'), 'auto');
   assert.equal(redispatchForceStep('monitor-pr'), 'auto');
-  assert.equal(redispatchForceStep('verify'), 'auto');
+  // Only dispatched after a confirmed PR/head verify handoff (issue #4366).
+  assert.equal(redispatchForceStep('verify'), 'done');
 });
 
 test('a handoff from an earlier closure cannot complete a reopened issue closed by another PR', () => {
@@ -330,10 +331,9 @@ for (const [surface, transitions] of [
       closure: { id: '3001', sourcePr: '2454' },
       verifyHandoff: { closureId: '3001', sourcePr: '2454' },
     };
-    const next = () => transitions.determineNextStep({
-      ...issue,
-      forceStep: transitions.redispatchForceStep(NEXT_STEPS.VERIFY),
-    });
+    // Redispatch after verify forces done at the workflow boundary. This helper
+    // check is the unforced re-evaluation that still requires fresh proof.
+    const next = () => transitions.determineNextStep({ ...issue, forceStep: 'auto' });
     assert.equal(next().nextStep, NEXT_STEPS.DONE);
 
     // Reopening leaves both legacy labels and the recorded handoff in place.
@@ -369,21 +369,18 @@ for (const [surface, transitions] of [
     const labeled = { ...issue, verifyHandoffBound: true };
     assert.equal(transitions.determineNextStep(labeled).nextStep, NEXT_STEPS.VERIFY);
 
-    // Exercise the helper's redispatch contract, without claiming the workflow
-    // schedules it: that requires its protected stage allowlist to admit verify.
+    // Matching closure identity completes on the next unforced evaluation.
+    // The workflow separately redispatches verify to done, which Report - Done
+    // accepts only after re-checking that same identity.
     const handedOff = {
       ...labeled,
       verifyHandoff: { closureId: 2001, sourcePr: 2454 },
     };
-    const continuation = {
-      ...handedOff,
-      forceStep: transitions.redispatchForceStep(initial.nextStep),
-    };
-    const completed = transitions.determineNextStep(continuation);
+    const completed = transitions.determineNextStep(handedOff);
     assert.equal(completed.forced, false);
     assert.equal(completed.currentState, STATES.CLOSED_VERIFIED);
     assert.equal(completed.nextStep, NEXT_STEPS.DONE);
-    assert.equal(transitions.determineNextStep(continuation).nextStep, NEXT_STEPS.DONE);
+    assert.equal(transitions.redispatchForceStep(initial.nextStep), NEXT_STEPS.DONE);
   });
 
   test(`${surface}: failed or stale legacy handoffs stay retryable until fresh proof exists`, () => {
@@ -394,9 +391,9 @@ for (const [surface, transitions] of [
       closure: { id: 2002, sourcePr: 2455 },
       verifyHandoff: { closureId: 2001, sourcePr: 2454 },
     };
-    const forceStep = transitions.redispatchForceStep(NEXT_STEPS.VERIFY);
-    const next = (event) => transitions.determineNextStep({ ...event, forceStep }).nextStep;
+    const next = (event) => transitions.determineNextStep(event).nextStep;
 
+    assert.equal(transitions.redispatchForceStep(NEXT_STEPS.VERIFY), NEXT_STEPS.DONE);
     assert.equal(next(issue), NEXT_STEPS.VERIFY);
     assert.equal(next({ ...issue, verifyHandoffBound: true }), NEXT_STEPS.VERIFY);
 

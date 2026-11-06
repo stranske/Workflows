@@ -2444,7 +2444,13 @@ def test_base_pytest_must_execute_a_test_before_counting_as_red(
         4: "base usage diagnostic",
         5: "no tests ran",
     }[exit_code]
-    assert diagnostic in result["base_stdout"] + result["base_stderr"]
+    combined = result["base_stdout"] + result["base_stderr"]
+    if exit_code == 5 and diagnostic not in combined:
+        # pytest -q omits "no tests ran" when a plugin warning summary owns the
+        # footer. Exit code 5, asserted above, is still the empty session.
+        assert "warnings summary" in combined
+    else:
+        assert diagnostic in combined
     if exit_code == 1:
         assert "ERROR collecting" in result[f"base_{stream}"]
 
