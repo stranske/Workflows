@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
+    "tests/scripts/test_shebang_rejection_acceptance_run.py",
+    "tests/scripts/test_shebang_rejection_archive_bindings.py",
+    "tests/scripts/test_shebang_rejection_replay.py",
+    "tests/scripts/test_shebang_rejection_validation_run.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/companions.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "env_overrides": {},
+  "duration_seconds": 50.122
+}
