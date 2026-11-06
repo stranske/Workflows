@@ -431,7 +431,9 @@ def test_handoff_without_closure_event_withholds_identity_marker(workflow: Path)
 
     assert result["failures"]
     assert result["outputs"].get("verify_handoff") != "found"
-    assert not any("auto-pilot-verify-handoff:v1" in comment["body"] for comment in result["comments"])
+    assert not any(
+        "auto-pilot-verify-handoff:v1" in comment["body"] for comment in result["comments"]
+    )
 
 
 def _verifier_run(

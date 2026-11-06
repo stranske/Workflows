@@ -17,7 +17,7 @@ tasks:
       after a handoff or complete the `done` disposition in the same run.
     status: done
     finished_at: '2026-11-04T19:40:00Z'
-    commit: closer/issue-4365
+    commit: b2c7598d7
     notes:
       - 'Re-dispatch after successful verify handoff (force_step=auto)'
   - id: task-03
@@ -25,6 +25,7 @@ tasks:
       the verify stage after a successful pr-handoff so that continuation is scheduled
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
     notes:
       - 'agents-auto-pilot.yml Re-dispatch for next step admits verify+found handoff'
   - id: task-04
@@ -32,6 +33,7 @@ tasks:
       label events instead of rejecting them
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
     notes:
       - 'Gate custom-predicate admits verify:pr-handoff when agents:auto-pilot present'
   - id: task-05
@@ -39,6 +41,7 @@ tasks:
       so a completion report is produced
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
     notes:
       - 'Report - Done uses determineNextStep identity guard; legacy path covered in JS tests'
   - id: task-06
@@ -46,6 +49,7 @@ tasks:
       in repo)'
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
     notes:
       - 'Stale/missing identity retains label; matching identity removes on completion'
   - id: task-07
@@ -53,6 +57,7 @@ tasks:
       that fail on the reported behaviors and pass after the fixes.
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
     notes:
       - 'auto-pilot-transitions.test.js workflow caller + marker helpers'
   - id: task-08
@@ -60,22 +65,26 @@ tasks:
       handoff, closes it with a different PR (verify: tests pass)'
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
   - id: task-09
     title: Add a test in .github/scripts/__tests__ that reopens an issue after a handoff,
       closes it with and asserts the disposition is verify rather than done
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
   - id: task-10
     title: Add a test in .github/scripts/__tests__ that runs a closed issue with the
       legacy verify:evaluate label through a successful handoff
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
   - id: task-11
     title: 'Add a test in .github/scripts/__tests__ that runs a closed issue with
       asserts a continuation is scheduled or the done disposition completes (verify:
       tests pass)'
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
     notes:
       - 'Workflow redispatch + caller done path regressions'
   - id: task-12
@@ -83,12 +92,14 @@ tasks:
       verify:pr-handoff label events
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
   - id: task-13
     title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js`
       and `python3 -m pytest -q tests/`.'
     status: done
     started_at: '2026-11-04T19:40:00Z'
     finished_at: '2026-11-04T19:55:00Z'
+    commit: b2c7598d7
     notes:
       - 'Full Node/Python results in PR body; 3 pre-existing pytest failures preserved'
   - id: task-14
@@ -96,6 +107,7 @@ tasks:
       the deliberate break restores passing results.
     status: done
     finished_at: '2026-11-04T19:40:00Z'
+    commit: b2c7598d7
     notes:
       - 'docs/evidence/issue-4365-handoff-regression.md deliberate-break table'
 post_merge_checklist:
