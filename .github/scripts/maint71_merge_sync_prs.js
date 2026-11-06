@@ -425,12 +425,18 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     }
     // A guarded producer can succeed after queueing, without delivery. Its
     // explicit authorization step is the receipt, not the run conclusion.
+    // A skipped authorization must not consume the recovery key: the next
+    // Maint 68 guard would otherwise see a success and refuse the mutation
+    // the canaries are still waiting on.
     if (run.status === 'completed' && run.conclusion === 'success'
       && String(run.display_title).endsWith(' guard=delivery-v1')) {
       const jobs = await withRetry(client => client.paginate(client.rest.actions.listJobsForWorkflowRun,
         { ...location, run_id: run.id, per_page: 100 }));
       if (!jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
-        && step.conclusion === 'success'))) continue;
+        && step.conclusion === 'success'))) {
+        run.refresh_not_started = true;
+        continue;
+      }
     }
     run.source_commit = match[1];
     if (payload) {

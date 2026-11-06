@@ -789,6 +789,52 @@ test('exact-plan refresh dispatches after a later success retires an older cance
   assert.equal(f.writes.length, 1, 'a cancellation newer than the last success still holds the recovery key');
   assert.deepEqual(f.report.canary_refresh, accounted);
 });
+test('a guarded success that skipped mutation does not consume the recovery key', async t => {
+  const f = reportFixture(t, { scope: 'full' });
+  const now = Date.now();
+  const iso = (ageMs) => new Date(now - ageMs).toISOString();
+  const title = (drift = '') => `Maint 68 canary full source=${source} candidates=owner/a dry=false${drift ? ` drift=${drift}` : ''} guard=delivery-v1`;
+  const run = (runId, conclusion, at, drift = '') => producer('full', {
+    id: runId, conclusion, created_at: at, updated_at: at, run_started_at: at, display_title: title(drift),
+  });
+  const skippedDrift = 'ab'.repeat(32);
+  const history = [
+    run(30, 'success', iso(30 * 60 * 1000), skippedDrift),
+    run(21, 'success', iso(2 * 60 * 60 * 1000)),
+    run(20, 'cancelled', iso(3 * 60 * 60 * 1000)),
+  ];
+  f.github.rest.actions.listWorkflowRuns = async args => ({ data: {
+    workflow_runs: args.status ? [] : history,
+  } });
+  f.github.paginate = async (_fn, params) => [{
+    name: 'Prepare sync from manifest',
+    steps: [{ name: 'Authorize canary payload mutation',
+      conclusion: params.run_id === 21 ? 'success' : 'skipped' }],
+  }];
+  // The live campaign payload is unchanged, so a no-mutation success shares
+  // the source key. It must not count as the receipt for its own drift.
+  payloads.readDeliveryPayload.mock.mockImplementation(async () => null);
+  const skipped = await require('../maint71_merge_sync_prs').readCanaryRefreshState({
+    withRetry: f.withRetry, context, expectedCanaries: candidates,
+    planId: id, planScope: 'full', sourceSha: source, driftKey: skippedDrift,
+  });
+  assert.equal(skipped.producer_succeeded, false);
+  assert.equal(skipped.eligible, true);
+  assert.equal(skipped.state, 'unseen');
+  const refreshed = await f.call();
+  assert.equal(refreshed.dispatched, true);
+  assert.equal(refreshed.sha, source);
+  assert.equal(f.writes.length, 1);
+  assert.equal(f.writes[0].inputs.scope_head_sha, source);
+  assert.equal(f.writes[0].inputs.expected_plan_id, id);
+  assert.equal(f.report.canary_refresh.refresh_dispatched, 1);
+
+  history.unshift(run(31, 'cancelled', iso(5 * 60 * 1000)));
+  const held = await f.call();
+  assert.equal(held.dispatched, false);
+  assert.equal(held.state, 'cancelled');
+  assert.equal(f.writes.length, 1, 'a skipped authorization cannot retire a newer cancellation');
+});
 for (const historicalSource of ['campaign', 'newer main']) {
   test(`exact-plan recovery survives an unkeyed ${historicalSource} success and deduplicates its keyed receipt`, async t => {
     const f = reportFixture(t, { scope: 'full' });
