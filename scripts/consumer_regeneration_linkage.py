@@ -209,6 +209,11 @@ def _count(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
+def _exact_int(value: object, expected: int) -> bool:
+    """True only for that integer. False and 0.0 compare equal to 0 and are refused."""
+    return isinstance(value, int) and not isinstance(value, bool) and value == expected
+
+
 def _run_id(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
@@ -301,7 +306,7 @@ def regeneration_gaps(record: Mapping[str, object]) -> tuple[str, ...]:
 
     gaps.extend(_command_gaps(record.get("commands"), record))
     for stage in _STAGES:
-        if stage not in record:
+        if not isinstance(record.get(stage), Mapping):
             gaps.append(stage)
 
     qualification = record.get("qualification")
@@ -359,8 +364,8 @@ def regeneration_gaps(record: Mapping[str, object]) -> tuple[str, ...]:
             not _run_id(reconciliation.get("run_id"))
             or reconciliation.get("conclusion") != "success"
             or reconciliation.get("authorized") is not True
-            or reconciliation.get("failed") != 0
-            or reconciliation.get("pending") != 0
+            or not _exact_int(reconciliation.get("failed"), 0)
+            or not _exact_int(reconciliation.get("pending"), 0)
             or not _count(merged)
             or merged != head_count
             or not _https(reconciliation.get("url"))
@@ -386,9 +391,9 @@ def regeneration_gaps(record: Mapping[str, object]) -> tuple[str, ...]:
         if (
             rendered is None
             or false_canary_hold
+            or not isinstance(eligible, bool)
             or (eligible is False and not no_refresh)
             or (eligible is True and not completed_refresh)
-            or eligible not in (True, False)
         ):
             gaps.append("reconciliation.delivery_refresh")
         gaps.extend(_head_gaps(heads, "reconciliation"))
@@ -421,8 +426,6 @@ def regeneration_gaps(record: Mapping[str, object]) -> tuple[str, ...]:
             and promotion_run == reconciliation.get("run_id")
         ):
             gaps.append("reconciliation.run_id")
-    elif "reconciliation" in record:
-        gaps.append("reconciliation")
 
     if (
         isinstance(qualification, Mapping)

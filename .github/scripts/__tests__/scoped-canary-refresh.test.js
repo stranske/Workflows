@@ -833,6 +833,8 @@ test('a guarded success that skipped mutation does not consume the recovery key'
   const held = await f.call();
   assert.equal(held.dispatched, false);
   assert.equal(held.state, 'cancelled');
+  // Run 31 authorized. A never-authorized cancellation is not a hold. Run 30's
+  // skipped authorization must not retire this newer cancellation.
   assert.equal(f.writes.length, 1, 'a skipped authorization cannot retire a newer cancellation');
 });
 for (const historicalSource of ['campaign', 'newer main']) {

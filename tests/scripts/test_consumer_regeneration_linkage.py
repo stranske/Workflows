@@ -98,6 +98,34 @@ def test_missing_stage_is_unlinked() -> None:
         assert stage in regeneration_gaps(record)
 
 
+def test_non_mapping_stage_is_unlinked() -> None:
+    for stage in ("qualification", "promotion", "reconciliation"):
+        record = _record()
+        record[stage] = "success"
+        assert stage in regeneration_gaps(record)
+
+
+def test_boolean_and_float_zero_are_not_terminal_counts() -> None:
+    for field, value in (
+        ("failed", False),
+        ("pending", False),
+        ("failed", 0.0),
+        ("pending", 0.0),
+    ):
+        record = _record()
+        record["reconciliation"][field] = value
+        assert "reconciliation.verdict" in regeneration_gaps(record)
+
+
+def test_integer_eligibility_with_another_refresh_error_is_not_terminal() -> None:
+    record = _record()
+    record["reconciliation"]["delivery_refresh"] = {
+        "eligible": 0,
+        "errors": ("writer exited before authorization",),
+    }
+    assert "reconciliation.delivery_refresh" in regeneration_gaps(record)
+
+
 def test_failed_reconciliation_is_unlinked() -> None:
     record = _record()
     record["reconciliation"]["failed"] = 1
