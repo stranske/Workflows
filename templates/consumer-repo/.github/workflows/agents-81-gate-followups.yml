@@ -2578,6 +2578,9 @@ jobs:
           # AGENTS_AUTOMATION_PAT is omitted: on consumers it is the first
           # non-empty WRITE_TOKEN and the token that received the merge 403.
           GUARDED_MERGE_TOKEN_SOURCE: ${{ secrets.SERVICE_BOT_PAT != '' && 'SERVICE_BOT_PAT' || secrets.ACTIONS_BOT_PAT != '' && 'ACTIONS_BOT_PAT' || 'github.token' }}
+          # Job installation token. Used only after the selected PAT returns 401/403.
+          # Actions masks github.token; setSecret covers it again before any log line.
+          GUARDED_MERGE_GITHUB_TOKEN: ${{ github.token }}
         with:
           github-token: ${{ secrets.SERVICE_BOT_PAT || secrets.ACTIONS_BOT_PAT || github.token }}
           script: |
@@ -2628,9 +2631,13 @@ jobs:
               'ACTIONS_BOT_PAT',
               'SERVICE_BOT_PAT',
               'OWNER_PR_PAT',
+              'GUARDED_MERGE_GITHUB_TOKEN',
             ]) {
               if (mergeTokenEnv[secretName]) core.setSecret(mergeTokenEnv[secretName]);
               delete mergeTokenEnv[secretName];
+            }
+            if (process.env.GUARDED_MERGE_GITHUB_TOKEN) {
+              core.setSecret(process.env.GUARDED_MERGE_GITHUB_TOKEN);
             }
             const { withRetry, paginateWithRetry, getTokenSource } = await createTokenAwareRetry({
               github,
@@ -3507,27 +3514,83 @@ jobs:
                             if (finalMergeFailure) {
                               throw new Error(finalMergeFailure);
                             }
-                            const response = await withRetry(async (client) => {
-                              // Stay on the step token. A balancer switch would retry the 403
-                              // secret (AGENTS_AUTOMATION_PAT) that cannot merge.
-                              // The scan harness evaluates this block without the helper in scope.
-                              if (typeof guardedMergeCredentialSource === 'function') {
-                                const credentialSource = guardedMergeCredentialSource();
-                                try {
-                                  const identity = await client.rest.users.getAuthenticated();
-                                  core.info(`Guarded merge credential source=${credentialSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
-                                } catch (identityError) {
-                                  core.info(`Guarded merge credential source=${credentialSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
+                            // PAT first, then the job installation token. A 401/403 is a token
+                            // grant failure; do not treat it as a final refusal while github.token
+                            // still has the job's contents:write and pull-requests:write.
+                            const mergeCandidates = [{ source: 'step-token', client: github }];
+                            const jobToken = (typeof process !== 'undefined' && process.env)
+                              ? String(process.env.GUARDED_MERGE_GITHUB_TOKEN || '').trim()
+                              : '';
+                            const primarySource = (typeof guardedMergeCredentialSource === 'function')
+                              ? guardedMergeCredentialSource()
+                              : '';
+                            if (primarySource && primarySource !== 'step-token') {
+                              mergeCandidates[0].source = primarySource;
+                            }
+                            if (
+                              mergeCandidates[0].source !== 'github.token'
+                              && jobToken
+                              && typeof require === 'function'
+                            ) {
+                              try {
+                                const { getOctokit } = require('@actions/github');
+                                const fallbackClient = getOctokit(jobToken);
+                                if (fallbackClient) {
+                                  mergeCandidates.push({ source: 'github.token', client: fallbackClient });
                                 }
+                              } catch (fallbackError) {
+                                core.warning(`Unable to build the github.token merge client: ${fallbackError.message || fallbackError}`);
                               }
-                              return client.rest.pulls.merge({
-                                owner,
-                                repo,
-                                pull_number: prNumber,
-                                merge_method: 'squash',
-                                sha: headSha,
-                              });
-                            }, { tokenRegistry: null, github });
+                            }
+                            let response = null;
+                            let mergeError = null;
+                            for (let attemptIndex = 0; attemptIndex < mergeCandidates.length; attemptIndex += 1) {
+                              const attempt = mergeCandidates[attemptIndex];
+                              try {
+                                response = await withRetry(async (client) => {
+                                  // Stay on this attempt's token. A balancer switch would retry the
+                                  // 403 secret (AGENTS_AUTOMATION_PAT) that cannot merge.
+                                  // The scan harness evaluates this block without the helper in scope.
+                                  if (typeof guardedMergeCredentialSource === 'function') {
+                                    const credentialSource = guardedMergeCredentialSource();
+                                    const attemptSource = attemptIndex === 0 ? credentialSource : attempt.source;
+                                    try {
+                                      const identity = await client.rest.users.getAuthenticated();
+                                      core.info(`Guarded merge credential source=${attemptSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
+                                    } catch (identityError) {
+                                      core.info(`Guarded merge credential source=${attemptSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
+                                    }
+                                  }
+                                  return client.rest.pulls.merge({
+                                    owner,
+                                    repo,
+                                    pull_number: prNumber,
+                                    merge_method: 'squash',
+                                    sha: headSha,
+                                  });
+                                }, { tokenRegistry: null, github: attempt.client });
+                                const httpStatus = response?.status || (response?.data?.merged ? 200 : 'unknown');
+                                core.info(`PUT /repos/${owner}/${repo}/pulls/${prNumber}/merge - ${httpStatus}`);
+                                if (response && response.data && response.data.merged) {
+                                  mergeError = null;
+                                  break;
+                                }
+                                mergeError = new Error(response?.data?.message || 'Merge API returned an unexpected response.');
+                                mergeError.status = response?.status;
+                                mergeError.response = response;
+                                response = null;
+                              } catch (error) {
+                                response = null;
+                                mergeError = error;
+                                const httpStatus = error.status || error.response?.status || 'unknown';
+                                core.info(`PUT /repos/${owner}/${repo}/pulls/${prNumber}/merge - ${httpStatus}`);
+                              }
+                              const httpStatus = mergeError?.status || mergeError?.response?.status;
+                              const tokenRejected = httpStatus === 401 || httpStatus === 403;
+                              if (!tokenRejected || attemptIndex === mergeCandidates.length - 1) break;
+                              core.warning(`Guarded merge token ${attempt.source} returned HTTP ${httpStatus}; retrying with github.token.`);
+                            }
+                            if (mergeError) throw mergeError;
                             if (response && response.data && response.data.merged) {
                               status = 'merged';
                               note = `Merged via ${response.data.merge_method || 'squash'}.`;

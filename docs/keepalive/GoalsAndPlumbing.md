@@ -851,7 +851,9 @@ step masks token values with `core.setSecret` and logs the winning secret name, 
 without `repo` warns immediately. For the merge to succeed, the selected token must
 have `contents:write` and `pull_requests:write` on the consumer (classic `repo`, or
 a fine-grained PAT granting both). `github.token` inherits those permissions from
-the job `permissions:` block. When a merge fails, the job publishes one
+the job `permissions:` block. A 401 or 403 from the selected PAT is not final: the
+step retries the merge once with that job `github.token` and logs
+`PUT /repos/<owner>/<repo>/pulls/<N>/merge - <status>` for every attempt. When a merge fails, the job publishes one
 `agents-guarded-merge-result:v1` failure receipt as a PR comment with the HTTP status
 and message, and emits a workflow warning annotation with the same text so the 403
 is visible on the PR and in run annotations instead of only in the job summary.

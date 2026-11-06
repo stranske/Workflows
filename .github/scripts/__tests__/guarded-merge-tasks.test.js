@@ -1043,3 +1043,93 @@ test('merge failure receipt regression fails when the publisher is removed and p
   assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
   assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
 });
+
+function installJobTokenFallback(c, actions, fallbackMerge) {
+  c.guardedMergeCredentialSource = () => 'SERVICE_BOT_PAT';
+  c.process = { env: { GUARDED_MERGE_GITHUB_TOKEN: 'job-token' } };
+  const fallback = {
+    rest: {
+      pulls: { merge: fallbackMerge },
+      users: {
+        getAuthenticated: async () => {
+          const error = new Error('Resource not accessible by integration');
+          error.status = 403;
+          throw error;
+        },
+      },
+    },
+  };
+  c.require = (name) => {
+    assert.equal(name, '@actions/github');
+    return {
+      getOctokit: (token) => {
+        assert.equal(token, 'job-token');
+        actions.push(['fallback-client', token]);
+        return fallback;
+      },
+    };
+  };
+  c.withRetry = async (fn, options = {}) => fn(options.github || c.github);
+  c.github.rest.pulls.merge = async () => {
+    actions.push(['merge-primary']);
+    const error = new Error('Resource not accessible by integration');
+    error.status = 403;
+    error.response = { status: 403, data: { message: 'Resource not accessible by integration' } };
+    throw error;
+  };
+  c.github.rest.users.getAuthenticated = async () => ({
+    data: { login: 'stranske' },
+    headers: { 'x-oauth-scopes': 'read:org' },
+  });
+  return fallback;
+}
+
+test('PAT HTTP 403 falls through to github.token and logs PUT 200', async () => {
+  const { c, actions } = mergeScanHarness();
+  installJobTokenFallback(c, actions, async (args) => {
+    actions.push(['merge-fallback', args]);
+    return { status: 200, data: { merged: true, merge_method: 'squash' } };
+  });
+
+  await c.runScan();
+
+  assert.deepEqual(actions.filter(([kind, message]) => kind === 'info' && String(message).startsWith('PUT /repos/')), [
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 200'],
+  ]);
+  assert.equal(actions.filter(([kind]) => kind === 'merge-primary').length, 1);
+  assert.equal(actions.filter(([kind]) => kind === 'merge-fallback').length, 1);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+    ['output', 'merged', '[42]'],
+  ]);
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'warning' && String(message).includes(mergeFailureMarker)), false);
+});
+
+test('github.token HTTP 403 after the PAT still publishes one receipt', async () => {
+  const harness = mergeScanHarness();
+  const { c, actions, comments } = harness;
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+  const message = 'Resource not accessible by integration';
+  installJobTokenFallback(c, actions, async () => {
+    actions.push(['merge-fallback']);
+    const error = new Error(message);
+    error.status = 403;
+    error.response = { status: 403, data: { message } };
+    throw error;
+  });
+
+  await c.runScan();
+
+  const note = `Merge failed: HTTP 403 ${message}`;
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  assert.deepEqual(actions.filter(([kind, message]) => kind === 'info' && String(message).startsWith('PUT /repos/')), [
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+  ]);
+  assert.ok(actions.some(([kind, warning]) => kind === 'warning' && warning === note));
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+});

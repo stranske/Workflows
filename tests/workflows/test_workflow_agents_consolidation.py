@@ -463,6 +463,9 @@ def test_consumer_guarded_merge_publishes_failure_receipt():
     assert "Guarded merge job start token source=" in guarded_merge
     assert "/user login=" in guarded_merge
     assert "tokenRegistry: null, github" in guarded_merge
+    assert "GUARDED_MERGE_GITHUB_TOKEN:" in guarded_merge
+    assert "PUT /repos/${owner}/${repo}/pulls/${prNumber}/merge - ${httpStatus}" in guarded_merge
+    assert "retrying with github.token." in guarded_merge
 
 
 def test_generated_sync_prs_are_excluded_from_autofix_lanes():
