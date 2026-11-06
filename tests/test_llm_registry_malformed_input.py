@@ -236,7 +236,14 @@ def test_a_skipped_retired_slot_does_not_shift_numbered_overrides(slots_at, monk
 
 def test_an_override_cannot_reintroduce_a_retired_selection(slots_at, monkeypatch):
     _clear_slot_env(monkeypatch)
-    slots_at({"slots": [{"name": "slot1", "provider": "openai"}, {"name": "slot2", "provider": "anthropic"}]})
+    slots_at(
+        {
+            "slots": [
+                {"name": "slot1", "provider": "openai"},
+                {"name": "slot2", "provider": "anthropic"},
+            ]
+        }
+    )
     monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "github-models")
     monkeypatch.setenv("LANGCHAIN_SLOT1_MODEL", "openai/gpt-5")
     resolved = llm_registry.resolve_slots()
@@ -246,8 +253,40 @@ def test_an_override_cannot_reintroduce_a_retired_selection(slots_at, monkeypatc
 
 def test_an_override_may_replace_a_retired_slot_with_a_current_selection(slots_at, monkeypatch):
     _clear_slot_env(monkeypatch)
-    slots_at({"slots": [{"name": "slot1", "provider": "github-models"}, {"name": "slot2", "provider": "anthropic"}]})
+    slots_at(
+        {
+            "slots": [
+                {"name": "slot1", "provider": "github-models"},
+                {"name": "slot2", "provider": "anthropic"},
+            ]
+        }
+    )
     monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "openai")
     monkeypatch.setenv("LANGCHAIN_SLOT1_MODEL", "gpt-6.1-sol")
     resolved = llm_registry.resolve_slots()
-    assert [(s.name, s.provider, s.model) for s in resolved][0] == ("slot1", "openai", "gpt-6.1-sol")
+    assert [(s.name, s.provider, s.model) for s in resolved][0] == (
+        "slot1",
+        "openai",
+        "gpt-6.1-sol",
+    )
+
+
+def test_a_provider_only_override_on_a_retired_slot_takes_the_reviewed_model(slots_at, monkeypatch):
+    _clear_slot_env(monkeypatch)
+    slots_at(
+        {
+            "slots": [
+                {"name": "slot1", "provider": "github-models", "model": "openai/gpt-5"},
+                {"name": "slot2", "provider": "anthropic"},
+            ]
+        }
+    )
+    monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "openai")
+    resolved = llm_registry.resolve_slots()
+    reviewed = llm_registry.select_model_for_profile(provider="openai")
+    assert (resolved[0].name, resolved[0].provider, resolved[0].model) == (
+        "slot1",
+        "openai",
+        reviewed,
+    )
+    assert resolved[0].model != "openai/gpt-5"

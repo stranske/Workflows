@@ -574,7 +574,12 @@ def _load_positional_slots(
         if (profile, provider) in retired:
             name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
             slots.append(
-                (idx, profile, SlotDefinition(name=name, provider=provider, model=explicit_model), True)
+                (
+                    idx,
+                    profile,
+                    SlotDefinition(name=name, provider=provider, model=explicit_model),
+                    True,
+                )
             )
             continue
         model = ""
@@ -639,14 +644,20 @@ def _load_positional_slots(
             logger.warning("Skipping blocked LLM model in slot config: %s/%s", provider, model)
             continue
         name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
-        slots.append((idx, profile, SlotDefinition(name=name, provider=provider, model=model), False))
+        slots.append(
+            (idx, profile, SlotDefinition(name=name, provider=provider, model=model), False)
+        )
     # A present slot file is an allowlist.  If every configured slot is
     # unusable, fail closed instead of broadening execution to default providers.
     return slots
 
 
-def _positional_defaults(slots: list[SlotDefinition]) -> list[tuple[int, str, SlotDefinition, bool]]:
-    return [(idx, DEFAULT_SELECTION_PROFILE, slot, False) for idx, slot in enumerate(slots, start=1)]
+def _positional_defaults(
+    slots: list[SlotDefinition],
+) -> list[tuple[int, str, SlotDefinition, bool]]:
+    return [
+        (idx, DEFAULT_SELECTION_PROFILE, slot, False) for idx, slot in enumerate(slots, start=1)
+    ]
 
 
 def apply_slot_env_overrides(
@@ -677,8 +688,18 @@ def apply_slot_env_overrides(
         if idx == 1:
             model_override = model_override or os.environ.get(env_model_name)
         provider = provider_override or slot.provider
-        model = (model_override or slot.model).strip()
-        chosen: SlotDefinition | None = SlotDefinition(name=slot.name, provider=provider, model=model)
+        if slot_retired and provider_override and not model_override:
+            # A retired slot's model belongs to the retired provider (e.g. ``openai/gpt-5`` on
+            # GitHub Models); a provider-only override takes the reviewed model for the new one.
+            model = (
+                select_model_for_profile(provider=provider, profile=profile, registry=registry)
+                or ""
+            )
+        else:
+            model = (model_override or slot.model).strip()
+        chosen: SlotDefinition | None = SlotDefinition(
+            name=slot.name, provider=provider, model=model
+        )
         if is_model_blocked(provider, model, registry=registry):
             logger.warning("Skipping blocked LLM slot override: %s/%s", provider, model)
             override_requested = provider_override is not None or model_override is not None
