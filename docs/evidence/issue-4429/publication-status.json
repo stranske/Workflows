@@ -1,0 +1,14 @@
+{
+  "original_pr": "https://github.com/stranske/Workflows/pull/4494",
+  "original_pr_state_observed": "merged",
+  "original_pr_merge_commit": "8edf32036041e6c37b5dd901953a2a16030512e8",
+  "source_commit_in_delivery_clone": "aee4391524b15e2755bdb4b8f0df076833f1a141",
+  "delivery_clone_git_directory": "/tmp/issue-4429/delivery/.git",
+  "native_git_write_failure": "fatal: could not create leading directories of '.git/worktrees/main': Read-only file system",
+  "github_write_attempt": "github_create_blob for tests/scripts/test_check_consumer_sync_drift.py",
+  "github_write_failure": "MCP tool call requires approval, but approval policy is never",
+  "github_write_succeeded": false,
+  "replacement_pr_created": false,
+  "pr_body_published": false,
+  "required_follow_up": "Publish the bundle's verified changes through an authorized write path and use a ready-for-review implementation PR. Do not treat the merged bootstrap PR's skipped Python CI as a coverage receipt."
+}

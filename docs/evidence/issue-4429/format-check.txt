@@ -1,0 +1,4 @@
+$ PYTHONPATH=/tmp/issue-4429/black-wakeup BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+All done! ✨ 🍰 ✨
+892 files would be left unchanged.
+exit=0

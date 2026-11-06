@@ -152,3 +152,7 @@ coverage-local.*
 pytest-junit*.xml
 langsmith-fleet-worker-attempt.json
 artifacts/
+
+# Retained, complete coverage evidence for issue #4429.
+!docs/evidence/issue-4429/targeted/*/coverage.xml
+!docs/evidence/issue-4429/targeted/*/pytest.log

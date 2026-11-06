@@ -484,6 +484,54 @@ def test_langsmith_trace_refs_use_url_when_trace_list_item_has_no_id() -> None:
     }
 
 
+def test_trace_refs_ignore_empty_items_without_losing_later_refs() -> None:
+    assert aggregate_agent_metrics._langsmith_trace_refs(
+        {
+            "langsmith_traces": [
+                {"trace_id": "  ", "trace_url": "  "},
+                {"trace_id": "later"},
+                {},
+            ]
+        }
+    ) == {"id:later"}
+
+
+def test_autopilot_unknown_success_keeps_duration_without_counting_an_outcome() -> None:
+    summary = aggregate_agent_metrics._summarise_autopilot(
+        [
+            {"step_name": "implement", "duration_ms": 100, "success": "pending"},
+            {"step_name": "implement", "duration_ms": 300, "success": True},
+            {"step_name": "verify", "duration_ms": 50},
+        ]
+    )
+
+    assert summary["records"] == 3
+    assert summary["total_steps"] == 1
+    assert summary["step_successes"] == {"implement": 1}
+    assert summary["step_failures"] == {}
+    assert summary["failure_reasons"] == {}
+    assert summary["step_avg_duration_ms"] == {"implement": 200.0, "verify": 50.0}
+
+
+def test_freshness_ignores_blank_target_paths_without_losing_later_targets() -> None:
+    summary = aggregate_agent_metrics._summarise_codex_cli_freshness(
+        [
+            {
+                "update_targets": [
+                    {"path": "  "},
+                    {"path": " config/versions.env "},
+                    {},
+                ]
+            },
+            {"update_targets": "unavailable"},
+            {"update_targets": [{"path": "config/versions.env"}]},
+        ]
+    )
+
+    assert summary["records"] == 3
+    assert summary["update_targets"] == Counter({"config/versions.env": 2})
+
+
 def test_autopilot_summary_counts_failed_steps_with_reason() -> None:
     summary = aggregate_agent_metrics._summarise_autopilot(
         [

@@ -1,0 +1,31 @@
+{
+  "live_main_checked_utc": "2026-11-06T20:41Z",
+  "measurement_checkout": "babf0c0a3c23549cf3542831702077deaea068b2",
+  "note": "Target source, target tests, Gate workflows and coverage config are byte-identical to live main. The rest of the checkout differs; this is not a pristine-main full-suite measurement.",
+  "blobs": {
+    "408651629f027292c94f38f2c5aa0c1d3e24fe79": {
+      "scripts/aggregate_agent_metrics.py": "ff8693012c52ab0966d818557d396d83011ed4e5",
+      "scripts/check_consumer_sync_drift.py": "383a70446744e679bccbe66fb4f57c41f4933b5a",
+      "scripts/validate_run_contract.py": "505a9eb4d0877054ebc8ea70a8c451191c6238f6",
+      "tests/scripts/test_aggregate_agent_metrics.py": "a5b4e0ad772792e716fa56cc6183b1530fad3f60",
+      "tests/scripts/test_check_consumer_sync_drift.py": "8a8b1ec157eb6e27fd35383f23ad40eedf5e7a5f",
+      "tests/scripts/test_validate_run_contract.py": "c37c188cb9e30dfafe779462500afae0ce5183f5",
+      "tests/contracts/test_validate_run_contract.py": "2c57def355b03736d47570ee91a08c0aef0349ca",
+      "pyproject.toml": "df271c04ded9fcadf41873b5f1d08fa78729d3de",
+      ".github/workflows/pr-00-gate.yml": "126def011c1453e8698cca81ac591d4c49570fcc",
+      ".github/workflows/reusable-10-ci-python.yml": "e8f93ec70b99851e82f2775e7b2453d0f52c310c"
+    },
+    "babf0c0a3c23549cf3542831702077deaea068b2": {
+      "scripts/aggregate_agent_metrics.py": "ff8693012c52ab0966d818557d396d83011ed4e5",
+      "scripts/check_consumer_sync_drift.py": "383a70446744e679bccbe66fb4f57c41f4933b5a",
+      "scripts/validate_run_contract.py": "505a9eb4d0877054ebc8ea70a8c451191c6238f6",
+      "tests/scripts/test_aggregate_agent_metrics.py": "a5b4e0ad772792e716fa56cc6183b1530fad3f60",
+      "tests/scripts/test_check_consumer_sync_drift.py": "8a8b1ec157eb6e27fd35383f23ad40eedf5e7a5f",
+      "tests/scripts/test_validate_run_contract.py": "c37c188cb9e30dfafe779462500afae0ce5183f5",
+      "tests/contracts/test_validate_run_contract.py": "2c57def355b03736d47570ee91a08c0aef0349ca",
+      "pyproject.toml": "df271c04ded9fcadf41873b5f1d08fa78729d3de",
+      ".github/workflows/pr-00-gate.yml": "126def011c1453e8698cca81ac591d4c49570fcc",
+      ".github/workflows/reusable-10-ci-python.yml": "e8f93ec70b99851e82f2775e7b2453d0f52c310c"
+    }
+  }
+}

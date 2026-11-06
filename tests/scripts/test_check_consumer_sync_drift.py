@@ -628,6 +628,76 @@ def test_main_keeps_unreadable_blob_cache_scoped_to_each_repo(
     ]
 
 
+def test_main_caches_a_blob_miss_but_reads_other_shas_and_retries_next_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text("body\n", encoding="utf-8")
+    entries = tuple(
+        _make_entry(source=str(source), target=target)
+        for target in ("managed/a.txt", "managed/b.txt", "managed/c.txt")
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: entries if section == "scripts" else (),
+        removals=(),
+    )
+    manifest = tmp_path / "manifest.yml"
+    manifest.write_text("version: 1\n", encoding="utf-8")
+    report_path = tmp_path / "report.json"
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(manifest),
+        canaries="unused.json",
+        report_json=str(report_path),
+        summary="",
+    )
+    session = object()
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [object()])
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_: set())
+    monkeypatch.setattr(check_consumer_sync_drift, "select_read_token", lambda **_: (session, {}))
+    remote_tree = {
+        entry.target: {"type": "blob", "sha": "unreadable" if index < 2 else "readable"}
+        for index, entry in enumerate(entries)
+    }
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "fetch_remote_tree", lambda *_: (remote_tree, None)
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_: ([], None))
+    calls = []
+
+    def read_blob(actual_session, repo, sha):
+        assert actual_session is session
+        calls.append((repo, sha))
+        # A repeat API read would now succeed. Within one run, the first miss
+        # must remain the verdict for both positions containing the same blob.
+        if sha == "unreadable" and calls.count((repo, sha)) == 1:
+            return None
+        return "# remote header\nbody\n"
+
+    monkeypatch.setattr(check_consumer_sync_drift, "remote_blob_text", read_blob)
+
+    assert check_consumer_sync_drift.main() == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["drift"] == ["owner/repo: managed/a.txt", "owner/repo: managed/b.txt"]
+    assert report["counts"] == {
+        "drift": 2,
+        "missing": 0,
+        "errors": 0,
+        "obsolete": 0,
+        "unmeasured_create_only": 0,
+    }
+    assert calls == [("owner/repo", "unreadable"), ("owner/repo", "readable")]
+
+    assert check_consumer_sync_drift.main() == 0
+    assert calls == [("owner/repo", sha) for sha in ("unreadable", "readable") * 2]
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["status"] == "converged"
+    assert report["drift"] == []
+
+
 def test_manifest_skip_reason_honors_include_repos() -> None:
     entry = _make_entry(source="schema.json", include_repos=("owner/selected",))
 
