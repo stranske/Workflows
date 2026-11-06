@@ -3445,12 +3445,14 @@ jobs:
                             }
                             const response = await withRetry(async (client) => {
                               // Inspect the exact client used for this merge attempt; retries may switch tokens.
-                              const credentialSource = guardedMergeCredentialSource();
-                              try {
-                                const identity = await client.rest.users.getAuthenticated();
-                                core.info(`Guarded merge credential source=${credentialSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
-                              } catch (identityError) {
-                                core.info(`Guarded merge credential source=${credentialSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
+                              if (typeof guardedMergeCredentialSource === 'function') {
+                                const credentialSource = guardedMergeCredentialSource();
+                                try {
+                                  const identity = await client.rest.users.getAuthenticated();
+                                  core.info(`Guarded merge credential source=${credentialSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
+                                } catch (identityError) {
+                                  core.info(`Guarded merge credential source=${credentialSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
+                                }
                               }
                               return client.rest.pulls.merge({
                                 owner,
@@ -3488,14 +3490,19 @@ jobs:
                             } else {
                               status = 'error';
                               note = `Merge failed: HTTP ${response?.status || 'unknown'} ${response?.data?.message || 'Merge API returned an unexpected response.'}`;
-                              await reportMergeFailure(prNumber, note);
+                              if (typeof reportMergeFailure === 'function') {
+                                await reportMergeFailure(prNumber, note);
+                              }
                             }
                           } catch (error) {
                             status = 'error';
                             const responseData = error && error.response ? error.response.data : undefined;
                             const detail = responseData && responseData.message ? responseData.message : (error.message || String(error));
-                            note = `Merge failed: HTTP ${error.status || error.response?.status || 'unknown'} ${detail}`;
-                            await reportMergeFailure(prNumber, note);
+                            const httpStatus = error.status || error.response?.status;
+                            note = httpStatus ? `Merge failed: HTTP ${httpStatus} ${detail}` : `Merge failed: ${detail}`;
+                            if (typeof reportMergeFailure === 'function') {
+                              await reportMergeFailure(prNumber, note);
+                            }
                           }
                         }
                       }
