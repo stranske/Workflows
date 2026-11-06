@@ -2671,6 +2671,69 @@ test('pre-authorization rate-limit failure and empty-job cancel do not hold the 
   assert.equal(held.runs.find(run => run.id === 42239701777).refresh_not_started, undefined);
 });
 
+test('same-payload pre-authorization failure on an older source does not skip a new recovery key', async (t) => {
+  const current = '5af534766f3706b109eac5b163b74ff968eef74a';
+  const prior = 'd52cf721226d692364b97db529fafda6a869390b';
+  const shared = `sha256:${'c'.repeat(64)}`;
+  const skippedDrift = '2577a2a331a45e76f72b481a0327a12c3944a5eb644a22ef9ec5481dc0f22921';
+  const recoveryDrift = 'ab'.repeat(32);
+  const candidates = 'stranske/Portable-Alpha-Extension-Model,stranske/Travel-Plan-Permission,stranske/trip-planner';
+  const now = Date.parse('2026-11-06T16:26:22Z');
+  const title = (source, extra = '') => 'Maint 68 canary full  ' +
+    `source=${source} candidates=${candidates} dry=false${extra}  guard=delivery-v1`;
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async (_sha, repos) => ({
+    digest: shared,
+    files: Object.fromEntries(repos.map(repo => [repo, { 'scripts/shared.js': { content: 'same' } }])),
+  }));
+  const rateLimited = producerRun({ id: 42239701776, conclusion: 'failure', head_sha: prior,
+    display_title: title(prior), created_at: '2026-11-06T15:05:00Z',
+    run_started_at: '2026-11-06T15:05:00Z', updated_at: '2026-11-06T15:05:43Z' });
+  const delivered = producerRun({ id: 42250192284, head_sha: current, display_title: title(current),
+    created_at: '2026-11-06T16:12:30Z', run_started_at: '2026-11-06T16:12:30Z',
+    updated_at: '2026-11-06T16:14:49Z' });
+  const skipped = producerRun({ id: 42252216165, head_sha: current,
+    display_title: title(current, ` drift=${skippedDrift}`),
+    created_at: '2026-11-06T16:25:18Z', run_started_at: '2026-11-06T16:25:18Z',
+    updated_at: '2026-11-06T16:27:07Z' });
+  const jobsFor = {
+    42239701776: [{ name: 'Prepare sync from manifest', steps: [
+      { name: 'Check content refresh guard', conclusion: 'failure' },
+      { name: 'Authorize canary payload mutation', conclusion: 'skipped' },
+    ] }],
+    42250192284: [{ steps: [{ name: 'Authorize canary payload mutation', conclusion: 'success' }] }],
+    42252216165: [{ name: 'Prepare sync from manifest', steps: [
+      { name: 'Check content refresh guard', conclusion: 'success' },
+      { name: 'Authorize canary payload mutation', conclusion: 'skipped' },
+    ] }],
+  };
+  const read = (driftKey) => readCanaryRefreshState({
+    ...refreshHarness(), expectedCanaries: candidates.split(','), driftKey, now, sourceSha: current,
+    withRetry: async fn => fn({ rest: {
+      repos: {
+        getCommit: async () => ({ data: { sha: current } }),
+        getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
+          canaries: candidates.split(',').map(repo => ({ repo })),
+        })).toString('base64') } }),
+      },
+      pulls: { list: async () => ({ data: [] }) },
+      actions: { listWorkflowRuns: async ({ status, page }) => ({ data: {
+        workflow_runs: status ? [] : page === 1 ? [skipped, delivered, rateLimited] : [],
+      } }) },
+    }, paginate: async (_method, params) => jobsFor[params.run_id] || [] }),
+  });
+  const released = await read(recoveryDrift);
+  assert.equal(released.runs.find(run => run.id === 42239701776).refresh_not_started, true);
+  assert.equal(released.runs.find(run => run.id === 42239701776).delivery_digest, shared);
+  assert.equal(released.runs.find(run => run.id === 42250192284).delivery_digest, shared);
+  assert.equal(released.state, 'unseen');
+  assert.equal(released.eligible, true, 'older pre-authorization failure must not print skipped (failure)');
+  assert.equal(released.producer_succeeded, false);
+  const sameSkippedKey = await read(skippedDrift);
+  assert.equal(sameSkippedKey.eligible, true, 'a guard success that never authorized is not a delivery receipt');
+  assert.equal(sameSkippedKey.producer_succeeded, false);
+  assert.notEqual(sameSkippedKey.state, 'failure');
+});
+
 test('unreadable or truncated history and changed main configuration fail closed', async () => {
   for (const truncated of [false, true]) {
     const pages = [];
