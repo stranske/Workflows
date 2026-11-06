@@ -768,3 +768,103 @@ python3 verifier_4422_audit.py live-pr-evidence
 ## Follow-ups
 
 The live packet above keeps the expired comparison artifact, the unnamed omitted upload path, and the missing `files_not_reviewed` section as evidence gaps. Historical population reconstruction is unchanged by this packet.
+
+## Live post-merge report with a retrieved comparison artifact
+
+Run 39090617832 remains the earlier packet. Its comparison artifact is no longer returned by `gh run download`, and its posted comment contains the substring `truncated`. The live-report check below uses a later run whose comparison artifact was still downloadable on 2026-11-06.
+
+Collected on 2026-11-06T20:48:17Z from `stranske/Workflows` only. The owner-excluded repository was not queried.
+
+`gh run list --repo stranske/Workflows --workflow "Agents Verifier" --created 2026-11-03T23:05:00Z..2026-11-03T23:06:00Z --limit 20 --json databaseId,displayTitle,conclusion,headSha,event,url,createdAt,status` returns run 41736356184. Pull request 4390 merged at 2026-11-03T23:05:14Z, before the run was created at 2026-11-03T23:05:44Z. The pull request changes four files. Its labels include `agent:codex`, `agents:keepalive`, and `agent:auto`, and its head ref is `codex/issue-4387-retired-provider`. `agent_pr_definition` remains unknown.
+
+`gh run view 41736356184 --repo stranske/Workflows --log` prints `files reviewed 4 of 4` for openai and anthropic, posts https://github.com/stranske/Workflows/pull/4390#issuecomment-6617887078, and records `TARGET_SHA` and `EVALUATED_SHA` `4928870982db3bc3b85c701b4cca2492128739b2`. That SHA is the pull request merge commit. The same log pins `reusable-agents-verifier.yml` at that SHA, and the `.workflows-lib` checkout's `git log -1` prints it. The Actions run `headSha` is the pull request head `2224529eeeb985a56a89689042449348023f47ae`, which is a different value from the merge SHA.
+
+`gh run download 41736356184 --repo stranske/Workflows` retrieved `comparison-results-41736356184`. Its `comparison-comment.md` matches the posted comment byte for byte. The comment shows `files reviewed 4 of 4` for both providers and contains no `truncated` substring and no `[truncated: verifier prompt budget exceeded]` marker. `verifier-diff-summary.md` in that download lists the same four paths as the pull request files API, in the same order. `comparison.json` records `files_not_reviewed` as `[]`, `files_truncated` as 0, and `files_complete` as 4 for both providers.
+
+`comparison.json` also records `acceptance_evidence` `truncated` and `context_truncated` true. The omitted optional sections are `comments` and `artifacts`. Those fields stay in the acceptance record. They are metadata from the artifact, and the published-report checks use the posted comment. This run was created on 2026-11-03, after the campaign check date 2026-10-24, so it is not evidence that the 2026-10-24 targets were met.
+
+The comparison upload log names 16 paths and says 11 files were uploaded. The download contains 11 members. Named paths absent from the download: `verification-recovery-source.zip`, `verification-recovery-origin.json`, `verification-revalidation-receipt.json`, `closer-correction-seeds.json`, `closer-correction-seed-refusal.json`. The downloaded members include `comparison-comment.md`.
+
+Source issue #4387 was closed at 2026-11-03T23:05:17Z on the timeline. The issue API `closed_at` is 2026-11-03T23:05:16Z. Both instants are before run completion at 2026-11-03T23:13:53Z. The closure job logged `Closed source issues: none`.
+
+Replay command, no network:
+
+```text
+python3 verifier_4422_audit.py live-report-acceptance
+```
+
+`python3` is the repository interpreter. `/opt/anaconda3/bin/python3` is not installed here.
+
+```json
+{
+  "artifact_retrieval_command": "gh run download 41736356184 --repo stranske/Workflows",
+  "changed_file_count": 4,
+  "complete_report_first_broken_step": null,
+  "counts_as_historical_campaign_evidence": false,
+  "criterion_complete_report": true,
+  "criterion_live_report_identified": true,
+  "deployed_verifier_revision": "4928870982db3bc3b85c701b4cca2492128739b2",
+  "files_not_reviewed": [],
+  "files_reviewed": [
+    {
+      "provider": "openai",
+      "reviewed": 4,
+      "total": 4
+    },
+    {
+      "provider": "anthropic",
+      "reviewed": 4,
+      "total": 4
+    }
+  ],
+  "historical_campaign_effect": "Run created_at 2026-11-03T23:05:44Z is after the campaign check date 2026-10-24. A later successful run is not evidence that the 2026-10-24 targets were met.",
+  "immutable_merge_sha": "4928870982db3bc3b85c701b4cca2492128739b2",
+  "input_coverage": [
+    {
+      "acceptance": "complete",
+      "acceptance_evidence": "truncated",
+      "code": "complete",
+      "context_truncated": true,
+      "files_complete": 4,
+      "files_not_reviewed": [],
+      "files_total": 4,
+      "files_truncated": 0,
+      "omitted_optional_evidence_sections": [
+        "comments",
+        "artifacts"
+      ],
+      "provider": "openai"
+    },
+    {
+      "acceptance": "complete",
+      "acceptance_evidence": "truncated",
+      "code": "complete",
+      "context_truncated": true,
+      "files_complete": 4,
+      "files_not_reviewed": [],
+      "files_total": 4,
+      "files_truncated": 0,
+      "omitted_optional_evidence_sections": [
+        "comments",
+        "artifacts"
+      ],
+      "provider": "anthropic"
+    }
+  ],
+  "input_coverage_effect": "Input coverage is metadata saved from comparison.json. The published-report checks use the posted comment. acceptance_evidence and context_truncated stay visible here and are not rewritten into the comment text.",
+  "live_report_first_broken_step": null,
+  "log_command": "gh run view 41736356184 --repo stranske/Workflows --log",
+  "prompt_budget_marker_present": false,
+  "pull_request_number": 4390,
+  "repository": "stranske/Workflows",
+  "reviewed_file_paths": [
+    ".github/workflows/maint-39-test-llm-providers.yml",
+    "docs/WORKFLOW_GUIDE.md",
+    "docs/ci/WORKFLOWS.md",
+    "tests/workflows/test_maint39_llm_provider_workflow.py"
+  ],
+  "run_id": "41736356184",
+  "run_url": "https://github.com/stranske/Workflows/actions/runs/41736356184",
+  "truncated_substring_count": 0
+}
+```

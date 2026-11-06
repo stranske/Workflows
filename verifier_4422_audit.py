@@ -767,6 +767,9 @@ def resolve_production_surfaces(
 
 
 LIVE_PR_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_live_pr.json"
+LIVE_REPORT_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_live_report.json"
+DEFAULT_RUN_LIST_CREATED = "2026-10-18T02:30:00Z..2026-10-18T02:40:00Z"
+CAMPAIGN_CHECK_DATE = "2026-10-24"
 _FILES_REVIEWED_LINE_RE = re.compile(r"- ([A-Za-z0-9_.-]+): files reviewed (\d+) of (\d+)")
 _UPLOAD_RE = re.compile(
     r"Artifact (\S+) has been successfully uploaded! "
@@ -926,11 +929,12 @@ def build_live_pr_collection_commands(evidence: Mapping[str, Any]) -> list[str]:
     pull_number = evidence["pull_request"]["number"]
     issue_number = evidence["source_issue"]["number"]
     comment_id = evidence["report_comment"]["id"]
+    window = str(evidence.get("run_list_created") or DEFAULT_RUN_LIST_CREATED)
     return [
         (
             "gh run list --repo "
             f"{repo} --workflow Agents Verifier "
-            "--created 2026-10-18T02:30:00Z..2026-10-18T02:40:00Z --limit 20 "
+            f"--created {window} --limit 20 "
             "--json databaseId,displayTitle,conclusion,headSha,event,url,createdAt,status"
         ),
         f"gh run view {run_id} --repo {repo} --log",
@@ -1015,15 +1019,26 @@ def assemble_live_pr_record(evidence: Mapping[str, Any]) -> dict[str, Any]:
             + ", ".join(named_paths)
             + "."
         )
+    artifact_report = _artifact_report_record(evidence.get("artifact_report"))
     uploaded_count = log_facts["comparison_uploaded_file_count"]
+    downloaded_members = None if artifact_report is None else artifact_report["downloaded_members"]
     if uploaded_count is None:
         gaps.append("The comparison upload log does not state how many files were uploaded.")
+    elif downloaded_members is not None and uploaded_count == len(downloaded_members):
+        omitted_names = [path for path in named_paths if path not in downloaded_members]
+        if omitted_names:
+            gaps.append(
+                "The comparison upload log names "
+                f"{len(named_paths)} paths and says {uploaded_count} files were uploaded. "
+                f"gh run download retrieved {len(downloaded_members)} members. "
+                "Named paths absent from that download: " + ", ".join(omitted_names) + "."
+            )
     elif uploaded_count != len(named_paths):
         gaps.append(
             f"The comparison upload log says {uploaded_count} files were uploaded and "
             f"names {len(named_paths)} paths. Which named path was omitted is not stated."
         )
-    if "files_not_reviewed" not in str(comment["body"]):
+    if artifact_report is None and "files_not_reviewed" not in str(comment["body"]):
         gaps.append(
             "The posted report has no files_not_reviewed section. "
             "That absence is not recorded as an empty unreviewed-file list."
@@ -1068,7 +1083,7 @@ def assemble_live_pr_record(evidence: Mapping[str, Any]) -> dict[str, Any]:
     closure_log = log_facts["closure_log"]
     if closure_log is None:
         gaps.append("The run log does not contain one source-issue closure line.")
-    return {
+    record = {
         "artifacts": {
             "api": api_artifacts,
             "downloaded_names": downloaded,
@@ -1111,9 +1126,12 @@ def assemble_live_pr_record(evidence: Mapping[str, Any]) -> dict[str, Any]:
         "multi_file": len(changed_files) > 1,
         "network_used_for_replay": False,
         "pull_request": {
-            "agent_pr_basis": (
-                "The issue #4036 comment calls this run's subject a multi-file agent PR. "
-                "agent_pr_definition remains unknown."
+            "agent_pr_basis": str(
+                evidence.get("agent_pr_basis")
+                or (
+                    "The issue #4036 comment calls this run's subject a multi-file agent PR. "
+                    "agent_pr_definition remains unknown."
+                )
             ),
             "author_login": pull["author_login"],
             "base_ref": pull["base_ref"],
@@ -1175,6 +1193,192 @@ def assemble_live_pr_record(evidence: Mapping[str, Any]) -> dict[str, Any]:
         },
         "metrics": metrics,
     }
+    if artifact_report is not None:
+        record["artifact_report"] = artifact_report
+    return record
+
+
+def _artifact_report_record(raw: Any) -> dict[str, Any] | None:
+    """Copy comparison-artifact facts. Missing evidence stays missing."""
+    if not isinstance(raw, Mapping):
+        return None
+    files_not_reviewed = raw.get("files_not_reviewed", None)
+    return {
+        "comment_matches_downloaded_member": raw.get("comment_matches_downloaded_member") is True,
+        "comment_member": raw.get("comment_member"),
+        "comment_sha256": raw.get("comment_sha256"),
+        "downloaded_members": [str(item) for item in raw.get("downloaded_members") or []],
+        "files_not_reviewed": (
+            None
+            if "files_not_reviewed" not in raw or files_not_reviewed is None
+            else [str(item) for item in files_not_reviewed]
+        ),
+        "input_coverage": raw.get("input_coverage"),
+        "reviewed_file_paths": [str(item) for item in raw.get("reviewed_file_paths") or []],
+    }
+
+
+def _historical_campaign_effect(created_at: str | None) -> str:
+    """Explain why this live packet is not the 2026-10-24 campaign result."""
+    if not created_at:
+        return (
+            "The run timestamp is missing, so this live packet is not historical "
+            "campaign evidence."
+        )
+    day = created_at[:10]
+    if day > CAMPAIGN_CHECK_DATE:
+        return (
+            f"Run created_at {created_at} is after the campaign check date "
+            f"{CAMPAIGN_CHECK_DATE}. A later successful run is not evidence that "
+            "the 2026-10-24 targets were met."
+        )
+    if day == CAMPAIGN_CHECK_DATE:
+        return (
+            "The run falls on the campaign check date and that date has no stated clock, "
+            "so this packet is not counted as historical achievement."
+        )
+    return (
+        "This command evaluates one live report. It does not add the run to the "
+        "historical population."
+    )
+
+
+def live_report_acceptance(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Judge the published report against the two live-report acceptance checks.
+
+    The published report is the posted comparison comment. Input-coverage metadata
+    stays visible and is not substituted for that text. A run after 2026-10-24 is
+    not historical campaign evidence.
+    """
+    repo = str(record["repository"])
+    if is_owner_excluded(repo):
+        raise OwnerExcludedRepository(repo)
+    run = record.get("run") or {}
+    run_id = str(record.get("selected_run_id") or "")
+    commands = [str(item) for item in record.get("collection_commands") or []]
+    log_command = f"gh run view {run_id} --repo {repo} --log"
+    download_command = f"gh run download {run_id} --repo {repo}"
+    merge = record.get("immutable_merge_sha") or {}
+    revision = (record.get("deployed_verifier_revision") or {}).get("revision")
+    report = record.get("report") or {}
+    reviewed = list(report.get("files_reviewed") or [])
+    changed = list(record.get("changed_files") or [])
+    artifact = record.get("artifact_report") or {}
+    downloaded = [
+        str(name) for name in (record.get("artifacts") or {}).get("downloaded_names") or []
+    ]
+    comparison_downloaded = any(name.startswith("comparison-results-") for name in downloaded)
+    live_failures: list[str] = []
+    if log_command not in commands:
+        live_failures.append(f"The saved commands do not include `{log_command}`.")
+    if download_command not in commands:
+        live_failures.append(f"The saved commands do not include `{download_command}`.")
+    if run.get("post_merge") is not True:
+        live_failures.append("The run is not recorded as post-merge.")
+    if record.get("multi_file") is not True:
+        live_failures.append("The pull request is not recorded as multi-file.")
+    if not (merge.get("values_agree") is True and merge.get("sha")):
+        live_failures.append(
+            "The immutable merge SHA is missing or the recorded SHA values do not agree."
+        )
+    if not (isinstance(revision, str) and SHA_RE.fullmatch(revision)):
+        live_failures.append("The deployed verifier revision is missing.")
+    if not comparison_downloaded:
+        live_failures.append(
+            f"`{download_command}` did not retrieve a comparison-results artifact, "
+            "so the artifact command does not identify the verifier report."
+        )
+    elif artifact.get("comment_matches_downloaded_member") is not True:
+        live_failures.append(
+            "The downloaded comparison artifact does not contain the posted report body."
+        )
+    elif not reviewed:
+        live_failures.append("The report does not contain a files-reviewed line.")
+
+    changed_paths = [str(item["path"]) for item in changed]
+    reviewed_paths = artifact.get("reviewed_file_paths")
+    not_reviewed = artifact.get("files_not_reviewed")
+    complete_failures: list[str] = []
+    totals_match = bool(reviewed) and all(
+        item.get("reviewed") == item.get("total") for item in reviewed
+    )
+    if not totals_match:
+        complete_failures.append(
+            "The report does not show files reviewed M of M for every provider."
+        )
+    elif (
+        any(item.get("total") != len(changed_paths) for item in reviewed) or len(changed_paths) < 2
+    ):
+        complete_failures.append(
+            "The files-reviewed totals do not equal the changed-file inventory."
+        )
+    elif reviewed_paths != changed_paths:
+        complete_failures.append(
+            "The comparison artifact's reviewed-file inventory does not match "
+            "the changed-file inventory."
+        )
+    elif not_reviewed != []:
+        complete_failures.append(
+            "files_not_reviewed is not an empty list, so the changed files are not "
+            "reconciled as fully reviewed."
+        )
+    elif report.get("truncated_substring_count") or report.get("prompt_budget_marker_present"):
+        complete_failures.append("The published report contains a truncated marker.")
+
+    created_at = None if run is None else run.get("created_at")
+    return {
+        "artifact_retrieval_command": download_command,
+        "changed_file_count": len(changed_paths),
+        "complete_report_first_broken_step": (complete_failures[0] if complete_failures else None),
+        "counts_as_historical_campaign_evidence": False,
+        "criterion_complete_report": not complete_failures,
+        "criterion_live_report_identified": not live_failures,
+        "deployed_verifier_revision": revision,
+        "files_not_reviewed": not_reviewed,
+        "files_reviewed": reviewed,
+        "historical_campaign_effect": _historical_campaign_effect(
+            None if created_at is None else str(created_at)
+        ),
+        "immutable_merge_sha": merge.get("sha"),
+        "input_coverage": artifact.get("input_coverage"),
+        "input_coverage_effect": (
+            "Input coverage is metadata saved from comparison.json. The published-report "
+            "checks use the posted comment. acceptance_evidence and context_truncated "
+            "stay visible here and are not rewritten into the comment text."
+        ),
+        "live_report_first_broken_step": live_failures[0] if live_failures else None,
+        "log_command": log_command,
+        "prompt_budget_marker_present": report.get("prompt_budget_marker_present"),
+        "pull_request_number": (record.get("pull_request") or {}).get("number"),
+        "repository": repo,
+        "reviewed_file_paths": reviewed_paths,
+        "run_id": run_id,
+        "run_url": run.get("url"),
+        "truncated_substring_count": report.get("truncated_substring_count"),
+    }
+
+
+def _load_live_report_evidence() -> dict[str, Any]:
+    return json.loads(LIVE_REPORT_EVIDENCE_PATH.read_text(encoding="utf-8"))
+
+
+def live_report_acceptance_packet(
+    repo: str = WORKFLOWS_REPO,
+    *,
+    loader: Callable[[], Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Replay the saved complete-report packet. The repository check happens first."""
+    if is_owner_excluded(repo):
+        raise OwnerExcludedRepository(repo)
+    evidence = (loader or _load_live_report_evidence)()
+    if str(evidence["repository"]) != repo:
+        raise ValueError(f"saved live report evidence is for {evidence['repository']}, not {repo}")
+    record = assemble_live_pr_record(evidence)
+    return {
+        "acceptance": live_report_acceptance(record),
+        "network_used_for_replay": False,
+        "record": record,
+    }
 
 
 def live_pr_record(
@@ -1197,6 +1401,7 @@ def _print_json(payload: dict[str, Any]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
             "Audit helpers for the #4036 campaign record. "
             "campaign-definition prints recovered rules and leaves unspecified "
@@ -1214,8 +1419,16 @@ def main(argv: list[str] | None = None) -> int:
             "does not use the network. Its collection commands are gh run list, "
             f"gh run view {INITIAL_EVIDENCE_RUN_ID} --log, gh run download "
             f"{INITIAL_EVIDENCE_RUN_ID}, and the pull request, report, issue, and "
-            "artifact API reads."
-        )
+            "artifact API reads. "
+            "live-report-acceptance replays verifier_4422_live_report.json without "
+            "network access. Collection for that packet is "
+            "`gh run view 41736356184 --repo stranske/Workflows --log` and "
+            "`gh run download 41736356184 --repo stranske/Workflows`, plus the pull "
+            "request, report, issue, and artifact API reads. The replay prints the "
+            "same acceptance record, including the merge SHA, deployed verifier "
+            "revision, reviewed-file inventory, and the statement that the run is "
+            "not 2026-10-24 campaign evidence."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser(
@@ -1246,6 +1459,15 @@ def main(argv: list[str] | None = None) -> int:
             "and GitHub API commands that collected the packet."
         ),
     )
+    subparsers.add_parser(
+        "live-report-acceptance",
+        help=(
+            "Replay the saved post-merge report for run 41736356184. No network access. "
+            "Print whether gh run view --log and gh run download identify the report, "
+            "and whether the published report shows files reviewed M of M with no "
+            "truncated marker."
+        ),
+    )
     args = parser.parse_args(argv)
     if args.command == "campaign-definition":
         _print_json(campaign_definition())
@@ -1255,6 +1477,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "live-pr-evidence":
         _print_json(live_pr_record())
+        return 0
+    if args.command == "live-report-acceptance":
+        _print_json(live_report_acceptance_packet())
         return 0
     result = run_initial_evidence()
     _print_json(result)

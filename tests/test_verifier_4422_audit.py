@@ -452,3 +452,98 @@ def test_live_pr_command_matches_the_saved_replay_and_audit_record() -> None:
     blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
     assert json.loads(blocks[3]) == payload
     assert "python3 verifier_4422_audit.py live-pr-evidence" in text
+
+
+def test_owner_excluded_repository_is_rejected_before_live_report_loads() -> None:
+    def loader() -> dict[str, object]:
+        raise AssertionError("saved report evidence must not load")
+
+    with pytest.raises(audit.OwnerExcludedRepository):
+        audit.live_report_acceptance_packet(EXCLUDED_REPO, loader=loader)
+
+
+def test_cited_run_fails_live_identification_when_the_comparison_artifact_is_absent() -> None:
+    acceptance = audit.live_report_acceptance(audit.live_pr_record())
+    assert acceptance["criterion_live_report_identified"] is False
+    assert acceptance["run_id"] == "39090617832"
+    assert "did not retrieve a comparison-results artifact" in (
+        acceptance["live_report_first_broken_step"]
+    )
+    assert acceptance["criterion_complete_report"] is False
+    assert acceptance["counts_as_historical_campaign_evidence"] is False
+
+
+def test_live_report_replay_identifies_the_complete_post_merge_report() -> None:
+    packet = audit.live_report_acceptance_packet()
+    acceptance = packet["acceptance"]
+    record = packet["record"]
+    assert packet["network_used_for_replay"] is False
+    assert acceptance["criterion_live_report_identified"] is True
+    assert acceptance["live_report_first_broken_step"] is None
+    assert acceptance["criterion_complete_report"] is True
+    assert acceptance["complete_report_first_broken_step"] is None
+    assert acceptance["log_command"] == ("gh run view 41736356184 --repo stranske/Workflows --log")
+    assert acceptance["artifact_retrieval_command"] == (
+        "gh run download 41736356184 --repo stranske/Workflows"
+    )
+    assert acceptance["immutable_merge_sha"] == "4928870982db3bc3b85c701b4cca2492128739b2"
+    assert acceptance["deployed_verifier_revision"] == acceptance["immutable_merge_sha"]
+    assert acceptance["changed_file_count"] == 4
+    assert acceptance["files_reviewed"] == [
+        {"provider": "openai", "reviewed": 4, "total": 4},
+        {"provider": "anthropic", "reviewed": 4, "total": 4},
+    ]
+    assert acceptance["reviewed_file_paths"] == [item["path"] for item in record["changed_files"]]
+    assert acceptance["files_not_reviewed"] == []
+    assert acceptance["truncated_substring_count"] == 0
+    assert acceptance["prompt_budget_marker_present"] is False
+    assert record["run"]["post_merge"] is True
+    assert record["multi_file"] is True
+    assert "truncated" not in record["report"]["body"]
+    assert acceptance["counts_as_historical_campaign_evidence"] is False
+    assert "not evidence that the 2026-10-24 targets were met" in (
+        acceptance["historical_campaign_effect"]
+    )
+    coverage = acceptance["input_coverage"]
+    assert [item["acceptance_evidence"] for item in coverage] == ["truncated", "truncated"]
+    assert all(item["context_truncated"] is True for item in coverage)
+    assert all(item["files_truncated"] == 0 for item in coverage)
+    assert "acceptance_evidence and context_truncated stay visible" in (
+        acceptance["input_coverage_effect"]
+    )
+    assert EXCLUDED_REPO not in json.dumps(packet)
+    commands = "\n".join(record["collection_commands"])
+    assert acceptance["log_command"] in commands
+    assert acceptance["artifact_retrieval_command"] in commands
+    assert "2026-11-03T23:05:00Z..2026-11-03T23:06:00Z" in commands
+
+
+def test_live_report_command_matches_the_replay_and_audit_record() -> None:
+    completed = subprocess.run(
+        ["python3", "verifier_4422_audit.py", "live-report-acceptance"],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload == audit.live_report_acceptance_packet()
+    help_text = subprocess.run(
+        ["python3", "verifier_4422_audit.py", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert help_text.returncode == 0
+    assert "live-report-acceptance" in help_text.stdout
+    assert "gh run view 41736356184 --repo stranske/Workflows --log" in help_text.stdout
+    assert "gh run download 41736356184 --repo stranske/Workflows" in help_text.stdout
+    assert "without network access" in help_text.stdout.lower() or (
+        "does not use the network" in help_text.stdout
+    )
+    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
+    assert json.loads(blocks[-1]) == payload["acceptance"]
+    assert "python3 verifier_4422_audit.py live-report-acceptance" in text
