@@ -177,6 +177,13 @@ def test_external_merge_lanes_require_runtime_ac_guard():
     guarded_merge_job = template_followups_text.split("guarded-merge:", 1)[1]
     guarded_merge_checkout = guarded_merge_job.split("- name: Merge labelled agent PRs", 1)[0]
     assert ".github/scripts/runtime_ac_merge_guard.js" in guarded_merge_checkout
+    # The job log prints the inline script. The pass sentence must stay in the
+    # required helper so it appears only when that helper actually runs.
+    assert "Runtime AC merge guard passed" not in template_followups_text
+    guard_text = template_guard.read_text(encoding="utf-8")
+    root_guard_text = Path(".github/scripts/runtime_ac_merge_guard.js").read_text(encoding="utf-8")
+    assert guard_text == root_guard_text
+    assert "core.info(`Runtime AC merge guard passed for PR #${prNumber}.`)" in guard_text
 
     merge_workflows = [
         *WORKFLOWS_DIR.glob("*.yml"),

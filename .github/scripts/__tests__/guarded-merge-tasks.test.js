@@ -504,6 +504,54 @@ for (const phase of ['initial scan', 'final snapshot']) {
   });
 }
 
+test('pass line is produced by the runtime guard, not echoed from workflow source', () => {
+  // github-script prints the inline script into the job log. The acceptance
+  // signal has to come from executing runtime_ac_merge_guard.js, so a refused
+  // run must not already contain this sentence in the workflow text.
+  assert.equal(source.includes('Runtime AC merge guard passed'), false);
+});
+
+const openerBody = [
+  '<!-- meta:issue:1061 -->',
+  'Closes #1061',
+  '<!-- auto-status-summary:start -->',
+  '## Tasks',
+  '- [x] CI Gate runs `test_headless_ingest_runbook_quickstart_succeeds_on_fresh_layout`',
+  '- [x] Deliberate-break → revert on runbook text (per issue acceptance)',
+  '- [x] Replace the quickstart in `docs/runbooks/headless_ingest.md:13-19` with a fresh-checkout command.',
+  '- [x] Add `tests/docs/test_headless_ingest_runbook.py` that asserts the documented command exits 0.',
+  '## Acceptance Criteria',
+  '- [x] Named test: `test_headless_ingest_runbook_quickstart_succeeds_on_fresh_layout` exits 0 and writes `run.json`.',
+  '- [x] Deliberate-break → revert: restore the broken fixture-only example, confirm the named test fails, then revert.',
+  '<!-- auto-status-summary:end -->',
+].join('\n');
+
+test('opener shape with a fully checked PR block reaches the runtime guard log line (#4389)', async () => {
+  const { c, actions } = mergeScanHarness({ body: openerBody });
+  await c.runScan();
+  const runtimeIndex = actions.findIndex(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
+  assert.ok(runtimeIndex >= 0, 'checked opener tasks must reach the runtime guard line');
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'warning' && String(message).includes('unchecked tasks')), false);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), true);
+  assert.equal(actions.filter(([kind]) => kind === 'issue').length, 3);
+
+  const uncheckedTaskFailure = c.uncheckedTaskFailure;
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  c.uncheckedTaskFailure = (pr, linkedIssueSnapshot) =>
+    uncheckedTaskFailure(pr, linkedIssueSnapshot)
+    || (c.countUnchecked(linkedIssueSnapshot?.body) > 0 ? reason : '');
+  actions.length = 0;
+  await c.runScan();
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.'), false);
+  assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`],
+  ]);
+});
+
 test('guarded scan reaches runtime guard and exact-head merge with unchecked source tasks', async () => {
   const { c, actions } = mergeScanHarness();
   await c.runScan();
