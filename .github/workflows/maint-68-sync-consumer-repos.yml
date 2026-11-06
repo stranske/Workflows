@@ -1452,6 +1452,33 @@ jobs:
             exit 0
           fi
 
+          # A verified no-op keeps the existing signed head, so the body must name the source
+          # that head was produced from (its own native trailers), not this run's source: the
+          # plan is unchanged, so the delivery is the same, and Maint 71's native-scope check
+          # requires the head's `Source commit:` trailer and the delivery record to agree.
+          # Relabelling the body with a newer source left every canary failing
+          # `canary_refresh_native_scope_mismatch` (2026-11-06, Workflows#4466 follow-up).
+          # A head whose trailers name another plan or scope is regenerated instead.
+          body_source_commit="$PLAN_SOURCE_COMMIT"
+          if [ "$matching_existing" = "true" ]; then
+            existing_message=$(git log -1 --format=%B "$existing_head" 2>/dev/null || true)
+            existing_plan_trailer=$(sed -n 's/^Consumer-sync plan ID:[[:space:]]*//p' <<<"$existing_message" | head -n 1)
+            existing_scope_trailer=$(sed -n 's/^Plan scope:[[:space:]]*//p' <<<"$existing_message" | head -n 1)
+            existing_source_trailer=$(sed -n 's/^Source commit:[[:space:]]*//p' <<<"$existing_message" | head -n 1)
+            if [ "$existing_plan_trailer" = "$PLAN_ID" ] \
+              && [ "$existing_scope_trailer" = "$PLAN_SCOPE" ] \
+              && [[ "$existing_source_trailer" =~ ^[0-9a-f]{40}$ ]]; then
+              body_source_commit="$existing_source_trailer"
+              if [ "$body_source_commit" != "$PLAN_SOURCE_COMMIT" ]; then
+                echo "Existing PR #$existing_pr head was produced from $body_source_commit for this plan; keeping that source identity"
+              fi
+            else
+              echo "Existing PR #$existing_pr head's native trailers do not name plan $PLAN_ID ($PLAN_SCOPE); regenerating a signed delivery"
+              matching_existing=false
+              migrating_legacy_lifecycle=false
+            fi
+          fi
+
           if [ -n "$existing_pr" ] \
             && { [ "$matching_existing" != "true" ] || [ "$migrating_legacy_lifecycle" = "true" ]; }; then
               # Revalidate the selected head, then close every automatic merge
@@ -1578,12 +1605,12 @@ jobs:
             --arg schema "workflows-consumer-sync-pr/v1" \
             --arg consumer_repo "$TARGET_REPOSITORY" \
             --arg source_repository "$GITHUB_REPOSITORY" \
-            --arg source_sha "$PLAN_SOURCE_COMMIT" \
+            --arg source_sha "$body_source_commit" \
             --arg template_hash "$DELIVERY_GENERATION" \
             --arg plan_id "$PLAN_ID" \
             --arg plan_scope "$PLAN_SCOPE" \
             --arg scope_base_sha "$SCOPE_BASE_SHA" \
-            --arg source_commit "$PLAN_SOURCE_COMMIT" \
+            --arg source_commit "$body_source_commit" \
             --arg sync_phase "$SYNC_PHASE" \
             --arg sync_branch "$branch_name" \
             --arg manifest ".github/sync-manifest.yml" \
@@ -1616,7 +1643,7 @@ jobs:
             --arg generation "$DELIVERY_GENERATION" \
             --arg repository "$DELIVERY_REPOSITORY" \
             --arg desired_tree_hash "$desired_tree_hash" \
-            --arg source_commit "$PLAN_SOURCE_COMMIT" \
+            --arg source_commit "$body_source_commit" \
             --arg head_observed_sha "$head_observed_sha" \
             --arg head_observed_at "$head_observed_at" \
             --arg lease_expires_at "$lease_expires_at" \
@@ -1636,7 +1663,7 @@ jobs:
           - [ ] No repo-specific customizations were overwritten
 
           **Source:** stranske/Workflows
-          **Source SHA:** \`$PLAN_SOURCE_COMMIT\`
+          **Source SHA:** \`$body_source_commit\`
           **Template hash:** \`$DELIVERY_GENERATION\`
           **Consumer-sync plan ID:** \`$PLAN_ID\`
           **Plan scope:** \`$PLAN_SCOPE\`
