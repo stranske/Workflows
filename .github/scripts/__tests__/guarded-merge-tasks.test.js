@@ -369,12 +369,18 @@ test('final snapshot task refusal publishes the warning and PR receipt before re
 });
 
 test('a reviewer task introduced only at the merge boundary still refuses merge', async () => {
-  const { c, actions } = finalGuardHarness({
+  const { c, actions, comments } = finalGuardHarness({
     boundaryBody: complete.body + '\n- [ ] Late reviewer request',
   });
   const reason = await c.finalMergeGuardFailure(42, 'current-head');
   assert.match(reason, /Final merge-boundary task validation failed: .*unchecked tasks/);
   assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [['pull', 1], ['pull', 2]]);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+    ['warning', `PR #42: ${reason}`],
+  ]);
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body,
+    `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
 });
 
 function mergeScanHarness({ body = complete.body, finalBody = body, boundaryBody = finalBody } = {}) {
@@ -554,27 +560,68 @@ for (const lateTask of ['managed task', 'reviewer task']) {
     const boundaryBody = lateTask === 'managed task'
       ? complete.body.replace('- [x] Implementation', '- [ ] Implementation')
       : complete.body + '\n- [ ] Late reviewer request';
-    const { c, actions } = mergeScanHarness({ boundaryBody });
+    const { c, actions, comments } = mergeScanHarness({ boundaryBody });
 
     await c.runScan();
 
+    const reason = 'Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.';
     assert.deepEqual(actions.filter(([kind]) => kind === 'pull'), [
       ['pull', 1], ['pull', 2], ['pull', 3], ['pull', 4],
     ]);
-    assert.ok(actions.some(([kind, message]) => kind === 'info'
-      && message === 'Runtime AC merge guard passed for PR #42.'),
-    'the initial task check must pass before the final boundary rejects the new task');
+    const runtimeIndex = actions.findIndex(([kind, message]) => kind === 'info'
+      && message === 'Runtime AC merge guard passed for PR #42.');
+    const warningIndex = actions.findIndex(([kind, message]) =>
+      kind === 'warning' && message === `PR #42: ${reason}`);
+    assert.ok(runtimeIndex >= 0, 'the initial task check must pass before the final boundary rejects the new task');
+    assert.ok(warningIndex > runtimeIndex, 'the boundary refusal must be visible after the runtime guard');
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body,
+      `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
     assert.equal(actions.some(([kind]) => kind === 'merge'), false);
     const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
     assert.deepEqual([...summaryRows[1]], [
-      '#42', 'error',
-      'Merge failed: Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.',
+      '#42', 'error', `Merge failed: ${reason}`,
     ]);
     assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
       ['output', 'merged', '[]'],
     ]);
   });
 }
+
+test('merge-boundary refusal visibility fails when the publisher is skipped and passes when restored', async () => {
+  const boundaryBody = complete.body + '\n- [ ] Late reviewer request';
+  const reason = 'Final merge-boundary task validation failed: Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  const assertVisibleBoundaryRefusal = async (c, actions, comments) => {
+    await c.runScan();
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+    assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+      ['warning', `PR #42: ${reason}`],
+    ]);
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body,
+      `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+  };
+
+  // A second scan in one harness continues the pull-read counter, so the break
+  // and the restoration each load the shipped scan from a fresh fixture.
+  const broken = mergeScanHarness({ boundaryBody });
+  broken.c.reportTaskRefusal = async () => {};
+  await assert.rejects(
+    () => assertVisibleBoundaryRefusal(broken.c, broken.actions, broken.comments),
+    { code: 'ERR_ASSERTION' },
+  );
+  assert.equal(broken.comments.length, 0);
+  const summaryRows = broken.actions.find(([kind]) => kind === 'summary')[1];
+  assert.deepEqual([...summaryRows[1]], ['#42', 'error', `Merge failed: ${reason}`]);
+  assert.ok(broken.actions.some(([kind, message]) => kind === 'info'
+    && message === 'Runtime AC merge guard passed for PR #42.'));
+
+  const restored = mergeScanHarness({ boundaryBody });
+  await assertVisibleBoundaryRefusal(restored.c, restored.actions, restored.comments);
+});
 
 for (const phase of ['initial scan', 'final snapshot']) {
   test(`ambiguous source introduced at the ${phase} publishes an owned refusal without fetching an arbitrary issue`, async () => {

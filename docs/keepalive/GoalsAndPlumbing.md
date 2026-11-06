@@ -823,5 +823,7 @@ to it. Source identity, readability and version stability remain required throug
 the final merge boundary. Completing PR tasks does not waive checks, review threads,
 review opportunity, runtime acceptance or post-merge source-issue verification.
 A refused task precheck emits a warning and an `agents-guarded-merge-result:v1`
-receipt on the PR. Only the authenticated receipt writer's own comment is updated;
-if its identity cannot be resolved, a new receipt is created.
+receipt on the PR. A task failure discovered only at the final merge boundary
+publishes that same warning and receipt, naming the boundary refusal, before
+the merge is blocked. Only the authenticated receipt writer's own comment is
+updated; if its identity cannot be resolved, a new receipt is created.

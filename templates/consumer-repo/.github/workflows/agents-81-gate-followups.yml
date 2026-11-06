@@ -3255,7 +3255,9 @@ jobs:
                   mergeBoundaryLinkedIssueSnapshot
                 );
                 if (mergeBoundaryTaskFailure) {
-                  return `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
+                  const reason = `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
+                  await reportTaskRefusal(prNumber, expectedHead, reason);
+                  return reason;
                 }
                 if (
                   mergeBoundaryLinkedIssueSnapshot.body !== finalLinkedIssueSnapshot.body
