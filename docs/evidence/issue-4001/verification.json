@@ -1,0 +1,70 @@
+{
+  "issue": "stranske/Workflows#4001",
+  "merged_implementation_pr": 4012,
+  "merged_implementation_sha": "c59f58c692b4cee4c60ecd2d8d11ce4afbf5f65a",
+  "gate_baseline_head": "f8318e2a02676bd18d9577592250879e914b495c",
+  "gate_after_head": "3e513d30e1b11b30bd6a2fdc224adbca97d85930",
+  "ranking_provenance": {
+    "source": "GitHub issue #4001 body (coverage-autopilot chunk round, lane C)",
+    "ordering": "Orchestrator ranking: escaped-defect signals, then churn, then uncovered mass",
+    "targets_in_order": [
+      {
+        "path": "scripts/aggregate_agent_metrics.py",
+        "issue_stated_uncovered_units": 22
+      },
+      {
+        "path": "scripts/check_consumer_sync_drift.py",
+        "issue_stated_uncovered_units": 130
+      },
+      {
+        "path": "scripts/validate_run_contract.py",
+        "issue_stated_uncovered_units": 74
+      }
+    ],
+    "issue_stated_total_uncovered_units": 226,
+    "independent_ranking_artifact": "No checked-in ranking.json or Gate snapshot for issue #4001 was found in this repository; baseline Gate-equivalent measurement at f8318e2a reports combined missing statements+branches=226, matching the issue body total.",
+    "deviation": "None for target selection order; subsequent main commits (#4021, #4163, and others) added tests beyond PR #4012 before this closer repair head."
+  },
+  "gate_coverage_command": "/opt/anaconda3/bin/python3 -m pytest -m 'not quarantine and not slow' --cov --cov-config=pyproject.toml --cov-report=json:<output> -n auto --dist=loadgroup -q --tb=no",
+  "gate_coverage_command_source": ".github/workflows/pr-00-gate.yml (pytest_markers, coverage enabled) and .github/workflows/reusable-10-ci-python.yml Pytest step",
+  "local_runtime_note": "Local reproduction used Python 3.12.2 (Anaconda). Gate measures branch coverage on Python 3.14 per docs/ci-workflow.md; PR Gate CI run is authoritative for the repair head.",
+  "scoped_pytest_command": "/opt/anaconda3/bin/python3 -m pytest tests/contracts/test_validate_run_contract.py tests/scripts/test_aggregate_agent_metrics.py tests/scripts/test_check_consumer_sync_drift.py -m 'not quarantine and not slow' -q",
+  "scoped_pytest_result": "238 passed in 4.57s (see docs/evidence/issue-4001/scoped-pytest.log)",
+  "gate_baseline_pytest_result": "50853 passed, 30 skipped, 3 xfailed in 1838.59s (see gate-coverage/before/pytest.log)",
+  "gate_after_pytest_result": "50303 passed, 3 failed, 30 skipped, 3 xfailed in 1775.17s (see gate-coverage/after/pytest.log); coverage.json still emitted; failures are unrelated integration/gitnexus tests and do not touch #4001 targets",
+  "targets": {
+    "scripts/aggregate_agent_metrics.py": {
+      "before_missing_lines": 5,
+      "before_missing_branches": 17,
+      "after_missing_lines": 0,
+      "after_missing_branches": 3,
+      "covered_units": 19,
+      "remaining_limit": "Three partial branch edges remain in helper/CLI paths that require live artifact download or multi-repo orchestration; no additional narrow unit test added in this repair because PR #4012 and follow-on tests already exercise the ranked gaps."
+    },
+    "scripts/check_consumer_sync_drift.py": {
+      "before_missing_lines": 73,
+      "before_missing_branches": 57,
+      "after_missing_lines": 0,
+      "after_missing_branches": 0,
+      "covered_units": 130
+    },
+    "scripts/validate_run_contract.py": {
+      "before_missing_lines": 47,
+      "before_missing_branches": 27,
+      "after_missing_lines": 0,
+      "after_missing_branches": 0,
+      "covered_units": 74
+    }
+  },
+  "combined_missing_units_before": 226,
+  "combined_missing_units_after": 3,
+  "combined_covered_units": 223,
+  "gate_ci_repair_head": {
+    "run_id": 41578234022,
+    "run_url": "https://github.com/stranske/Workflows/actions/runs/41578234022",
+    "head_sha": "77575440281a1001e95c29eae3f670eb0dbc686d",
+    "python_3_14_job_id": 125726928315,
+    "python_3_14_pytest_summary": "50333 passed, 27 skipped, 3 xfailed in 402.94s (0:06:42)"
+  },
+  "break_revert_proof": "docs/evidence/issue-4001/break-revert-proof.json"
+}
