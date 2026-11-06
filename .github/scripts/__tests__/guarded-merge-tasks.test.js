@@ -187,6 +187,9 @@ function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
       if (failAt === 'list') throw new Error('list unavailable');
       return comments;
     },
+    // Mock guardedMergeCredentialSource to return a consistent source for tests
+    guardedMergeCredentialSource: () => 'SERVICE_BOT_PAT',
+    process: { env: {} },
   };
   vm.createContext(c);
   const report = source.slice(source.indexOf('            async function reportTaskRefusal'), source.indexOf('            async function loadPullRequest'));

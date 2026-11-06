@@ -2893,28 +2893,49 @@ jobs:
             async function reportTaskRefusal(prNumber, headSha, reason) {
               core.warning(`PR #${prNumber}: ${reason}`);
               try {
-                // Only update this token writer's own receipt. If identity is unavailable,
-                // publish a new receipt rather than editing a possibly foreign comment.
-                let login = authenticatedLogin;
-                if (!login) {
-                  try {
-                    const { data } = await withRetry((client) => client.rest.users.getAuthenticated());
-                    login = String(data?.login || '').toLowerCase();
-                  } catch (error) {
-                    core.info(`Receipt writer identity unavailable: ${error.message || error}`);
-                  }
-                }
+                // Use the same ownership logic as reportMergeFailure to ensure single-receipt
+                // behavior across supported writer changes. Fall back to login-based matching
+                // for comments without user.id (e.g., from older runs or tests) and when
+                // authenticatedLogin is available.
                 const marker = '<!-- agents-guarded-merge-result:v1 -->';
                 const body = `${marker}\nHead: ${headSha}\nTask precheck refused: ${reason}`;
-                const comments = login ? await paginateWithRetry(github.rest.issues.listComments, {
+                const workflowToken = guardedMergeCredentialSource() === 'github.token';
+                let actorLogin = '';
+                let actorId = null;
+                if (workflowToken) {
+                  actorLogin = 'github-actions[bot]';
+                } else {
+                  // Try to get identity from authenticatedLogin (set by reviewWindowObservation)
+                  // or from getAuthenticated()
+                  if (authenticatedLogin) {
+                    actorLogin = authenticatedLogin;
+                  } else {
+                    try {
+                      const identity = await withRetry((client) => client.rest.users.getAuthenticated());
+                      actorLogin = String(identity?.data?.login || '').toLowerCase();
+                      actorId = identity?.data?.id;
+                    } catch (identityError) {
+                      core.info(`Receipt writer identity unavailable: ${identityError.message || identityError}`);
+                    }
+                  }
+                }
+                const ownedByWriter = (user) => {
+                  if (workflowToken) {
+                    return user?.login === 'github-actions[bot]' && user?.type === 'Bot';
+                  }
+                  // For non-workflow tokens, prefer ID-based matching; fall back to login if ID unavailable
+                  if (actorId && user?.id) {
+                    return user.id === actorId;
+                  }
+                  return String(user?.login || '').toLowerCase() === actorLogin;
+                };
+                const comments = actorLogin || actorId ? await paginateWithRetry(github.rest.issues.listComments, {
                   owner, repo, issue_number: prNumber, per_page: 100,
                 }) : [];
-                const own = comments.filter((comment) =>
-                  String(comment.user?.login || '').toLowerCase() === login
-                  && String(comment.body || '').includes(marker)
-                ).sort((a, b) => Number(b.id) - Number(a.id))[0];
-                if (own) {
-                  await withRetry((client) => client.rest.issues.updateComment({ owner, repo, comment_id: own.id, body }));
+                const existing = comments.find((comment) =>
+                  ownedByWriter(comment.user) && comment.body?.startsWith(marker));
+                if (existing) {
+                  await withRetry((client) => client.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body }));
                 } else {
                   await withRetry((client) => client.rest.issues.createComment({ owner, repo, issue_number: prNumber, body }));
                 }
