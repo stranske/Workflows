@@ -770,7 +770,10 @@ def test_backup_transport_posts_the_prompt_with_an_unredirected_key(monkeypatch)
     client = pv.CapacityBackupClient(
         model="muse-spark-1.3", base_url="https://api.meta.ai/v1/", key_env="MUSE_API_KEY"
     )
-    assert client.invoke("the prompt").content == '{"verdict":"PASS"}'
+    assert (
+        client.invoke("the prompt", config={"tags": ["canary"]}, extra=1).content
+        == '{"verdict":"PASS"}'
+    )
     assert sent["url"] == "https://api.meta.ai/v1/chat/completions"
     assert sent["method"] == "POST"
     assert sent["body"] == {
