@@ -1,0 +1,147 @@
+version: 1
+issue: 4484
+base: main
+branch: codex/issue-4484
+tasks:
+  - id: task-01
+    title: Fix the source of the unused `config` argument errors in synced `scripts/langchain/_llm_client.py:40:35`
+      and `scripts/langchain/pr_verifier.py:8735:35`.
+    status: doing
+    started_at: '2026-11-06T18:25:28Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Locate the upstream source files that sync to scripts/langchain/_llm_client.py
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'scripts/langchain/pr_verifier.py in the consumer repo (verify: confirm
+      completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Fix the ARG002 unused method argument `config` at the method near line
+      40 of _llm_client.py (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'either by using the argument or by marking it intentionally unused (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: 'Fix the ARG002 unused method argument `config` at the method near line
+      8735 of pr_verifier.py (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Run ruff check on both source files locally to confirm no ARG002 violations
+      remain (verify: lint passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Add or extend a regression test reproducing the failure and passing after
+      the fix, using `pytest` or `node --test`, whichever the source uses.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: '`Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha`
+      passes on regenerated sync PR stranske/Travel-Plan-Permission#1716, verified
+      with `gh run view <run-id>`, and the repository''s test command passes locally.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      it makes the test pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: The next sync-core round classifies stranske/Travel-Plan-Permission#1716
+      without this finding.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Fix the failure named in the title (`Shipment-caused: Python CI / lint-ruff
+      fails on synced scripts/langcha`) at its source; the failing check''s log is
+      linked under Evidence and the sync PR is stranske/Travel-Plan-Permission#1716.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Add or extend a test that reproduces the failure and passes after the fix
+      (`pytest` or `node --test`, whichever the source uses).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: '`Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha`
+      passes on regenerated sync PR stranske/Travel-Plan-Permission#1716, verified
+      with `gh run view <run-id>` (The agent cannot retry or re-run CI pipelines,
+      and it cannot trigger `.github/workflows/maint-68-sync-consumer-repos.yml`,
+      which is a protected workflow. The sync PR is in a different repository, so
+      regeneration and verification depend on external automation. | Limit the agent''s
+      scope to the source-side fix and a local `ruff check` run. Leave the sync regeneration
+      and the CI result on the consumer PR to a human or to the automated sync-core
+      round.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: The next sync-core round classifies stranske/Travel-Plan-Permission#1716
+      without this finding. (This depends on an external system and a future event,
+      so the agent cannot do it or verify it. | Move this to a human-verified post-merge
+      check and drop it from the agent's acceptance criteria.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: Do NOT edit the generated sync PR / let maint-68-sync-consumer-repos.yml
+      regenerate (The workflow file is protected, and the agent has no access to the
+      consumer repository PR. This is a constraint, not a task, and it is fine as
+      a non-goal. | Keep it as a non-goal and note that the agent should only change
+      source files and tests.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
