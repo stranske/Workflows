@@ -819,7 +819,9 @@ could incorrectly complete shared work when multiple PRs refer to that issue.
 Keepalive records progress in the PR managed task block and preserves reviewer-added
 actionable checkboxes. The guarded merger counts unchecked PR tasks; the raw source
 issue's checkbox state is advisory because keepalive does not write completion back
-to it. Source identity, readability and version stability remain required through
+to it. When the PR block is clear and the source issue still has unchecked boxes,
+the guarded-merge log says the PR task block is authoritative before the runtime
+acceptance guard runs. Source identity, readability and version stability remain required through
 the final merge boundary. Completing PR tasks does not waive checks, review threads,
 review opportunity, runtime acceptance or post-merge source-issue verification.
 A refused task precheck emits a warning and an `agents-guarded-merge-result:v1`

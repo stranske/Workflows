@@ -529,9 +529,12 @@ const openerBody = [
 test('opener shape with a fully checked PR block reaches the runtime guard log line (#4389)', async () => {
   const { c, actions } = mergeScanHarness({ body: openerBody });
   await c.runScan();
+  const advisory = 'PR #42: source issue #1061 keeps 2 unchecked task box(es); the PR task block is authoritative.';
+  const advisoryIndex = actions.findIndex(([kind, message]) => kind === 'info' && message === advisory);
   const runtimeIndex = actions.findIndex(([kind, message]) =>
     kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.');
-  assert.ok(runtimeIndex >= 0, 'checked opener tasks must reach the runtime guard line');
+  assert.ok(advisoryIndex >= 0, 'checked opener tasks must record that source boxes stay advisory');
+  assert.ok(runtimeIndex > advisoryIndex, 'checked opener tasks must reach the runtime guard line after the advisory note');
   assert.equal(actions.some(([kind, message]) =>
     kind === 'warning' && String(message).includes('unchecked tasks')), false);
   assert.equal(actions.some(([kind]) => kind === 'merge'), true);
@@ -546,6 +549,8 @@ test('opener shape with a fully checked PR block reaches the runtime guard log l
   await c.runScan();
   assert.equal(actions.some(([kind, message]) =>
     kind === 'info' && message === 'Runtime AC merge guard passed for PR #42.'), false);
+  assert.equal(actions.some(([kind, message]) =>
+    kind === 'info' && String(message).includes('the PR task block is authoritative.')), false);
   assert.equal(actions.some(([kind]) => kind === 'merge'), false);
   assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
     ['warning', `PR #42: ${reason}`],

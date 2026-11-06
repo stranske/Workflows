@@ -325,7 +325,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "const mergeBoundaryTaskFailure = uncheckedTaskFailure(",
         "Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}",
         "await reportTaskRefusal(prNumber, expectedHead, reason)",
-        "const linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr)",
+        "linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr)",
         "taskFailure = uncheckedTaskFailure(pr, linkedIssueSnapshot)",
         # Option (a): progress is the PR body. The source snapshot is identity and
         # version only, so a fully checked PR is not latched by raw issue boxes.
@@ -346,6 +346,7 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
         "const triggeringObservation = await reviewWindowObservation(",
         "reviewObservationKey(triggeringPrNumber, triggeringHeadSha)",
         "(issue) => Number(issue.number) === triggeringPrNumber",
+        "the PR task block is authoritative.",
         "sha: headSha",
         "const cleanupPr = await loadPullRequest(prNumber)",
         "inferIssue(cleanupPr)",
