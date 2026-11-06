@@ -1675,6 +1675,16 @@ jobs:
             ${{ inputs['working-directory'] }}
           sparse-checkout-cone-mode: true
 
+      # fetch-depth 1 omits the merge commit this audit resolves. Deepen only
+      # when that test is in the checkout so other consumers stay shallow.
+      - name: Fetch pinned verifier revision history
+        if: ${{ hashFiles('tests/test_verifier_4422_audit.py') != '' }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --shallow-since=2026-10-17T00:00:00Z origin main
+          git merge-base --is-ancestor 021ec67ef580c83a88402a1574e27ea34db14dde origin/main
+
       # Install block inlined directly (reusable workflows can't use ./ local composites in consumer context)
       - name: Set up Python
         uses: actions/setup-python@v7

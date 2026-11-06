@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-import time
 from pathlib import Path
 
 import pytest
@@ -15,41 +14,6 @@ import verifier_4422_audit as audit
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 EXCLUDED_REPO = "stranske/collab-admin"
-HISTORICAL_TREE = "021ec67ef580c83a88402a1574e27ea34db14dde"
-
-
-def _commit_present(sha: str) -> bool:
-    probe = subprocess.run(
-        ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
-        cwd=REPO_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    return probe.returncode == 0
-
-
-def _ensure_historical_tree() -> None:
-    """Python CI checks out with fetch-depth 1, which omits this merge commit."""
-    if _commit_present(HISTORICAL_TREE):
-        return
-    last_error = ""
-    for _ in range(6):
-        if _commit_present(HISTORICAL_TREE):
-            return
-        completed = subprocess.run(
-            ["git", "fetch", "--depth", "1", "origin", HISTORICAL_TREE],
-            cwd=REPO_ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if completed.returncode == 0 and _commit_present(HISTORICAL_TREE):
-            return
-        last_error = (completed.stderr or completed.stdout or "").strip()
-        time.sleep(1)
-    pytest.fail(f"could not fetch {HISTORICAL_TREE}: {last_error}")
 
 
 def test_timezone_and_check_date_keep_unspecified_clock_unknown() -> None:
@@ -313,7 +277,6 @@ def test_owner_excluded_repository_is_rejected_before_surface_resolution() -> No
 
 
 def test_resolve_production_surfaces_identifies_the_selected_run_revision() -> None:
-    _ensure_historical_tree()
     resolved = audit.resolve_production_surfaces(REPO_ROOT)
     locations = resolved["locations"]
     assert [item["path"] for item in locations["pr_verifier.py"]] == [
@@ -349,7 +312,6 @@ def test_resolve_production_surfaces_identifies_the_selected_run_revision() -> N
 
 
 def test_resolve_command_matches_the_library_and_audit_record() -> None:
-    _ensure_historical_tree()
     completed = subprocess.run(
         ["python3", "verifier_4422_audit.py", "resolve-production-surfaces"],
         check=False,
