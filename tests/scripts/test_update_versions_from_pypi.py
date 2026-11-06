@@ -14,6 +14,7 @@ separately to validate that our pinned versions are actually current on PyPI.
 from __future__ import annotations
 
 import json
+import re
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from functools import cache, lru_cache
@@ -74,40 +75,80 @@ def _last_routine_window_start(now: datetime) -> datetime:
     return start
 
 
+def _eligible_at_window(
+    releases: list[tuple[str, datetime | None]] | None, window_start: datetime
+) -> str | None:
+    """The newest stable release published at or before ``window_start``.
+
+    ``None`` when the release history is unknown or any stable release has no upload time:
+    the caller then keeps the strict reading.
+    """
+    if not releases:
+        return None
+    eligible: str | None = None
+    for version, released_at in releases:
+        if released_at is None:
+            return None
+        if released_at.astimezone(UTC) <= window_start and (
+            eligible is None or _version_tuple(version) > _version_tuple(eligible)
+        ):
+            eligible = version
+    return eligible
+
+
 def _stale_pin_is_binding(
-    pinned: str, latest: str, latest_released_at: datetime | None, now: datetime
+    pinned: str,
+    latest: str,
+    releases: list[tuple[str, datetime | None]] | None,
+    now: datetime,
 ) -> bool:
-    """Whether a pin lagging ``latest`` is a failure at ``now`` (see the note above)."""
+    """Whether a pin lagging ``latest`` is a failure at ``now`` (see the note above).
+
+    Inside the Monday window any lag is binding. Outside it, the pin must have reached the
+    newest stable release the updater could already have proposed: the newest one published
+    at or before the most recent window start. A later midweek release never hides a pin that
+    missed an earlier eligible update (Workflows#4454 review).
+    """
     if pinned == latest:
         return False
     if should_propose_update(now, security_override=False):
         return True
-    if latest_released_at is None:
-        return True  # unknown release time: keep the strict reading
-    return latest_released_at.astimezone(UTC) <= _last_routine_window_start(now)
+    eligible = _eligible_at_window(releases, _last_routine_window_start(now))
+    if eligible is None:
+        return releases is None or any(at is None for _, at in releases)
+    return _is_outdated(pinned, eligible)
+
+
+def _parse_upload_time(value: object) -> datetime | None:
+    """A timezone-aware UTC upload time, or ``None`` for a missing or malformed value."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None  # an offset-less timestamp is ambiguous; treat the time as unknown
+    return parsed.astimezone(UTC)
 
 
 @cache
-def _latest_release(package_name: str) -> tuple[str | None, datetime | None]:
-    """The latest PyPI version and the time its first file was uploaded."""
-    version = get_latest_pypi_version(package_name)
-    if not version:
-        return None, None
+def _stable_releases(package_name: str) -> tuple[tuple[str, datetime | None], ...] | None:
+    """Every stable release with its first upload time, or ``None`` when PyPI is unreadable."""
     try:
-        url = f"https://pypi.org/pypi/{package_name}/{version}/json"
-        with urllib.request.urlopen(url, timeout=10) as resp:
+        url = f"https://pypi.org/pypi/{package_name}/json"
+        with urllib.request.urlopen(url, timeout=15) as resp:
             payload = json.load(resp)
     except Exception:
-        return version, None
-    uploads = [
-        entry.get("upload_time_iso_8601")
-        for entry in payload.get("urls") or []
-        if entry.get("upload_time_iso_8601")
-    ]
-    if not uploads:
-        return version, None
-    released_at = datetime.fromisoformat(min(uploads).replace("Z", "+00:00"))
-    return version, released_at.astimezone(UTC)
+        return None
+    out: list[tuple[str, datetime | None]] = []
+    for version, files in (payload.get("releases") or {}).items():
+        if not re.fullmatch(r"\d+(?:\.\d+)*", version) or not files:
+            continue  # pre-releases, dev builds and empty (yanked-only) entries are never proposed
+        times = [_parse_upload_time(f.get("upload_time_iso_8601")) for f in files]
+        known = [t for t in times if t is not None]
+        out.append((version, min(known) if known else None))
+    return tuple(out)
 
 
 def _get_pypi_version_or_skip(package_name: str) -> str:
@@ -451,16 +492,17 @@ class TestConsumerRepoSampling:
                 continue
 
             current_version = current_pins[env_key]
-            latest_version, released_at = _latest_release(package_name)
+            latest_version = get_latest_pypi_version(package_name)
 
             if latest_version is None:
                 continue  # Skip if we can't reach PyPI
 
-            now = datetime.now(UTC)
-            if _stale_pin_is_binding(current_version, latest_version, released_at, now):
+            releases = _stable_releases(package_name)
+            if _stale_pin_is_binding(
+                current_version, latest_version, list(releases or []) or None, datetime.now(UTC)
+            ):
                 stale_packages.append(
                     f"{package_name}: pinned={current_version}, latest={latest_version}"
-                    + (f" (released {released_at.isoformat()})" if released_at else "")
                 )
 
         if stale_packages:
@@ -476,27 +518,36 @@ class TestConsumerRepoSampling:
 
         (a) Wednesday, pin 7.17.1, 7.17.2 released Tuesday (after Monday's window) -> not binding;
         (b) Monday (the window), same pins -> binding;
-        (c) any day, the pin lags a release published before the last window started -> binding.
+        (c) any day, the pin lags a release published before the last window started -> binding,
+            even when a newer midweek release also exists (review: a later release must not hide
+            an overdue update).
         """
         monday = datetime(2026, 11, 2, 3, 0, tzinfo=UTC)
-        tuesday_release = datetime(2026, 11, 3, 18, 0, tzinfo=UTC)
+        friday = datetime(2026, 10, 30, 12, 0, tzinfo=UTC)
+        tuesday = datetime(2026, 11, 3, 18, 0, tzinfo=UTC)
         wednesday = datetime(2026, 11, 4, 12, 0, tzinfo=UTC)
+        before_window = datetime(2026, 11, 2, 2, 59, tzinfo=UTC)
+        next_monday = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
         assert _last_routine_window_start(wednesday) == monday
         assert _last_routine_window_start(monday) == monday
-        before_window = datetime(2026, 11, 2, 2, 59, tzinfo=UTC)
         assert _last_routine_window_start(before_window) == monday - timedelta(days=7)
-        # (a)
-        assert _stale_pin_is_binding("7.17.1", "7.17.2", tuesday_release, wednesday) is False
-        # (b)
-        next_monday = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
-        assert _stale_pin_is_binding("7.17.1", "7.17.2", tuesday_release, next_monday) is True
-        assert _stale_pin_is_binding("7.17.1", "7.17.2", None, monday) is True
-        # (c)
-        old_release = datetime(2026, 10, 30, 0, 0, tzinfo=UTC)
-        assert _stale_pin_is_binding("7.17.1", "7.17.2", old_release, wednesday) is True
-        # unknown release time keeps the strict reading; an equal pin is never binding
+
+        history = [("7.17.0", friday - timedelta(days=30)), ("7.17.1", friday), ("7.17.2", tuesday)]
+        # (a) pin is the newest release the window could have proposed
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", history, wednesday) is False
+        # (b) inside the window any lag binds
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", history, next_monday) is True
+        # (c) the pin missed 7.17.1 (eligible at Monday's window); the Tuesday release hides nothing
+        assert _stale_pin_is_binding("7.17.0", "7.17.2", history, wednesday) is True
+        # unknown history or an unknown upload time keeps the strict reading
         assert _stale_pin_is_binding("7.17.1", "7.17.2", None, wednesday) is True
-        assert _stale_pin_is_binding("7.17.2", "7.17.2", tuesday_release, wednesday) is False
+        assert _stale_pin_is_binding("7.17.1", "7.17.2", [("7.17.2", None)], wednesday) is True
+        # an equal pin is never binding
+        assert _stale_pin_is_binding("7.17.2", "7.17.2", history, wednesday) is False
+        # malformed and offset-less upload times are unknown, never a crash
+        assert _parse_upload_time("not-a-time") is None
+        assert _parse_upload_time("2026-11-03T18:00:00") is None
+        assert _parse_upload_time("2026-11-03T18:00:00Z") == tuesday
 
     def test_template_sync_script_has_all_packages(self) -> None:
         """Verify the template sync script maps all the same packages."""
@@ -536,10 +587,12 @@ class TestConsumerRepoSampling:
                 continue
 
             our_version = current_pins[env_key]
-            pypi_version, released_at = _latest_release(package_name)
+            pypi_version = get_latest_pypi_version(package_name)
+            releases = _stable_releases(package_name)
 
-            now = datetime.now(UTC)
-            if pypi_version and _stale_pin_is_binding(our_version, pypi_version, released_at, now):
+            if pypi_version and _stale_pin_is_binding(
+                our_version, pypi_version, list(releases or []) or None, datetime.now(UTC)
+            ):
                 mismatches.append(f"{package_name}: we have {our_version}, PyPI has {pypi_version}")
 
         if mismatches:
