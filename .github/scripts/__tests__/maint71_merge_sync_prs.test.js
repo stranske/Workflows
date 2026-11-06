@@ -27,7 +27,7 @@ const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
   parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
   canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
-  CANARY_REFRESH_DEBOUNCE_MS, CANARY_SEALED_REFRESH_WAIT_MS, deferSealedCanaryRefresh, canaryRefreshDecision, canaryRefreshDiagnostics, readCanaryRefreshState,
+  CANARY_REFRESH_DEBOUNCE_MS, CANARY_SEALED_REFRESH_WAIT_MS, deferSealedCanaryRefresh, canaryRefreshDecision, canaryRefreshDiagnostics, readCanaryRefreshState, reportCanaryRefreshDiagnostics,
   dispatchCanaryRefresh, dispatchCanaryPromotion,
   isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate, CANCELLED_GATE_MAX_ATTEMPT,
   missingCanaryDrains,
@@ -2629,6 +2629,76 @@ test('the guard reads listJobsForWorkflowRunAttempt and exempts one prepare fail
     listJobsForWorkflowRunAttempt: async () => { throw new Error('must not read jobs outside the debounce window'); },
   } });
   assert.equal((await readCanaryRefreshState(quiet)).eligible, true, 'an expired failure no longer holds');
+});
+
+// Runs 42239701776 and 42249799768: the rate-limited prepare and the next
+// refresh used different source SHAs and one delivery digest. The follow-up
+// guard must print refresh: allowed. A second prepare failure of that digest
+// still prints refresh: skipped (failure).
+test('Maint 68 guard allows the next refresh after one same-digest infrastructure failure', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
+  const digest = `sha256:${'ab'.repeat(32)}`;
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async (_sha, repos) => ({
+    digest,
+    files: Object.fromEntries(repos.map(repo => [repo, { 'scripts/shared.js': { content: 'same' } }])),
+  }));
+  const repos = 'stranske/Ready,stranske/Template';
+  const failedSource = 'd'.repeat(40);
+  const incidentJobs = [
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+    { name: 'Generate summary', status: 'completed', conclusion: 'success' },
+    { name: 'Create failure issue', status: 'completed', conclusion: 'success' },
+    { name: 'Validate sync files', status: 'completed', conclusion: 'skipped' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+    { name: 'Start generated delivery reconciliation', status: 'completed', conclusion: 'skipped' },
+  ];
+  const failedRun = (id, minutesAgo) => producerRun({
+    id, conclusion: 'failure', head_sha: failedSource,
+    display_title: `Maint 68 canary full  source=${failedSource} candidates=${repos} dry=false  guard=delivery-v1`,
+    created_at: new Date(refreshNow - minutesAgo * 60 * 1000).toISOString(),
+    updated_at: new Date(refreshNow - minutesAgo * 60 * 1000).toISOString(),
+  });
+  const runs = [failedRun(42239701776, 65)];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : runs } }),
+    listJobsForWorkflowRunAttempt: async () => ({ data: { total_count: incidentJobs.length, jobs: incidentJobs } }),
+  } });
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const block = workflow.split('      - name: Check content refresh guard')[1]
+    .split('      - name: Authorize canary payload mutation')[0];
+  const script = block.split('          script: |\n')[1].split('\n')
+    .map(line => line.replace(/^ {12}/, '')).join('\n');
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const execute = new AsyncFunction('require', 'github', 'context', 'core', 'process', script);
+  const noticed = [];
+  const outputs = {};
+  const core = {
+    notice: line => noticed.push(line),
+    setOutput: (key, value) => { outputs[key] = value; },
+    summary: { addRaw() { return this; }, async write() {} },
+  };
+  const invoke = async () => execute(
+    name => name === 'fs' ? { readFileSync: () => JSON.stringify({ plan_id: '', entries: [], removals: [] }) }
+      : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics }
+      : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: api.withRetry }) }
+      : { canaries: api.expectedCanaries.map(repo => ({ repo })) },
+    await api.withRetry(client => client),
+    { ...api.context, runId: 42249799768 },
+    core,
+    { env: { SOURCE_COMMIT: 'a'.repeat(40), PLAN_ID: '', PLAN_SCOPE: 'full', SCOPE_BASE_SHA: '', REFRESH_KEY: '', FORCE: 'false', GITHUB_RUN_ATTEMPT: '1' } },
+  );
+  await invoke();
+  assert.deepEqual(noticed, ['refresh: allowed (unseen)']);
+  assert.equal(outputs.allowed, 'true');
+  const state = await readCanaryRefreshState({ ...api, sourceSha: 'a'.repeat(40), ignoreRunId: 42249799768 });
+  assert.equal(state.eligible, true);
+  assert.equal(state.delivery_digest, digest);
+  assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'infrastructure');
+  runs.unshift(failedRun(42239701777, 20));
+  noticed.length = 0;
+  await invoke();
+  assert.deepEqual(noticed, ['refresh: skipped (failure)']);
+  assert.equal(outputs.allowed, 'false');
 });
 
 test('unreadable refresh jobs and a failed Sync job keep the six-hour debounce', async () => {
