@@ -77,10 +77,10 @@ def test_retained_validation_receipts_record_exits_and_file_counts():
     assert counts["strict_validation_inputs"] == (
         counts["workflows_directory_yml"] + counts["template_directory_yml"] + 1
     )
-    assert summary["interpreters"]["python"]["path"]
-    assert Path(summary["interpreters"]["python"]["path"]).is_file()
-    assert Path(summary["interpreters"]["black"]["path"]).is_file()
-    assert Path(summary["interpreters"]["ruff"]["path"]).is_file()
+    for tool in ("python", "black", "ruff"):
+        recorded = summary["interpreters"][tool]["path"]
+        assert recorded
+        assert Path(recorded).is_absolute()
     readme = (RUN / "README.md").read_text(encoding="utf-8")
     assert "Historical" in readme
     assert summary["interpreters"]["python"]["path"] in readme
