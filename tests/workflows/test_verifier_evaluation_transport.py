@@ -106,6 +106,14 @@ def _run(
         "if (generator and fault in {'generator', 'fallback'}) or (checker and fault == 'extractor') or (fallback and fault == 'fallback'):\n"
         "    sys.stderr.write(os.environ.get('OPENAI_API_KEY', '') + '\\n')\n"
         "    sys.exit(23)\n"
+        "if generator and fault == 'retention_read':\n"
+        "    import pathlib\n"
+        "    _original_open = pathlib.Path.open\n"
+        "    def _fail_read(path, *args, **kwargs):\n"
+        "        if path.name == 'evaluation-raw-stderr.log' and args == ('rb',):\n"
+        "            raise OSError('inert read failure')\n"
+        "        return _original_open(path, *args, **kwargs)\n"
+        "    pathlib.Path.open = _fail_read\n"
         "if generator and fault == 'missing_status':\n"
         "    with contextlib.redirect_stdout(io.StringIO()): exec(compile(code, '<stdin>', 'exec'), {'__name__': '__main__'})\n"
         "else:\n"
@@ -305,32 +313,22 @@ def test_oversized_streams_remain_bounded_and_stdout_cannot_decide(tmp_path):
     assert not list(tmp_path.glob("evaluation-raw*"))
 
 
-def test_retention_read_failure_is_typed_and_does_not_authorize_decision(tmp_path, monkeypatch):
-    workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
-    step = next(s for s in workflow["jobs"]["verifier"]["steps"] if s.get("id") == "llm_evaluate")
-    receipt_code = (
-        step["run"].split("<<'PYRECEIPT'", 1)[1].split("\n", 1)[1].split("\nPYRECEIPT", 1)[0]
-    )
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("EVALUATION_EXIT_CODE", "0")
-    (tmp_path / "evaluation-raw.json").write_text(_payload())
-    (tmp_path / "evaluation-raw-stderr.log").write_text("private inert diagnostic")
-    original_open = Path.open
-
-    def fail_read(path, *args, **kwargs):
-        if path.name == "evaluation-raw-stderr.log" and args == ("rb",):
-            raise OSError("inert read failure")
-        return original_open(path, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "open", fail_read)
-    exec(compile(receipt_code, "authored-evaluation-receipt", "exec"), {})
+def test_retention_read_failure_is_typed_and_does_not_authorize_decision(tmp_path):
+    """A stderr read error stays typed when the authored shell runs the receipt."""
+    diagnostic = "private inert diagnostic"
+    result, outputs, _ = _run(tmp_path, raw=_payload(), stderr=diagnostic, fault="retention_read")
     receipt = json.loads((tmp_path / "evaluation-execution.json").read_text())
     assert receipt["status"] == "retention_failed" and not receipt["decision_available"]
     assert receipt["outputs"]["evaluation-stderr.log"]["retention_error_type"] == "OSError"
     assert not receipt["outputs"]["evaluation-stderr.log"]["original_complete"]
     assert receipt["model_execution"] == receipt["remote_effects"] == "unconfirmed"
     assert not receipt["retry_authority"]
+    assert outputs["verdict"] == "UNVERIFIABLE_INPUT"
+    assert outputs["execution_status"] == "retention_failed"
+    assert "**Verdict:** UNVERIFIABLE_INPUT" in result.stdout
+    assert "**Verdict:** PASS" not in result.stdout
     assert (tmp_path / "evaluation-stderr.log").read_text() == ""
+    assert diagnostic not in result.stdout + result.stderr
     assert not list(tmp_path.glob("evaluation-raw*"))
 
 
@@ -432,7 +430,10 @@ def test_failed_evaluation_comment_publication_is_not_a_success(tmp_path, failur
         (tmp_path / "evaluation-comment.md").write_text("**Verdict:** UNVERIFIABLE_INPUT")
     binary = tmp_path / "bin"
     binary.mkdir()
-    (binary / "gh").write_text("#!/bin/sh\nexit 42\n")
+    invocations = tmp_path / "gh-invocations"
+    (binary / "gh").write_text(
+        "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + shlex.quote(str(invocations)) + "\nexit 42\n"
+    )
     (binary / "gh").chmod(0o755)
     result = subprocess.run(
         [
@@ -449,6 +450,13 @@ def test_failed_evaluation_comment_publication_is_not_a_success(tmp_path, failur
         text=True,
     )
     assert result.returncode != 0
+    invoked = invocations.read_text() if invocations.exists() else ""
+    if failure == "api_failure":
+        assert "pr comment 4175 --body-file evaluation-comment.md" in invoked
+        assert "Could not publish evaluation evidence comment" in result.stdout
+    else:
+        assert invoked == ""
+        assert "Evaluation comment target or payload unavailable" in result.stdout
     upload = next(s for s in steps if s.get("name") == "Retain evaluation execution evidence")
     assert upload.get("continue-on-error", "false") == "false"
     assert upload["with"]["if-no-files-found"] == "error"
