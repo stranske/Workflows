@@ -14,6 +14,17 @@ from tools import langchain_client
 from tests.scripts.verifier_capacity_fakes import complete_capture_context
 
 
+def explicit_capacity_checked_repair(client, provider):
+    """Test the opt-in guard directly; final-output parsing never invokes it."""
+    try:
+        response = pr_verifier._CapacityCheckedRepairClient(client).invoke("full repair request")
+    except pr_verifier.InputCapacityError as exc:
+        return pr_verifier.EvaluationResult(
+            verdict="CONCERNS", provider_used=provider, used_llm=False, error=str(exc)
+        )
+    return pr_verifier._parse_llm_response(response.content, provider, client=None)
+
+
 @pytest.fixture(params=["openai", "anthropic"])
 def native(request, monkeypatch):
     monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
@@ -48,6 +59,7 @@ def native(request, monkeypatch):
 def test_configured_native_expanded_reaches_count_and_generation(native, operation, monkeypatch):
     client, provider, model, counter, metadata = native
     original = client._get_request_payload("full request")
+    transport = getattr(client, "use_responses_api", None)
     monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
     seen = []
 
@@ -57,7 +69,7 @@ def test_configured_native_expanded_reaches_count_and_generation(native, operati
 
     with mock.patch.object(type(client), "invoke", autospec=True, side_effect=generate):
         if operation == "repair":
-            result = pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+            result = explicit_capacity_checked_repair(client, provider)
         elif operation == "compare":
             result = pr_verifier.ComparisonRunner(
                 complete_capture_context(),
@@ -82,7 +94,7 @@ def test_configured_native_expanded_reaches_count_and_generation(native, operati
         assert prepared.openai_api_key == client.openai_api_key
         assert prepared.request_timeout == client.request_timeout == 17
         assert prepared.max_retries == client.max_retries == 0
-        assert client.use_responses_api is None
+        assert client.use_responses_api is transport  # the owner's transport is never mutated
     else:
         metadata.assert_called_once_with(model)
         assert prepared._client is client._client
@@ -90,8 +102,10 @@ def test_configured_native_expanded_reaches_count_and_generation(native, operati
 
 @pytest.mark.parametrize("profile", [None, "standard"])
 @pytest.mark.parametrize("operation", ["invoke", "repair"])
-def test_standard_keeps_client_and_request_bytes(native, profile, operation, monkeypatch):
-    client, _, _, counter, metadata = native
+def test_standard_counts_native_request_without_mutating_owner(
+    native, profile, operation, monkeypatch
+):
+    client, provider, _, counter, metadata = native
     if profile is None:
         monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE")
     else:
@@ -101,16 +115,24 @@ def test_standard_keeps_client_and_request_bytes(native, profile, operation, mon
 
     def invoke(actual, prompt, **kwargs):
         seen.append(actual)
-        assert json.dumps(actual._get_request_payload(prompt), sort_keys=True) == before
+        payload = actual._get_request_payload(prompt)
+        key = "input" if provider == "openai" else "messages"
+        assert counter.call_args.kwargs[key] == payload[key]
 
     with mock.patch.object(type(client), "invoke", autospec=True, side_effect=invoke):
         if operation == "repair":
             pr_verifier._CapacityCheckedRepairClient(client).invoke("full request")
         else:
             pr_verifier._invoke_llm(client, "full request", operation="test")
-    assert seen == [client]
-    counter.assert_not_called()
-    metadata.assert_not_called()
+    assert len(seen) == 1
+    assert json.dumps(client._get_request_payload("full request"), sort_keys=True) == before
+    counter.assert_called_once()
+    if provider == "openai":
+        assert seen[0] is not client and seen[0].root_client is client.root_client
+        metadata.assert_not_called()
+    else:
+        assert seen[0]._client is client._client
+        metadata.assert_called_once()
 
 
 @pytest.mark.parametrize("operation", ["invoke", "repair"])
@@ -420,7 +442,7 @@ def test_native_exact_input_and_context_boundary_and_explicit_output_preservatio
 def _run_operation(client, provider, model, operation, monkeypatch):
     monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, provider))
     if operation == "repair":
-        return pr_verifier._parse_llm_response("invalid JSON", provider, client=client)
+        return explicit_capacity_checked_repair(client, provider)
     if operation == "compare":
         return pr_verifier.ComparisonRunner(
             complete_capture_context(),

@@ -229,14 +229,34 @@ def test_deliberate_omission_after_first_8000_chars_is_inconclusive(
     assert reason in result.concerns[0]
 
 
-def test_truncated_acceptance_is_reported_not_presented_as_complete(
+def test_original_acceptance_is_not_clipped_by_navigation_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("VERIFIER_CONTEXT_BUDGET_TOKENS", "500")
     context, _ = _context(3, 3_000, 6_000)
     coverage = pr_verifier.prompt_coverage(context, None)
-    assert coverage.acceptance == "truncated"
-    assert not coverage.sufficient
+    assert coverage.acceptance == "complete"
+    assert coverage.sufficient
+    assert ACCEPTANCE_SENTINEL in pr_verifier.build_prompt_inputs(context, None).context_block
+
+
+@pytest.mark.parametrize(
+    "requirement_chars", [22222, 31478, 47348, 40104, 27560, 20451, 13532, 32845, 36772]
+)
+def test_retained_cohort_requirement_sizes_reach_the_judge(requirement_chars):
+    # Public original PR/issue source sizes from the complete eleven-case pass.
+    context, _ = _context(1, 1000, requirement_chars)
+    old_source = next(
+        body for name, body in pr_verifier._split_verifier_context(context) if name == "acceptance"
+    )
+    prefix = "## Plan sources (scope, tasks, acceptance)\n\n#### Acceptance criteria\n"
+    tail = "\n- " + ACCEPTANCE_SENTINEL
+    source = prefix + ("x" * (requirement_chars - len(prefix) - len(tail))) + tail
+    context = context.replace(old_source, source)
+    assert len(source) == requirement_chars
+    inputs = pr_verifier.build_prompt_inputs(context, None)
+    assert source in inputs.context_block
+    assert inputs.coverage.acceptance == "complete"
 
 
 def test_free_form_context_without_diff_withholds_pass() -> None:
@@ -1832,6 +1852,80 @@ Binary files a/assets/logo.png and b/assets/logo.png differ
     assert coverage.code == "truncated"
     assert not coverage.sufficient
     assert any("omitted from the prompt entirely" in reason for reason in coverage.reasons)
+
+
+@pytest.mark.parametrize("binary_count", [1, 21])
+def test_complete_text_code_is_reviewed_while_binary_evidence_stays_unreviewed(
+    monkeypatch, binary_count
+):
+    context, paths = _context(1, 1000, 1000)
+    text_patch = _file_diff(paths[0], 1000)
+    binary = "".join(
+        f"diff --git a/docs/verification/proof-{i}.log.gz b/docs/verification/proof-{i}.log.gz\n"
+        f"Binary files a/docs/verification/proof-{i}.log.gz and b/docs/verification/proof-{i}.log.gz differ\n"
+        for i in range(binary_count)
+    )
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "standard")
+    client = _pass_client()
+    result = pr_verifier.ComparisonRunner(context, text_patch + binary, "unused", []).run_single(
+        client, "openai", "unit-test-model"
+    )
+    assert result.used_llm is True and client.invoke.called
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert len(result.files_not_reviewed) == binary_count
+    assert result.input_coverage["sufficient"] is False
+    assert result.input_coverage["files_complete"] == 1
+
+
+def test_duplicate_text_and_binary_destination_cannot_establish_pass(monkeypatch):
+    context, paths = _context(1, 1000, 1000)
+    path = paths[0]
+    patch = _file_diff(path, 1000) + (
+        f"diff --git a/{path} b/{path}\nBinary files a/{path} and b/{path} differ\n"
+    )
+    client = _pass_client()
+    result = pr_verifier.ComparisonRunner(context, patch, "unused", []).run_single(
+        client, "openai", "unit-test-model"
+    )
+    assert result.verdict == "UNVERIFIABLE_INPUT" and result.used_llm is False
+    assert path in result.files_not_reviewed
+    client.invoke.assert_not_called()
+
+
+def test_binary_partial_review_cannot_waive_missing_requirements(monkeypatch):
+    context, paths = _context(1, 1000, 1000, drop_acceptance=True)
+    text_patch = _file_diff(paths[0], 1000)
+    binary = "diff --git a/proof.gz b/proof.gz\nBinary files a/proof.gz and b/proof.gz differ\n"
+    client = _pass_client()
+    result = pr_verifier.ComparisonRunner(context, text_patch + binary, "unused", []).run_single(
+        client, "openai", "unit-test-model"
+    )
+    assert result.verdict != "PASS" and result.used_llm is False
+    client.invoke.assert_not_called()
+
+
+def test_chunk_synthesis_counts_full_requirements_instead_of_using_diff_budget(monkeypatch):
+    context, paths = _context(2, 1000, 1000)
+    old = next(
+        body for name, body in pr_verifier._split_verifier_context(context) if name == "acceptance"
+    )
+    source = (
+        "## Plan sources (scope, tasks, acceptance)\n\n#### Acceptance criteria\n"
+        + ("x" * 80000)
+        + "\n- "
+        + ACCEPTANCE_SENTINEL
+    )
+    context = context.replace(old, source)
+    patch = "".join(_file_diff(path, 35000) for path in paths)
+    client = _pass_client()
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "standard")
+    result = pr_verifier.ComparisonRunner(context, patch, "unused", []).run_single(
+        client, "openai", "unit-test-model"
+    )
+    assert result.verdict == "PASS" and result.input_coverage["sufficient"] is True
+    assert client.invoke.call_count == 3  # two complete-file chunks plus reconciliation
+    assert client.root_client.responses.input_tokens.count.call_count == 3
+    assert all(source in call.args[0] for call in client.invoke.call_args_list)
 
 
 def test_quoted_utf8_octal_diff_path_matches_summary_destination() -> None:

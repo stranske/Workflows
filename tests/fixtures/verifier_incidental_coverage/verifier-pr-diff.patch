@@ -1,0 +1,19 @@
+diff --git a/tests/fixtures/closer_real_csv_canary/v1/csv_export.py b/tests/fixtures/closer_real_csv_canary/v1/csv_export.py
+new file mode 100644
+index 0000000..5e64e30
+--- /dev/null
++++ b/tests/fixtures/closer_real_csv_canary/v1/csv_export.py
+@@ -0,0 +1,13 @@
++"""Declared partial fixture for the controlled Closer E2E negative test.
++This revision is intentionally incomplete; it is not production functionality.
++"""
++
++import json
++
++
++def export_rows(rows, format):
++    if format == "json":
++        return json.dumps(rows)
++    if format == "csv":
++        raise NotImplementedError("Declared incomplete CSV canary fixture")
++    raise ValueError("unsupported format")

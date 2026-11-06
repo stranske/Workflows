@@ -1,0 +1,14 @@
+[
+ {
+  "url": "https://github.com/stranske/Workflows/pull/4231#issuecomment-6391051858",
+  "author": "github-actions[bot]",
+  "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4231\",\"head_sha\":\"75b2d8c529b7c64a7b73e4a9337b43b33a3441da\",\"evaluated_sha\":\"d16bb488edb0a3f25135762ed114bc8cabd397ec\",\"run_id\":\"40143755394\",\"run_attempt\":\"1\",\"status\":\"pending\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4231\",\"head_sha\":\"75b2d8c529b7c64a7b73e4a9337b43b33a3441da\",\"evaluated_sha\":\"d16bb488edb0a3f25135762ed114bc8cabd397ec\",\"request_sha256\":\"9781006dac538363f44d33583dba56f55e89cad2ddc01baa39b8f39585ce2f79\",\"material_sha256\":\"87a3bb5de2f1e0c00910c8584e9b509a521d7821e72551d671cb17f6c113c57e\",\"event_id\":\"adcfbf65b031d530c51ef3480df2b40fd8f57967feb0318e58bcbc66c5ce25df\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true},\"execution_binding\":{\"schema\":\"verifier-execution-binding/v1\",\"workflow_path\":\".github/workflows/agents-verifier.yml\",\"job_name\":\"Run post-merge verifier\",\"pending_step\":\"Record verification event pending\",\"evaluator_step\":\"Run multi-provider comparison\"}} -->",
+  "truncated": false
+ },
+ {
+  "url": "https://github.com/stranske/Workflows/pull/4231#issuecomment-6391061662",
+  "author": "github-actions[bot]",
+  "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4231\",\"head_sha\":\"75b2d8c529b7c64a7b73e4a9337b43b33a3441da\",\"evaluated_sha\":\"d16bb488edb0a3f25135762ed114bc8cabd397ec\",\"run_id\":\"40143755394\",\"run_attempt\":\"1\",\"status\":\"incomplete\",\"failure_cause\":\"retained_provider_evaluation\",\"retry_kind\":\"recover_existing_evaluation\",\"retryable\":false,\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4231\",\"head_sha\":\"75b2d8c529b7c64a7b73e4a9337b43b33a3441da\",\"evaluated_sha\":\"d16bb488edb0a3f25135762ed114bc8cabd397ec\",\"request_sha256\":\"9781006dac538363f44d33583dba56f55e89cad2ddc01baa39b8f39585ce2f79\",\"material_sha256\":\"87a3bb5de2f1e0c00910c8584e9b509a521d7821e72551d671cb17f6c113c57e\",\"event_id\":\"adcfbf65b031d530c51ef3480df2b40fd8f57967feb0318e58bcbc66c5ce25df\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true}} -->",
+  "truncated": false
+ }
+]

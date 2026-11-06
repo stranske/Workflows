@@ -1,0 +1,17 @@
+{
+  "kind": "precommitted-semantic-oracle/v1",
+  "expected_verdicts": [
+    "CONCERNS",
+    "FAIL"
+  ],
+  "primary_claim": "abs(value) is not the square: -3 produces 3 rather than 9 and 4 produces 4 rather than 16.",
+  "must_preserve": [
+    "Unit assertions are supplied; no test execution or CI success is claimed."
+  ],
+  "must_not_claim": [
+    "Actual passing or failing test execution",
+    "Native provider completion",
+    "Production acceptance authority"
+  ],
+  "scoring": "Allow semantic paraphrase; NONPASS verdict must identify the actual arithmetic defect. No exact wording or numeric confidence requirement beyond parser contract."
+}

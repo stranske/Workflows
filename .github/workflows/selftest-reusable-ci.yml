@@ -62,7 +62,7 @@ on:
         description: >-
           JSON array of Python versions forwarded to the reusable CI executor.
           Leave empty for the default parallel Python 3.13/3.14 matrix. Explicit
-          arrays, including ["3.12"], override that default.
+          arrays, including ["3.13"], override that default.
         required: false
         default: ''
 

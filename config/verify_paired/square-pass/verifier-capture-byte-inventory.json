@@ -1,0 +1,32 @@
+{
+  "schema": "workflows-verifier-capture-byte-inventory/v1",
+  "range_bytes": 65536,
+  "inputs": [
+    {
+      "input": "context",
+      "bytes": 1388,
+      "sha256": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+      "ranges": [
+        {
+          "id": "context:10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd:0:1388",
+          "start": 0,
+          "end": 1388,
+          "sha256": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd"
+        }
+      ]
+    },
+    {
+      "input": "diff",
+      "bytes": 324,
+      "sha256": "1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc",
+      "ranges": [
+        {
+          "id": "diff:1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc:0:324",
+          "start": 0,
+          "end": 324,
+          "sha256": "1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc"
+        }
+      ]
+    }
+  ]
+}

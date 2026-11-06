@@ -21,6 +21,30 @@ def _target():
     return Target("clamp_mod", SOURCE, None, mutants)
 
 
+def test_fixture_collection_does_not_execute_copied_evidence(monkeypatch, tmp_path):
+    source = tmp_path / "source"
+    evidence = source / "config" / "archive"
+    evidence.mkdir(parents=True)
+    (source / "tools").mkdir()
+    (evidence / "test_historical.py").write_text(
+        "from pathlib import Path\n"
+        "Path(__file__).with_suffix('.executed').write_text('unexpected')\n"
+        "raise AssertionError('archived evidence must never be collected')\n"
+    )
+    monkeypatch.setattr(agy_pilot, "ROOT", source)
+    fixture = (
+        "from pathlib import Path\n"
+        "from tools import clamp_mod\n"
+        "def test_selected_fixture():\n"
+        "    assert clamp_mod.gap(5, 3) == 2\n"
+        "    archived = Path('config/archive/test_historical.py')\n"
+        "    assert archived.is_file()\n"
+        "    assert not archived.with_suffix('.executed').exists()\n"
+    )
+    assert agy_pilot._run_pytest("clamp_mod", SOURCE, fixture)
+    assert not (evidence / "test_historical.executed").exists()
+
+
 def test_candidates_skip_strings_headers_and_comments():
     src = 'def f(a, b):\n    # a < b\n    s = "a == b"\n    return a < b\n'
     lines = {m.line for m in agy_pilot.candidate_mutants(src)}

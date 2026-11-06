@@ -150,4 +150,4 @@ def test_main_local_print_fallback_without_matrix_python_version(
 
     assert resolve_mypy_pin.main() == 0
     captured = capsys.readouterr()
-    assert "python-version=3.12" in captured.out
+    assert "python-version=3.14" in captured.out

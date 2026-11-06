@@ -105,3 +105,55 @@ test('forked stable-delivery heads are rejected', () => {
   assert.equal(result.valid, false);
   assert.equal(result.reason, 'stable delivery must originate from the base repository');
 });
+
+test('action boundary reads explicit resolved metadata after runner resets the event file', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { spawnSync } = require('node:child_process');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'seal-event-boundary-'));
+  try {
+    const initial = event({ body: record({ delivery_state: 'staging',
+      lease_expires_at: new Date(Date.now() + 86400000).toISOString(),
+    }) });
+    initial.pull_request.number = 42;
+    initial.pull_request.state = 'open';
+    const fresh = structuredClone(initial.pull_request);
+    fresh.body = record({
+      lease_expires_at: new Date(Date.now() + 86400000).toISOString(),
+    });
+    const eventPath = path.join(directory, 'event.json');
+    // This is what WriteWebhookPayload restores before the seal action starts.
+    fs.writeFileSync(eventPath, JSON.stringify(initial));
+    const checker = path.resolve(__dirname, '../../actions/generated-delivery-seal/check.js');
+    const run = (resolved = '') => spawnSync(process.execPath, [checker], {
+      encoding: 'utf8',
+      env: { ...process.env, GITHUB_EVENT_PATH: eventPath,
+        GITHUB_REPOSITORY: REPOSITORY, GITHUB_EVENT_NAME: 'pull_request',
+        GATE_PR_JSON: resolved },
+    });
+    const stale = run();
+    assert.equal(stale.status, 1);
+    assert.match(stale.stdout + stale.stderr, /delivery_not_sealed:staging/);
+    const accepted = run(JSON.stringify(fresh));
+    assert.equal(accepted.status, 0, accepted.stderr);
+    assert.match(accepted.stdout, /Exact-head generated delivery seal is valid/);
+    for (const mutate of [
+      p => { p.number = 43; }, p => { p.head.sha = 'c'.repeat(40); },
+      p => { p.head.repo.full_name = 'other/repo'; },
+      p => { p.head.ref = 'other-branch'; }, p => { p.state = 'closed'; },
+    ]) {
+      const wrong = structuredClone(fresh); mutate(wrong);
+      const rejected = run(JSON.stringify(wrong));
+      assert.notEqual(rejected.status, 0);
+      assert.doesNotMatch(rejected.stdout, /seal is valid/);
+    }
+    const malformed = run('{private-content-do-not-echo');
+    assert.notEqual(malformed.status, 0);
+    assert.doesNotMatch(malformed.stdout + malformed.stderr, /private-content-do-not-echo/);
+    // The runner-owned event is not edited by the action to manufacture proof.
+    assert.deepEqual(JSON.parse(fs.readFileSync(eventPath, 'utf8')), initial);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});

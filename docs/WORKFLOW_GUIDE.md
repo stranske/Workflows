@@ -71,7 +71,7 @@ _Inline Gate helper_
 
 ### Maintenance & Repo Health
 - **Fleet Renovate intake** — `renovate-presets/fleet.json` bounds routine dependency work to Monday 01:00–05:00 America/Chicago, with two commits per hour and three concurrent branches/PRs. Trusted GitHub Actions digest/pin/minor/patch updates share the green-automerge lane; routine releases wait three days and for non-pending update-branch checks; major updates require explicit Dependency Dashboard approval. Vulnerability alerts bypass those routine delays, and grouped lock-file maintenance uses the same explicit weekly window.
-- **`maint-39-test-llm-providers.yml`** — Manual dispatch harness to smoke-test GitHub Models and OpenAI credentials via `tools.llm_provider` before other maintenance runs; the workflow now avoids minting redundant GitHub App tokens so the test stays lightweight.
+- **`maint-39-test-llm-providers.yml`** — Manual dispatch harness to smoke-test OpenAI credentials via `tools.llm_provider` before other maintenance runs. The read-only `check_providers()` step also reports configured Anthropic and regex fallback availability; retired GitHub Models is not a dispatch option.
 - **`maint-45-cosmetic-repair.yml`** — Manual dispatch utility that runs `pytest -q`, applies guard-gated cosmetic fixes via `scripts/ci_cosmetic_repair.py`, and (when not in dry-run mode) opens a labelled PR with the default workflow token—no extra GitHub App mint required.
 - **`maint-46-post-ci.yml`** — Post-CI recovery watcher triggered by `workflow_run` on Gate completion. It inspects the Gate summary job before touching the repo, and only checks out helpers / installs the token-balanced API client when the summary leg actually failed, keeping the default token pool free unless recovery is required.
 - **`maint-47-disable-legacy-workflows.yml`** — Manual dispatch utility to disable retired workflows that still appear in the Actions UI (with a dry-run preview + allowlist overrides); now relies solely on the default workflow token because the helper script never leaves the repository.
@@ -128,7 +128,7 @@ _Inline Gate helper_
 - **`agents-72-codex-belt-worker.yml`** — Repository-dispatch consumer that re-validates labels, ensures the branch diverges from the base (empty commit when needed), and opens or refreshes the Codex automation PR with labels, assignees, and activation comment. Like the dispatcher it prefers App tokens, falls back to PAT/`GITHUB_TOKEN`, honours per-agent concurrency, and exposes a dry-run guard for diagnostics.
 - **`agents-73-codex-belt-conveyor.yml`** — Gate follower that squash-merges successful belt PRs, deletes the branch, closes the originating issue, posts audit breadcrumbs, and re-dispatches the dispatcher so the queue keeps moving. It reuses the shared API client for token load balancing, requires Gate success before merging, blocks bootstrap-only placeholders, blocks runtime-AC-labelled PRs from external auto-merge, and mirrors the same dry-run + concurrency protections as the dispatcher/worker.
 - **`agents-auto-label.yml`** — Issue/PR label suggester that feeds LangChain embeddings through the shared API client, applies labels with the default token, and posts suggestion comments when confidence drops below auto-apply thresholds. Its install step uses the exact-synced `tools/requirements-llm.txt` after an optional metadata-guarded editable install; it does not assume consumer repos declare a `langchain` extra.
-- **`agents-auto-pilot.yml`** — Full issue-to-PR automation pipeline (format → optimize → apply → capability check → PR creation → keepalive → verify). Apply `agents:auto-pilot` to start, and add an optional `runner:<name>` label (for example `runner:claude`) when you want a specific agent to own the run. Manual `agent:<name>` labels still trigger the issue intake bridge; the new `runner:` override exists so auto-pilot can stay label-driven without colliding with manual workflows. Runner overrides are now validated against `.github/agents/registry.yml`, so stray `runner:*` labels from other automation are ignored instead of misrouting agents. If no override exists, auto-pilot falls back to the registry default, adds that `agent:` label for you, and hands tasks to keepalive without extra per-job token churn.
+- **`agents-auto-pilot.yml`** — Full issue-to-PR automation pipeline (format → optimize → apply → capability check → PR creation → keepalive → verify). Apply `agents:auto-pilot` to start, and add an optional `runner:<name>` label (for example `runner:claude`) when you want a specific agent to own the run. Manual `agent:<name>` labels still trigger the issue intake bridge; the new `runner:` override exists so auto-pilot can stay label-driven without colliding with manual workflows. Runner overrides are now validated against `.github/agents/registry.yml`, so stray `runner:*` labels from other automation are ignored instead of misrouting agents. If no override exists, auto-pilot falls back to the registry default, adds that `agent:` label for you, and hands tasks to keepalive without extra per-job token churn. Verification handoff requires a successful explicit verifier dispatch or a confirmed PR/head-bound run; labels alone cannot complete it. Dispatches include the immutable merged PR head in the verifier run name so retries can reuse default-branch runs. Unconfirmed handoffs fail and retain auto-pilot ownership for a retry.
 - **`agents-autofix-dispatcher.yml`** — Triggered when Gate posts `autofix_gate_failure`. It still needs a GitHub App token to dispatch `agents-autofix-loop.yml`, but otherwise the job simply forwards the failing run ID/PR/head SHA so the loop can attempt repairs.
 - **`agents-autofix-loop.yml`** — Handles larger fix-ups (pyproject sync, scripted rewrites, merge conflict handling) after the dispatcher fires. It now also listens to Gate `workflow_run` events as a safety net, so existing repos that haven’t wired the new dispatch signal still get autop-run coverage. Every GitHub API call routes through the token-aware retry helper (the callbacks now use the rotated client), and the loop continues to label PRs (`autofix:conflict`, `needs-human`) when automation cannot complete the repair.
 - **`agents-autofix-rebase.yml`** — Rebase helper kicked off from Gate when `mergeable_state` is `dirty`/`behind`. It merges the base branch into same-repo PRs with the App token, tagging the PR with `autofix:conflict` plus a comment whenever a manual rebase is still required.
@@ -235,6 +235,11 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 ## Verifier Workflow
 
+Repeat evaluations use the same collector and evaluator as initial verification.
+See the [verification-event identity and evidence contract](keepalive/VERIFICATION_EVENTS.md)
+for repaired delivery binding, necessary-evidence selectors, deduplication and
+pending/terminal result handling.
+
 Follow-up report collectors accept native reports only from the GitHub Actions
 bot (`github-actions[bot]`, immutable user ID `41898282`, account type `Bot`).
 The reusable verifier publishes these comments with `GITHUB_TOKEN`. A report
@@ -244,6 +249,21 @@ native report or suppress a follow-up. With no authenticated report, collection
 fails before generation or mutation. This applies to both source follow-up
 workflows and the distributed new-PR template.
 The verifier validates merged PRs against tasks and acceptance criteria using label-triggered modes.
+
+The standard comparison capacity backup uses the same effective slot-config path
+as primary clients, including `LANGCHAIN_SLOT_CONFIG`. An explicit empty or
+unavailable configuration, or one that omits or disables `capacity_backup`,
+prevents backup execution; it never falls back to the bundled backup settings.
+
+Semantic evaluation responses keep `summary` as the canonical scalar string API.
+The parser also accepts only one observed provider transport alternate: a non-empty
+list whose entries contain exactly the strict string fields `criterion` and
+`support`. It deterministically converts that alternate into scalar
+`criterion: support` paragraphs before the canonical payload and report renderers
+see it. Verdict, score, concern, evidence, duplicate-member, and top-level-field
+validation remain strict; malformed alternates remain non-PASS. The original
+provider response stays retained as raw evidence, and parsing never replays,
+repairs, or requests a new historical provider response.
 
 Before any model call, `agents_verifier_context.js` writes a
 `verifier-context-source-coverage/v1` JSON record near the start of
@@ -446,7 +466,13 @@ result is `UNVERIFIABLE_INPUT`; it is not an acceptance verdict or proof that a
 provider ran. The `evaluation-results-<run id>` artifact retains the execution
 receipt, redacted stdout/stderr, and existing merge-bound input manifest and files
 for seven days. The receipt preserves the process exit and output hashes even
-when evaluator imports or argument parsing fail.
+when evaluator imports or argument parsing fail. Validation and publication import the validator from the
+authoritative Workflows checkout, not the caller's possibly stale scripts. Compare
+also retains `comparison-execution.json`. Reports, structured decision markers,
+event completion and PASS settlement join the exact retained output to its
+execution receipt and run identity. Invalid receipts keep the result recoverable
+and cannot publish a raw PASS; provider responses and original receipts stay
+retained without authorizing another model call.
 
 Diagnostic retention streams original hashes and byte counts, keeping at most
 8 MiB of stdout and 1 MiB of stderr (prefix and tail). Truncated stdout cannot

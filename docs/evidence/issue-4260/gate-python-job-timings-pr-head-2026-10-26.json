@@ -1,0 +1,30 @@
+{
+  "policy": {
+    "max_seconds": 600.0,
+    "required_jobs": [
+      "python ci / python 3.13",
+      "python ci / python 3.14"
+    ],
+    "run_count": 1,
+    "sample_mode": "explicit_run_ids"
+  },
+  "passed": false,
+  "failures": [
+    "run 40308833794: python ci / python 3.13 took 673s (limit 600s)"
+  ],
+  "runs": [
+    {
+      "run_id": "40308833794",
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 673.0,
+          "within_policy": false
+        },
+        "python ci / python 3.14": {
+          "seconds": 560.0,
+          "within_policy": true
+        }
+      }
+    }
+  ]
+}

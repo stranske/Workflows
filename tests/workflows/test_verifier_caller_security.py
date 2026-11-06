@@ -25,7 +25,13 @@ VERIFIER_PERMISSIONS = {
 }
 SECRET_MAPPING = {
     name: "${{ secrets." + name + " }}"
-    for name in ["CODEX_AUTH_JSON", "OPENAI_API_KEY", "CLAUDE_API_STRANSKE", "LANGSMITH_API_KEY"]
+    for name in [
+        "CODEX_AUTH_JSON",
+        "OPENAI_API_KEY",
+        "CLAUDE_API_STRANSKE",
+        "MUSE_API_KEY",
+        "LANGSMITH_API_KEY",
+    ]
 } | {
     "workflows_app_id": "${{ secrets.WORKFLOWS_APP_ID }}",
     "workflows_app_private_key": "${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}",

@@ -1,0 +1,216 @@
+{
+  "schema": "verify-public-api-pilot-build/v1",
+  "source_root": "/tmp/workflows-verifier-strict-duplicate-keys",
+  "source_head": "b2528b793946e1f04adfea839db4bf8f8b98c412",
+  "chain_depth": 0,
+  "cases": [
+    {
+      "case": "square-pass",
+      "head": "2f22df0ffbce30213f8f838ad36a1a1f1be1a334",
+      "capture": {
+        "id": "664f5e181ca65ec58f3c1a6fb98fad59b43248a6acd44e751b2c7342dca36c98",
+        "implementation_head": "2f22df0ffbce30213f8f838ad36a1a1f1be1a334",
+        "governing_sha256": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+        "raw_inputs": {
+          "context": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+          "diff": "1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc"
+        },
+        "gaps": [],
+        "resource_admitted": true,
+        "manifest": {
+          "schema": "workflows-verifier-capture-obligation-manifest/v1",
+          "sufficient": true,
+          "gaps": [],
+          "obligations": [
+            {
+              "source": "square.py",
+              "kind": "changed_code",
+              "status": "included",
+              "included_chars": 324,
+              "total_chars": 324
+            },
+            {
+              "source": "synthetic-public-spec",
+              "kind": "acceptance_source",
+              "status": "included",
+              "included_chars": 195,
+              "total_chars": 195
+            },
+            {
+              "source": "verifier-pr-diff.patch",
+              "kind": "full_diff_artifact",
+              "status": "included",
+              "included_chars": 324,
+              "total_chars": 324
+            }
+          ]
+        }
+      },
+      "prompt_bytes": 5559,
+      "prompt_sha256": "0a54a2ad44d4e935a12f38b111458754d9cad87ae93a3fd6fb90b4a9731379a5",
+      "plan": {
+        "schema": "workflows-verifier-semantic-package-plan/v1",
+        "contract_id": "3ad489083b4b831d67fcf572ad9f07feeae90dbc4905d6b1dede604115fa4a44",
+        "packages": [
+          {
+            "id": "residual",
+            "clause_ids": [
+              "residual-all-input"
+            ],
+            "raw_inputs": [
+              "context",
+              "diff"
+            ],
+            "closure_sha256": "9ca04a9e1d3250b9004dcb4aa4ab0996b90fdb8733d71a3fff85c97cfc8d482d"
+          }
+        ],
+        "id": "7786b7aa6b1f3f3da03fd4374c2292a7cc7d8f9fc2652ed445a17b338aa4cffb"
+      },
+      "contract": {
+        "schema": "workflows-verifier-semantic-contract/v1",
+        "capture_id": "664f5e181ca65ec58f3c1a6fb98fad59b43248a6acd44e751b2c7342dca36c98",
+        "implementation_head": "2f22df0ffbce30213f8f838ad36a1a1f1be1a334",
+        "governing_sha256": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+        "raw_inputs": {
+          "context": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+          "diff": "1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc"
+        },
+        "capture_gaps": [],
+        "resource_admitted": true,
+        "rule_sha256": "522e5734677f4eeae1a5aaae5ad03c539667593c703be9bc2755a1d180cc243e",
+        "clauses": [
+          {
+            "id": "residual-all-input",
+            "predicate": "provenance",
+            "raw_dependencies": [
+              "context",
+              "diff"
+            ],
+            "requires": [],
+            "joint_groups": [
+              "residual-all-input"
+            ],
+            "residual": true
+          }
+        ],
+        "id": "3ad489083b4b831d67fcf572ad9f07feeae90dbc4905d6b1dede604115fa4a44"
+      },
+      "files": {
+        "diff.patch": "1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc",
+        "verifier-capture-obligation-manifest.json": "5a89e1930c05765427f70bbb37bfbb846a62928ee51b6467ac52bc47229d8006",
+        "context.md": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+        "verifier-capture-reassembly-contract.json": "a58ff54a9aeace1cef028753c898b0b5495cac80335148ad62812c6c8baf9a21",
+        "verifier-capture-byte-inventory.json": "2acef03ff20574cb5dc5c60823fdaada2e9df36a1a4fb4d7977225adf3b53d75",
+        "capture.json": "3de07cbee78baec1e14b7bbd664d172bd75a2e8e5bba93e8c540488cf0d58027",
+        "prompt.txt": "0a54a2ad44d4e935a12f38b111458754d9cad87ae93a3fd6fb90b4a9731379a5",
+        "oracle.json": "a0d99aee11e3e4cff729ef1e71f1af0faa8ef7af76d02682dc29d97563084afe",
+        "manifest-result.json": "5a89e1930c05765427f70bbb37bfbb846a62928ee51b6467ac52bc47229d8006"
+      }
+    },
+    {
+      "case": "square-nonpass",
+      "head": "fb64ee2ce3a425485d69e05170555cc566a38e02",
+      "capture": {
+        "id": "5c6f489878244ffd5c2e48da88757400bf6ab1b053969091d300835a1d978097",
+        "implementation_head": "fb64ee2ce3a425485d69e05170555cc566a38e02",
+        "governing_sha256": "817d95241e0eeeeb4e310c307364b2732c9035f31ee29ca86c212d4b0dc0ae56",
+        "raw_inputs": {
+          "context": "817d95241e0eeeeb4e310c307364b2732c9035f31ee29ca86c212d4b0dc0ae56",
+          "diff": "e1aa7a9b807efed3a7c5f6cdf239b5e188976f12b0e43194d67d973ea8a0a7b7"
+        },
+        "gaps": [],
+        "resource_admitted": true,
+        "manifest": {
+          "schema": "workflows-verifier-capture-obligation-manifest/v1",
+          "sufficient": true,
+          "gaps": [],
+          "obligations": [
+            {
+              "source": "square.py",
+              "kind": "changed_code",
+              "status": "included",
+              "included_chars": 321,
+              "total_chars": 321
+            },
+            {
+              "source": "synthetic-public-spec",
+              "kind": "acceptance_source",
+              "status": "included",
+              "included_chars": 195,
+              "total_chars": 195
+            },
+            {
+              "source": "verifier-pr-diff.patch",
+              "kind": "full_diff_artifact",
+              "status": "included",
+              "included_chars": 321,
+              "total_chars": 321
+            }
+          ]
+        }
+      },
+      "prompt_bytes": 5553,
+      "prompt_sha256": "ed656f38aa56d1b7d87634e0dd80501f19979125f3d100bc8b8a5ff4a8aef851",
+      "plan": {
+        "schema": "workflows-verifier-semantic-package-plan/v1",
+        "contract_id": "7400adf1806f3bbd9f6341106963c4b8651e441eba634e835fd2b509968ea19f",
+        "packages": [
+          {
+            "id": "residual",
+            "clause_ids": [
+              "residual-all-input"
+            ],
+            "raw_inputs": [
+              "context",
+              "diff"
+            ],
+            "closure_sha256": "9ca04a9e1d3250b9004dcb4aa4ab0996b90fdb8733d71a3fff85c97cfc8d482d"
+          }
+        ],
+        "id": "a4e4635afb8291dcefe88dd5d97a0a902f7b0b3459de82096ff08e5466d2d3ba"
+      },
+      "contract": {
+        "schema": "workflows-verifier-semantic-contract/v1",
+        "capture_id": "5c6f489878244ffd5c2e48da88757400bf6ab1b053969091d300835a1d978097",
+        "implementation_head": "fb64ee2ce3a425485d69e05170555cc566a38e02",
+        "governing_sha256": "817d95241e0eeeeb4e310c307364b2732c9035f31ee29ca86c212d4b0dc0ae56",
+        "raw_inputs": {
+          "context": "817d95241e0eeeeb4e310c307364b2732c9035f31ee29ca86c212d4b0dc0ae56",
+          "diff": "e1aa7a9b807efed3a7c5f6cdf239b5e188976f12b0e43194d67d973ea8a0a7b7"
+        },
+        "capture_gaps": [],
+        "resource_admitted": true,
+        "rule_sha256": "881b0d55d0d3b8f49bfeb45d774f9b55fd3ecd6c00c228685d72b12773ef46a4",
+        "clauses": [
+          {
+            "id": "residual-all-input",
+            "predicate": "provenance",
+            "raw_dependencies": [
+              "context",
+              "diff"
+            ],
+            "requires": [],
+            "joint_groups": [
+              "residual-all-input"
+            ],
+            "residual": true
+          }
+        ],
+        "id": "7400adf1806f3bbd9f6341106963c4b8651e441eba634e835fd2b509968ea19f"
+      },
+      "files": {
+        "diff.patch": "e1aa7a9b807efed3a7c5f6cdf239b5e188976f12b0e43194d67d973ea8a0a7b7",
+        "verifier-capture-obligation-manifest.json": "527a7901d304789fe912dc47c6bbdadf96451cea10954ee0f40d84af9aac7796",
+        "context.md": "817d95241e0eeeeb4e310c307364b2732c9035f31ee29ca86c212d4b0dc0ae56",
+        "verifier-capture-reassembly-contract.json": "7bf152e2ab219815e0c4ba9942da21be26bda059ba237b286dc0e4e3c4ce8b52",
+        "verifier-capture-byte-inventory.json": "0ede3db0893449278b21446cd911e4a452eda472ccb887fdb04e9fe669ebc9b2",
+        "capture.json": "3799d3be898bdbdc0b04da8722c188f7d066bea23015669634daf04cb14e1add",
+        "prompt.txt": "ed656f38aa56d1b7d87634e0dd80501f19979125f3d100bc8b8a5ff4a8aef851",
+        "oracle.json": "25e6dfffc15a07ce4868f26810ed702d3b25d196640c39981e64e7ad8ad9190e",
+        "manifest-result.json": "527a7901d304789fe912dc47c6bbdadf96451cea10954ee0f40d84af9aac7796"
+      }
+    }
+  ],
+  "provider_calls": 0,
+  "authentic_execution_receipts": 0
+}

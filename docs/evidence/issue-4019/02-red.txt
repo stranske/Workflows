@@ -1,0 +1,23 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_autopilot_summary_counts_failed_steps_with_reason ____________
+
+    def test_autopilot_summary_counts_failed_steps_with_reason() -> None:
+        summary = aggregate_agent_metrics._summarise_autopilot(
+            [
+                {
+                    "step_name": "implement",
+                    "duration_ms": 1200,
+                    "success": False,
+                    "failure_reason": "timeout",
+                }
+            ]
+        )
+    
+>       assert summary["step_failures"]["implement"] == 1
+E       assert 0 == 1
+
+tests/scripts/test_aggregate_agent_metrics.py:499: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_counts_failed_steps_with_reason
+1 failed in 0.33s

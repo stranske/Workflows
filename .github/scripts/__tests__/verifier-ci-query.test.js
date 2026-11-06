@@ -409,3 +409,15 @@ test('closure can request exact CI head identity without changing legacy result 
   assert.equal(results[0].head_sha, 'merge-sha');
   assert.equal(results[0].conclusion, 'success');
 });
+
+test('event inventory preserves exact configured CI run attempt without optional job noise',async()=> {
+ const head='a'.repeat(40),other='b'.repeat(40);
+ const context={repo:{owner:'o',repo:'r'}};
+ const run={id:19,run_attempt:2,head_sha:head,conclusion:'success'};
+ let rows=await queryVerifierCiResults({github:buildGithubStub({runsByWorkflow:{'ci.yml':[run]}}),context,targetSha:head,workflows:[{workflow_id:'ci.yml'}],includeBinding:true});
+ assert.equal(rows[0].binding_status,'bound');assert.equal(rows[0].run_id,19);assert.equal(rows[0].run_attempt,2);
+ assert.equal(rows[0].head_sha,head);assert.equal(rows[0].workflow_id,'ci.yml');
+ rows=await queryVerifierCiResults({github:buildGithubStub({runsByWorkflow:{'ci.yml':[{...run,head_sha:other}]}}),context,targetSha:head,workflows:[{workflow_id:'ci.yml'}],includeBinding:true});
+ assert.equal(rows[0].binding_status,'unavailable');assert.equal(rows[0].run_id,null);assert.equal(rows[0].conclusion,'api_error');
+ assert.equal(rows[0].error_category,'provenance');
+});

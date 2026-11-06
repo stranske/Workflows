@@ -152,13 +152,6 @@ on:
         required: false
       WORKFLOWS_APP_PRIVATE_KEY:
         required: false
-      OPENAI_API_KEY:
-        required: false
-        description: >-
-          OpenAI API key for LLM analysis (enables model selection beyond GitHub Models)
-      CLAUDE_API_STRANSKE:
-        required: false
-        description: 'Anthropic API key for LLM analysis (enables Claude slot)'
     outputs:
       final-message:
         description: 'Full Codex output message (base64 encoded)'
@@ -1100,14 +1093,16 @@ jobs:
                 UNPUSHED=$(git rev-list FETCH_HEAD..HEAD --count 2>/dev/null || echo 0)
               fi
 
-              if [ "$CHANGED" -gt 0 ] || [ "$UNPUSHED" -gt 0 ]; then
+              if [ "$CHANGED" -gt 0 ] || [ "$UNPUSHED" -gt 0 ] ||
+                git rev-parse -q --verify MERGE_HEAD >/dev/null; then
                 echo "::notice::Watchdog saving ${CHANGED} uncommitted file(s) "\
                   "and ${UNPUSHED} unpushed commit(s)"
                 git config user.name  "github-actions[bot]"
                 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-                if [ "$CHANGED" -gt 0 ]; then
+                if [ "$CHANGED" -gt 0 ] || git rev-parse -q --verify MERGE_HEAD >/dev/null; then
                   if python3 .workflows-lib/scripts/stage_agent_changes.py && \
-                    ! git diff --cached --quiet; then
+                    { ! git diff --cached --quiet ||
+                      git rev-parse -q --verify MERGE_HEAD >/dev/null; }; then
                     git commit \
                       -m "chore(codex-keepalive): pre-timeout checkpoint (PR #${PR_NUM:-})" \
                       --no-verify || true
@@ -1526,12 +1521,12 @@ jobs:
           steps.analyze_session.outputs.session-available == 'true' &&
           inputs.pr_number != ''
         env:
+          WORKFLOWS_ANALYSIS_CLI: codex
+          CODEX_HOME: ${{ runner.temp }}/.codex
           PYTHONPATH: ${{ github.workspace }}/.workflows-lib:${{ github.workspace }}
           PR_NUM: ${{ inputs.pr_number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
           set -euo pipefail
 
@@ -1581,12 +1576,6 @@ jobs:
               rm -f "$ANALYSIS_FILE"
               exit 0
             }
-
-          # Also output to GitHub Actions for visibility
-          python3 .workflows-lib/scripts/analyze_codex_session.py \
-            --session-file "$SESSION_JSONL" \
-            --pr-body-file pr_body.md \
-            --output github-actions || true
 
           echo "llm-analysis-run=true" >> "$GITHUB_OUTPUT"
           echo "analysis-file=$ANALYSIS_FILE" >> "$GITHUB_OUTPUT"
@@ -1668,7 +1657,8 @@ jobs:
           CHANGED_FILES=$(git status --porcelain | wc -l)
           echo "files-changed=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
 
-          if [ "$CHANGED_FILES" -eq 0 ]; then
+          if [ "$CHANGED_FILES" -eq 0 ] &&
+            ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "No uncommitted changes."
             # Check if Codex made commits that we need to push
             # This happens when Codex commits during its run (workspace-write mode)
@@ -1756,7 +1746,8 @@ jobs:
             git status --porcelain |
               grep -cvE '^\S+\s+agents/.*\.md$' || echo "0"
           )
-          if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ]; then
+          if [ "$STATUS_ONLY_CHANGES" -eq 0 ] && [ "$CHANGED_FILES" -gt 0 ] &&
+            ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "Only agent bootstrap files changed - skipping commit to reduce noise."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
@@ -1764,7 +1755,8 @@ jobs:
             exit 0
           fi
 
-          if [ "$CHANGED_FILES" -eq 0 ]; then
+          if [ "$CHANGED_FILES" -eq 0 ] &&
+            ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "No changes to commit after excluding status files."
             echo "changes-made=false" >> "$GITHUB_OUTPUT"
             echo "commit-sha=" >> "$GITHUB_OUTPUT"
@@ -1793,7 +1785,8 @@ jobs:
           python3 .workflows-lib/scripts/stage_agent_changes.py
 
           # Check if there are any staged changes remaining after reset
-          if git diff --cached --quiet; then
+          if git diff --cached --quiet &&
+            ! git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             echo "::notice::No non-artifact changes to commit after filtering."
             echo "::notice::All changes were workflow artifacts."
             # Even if nothing to commit, check for unpushed commits that need pushing

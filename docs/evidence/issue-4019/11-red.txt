@@ -1,0 +1,46 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestAnthropicProvider.test_analyze_completion_retries_without_quality_context_on_type_error _
+
+self = <tests.tools.test_llm_provider.TestAnthropicProvider object at 0x10a3fdaf0>
+
+    def test_analyze_completion_retries_without_quality_context_on_type_error(self):
+        provider = AnthropicProvider()
+        mock_client = MagicMock()
+        mock_client.invoke.side_effect = [
+            TypeError("invoke() got an unexpected keyword argument 'quality_context'"),
+            MagicMock(
+                content='{"completed": [], "in_progress": [], "blocked": [], '
+                '"confidence": 0.5, "reasoning": "ok"}'
+            ),
+        ]
+        quality_context = SessionQualityContext(analysis_text_length=200)
+    
+        with patch.object(provider, "_get_client", return_value=mock_client):
+            result = provider.analyze_completion(
+                "output",
+                ["task1"],
+                quality_context=quality_context,
+            )
+    
+        assert mock_client.invoke.call_count == 2
+        assert mock_client.invoke.call_args_list[0].kwargs["quality_context"] is quality_context
+        assert mock_client.invoke.call_args_list[1].args == (
+            mock_client.invoke.call_args_list[0].args[0],
+        )
+>       assert mock_client.invoke.call_args_list[1].kwargs == {}
+E       AssertionError: assert {'quality_con...t_length=200)} == {}
+E         
+E         Left contains 1 more item:
+E         {'quality_context': SessionQualityContext(has_agent_messages=False,
+E                                                   has_work_evidence=False,
+E                                                   file_change_count=0,
+E                                                   successful_command_count=0,
+E                                                   estimated_effort_score=0,...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+tests/tools/test_llm_provider.py:2116: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestAnthropicProvider::test_analyze_completion_retries_without_quality_context_on_type_error
+1 failed in 0.23s

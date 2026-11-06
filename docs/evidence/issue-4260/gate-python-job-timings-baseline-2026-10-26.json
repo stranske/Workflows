@@ -1,0 +1,84 @@
+{
+  "policy": {
+    "max_seconds": 600.0,
+    "required_jobs": [
+      "python ci / python 3.13",
+      "python ci / python 3.14"
+    ],
+    "run_count": 5
+  },
+  "passed": false,
+  "failures": [
+    "run 40305992256: python ci / python 3.13 took 691s (limit 600s)",
+    "run 40305992256: python ci / python 3.14 took 727s (limit 600s)",
+    "run 40292419178: python ci / python 3.13 took 698s (limit 600s)",
+    "run 40278272409: python ci / python 3.13 took 682s (limit 600s)"
+  ],
+  "runs": [
+    {
+      "run_id": 40306641092,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 412.0,
+          "within_policy": true
+        },
+        "python ci / python 3.14": {
+          "seconds": 590.0,
+          "within_policy": true
+        }
+      }
+    },
+    {
+      "run_id": 40305992256,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 691.0,
+          "within_policy": false
+        },
+        "python ci / python 3.14": {
+          "seconds": 727.0,
+          "within_policy": false
+        }
+      }
+    },
+    {
+      "run_id": 40302454662,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 519.0,
+          "within_policy": true
+        },
+        "python ci / python 3.14": {
+          "seconds": 492.0,
+          "within_policy": true
+        }
+      }
+    },
+    {
+      "run_id": 40292419178,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 698.0,
+          "within_policy": false
+        },
+        "python ci / python 3.14": {
+          "seconds": 450.0,
+          "within_policy": true
+        }
+      }
+    },
+    {
+      "run_id": 40278272409,
+      "jobs": {
+        "python ci / python 3.13": {
+          "seconds": 682.0,
+          "within_policy": false
+        },
+        "python ci / python 3.14": {
+          "seconds": 595.0,
+          "within_policy": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+(version 1)
+(allow default)
+(deny network*)
+(deny file-write*)
+(allow file-write* (subpath "/private/tmp/real-verify-4265-current-review-verification-20261027-final"))
+(deny file-read* (subpath "/Users/teacher"))

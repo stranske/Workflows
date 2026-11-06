@@ -1,0 +1,50 @@
+{
+  "schema": "current-review-original-acceptance-procedure/v1",
+  "created_utc": "2026-10-27T18:41:34.841910+00:00",
+  "repository": "stranske/Workflows",
+  "pr": 4265,
+  "issue": 4254,
+  "original_pr_head": "40622701645e1c9c13ff28861ba606a3f78d2e4a",
+  "meaning": "Current reviewer execution of existing exact-head acceptance tests and deliberate break/revert; not evidence of what the PR author historically ran.",
+  "source_files": {
+    "tools/coverage_guard.py": {
+      "sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+      "git_blob": "6ce725e48749884d2ef81094a69e3b466b594a32"
+    },
+    "tests/test_coverage_guard.py": {
+      "sha256": "778b90641854081857bfdf9123a6cc28ddf5f5517f5a8da418e5d8f5f3549648",
+      "git_blob": "ff6bfeb12e7bb19bd120d14b2d44b6079b68ffd6"
+    }
+  },
+  "environment": {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/tmp/real-verify-4265-current-review-verification-20261027/empty-home",
+    "TMPDIR": "/tmp/real-verify-4265-current-review-verification-20261027/fixtures",
+    "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "LANG": "en_US.UTF-8"
+  },
+  "kernel_sandbox_profile": "(version 1)\n(allow default)\n(deny network*)\n(deny file-write*)\n(allow file-write* (subpath \"/private/tmp/real-verify-4265-current-review-verification-20261027\"))\n(deny file-read* (subpath \"/Users/teacher\"))\n",
+  "runs": [
+    {
+      "name": "sandbox-and-runtime-probe",
+      "argv": [
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/tmp/real-verify-4265-current-review-verification-20261027/sandbox.sb",
+        "/opt/anaconda3/bin/python3",
+        "-I",
+        "-B",
+        "-c",
+        "import sys,platform,socket,json; print(json.dumps({\"executable\":sys.executable,\"version\":sys.version,\"platform\":platform.platform()}));\ntry: socket.socket()\nexcept PermissionError as e: print(\"KERNEL_NETWORK_DENIED\",type(e).__name__)\nelse: raise SystemExit(\"network sandbox unexpectedly permitted socket\")"
+      ],
+      "cwd": "/tmp/real-verify-4265-current-review-verification-20261027/snapshot",
+      "started_utc": "2026-10-27T18:41:34.842059+00:00",
+      "exit_code": 71,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "d34a4e4359a4dc36526cf5b363da32f7b7594a3a09eea17cbdfd6425b052d93e"
+    }
+  ],
+  "provider_calls": 0,
+  "blocked": "Kernel network-denial/runtime probe failed; no pytest or mutation execution."
+}

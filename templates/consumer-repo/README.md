@@ -255,7 +255,7 @@ For each non-transient failure:
 Adjust inputs in `ci.yml`:
 ```yaml
 with:
-  python-version: '3.12'  # Change Python version
+  python-version: '3.14'  # Change Python version
   run-mypy: 'true'        # Enable/disable type checking
   working-directory: '.'  # Set working directory
 ```

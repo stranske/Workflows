@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -316,6 +317,29 @@ def test_actual_report_publisher_roundtrips_through_live_fetch_and_partition(
         )
     )
     comment.write_text("## Provider Comparison Report\n")
+    raw = comparison.read_bytes()
+    receipt = tmp_path / "comparison-execution.json"
+    receipt.write_text(
+        json.dumps(
+            {
+                "schema": "workflows-verifier-comparison-execution/v1",
+                "mode": "compare",
+                "status": "completed",
+                "exit_code": 0,
+                "decision_available": True,
+                "repository": record["repo"],
+                "source_run_id": "123",
+                "source_run_attempt": "1",
+                "verdict": "PASS",
+                "outputs": {
+                    "comparison.json": {
+                        "sha256": hashlib.sha256(raw).hexdigest(),
+                        "bytes": len(raw),
+                    }
+                },
+            }
+        )
+    )
     env = {
         "GITHUB_REPOSITORY": record["repo"],
         "PR_NUMBER": "1",
@@ -336,6 +360,8 @@ def test_actual_report_publisher_roundtrips_through_live_fetch_and_partition(
             evidence.__file__,
             "--comparison",
             str(comparison),
+            "--execution-receipt",
+            str(receipt),
             "--comment",
             str(comment),
         ],

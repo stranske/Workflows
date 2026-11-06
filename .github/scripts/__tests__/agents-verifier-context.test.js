@@ -206,6 +206,7 @@ const buildGithubStub = ({
   sourceIssue = null,
   sourceIssueError = null,
   sourceIssueCalls = null,
+  requiredCommentsById = {},
   runsByWorkflow = {},
   listWorkflowRunsHook = null,
   runsForRepo = {},
@@ -274,6 +275,10 @@ const buildGithubStub = ({
       },
     },
     issues: {
+      async getComment({ comment_id: commentId }) {
+        if (!(commentId in requiredCommentsById)) throw new Error('Required comment unavailable');
+        return { data: requiredCommentsById[commentId] };
+      },
       async get(params) {
         sourceIssueCalls?.push(params);
         if (sourceIssueError) throw sourceIssueError;
@@ -359,7 +364,8 @@ test('buildVerifierContext skips when pull request is not merged', async () => {
     core,
   });
   assert.equal(result.shouldRun, false);
-  assert.deepEqual(result.ciResults, []);
+  assert.ok(result.ciResults.every(row => row.binding_status === 'unavailable' && row.run_id === null && row.run_attempt === null));
+  assert.deepEqual(result.ciResults.map(({head_sha,workflow_id,run_id,run_attempt,binding_status,...legacy}) => legacy), []);
   assert.equal(core.outputs.should_run, 'false');
   assert.ok(core.outputs.skip_reason.includes('not merged'));
 });
@@ -2645,7 +2651,8 @@ test('buildVerifierContext selects CI results for the merge commit SHA', async (
   assert.equal(result.shouldRun, true);
   assert.ok(headShas.length > 0);
   assert.ok(headShas.every((sha) => sha === 'merge-sha-333'));
-  assert.deepEqual(result.ciResults, [
+  assert.ok(result.ciResults.every(row => row.binding_status === 'unavailable' && row.run_id === null && row.run_attempt === null));
+  assert.deepEqual(result.ciResults.map(({head_sha,workflow_id,run_id,run_attempt,binding_status,...legacy}) => legacy), [
     withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
@@ -2773,7 +2780,8 @@ test('buildVerifierContext falls back to head SHA when merge runs are missing', 
   const result = await buildVerifierContext({ github, context, core });
 
   assert.equal(result.shouldRun, true);
-  assert.deepEqual(result.ciResults, [
+  assert.ok(result.ciResults.every(row => row.binding_status === 'unavailable' && row.run_id === null && row.run_attempt === null));
+  assert.deepEqual(result.ciResults.map(({head_sha,workflow_id,run_id,run_attempt,binding_status,...legacy}) => legacy), [
     withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
@@ -2860,7 +2868,8 @@ test('buildVerifierContext uses merge commit SHA for push events', async () => {
   assert.equal(result.shouldRun, true);
   assert.ok(headShas.length > 0);
   assert.ok(headShas.every((sha) => sha === 'merge-sha-444'));
-  assert.deepEqual(result.ciResults, [
+  assert.ok(result.ciResults.every(row => row.binding_status === 'unavailable' && row.run_id === null && row.run_attempt === null));
+  assert.deepEqual(result.ciResults.map(({head_sha,workflow_id,run_id,run_attempt,binding_status,...legacy}) => legacy), [
     withEmptyJobs({
       workflow_name: 'Gate',
       conclusion: 'success',
@@ -3794,7 +3803,7 @@ test('archive extractor independently records unsupported, entry, character and 
     const result = extractArtifactArchiveText({archiveBuffer: Buffer.from('mock archive'), maxEntries: 1,
       maxChars: defect === 'character' ? 1 : 100, maxBytes: 50,
       execFile: (_cmd, args) => {
-        if (args[0] === '-Z1') return defect === 'unsupported_payload' ? 'proof.txt\nimage.png\n' : defect === 'entry' ? 'proof.txt\nother.txt\n' : 'proof.txt\n';
+        if (args[0] === '-Z1') return defect === 'unsupported_payload' ? 'proof.txt\nunknown.bin\n' : defect === 'entry' ? 'proof.txt\nother.txt\n' : 'proof.txt\n';
         if (defect === 'extraction_byte_or_read') throw new Error('maxBuffer exceeded');
         return 'complete sibling text';
       }});
@@ -3835,7 +3844,7 @@ test('artifact extractor retains patch proof and unsafe sibling gaps', () => {
     for (const unsafe of ['-injected.patch', 'wild*.diff', 'binary.png']) {
       const partial = run(`${name}\n${unsafe}\n`);
       assert.equal(partial.truncated, true);
-      assert.ok(partial.failures.includes('unsupported_payload'));
+      assert.ok(partial.failures.includes(unsafe === 'binary.png' ? 'unrenderable_media' : 'unsupported_payload'));
       assert.match(partial.text, /diff --git/);
     }
   }
@@ -5355,6 +5364,36 @@ test('explicit model mode uses authentic linked issue request and template parit
   }
 });
 
+test('full root and template builders capture explicitly selected linked request revision with provenance', async () => {
+  const templateImpl = require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+  const templateBuilder = options => templateImpl({ ...options, fetchLocalDiff: () => options.github.__testDiffText });
+  const url = 'https://github.com/octo/workflows/issues/42#issuecomment-6236440140';
+  const comment = { id: 6236440140, html_url: url,
+    issue_url: 'https://api.github.com/repos/octo/workflows/issues/42',
+    user: {login: 'octo', id: 23046322},
+    created_at: '2026-10-17T16:14:25Z', updated_at: '2026-10-17T16:14:25Z',
+    body: 'Historical request revision: ship ON at 2/day. Later operating instructions take precedence.' };
+  await withEnv('VERIFICATION_MATERIAL', JSON.stringify([{kind:'comment',url}]), async () => {
+    for (const builder of [buildVerifierContext, templateBuilder]) {
+      const options = {prBody: 'Implement the linked original request.',
+        closingIssues: [{number:42,title:'Original request',body:'Original authored requirements.',state:'CLOSED',url:'https://github.com/octo/workflows/issues/42'}],
+        requiredCommentsById: {[comment.id]:comment}};
+      const first = await buildEvidenceContext(options, {mode:'evaluate'}, builder);
+      try {
+        assert.equal(first.result.shouldRun,true);
+        const text=fs.readFileSync(first.result.contextPath,'utf8');
+        assert.ok(text.includes(comment.body));
+        assert.ok(text.includes('actor ID 23046322'));
+        assert.ok(text.includes(comment.created_at));
+        assert.ok(text.includes('not automatic operating directives or overrides of later user instructions'));
+        const changed = await buildEvidenceContext({...options,requiredCommentsById:{[comment.id]:{...comment,body:comment.body+' Corrected source.'}}}, {mode:'evaluate'},builder);
+        try { assert.notEqual(changed.result.verificationManifest.verification_event.event_id,first.result.verificationManifest.verification_event.event_id); }
+        finally {removeVerifierDiffArtifacts(changed.result);}
+      } finally {removeVerifierDiffArtifacts(first.result);}
+    }
+  });
+});
+
 test('explicit evaluation cannot turn an empty linked original request into captured requirements', async () => {
   const { result } = await buildEvidenceContext({prBody: originalRequest866.body, closingIssues: [{number: 42, body: '', title: 'Empty original', state: 'CLOSED'}]}, {mode: 'evaluate'});
   try {
@@ -5382,4 +5421,688 @@ test('explicit evaluation captures freeform evidence obligations for native pref
       fs.copyFileSync(result.diffPath, path.join(process.env.VERIFIER_TEST_CAPTURE_DIR, 'diff.patch'));
     }
   } finally { removeVerifierDiffArtifacts(result); }
+});
+
+test('repeat verification collects authoritative material before exact-event deduplication', async () => {
+  const selected = 'https://github.com/octo/workflows/pull/700#issuecomment-42';
+  const proof = { id: 42, html_url: selected, issue_url:'https://api.github.com/repos/octo/workflows/issues/700',
+    user: { login: 'owner', id:7 }, created_at:'2026-10-25T10:00:00Z', updated_at:'2026-10-25T10:00:00Z', body: 'retained required proof' };
+  await withEnv('VERIFICATION_MATERIAL', JSON.stringify([{kind:'comment',url:selected}]), async () => {
+    const first = await buildEvidenceContext({comments:[proof],requiredCommentsById:{42:proof}}, {mode:'evaluate'});
+    const manifest = first.result.verificationManifest;
+    assert.ok(manifest?.verification_event.event_id);
+    const terminal = {schema:'verifier-corpus-decision/v1',repo:'octo/workflows',pr:'700',
+      head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'100',run_attempt:'1',
+      verdict:'NON_PASS',ci_failed:false,provider_verdicts:['CONCERNS'],
+      verification_event:manifest.verification_event,assessment_identity:manifest.assessment_identity};
+    removeVerifierDiffArtifacts(first.result);
+    const report = {id:43,html_url:'https://github.com/octo/workflows/pull/700#issuecomment-43',
+      user:{login:'github-actions[bot]'},body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify(terminal)} -->`};
+    const repeat = await buildEvidenceContext({comments:[proof,report],requiredCommentsById:{42:proof}}, {mode:'evaluate'});
+    assert.equal(repeat.result.shouldRun,false);
+    assert.equal(repeat.result.reason,'duplicate-verification-event');
+    const recovered = await buildEvidenceContext({comments:[{...proof,body:'new necessary proof'},report],
+      requiredCommentsById:{42:{...proof,body:'new necessary proof'}}}, {mode:'evaluate'});
+    try {
+      assert.equal(recovered.result.shouldRun,true);
+      assert.notEqual(recovered.result.verificationManifest.verification_event.event_id,manifest.verification_event.event_id);
+    } finally {removeVerifierDiffArtifacts(recovered.result);fs.rmSync('verification-event-manifest.json',{force:true});}
+  });
+});
+
+test('successful historical workflow without usable model decision does not suppress initial collection', async () => {
+  const {result}=await buildEvidenceContext({comments:[{id:51,user:{login:'github-actions[bot]'},
+    html_url:'https://github.com/octo/workflows/pull/700#issuecomment-51',
+    body:'Workflow succeeded; UNVERIFIABLE_INPUT, zero files reviewed.'}]},{mode:'evaluate'});
+  try { assert.equal(result.shouldRun,true);assert.ok(result.verificationManifest?.verification_event.event_id); }
+  finally {removeVerifierDiffArtifacts(result);fs.rmSync('verification-event-manifest.json',{force:true});}
+});
+
+test('repeat event refuses invented predecessor before evaluator admission', async () => {
+  await withEnv('VERIFICATION_PREDECESSOR','d'.repeat(64),async()=> {
+    await assert.rejects(()=>buildEvidenceContext({}, {mode:'evaluate'}),/not an authenticated/);
+  });
+});
+
+test('optional giant comment cannot hide a necessary pending protocol marker',async()=> {
+ const first=await buildEvidenceContext({}, {mode:'evaluate'});
+ const event=first.result.verificationManifest.verification_event;
+ const assessment=first.result.verificationManifest.assessment_identity;
+ removeVerifierDiffArtifacts(first.result);
+ const state={schema:'verifier-event-state/v1',repo:'octo/workflows',pr:'700',head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'77',run_attempt:'1',status:'pending',verification_event:event,assessment_identity:assessment};
+ const comments=[{id:80,body:'optional log '.repeat(1000),user:{login:'owner'}},
+  {id:79,body:`<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->`,user:{login:'github-actions[bot]'},html_url:'https://github.com/octo/workflows/pull/700#issuecomment-79'}];
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS','64',async()=> {
+  const evidence=await fetchVerifierEvidence({github:buildGithubStub({comments}),owner:'octo',repo:'workflows',pullNumber:700,pullRequestBody:''});
+  assert.equal(evidence.comments.complete,false);
+  assert.equal(evidence.event_history.complete,true);
+  assert.equal(evidence.event_history.records.length,1);
+  const blocked = await buildEvidenceContext({comments},{mode:'evaluate'});
+  assert.equal(blocked.result.shouldRun,false);
+  assert.equal(blocked.core.outputs.retrieval_pending,'verification_existing_execution');
+ });
+ fs.rmSync('verification-event-manifest.json',{force:true});
+});
+
+test('optional proof truncation remains nonblocking when protocol inventory is complete',async()=> {
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS','64',async()=> {
+  const {result}=await buildEvidenceContext({comments:[{id:80,body:'optional log '.repeat(1000),user:{login:'owner'}}]},{mode:'evaluate'});
+  try {
+   assert.equal(result.shouldRun,true);
+   assert.equal(result.verifierEvidence.comments.complete,false);
+   assert.equal(result.verifierEvidence.event_history.complete,true);
+  } finally {removeVerifierDiffArtifacts(result);fs.rmSync('verification-event-manifest.json',{force:true});}
+ });
+});
+
+test('genuinely incomplete conversation protocol pagination yields scoped retrieval pending',async()=> {
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_PAGES','1',async()=> {
+  const {core,result}=await buildEvidenceContext({comments:[{id:80,body:'optional current comment',user:{login:'owner'}}],commentLink:'<next>; rel="next"'},{mode:'evaluate'});
+  assert.equal(result.shouldRun,false);
+  assert.equal(result.reason,'verification-event-history-retrieval-pending');
+  assert.equal(core.outputs.retrieval_pending,'verification_event_history');
+ });
+});
+
+test('same collector reenters cancelled pending event only on authoritative skipped evaluator step',async()=> {
+ const previousCwd=process.cwd();
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-pending-recovery-'));
+ process.chdir(directory);
+ try {
+ const first=await buildEvidenceContext({}, {mode:'evaluate'});
+ const manifest=first.result.verificationManifest;
+ removeVerifierDiffArtifacts(first.result);
+ const state={schema:'verifier-event-state/v1',repo:'octo/workflows',pr:'700',head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'100',run_attempt:'1',status:'pending',verification_event:manifest.verification_event,assessment_identity:manifest.assessment_identity,execution_binding:manifest.execution_binding};
+ const comments=[{id:98,user:{login:'github-actions[bot]'},html_url:'https://github.com/octo/workflows/pull/700#issuecomment-98',body:`<!-- verifier-event-state/v1 ${JSON.stringify(state)} -->`}];
+ for(const skipped of [true,false]) {
+  const builder=async options=> {
+   options.github.rest.actions.getWorkflowRun=async()=>({data:{id:100,run_attempt:1,status:'completed',conclusion:'cancelled',path:'.github/workflows/agents-verifier.yml',event:'workflow_dispatch',head_sha:'d'.repeat(40),repository:{full_name:'octo/workflows'},head_repository:{full_name:'octo/workflows'}}});
+   options.github.rest.actions.getWorkflowRunAttempt=async params=>{assert.equal(params.attempt_number,1);return options.github.rest.actions.getWorkflowRun();};
+   options.github.rest.actions.listJobsForWorkflowRunAttempt=async()=>({data:{total_count:1,jobs:[{id:123,run_id:100,run_attempt:1,head_sha:'d'.repeat(40),name:'verifier / Run post-merge verifier',status:'completed',conclusion:'cancelled',steps:[{name:'Record verification event pending',number:5,status:'completed',conclusion:'success'},{name:'Run LLM evaluation',number:15,status:'completed',conclusion:skipped?'skipped':'cancelled'}]}]},headers:{}});
+   return buildVerifierContext(options);
+  };
+  const {result}=await buildEvidenceContext({comments},{mode:'evaluate'},builder);
+  if(skipped) {
+   try {assert.equal(result.shouldRun,true);assert.equal(result.verificationManifest.pending_no_evaluation.job_id,123);}
+   finally {removeVerifierDiffArtifacts(result);}
+  } else {
+   assert.equal(result.shouldRun,false);
+   assert.equal(result.reason,'verification-existing-execution-retrieval-pending');
+   assert.equal(result.verificationManifest.pending_execution_recovery.retryable,false);
+  }
+ }
+ fs.rmSync('verification-event-manifest.json',{force:true});
+ } finally {process.chdir(previousCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+test('optional comment overflow reports each limit once while continuing protocol inventory',async()=> {
+ const protocol={schema:'verifier-event-state/v1'};
+ const comments=Array.from({length:80},(_,index)=>({id:200-index,body:'optional log '.repeat(30),user:{login:'owner'}}));
+ comments.push({id:100,body:`<!-- verifier-event-state/v1 ${JSON.stringify(protocol)} -->`,user:{login:'github-actions[bot]'},html_url:'https://github.com/octo/workflows/pull/700#issuecomment-100'});
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_CHARS','64',async()=> {
+  const result=await fetchVerifierEvidence({github:buildGithubStub({comments}),owner:'octo',repo:'workflows',pullNumber:700,pullRequestBody:''});
+  assert.equal(result.event_history.complete,true);
+  assert.equal(result.event_history.records.length,1);
+  const limits=result.diagnostics.failures.filter(row=>row.channel==='comments'&&row.detail==='conversation comments');
+  assert.equal(limits.filter(row=>row.kind==='character').length,1);
+  assert.ok(limits.length<=2);
+ });
+ await withEnv('VERIFIER_EVIDENCE_COMMENT_LIMIT','1',async()=> {
+  const result=await fetchVerifierEvidence({github:buildGithubStub({comments}),owner:'octo',repo:'workflows',pullNumber:700,pullRequestBody:''});
+  assert.equal(result.event_history.complete,true);
+  assert.equal(result.event_history.records.length,1);
+  const limits=result.diagnostics.failures.filter(row=>row.channel==='comments'&&row.detail==='conversation comments');
+  assert.equal(limits.filter(row=>row.kind==='record').length,1);
+  assert.equal(limits.filter(row=>row.kind==='character').length,0);
+ });
+});
+
+
+test('only safe image names receive typed unrenderable-media availability', () => {
+  for (const extractor of [extractArtifactArchiveText, require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+    for (const name of ['daily-report.png', 'dir/dashboard.JPG', 'search.gif', 'upload.webp']) {
+      const result = extractor({archiveBuffer: Buffer.from('zip'), maxEntries:10, maxChars:500,
+        execFile: (_cmd, args) => args[0] === '-Z1' ? `proof.txt\n${name}\n` : 'required proof'});
+      assert.equal(result.truncated, true);
+      assert.deepEqual(result.failures, ['unrenderable_media'], name);
+      assert.match(result.text, /required proof/);
+    }
+    for (const name of ['-image.png', '../image.png', '/image.png', 'dir/./image.png', 'wild*.png', ' image.png', 'unknown.bin', 'C:/image.png', 'one.png^Jtwo.png', 'image^M.png']) {
+      const result = extractor({archiveBuffer: Buffer.from('zip'), maxEntries:10, maxChars:500,
+        execFile: (_cmd, args) => args[0] === '-Z1' ? `proof.txt\n${name}\n` : 'required proof'});
+      assert.ok(result.failures.includes('unsupported_payload'), name);
+      assert.ok(!result.failures.includes('unrenderable_media'), name);
+    }
+  }
+});
+
+
+test('duplicate media retains duplicate-member integrity refusal', () => {
+  for (const extractor of [extractArtifactArchiveText, require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+    const result = extractor({archiveBuffer:Buffer.from('zip'),maxEntries:10,maxChars:500,
+      execFile:(_cmd,args)=>args[0]==='-Z1'?'proof.txt\nimage.png\nimage.png\n':'required proof'});
+    assert.ok(result.failures.includes('unrenderable_media'));
+    assert.ok(result.failures.includes('duplicate_member'));
+    assert.equal(result.truncated,true);
+    assert.equal(result.members.filter(member=>member.status==='duplicate').length,2);
+  }
+});
+
+
+test('actual ZIP control-bearing image name cannot become optional media', () => {
+  const archive = Buffer.from('UEsDBBQAAAAAAMyNWF1id6ZkDAAAAAwAAAAPAAAAb25lLnBuZwp0d28ucG5nbm90IHJlbmRlcmVkUEsBAhQDFAAAAAAAzI1YXWJ3pmQMAAAADAAAAA8AAAAAAAAAAAAAAIABAAAAAG9uZS5wbmcKdHdvLnBuZ1BLBQYAAAAAAQABAD0AAAA5AAAAAAA=', 'base64');
+  for (const extractor of [extractArtifactArchiveText, require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+    const result = extractor({archiveBuffer:archive,maxEntries:10,maxChars:500});
+    assert.equal(result.truncated,true);
+    assert.ok(result.failures.includes('unsupported_payload'));
+    assert.ok(!result.failures.includes('unrenderable_media'));
+  }
+});
+
+test('same-event collector retry retains the authenticated incomplete parent in root and template',async()=>{
+ const {executionBinding}=require('../verifier_pending_execution');
+ const templateImpl=require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+ const templateBuilder=options=>templateImpl({...options,fetchLocalDiff:()=>options.github.__testDiffText});
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-same-event-parent-'));
+ const originalCwd=process.cwd();process.chdir(directory);
+ try {
+  for(const builder of [buildVerifierContext,templateBuilder]) {
+   const initial=await buildEvidenceContext({prBody:'Original request before required proof recovery.'},{mode:'evaluate'},builder);
+   const parent=initial.result.verificationManifest.verification_event;
+   const assessment=initial.result.verificationManifest.assessment_identity;
+   removeVerifierDiffArtifacts(initial.result);
+   const body='Current authentic request with recovered required proof.';
+   const fresh=await buildEvidenceContext({prBody:body},{mode:'evaluate'},builder);
+   const event=fresh.result.verificationManifest.verification_event;
+   removeVerifierDiffArtifacts(fresh.result);
+   const row=(actual,run,status,predecessor)=>({schema:'verifier-event-state/v1',repo:actual.repo,pr:actual.pr,
+     head_sha:actual.head_sha,evaluated_sha:actual.evaluated_sha,run_id:String(run),run_attempt:'1',
+     verification_event:actual,assessment_identity:assessment,status,
+     ...(predecessor?{predecessor_event_id:predecessor}:{}),
+     ...(status==='pending'?{execution_binding:executionBinding('evaluate')}:
+       {failure_cause:'validated_no_evaluation',retry_kind:'known_no_evaluation',retryable:true})});
+   const comment=(id,value)=>({id,user:{login:'github-actions[bot]'},
+     html_url:`https://github.com/octo/workflows/pull/700#issuecomment-${id}`,
+     body:`<!-- ${value.schema} ${JSON.stringify(value)} -->`});
+   for(const status of ['retry','duplicate','complete-then-retry','failure-complete-then-retry','complete-then-pending','complete-then-uncertain','old-pending-skipped','two-old-pending-skipped',
+      'old-pending-started','old-pending-active','old-pending-missing-api','old-pending-binding',
+      'old-pending-refetch-changed','old-pending-mixed-parent','old-pending-uncertain','pending','uncertain']) {
+    const comments=[comment(81,row(parent,100,'pending')),comment(82,row(parent,100,'incomplete')),
+      comment(83,row(event,101,'pending',parent.event_id))];
+    if(status==='retry'||status==='uncertain') {
+     const state=row(event,101,'incomplete',parent.event_id);
+     if(status==='uncertain')Object.assign(state,{retry_kind:'uncertain_execution',retryable:false});
+     comments.push(comment(84,state));
+    }
+    if(status==='duplicate')comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+      schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:['PASS'],verdict:'PASS'}));
+    if(status.endsWith('complete-then-retry')) {
+      comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+        schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:[status.startsWith('failure')?'FAIL':'PASS'],
+        verdict:status.startsWith('failure')?'NON_PASS':'PASS'}));
+      comments.push(comment(85,row(event,102,'pending',parent.event_id)),comment(86,row(event,102,'incomplete',parent.event_id)));
+    }
+    if(['complete-then-pending','complete-then-uncertain'].includes(status)) {
+      comments.push(comment(84,{...row(event,101,undefined,parent.event_id),
+        schema:'verifier-corpus-decision/v1',ci_failed:false,provider_verdicts:['PASS'],verdict:'PASS'}));
+      comments.push(comment(85,row(event,102,'pending',parent.event_id)));
+      if(status==='complete-then-uncertain')comments.push(comment(86,{
+        ...row(event,102,'incomplete',parent.event_id),retry_kind:'uncertain_execution',retryable:false}));
+    }
+    if(status.includes('old-pending')) {
+      if(status==='old-pending-binding') {
+        const value=JSON.parse(comments[2].body.match(/(\{.*\})/)[1]);
+        value.execution_binding.evaluator_step='Foreign step';comments[2]=comment(83,value);
+      }
+      if(status==='old-pending-mixed-parent')comments[2]=comment(83,row(event,101,'pending','d'.repeat(64)));
+      if(status==='old-pending-uncertain')comments.push(comment(84,{...row(event,101,'incomplete',parent.event_id),retry_kind:'uncertain_execution',retryable:false}));
+      if(status==='two-old-pending-skipped')comments.push(comment(87,row(event,102,'pending',parent.event_id)));
+      comments.push(comment(85,row(event,103,'pending',parent.event_id)),comment(86,row(event,103,'incomplete',parent.event_id)));
+    }
+    comments.sort((left,right)=>left.id-right.id);
+    const reads=[];
+    const reconcilerBuilder=options=>{
+      const counts=new Map();
+      const run=id=>({id,run_attempt:1,status:status==='old-pending-active'?'in_progress':'completed',conclusion:'cancelled',
+        path:'.github/workflows/agents-verifier.yml',event:'workflow_dispatch',head_sha:'a'.repeat(40),
+        repository:{full_name:event.repo},head_repository:{full_name:event.repo}});
+      const get=async ({run_id})=>{reads.push(run_id);const value=run(run_id);
+        counts.set(run_id,(counts.get(run_id)||0)+1);
+        if(status==='old-pending-refetch-changed' && counts.get(run_id)>2)value.head_sha='f'.repeat(40);
+        return {data:value};};
+      if(status.includes('old-pending') && status!=='old-pending-missing-api') Object.assign(options.github.rest.actions,{
+        getWorkflowRun:get,getWorkflowRunAttempt:get,
+        listJobsForWorkflowRunAttempt:async({run_id})=>({data:{total_count:1,jobs:[{id:run_id+1000,run_id,run_attempt:1,
+          head_sha:'a'.repeat(40),name:'Run post-merge verifier',status:'completed',steps:[
+            {name:'Record verification event pending',number:5,status:'completed',conclusion:'success'},
+            {name:'Run LLM evaluation',number:15,status:'completed',conclusion:status==='old-pending-started'?'success':'skipped'}]}]},headers:{}})});
+      return builder(options);
+    };
+    const before=structuredClone(comments);
+    await withEnv('VERIFICATION_EVENT',JSON.stringify(event),()=>withEnv('VERIFICATION_PREDECESSOR',parent.event_id,async()=>{
+     if(['uncertain','complete-then-uncertain','old-pending-mixed-parent','old-pending-uncertain'].includes(status)) {
+      await assert.rejects(()=>buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},builder),/recover retained execution|requires existing execution recovery|conflicting parent metadata/);
+      return;
+     }
+     const {result,core}=await buildEvidenceContext({prBody:body,comments},{mode:'evaluate'},reconcilerBuilder);
+     assert.ok(result.verificationManifest,JSON.stringify({status,result}));
+     assert.equal(result.verificationManifest.predecessor_event_id,parent.event_id);
+     assert.deepEqual(result.verificationManifest.verification_event,event);
+     if(['retry','old-pending-skipped','two-old-pending-skipped'].includes(status)) {
+      assert.equal(result.shouldRun,true);
+      assert.equal(core.outputs.verification_predecessor,parent.event_id);
+      if(status.includes('old-pending')) {
+        const proofs=result.verificationManifest.predecessor_execution_reconciliation;
+        assert.deepEqual(proofs.map(p=>p.run_id),status==='two-old-pending-skipped'?['101','102']:['101']);
+        assert.ok(reads.length>=4);
+      }
+      assert.ok(fs.readFileSync(result.contextPath,'utf8').includes(body));
+      assert.equal(JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8')).predecessor_event_id,parent.event_id);
+      removeVerifierDiffArtifacts(result);
+     } else {
+      assert.equal(result.shouldRun,false,status);
+      assert.equal(result.reason,(status==='duplicate'||status.endsWith('complete-then-retry'))?'duplicate-verification-event':'verification-existing-execution-retrieval-pending');
+      if(result.reason==='verification-existing-execution-retrieval-pending') {
+        assert.equal(core.outputs.should_run,'false');
+        for(const name of ['verification_event','verification_assessment','verification_predecessor'])assert.equal(core.outputs[name],undefined);
+      }
+     }
+    }));
+    assert.deepEqual(comments,before);
+   }
+  }
+ } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('retained collector revalidates prior exact NON_PASS only through authenticated provider-free recovery',async()=>{
+ const {retainedExecutionFixture}=require('../../../tests/scripts/fixtures/retained_execution');
+ const {digest}=require('../verification_event');
+ const templateImpl=require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+ const templateBuilder=options=>templateImpl({...options,fetchLocalDiff:()=>options.github.__testDiffText});
+ const originalCwd=process.cwd(),directory=fs.mkdtempSync(path.join(os.tmpdir(),'verifier-retained-completed-'));
+ process.chdir(directory);
+ try {
+  for(const builder of [buildVerifierContext,templateBuilder]) {
+   const initial=await buildEvidenceContext({},{mode:'evaluate'},builder);
+   const {verification_event:event,assessment_identity:assessment}=initial.result.verificationManifest;
+   removeVerifierDiffArtifacts(initial.result);
+   const selector={run_id:10,run_attempt:1,artifact_id:30};
+   const recoveryKey=digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector});
+   const decision=run=>({schema:'verifier-corpus-decision/v1',repo:event.repo,pr:event.pr,
+     head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,verification_event:event,
+     assessment_identity:assessment,run_id:String(run),run_attempt:'1',ci_failed:false,
+     provider_verdicts:['FAIL'],verdict:'NON_PASS'});
+   const comment=(id,value)=>({id,user:{login:'github-actions[bot]'},
+     html_url:`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-${id}`,
+     body:`<!-- ${value.schema} ${JSON.stringify(value)} -->`});
+   for(const kind of ['ordinary','retained','duplicate-key','superseded','expired']) {
+    for(const name of ['verification-recovery-origin.json','verification-recovery-source.zip'])fs.rmSync(name,{force:true});
+    const comments=[comment(80,decision(10))];
+    if(kind==='duplicate-key')comments.push(comment(81,{...decision(11),retained_revalidation:{
+      schema:'retained-revalidation/v1',recovery_key:recoveryKey,provider_generation_performed:false}}));
+    if(kind==='superseded')comments.push(comment(81,decision(11)));
+    const before=structuredClone(comments);let artifactReads=0;
+    const authenticatedBuilder=options=>{
+      options.context.runId=20;
+      const retained=retainedExecutionFixture(event,kind==='expired'?data=>{data.artifact.expired=true;}:undefined);
+      const getArtifact=retained.github.rest.actions.getArtifact;
+      retained.github.rest.actions.getArtifact=async args=>{artifactReads++;return getArtifact(args);};
+      Object.assign(options.github.rest.actions,retained.github.rest.actions);
+      Object.assign(options.github.rest.repos,retained.github.rest.repos);
+      return builder(options);
+    };
+    await withEnv('VERIFICATION_RECOVERY',kind==='ordinary'?'':JSON.stringify(selector),async()=>{
+      if(['superseded','expired'].includes(kind)) {
+        await assert.rejects(()=>buildEvidenceContext({comments},{mode:'evaluate'},authenticatedBuilder),
+          kind==='superseded'?/superseded/:/artifact attempt\/origin\/size unproven/);
+        assert.equal(fs.existsSync('verification-recovery-origin.json'),false);
+        return;
+      }
+      const {result,core}=await buildEvidenceContext({comments},{mode:'evaluate'},authenticatedBuilder);
+      if(kind==='retained') {
+        assert.equal(result.shouldRun,true);
+        assert.equal(core.outputs.should_run,'true');
+        assert.equal(result.verificationManifest.execution_binding.retained_revalidation,true);
+        assert.equal(result.verificationManifest.retained_revalidation.recovery_key,recoveryKey);
+        const origin=JSON.parse(fs.readFileSync('verification-recovery-origin.json','utf8'));
+        assert.equal(origin.recovery_key,recoveryKey);
+        assert.equal(origin.source_run_id,'10');
+        assert.equal(origin.archive_sha256,createHash('sha256').update('authenticated archive').digest('hex'));
+        assert.equal(artifactReads,1);
+        removeVerifierDiffArtifacts(result);
+      } else {
+        assert.equal(result.shouldRun,false);
+        assert.equal(result.reason,kind==='ordinary'?'duplicate-verification-event':'duplicate-retained-revalidation');
+        assert.equal(artifactReads,0);
+        assert.equal(fs.existsSync('verification-recovery-origin.json'),false);
+      }
+    });
+    assert.deepEqual(comments,before);
+   }
+  }
+ } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
+});
+
+
+test('selected required comments are separate from optional history and retain provenance', () => {
+  const text = formatVerifierEvidence({ status: 'present',
+    comments: { status: 'present', records: [
+      { author: 'owner', author_id: 7, comment_id: 42, url: 'https://github.com/octo/workflows/pull/700#issuecomment-42',
+        created_at: '2026-10-25T10:00:00Z', updated_at: '2026-10-25T10:00:00Z',
+        body: 'EXACT_REQUIRED_COMMENT\n### Bounded PR comments\n```untrusted```', required_material: true },
+      { author: 'bot', body: 'OPTIONAL_HISTORY' },
+    ] }, artifacts: { status: 'absent', records: [] } });
+  assert.equal(text.split('### Selected required comment proof').length, 2);
+  assert.ok(text.indexOf('EXACT_REQUIRED_COMMENT') < text.indexOf('### Bounded PR comments'));
+  assert.ok(text.indexOf('### Selected required comment proof') < text.lastIndexOf('### Bounded PR comments'));
+  assert.ok(text.indexOf('EXACT_REQUIRED_COMMENT') < text.lastIndexOf('### Bounded PR comments'));
+  assert.ok(text.indexOf('OPTIONAL_HISTORY') > text.lastIndexOf('### Bounded PR comments'));
+  assert.match(text, /actor ID 7; comment ID 42/);
+  assert.match(text, /Untrusted explicitly selected source-issue comment:/);
+});
+
+test('selected required comment actual producer capture', async () => {
+  const url = 'https://github.com/octo/workflows/pull/700#issuecomment-42';
+  const proof = process.env.VERIFIER_TEST_REQUIRED_COMMENT || 'REQUIRED_SELECTED_PROOF';
+  const criterion = process.env.VERIFIER_TEST_NO_EVIDENCE_DUTY ? 'Every changed module is wired.' : 'Evidence in the PR body must establish the behavior.';
+  const body = '## Tasks\n- Implement the behavior.\n## Acceptance Criteria\n- ' + criterion;
+  await withEnv('VERIFICATION_MATERIAL', JSON.stringify([{kind:'comment',url}]), async () => {
+    const requiredComment = {id:42,html_url:url,user:{login:'owner',id:7},body:proof,
+      issue_url:'https://api.github.com/repos/octo/workflows/issues/700',
+      created_at:'2026-10-25T10:00:00Z',updated_at:'2026-10-25T10:00:00Z'};
+    const capture = () => buildEvidenceContext({prBody:body,requiredCommentsById:{42:requiredComment},comments:[
+      process.env.VERIFIER_TEST_WITHDRAWN_COMMENT ? {...requiredComment,body:'withdrawn'} : requiredComment,
+      {id:43,html_url:'https://github.com/octo/workflows/pull/700#issuecomment-43',
+        user:{login:'bot',id:8},body:'OPTIONAL_HISTORY_'+ 'z'.repeat(50000)},
+    ]},{mode:'evaluate'});
+    if (process.env.VERIFIER_TEST_WITHDRAWN_COMMENT) {
+      await assert.rejects(capture(), error => {
+        assert.match(error.message,/Required verification comment is absent, ambiguous or incomplete/);
+        if (process.env.VERIFIER_TEST_CAPTURE_DIR) fs.writeFileSync(
+          path.join(process.env.VERIFIER_TEST_CAPTURE_DIR,'refusal.json'),JSON.stringify({
+            status:'REFUSED_BEFORE_PROMPT',reason:error.message,provider_generation:false}));
+        return true;
+      });
+      fs.rmSync('verification-event-manifest.json',{force:true});
+      return;
+    }
+    const {result} = await capture();
+    try {
+      assert.equal(result.shouldRun,true);
+      assert.ok(result.markdown.includes(proof));
+      assert.ok(result.sourceCoverage.acceptance_evidence_sources.some(record =>
+        record.required_material === true && record.status === 'included'));
+      if (process.env.VERIFIER_TEST_CAPTURE_DIR) {
+        fs.copyFileSync(result.contextPath,path.join(process.env.VERIFIER_TEST_CAPTURE_DIR,'context.md'));
+        fs.copyFileSync(result.diffPath,path.join(process.env.VERIFIER_TEST_CAPTURE_DIR,'diff.patch'));
+      }
+    } finally {
+      removeVerifierDiffArtifacts(result);fs.rmSync('verification-event-manifest.json',{force:true});
+    }
+  });
+});
+
+
+test('optional bot filter cannot hide a selected PR proof changed after GET', async () => {
+  const url = 'https://github.com/octo/workflows/pull/700#issuecomment-42';
+  const proof = {id:42,html_url:url,issue_url:'https://api.github.com/repos/octo/workflows/issues/700',
+    user:{login:'github-actions[bot]',id:7,type:'Bot'},created_at:'2026-10-25T10:00:00Z',
+    updated_at:'2026-10-25T10:00:00Z',body:'retained test proof'};
+  await withEnv('VERIFICATION_MATERIAL',JSON.stringify([{kind:'comment',url}]),async () => {
+    const evidence = await fetchVerifierEvidence({github:buildGithubStub({
+      requiredCommentsById:{42:proof},comments:[{...proof,body:'withdrawn'}]}),
+      core:buildCore(),owner:'octo',repo:'workflows',pullNumber:700,pullRequestBody:'body proof'});
+    const retained = evidence.comments.records.find(record => record.required_material);
+    assert.equal(retained.truncated,true);
+    assert.equal(evidence.comments.status,'unavailable');
+    assert.ok(evidence.diagnostics.failures.some(failure => failure.kind==='required_comment_changed'));
+    assert.equal(evidence.event_history.complete,true);
+  });
+});
+
+test('launch basis reaches actual collector manifest and exact-event duplicate correlation', async () => {
+  const builder = options => buildVerifierContext({...options, context:{...options.context,runId:800}});
+  await withEnv('GITHUB_RUN_ATTEMPT','1',async()=>withEnv('VERIFICATION_REQUEST_BASIS','e'.repeat(64),async()=>{
+    const first=await buildEvidenceContext({}, {mode:'evaluate'},builder);
+    const manifest=first.result.verificationManifest;
+    assert.equal(manifest.verification_request_basis,'e'.repeat(64));
+    const terminal={schema:'verifier-corpus-decision/v1',repo:'octo/workflows',pr:'700',head_sha:'b'.repeat(40),evaluated_sha:'c'.repeat(40),run_id:'100',run_attempt:'2',verdict:'NON_PASS',ci_failed:false,provider_verdicts:['CONCERNS'],verification_event:manifest.verification_event,assessment_identity:manifest.assessment_identity};
+    removeVerifierDiffArtifacts(first.result);
+    const report={id:43,html_url:'https://github.com/octo/workflows/pull/700#issuecomment-43',user:{login:'github-actions[bot]'},body:`<!-- verifier-corpus-decision/v1 ${JSON.stringify(terminal)} -->`};
+    await withEnv('VERIFICATION_REQUEST_BASIS','d'.repeat(64),async()=>{
+      const repeated=await buildEvidenceContext({comments:[report]}, {mode:'evaluate'},builder);
+      assert.equal(repeated.result.shouldRun,false);assert.equal(repeated.result.reason,'duplicate-verification-event');
+      const alias=repeated.result.verificationManifest.request_correlation;
+      assert.equal(alias.verification_request_basis,'d'.repeat(64));assert.equal(alias.result_run_id,'100');assert.equal(alias.result_run_attempt,'2');assert.equal(alias.correlation_run_id,'800');
+      assert.deepEqual(alias.verification_event,manifest.verification_event);assert.equal('verdict' in alias,false);
+      assert.deepEqual(JSON.parse(fs.readFileSync('verification-event-manifest.json','utf8')).request_correlation,alias);
+    });
+    fs.rmSync('verification-event-manifest.json',{force:true});
+  }));
+});
+
+function nativeCoverageSqliteBytes() {
+  return execFileSync('python3',['-c',
+    "import sqlite3,tempfile,pathlib,sys\nwith tempfile.TemporaryDirectory() as d:\n p=pathlib.Path(d)/'coverage.db'\n c=sqlite3.connect(p)\n c.execute('create table coverage_meta (version integer)')\n c.execute('insert into coverage_meta values (7)')\n c.commit();c.close()\n sys.stdout.buffer.write(p.read_bytes())"]);
+}
+
+test('safe native coverage SQLite is bounded unavailable enrichment, not unknown binary',()=> {
+ const data=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const name of ['.coverage','.coverage.shard-5.pytest','.coverage.shard-5.runner.pid123.random','safe-dir/.coverage']) {
+   const calls=[];
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:data.length+100,
+    execFile:(cmd,args,options)=>{if(cmd==='python3')return execFileSync(cmd,args,options);calls.push({args,options});return args[0]==='-Z1'?`${name}\nproof.txt\n`:args.at(-1)===name?data:Buffer.from('retained proof');}});
+   assert.deepEqual(result.failures,['unrenderable_coverage_sqlite'],name);
+   assert.match(result.text,/retained proof/);
+   assert.equal(result.members.find(member=>member.name===name).reason,'unrenderable_coverage_sqlite');
+   assert.equal(result.extractedBytes,data.length+14);
+   assert.equal(result.entryCount,2);
+   assert.equal(calls.filter(call=>call.args[0]==='-p').length,2);
+  }
+ }
+});
+
+test('coverage magic, names, bounds, duplicate and CRC failures retain integrity refusal',()=> {
+ const native=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const name of ['other.sqlite','unknown.bin','../.coverage','/tmp/.coverage','x/../.coverage','.coverage^Jx',' .coverage','-x/.coverage','.coverage.bad*']) {
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>cmd==='python3'?execFileSync(cmd,args,options):args[0]==='-Z1'?`${name}\nproof.txt\n`:args.at(-1)===name?native:Buffer.from('proof')});
+   assert.ok(result.failures.includes('unsupported_payload'),name);
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'),name);
+  }
+  for(const value of [Buffer.from('SQLite format 3\0'),Buffer.alloc(native.length),Buffer.from(native).fill(0,16,24)]) {
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>cmd==='python3'?execFileSync(cmd,args,options):args[0]==='-Z1'?'.coverage\n':value});
+   assert.ok(result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+  }
+  for(const defect of ['CRC','bytes','duplicate','entries']) {
+   let reads=0;
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:defect==='entries'?1:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='python3')return execFileSync(cmd,args,options);
+     if(args[0]==='-Z1')return defect==='duplicate'?'.coverage\n.coverage\n':defect==='entries'?'proof.txt\n.coverage\n':'.coverage\n';
+     reads++;
+     if(defect==='CRC')throw new Error('bad CRC');
+     if(defect==='bytes')throw Object.assign(new Error('maxBuffer'),{code:'ENOBUFS'});
+     return args.at(-1)==='.coverage'?native:Buffer.from('proof');
+    }});
+   assert.equal(result.failures.includes('unsupported_payload'),!['bytes','entries'].includes(defect),defect);
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'),defect);
+   if(defect==='duplicate')assert.ok(result.failures.includes('duplicate_member'));
+   assert.ok(reads<=(defect==='entries'?1:4));
+  }
+ }
+});
+
+test('selected unrenderable coverage remains hard-required even with zero retained text',()=> {
+ const native=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  const result=extract({archiveBuffer:Buffer.from('zip'),selectedMembers:['.coverage'],maxEntries:4,maxChars:500,maxBytes:native.length+100,
+   execFile:(cmd,args,options)=>cmd==='python3'?execFileSync(cmd,args,options):args[0]==='-Z1'?'.coverage\n':native});
+  assert.equal(result.text,'');
+  assert.ok(result.failures.includes('unrenderable_coverage_sqlite'));
+  assert.ok(result.failures.includes('required_member_unrenderable'));
+  assert.equal(result.selectedCaptureComplete,false);
+  const order=[];
+  const text=extract({archiveBuffer:Buffer.from('zip'),selectedMembers:['proof.txt'],maxEntries:4,maxChars:500,maxBytes:native.length+100,
+   execFile:(cmd,args,options)=>{if(cmd==='python3')return execFileSync(cmd,args,options);if(args[0]==='-Z1')return '.coverage\nproof.txt\n';order.push(args.at(-1));return args.at(-1)==='.coverage'?native:Buffer.from('selected proof');}});
+  assert.equal(order[0],'proof.txt');
+  assert.equal(text.selectedCaptureComplete,true);
+ }
+});
+
+test('actual coverage SQLite ZIP verifies native bytes and rejects CRC corruption',()=> {
+ const data=nativeCoverageSqliteBytes();
+ const archive=execFileSync('python3',['-c',"import io,zipfile,sys\nb=io.BytesIO()\nwith zipfile.ZipFile(b,'w',compression=zipfile.ZIP_STORED) as z:z.writestr('.coverage',sys.stdin.buffer.read())\nsys.stdout.buffer.write(b.getvalue())"],{input:data});
+ const corrupted=Buffer.from(archive);
+ const location=corrupted.indexOf(Buffer.from('SQLite format 3\0'));
+ assert.ok(location>=0);
+ corrupted[location+data.length-1]^=1;
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  const valid=extract({archiveBuffer:archive,maxEntries:4,maxChars:100,maxBytes:data.length+4096});
+  assert.deepEqual(valid.failures,['unrenderable_coverage_sqlite']);
+  const bad=extract({archiveBuffer:corrupted,maxEntries:4,maxChars:100,maxBytes:data.length+4096});
+  assert.ok(bad.failures.includes('unsupported_payload'));
+  assert.ok(bad.failures.includes('extraction_byte_or_read'));
+  assert.ok(!bad.failures.includes('unrenderable_coverage_sqlite'));
+ }
+});
+
+test('valid SQLite header and ZIP CRC cannot conceal a structurally malformed database',()=> {
+ const directory=path.resolve(__dirname,'../../../tests/fixtures/verifier_incidental_coverage');
+ const source=JSON.parse(fs.readFileSync(path.join(directory,'SOURCE.json'),'utf8'));
+ const archive=fs.readFileSync(path.join(directory,'malformed-coverage.zip'));
+ assert.equal(createHash('sha256').update(archive).digest('hex'),source.negative_controls['malformed-coverage.zip'].sha256);
+ const zipCheck=execFileSync('python3',['-I','-c',"import zipfile,sys\nwith zipfile.ZipFile(sys.argv[1]) as z:\n assert z.testzip() is None\n raw=z.read('.coverage')\n assert raw[:16]==b'SQLite format 3\\x00'",path.join(directory,'malformed-coverage.zip')]);
+ assert.equal(zipCheck.length,0);
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  const result=extract({archiveBuffer:archive,maxEntries:20,maxChars:60000,maxBytes:240000});
+  assert.ok(result.failures.includes('unsupported_payload'));
+  assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+ }
+});
+
+test('text capture precedes incidental coverage under the unchanged extraction byte bound',()=> {
+ const database=nativeCoverageSqliteBytes();
+ const log=Buffer.from('retained results');
+ assert.equal(log.length,16);
+ const archive=execFileSync('python3',['-I','-c',
+  "import io,zipfile,sys\nb=io.BytesIO()\nwith zipfile.ZipFile(b,'w',compression=zipfile.ZIP_STORED) as z:\n z.writestr('.coverage',sys.stdin.buffer.read())\n z.writestr('results.log',b'retained results')\nsys.stdout.buffer.write(b.getvalue())"],{input:database});
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const selectedMembers of [undefined,['results.log'],['results.log','.coverage']]) {
+   const reads=[];
+   const result=extract({archiveBuffer:archive,selectedMembers,maxEntries:4,maxChars:500,maxBytes:512,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='unzip' && args[0]==='-p')reads.push({name:args.at(-1),bound:options.maxBuffer});
+     return execFileSync(cmd,args,options);
+    }});
+   assert.match(result.text,/retained results/);
+   assert.equal(result.members.find(member=>member.name==='results.log').status,'included');
+   assert.equal(reads[0].name,'results.log');
+   assert.equal(reads[1].name,'.coverage');
+   assert.equal(reads[1].bound,512-log.length);
+   assert.ok(result.extractedBytes<=512);
+   assert.ok(!result.failures.includes('unsupported_payload'));
+   assert.ok(result.failures.includes('extraction_byte'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+   if(selectedMembers?.includes('.coverage')) {
+    assert.ok(result.failures.includes('required_member_unrenderable'));
+    assert.equal(result.selectedCaptureComplete,false);
+   }
+  }
+ }
+});
+
+test('SQLite probe is isolated bounded read-only and unavailable probes never relax unknown bytes',()=> {
+ const native=nativeCoverageSqliteBytes();
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const unavailable of [true,false,'probe-buffer']) {
+   let probes=0;
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:native.length+100,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='unzip')return args[0]==='-Z1'?'.coverage\n':native;
+     assert.equal(cmd,'python3');assert.equal(args[0],'-I');
+     assert.equal(options.timeout,15000);assert.equal(options.killSignal,'SIGKILL');
+     assert.equal(options.maxBuffer,128);
+     assert.ok(Object.keys(options.env).every(key=>['PATH','SYSTEMROOT','TMPDIR'].includes(key)));
+     assert.match(args[2],/mode=ro&immutable=1/);assert.match(args[2],/quick_check\(1\)/);
+     assert.match(args[2],/set_progress_handler/);assert.match(args[2],/time\.monotonic\(\)\+15/);
+     assert.equal(fs.statSync(args[3]).mode & 0o777,0o600);
+     probes++;
+     if(unavailable)throw Object.assign(new Error('runtime unavailable'),{code:unavailable==='probe-buffer'?'ENOBUFS':'ENOENT'});
+     return 'not-ok';
+    }});
+   assert.equal(probes,1);
+   assert.ok(result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+  }
+ }
+});
+
+test('uninspected coverage after text bounds is unavailable, never format-validated',()=> {
+ const native=nativeCoverageSqliteBytes();
+ // Match the native Gate shard layout: SQLite sidecars precede a text report
+ // larger than the existing capture budget. The report retains priority.
+ const archive=execFileSync('python3',['-I','-c',
+  "import io,zipfile,sys\nb=io.BytesIO()\nwith zipfile.ZipFile(b,'w',compression=zipfile.ZIP_STORED) as z:\n z.writestr('.coverage.shard-4.pytest',sys.stdin.buffer.read())\n z.writestr('.coverage.shard-4.runner.pid1.random',b'unread data')\n z.writestr('shard-4.json',b'x'*4096)\nsys.stdout.buffer.write(b.getvalue())"],{input:native});
+ for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+  for(const selectedMembers of [undefined,['.coverage.shard-4.pytest','shard-4.json']]) {
+   const reads=[];
+   const result=extract({archiveBuffer:archive,selectedMembers,maxEntries:4,maxChars:500,maxBytes:512,
+    execFile:(cmd,args,options)=>{
+     if(cmd==='unzip'&&args[0]==='-p')reads.push(args.at(-1));
+     assert.notEqual(cmd,'python3','unread bytes cannot receive a format/integrity probe');
+     return execFileSync(cmd,args,options);
+    }});
+   assert.deepEqual(reads,['shard-4.json']);
+   assert.ok(result.failures.includes('extraction_byte'));
+   assert.ok(!result.failures.includes('unsupported_payload'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+   assert.equal(result.rawCaptureComplete,false);
+   assert.equal(result.selectedCaptureComplete,false);
+   for(const member of result.members.filter(row=>row.name.startsWith('.coverage'))) {
+    assert.equal(member.status,'unavailable');
+    assert.equal(member.reason,'extraction_byte');
+    assert.equal(member.raw_sha256,undefined);
+   }
+   if(selectedMembers)assert.ok(result.failures.includes('required_member_unrenderable'));
+  }
+  // Unknown names and unsafe/duplicate candidates stay unknown even when the
+  // capture budget is exhausted; only unique safe coverage names are bounded.
+  for(const names of ['unknown.bin\n','../.coverage\n','.coverage\n.coverage\n']) {
+   const result=extract({archiveBuffer:Buffer.from('zip'),maxEntries:4,maxChars:500,maxBytes:0,
+    execFile:(cmd,args)=>{assert.equal(args[0],'-Z1');return names;}});
+   assert.ok(result.failures.includes('unsupported_payload'));
+   if(names==='.coverage\n.coverage\n')assert.ok(result.failures.includes('duplicate_member'));
+  }
+ }
+});
+
+test('ordinary builder never launches evaluation from a retained recovery no-POST marker',async()=>{
+ const {digest}=require('../verification_event');
+ const templateImpl=require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').buildVerifierContext;
+ const templateBuilder=options=>templateImpl({...options,fetchLocalDiff:()=>options.github.__testDiffText});
+ const originalCwd=process.cwd(),directory=fs.mkdtempSync(path.join(os.tmpdir(),'retained-no-provider-replay-'));
+ process.chdir(directory);
+ try {
+  for(const builder of [buildVerifierContext,templateBuilder]) {
+   const initial=await buildEvidenceContext({},{mode:'evaluate'},builder);
+   const {verification_event:event,assessment_identity:assessment}=initial.result.verificationManifest;
+   removeVerifierDiffArtifacts(initial.result);
+   for(const schema of ['retained-revalidation/v1','retained-revalidation/v2']) for(const status of ['pending','incomplete']) {
+    const selector={run_id:10,run_attempt:1,artifact_id:30};
+    const retained={schema,recovery_key:digest({schema:'retained-revalidation-key/v1',event_id:event.event_id,assessment,selector}),source_run_id:'10',source_run_attempt:'1',artifact_id:30,provider_generation_performed:false,publication_effect:'none'};
+    const state=(run,extra)=>({schema:'verifier-event-state/v1',repo:event.repo,pr:event.pr,head_sha:event.head_sha,evaluated_sha:event.evaluated_sha,verification_event:event,assessment_identity:assessment,run_id:String(run),run_attempt:'1',...extra});
+    const comments=[state(10,{status:'incomplete',retry_kind:'recover_existing_evaluation',retryable:false,failure_cause:'retained_provider_evaluation'}),state(20,{status,retry_kind:'known_no_evaluation',retryable:true,failure_cause:'retained_revalidation_before_publication',retained_revalidation:retained})].map((row,i)=>({id:i+1,user:{login:'github-actions[bot]'},html_url:`https://github.com/${event.repo}/pull/${event.pr}#issuecomment-${i+1}`,body:`<!-- verifier-event-state/v1 ${JSON.stringify(row)} -->`}));
+    let captured;
+    const observe=options=>{captured=options.core;options.context.runId=30;return builder(options);};
+    await withEnv('VERIFICATION_RECOVERY','',()=>assert.rejects(()=>buildEvidenceContext({comments},{mode:'evaluate'},observe),/recover retained execution/));
+    assert.notEqual(captured.outputs.should_run,'true');
+   }
+  }
+ } finally {process.chdir(originalCwd);fs.rmSync(directory,{recursive:true,force:true});}
 });

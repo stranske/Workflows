@@ -265,7 +265,7 @@ jobs:
               const inputs = {
                 auto_merge: 'true',
                 dry_run: 'false',
-                cleanup_branches: 'true',
+                cleanup_branches: continuation.cleanup_branches === false ? 'false' : 'true',
               };
               inputs.active_sync_hash = selector;
               if (key) inputs.continuation_key = key;

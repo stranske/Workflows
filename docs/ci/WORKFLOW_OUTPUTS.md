@@ -208,6 +208,7 @@ reusable workflow in the no-output section.
 | `reusable-agents-verifier.yml` | `verdict` | string | Trusted verifier verdict for caller-owned source closure | `needs.verifier.outputs.verdict` |
 | `reusable-agents-verifier.yml` | `target_sha` | string | Trusted verifier target_sha for caller-owned source closure | `needs.verifier.outputs.target_sha` |
 | `reusable-agents-verifier.yml` | `pr_number` | string | Trusted verifier pr_number for caller-owned source closure | `needs.verifier.outputs.pr_number` |
+| `reusable-agents-verifier.yml` | `event_complete` | string | An authenticated production event terminal was posted | `needs.verifier.outputs.event_complete` |
 | `reusable-agents-verifier.yml` | `should_run` | string | Trusted verifier should_run for caller-owned source closure | `needs.verifier.outputs.should_run` |
 | `reusable-agents-verifier.yml` | `workflows_ref` | string | Trusted verifier workflows_ref for caller-owned source closure | `needs.verifier.outputs.workflows_ref` |
 <!-- OUTPUT-REFERENCE-END -->

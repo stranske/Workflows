@@ -77,6 +77,9 @@ python() {
     else:
         assert result.returncode == 0, result.stdout + result.stderr
         calls = log.read_text().splitlines()
-        assert any(call.startswith("-m pip install --report ") for call in calls)
+        assert any(
+            call.startswith("-m pip install --report ") and call.endswith(" .[dev]")
+            for call in calls
+        )
         assert "-m pip uninstall -y example-project" in calls
         assert "-m pip uninstall -y runtime-dependency" not in calls

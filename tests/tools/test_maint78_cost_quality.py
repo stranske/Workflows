@@ -29,6 +29,13 @@ from tools.run_model_eval_cli_screen import (
     token_usage,
 )
 
+# the screens compare candidates with the live production OpenAI judge
+INCUMBENT = next(
+    row["model_id"]
+    for row in json.loads((ROOT / "config/model_registry.json").read_text())["selections"]
+    if row["profile"] == "verifier-balanced" and row["provider"] == "openai"
+)
+
 
 def _inputs():
     return tuple(
@@ -128,6 +135,28 @@ def test_snapshot_replay_prefers_the_captured_full_diff():
     assert "SUMMARY_ONLY_MARKER" not in prompt
 
 
+def test_retired_approval_reports_owner_trial_path_not_a_blocker():
+    corpus, registry, policy = _inputs()
+    plan = build_plan(corpus, registry, policy)
+    assert plan["approval_path"] == "owner_trial"
+    assert "Owner decision 2026-10-30" in plan["approval_retired_note"]
+    assert "Trialling a new candidate" in plan["next_action"]
+    assert "owner's decision" in plan["next_action"]
+    assert "Codex CLI screen" not in plan["next_action"]
+    text = markdown(plan)
+    assert "### Automatic approval: retired" in text
+    assert "### Separate long-term statistical approval" not in text
+    assert "informational, not blockers" in text
+
+    active = json.loads(json.dumps(policy))
+    active["profiles"]["verifier-balanced"]["approval_stage"]["status"] = "active"
+    active_plan = build_plan(corpus, registry, active)
+    assert active_plan["approval_path"] == "automatic"
+    assert active_plan["approval_retired_note"] is None
+    assert "Trialling a new candidate" not in active_plan["next_action"]
+    assert "### Separate long-term statistical approval" in markdown(active_plan)
+
+
 def test_current_plan_allows_fast_screen_without_statistical_approval():
     plan = build_plan(*_inputs())
     assert not plan["approval_ready"]
@@ -144,14 +173,18 @@ def test_current_plan_allows_fast_screen_without_statistical_approval():
     assert plan["expected_non_pass_cases"] == 4 + mutants
     # only inputs the production prompt calls sufficient can score a judge fairly
     assert 0 < plan["evaluable_non_pass_cases"] <= plan["expected_non_pass_cases"]
-    assert plan["evaluable_pass_cases"] >= plan["zero_error_false_fail_denominator"]  # 16 at 0.20
-    # the corpus now supplies every floor, so no corpus-size blocker remains; the one left is the
-    # missing paired production benchmark
-    assert not any("evaluable" in reason for reason in plan["approval_blockers"])
-    assert (
-        len(plan["approval_blockers"]) == 1
-        and "paired production API benchmark" in plan["approval_blockers"][0]
-    )
+    # Full Tasks expose missing evidence metadata in historical captures. Keep
+    # the statistical floor unchanged and surface the actual corpus shortfall.
+    assert plan["evaluable_pass_cases"] == 14
+    assert plan["zero_error_false_fail_denominator"] == 16
+    assert any("false-fail gate needs 16" in reason for reason in plan["approval_blockers"])
+    # Failed-CI mutants are diagnostic-only; 18 evaluable NON_PASS cases now
+    # stand against the unchanged 35-case floor of the 0.10 bound until the approval standard is
+    # re-decided (docs/ops/VERIFIER_STANDARDS_ANALYSIS.md)
+    assert plan["diagnostic_only_cases"] == 22
+    assert plan["evaluable_non_pass_cases"] == 18
+    assert any("NON_PASS cases are evaluable" in reason for reason in plan["approval_blockers"])
+    assert any("paired production API benchmark" in reason for reason in plan["approval_blockers"])
     assert plan["zero_error_false_pass_denominator"] == 35  # 0.10 bound at 95% confidence
     assert plan["additional_non_pass_cases_for_best_case_gate"] == max(
         0, 35 - plan["expected_non_pass_cases"]
@@ -242,9 +275,9 @@ def test_screen_case_whose_prompt_drops_most_code_blocks_paid_confirmation():
 def test_readiness_summary_leads_with_the_current_decision():
     summary = markdown(build_plan(*_inputs()))
     assert summary.index("**Eight-case subscription screen ready:** yes") < summary.index(
-        "### Separate long-term statistical approval"
+        "### Automatic approval: retired"
     )
-    assert summary.index("**Next action:**") < summary.index("**Best-case statistical floor:**")
+    assert summary.index("**Next action:**") < summary.index("**Historical corpus:**")
 
 
 def test_candidate_screen_uses_policy_case_and_failure_counts():
@@ -291,13 +324,13 @@ def test_plan_surfaces_models_missing_from_pinned_cli_catalog():
     corpus, registry, policy = _inputs()
     catalog = {
         "models": [
-            {"slug": "gpt-5.6-terra", "visibility": "list", "supported_in_api": True},
+            {"slug": INCUMBENT, "visibility": "list", "supported_in_api": True},
         ]
     }
     plan = build_plan(corpus, registry, policy, cli_catalog=catalog)
-    assert "gpt-6.1-sol" in plan["pinned_cli_unavailable_models"]
-    assert "gpt-5.6-terra" not in plan["pinned_cli_unavailable_models"]
-    assert "gpt-6.1-sol" in " ".join(plan["approval_blockers"])
+    assert "gpt-6.1-terra" in plan["pinned_cli_unavailable_models"]
+    assert INCUMBENT not in plan["pinned_cli_unavailable_models"]
+    assert "gpt-6.1-terra" in " ".join(plan["approval_blockers"])
 
 
 def test_cli_screen_is_bounded_and_reports_comparative_cost():
@@ -321,13 +354,13 @@ def test_cli_screen_is_bounded_and_reports_comparative_cost():
             "expected_verdict": case["expected_verdict"],
             "actual_verdict": case["expected_verdict"],
             "schema_valid": True,
-            "model_id": "gpt-5.6-terra",
+            "model_id": INCUMBENT,
             "modeled_api_cost_usd": 0.008,
         }
         for case in cases
     ]
     result = report(
-        build_plan(corpus, registry, policy), cases, ["gpt-5.6-terra"], rows, stopped_early=False
+        build_plan(corpus, registry, policy), cases, [INCUMBENT], rows, stopped_early=False
     )
     assert result["api_key_calls"] == 0
     assert result["approval_ready"] is False
@@ -338,7 +371,7 @@ def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
     corpus, registry, policy = _screen_inputs()
     cases = select_cases(_real_only(corpus)["cases"])
     rows = []
-    for model, cost in (("gpt-5.6-terra", 0.008), ("gpt-6-luna", 0.001)):
+    for model, cost in ((INCUMBENT, 0.008), ("gpt-6-luna", 0.001)):
         for case in cases:
             rows.append(
                 {
@@ -352,7 +385,7 @@ def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
                 }
             )
     plan = build_plan(corpus, registry, policy)
-    result = report(plan, cases, ["gpt-5.6-terra", "gpt-6-luna"], rows, stopped_early=False)
+    result = report(plan, cases, [INCUMBENT, "gpt-6-luna"], rows, stopped_early=False)
     assert result["screen_decision"] == "advance_to_api_confirmation"
     assert result["provisional_shortlist_model_id"] == "gpt-6-luna"
     stricter_plan = {
@@ -363,7 +396,7 @@ def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
         },
     }
     assert (
-        report(stricter_plan, cases, ["gpt-5.6-terra", "gpt-6-luna"], rows, stopped_early=False)[
+        report(stricter_plan, cases, [INCUMBENT, "gpt-6-luna"], rows, stopped_early=False)[
             "provisional_shortlist_model_id"
         ]
         is None
@@ -373,7 +406,7 @@ def test_cli_screen_advances_only_a_safer_cheaper_paired_candidate():
         for row in rows
         if row["model_id"] == "gpt-6-luna" and row["expected_verdict"] == "NON_PASS"
     )["actual_verdict"] = "PASS"
-    result = report(plan, cases, ["gpt-5.6-terra", "gpt-6-luna"], rows, stopped_early=False)
+    result = report(plan, cases, [INCUMBENT, "gpt-6-luna"], rows, stopped_early=False)
     assert result["provisional_shortlist_model_id"] is None
 
 
@@ -515,7 +548,7 @@ def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeyp
     }
     catalog = {
         "models": [
-            {"slug": "gpt-5.6-terra", "visibility": "list", "supported_in_api": True},
+            {"slug": INCUMBENT, "visibility": "list", "supported_in_api": True},
             {"slug": "gpt-6-sol", "visibility": "list", "supported_in_api": True},
         ]
     }
@@ -534,12 +567,12 @@ def test_api_only_exception_requires_explicit_cli_absence_and_same_cases(monkeyp
         screen,
         github_token="x",
         client=object(),
-        api_only_candidate="gpt-6.1-sol",
+        api_only_candidate="gpt-6-luna",
         cli_catalog=catalog,
     )
     assert result["complete"] and result["api_calls_made"] == 16
     assert result["comparison_path"] == "api_only"
-    assert result["provisional_model_id"] == "gpt-6.1-sol"
+    assert result["provisional_model_id"] == "gpt-6-luna"
     with pytest.raises(ValueError, match="absent from the pinned CLI"):
         confirm(
             corpus,
@@ -565,12 +598,12 @@ def test_missing_cli_usage_fails_closed():
 def test_cli_screen_rejects_unpaired_or_unpriced_selection_before_fetch(monkeypatch):
     corpus, registry, policy = _screen_inputs()
     monkeypatch.setattr(
-        "tools.run_model_eval_cli_screen.cli_model_ids", lambda _: {"gpt-5.6-terra", "gpt-6-astra"}
+        "tools.run_model_eval_cli_screen.cli_model_ids", lambda _: {INCUMBENT, "gpt-6-astra"}
     )
     with pytest.raises(ValueError, match="incumbent"):
         run_screen(corpus, registry, policy, models=["gpt-6-astra", "gpt-5.6-sol"], token="x")
     with pytest.raises(ValueError, match="verified registry prices"):
-        run_screen(corpus, registry, policy, models=["gpt-5.6-terra", "gpt-unpriced"], token="x")
+        run_screen(corpus, registry, policy, models=[INCUMBENT, "gpt-unpriced"], token="x")
 
 
 def test_cli_catalog_is_pinned_and_tool_events_are_rejected(monkeypatch):
@@ -618,7 +651,7 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
         return SimpleNamespace(stdout=stream, returncode=0)
 
     monkeypatch.setattr("tools.run_model_eval_cli_screen.subprocess.run", fake_invocation)
-    outcome = invoke_cli("codex", "gpt-5.6-terra", "test")
+    outcome = invoke_cli("codex", INCUMBENT, "test")
     assert outcome.payload is None
     assert outcome.input_tokens == 1000 and outcome.output_tokens == 500
     assert outcome.latency_ms >= 0
@@ -636,14 +669,14 @@ def test_invalid_json_preserves_cli_usage_and_does_not_stop_screen(monkeypatch):
 
     monkeypatch.setattr(
         "tools.run_model_eval_cli_screen.cli_model_ids",
-        lambda _: {"gpt-5.6-terra", "gpt-6-sol"},
+        lambda _: {INCUMBENT, "gpt-6-sol"},
     )
     monkeypatch.setattr("tools.run_model_eval_cli_screen.invoke_cli", fake_screen_invocation)
     result = run_screen(
         corpus,
         registry,
         policy,
-        models=["gpt-5.6-terra", "gpt-6-sol"],
+        models=[INCUMBENT, "gpt-6-sol"],
         token="x",
     )
     assert len(result["rows"]) == 16
@@ -656,13 +689,13 @@ def test_all_non_pass_candidate_cannot_advance_from_balanced_screen():
     corpus, registry, policy = _screen_inputs()
     cases = select_cases(_real_only(corpus)["cases"])
     rows = []
-    for model in ("gpt-5.6-terra", "gpt-6-luna"):
+    for model in (INCUMBENT, "gpt-6-luna"):
         for case in cases:
             expected = case["expected_verdict"]
             actual = expected
             if model == "gpt-6-luna" and expected == "PASS":
                 actual = "NON_PASS"
-            if model == "gpt-5.6-terra" and expected == "NON_PASS":
+            if model == INCUMBENT and expected == "NON_PASS":
                 actual = "PASS" if len(rows) == 4 else "NON_PASS"
             rows.append(
                 {
@@ -672,13 +705,13 @@ def test_all_non_pass_candidate_cannot_advance_from_balanced_screen():
                     "actual_verdict": actual,
                     "schema_valid": True,
                     "model_id": model,
-                    "modeled_api_cost_usd": 0.01 if model == "gpt-5.6-terra" else 0.001,
+                    "modeled_api_cost_usd": 0.01 if model == INCUMBENT else 0.001,
                 }
             )
     result = report(
         build_plan(corpus, registry, policy),
         cases,
-        ["gpt-5.6-terra", "gpt-6-luna"],
+        [INCUMBENT, "gpt-6-luna"],
         rows,
         stopped_early=False,
     )
@@ -711,7 +744,7 @@ def test_changed_production_snapshot_blocks_screen_before_model_calls(monkeypatc
             corpus,
             registry,
             policy,
-            models=["gpt-5.6-terra", "gpt-6-luna"],
+            models=[INCUMBENT, "gpt-6-luna"],
             token="",
         )
 
@@ -988,3 +1021,16 @@ def test_mutation_cases_cannot_replace_real_non_pass_signal():
     }
     plan = build_plan(_with_mutations(only_mutations, 80), registry, policy)
     assert any("real-outcome NON_PASS" in reason for reason in plan["approval_blockers"])
+
+
+def test_default_screen_model_lists_include_the_registry_incumbent():
+    # a screen without the incumbent is refused, so a selection change must move these defaults too
+    import yaml
+    from tools.run_model_eval_cli_screen import DEFAULT_MODELS
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/maint-78-model-evaluation-pilot.yml").read_text()
+    )
+    dispatch = workflow.get("on", workflow.get(True))["workflow_dispatch"]["inputs"]["models"]
+    assert INCUMBENT in DEFAULT_MODELS.split(",")
+    assert INCUMBENT in dispatch["default"].split(",")

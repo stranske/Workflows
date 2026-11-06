@@ -441,6 +441,7 @@ function isLeaseExpired(item = {}, now = new Date()) {
 
 function normalizeDeliveryHandoff(record = {}, observedAt = '') {
   if (cleanString(record.schema) !== DELIVERY_HANDOFF_SCHEMA) return null;
+  if (Object.hasOwn(record, 'cleanup_branches') && typeof record.cleanup_branches !== 'boolean') return null;
   const repository = cleanString(record.repository);
   const pr = cleanInteger(record.pr);
   const headSha = cleanString(record.head_sha);
@@ -477,6 +478,8 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     source_commit: cleanString(record.source_commit),
     canary_baseline_evidence_json: cleanString(record.canary_baseline_evidence_json),
     campaign_no_change_evidence_json: cleanString(record.campaign_no_change_evidence_json),
+    ...(typeof record.cleanup_branches === 'boolean'
+      ? { cleanup_branches: record.cleanup_branches } : {}),
     disposition,
     blocker_owner: blockerOwner,
     next_command: nextCommand,
@@ -566,8 +569,16 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
         },
         canary_baseline_evidence_json: record.canary_baseline_evidence_json,
         campaign_no_change_evidence_json: record.campaign_no_change_evidence_json,
+        ...(typeof record.cleanup_branches === 'boolean'
+          ? { cleanup_branches: record.cleanup_branches } : {}),
       });
     }
+  }
+  for (const planned of dueByLane.values()) {
+    if (handoffs.some((record) => preparedDeliveryContinuation(record).lane === planned.lane
+      && record.plan_id === planned.immutable_handoff.plan_id
+      && record.source_commit === planned.immutable_handoff.source_commit
+      && record.cleanup_branches === false)) planned.cleanup_branches = false;
   }
   const order = deliveryActive
     ? ['campaign', 'delivery', 'dev-tool']

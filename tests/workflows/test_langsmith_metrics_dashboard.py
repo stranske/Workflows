@@ -116,7 +116,7 @@ def test_fleet_rollup_and_publication_paths_are_wired() -> None:
     # The raw combined NDJSON is retained for downstream durable ingestion.
     assert "name: langsmith-fleet-rollup-${{ github.run_id }}" in source
     assert "path: .metrics-tmp/fleet/combined-fleet.ndjson" in source
-    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7" in source
+    assert "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7" in source
     assert "actions/upload-artifact@v7" not in source
     assert source.count("include-hidden-files: true") >= 3
     assert source.count("            .metrics-tmp/fleet/combined-fleet.ndjson") >= 2

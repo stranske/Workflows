@@ -383,7 +383,7 @@ def test_evaluate_capacity_upload_uses_immutable_action():
     [
         ("$(printf MODE_INTERPOLATION_EXECUTED >&2)", "pass"),
         ('evaluate"; printf MODE_INTERPOLATION_EXECUTED >&2; #', "pass"),
-        ("evaluate", "pass"),
+        ("evaluate", "unverifiable_input"),
         ("compare", "concerns"),
         ("checkbox", "pass"),
     ],

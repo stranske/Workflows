@@ -49,8 +49,13 @@ def test_semantic_mode_requires_envelope_and_never_falls_back_to_legacy_pass(mon
 
 
 @pytest.mark.parametrize("fence", [None, "json", "", "four-json", "six-unlabelled", "long-close"])
-def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkeypatch, fence):
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(
+    monkeypatch, fence, duplicate
+):
     raw = '{"verdict":"PASS","concerns":[],"summary":"Fixture review detail"}'
+    if duplicate:
+        raw = '{"verdict":"FAIL","verdict":"PASS","concerns":[],"summary":"Fixture review detail"}'
     if fence is not None:
         marker, language = ("````", "json") if fence == "four-json" else ("```", fence)
         if fence == "six-unlabelled":
@@ -123,6 +128,12 @@ def test_semantic_mode_builds_full_matrix_before_offline_native_callbacks(monkey
     )
     assert events[:2] == ["preflight:one", "preflight:two"]
     assert calls == ["one", "two"]
+    if duplicate:
+        assert all(item.verdict == "CONCERNS" and not item.used_llm for item in run)
+        assert all("duplicate JSON member" in item.error for item in run)
+        assert all(item.raw_content == raw for item in run)
+        assert run.semantic_acceptance["admission"]["verdict"] == "CONCERNS"
+        return
     assert run[0].summary == "Fixture review detail"
     assert run[0].raw_content == raw
     assert "Fixture review detail" in run[0].raw_content
@@ -381,8 +392,29 @@ def test_native_preflight_admits_only_verified_full_patch_for_truncated_code(mon
 
 
 def test_semantic_capture_uses_lossless_coverage_but_preserves_missing_proof(monkeypatch):
+    from tests.scripts.test_verifier_evaluate_evidence_minimum import replace_inventory
+
     context = _context()
-    diff = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n"
+    first = "diff --git a/a.py b/a.py\n--- a/a.py\n+++ b/a.py\n@@ -1 +1 @@\n-old\n+new\n"
+    second = first.replace("a.py", "b.py")
+    diff = first + second
+    # One indivisible file now survives rough packing. Two files still exercise
+    # the distinction between ordinary grouping and lossless semantic capture.
+    context = context.replace(first, diff).replace("- Files changed: 1", "- Files changed: 2")
+    context = context.replace("- a.py (+1/-1)", "- a.py (+1/-1)\n- b.py (+1/-1)")
+
+    def update(inventory):
+        inventory["changed_code_sources"].append(
+            {
+                "source": "b.py",
+                "status": "included",
+                "included_chars": len(second),
+                "total_chars": len(second),
+            }
+        )
+        inventory["full_diff_artifact"]["chars"] = len(diff)
+
+    context = replace_inventory(context, update)
     monkeypatch.setenv("PR_HEAD_SHA", "a" * 40)
     for name in (
         "VERIFIER_CONTEXT_BUDGET_TOKENS",
@@ -481,3 +513,36 @@ def test_cli_preserves_crlf_bytes_in_capture_and_line_ending_only_diffs(
 def test_semantic_response_envelope_refuses_ambiguous_or_invalid_payloads(raw):
     with pytest.raises(ValueError):
         pr_verifier._parse_semantic_evaluation_payload(raw)
+
+
+@pytest.mark.parametrize("fenced", [False, True])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"verdict":"FAIL","verdict":"PASS"}',
+        '{"verdict":"PASS","verdict":"FAIL"}',
+        '{"verdict":"PASS","verdict":"PASS"}',
+        '{"verdict":"PASS","concerns":["required failure"],"concerns":[]}',
+        r'{"verdict":"FAIL","verdi\u0063t":"PASS"}',
+        '{"verdict":"PASS","scores":{"correctness":0,"correctness":10,"completeness":10,"quality":10,"testing":10,"risks":10}}',
+        '{"verdict":"PASS","deferred_concerns":[{"concern_index":0,"concern_index":1,"sibling_files":["a.py"]}]}',
+        '{"verdict":"PASS","unknown":{"nested":{"value":0,"value":1}}}',
+    ],
+)
+def test_semantic_response_rejects_duplicate_members_recursively(payload, fenced):
+    raw = f"```json\n{payload}\n```" if fenced else payload
+    with pytest.raises(ValueError, match="duplicate JSON member"):
+        pr_verifier._parse_semantic_evaluation_payload(raw)
+
+
+@pytest.mark.parametrize("fenced", [False, True])
+def test_semantic_response_allows_repeated_keys_in_distinct_objects(fenced):
+    payload = (
+        '{"verdict":"CONCERNS","concerns":["one","two"],'
+        '"deferred_concerns":[{"concern_index":0,"sibling_files":["a.py"]},'
+        '{"concern_index":1,"sibling_files":["b.py"]}]}'
+    )
+    raw = f"```json\n{payload}\n```" if fenced else payload
+    parsed = pr_verifier._parse_semantic_evaluation_payload(raw)
+    assert parsed.verdict == "CONCERNS"
+    assert [item.concern_index for item in parsed.deferred_concerns] == [0, 1]

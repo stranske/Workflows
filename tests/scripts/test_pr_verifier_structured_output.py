@@ -9,7 +9,12 @@ from unittest import mock
 import pytest
 from scripts.langchain import pr_verifier
 
+from tests.scripts.conftest import synthetic_verifier_capacity_contract  # noqa: F401
 from tests.scripts.verifier_capacity_fakes import with_capacity
+
+# These response tests require the explicit synthetic native-capacity adapter,
+# including when pytest collects another test directory between script modules.
+pytestmark = pytest.mark.usefixtures("synthetic_verifier_capacity_contract")
 
 SAMPLE_DIFF = "diff --git a/example.py b/example.py\n--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new\n"
 
@@ -46,7 +51,7 @@ def _valid_payload() -> dict[str, object]:
     "bad_content",
     [
         lambda payload: "Here you go:\n" + json.dumps(payload),
-        lambda payload: "```json\n" + json.dumps(payload) + "\n```",
+        lambda payload: "```json\n" + json.dumps(payload) + "\n``",
         lambda _payload: (
             '{"verdict": "PASS", "confidence": 0.9, "scores": '
             '{"correctness": 9, "completeness": 8, "quality": 9, "testing": 8, "risks": 7,}, '
@@ -54,7 +59,9 @@ def _valid_payload() -> dict[str, object]:
         ),
     ],
 )
-def test_evaluate_pr_repairs_malformed_output(monkeypatch: pytest.MonkeyPatch, bad_content) -> None:
+def test_evaluate_pr_holds_malformed_output_without_repair(
+    monkeypatch: pytest.MonkeyPatch, bad_content
+) -> None:
     payload = _valid_payload()
     bad = bad_content(payload)
     good = json.dumps(payload)
@@ -70,14 +77,15 @@ def test_evaluate_pr_repairs_malformed_output(monkeypatch: pytest.MonkeyPatch, b
     )
 
     result = pr_verifier.evaluate_pr("context", diff=SAMPLE_DIFF)
-    assert result.verdict == "PASS"
+    assert result.verdict == "CONCERNS"
+    assert result.error
     assert result.used_llm is True
-    assert mock_client.invoke.call_count == 2
+    assert mock_client.invoke.call_count == 1
 
 
-def test_comparison_runner_repairs_malformed_output() -> None:
+def test_comparison_runner_holds_malformed_output_without_repair() -> None:
     payload = _valid_payload()
-    bad = "```json\n" + json.dumps(payload) + "\n```"
+    bad = "```json\n" + json.dumps(payload) + "\n``"
     good = json.dumps(payload)
 
     mock_client = with_capacity(mock.MagicMock())
@@ -90,9 +98,10 @@ def test_comparison_runner_repairs_malformed_output() -> None:
         clients=[(mock_client, "github-models", "model")],
     )
     result = runner.run_single(mock_client, "github-models", "model")
-    assert result.verdict == "PASS"
+    assert result.verdict == "CONCERNS"
+    assert result.error
     assert result.used_llm is True
-    assert mock_client.invoke.call_count == 2
+    assert mock_client.invoke.call_count == 1
 
 
 def test_comparison_runner_handles_structured_response_content() -> None:
@@ -147,12 +156,12 @@ def test_comparison_runner_concatenates_split_text_blocks() -> None:
     assert mock_client.invoke.call_count == 1
 
 
-def test_comparison_runner_normalizes_structured_repair_response() -> None:
+def test_comparison_runner_preserves_malformed_original_without_repair() -> None:
     payload = json.dumps(_valid_payload())
     malformed = _response_with(
         [
             {"type": "thinking", "thinking": "reviewing", "signature": "opaque"},
-            {"type": "text", "text": "```json\n" + payload + "\n```"},
+            {"type": "text", "text": "```json\n" + payload + "\n``"},
         ]
     )
     repaired = _response_with(
@@ -173,9 +182,10 @@ def test_comparison_runner_normalizes_structured_repair_response() -> None:
 
     result = runner.run_single(mock_client, "anthropic", "claude-sonnet")
 
-    assert result.verdict == "PASS"
-    assert result.raw_content == payload
-    assert mock_client.invoke.call_count == 2
+    assert result.verdict == "CONCERNS"
+    assert result.error
+    assert result.raw_content == "```json\n" + payload + "\n``"
+    assert mock_client.invoke.call_count == 1
 
 
 @pytest.mark.parametrize(
@@ -189,9 +199,9 @@ def test_comparison_runner_normalizes_structured_repair_response() -> None:
         ),
     ],
 )
-def test_comparison_runner_treats_a_textless_repair_as_no_repair(empty_repair_content) -> None:
+def test_comparison_runner_never_requests_a_textless_repair(empty_repair_content) -> None:
     payload = json.dumps(_valid_payload())
-    malformed_text = "```json\n" + payload + "\n```"
+    malformed_text = "```json\n" + payload + "\n``"
     mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [
         _response_with(malformed_text),
@@ -207,15 +217,14 @@ def test_comparison_runner_treats_a_textless_repair_as_no_repair(empty_repair_co
 
     result = runner.run_single(mock_client, "anthropic", "claude-sonnet")
 
-    # A textless repair must not be reported as a repair attempt: serializing the
-    # block metadata would make the failure read as if the provider had returned
-    # thinking/signature envelope keys as its answer.
+    # The malformed original is held before any second provider response.
+    # Neither text nor metadata from that unrequested response is consumed.
     assert result.verdict == "CONCERNS"
     assert result.error
     assert result.raw_content == malformed_text
     assert "signature" not in result.error
     assert "still thinking" not in result.error
-    assert mock_client.invoke.call_count == 2
+    assert mock_client.invoke.call_count == 1
 
 
 def test_coerce_response_content_falls_back_to_json_for_unblocked_payloads() -> None:
@@ -382,7 +391,9 @@ def test_evaluate_pr_valid_output_no_repair(monkeypatch: pytest.MonkeyPatch) -> 
     assert mock_client.invoke.call_count == 1
 
 
-def test_evaluate_pr_repair_prompt_includes_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_evaluate_pr_rejects_prose_without_constructing_repair_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     payload = _valid_payload()
     bad = "Here you go:\n" + json.dumps(payload)
     good = json.dumps(payload)
@@ -398,21 +409,17 @@ def test_evaluate_pr_repair_prompt_includes_schema(monkeypatch: pytest.MonkeyPat
     )
 
     result = pr_verifier.evaluate_pr("context", diff=SAMPLE_DIFF)
-    assert result.verdict == "PASS"
+    assert result.verdict == "CONCERNS"
+    assert result.error
     assert result.used_llm is True
-    assert mock_client.invoke.call_count == 2
+    assert mock_client.invoke.call_count == 1
 
-    repair_prompt = mock_client.invoke.call_args_list[1].args[0]
-    assert "Schema:" in repair_prompt
-    assert "Validation errors:" in repair_prompt
-    assert "Original response:" in repair_prompt
-    assert "Here you go:" in repair_prompt
-    assert '"verdict"' in repair_prompt
+    assert result.raw_content == bad
 
 
-def test_evaluate_pr_repairs_once_then_returns_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_evaluate_pr_returns_error_without_repair(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _valid_payload()
-    bad = "```json\n" + json.dumps(payload) + "\n```"
+    bad = "```json\n" + json.dumps(payload) + "\n``"
 
     mock_client = with_capacity(mock.MagicMock())
     mock_client.invoke.side_effect = [_response_with(bad), _response_with(bad)]
@@ -428,8 +435,8 @@ def test_evaluate_pr_repairs_once_then_returns_error(monkeypatch: pytest.MonkeyP
     assert result.verdict == "CONCERNS"
     assert result.used_llm is True
     assert result.error
-    assert "Failed to parse JSON response after repair" in result.error
-    assert mock_client.invoke.call_count == 2
+    assert "Failed to parse JSON response:" in result.error
+    assert mock_client.invoke.call_count == 1
 
 
 def test_build_llm_config_includes_standard_metadata(monkeypatch: pytest.MonkeyPatch) -> None:

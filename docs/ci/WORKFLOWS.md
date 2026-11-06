@@ -25,6 +25,16 @@ Diagram labels that start with `.` are shorthand for files under `.github/workfl
 - **Agents control plane:** Successful Gate runs dispatch the [Agents 70 Orchestrator](../../.github/workflows/agents-70-orchestrator.yml), which coordinates the [Codex belt](../../.github/workflows/agents-71-codex-belt-dispatcher.yml) hand-off (dispatcher → worker → conveyor) and runs the built-in keepalive sweep unless the repository-level `keepalive:paused` label or `keepalive_enabled` flag disables it. The orchestrator summary exposes whether the pause label was detected and records the exact label name through the `keepalive_pause_label` output so downstream jobs can echo the control state.
 - **Health checks:** The [Health 4x suite](../../.github/workflows/health-40-repo-selfcheck.yml), [Health 40 Sweep](../../.github/workflows/health-40-sweep.yml), [Health 41](../../.github/workflows/health-41-repo-health.yml), [Health 42](../../.github/workflows/health-42-actionlint.yml), [Health 43](../../.github/workflows/health-43-ci-signature-guard.yml), [Health 44](../../.github/workflows/health-44-gate-branch-protection.yml), [Health 46 Codex Auth Check](../../.github/workflows/health-codex-auth-check.yml), [Health 50 Security Scan](../../.github/workflows/health-50-security-scan.yml), [Health 51 Actions SAST](../../.github/workflows/health-51-zizmor.yml), [Health 52 Semgrep Scan](../../.github/workflows/health-52-semgrep.yml), [Health 67 Integration Sync Check](../../.github/workflows/health-67-integration-sync-check.yml), [Health 68 Consumer Sync Drift Check](../../.github/workflows/health-68-consumer-sync-drift.yml), [Health 69 Consumer Sync Shadow Evidence](../../.github/workflows/health-69-consumer-sync-shadow-evidence.yml), and [Health 70 Validate Sync Manifest](../../.github/workflows/health-70-validate-sync-manifest.yml) workflows provide scheduled drift detection, read-only shadow evidence, enforcement snapshots, auth token monitoring, security scanning, and sync drift detection.
 
+Parser CLI tests use per-test temporary working directories. This isolates
+`input.txt` and `topics.json` across workers and separate invocations even when
+a caller selects a scheduler that does not honor module grouping markers.
+No tests or coverage requirements are omitted for this isolation.
+
+Gate treats PR-body delivery metadata and failure descriptions as untrusted data.
+Invalid delivery states produce fixed diagnostics, multiline descriptions use
+delimited runner outputs, and the final enforcement shell receives descriptions
+through its environment. These boundaries do not relax exact-head seals or checks.
+
 The shared Python reusable's `logs_summary` job runs after ordinary success or
 failure, but uses `always() && !cancelled()` to skip optional log diagnostics when
 the workflow is cancelled. This avoids retaining an obsolete queued/running tail
@@ -114,9 +124,10 @@ Existing consumers need the updated Gate dispatch input before this wakeup works
 the Gate template is create-only, so normal sync does not overwrite custom Gates.
 
 * [`Gate`](../../.github/workflows/pr-00-gate.yml) orchestrates the fast-path vs full CI decision, evaluates coverage artifacts, and reports commit status back to the PR. Gate listens on `pull_request` types `opened`, `synchronize`, `reopened`, and `ready_for_review` only; label-only events do not start or cancel an in-flight Gate run. Agent routing, verify, autofix, and keepalive labels therefore cannot churn the per-PR Gate concurrency group. Use `workflow_dispatch` with `pr_number` when a label-only wakeup must re-run Gate at the current head. `tests/workflows/test_gate_trigger_contract.py` locks the root and consumer-template trigger contract.
-* [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on Python 3.12 with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
+* [`Minimal invariant CI`](../../.github/workflows/pr-11-ci-smoke.yml) supplies the lightweight Issue #3651 sweep: install once on the shared `CI_PYTHON_VERSION` runtime (3.14) with pip caching, sanity-check imports, and run `pytest tests/test_invariants.py -q` on pushes and PRs targeting `main`.
 * [`Reusable CI (Python)`](../../.github/workflows/reusable-10-ci-python.yml) drives the primary test matrix (lint, type-check, tests, coverage) for PR builds.
-    * Workflows Gate and the new-consumer Gate template select **3.13 and 3.14 in parallel**, with identical full-suite selection, identical markers, the same dependency lock, branch coverage on 3.14 only, and four pytest workers using `loadgroup`. Neither runtime selects a reduced suite. Python >=3.12 package/runtime support and explicit consumer overrides remain supported.
+    * Workflows Gate and the new-consumer Gate template select **3.13 and 3.14 in parallel**, with identical full-suite selection, identical markers, the same dependency lock, branch coverage on 3.14 only, and four pytest workers using `loadgroup`. Neither runtime selects a reduced suite. Python >=3.13 is the package floor (3.12 is retired); consumer Gates are create-only, so each consumer moves its own explicit overrides.
+    * The reusable's test matrix exports `TMPDIR=$RUNNER_TEMP` through `GITHUB_ENV` in its first shell step, before Python starts. Pytest and inherited child tools use the runner-owned disk temporary directory, avoiding the Ubuntu 26.04 `/tmp` tmpfs user quota ([runner-images #14777](https://github.com/actions/runner-images/issues/14777)). This applies only to the reusable Python test job; it does not remount filesystems, delete evidence, change pytest retention, or alter test selection and limits.
     * Shared defaults in `.github/workflows/ci-python-versions.env` select `CI_PYTHON_VERSION=3.14` and pin Black 26.10.1, Ruff 0.17.1, mypy 2.4.0, pytest 9.1.1, pytest-cov 7.1.0, pytest-xdist 3.8.0, coverage 7.16.2, docformatter 1.7.8, and isort 9.0.2. These replace the stale Black 24.8.0 / Ruff 0.6.3 / mypy 1.8.0 / pytest 8.3.2 / pytest-cov 5.0.0 / coverage 7.6.1 baseline with the repo's existing compatible toolchain. The reusable loads shared pins first, then repo-owned `.github/workflows/autofix-versions.env` overrides; the latter remains authoritative and is not copy-synced. Keep paired packages compatible (for example, align `pydantic` with `pydantic-core`).
     * The shared CI env has an identical consumer mirror and an overwrite-capable sync-manifest entry. Existing consumer Gates remain **create-only**: delivering the env does not change an authored `python-versions` override or migrate every consumer Gate automatically.
     * Duration diagnosis on 2026-10-17: Gate runs [39044680807](https://github.com/stranske/Workflows/actions/runs/39044680807) and [39046298918](https://github.com/stranske/Workflows/actions/runs/39046298918) each selected 51,018 tests on both versions, with identical markers, four workers and matching lock hashes. Job durations (3.13 / 3.14) were 14m52s / 5m27s and 15m27s / 9m06s; pytest alone took 845.60s / 294.76s and 889.95s / 513.45s. Both versions restored their runtime-specific dependency and pytest caches. Coverage used `CTracer` on 3.13 and `SysMonitor` on 3.14; the first run's active worker records confirm branch coverage on both, with different runner CPU models. This is evidence of instrumentation/runner asymmetry, not unequal suite selection. [Coverage cannot monitor branches through `sys.monitoring` before Python 3.14](https://coverage.readthedocs.io/en/latest/messages.html#warning-no-sysmon); measure branch coverage on 3.14 and run plain pytest on 3.13. The exact contribution of each cause is not isolated by these runs.
@@ -177,7 +188,7 @@ when an earlier commit, patch, or push step failed.
 * [`maint-47-disable-legacy-workflows.yml`](../../.github/workflows/maint-47-disable-legacy-workflows.yml) sweeps the repository to make sure archived GitHub workflows remain disabled in the Actions UI.
 * [`maint-sync-action-versions.yml`](../../.github/workflows/maint-sync-action-versions.yml) syncs action version pins from `.github/workflows` into the workflow templates after Dependabot updates land.
 * [`maint-50-tool-version-check.yml`](../../.github/workflows/maint-50-tool-version-check.yml) checks PyPI weekly for new versions of CI/autofix tools (black, ruff, mypy, pytest) and publishes read-only freshness evidence; it never creates a competing issue or PR.
-* [`maint-39-test-llm-providers.yml`](../../.github/workflows/maint-39-test-llm-providers.yml) verifies LLM provider API keys (GitHub Models, OpenAI) are configured correctly for task completion analysis.
+* [`maint-39-test-llm-providers.yml`](../../.github/workflows/maint-39-test-llm-providers.yml) smoke-tests OpenAI credentials for task completion analysis and reports configured Anthropic and regex fallback availability through `check_providers()`. Retired GitHub Models is excluded from dispatch and smoke testing but remains in the availability report.
 * [`maint-sync-env-from-pyproject.yml`](../../.github/workflows/maint-sync-env-from-pyproject.yml) syncs `pyproject.toml`, templates, and direct `requirements.lock` pins from the canonical `autofix-versions.env` file after source pin changes land.
 * [`maint-52-validate-workflows.yml`](../../.github/workflows/maint-52-validate-workflows.yml) dry-parses every workflow with `yq`, runs `actionlint` with the repository allowlist, and fails fast when malformed YAML or unapproved actionlint findings slip in.
 * [`maint-52-sync-dev-versions.yml`](../../.github/workflows/maint-52-sync-dev-versions.yml) propagates already-validated canonical source pins (ruff, mypy, black, isort, pytest, pytest-cov, pytest-xdist, hypothesis, coverage, and docformatter) from the settled `autofix-versions.env` commit to consumer `pyproject.toml` files, managed pre-commit hook revisions, and direct pins in `requirements.lock` and `requirements-dev.lock`; it never independently proposes newer upstream versions.
@@ -189,6 +200,11 @@ when an earlier commit, patch, or push step failed.
 * [`maint-87-docs-drift-fix-agent.yml`](../../.github/workflows/maint-87-docs-drift-fix-agent.yml) runs the deterministic docs-drift check weekly and turns its output into bounded, agent-ready repair batches via `scripts/docs_drift_fix_agent.py`. Complements maint-48: that seeds an LLM semantic diff, this proves mechanical drift (dangling refs, workflow-inventory omissions). Scheduled runs are report-only; explicit `apply` dispatches create idempotent repair issues in a non-cancelling concurrency lane. Workflows retains the fleet-wide docs registry; each consumer receives only a local README/agent-guidance config.
 * [`maint-60-release.yml`](../../.github/workflows/maint-60-release.yml) creates GitHub releases automatically when version tags (`v*`) are pushed.
 * [`maint-61-release-please.yml`](../../.github/workflows/maint-61-release-please.yml) runs release-please on pushes to `main`, using the Workflows GitHub App token when configured, to maintain the Conventional Commits-driven Release PR, changelog, tags, and GitHub releases from the manifest seeded at `1.1.2`.
+Maint 68 dispatch input `cleanup_branches=false` preserves that restriction through
+canary qualification, promotion, Maint 71 recovery and explicit post-merge cleanup.
+Existing maintenance defaults remain enabled; repository automatic deletion on merge
+is a separate existing setting.
+
 Maint 68 and Maint 71 compare the rendered consumer delivery digest across main
 commits before refreshing canaries. Their shared renderer uses the manifest
 compiler, copied payload, repository scopes/removals and generated status-ignore
@@ -246,7 +262,7 @@ Consumer default note: `agents-pr-meta-v4.yml` is a Workflows-repo service workf
 * [`agents-63-issue-intake.yml`](../../.github/workflows/agents-63-issue-intake.yml) is the canonical front door. It now listens for `agent:codex` labels directly and routes both label triggers and ChatGPT sync requests through the shared normalization pipeline.
 * [`agents-64-verify-agent-assignment.yml`](../../.github/workflows/agents-64-verify-agent-assignment.yml) validates that labelled issues retain an approved agent assignee and publishes the verification outputs.
 * [`agents-issue-optimizer.yml`](../../.github/workflows/agents-issue-optimizer.yml) runs issue optimization passes when `agents:optimize` or `agents:apply-suggestions` labels are applied.
-* [`agents-issue-format-guard.yml`](../../.github/workflows/agents-issue-format-guard.yml) validates opened, edited, reopened, closed, hold/exemption-label changes, and manual dispatch against `AGENT_ISSUE_FORMAT`; durable, wontfix, automated, and bot-authored issues remain exempt. Applying one of those exemption labels wakes the guard, and an exempt issue immediately releases any stale `agents:format` lease. A closed issue also clears `agents:auto-pilot-pause`, but only after a fresh issue-state read confirms it has not reopened. The validator requires the `Tasks` and `Acceptance Criteria` structure plus concrete task/verification evidence, preserves nested Markdown subsections, and reports `Why`, `Scope`, `Implementation Notes`, and `Non-Goals` as advisory. When a checkout is available, it also rejects three or more non-create path citations that resolve nowhere in that repository; only paths that are direct objects of explicit file-creation phrases are exempt, while modification phrases such as “add validation to path” still require that path to resolve. Quoted and contract-accepted unquoted task paths are checked, while absolute and parent-relative paths never count as evidence. `agents:auto-pilot-pause` and `needs-human` hold optimizer dispatch. Any invalid non-exempt issue change on those triggers (opened, edited, reopened, eligible hold/exemption label events, or manual dispatch) clears a stale `agents:formatted` marker; hold removal revalidates before restoring it. Non-conforming unheld work is dispatched to the optimizer's `format` phase at most three times for one unchanged body; each accepted dispatch is durably counted, then the guard applies `agents:auto-pilot-pause`, releases `agents:format`, and tells an operator to repair the issue body before removing the pause label to retry. The optimizer also releases that lease immediately when its live eligibility recheck skips format work.
+* [`agents-issue-format-guard.yml`](../../.github/workflows/agents-issue-format-guard.yml) validates opened, edited, reopened, closed, hold/exemption-label changes, and manual dispatch against `AGENT_ISSUE_FORMAT`; durable, wontfix, automated, and bot-authored issues remain exempt. Applying one of those exemption labels wakes the guard, and an exempt issue immediately releases any stale `agents:format` lease. A closed issue also clears `agents:auto-pilot-pause`, but only after a fresh issue-state read confirms it has not reopened. The validator requires the `Tasks` and `Acceptance Criteria` structure plus concrete task/verification evidence, preserves nested Markdown subsections, and reports `Why`, `Scope`, `Implementation Notes`, and `Non-Goals` as advisory. When a checkout is available, it also rejects three or more non-create path citations that resolve nowhere in that repository; only paths that are direct objects of explicit file-creation phrases are exempt, while modification phrases such as “add validation to path” still require that path to resolve. Quoted and contract-accepted unquoted task paths are checked, while absolute and parent-relative paths never count as evidence. `agents:auto-pilot-pause` and `needs-human` hold optimizer dispatch. Any invalid non-exempt issue change on those triggers (opened, edited, reopened, eligible hold/exemption label events, or manual dispatch) clears a stale `agents:formatted` marker; hold removal revalidates before restoring it. Non-conforming unheld work is dispatched to the optimizer's `format` phase, whose formatter feeds the validator's report back to the model (`rewrite_until_valid` in `.github/scripts/issue_format.py`); a rewrite that still fails posts `<!-- issue-optimizer:rewrite-failed -->` and counts as a real attempt, while an optimizer crash is counted separately. After three real attempts, three crashes, or six dispatches for one unchanged body, the guard applies `agents:auto-pilot-pause`, releases `agents:format`, and says that the opener lane (opener-core) rewrites and re-validates paused issues automatically and no human action is required; removing the pause label forces an earlier retry with a fresh budget. The optimizer also releases that lease immediately when its live eligibility recheck skips format work.
 * [`agents-moderate-connector.yml`](../../.github/workflows/agents-moderate-connector.yml) moderates connector-authored PR comments, enforcing repository allow/deny lists and applying the debugging label when deletions occur.
 * [`agents-guard.yml`](../../.github/workflows/agents-guard.yml) applies repository-level guardrails before agent workflows run.
 * [`pr-46-dependency-repair-contract.yml`](../../.github/workflows/pr-46-dependency-repair-contract.yml) keeps clean Renovate/Dependabot branches bot-owned and validates the bot-delta first commit on agent-owned dependency repair promotions. See [`docs/ops/DEPENDENCY_REPAIR_PROMOTION.md`](../ops/DEPENDENCY_REPAIR_PROMOTION.md) for the lane-selection contract and marker.
@@ -437,9 +453,9 @@ the selected branch-capable core, version, CPU count/affinity, and worker reques
 Hosted pytest startup must also confirm four actual workers and overlapping matrix
 job times; local collection and isolated execution do not prove hosted overlap.
 
-The package contract remains Python >=3.12. Ruff/Black syntax targets and the
-universal lock's 3.12 compile baseline intentionally preserve that compatibility.
-Reusable calls with an explicit `python-version: '3.12'` still select only 3.12;
+The package contract is Python >=3.13 (3.14 first, 3.13 backup; 3.12 is retired).
+Ruff/Black syntax targets and the universal lock's compile baseline follow that floor.
+Reusable calls with an explicit `python-version` still select only that runtime;
 only omitted runtime inputs adopt the 3.13/3.14 default matrix. New Gate templates
 use the new matrix. Existing create-only consumer Gates retain their explicit
 runtime policy until a separately reviewed consumer migration; do not overwrite
@@ -452,6 +468,15 @@ common lock and a fixture-specific 70% guard. It no longer repeats the full repo
 suite six times. See [the profile contract](SELFTESTS.md) for ownership and overrides.
 
 ### Python runtime and coverage policy
+
+Workflows' own Gate passes `-n auto --dist load` through `pytest_args`.
+The reusable appends `-n 4 --dist=loadgroup`, which remain effective; these
+caller flags do not establish an auto/load speedup. The temporary #4258 timing
+flags were removed after hosted measurement. Test-design changes retain the
+70% coverage minimum and real prompt/floor assertions; see
+[the matrix branch analysis](verifier-grammar-matrices.md#issue-4258-alias-products).
+Consumer create-only Gate policy and action pins remain unchanged. Acceptance
+still requires five successful PR Gate runs with the 3.14 job at most ten minutes.
 
 Gate runs the same selected tests with four xdist workers on Python 3.13 and
 3.14. `coverage-python-version: '3.14'` instruments only 3.14; 3.13 runs plain
@@ -487,3 +512,38 @@ writes. Both failure and recovery retain the exact snapshot path. The existing
 [Selftest CI](../../.github/workflows/selftest-ci.yml) dispatch-only tracker replay
 job publishes synthetic issue/snapshot receipts without live issue mutations.
 See the [tracker contract](../ci-failure-tracker.md).
+
+### Typed gzip verification evidence
+
+The existing verifier collector can retain added regular Git evidence assets
+under `docs/verification/` ending in `.log.gz`, `.txt.gz` or `.xml.gz`. It resolves
+the path from the target repository's immutable merged tree, validates the Git
+blob identity, and retains compressed originals and decoded UTF-8 sidecars in
+`verifier-evidence/`. The real Git patch is unchanged. A labelled derived view
+is included in the same prompt coverage, chunking and native capacity admission
+as other evidence; capture does not establish acceptance PASS.
+
+Each asset binds repository, merged revision, exact Unicode path, Git blob SHA,
+compressed and decoded SHA256, byte counts, codec and original binary patch
+span. The single-member gzip decoder validates CRC and EOF and rejects trailing
+or concatenated members, invalid UTF-8, NUL and symlinks. Per asset limits are
+4 MiB compressed and 4 MiB decoded; aggregate limits are 32 MiB and 64 MiB, with
+at most 80 captured assets. If the inventory exceeds that bound, every asset
+remains explicitly unavailable with a count-limit cause; the collector does not
+abort the surrounding context or silently discard paths. These are transport
+bounds, not inferred proof requirements.
+Failures remain explicit per asset. Other binary code remains unavailable;
+modified, renamed and deleted assets are unsupported until both required Git
+sides can be bound. Identical content at different paths retains distinct path
+identities.
+
+The existing `verification_material` input additionally accepts
+`{"kind":"git_blob","path":"docs/verification/example.log.gz"}` to name required
+proof. It accepts no caller repository, revision or hash override.
+Only explicitly selected required content participates in verification-event
+material identity; optional retrieval progress does not create a new event.
+Otherwise necessity is unknown: a recognized filename alone does not establish that proof
+is optional or mandatory. The original requirements remain in every review.
+Verbose logs do not create new acceptance criteria. Raw and decoded assets are
+retained for evaluate and compare executions without changing the result or
+publication lifecycle.

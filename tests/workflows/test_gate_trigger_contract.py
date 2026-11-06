@@ -233,3 +233,231 @@ def test_base_metadata_is_shell_data(workflow_path: str, tmp_path: Path) -> None
             assert not marker.exists(), f"{workflow_path}: API metadata executed as shell code"
     assert "Fetch base ref" in seen
     assert "Check deliberate-break acceptance criterion" in seen
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_pr_rerun_refreshes_same_head_metadata(workflow_path: str) -> None:
+    """Execute the authored resolver: reruns retain the old event body."""
+    import json
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text())
+    script = workflow["jobs"]["resolve-pr"]["steps"][0]["with"]["script"]
+    harness = r"""
+const assert = require('node:assert/strict');
+const execute = new (Object.getPrototypeOf(async function(){}).constructor)(
+  'github', 'context', 'core', SCRIPT);
+(async () => {
+  process.env.PR_NUMBER = '';
+  process.env.GITHUB_REPOSITORY = 'owner/repo';
+  const original = {number:42,state:'open',title:'old title',body:'staging',
+    base:{ref:'main'},head:{ref:'sync/workflows-candidate',sha:'same-head',repo:{full_name:'owner/repo'}}};
+  const fresh = structuredClone(original); fresh.body='sealed'; fresh.title='current title';
+  const context = {eventName:'pull_request',sha:'synthetic-merge',
+    repo:{owner:'owner',repo:'repo'},payload:{pull_request:original}};
+  let reads=0; let output;
+  const github={rest:{pulls:{get:async args=>{
+    reads++; assert.deepEqual(args,{owner:'owner',repo:'repo',pull_number:42});
+    return {data:structuredClone(fresh)};
+  }}}};
+  const core={setOutput:(_name,value)=>{output=JSON.parse(value);}};
+  await execute(github,context,core);
+  assert.equal(reads,1); assert.equal(output.body,'sealed');
+  assert.equal(output.title,'current title');
+  assert.equal(original.body,'staging');
+  for (const mutate of [
+    p=>{p.number=43;},p=>{p.head.ref='changed-branch';},p=>{p.base.ref='changed-base';},
+    p=>{p.head.sha='changed-head';},
+    p=>{p.head.repo.full_name='foreign/repo';},
+    p=>{p.state='closed';},
+  ]) {
+    const saved=structuredClone(fresh); mutate(fresh); output=undefined;
+    await assert.rejects(execute(github,context,core));
+    assert.equal(output,undefined); Object.assign(fresh,saved);
+  }
+  // Ordinary fork PRs retain their read-only identity; dispatch is stricter.
+  original.head.repo.full_name='fork/repo'; fresh.head.repo.full_name='fork/repo';
+  await execute(github,context,core); assert.equal(output.body,'sealed');
+  github.rest.pulls.get=async()=>{throw Error('metadata unavailable');};
+  output=undefined; await assert.rejects(execute(github,context,core),/metadata unavailable/);
+  assert.equal(output,undefined);
+})().catch(error=>{console.error(error);process.exitCode=1;});
+"""
+    result = subprocess.run(
+        ["node", "-e", "const SCRIPT = " + json.dumps(script) + ";\n" + harness],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_resolved_snapshot_drives_both_delivery_guards(workflow_path: str, tmp_path: Path) -> None:
+    """Authored resolver/restore plus actual classifier/seal validate one snapshot."""
+    import json
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text())
+    jobs = workflow["jobs"]
+    scripts = {
+        "resolve": jobs["resolve-pr"]["steps"][0]["with"]["script"],
+        "restore": [
+            jobs[name]["steps"][0]["with"]["script"]
+            for name in ("detect", "generated-delivery-seal")
+        ],
+    }
+    seal_action = jobs["generated-delivery-seal"]["steps"][1]
+    assert seal_action["with"]["pull-request-json"] == (
+        "${{ needs.resolve-pr.outputs.pull_request }}"
+    )
+    for name in ("detect", "generated-delivery-seal"):
+        assert "needs.resolve-pr.outputs.pull_request" in jobs[name]["steps"][0]["if"]
+        assert "workflow_dispatch" not in jobs[name]["steps"][0]["if"]
+    harness = r"""
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const classifier=require(path.join(ROOT,'.github/actions/path-classifier/classify.js'));
+const seal=require(path.join(ROOT,'.github/actions/generated-delivery-seal/check.js'));
+const contract=require(path.join(ROOT,'.github/scripts/sync_pr_lease_contract.js'));
+const execute=new(Object.getPrototypeOf(async function(){}).constructor)(
+ 'github','context','core',SCRIPTS.resolve);
+(async()=>{
+ const now='2026-10-25T14:40:00Z',repo='owner/repo',sha='a'.repeat(40);
+ const record={durable_issue_url:'https://github.com/owner/Workflows/issues/1',
+  plan_id:'sha256:'+'b'.repeat(64),generation:'bbbbbbbbbbbb',repository:repo,
+  desired_tree_hash:'c'.repeat(40),source_commit:'d'.repeat(40),
+  head_observed_sha:sha,head_observed_at:'2026-10-25T14:30:00Z',
+  lease_expires_at:'2026-10-28T14:30:00Z',delivery_state:'staging'};
+ const pr={number:42,state:'open',head:{ref:'sync/workflows-candidate',sha,
+  repo:{full_name:repo}},base:{repo:{full_name:repo}},body:contract.formatDeliveryRecord(record)};
+ const original=structuredClone(pr),fresh=structuredClone(pr);
+ fresh.body=contract.formatDeliveryRecord({...record,delivery_state:'sealed',
+  review_started_at:'2026-10-25T14:31:00Z',sealed_at:'2026-10-25T14:31:00Z',sealed_head_sha:sha});
+ const ctx={event_name:'pull_request',repository:repo,event:{pull_request:original}};
+ assert.equal(seal.evaluateDeliverySeal(ctx.event,repo,now).valid,false);
+ assert.equal(classifier.stableDeliverySealStatus(ctx,{contract,now}).valid,false);
+ process.env.GITHUB_REPOSITORY=repo;process.env.PR_NUMBER='';
+ const github={rest:{pulls:{get:async()=>({data:fresh})}}};
+ let output;const core={setOutput:(_n,v)=>{output=v;}};
+ await execute(github,{eventName:'pull_request',payload:ctx.event,
+  repo:{owner:'owner',repo:'repo'},sha:'merge-sha'},core);
+ process.env.GATE_PR_JSON=output;process.env.GITHUB_CONTEXT_JSON=JSON.stringify(ctx);
+ for (let i=0;i<SCRIPTS.restore.length;i++) {
+  process.env.GITHUB_EVENT_PATH=path.join(TEMP,'event-'+i+'.json');
+  fs.writeFileSync(process.env.GITHUB_EVENT_PATH,JSON.stringify(ctx.event));
+  new Function('require',SCRIPTS.restore[i])(require);
+  const restored=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
+  const parsed=classifier.parseGithubContext();
+  assert.deepEqual(restored.pull_request,parsed.event.pull_request);
+  // GitHub rewrites event.json before the NEXT action. The seal must read
+  // its explicit input, not rely on the previous restoration surviving.
+  fs.writeFileSync(process.env.GITHUB_EVENT_PATH,JSON.stringify(ctx.event));
+  const reset=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
+  assert.equal(seal.evaluateDeliverySeal(reset,repo,now).valid,false);
+  const delivered=seal.resolvedSealEvent(reset,process.env.GATE_PR_JSON,
+    {repository:repo,eventName:'pull_request',sha:'synthetic-merge'});
+  assert.equal(seal.evaluateDeliverySeal(delivered,repo,now).valid,true);
+  assert.equal(classifier.stableDeliverySealStatus(parsed,{contract,now}).valid,true);
+ }
+ for (const mutate of [
+  p=>{p.number=43;},p=>{p.head.sha='changed';},
+  p=>{p.head.repo.full_name='foreign/repo';},p=>{p.state='closed';},
+ ]) {
+  const wrong=structuredClone(fresh);mutate(wrong);process.env.GATE_PR_JSON=JSON.stringify(wrong);
+  assert.throws(()=>classifier.parseGithubContext());
+ }
+ process.env.GATE_PR_JSON='{broken';assert.throws(()=>classifier.parseGithubContext());
+ // No resolved snapshot retains normal pre-seal refusal; it does not waive it.
+ delete process.env.GATE_PR_JSON;
+ assert.equal(classifier.stableDeliverySealStatus(classifier.parseGithubContext(),{contract,now}).valid,false);
+})().catch(e=>{console.error(e);process.exitCode=1;});
+"""
+    prefix = (
+        "const ROOT="
+        + json.dumps(str(ROOT))
+        + ";const TEMP="
+        + json.dumps(str(tmp_path))
+        + ";const SCRIPTS="
+        + json.dumps(scripts)
+        + ";\n"
+    )
+    result = subprocess.run(["node", "-e", prefix + harness], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_summary_fails_closed_when_resolver_fails(workflow_path: str) -> None:
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text())
+    summary = workflow["jobs"]["summary"]
+    assert summary["if"] == "${{ always() }}"
+    rejection = next(s for s in summary["steps"] if s["name"] == "Reject unresolved PR metadata")
+    assert "needs.resolve-pr.result != 'success'" in rejection["if"]
+    assert "exit 1" in rejection["run"]
+    assert "'failure'" in summary["outputs"]["state"]
+    for step in summary["steps"]:
+        condition = step.get("if", "")
+        if step["name"] != "Report Gate commit status" and (
+            "always()" in condition or step["name"] == "Restore resolved PR event for Gate helpers"
+        ):
+            assert "needs.resolve-pr.result == 'success'" in condition
+        for expression in [str(step.get("env", {})), str(step.get("with", {})), condition]:
+            assert "fromJSON(needs.resolve-pr.outputs.pull_request)" not in expression
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+@pytest.mark.parametrize("resolver_result", ["failure", "cancelled", "skipped", ""])
+def test_unresolved_metadata_publishes_only_failure_without_helpers(workflow_path, resolver_result):
+    import json
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text())
+    step = next(
+        s for s in workflow["jobs"]["summary"]["steps"] if s["name"] == "Report Gate commit status"
+    )
+    assert step["if"] == "${{ always() }}"
+    assert step["with"]["retries"] == 3
+    harness = r"""
+const assert = require('node:assert/strict');
+const execute = new (Object.getPrototypeOf(async function(){}).constructor)(
+ 'github','context','core','require',SCRIPT);
+(async()=>{
+ process.env.RESOLVER_RESULT=__RESOLVER_VALUE__; process.env.STATE='success';
+ const writes=[];
+ const github={rest:{repos:{createCommitStatus:async p=>{writes.push(p);}}}};
+ const context={repo:{owner:'owner',repo:'repo'},sha:'merge-sha',
+  payload:{pull_request:{head:{sha:'original-head'}}}};
+ await assert.rejects(execute(github,context,{},()=>{throw Error('helper must not load');}),
+  /Gate PR metadata resolution did not succeed/);
+ assert.equal(writes.length,1);assert.equal(writes[0].state,'failure');
+ assert.equal(writes[0].sha,'original-head');assert.equal(writes[0].context,'Gate / gate');
+})().catch(e=>{console.error(e);process.exit(1);});
+""".replace("SCRIPT", json.dumps(step["with"]["script"])).replace(
+        "__RESOLVER_VALUE__", json.dumps(resolver_result)
+    )
+    subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("workflow_path", GATE_FILES)
+def test_gate_enforcement_treats_description_as_data(workflow_path: str, tmp_path: Path) -> None:
+    import os
+    import subprocess
+
+    workflow = yaml.safe_load((ROOT / workflow_path).read_text(encoding="utf-8"))
+    steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
+    step = next(step for step in steps if step.get("name") == "Enforce explicit Gate success")
+    assert step["env"]["GATE_SUMMARY_DESCRIPTION"] == (
+        "${{ steps.summarize.outputs.description || steps.docs_only.outputs.description }}"
+    )
+    assert "${{" not in step["run"]
+    sentinel = tmp_path / "injected"
+    payload = f'$(touch "{sentinel}") `touch "{sentinel}"`\nstate=success'
+    completed = subprocess.run(
+        ["bash", "-e", "-c", step["run"]],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "GATE_SUMMARY_DESCRIPTION": payload},
+        check=False,
+    )
+    assert completed.returncode == 1
+    assert payload in completed.stderr
+    assert not sentinel.exists()

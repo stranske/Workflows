@@ -349,7 +349,7 @@ def main(args: list[str] | None = None) -> int:
         parsed.github_output.parent.mkdir(parents=True, exist_ok=True)
         with parsed.github_output.open("w", encoding="utf-8") as f:
             # Plain locals rather than f-strings nested inside f-strings: the nested form is
-            # valid only from 3.12 (PEP 701) and this file ships to 3.12 AND 3.13 runners.
+            # valid only on interpreters with PEP 701, so plain locals keep the file portable across runners.
             baseline_out = "" if baseline_coverage is None else f"{baseline_coverage:.2f}"
             delta_out = "" if delta is None else f"{delta:.2f}"
             f.write(f"coverage={current_coverage:.2f}\n")

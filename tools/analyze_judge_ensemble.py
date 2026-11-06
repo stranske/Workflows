@@ -199,6 +199,45 @@ def majority(judges: list[dict[str, str | None]], cases: list[str]) -> dict[str,
     }
 
 
+def load_groups(paths: list[Path]) -> dict[str, str]:
+    """case -> group ("real", or a mutation type) from rows that carry a ``group`` field."""
+    groups: dict[str, str] = {}
+    for path in paths:
+        for row in json.loads(path.read_text()).get("rows", []):
+            if row.get("group"):
+                groups[str(row["case_id"])] = str(row["group"])
+    return groups
+
+
+def load_diagnostic_cases(paths: list[Path]) -> set[str]:
+    """Retain explicit flags and recognize historical failed-CI diagnostic rows."""
+    return {
+        str(row["case_id"])
+        for path in paths
+        for row in json.loads(path.read_text()).get("rows", [])
+        if row.get("diagnostic_only") or row.get("group") == "fail-ci-row"
+    }
+
+
+def group_breakdown(
+    decisions: dict[str, dict[str, str | None]], truth: dict[str, str], groups: dict[str, str]
+) -> dict[str, dict[str, dict[str, int]]]:
+    """judge -> group -> {cases, false_pass, false_fail}. A mutation type one judge fails and
+    another does not is the signal a pooled false-PASS rate hides."""
+    out: dict[str, dict[str, dict[str, int]]] = {}
+    for judge, cases in decisions.items():
+        for case, value in cases.items():
+            group = groups.get(case, "real")
+            bucket = out.setdefault(judge, {}).setdefault(
+                group, {"cases": 0, "false_pass": 0, "false_fail": 0}
+            )
+            verdict = _fail_closed(value)
+            bucket["cases"] += 1
+            bucket["false_pass"] += int(truth[case] == "NON_PASS" and verdict == "PASS")
+            bucket["false_fail"] += int(truth[case] == "PASS" and verdict != "PASS")
+    return out
+
+
 def analyze(
     decisions: dict[str, dict[str, str | None]],
     truth: dict[str, str],
@@ -207,7 +246,20 @@ def analyze(
     categories: dict[str, str] | None = None,
     baseline_model: str | None = None,
     policy: dict[str, Any] | None = None,
+    groups: dict[str, str] | None = None,
+    diagnostic_cases: set[str] | None = None,
 ) -> dict[str, Any]:
+    breakdown = group_breakdown(decisions, truth, groups) if groups else None
+    diagnostic = set(diagnostic_cases or ()) | {
+        case for case, group in (groups or {}).items() if group == "fail-ci-row"
+    }
+    excluded = diagnostic & truth.keys()
+    if excluded:
+        truth = {case: expected for case, expected in truth.items() if case not in excluded}
+        decisions = {
+            name: {case: value for case, value in rows.items() if case not in excluded}
+            for name, rows in decisions.items()
+        }
     cases = sorted(truth)
     names = sorted(decisions)
     authority = [
@@ -295,6 +347,8 @@ def analyze(
                 f"bound the false-PASS rate at {bound}. Small-sample results cannot enable either option."
             ),
         },
+        **({"by_group": breakdown} if groups else {}),
+        **({"diagnostic_only_cases": len(excluded)} if excluded else {}),
         "enables_anything": False,
     }
 
@@ -360,6 +414,19 @@ def markdown(result: dict[str, Any]) -> str:
             f"| {' + '.join(pair['judges'])} | {pair['agreement']} | {pair['both_wrong']} | "
             f"{pair['strict_and']['false_pass']} | {pair['strict_and']['false_fail']} |"
         )
+    if result.get("by_group"):
+        lines += [
+            "",
+            "### False PASS by kind of case",
+            "",
+            "| Judge | Group | Cases | False PASS | False FAIL |",
+            "|---|---|---:|---:|---:|",
+        ]
+        for judge, by_group in sorted(result["by_group"].items()):
+            for group, c in sorted(by_group.items()):
+                lines.append(
+                    f"| {judge} | {group} | {c['cases']} | {c['false_pass']} | {c['false_fail']} |"
+                )
     recommendation = result["recommendation"]
     lines += [
         "",
@@ -400,6 +467,8 @@ def main(argv: list[str] | None = None) -> int:
         bound=args.false_pass_bound,
         categories=categories,
         baseline_model=next(iter(baselines), None),
+        groups=load_groups(args.inputs),
+        diagnostic_cases=load_diagnostic_cases(args.inputs),
     )
     result["ordered_input_manifest"] = [str(path) for path in args.inputs]
     args.output.write_text(json.dumps(result, indent=2) + "\n")

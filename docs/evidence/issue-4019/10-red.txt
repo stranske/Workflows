@@ -1,0 +1,45 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____ TestGetLLMProvider.test_fallback_chain_name_reflects_active_provider _____
+
+self = <tests.tools.test_llm_provider.TestGetLLMProvider object at 0x113c6bf50>
+
+    def test_fallback_chain_name_reflects_active_provider(self):
+        class StubProvider(LLMProvider):
+            @property
+            def name(self) -> str:
+                return "stub"
+    
+            def is_available(self) -> bool:
+                return True
+    
+            def analyze_completion(
+                self,
+                session_output: str,
+                tasks: list[str],
+                context: str | None = None,
+                quality_context: SessionQualityContext | None = None,
+            ) -> CompletionAnalysis:
+                _ = session_output, tasks, context, quality_context
+                return CompletionAnalysis(
+                    completed_tasks=[],
+                    in_progress_tasks=[],
+                    blocked_tasks=[],
+                    confidence=0.5,
+                    reasoning="ok",
+                    provider_used="stub",
+                )
+    
+        chain = FallbackChainProvider([StubProvider()])
+        chain.analyze_completion("output", ["task1"])
+>       assert chain.name == "fallback-chain(stub)"
+E       AssertionError: assert 'fallback-chain' == 'fallback-chain(stub)'
+E         
+E         - fallback-chain(stub)
+E         ?               ------
+E         + fallback-chain
+
+tests/tools/test_llm_provider.py:1979: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestGetLLMProvider::test_fallback_chain_name_reflects_active_provider
+1 failed in 0.26s

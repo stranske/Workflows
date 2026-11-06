@@ -15,6 +15,16 @@ evidence. A model can be selected **provisionally** from a small paired comparis
 and human review. Statistical **approval** still requires the frozen,
 adjudicated verifier corpus and all approval-stage gates.
 
+**Retired for `verifier-balanced` (owner decision 2026-10-30).** Automatic approval never approved
+a model: zero-error Wilson bounds on a corpus this size approve only a perfect judge
+(`docs/ops/VERIFIER_STANDARDS_ANALYSIS.md`). `approval_stage.status` is `retired`, so MAINT-78
+reports the approval path as `owner_trial` and lists the corpus shortfalls as information, not
+blockers, and `tools/prepare_model_promotion.py` prepares rollbacks on a gate breach but no
+promotions. A verifier selection changes when the owner decides after a corpus trial
+(`docs/ops/VERIFIER_SHADOW.md`, "Trialling a new candidate"), as gpt-6.1-sol did on 2026-10-30.
+The `approval_stage` fields still drive corpus generation (controlled mutations, stable-merge PASS
+cases). Set `status` to `active` to restore automatic approval.
+
 Selection is constrained optimization, not a weighted score:
 
 1. For a provisional decision, reject observed false PASS, schema errors, and
@@ -159,6 +169,9 @@ blocker to provisional selection.
 
 ### Statistical approval
 
+Retired for `verifier-balanced` on 2026-10-30 (see Decision Principle); kept for profiles that
+re-activate it.
+
 Evaluate a case-level paired run with:
 
 ```bash
@@ -170,6 +183,11 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
 
 - Use a frozen, versioned corpus with owner-adjudicated expected outcomes.
 - Run every candidate and baseline on the same cases and prompt version.
+  The backend screen rejects a baseline before any model call unless its unique case IDs,
+  expected verdicts and per-case prompt hashes exactly match the selected case set. Rerun
+  the baseline on the same selected cases when using `--cases all` or `--cases evaluable`.
+  Do not reuse an eight-case baseline; results from a smaller set cannot establish an
+  accuracy improvement on a larger set.
 - Use at least 30 cases to retain a candidate and at least 75 cases, with 10 per
   required failure category, to approve it. Categories that cannot be labelled
   from realized downstream outcomes — `stale-verifier-claim`,
@@ -231,6 +249,13 @@ records. Do not hand-enter aggregate rates or recommendation rankings.
   selection with rollback on any false PASS and live monitoring. The false-PASS bound stays tighter
   because a false PASS costs safety and a false FAIL costs rework. Tighten both as evaluable cases
   accumulate (`bounds_note` in the policy).
+
+  **Diagnostic-only mutants (2026-10-18).** The 22 failed-CI mutants carry `diagnostic_only: true` and
+  count toward no floor: `reusable-agents-verifier.yml` already floors the verdict at CONCERNS whenever a
+  CI workflow concluded `failure`, so a model that misses a red row costs nothing in production, and the
+  mutation omits the "CI gate" paragraph the real input adds. They stay in the corpus for reporting
+  (`--include-diagnostic` runs them). That leaves 19 evaluable NON_PASS cases (16 dropped-file mutants
+  and 3 real) against a 35-case floor at the 0.10 bound; the benchmark remains a screening aid under the shadow promotion decision below.
 
   **Shadow promotion (owner decision 2026-10-22).** The benchmark route above is superseded for verifier judges by a 7-day production shadow with criteria fixed in advance: `docs/ops/VERIFIER_SHADOW.md`, `config/verifier_shadow.json`. The benchmark and its bounds remain a screening aid.
 - Report Wilson 95% confidence intervals for task success, false PASS, false

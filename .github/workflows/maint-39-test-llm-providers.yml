@@ -11,12 +11,10 @@ on:
         type: choice
         options:
           - all
-          - github-models
           - openai
 
 permissions:
   contents: read
-  models: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -54,6 +52,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
         run: |
           python -c "
           from tools.llm_provider import check_providers
@@ -61,23 +60,6 @@ jobs:
           for name, available in check_providers().items():
               status = '✓' if available else '✗'
               print(f'  {status} {name}')
-          "
-
-      - name: Test GitHub Models
-        if: inputs.provider == 'all' || inputs.provider == 'github-models'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Testing GitHub Models provider..."
-          python -c "
-          from tools.llm_provider import get_llm_provider
-          provider = get_llm_provider(force_provider='github-models')
-          result = provider.analyze_completion(
-              session_output='I fixed the bug in auth.py. Tests pass now.',
-              tasks=['Fix authentication bug'],
-          )
-          print(f'✅ GitHub Models: {result.provider_used}, confidence={result.confidence:.0%}')
-          print(f'   Completed: {result.completed_tasks}')
           "
 
       - name: Test OpenAI

@@ -4445,6 +4445,8 @@ async function updateKeepaliveLoopSummary({ github: rawGithub, context, core, in
       }
     }
 
+    summaryLines.push(`llm-ticked-tasks: ${Math.max(0, Math.floor(toNumber(inputs.llm_ticked_tasks, 0)))}`);
+
     // LLM analysis details - show which provider was used for task completion detection
     if (llmAnalysisRun && llmProvider) {
       const providerIcon = llmProvider === 'github-models' ? '✅' :
@@ -6078,6 +6080,7 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
   // Update PR body to check off matched tasks
   let updatedBody = pr.body;
   let checkedCount = 0;
+  let llmTasksChecked = 0;
 
   for (const match of highConfidence) {
     // Escape special regex characters in task text
@@ -6087,6 +6090,7 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
     if (pattern.test(updatedBody)) {
       updatedBody = updatedBody.replace(pattern, '$1$2[x]$3');
       checkedCount++;
+      if (match.source === 'llm') llmTasksChecked++;
       log(`Auto-checked task: ${match.task.slice(0, 50)}... (${match.reason})`);
     }
   }
@@ -6149,6 +6153,7 @@ async function autoReconcileTasks({ github: rawGithub, context, prNumber, baseSh
   return {
     updated: true,
     tasksChecked: checkedCount,
+    llmTasksChecked,
     details: `Auto-checked ${checkedCount} task(s)${sourceInfo}: ${highConfidence.map(m => m.task.slice(0, 30) + '...').join(', ')}`,
     sources,
   };

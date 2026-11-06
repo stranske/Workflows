@@ -45,12 +45,12 @@ class RequiredJobGroup(TypedDict):
 
 DEFAULT_REQUIRED_JOB_GROUPS: list[RequiredJobGroup] = [
     {
-        "label": "python ci (3.12)",
-        "patterns": [r"(python\s*ci|core\s*(tests?)?).*(3\.12|py\.?312)"],
-    },
-    {
         "label": "python ci (3.13)",
         "patterns": [r"(python\s*ci|core\s*(tests?)?).*(3\.13|py\.?313)"],
+    },
+    {
+        "label": "python ci (3.14)",
+        "patterns": [r"(python\s*ci|core\s*(tests?)?).*(3\.14|py\.?314)"],
     },
     {"label": "docker smoke", "patterns": [r"docker.*smoke|smoke.*docker"]},
     {"label": "gate", "patterns": [r"gate"]},
@@ -134,16 +134,6 @@ class RequiredJobRule(TypedDict):
 
 REQUIRED_JOB_RULES: list[RequiredJobRule] = [
     {
-        "key": "core312",
-        "label": "core tests (3.12)",
-        "slug_variants": [
-            ["core", "3-12"],
-            ["py312"],
-            ["3-12", "tests"],
-        ],
-        "fallback_patterns": [r"core\s*(tests?)?.*(3\.12|py\.?312)"],
-    },
-    {
         "key": "core313",
         "label": "core tests (3.13)",
         "slug_variants": [
@@ -153,6 +143,17 @@ REQUIRED_JOB_RULES: list[RequiredJobRule] = [
             ["3-13", "tests"],
         ],
         "fallback_patterns": [r"core\s*(tests?)?.*(3\.13|py\.?313)"],
+    },
+    {
+        "key": "core314",
+        "label": "core tests (3.14)",
+        "slug_variants": [
+            ["core", "3-14"],
+            ["core", "314"],
+            ["py314"],
+            ["3-14", "tests"],
+        ],
+        "fallback_patterns": [r"core\s*(tests?)?.*(3\.14|py\.?314)"],
     },
     {
         "key": "docker",
@@ -169,7 +170,7 @@ REQUIRED_JOB_RULES: list[RequiredJobRule] = [
 ]
 
 
-DOC_ONLY_JOB_KEYS: tuple[str, ...] = ("core312", "core313", "docker")
+DOC_ONLY_JOB_KEYS: tuple[str, ...] = ("core313", "core314", "docker")
 
 
 def _matches_slug(slug: str, variants: Sequence[Sequence[str]]) -> bool:

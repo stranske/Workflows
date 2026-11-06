@@ -98,7 +98,14 @@ def build_plan(
     profile = policy["profiles"]["verifier-balanced"]
     candidate_stage = profile["candidate_stage"]
     approval = profile["approval_stage"]
-    cases = corpus["cases"]
+    # Owner decision 2026-10-30: automatic approval can be retired. The shortfalls below are still
+    # measured and reported, but they describe the corpus, not a path that can ever open.
+    approval_retired = approval.get("status") == "retired"
+    # Diagnostic-only cases (the failed-CI mutants: the verifier workflow already floors a red CI at
+    # CONCERNS deterministically, so a model miss there costs nothing) are kept for reporting but
+    # never count toward any floor.
+    diagnostic_cases = sum(bool(case.get("diagnostic_only")) for case in corpus["cases"])
+    cases = [case for case in corpus["cases"] if not case.get("diagnostic_only")]
     counts = Counter(str(case["category"]) for case in cases)
     minimum = int(approval["minimum_adjudicated_cases"])
     stable_policy = approval.get("stable_merge_pass") or {}
@@ -131,7 +138,9 @@ def build_plan(
         float(approval["confidence_level"]),
     )
     additional_non_pass = max(0, false_pass_floor - negative_cases)
-    evaluable = _evaluable_counts(corpus, count_stable=bool(stable_policy.get("enabled")))
+    evaluable = _evaluable_counts(
+        {**corpus, "cases": cases}, count_stable=bool(stable_policy.get("enabled"))
+    )
     minimum_real_non_pass = int(mutation_policy.get("minimum_real_non_pass_cases", 0))
     additional_pass = max(0, false_fail_floor - positive_cases)
     best_case_total = len(cases) + additional_non_pass + additional_pass
@@ -322,6 +331,8 @@ def build_plan(
             )
         },
         "approval_ready": False,
+        "approval_path": "owner_trial" if approval_retired else "automatic",
+        "approval_retired_note": approval.get("retired_note") if approval_retired else None,
         "screen_ready": screen_ready,
         "input_alignment_ready": input_alignment_ready,
         "screen_case_kinds": {
@@ -338,6 +349,7 @@ def build_plan(
         "corpus_cases": len(cases),
         "expected_pass_cases": positive_cases,
         "expected_non_pass_cases": negative_cases,
+        "diagnostic_only_cases": diagnostic_cases,
         "stable_merge_pass_cases": stable_cases if stable_policy.get("enabled") else 0,
         "evaluable_pass_cases": evaluable["pass"],
         "evaluable_non_pass_cases": evaluable["non_pass"],
@@ -363,15 +375,21 @@ def build_plan(
             "api_calls": 0,
         },
         "next_action": (
-            "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
-            "priced candidates. Advance any candidate that meets the provisional-stage "
-            "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
-            "per accepted review in a small capped "
-            "API confirmation; review a provisional selection without waiting for the "
-            "long-term statistical approval sample."
-            if screen_ready
-            else "Resolve the candidate screen blockers, then compare the incumbent with "
-            "priced alternatives."
+            "Trial any candidate on the labelled corpus (docs/ops/VERIFIER_SHADOW.md, "
+            '"Trialling a new candidate"); a verifier-balanced selection changes only by the '
+            "owner's decision on that trial."
+            if approval_retired
+            else (
+                "Run one bounded, paired Codex CLI screen of the incumbent and up to three "
+                "priced candidates. Advance any candidate that meets the provisional-stage "
+                "false-PASS, schema-error, and accuracy limits, then compare modeled cost "
+                "per accepted review in a small capped "
+                "API confirmation; review a provisional selection without waiting for the "
+                "long-term statistical approval sample."
+                if screen_ready
+                else "Resolve the candidate screen blockers, then compare the incumbent with "
+                "priced alternatives."
+            )
         ),
     }
 
@@ -413,6 +431,20 @@ def markdown(plan: dict[str, Any]) -> str:
     if plan["confirmation_blockers"]:
         lines += ["", "### Paid confirmation blockers (prompt coverage)", ""]
         lines += [f"- {reason}" for reason in plan["confirmation_blockers"]]
+    if plan.get("approval_path") == "owner_trial":
+        lines += [
+            "",
+            "### Automatic approval: retired",
+            "",
+            str(plan["approval_retired_note"]),
+            "",
+            "Corpus measurements against the retired bounds (informational, not blockers):",
+            "",
+            f"**Historical corpus:** {plan['corpus_cases']} / {plan['approval_minimum_cases']} cases",
+        ]
+        lines += [f"- {reason}" for reason in plan["approval_blockers"]]
+        lines.append("")
+        return "\n".join(lines)
     lines += [
         "",
         "### Separate long-term statistical approval",

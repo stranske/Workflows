@@ -423,7 +423,7 @@ def test_bot_comment_handler_wrappers_emit_terminal_disposition_artifact() -> No
         assert "wrapper-skipped" in write_step["run"]
         assert upload_step.get("if") == "always()"
         assert upload_step.get("uses") == (
-            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+            "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
         )
         assert (
             upload_step["with"]["name"] == "review-thread-terminal-disposition-${{ github.run_id }}"

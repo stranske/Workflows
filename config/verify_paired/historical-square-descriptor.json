@@ -1,0 +1,14 @@
+{
+  "schema": "verify-paired-source-descriptor/v1",
+  "packet_root": ".",
+  "proposal_sha256": "3423da3d0c0f243f10d83f57e2243d5ce04b30511b5dbd589919b5ca4e3620b9",
+  "review_sha256": "97d0c3bf668c9819582d48fe5e1cd253e377bb024982a37e64b19c01a57b42ec",
+  "policy_file": "trial-policy.json",
+  "policy_sha256": "af303e6396a06cfde4b09ce06f133dd5bfb3630d0080156b63859a1cfe362118",
+  "slots_file": "slots.json",
+  "slots_sha256": "0041560ec596ced40dba711a02a2f9bacc6cab8a41a676e2ecc3f6fee40171b5",
+  "cases": [
+    "square-pass",
+    "square-nonpass"
+  ]
+}

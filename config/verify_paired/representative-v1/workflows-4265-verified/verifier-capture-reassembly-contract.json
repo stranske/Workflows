@@ -1,0 +1,341 @@
+{
+  "schema": "workflows-verifier-capture-reassembly-contract/v1",
+  "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930",
+  "obligation_manifest_sha256": "6e48ef42b18cc907e528f56057249991ccf382f6ba36e46fc32595bc2fe66d0a",
+  "byte_inventory_sha256": "41bba7b96b9eb49dd0ddd53db55fae73937957abc790f4f9ca1d8d3f5a796c6e",
+  "dependency_policy": "all-captured-inputs",
+  "required_range_ids": [
+    "context:5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503:0:65536",
+    "context:5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503:65536:131072",
+    "context:5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503:131072:196608",
+    "context:5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503:196608:262144",
+    "context:5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503:262144:327680",
+    "context:5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503:327680:393216",
+    "context:5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503:393216:445932",
+    "diff:49d0183e2ca6c238615d3324ee5b793e95d9c69cd244820b16a46dcc6f90c7fb:0:31667"
+  ],
+  "sufficient": true,
+  "obligations": [
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:0:b5834fa898a3a333163185426e71fc0b8dd276456020fdb3c92d64cd200d924b",
+      "value": {
+        "source": ".github/sync-manifest.yml",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 77897,
+        "total_chars": 77897
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:1:5eebcddcba6d1d07c908f939c40d82e441b917fbd987e67b30772378863fa136",
+      "value": {
+        "source": ".github/workflows/maint-coverage-guard.yml",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 30663,
+        "total_chars": 30663
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:2:478b336f4cda12b2a255f0a3829aaae2e8cc4e927098cb17138685b8bb261ece",
+      "value": {
+        "source": "config/template-drift-allowlist.txt",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 57512,
+        "total_chars": 57512
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:3:503e6933d44da0f7d5bd9cf605d9e6a3090b850b49c2ddc945f23d1269219f9b",
+      "value": {
+        "source": "docs/INTEGRATION_GUIDE.md",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 65488,
+        "total_chars": 65488
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:4:d9a9bc19695df740cf6dc65e75e73da840424aa1eb9781ce8185dee1711dc649",
+      "value": {
+        "source": "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 31015,
+        "total_chars": 31015
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:5:2b9ccb5af026049c45f363422175b271d59b69d5bd9fd821f412ffb6f15f070e",
+      "value": {
+        "source": "tests/test_coverage_guard.py",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 54200,
+        "total_chars": 54200
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:6:9c77e7cd98ab3c36d5353865f65c9d67b62d589b1b187cf6f5b03176986b7fa7",
+      "value": {
+        "source": "tests/workflows/test_maint_coverage_guard_artifacts.py",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 2679,
+        "total_chars": 2679
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:7:57b61d48ac19abd071498e3aac99dac94d15a8949de3bc391d99e1ec287e5365",
+      "value": {
+        "source": "tools/coverage_guard.py",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 26653,
+        "total_chars": 26653
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:8:7034c6ef84de74f835eeb6842ed5ec11f74b90ee907944b220836b96002b9665",
+      "value": {
+        "source": "https://github.com/stranske/Workflows/issues/4254",
+        "kind": "acceptance_source",
+        "status": "included",
+        "included_chars": 4027,
+        "total_chars": 4027
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:9:a192ca57b42309bd5cd073e3e2c7350ad3a4be842dc5eacd1237c37dd849cb3c",
+      "value": {
+        "source": "evidence/EVIDENCE_INDEX.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 2788,
+        "total_chars": 2788
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:10:a55a352a64fee05827fbcf931a07e44a303907bd9994409f2f8e74e938a4550d",
+      "value": {
+        "source": "evidence/broken.junit.xml",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 11175,
+        "total_chars": 11175
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:11:edaff2503eb384b43f05cc5d62e8f46b419fce1206fe7ebde97bce185b72c392",
+      "value": {
+        "source": "evidence/broken.pytest.log",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:12:fbbe4f9970d6a86d3a9b5da6175c6f6be68836429f1e33bcb4a4140e56b72372",
+      "value": {
+        "source": "evidence/current-review-runner.py",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 5280,
+        "total_chars": 5280
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:13:654061b029052bc20b8e802327f0f26a6f26cee8f711aed3cb714333da6038e9",
+      "value": {
+        "source": "evidence/mutation.patch",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 456,
+        "total_chars": 456
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:14:6620bb0b68dc87d19372b718045de04f414c980885f0dd8ee0516203b4ecf328",
+      "value": {
+        "source": "evidence/original-two-named-tests.stderr",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:15:2602b44e52d24ee3f6c266694cbdcbd3f03bae2a5388fe9ea523d9c5cd826752",
+      "value": {
+        "source": "evidence/original-two-named-tests.stdout",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 98,
+        "total_chars": 98
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:16:d50cc82b4c1ed1828acb856eb19e56f477e7155df58e5a11f93202244e0d5d20",
+      "value": {
+        "source": "evidence/original.junit.xml",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 1538,
+        "total_chars": 1538
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:17:1c08a9a171c35cebb294a40cead4d499a3ed3486bcfbda8e01eec86295de7a25",
+      "value": {
+        "source": "evidence/original.pytest.log",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:18:5298ac4d58f1ff2ee89715c06211d3e27161c14fdc739497ed69a6b0a2e8f788",
+      "value": {
+        "source": "evidence/receipt.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 8218,
+        "total_chars": 8218
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:19:ff89fc340a88339f7adad1f0162d06bc0b4e9c6a5af40b23c59f0f5092e1ae66",
+      "value": {
+        "source": "evidence/removed-current-append.stderr",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:20:2db010b3d9c47b15fc846b4dc63a2668d3da04091a2f72827c7f5bc8e5d9c56c",
+      "value": {
+        "source": "evidence/removed-current-append.stdout",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 12803,
+        "total_chars": 12803
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:21:e822fc9127c5d98b355f6cd9b1870246588cd05253d99edcdac05f39f4d65136",
+      "value": {
+        "source": "evidence/restored-two-named-tests.stderr",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:22:418b4ecb2fca0acc62bd8d3121a89752d97c8b6d5c9ee0833f54d39e3680264b",
+      "value": {
+        "source": "evidence/restored-two-named-tests.stdout",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 98,
+        "total_chars": 98
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:23:18ee046d616126afea0a0e18d4d00a5086809942c325cd4b3e284bc8b25901ca",
+      "value": {
+        "source": "evidence/restored.junit.xml",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 1538,
+        "total_chars": 1538
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:24:27a11c3962a0a10dddb7a7f95d5ccbc357ad1e2e000a6cd8ef0b824e493c47eb",
+      "value": {
+        "source": "evidence/restored.pytest.log",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:25:4e962c068494f8238387fac0d2f4de194b6e3b6d7c83cadeaead8c7a2773c70b",
+      "value": {
+        "source": "evidence/sandbox-and-runtime-probe.stderr",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:26:e799bd7dd4421cac5549f536604af90d951bf9ea208e533a170585fda35f1b7e",
+      "value": {
+        "source": "evidence/sandbox-and-runtime-probe.stdout",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 218,
+        "total_chars": 218
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:27:d46d2178d9e53488b5002355046e1cfe3151602a2232bd91314328d90bf2cd5b",
+      "value": {
+        "source": "evidence/sandbox.sb",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 213,
+        "total_chars": 213
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:28:64934487d19fcff1ef7fbae56322cef7f4bf09dbf116ec310860ba1185113aac",
+      "value": {
+        "source": "evidence/setup-attempt-1-receipt.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 2490,
+        "total_chars": 2490
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:29:dfc72cd3a2dcf727f45ed2f5d498591389ac03e5d5edb2d4815408c2e7f135b0",
+      "value": {
+        "source": "evidence/setup-attempt-2-receipt.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 2554,
+        "total_chars": 2554
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:30:83ad6319ac19bd168a62f1f299ea9ed041245600b7eab37b22cd918ee70ebea7",
+      "value": {
+        "source": "evidence/setup-attempt-3-receipt.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 4406,
+        "total_chars": 4406
+      }
+    },
+    {
+      "id": "61af7d9506583ac95945312f89f35f252785f167fe2d5ca0fa59e7336b85b930:obligations:31:6e54c0e2f29343c4be4822d9ee2c0f39126442c5a0b18b4aa42022aec6d7c5fb",
+      "value": {
+        "source": "verifier-pr-diff.patch",
+        "kind": "full_diff_artifact",
+        "status": "included",
+        "included_chars": 31667,
+        "total_chars": 31667
+      }
+    }
+  ],
+  "gaps": []
+}

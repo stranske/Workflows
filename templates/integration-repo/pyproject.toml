@@ -2,7 +2,7 @@
 name = "workflows-integration"
 version = "0.1.0"
 description = "Integration test consumer for stranske/Workflows reusable CI"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 readme = "README.md"
 authors = [{name = "Workflows Integration"}]
 
@@ -24,7 +24,12 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.coverage.run]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "tools/*",
+    "scripts/*",
+    ".github/scripts/*",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
@@ -32,4 +37,4 @@ testpaths = ["tests"]
 
 [tool.black]
 line-length = 100
-target-version = ["py312", "py313"]
+target-version = ["py313", "py314"]

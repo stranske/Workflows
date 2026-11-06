@@ -6,6 +6,20 @@ name: Create New PR from Verification
 # Trigger: Add `verify:create-new-pr` label to a merged PR
 
 on:
+  workflow_dispatch:
+    inputs:
+      correction_selector:
+        description: 'Exact closer-correction-selector/v1 original verifier seed selector'
+        required: true
+        type: string
+      correction_request:
+        description: 'Bounded canonical closer-correction-request/v1 post-terminal request'
+        required: false
+        type: string
+      correction_decision:
+        description: 'Source-bound closer-correction-decision/v1 risk and required-test decision'
+        required: false
+        type: string
   pull_request_target:
     types: [labeled]
 permissions:
@@ -1233,3 +1247,226 @@ jobs:
             } catch (error) {
               core.warning('Could not remove label: ' + error.message);
             }
+
+  collect-correction:
+    outputs:
+      admitted: ${{ steps.correction.outputs.admitted }}
+      pr_number: ${{ steps.correction.outputs.pr_number }}
+      effect_key: ${{ steps.correction.outputs.effect_key }}
+      artifact_id: ${{ steps.correction_artifact.outputs.artifact-id }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Checkout correction admission helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stranske/Workflows
+          persist-credentials: false
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts
+            .github/agents
+            config
+          sparse-checkout-cone-mode: false
+      - name: Setup read-only API client
+        # Resolve from the explicit Workflows checkout, which may not be the consumer repository.
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+      - name: Collect authenticated correction request without effects
+        id: correction
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          CORRECTION_SELECTOR: ${{ inputs.correction_selector }}
+          CORRECTION_REQUEST: ${{ inputs.correction_request }}
+          CORRECTION_DECISION: ${{ inputs.correction_decision }}
+          CORRECTION_CODING_BUDGET: ${{ vars.ISSUE_PR_CONTEXT_TOKEN_BUDGET }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { digest } = require('./.github/scripts/verification_event');
+            const { collectCorrection } = require('./.github/scripts/verifier_correction_consumer');
+            const { normalizeTerminalDisposition } = require('./.github/scripts/terminal_disposition');
+            let result;
+            try {
+              if (Buffer.byteLength(process.env.CORRECTION_SELECTOR || '') > 16384) {
+                throw new Error('Correction selector exceeds bound');
+              }
+              const selector = JSON.parse(process.env.CORRECTION_SELECTOR);
+              if (process.env.CORRECTION_REQUEST) {
+                if (Buffer.byteLength(process.env.CORRECTION_REQUEST) > 131072 ||
+                    Buffer.byteLength(process.env.CORRECTION_DECISION || '') > 131072) {
+                  throw new Error('Correction request/decision exceeds bound');
+                }
+                const { collectSubmission, loadReviewedQualification } = require('./.github/scripts/verifier_correction_collector');
+                const { createArtifactTransport } = require('./.github/scripts/verifier_correction_artifacts');
+                const repository = `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+                const current = {run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)};
+                const transport = await createArtifactTransport({github,repository,current});
+                result = await collectSubmission({github,transport,repository,actor:context.actor,current,selector,
+                  request:JSON.parse(process.env.CORRECTION_REQUEST),
+                  decision:JSON.parse(process.env.CORRECTION_DECISION || 'null'),directory:'.',
+                  codingBudgetVariable:process.env.CORRECTION_CODING_BUDGET,
+                  loadQualification:profile => loadReviewedQualification({github,profile})});
+                // Retained classifier I/O authentication remains an explicit Core
+                // dependency. Qualification alone cannot admit supplied JSON.
+                fs.writeFileSync('correction-admitted.json',JSON.stringify(result)+'\n',{flag:'wx'});
+                core.setOutput('context_retained','true');
+                core.setOutput('admitted',result.status === 'admitted' ? 'true' : 'false');
+                core.setOutput('pr_number',result.seed.target.pr);
+                core.setOutput('effect_key',result.effect_key);
+              } else {
+                result = await collectCorrection({github,selector,currentRun:context.runId,
+                  currentAttempt:Number(process.env.GITHUB_RUN_ATTEMPT),directory:'.'});
+              }
+            } catch (error) {
+              // No write endpoint exists in this job. A refusal proves only this
+              // collection performed no effect, never a prior attempt's absence.
+              result = {schema:'closer-correction-admission-refusal/v1',
+                selector_sha256:digest(process.env.CORRECTION_SELECTOR || ''),
+                consumer:{run_id:String(context.runId),run_attempt:process.env.GITHUB_RUN_ATTEMPT},
+                effect_state:'confirmed_not_started',reason:String(error.message),
+                retry_authorized:false,act_authorized:false,source_closure_authorized:false};
+              result.receipt_sha256 = digest(result);
+            }
+            const terminal = normalizeTerminalDisposition({source_type:'correction-request',
+              source_id:result.request?.request_sha256 || result.request_sha256 || result.selector_sha256,
+              disposition:'collection-only',reason:result.reason,run_id:context.runId,
+              run_attempt:process.env.GITHUB_RUN_ATTEMPT,
+              artifact_family:'verifier-terminal-disposition',
+              artifact_name:`verifier-terminal-disposition-${context.runId}-correction-collection-${process.env.GITHUB_RUN_ATTEMPT}`});
+            terminal.correction_receipt = result;
+            fs.mkdirSync('agent-metrics',{recursive:true});
+            fs.writeFileSync('agent-metrics/verifier-terminal-disposition.ndjson',JSON.stringify(terminal)+'\n');
+            fs.writeFileSync('agent-metrics/verifier-followup-ledger.ndjson',JSON.stringify(result)+'\n');
+            core.summary.addHeading('Correction admission: collection only')
+              .addRaw('No issue creation, continuation dispatch, ACT or source closure is enabled.').write();
+      - name: Upload correction collection receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verifier-terminal-disposition-${{ github.run_id }}-correction-collection-${{ github.run_attempt }}
+          path: agent-metrics/*.ndjson
+          retention-days: 30
+          if-no-files-found: error
+      - name: Upload admitted correction request
+        id: correction_artifact
+        if: always() && steps.correction.outputs.context_retained == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verifier-correction-admitted-${{ github.run_id }}-${{ github.run_attempt }}
+          path: correction-admitted.json
+          retention-days: 30
+          if-no-files-found: error
+
+  apply-correction:
+    name: Apply admitted correction
+    needs: [collect-correction]
+    # Source-disabled deployment boundary. Enabling typed effects requires a
+    # reviewed durable subject-enrollment/admission design; no input or variable
+    # can turn this collection-only release into an effect producer.
+    if: >-
+      false &&
+      github.event_name == 'workflow_dispatch' &&
+      needs.collect-correction.outputs.admitted == 'true' &&
+      needs.collect-correction.outputs.artifact_id != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+      issues: write
+      pull-requests: read
+    concurrency:
+      # Same PR lock as the existing label lane. The PR number is emitted only
+      # after native original-seed authentication, never from caller hold IDs.
+      group: agents-verify-to-new-pr-${{ github.repository }}-${{ needs.collect-correction.outputs.pr_number }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout correction effect helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stranske/Workflows
+          persist-credentials: false
+          sparse-checkout: |
+            .github/actions/setup-api-client
+            .github/scripts
+            .github/agents
+            scripts/langchain
+            config
+          sparse-checkout-cone-mode: false
+      - name: Set up correction Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+      - name: Setup scoped correction API client
+        uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+      - name: Install existing Actions artifact SDK
+        run: |
+          mkdir -p "$RUNNER_TEMP/correction-sdk"
+          cp .github/scripts/verifier_correction_artifact_sdk/package.json \
+            .github/scripts/verifier_correction_artifact_sdk/package-lock.json "$RUNNER_TEMP/correction-sdk/"
+          npm ci --prefix "$RUNNER_TEMP/correction-sdk" --ignore-scripts --no-audit --no-fund
+      - name: Consume admitted correction
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          ADMITTED_ARTIFACT_ID: ${{ needs.collect-correction.outputs.artifact_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { digest } = require('./.github/scripts/verification_event');
+            const { receipt } = require('./.github/scripts/verifier_correction_consumer');
+            const { createArtifactTransport, runtimeArtifactClient } = require('./.github/scripts/verifier_correction_artifacts');
+            const { createRuntime } = require('./.github/scripts/verifier_correction_runtime');
+            const { normalizeTerminalDisposition } = require('./.github/scripts/terminal_disposition');
+            const current = {run_id:context.runId,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT)};
+            const repository = `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+            const artifactClient = await runtimeArtifactClient(path.join(process.env.RUNNER_TEMP,'correction-sdk'));
+            const transport = await createArtifactTransport({github,repository,current,artifactClient,
+              outputDirectory:path.join(process.env.RUNNER_TEMP,'correction-checkpoints')});
+            const selector = {repository,...current,artifact_id:Number(process.env.ADMITTED_ARTIFACT_ID)};
+            let runtime,result;
+            try {
+              runtime = await createRuntime({github,transport,selector,current,
+                registryPath:path.resolve('.github/agents/registry.yml'),pythonRoot:process.cwd()});
+              result = await runtime.consume(selector,{run_id:String(current.run_id),run_attempt:String(current.run_attempt)});
+            } catch (error) {
+              if (runtime?.request) {
+                result = receipt(runtime.request,{state:'outcome_unknown',reason:String(error.message),
+                  consumer:{run_id:String(current.run_id),run_attempt:String(current.run_attempt)}});
+              } else {
+                result = {schema:'closer-correction-admission-refusal/v1',selector_sha256:digest(selector),
+                  consumer:{run_id:String(current.run_id),run_attempt:String(current.run_attempt)},
+                  effect_state:'outcome_unknown',reason:String(error.message),retry_authorized:false,
+                  act_authorized:false,source_closure_authorized:false};
+                result.receipt_sha256 = digest(result);
+              }
+            }
+            const terminal = normalizeTerminalDisposition({source_type:'correction-request',
+              source_id:result.request?.request_sha256 || result.request_sha256 || result.selector_sha256,disposition:result.effect_state,
+              reason:result.reason,run_id:current.run_id,run_attempt:current.run_attempt,
+              artifact_family:'verifier-terminal-disposition',
+              artifact_name:`verifier-terminal-disposition-${current.run_id}-correction-effect-${current.run_attempt}`});
+            terminal.correction_receipt = result;
+            fs.mkdirSync('agent-metrics',{recursive:true});
+            fs.writeFileSync('agent-metrics/verifier-terminal-disposition.ndjson',JSON.stringify(terminal)+'\n');
+            fs.writeFileSync('agent-metrics/verifier-followup-ledger.ndjson',JSON.stringify(result)+'\n');
+            // Local terminal evidence survives even when immutable upload or
+            // readback fails. It grants no retry of the original stage intents.
+            await transport.publish('receipt',Buffer.from(JSON.stringify(result)+'\n'));
+            core.summary.addHeading('Scoped correction effect receipt').addRaw(result.effect_state).write();
+      - name: Upload correction effect disposition
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verifier-terminal-disposition-${{ github.run_id }}-correction-effect-${{ github.run_attempt }}
+          path: agent-metrics/*.ndjson
+          retention-days: 30
+          if-no-files-found: warn

@@ -1,0 +1,1089 @@
+{
+  "fixture_kind": "synthetic_inert_role_reader_equivalence",
+  "source": "stranske/Orchestrator:src/closer_role_qualification.py",
+  "reader_semantics_sha256": "2deb2934814a97cc9f4066058ae4b1813240efcc500cb5e5bbd1ebe864ced9c8",
+  "cases": [
+    {
+      "id": "qualified",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": true
+    },
+    {
+      "id": "expired",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 100,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "before_qualified",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 9,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "revoked",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "revoked",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "wrong_role",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "strong_criterion_adjudication",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "wrong_prompt",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "different",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "wrong_digest",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "wrong_transport",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "local",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "missing_evidence",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "tools",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": true,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "missing_hook_guard",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "invalid_adapter_build",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "invalid"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "aider",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "AIDER",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "inactive",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "retired",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "no_offload",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "local"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": false
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    },
+    {
+      "id": "explicit_bool_required",
+      "profile": {
+        "profile_id": "synthetic-ordinary",
+        "agent": "claude",
+        "provider": "anthropic",
+        "requested_model": "fixture-model",
+        "reasoning_effort": "high",
+        "permission_mode": "read-only",
+        "adapter_version": "fixture-adapter",
+        "prompt_version": "fixture-prompt",
+        "lifecycle_status": "active",
+        "transport_support": [
+          "offload"
+        ],
+        "capacity_pool_ids": [
+          "fixture-pool"
+        ],
+        "requires_explicit_selection": false
+      },
+      "role": "bounded_classification",
+      "now": 50,
+      "records": {
+        "fixture-qualified": {
+          "schema": "closer-role-qualification/v1",
+          "qualification_id": "fixture-qualified",
+          "status": "qualified",
+          "role": "bounded_classification",
+          "profile_identity": {
+            "profile_id": "synthetic-ordinary",
+            "agent": "claude",
+            "provider": "anthropic",
+            "requested_model": "fixture-model",
+            "reasoning_effort": "high",
+            "permission_mode": "read-only",
+            "adapter_version": "fixture-adapter",
+            "prompt_version": "fixture-prompt",
+            "lifecycle_status": "active",
+            "transport_support": [
+              "offload"
+            ],
+            "capacity_pool_ids": [
+              "fixture-pool"
+            ],
+            "requires_explicit_selection": 1
+          },
+          "profile_identity_sha256": "ce704adaa1358f3130ee296ed9abad44c6aac247037cfec7774b8575a88d7686",
+          "transport": "offload",
+          "qualified_at": 10,
+          "expires_at": 100,
+          "evidence_refs": [
+            {
+              "reference": "inert:offline-evidence",
+              "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            }
+          ],
+          "confinement": {
+            "data_only": true,
+            "tools": false,
+            "mcp": false,
+            "hooks": false,
+            "project_context": false,
+            "adapter_build_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      },
+      "qualified": false
+    }
+  ]
+}

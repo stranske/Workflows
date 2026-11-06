@@ -476,6 +476,15 @@ hour, it applies `agents:auto-pilot-pause` to stop the recursion.
 Do not remove the pause label before correcting the cause; doing so can restart
 the same recursion and exhaust the bounded retry cap again.
 
+### Format-guard pause
+
+When the issue format guard pauses an issue (its comment carries
+`<!-- format-guard:attempt-cap -->`) after three real rewrite attempts or three
+optimizer crashes, no human action is required: the opener lane (opener-core)
+rewrites and re-validates paused issues automatically. Remove
+`agents:auto-pilot-pause` only to force an earlier retry; the guard then starts
+a fresh budget.
+
 ### Issue: Agent Not Starting
 
 **Symptoms:** Added `agent:codex` but nothing happens

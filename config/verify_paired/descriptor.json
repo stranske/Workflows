@@ -1,0 +1,14 @@
+{
+  "schema": "verify-paired-source-descriptor/v1",
+  "packet_root": "representative-v1",
+  "proposal_sha256": "97fce11c3fadac8d6ee0bb51f9c4b5dfc8f6c31e2ca175ef4d9d7d13ad63fa4a",
+  "review_sha256": "9ff48779d1fed66eac16d0e76a6caeee8d47359b55dbe613ad9d48df58f3d66c",
+  "policy_file": "representative-policy.json",
+  "policy_sha256": "ae9a26f15c5a8f60377a15635a487d38034d8bf9d04da8ee1fdb804b8a0aafa4",
+  "slots_file": "representative-slots.json",
+  "slots_sha256": "ecae3e914878e18dcea2ce51438ab7c83c9022096c5a5b9628eeb917fe171268",
+  "cases": [
+    "workflows-3850",
+    "workflows-4265-verified"
+  ]
+}

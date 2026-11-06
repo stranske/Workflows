@@ -190,8 +190,11 @@ def test_standard_profile_does_not_partition_even_when_requested(recovery, monke
         type(client), "invoke", return_value=SimpleNamespace(content='{"verdict":"PASS"}')
     ) as invoke:
         result = _run(recovery, "evaluate")
-    invoke.assert_called_once()
-    counter.assert_not_called()
+    # Standard requests also count their whole prompt, but diagnostic partition
+    # recovery remains explicitly expanded-only. Overflow must not generate.
+    invoke.assert_not_called()
+    counter.assert_called_once()
+    assert result.verdict == "CONCERNS" and not result.used_llm
     assert result.partition_recovery is None
 
 

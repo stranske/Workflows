@@ -903,3 +903,32 @@ def test_run_command_and_semantic_duplicate_empty_scored_paths(monkeypatch) -> N
     monkeypatch.setattr(uploader, "duplicate_similarity", record_similarity)
     assert uploader.find_semantic_duplicate(issue(), [rival]) is None
     assert scored == [rival]
+
+
+def test_authoring_falls_back_when_evidence_directory_is_unavailable(
+    monkeypatch, tmp_path: Path
+) -> None:
+    mirror = tmp_path / "mirror"
+    mirror.mkdir()
+    (mirror / "capability_advisor.py").touch()
+    monkeypatch.setattr(uploader, "ORCHESTRATOR_MIRROR", mirror)
+    monkeypatch.setattr(
+        uploader.tempfile, "mkdtemp", lambda **_kwargs: (_ for _ in ()).throw(OSError("nope"))
+    )
+    selected, receipt = uploader.author_issue_batch([issue()], output_root=tmp_path)
+    assert selected == [issue()]
+    assert receipt == {"state": "evidence-directory-unavailable", "error": "nope"}
+
+
+def test_main_refuses_invalid_upload_permission(monkeypatch, tmp_path: Path, capsys) -> None:
+    queue = tmp_path / "queue.json"
+    queue.write_text(json.dumps({"issues": [issue()], "upload_allowed": "yes"}), encoding="utf-8")
+    monkeypatch.setattr(
+        uploader,
+        "parse_args",
+        lambda: argparse.Namespace(
+            queue=queue, apply=False, gh_prefix="gh", repo=[], authoring_dir=None
+        ),
+    )
+    assert uploader.main() == 2
+    assert "Invalid upload permission" in capsys.readouterr().err

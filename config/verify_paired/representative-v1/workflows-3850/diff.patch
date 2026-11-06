@@ -1,0 +1,286 @@
+diff --git a/.github/scripts/__tests__/maint71_devtool_final_binding.test.js b/.github/scripts/__tests__/maint71_devtool_final_binding.test.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..3d40fa2c7b17c13b05f400e2f9d32bfbe48c6eba
+--- /dev/null
++++ b/.github/scripts/__tests__/maint71_devtool_final_binding.test.js
+@@ -0,0 +1,64 @@
++'use strict';
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const fs = require('node:fs');
++const path = require('node:path');
++const { independentVerificationDeliveryUnchanged: unchanged } = require('../maint71_merge_sync_prs');
++const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
++
++const head = '39ab28414db3944adcb74f73daee66806921edfc';
++const record = {
++  schema: 'sync-pr-delivery-record/v1',
++  durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
++  plan_id: 'dev-tool-ab725abacde7', generation: 'ab725abacde7',
++  repository: 'stranske/Trend_Model_Project',
++  desired_tree_hash: '79080970d514c98122ec25fae6fd41933c587b5f',
++  source_commit: '19ab61a1e281791e915e512407fffa20515600bb',
++  lease_expires_at: '2026-10-14T23:53:24Z', predecessor_prs: [], successor_prs: [],
++};
++const parsed = (value) => parseDeliveryRecord(
++  '<!-- sync-pr-delivery-record:v1 ' + JSON.stringify(value) + ' -->',
++);
++const now = Date.parse('2026-10-12T00:04:17Z');
++const branch = 'deps/sync-dev-versions-ab725abacde7';
++const verify = (previous, current, options = {}) =>
++  unchanged({ previous: parsed(previous), current: parsed(current), head, branch, now, ...options });
++
++test('actual Maint52 dev-tool record survives both final reads without invented observed-head fields', () => {
++  assert.equal(verify(record, record), true);
++  assert.equal(verify(record, structuredClone(record)), true);
++});
++
++test('dev-tool optional observation must agree; workflow deliveries require an observation', () => {
++  const observed = { ...record, head_observed_sha: head, head_observed_at: '2026-10-11T23:53:24Z' };
++  assert.equal(verify(observed, observed), true);
++  const conflict = { ...observed, head_observed_sha: 'b'.repeat(40) };
++  assert.equal(verify(conflict, conflict), false);
++  assert.equal(verify(record, record, { branch: 'sync/workflows-candidate' }), false);
++  assert.equal(verify(observed, observed, { branch: 'sync/workflows-candidate' }), true);
++  assert.equal(verify(observed, observed, { branch: 'sync/workflows-legacy-generation' }), true);
++  assert.equal(verify(record, record, { branch: 'sync/workflows-legacy-generation' }), false);
++  assert.equal(verify(record, record, { branch: 'ordinary-feature' }), false);
++  assert.equal(verify(record, record, { head: '' }), false);
++});
++
++test('each record binding change and expired/invalid lease fails closed at either final read', () => {
++  for (const field of ['plan_id', 'generation', 'source_commit', 'desired_tree_hash',
++    'repository', 'durable_issue_url', 'lease_expires_at', 'predecessor_prs', 'successor_prs']) {
++    const changed = { ...record, [field]: Array.isArray(record[field]) ? ['42'] : record[field] + '-changed' };
++    assert.equal(verify(record, changed), false, field);
++    assert.equal(verify(changed, record), false, 'reverse:' + field);
++  }
++  const expired = { ...record, lease_expires_at: '2026-10-11T23:00:00Z' };
++  assert.equal(verify(expired, expired), false);
++  const invalid = { ...record, lease_expires_at: 'invalid' };
++  assert.equal(verify(invalid, invalid), false);
++});
++
++test('controller uses the same binding guard on REST and immediately-pre-resolution GraphQL records', () => {
++  const source = fs.readFileSync(path.join(__dirname, '../maint71_merge_sync_prs.js'), 'utf8');
++  assert.match(source, /previous: deliveryRecord, current: currentRecord/);
++  assert.match(source, /previous: currentRecord, current: latestRecord/);
++  assert.match(source, /currentPr\.head\?\.sha !== pr\.head\.sha/);
++  assert.match(source, /latest\?\.headRefOid !== pr\.head\.sha \|\| !finalVerification\.ok/);
++});
+diff --git a/.github/scripts/__tests__/maint71_finding_verification.test.js b/.github/scripts/__tests__/maint71_finding_verification.test.js
+index 14f3940bbc456d47afe1745f0a87d20aeede1510..d798739f1d8122c5e0d12692b3ce6182cf473815 100644
+--- a/.github/scripts/__tests__/maint71_finding_verification.test.js
++++ b/.github/scripts/__tests__/maint71_finding_verification.test.js
+@@ -103,8 +103,11 @@ test('generic review, forged publisher, stale receipt, missing regression, and p
+ 
+ // Exercise the actual controller closure with API doubles, including both race
+ // checkpoints. Extracting the closure avoids a test-only production export.
+-for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-plan', 'attestation-edited', 'attestation-deleted']) {
+-  test(`controller resolves only unchanged live verification: ${race}`, async () => {
++for (const lane of ['sync', 'dev-tool']) {
++for (const race of ['none', 'expired', 'rest-head', 'rest-branch', 'graphql-head', 'graphql-branch',
++  'graphql-plan', 'graphql-tree', 'graphql-lease', 'graphql-repository',
++  'attestation-edited', 'attestation-deleted']) {
++  test(`controller resolves only unchanged live verification: ${lane}:${race}`, async () => {
+     const f = fixture();
+     const { args } = f;
+     if (race === 'expired') args.now += 25 * 60 * 60 * 1000;
+@@ -112,6 +115,13 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
+       repository: args.proof.repository, head_observed_sha: args.proof.head_sha,
+       head_observed_at: '2026-10-04T00:00:00Z', desired_tree_hash: 'tree',
+       lease_expires_at: '2099-01-01T00:00:00Z' });
++    const branch = lane === 'dev-tool' ? 'deps/sync-dev-versions-ab725abacde7'
++      : 'sync/workflows-candidate';
++    if (lane === 'dev-tool') {
++      delete args.record.head_observed_sha;
++      delete args.record.head_observed_at;
++    }
++    args.record = require('../sync_pr_lease_contract').normalizeRecord(args.record);
+     args.thread.isOutdated = false;
+     f.finish();
+     let reads = 0;
+@@ -128,15 +138,20 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
+         } },
+         pulls: { get: async ({ repo }) => ({ data: repo === 'Workflows'
+           ? { merged_at: '2026-10-04T00:00:00Z', merge_commit_sha: args.proof.source_fix_sha }
+-          : { state: 'open', head: { sha: race === 'rest-head' ? 'changed' : args.proof.head_sha },
++          : { state: 'open', head: { ref: race === 'rest-branch' ? 'other-branch' : branch,
++            sha: race === 'rest-head' ? 'changed' : args.proof.head_sha },
+             body: body(args.record) } }) } },
+       graphql: async (query) => {
+         if (query.includes('resolveReviewThread')) { resolutions++; return {}; }
+         reads++;
+         const record = { ...args.record };
+         if (reads === 2 && race === 'graphql-plan') record.plan_id = 'changed-plan';
++        if (reads === 2 && race === 'graphql-tree') record.desired_tree_hash = 'changed-tree';
++        if (reads === 2 && race === 'graphql-lease') record.lease_expires_at = '2098-01-01T00:00:00Z';
++        if (reads === 2 && race === 'graphql-repository') record.repository = 'stranske/Other';
+         return { repository: { pullRequest: {
+           headRefOid: reads === 2 && race === 'graphql-head' ? 'changed' : args.proof.head_sha,
++          headRefName: reads === 2 && race === 'graphql-branch' ? 'unknown-renamed-lane' : branch,
+           body: body(record), reviewThreads: args.threads,
+         } } };
+       },
+@@ -165,7 +180,7 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
+     };
+     const resolve = vm.runInNewContext(`(function() { ${source.slice(start, end)} return resolveProvenReviewDebt; })()`, sandbox);
+     const result = await resolve({ owner: 'stranske', repo: 'Ready',
+-      pr: { number: 1, head: { sha: args.proof.head_sha } }, deliveryRecord: args.record });
++      pr: { number: 1, head: { sha: args.proof.head_sha, ref: branch } }, deliveryRecord: args.record });
+     assert.equal(resolutions, race === 'none' ? 1 : 0, JSON.stringify(result));
+     assert.equal(result.errors.length, race === 'none' ? 0 : 1);
+     if (race === 'expired') {
+@@ -174,6 +189,7 @@ for (const race of ['none', 'expired', 'rest-head', 'graphql-head', 'graphql-pla
+     }
+   });
+ }
++}
+ 
+ test('stock top-level completion resolves its short ref to the exact full head', async () => {
+   const { collectOriginatingCompletions } = require('../maint71_finding_verification');
+@@ -197,7 +213,7 @@ test('stock top-level completion resolves its short ref to the exact full head',
+ 
+ test('collect all outer thread and inner comment pages, rejecting interrupted or changed pages', async () => {
+   const { collectFindingReviewState } = require('../maint71_finding_verification');
+-  for (const variant of ['complete', 'head-changed', 'cursor-missing']) {
++  for (const variant of ['complete', 'head-changed', 'branch-changed', 'branch-missing', 'cursor-missing']) {
+     const calls = [];
+     const github = { graphql: async (_query, vars) => {
+       calls.push(vars);
+@@ -207,6 +223,8 @@ test('collect all outer thread and inner comment pages, rejecting interrupted or
+       const second = Boolean(vars.after);
+       return { repository: { pullRequest: {
+         headRefOid: second && variant === 'head-changed' ? 'changed' : 'head',
++        headRefName: variant === 'branch-missing' ? undefined
++          : second && variant === 'branch-changed' ? 'renamed' : 'sync/workflows-candidate',
+         body: 'stable-body', reviewThreads: {
+           pageInfo: { hasNextPage: !second, endCursor: variant === 'cursor-missing' ? null : 'outer-cursor' },
+           nodes: [{ id: second ? 'thread2' : 'thread1', isResolved: false, isOutdated: false,
+diff --git a/.github/scripts/maint71_finding_verification.js b/.github/scripts/maint71_finding_verification.js
+index 656d6bc123eaceb9781b9c6a59a5498d12acc6bb..5dc3a33cca6daf1458046f034c540fa057fdc91f 100644
+--- a/.github/scripts/maint71_finding_verification.js
++++ b/.github/scripts/maint71_finding_verification.js
+@@ -99,7 +99,7 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
+     const data = await read((client) => client.graphql(`
+       query($owner:String!,$repo:String!,$number:Int!,$after:String) {
+         repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
+-          headRefOid body reviewThreads(first:100,after:$after) {
++          headRefOid headRefName body reviewThreads(first:100,after:$after) {
+             pageInfo { hasNextPage endCursor } nodes { id isResolved isOutdated
+               comments(first:100) { pageInfo { hasNextPage endCursor } nodes { ${fields} } }
+             }
+@@ -107,11 +107,12 @@ async function collectFindingReviewState({ owner, repo, number, read }) {
+         } }
+       }`, { owner, repo, number, after }));
+     const fresh = data?.repository?.pullRequest;
+-    if (!fresh?.headRefOid || !Array.isArray(fresh.reviewThreads?.nodes)
++    if (!fresh?.headRefOid || !fresh?.headRefName || !Array.isArray(fresh.reviewThreads?.nodes)
+       || typeof fresh.reviewThreads?.pageInfo?.hasNextPage !== 'boolean') {
+       throw new Error('Incomplete review-thread inventory');
+     }
+-    if (snapshot && (snapshot.headRefOid !== fresh.headRefOid || snapshot.body !== fresh.body)) {
++    if (snapshot && (snapshot.headRefOid !== fresh.headRefOid
++      || snapshot.headRefName !== fresh.headRefName || snapshot.body !== fresh.body)) {
+       throw new Error('Delivery changed during review pagination');
+     }
+     snapshot = fresh;
+diff --git a/.github/scripts/maint71_merge_sync_prs.js b/.github/scripts/maint71_merge_sync_prs.js
+index 2ded8d9408dc3676f9f9b380c7df2a85a4cae53c..6d880c1ca881587642f41357d6e3afcf6645fcf4 100644
+--- a/.github/scripts/maint71_merge_sync_prs.js
++++ b/.github/scripts/maint71_merge_sync_prs.js
+@@ -75,6 +75,24 @@ function hasCompleteReviewThreadEvidence(connection) {
+   );
+ }
+ 
++// Keep the last delivery read bound to the selected record and exact PR head.
++function independentVerificationDeliveryUnchanged({ previous, current, head, branch, now = Date.now() }) {
++  const { generatedDeliveryLane } = require('./sync_pr_merge_contract');
++  const { isDeepStrictEqual } = require('node:util');
++  const lane = generatedDeliveryLane(branch);
++  const devTool = lane === 'dev-tool-sync';
++  return Boolean(previous && current
++    && /^[a-f0-9]{40}$/.test(head || '')
++    && (devTool || lane === 'sync')
++    && isDeepStrictEqual(previous, current)
++    && Date.parse(current.lease_expires_at) > now
++    // Maint52 does not emit an observation pair; its fresh REST/GraphQL PR
++    // heads are checked by the caller. Never accept a conflicting observation.
++    && (current.head_observed_sha
++      ? current.head_observed_sha === head
++      : devTool));
++}
++
+ function confirmedClosedPrIdentity(closedResponse, selectedPr) {
+   const closed = closedResponse?.data;
+   return closed?.state === 'closed'
+@@ -1403,7 +1421,7 @@ async function run({ github, context, core }) {
+           owner, repo, number: pr.number, read: withReviewReadRetry,
+         });
+         const threads = fresh?.reviewThreads;
+-        if (fresh?.headRefOid !== pr.head.sha) {
++        if (fresh?.headRefOid !== pr.head.sha || fresh?.headRefName !== pr.head.ref) {
+           errors.push(`${proof.thread_id}:head_changed`);
+           continue;
+         }
+@@ -1441,10 +1459,11 @@ async function run({ github, context, core }) {
+           }));
+           const currentRecord = parseDeliveryRecord(currentPr.body || '');
+           if (currentPr.state !== 'open' || currentPr.head?.sha !== pr.head.sha
+-            || !currentRecord || ['plan_id', 'generation', 'source_commit',
+-              'head_observed_sha', 'lease_expires_at'].some((key) =>
+-              currentRecord[key] !== deliveryRecord[key])
+-            || !(Date.parse(currentRecord.lease_expires_at) > Date.now())) {
++            || currentPr.head?.ref !== pr.head.ref
++            || !independentVerificationDeliveryUnchanged({
++              previous: deliveryRecord, current: currentRecord,
++              head: pr.head.sha, branch: pr.head.ref, now: Date.now(),
++            })) {
+             errors.push(`${proof.thread_id}:head_changed`);
+             continue;
+           }
+@@ -1466,8 +1485,11 @@ async function run({ github, context, core }) {
+             topLevelComments: latestCompletions,
+           });
+           if (latest?.headRefOid !== pr.head.sha || !finalVerification.ok
+-            || latestRecord?.head_observed_sha !== pr.head.sha
+-            || latestRecord?.lease_expires_at !== currentRecord.lease_expires_at) {
++            || latest?.headRefName !== pr.head.ref
++            || !independentVerificationDeliveryUnchanged({
++              previous: currentRecord, current: latestRecord,
++              head: pr.head.sha, branch: latest.headRefName, now: Date.now(),
++            })) {
+             errors.push(`${proof.thread_id}:verification_changed_before_resolution`);
+             continue;
+           }
+@@ -3818,6 +3840,7 @@ async function run({ github, context, core }) {
+ }
+ 
+ module.exports = {
++  independentVerificationDeliveryUnchanged,
+   adoptFinalCheckEvidence,
+   confirmedClosedPrIdentity,
+   devToolBaseRefreshResult,
+diff --git a/docs/ops/CONSUMER_REPO_MAINTENANCE.md b/docs/ops/CONSUMER_REPO_MAINTENANCE.md
+index 7bac7940e7e4dcd28102cf579ffd77e3e676ebb7..aa50c6a3647708df7a915b4b0a6074ad835d5c29 100644
+--- a/docs/ops/CONSUMER_REPO_MAINTENANCE.md
++++ b/docs/ops/CONSUMER_REPO_MAINTENANCE.md
+@@ -1577,6 +1577,18 @@ Only Maint 71 resolves generated threads. Successful resolution still cannot
+ waive exact-head checks, the seven-minute review floor, canary staging, sealing,
+ promotion or full-fleet/Health 83 evidence.
+ 
++The immediately-pre-resolution record guard is lane-aware: Maint 52 dev-tool
++records need not invent a workflow-delivery head-observation pair. Their fresh
++REST and GraphQL PR heads must still equal the selected full head, their current
++branch names must be unchanged (including every review-pagination snapshot),
++and the entire parsed delivery record (including
++desired tree, repository, durable issue, source, plan, generation and lease)
++must remain identical across both reads with a live lease. A present observed
++head must agree even for dev-tool deliveries. Stable workflow deliveries still
++require that observation; unknown branches, changed bindings, incomplete review
++evidence and changed/withdrawn attestation are not recoverable through this
++exception. This is a record-schema distinction, never a merge or review waiver.
++
+ The operator continues through those owning stages in the same run when evidence
+ becomes ready; the recurring two-hour schedule is recovery, not the normal
+ continuation mechanism. A failed assessment causes a concrete repair or explicit

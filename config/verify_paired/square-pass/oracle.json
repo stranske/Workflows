@@ -1,0 +1,16 @@
+{
+  "kind": "precommitted-semantic-oracle/v1",
+  "expected_verdicts": [
+    "PASS"
+  ],
+  "primary_claim": "Returns mathematical square for all Python integers.",
+  "must_preserve": [
+    "Unit assertions are supplied; no test execution or CI success is claimed."
+  ],
+  "must_not_claim": [
+    "Actual passing or failing test execution",
+    "Native provider completion",
+    "Production acceptance authority"
+  ],
+  "scoring": "Allow semantic paraphrase; NONPASS verdict must identify the actual arithmetic defect. No exact wording or numeric confidence requirement beyond parser contract."
+}

@@ -1,0 +1,242 @@
+{
+  "id": "1c0dd50f747d008f6adb5cb3bbf94e587f53409ec612fc0839a24fb89a06d4e2",
+  "implementation_head": "40622701645e1c9c13ff28861ba606a3f78d2e4a",
+  "governing_sha256": "5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503",
+  "raw_inputs": {
+    "context": "5bee0ac917065ad7a94ffb77f0ff2dc3dd363dfcbbbda943733c2998b723f503",
+    "diff": "49d0183e2ca6c238615d3324ee5b793e95d9c69cd244820b16a46dcc6f90c7fb"
+  },
+  "gaps": [],
+  "resource_admitted": true,
+  "manifest": {
+    "schema": "workflows-verifier-capture-obligation-manifest/v1",
+    "sufficient": true,
+    "gaps": [],
+    "obligations": [
+      {
+        "source": ".github/sync-manifest.yml",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 77897,
+        "total_chars": 77897
+      },
+      {
+        "source": ".github/workflows/maint-coverage-guard.yml",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 30663,
+        "total_chars": 30663
+      },
+      {
+        "source": "config/template-drift-allowlist.txt",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 57512,
+        "total_chars": 57512
+      },
+      {
+        "source": "docs/INTEGRATION_GUIDE.md",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 65488,
+        "total_chars": 65488
+      },
+      {
+        "source": "templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 31015,
+        "total_chars": 31015
+      },
+      {
+        "source": "tests/test_coverage_guard.py",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 54200,
+        "total_chars": 54200
+      },
+      {
+        "source": "tests/workflows/test_maint_coverage_guard_artifacts.py",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 2679,
+        "total_chars": 2679
+      },
+      {
+        "source": "tools/coverage_guard.py",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 26653,
+        "total_chars": 26653
+      },
+      {
+        "source": "https://github.com/stranske/Workflows/issues/4254",
+        "kind": "acceptance_source",
+        "status": "included",
+        "included_chars": 4027,
+        "total_chars": 4027
+      },
+      {
+        "source": "evidence/EVIDENCE_INDEX.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 2788,
+        "total_chars": 2788
+      },
+      {
+        "source": "evidence/broken.junit.xml",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 11175,
+        "total_chars": 11175
+      },
+      {
+        "source": "evidence/broken.pytest.log",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      },
+      {
+        "source": "evidence/current-review-runner.py",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 5280,
+        "total_chars": 5280
+      },
+      {
+        "source": "evidence/mutation.patch",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 456,
+        "total_chars": 456
+      },
+      {
+        "source": "evidence/original-two-named-tests.stderr",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      },
+      {
+        "source": "evidence/original-two-named-tests.stdout",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 98,
+        "total_chars": 98
+      },
+      {
+        "source": "evidence/original.junit.xml",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 1538,
+        "total_chars": 1538
+      },
+      {
+        "source": "evidence/original.pytest.log",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      },
+      {
+        "source": "evidence/receipt.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 8218,
+        "total_chars": 8218
+      },
+      {
+        "source": "evidence/removed-current-append.stderr",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      },
+      {
+        "source": "evidence/removed-current-append.stdout",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 12803,
+        "total_chars": 12803
+      },
+      {
+        "source": "evidence/restored-two-named-tests.stderr",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      },
+      {
+        "source": "evidence/restored-two-named-tests.stdout",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 98,
+        "total_chars": 98
+      },
+      {
+        "source": "evidence/restored.junit.xml",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 1538,
+        "total_chars": 1538
+      },
+      {
+        "source": "evidence/restored.pytest.log",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      },
+      {
+        "source": "evidence/sandbox-and-runtime-probe.stderr",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 0,
+        "total_chars": 0
+      },
+      {
+        "source": "evidence/sandbox-and-runtime-probe.stdout",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 218,
+        "total_chars": 218
+      },
+      {
+        "source": "evidence/sandbox.sb",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 213,
+        "total_chars": 213
+      },
+      {
+        "source": "evidence/setup-attempt-1-receipt.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 2490,
+        "total_chars": 2490
+      },
+      {
+        "source": "evidence/setup-attempt-2-receipt.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 2554,
+        "total_chars": 2554
+      },
+      {
+        "source": "evidence/setup-attempt-3-receipt.json",
+        "kind": "acceptance_evidence",
+        "status": "included",
+        "included_chars": 4406,
+        "total_chars": 4406
+      },
+      {
+        "source": "verifier-pr-diff.patch",
+        "kind": "full_diff_artifact",
+        "status": "included",
+        "included_chars": 31667,
+        "total_chars": 31667
+      }
+    ]
+  }
+}

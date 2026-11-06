@@ -1,0 +1,10 @@
+{
+  "schema": "closer-correction-ownership/v1",
+  "kind": "no_incumbent",
+  "seed_effect_key": "75c32346f326ac0e4dd29e56e2be0ffd0b634f235adde55bfd115a2b319d028e",
+  "source_scope_digest": "a02204f4b3e32f9d5b67a8d6c38f19ff63b56a800f028da72e9dffcd77c570d6",
+  "observed_at": "2026-10-26T00:00:00Z",
+  "evidence_refs": [
+    "inert:complete-github-and-ledger-fixture"
+  ]
+}

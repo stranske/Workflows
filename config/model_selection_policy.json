@@ -30,6 +30,9 @@
         "note": "A paired screen and capped API confirmation may support a reversible, human-approved provisional selection. These are observed-case safeguards, not population confidence claims. Monitor live outcomes and roll back on a false PASS or material regression."
       },
       "approval_stage": {
+        "status": "retired",
+        "retired_at": "2026-10-30",
+        "retired_note": "Owner decision 2026-10-30: automatic approval is retired. This stage never approved a model, and the 2026-10-22 analysis (docs/ops/VERIFIER_STANDARDS_ANALYSIS.md) showed zero-error bounds approve only a perfect judge. A verifier-balanced selection now changes only by the owner's decision after a corpus trial (docs/ops/VERIFIER_SHADOW.md, 'Trialling a new candidate'), recorded in config/model_registry.json as on 2026-10-30. The fields below stay in force as corpus-generation settings and as reported measurements, never as a blocker; tools/prepare_model_promotion.py still prepares rollbacks on a gate breach but no longer prepares promotions. Set status to active to restore automatic approval.",
         "minimum_adjudicated_cases": 75,
         "minimum_cases_per_category": 10,
         "minimum_cases_per_category_overrides": {

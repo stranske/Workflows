@@ -108,6 +108,7 @@ async function fetchWorkflowRun({
   headShas,
   core,
   retryOptions,
+  requireExactBinding = false,
 }) {
   const candidates = Array.isArray(headShas)
     ? headShas.map((sha) => String(sha || '').trim()).filter(Boolean)
@@ -146,6 +147,9 @@ async function fetchWorkflowRun({
         continue;
       }
       const exact = runs.find((run) => run.head_sha === sha);
+      if (!exact && requireExactBinding) {
+        return { run: null, error: { category: 'provenance', message: 'CI run response does not match the requested delivery revision' } };
+      }
       return { run: exact || runs[0], error: null };
     }
     return { run: null, error: null };
@@ -231,6 +235,7 @@ async function queryVerifierCiResults({
   workflows,
   retryOptions,
   includeHeadSha = false,
+  includeBinding = false,
 } = {}) {
   const { owner, repo } = context.repo;
   const candidates = [];
@@ -260,6 +265,7 @@ async function queryVerifierCiResults({
       headShas: candidates,
       core,
       retryOptions,
+      requireExactBinding: includeBinding,
     });
     const { jobs, error: jobsError } = await fetchWorkflowJobs({
       github,
@@ -273,7 +279,14 @@ async function queryVerifierCiResults({
     const conclusion = error ? 'api_error' : normalizeConclusion(run);
     results.push({
       workflow_name: workflowName,
-      ...(includeHeadSha ? { head_sha: run?.head_sha || '' } : {}),
+      ...(includeHeadSha || includeBinding ? { head_sha: run?.head_sha || '' } : {}),
+      ...(includeBinding ? { workflow_id: String(workflowId || ''),
+        run_id: Number.isSafeInteger(run?.id) && run.id > 0 ? run.id : null,
+        run_attempt: Number.isSafeInteger(run?.run_attempt) && run.run_attempt > 0 ? run.run_attempt : null,
+        binding_status: !run ? error ? 'unavailable' : 'absent'
+          : Number.isSafeInteger(run.id) && run.id > 0 && Number.isSafeInteger(run.run_attempt)
+            && run.run_attempt > 0 && candidates.includes(run.head_sha) ? 'bound' : 'unavailable',
+      } : {}),
       conclusion,
       run_url: run?.html_url || run?.url || '',
       error_category: error?.category || '',
@@ -289,8 +302,8 @@ async function queryVerifierCiResults({
 
 module.exports = {
   DEFAULT_WORKFLOWS,
-  queryVerifierCiResults: async function ({ github: rawGithub, context, core, targetSha, targetShas, workflows, retryOptions, includeHeadSha } = {}) {
+  queryVerifierCiResults: async function ({ github: rawGithub, context, core, targetSha, targetShas, workflows, retryOptions, includeHeadSha, includeBinding } = {}) {
     const github = await ensureRateLimitWrapped({ github: rawGithub, core, env: process.env });
-    return queryVerifierCiResults({ github, context, core, targetSha, targetShas, workflows, retryOptions, includeHeadSha });
+    return queryVerifierCiResults({ github, context, core, targetSha, targetShas, workflows, retryOptions, includeHeadSha, includeBinding });
   },
 };

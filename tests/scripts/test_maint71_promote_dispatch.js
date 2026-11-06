@@ -83,6 +83,7 @@ for (const status of ['merged', 'campaign_prepared', 'evidence_recovered']) {
     assert.deepEqual(api.dispatched[0], {
       owner: 'stranske', repo: 'Workflows', workflow_id: 'maint-68-sync-consumer-repos.yml', ref: 'main',
       inputs: { phase: 'promote', delivery_scope: 'auto', dry_run: 'false', force: 'false',
+        cleanup_branches: 'true',
         canary_evidence_json: JSON.stringify(built.evidence) },
     });
     assert.match(api.summaries.join(''), /dispatched.*completion awaits a successful Maint 68 run/);

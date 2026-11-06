@@ -1,5 +1,6 @@
 """Tests for ci_failure_analyzer report formatting helpers."""
 
+import json
 from typing import Any
 
 from scripts.ci_failure_analyzer import (
@@ -419,6 +420,22 @@ class TestLoadFailureLogs:
         logs = load_failure_logs(str(log_file))
         # Should skip invalid line and load valid ones
         assert len(logs) == 2
+
+    def test_load_ignores_blank_lines(self, tmp_path: Any, monkeypatch: Any) -> None:
+        """Blank lines are skipped before parsing, not rejected by the JSON error handler."""
+        log_file = tmp_path / "failures.ndjson"
+        log_file.write_text('\n  \n{"error": "timeout"}\n', encoding="utf-8")
+        parsed: list[str] = []
+        real_loads = json.loads
+
+        def spy(text: str, *args: Any, **kwargs: Any) -> Any:
+            parsed.append(text)
+            return real_loads(text, *args, **kwargs)
+
+        monkeypatch.setattr(json, "loads", spy)
+
+        assert load_failure_logs(str(log_file)) == [{"error": "timeout"}]
+        assert parsed == ['{"error": "timeout"}']
 
 
 class TestGetRecentFailures:

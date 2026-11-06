@@ -4,6 +4,7 @@ import base64
 import hashlib
 import sys
 
+import pytest
 from scripts.langchain import issue_pr_context
 from scripts.langchain.issue_pr_context import (
     ContextOptions,
@@ -122,21 +123,45 @@ def test_truncation_helpers_handle_a_budget_smaller_than_the_heading() -> None:
     )
 
 
-def test_context_helpers_cover_marker_and_metadata_edge_values() -> None:
+def test_loads_marker_rejects_non_object_json() -> None:
     assert issue_pr_context._loads_marker("[]") is None
+
+
+def test_workflow_marker_without_constraints_matches() -> None:
     assert issue_pr_context._workflow_matches({}, "agents-auto-pilot") is True
+
+
+def test_embedded_body_rejects_non_string_formatted_body() -> None:
     assert issue_pr_context._embedded_body({"formatted_body": 42}) is None
+
+
+def test_diff_skips_incomplete_and_non_mapping_files() -> None:
     assert issue_pr_context._diff_text({"files": [{"filename": "x"}, "bad"]}) == ""
+
+
+def test_labels_accept_names_and_ignore_other_values() -> None:
     assert issue_pr_context._labels(["plain", {"name": "named"}, 42]) == ["plain", "named"]
+
+
+def test_branch_label_takes_precedence_over_ref() -> None:
     assert (
         issue_pr_context._branch_name({"label": "owner:branch", "ref": "branch"}) == "owner:branch"
     )
+
+
+def test_workflow_filter_is_optional() -> None:
     assert issue_pr_context._workflow_matches({"workflow": "other"}, None) is True
+
+
+def test_embedded_body_accepts_direct_string() -> None:
     assert issue_pr_context._embedded_body({"formatted_body": "embedded"}) == "embedded"
 
 
-def test_context_helpers_reject_invalid_markers_and_cover_optional_metadata() -> None:
+def test_reuse_rejects_empty_body() -> None:
     assert issue_pr_context.reuse_formatted_body({"body": ""}, "agents-auto-pilot") is None
+
+
+def test_reuse_skips_invalid_json_marker() -> None:
     assert (
         issue_pr_context.reuse_formatted_body(
             {"body": "<!-- issue-pr-context:formatted-body:v1 {not json} -->"},
@@ -144,30 +169,67 @@ def test_context_helpers_reject_invalid_markers_and_cover_optional_metadata() ->
         )
         is None
     )
+
+
+def test_headings_accept_longer_closing_fence() -> None:
     assert issue_pr_context._top_level_headings("```\n## Hidden\n````\n## Visible") == ["visible"]
+
+
+def test_headings_accept_equal_closing_fence() -> None:
     assert issue_pr_context._top_level_headings("```\n## Hidden\n```\n## Visible") == ["visible"]
+
+
+def test_issue_metadata_can_omit_all_optional_fields() -> None:
     assert (
         issue_pr_context._issue_metadata(
-            {"labels": "not-a-list"},
+            {
+                "labels": [{"name": "bug"}],
+                "user": {"login": "octocat"},
+                "html_url": "https://github.com/example/repo/issues/42",
+            },
             ContextOptions(include_author=False, include_url=False, include_labels=False),
         )
         == "## Issue Metadata"
     )
+
+
+def test_pr_metadata_can_omit_author_and_url() -> None:
     assert issue_pr_context._pr_metadata(
-        {"base": "main", "head": "topic", "labels": [{}]},
+        {
+            "base": "main",
+            "head": "topic",
+            "labels": [{}],
+            "user": {"login": "octocat"},
+            "html_url": "https://github.com/example/repo/pull/42",
+        },
         ContextOptions(include_author=False, include_url=False),
     ).splitlines() == ["## Pull Request Metadata", "- Base: main", "- Head: topic"]
 
 
-def test_diff_and_workflow_helpers_cover_direct_and_invalid_values() -> None:
+def test_workflow_rejects_non_list_constraints() -> None:
     assert (
         issue_pr_context._workflow_matches({"workflows": "not-a-list"}, "agents-auto-pilot")
         is False
     )
+
+
+def test_embedded_body_rejects_non_string_base64() -> None:
     assert issue_pr_context._embedded_body({"body_b64": 42}) is None
+
+
+def test_diff_accepts_direct_text() -> None:
     assert issue_pr_context._diff_text({"diff": "direct diff"}) == "direct diff"
+
+
+def test_diff_rejects_non_list_files() -> None:
     assert issue_pr_context._diff_text({"files": "not-a-list"}) == ""
+
+
+def test_labels_reject_non_list() -> None:
     assert issue_pr_context._labels("not-a-list") == []
+
+
+def test_labels_skip_mapping_without_name() -> None:
     assert issue_pr_context._labels([{}]) == []
 
 
@@ -466,3 +528,30 @@ def test_already_conformant_original_issue_optional_flag() -> None:
 def test_already_conformant_handles_empty_and_none() -> None:
     assert already_conformant("") is False
     assert already_conformant(None) is False
+
+
+@pytest.mark.parametrize("builder", [build_issue_context, build_pr_context], ids=["issue", "pr"])
+def test_context_reuses_marker_body_before_raw_or_formatted_body(builder) -> None:
+    marker = build_formatted_body_marker(
+        downstream_workflow="agents-auto-pilot", formatted_body="Reusable body"
+    )
+    context = builder(
+        {"body": f"Raw body\n{marker}", "formatted_body": "Stale body"},
+        ContextOptions(downstream_workflow="agents-auto-pilot"),
+    )
+
+    assert context["formatted_body"] == "Reusable body"
+
+
+def test_headings_ignore_shorter_fence_inside_code() -> None:
+    assert issue_pr_context._top_level_headings("````\n```\n## Hidden\n````\n## Visible") == [
+        "visible"
+    ]
+
+
+def test_pr_metadata_can_omit_labels() -> None:
+    metadata = issue_pr_context._pr_metadata(
+        {"labels": [{"name": "bug"}]}, ContextOptions(include_labels=False)
+    )
+
+    assert metadata == "## Pull Request Metadata"

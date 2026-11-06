@@ -1,0 +1,25 @@
+{
+  "schema": "closer-correction-decision/v1",
+  "seed_effect_key": "1812e7ead551bc163d66a67233122659e8df582bc8aea060299abddf655a82e2",
+  "source_scope_digest": "723b518b420c342e3b501ed69d455d4152e8736661b506974101cb1641b0ffbe",
+  "request_sha256": "801e0230bdbe165b0d5825a66d279aba3d1f9cc63852502bfa487e8a0182e830",
+  "findings": [
+    {
+      "id": "raw-b061140462bb70ac9c4a8c5a2c9864740dbe6607713d01da45f63e7f6cc4ab7d",
+      "evidence": {
+        "ref": "evaluation.json#/concerns/0",
+        "sha256": "e98f67f881c9cbfceee52fed3c12a8d69759bd058fa47be1142e14800d7bb7bd"
+      },
+      "classification": "ordinary_substantive",
+      "required_tests_sha256": "e77dac84bda574ec71c764f98649ae2ffe77bc3da35a47f439496352e9aecfe2"
+    }
+  ],
+  "profile": {
+    "id": "inert-qualified-profile",
+    "role": "closer_interpret",
+    "qualification_ref": "inert:qualified-production-source",
+    "qualification_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "retained_packet_ref": "inert:prepare-packet",
+  "decision_evidence_ref": "inert:bounded-source-decision"
+}

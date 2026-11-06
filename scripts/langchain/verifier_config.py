@@ -14,8 +14,9 @@ EVAL_PAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 EVAL_SCHEMA_REPAIR_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 EVAL_FOLLOW_UP_BUDGET_TOKENS = DEFAULT_TOKEN_BUDGET
 
-# Prompt-coverage budgets (#3701). The context block carries CI, plan sources and
-# the diff summary; changed code is reviewed as whole files across bounded chunks.
+# Prompt-coverage budgets (#3701). The context budget bounds CI/navigation and
+# the diff summary. Original requirements remain complete and are admitted by
+# native request counting; changed code uses whole files across bounded chunks.
 # A prefix cap of EVAL_PAIR_BUDGET_TOKENS // 2 per block silently dropped all or
 # most code on complex PRs, so code gets its own bounded budget. Override with the
 # VERIFIER_CONTEXT_BUDGET_TOKENS / VERIFIER_DIFF_BUDGET_TOKENS environment variables.

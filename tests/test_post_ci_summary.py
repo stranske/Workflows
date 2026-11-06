@@ -16,8 +16,8 @@ def _write_json(path: Path, payload: object) -> None:
 
 def _sample_runs(states: dict[str, str | None] | None = None) -> list[dict[str, object]]:
     job_states = states or {
-        "Core Tests (3.12)": "success",
         "Core Tests (3.13)": "success",
+        "Core Tests (3.14)": "success",
         "Docker Smoke": "success",
         "Gate": "success",
     }
@@ -43,16 +43,16 @@ def test_load_required_groups_derives_from_runs() -> None:
     groups = post_ci_summary._load_required_groups(None, runs)
 
     labels = [group["label"] for group in groups]
-    assert labels == ["Core Tests (3.12)", "Core Tests (3.13)", "Docker Smoke", "Gate"]
-    assert groups[0]["patterns"] == [r"^Core\ Tests\ \(3\.12\)$"]
+    assert labels == ["Core Tests (3.13)", "Core Tests (3.14)", "Docker Smoke", "Gate"]
+    assert groups[0]["patterns"] == [r"^Core\ Tests\ \(3\.13\)$"]
     assert groups[3]["patterns"] == [r"^Gate$"]
 
 
 def test_collect_category_states_marks_docs_only_fast_pass() -> None:
     runs = _sample_runs(
         {
-            "Core Tests (3.12)": "skipped",
             "Core Tests (3.13)": "skipped",
+            "Core Tests (3.14)": "skipped",
             "Docker Smoke": "skipped",
         }
     )
@@ -394,8 +394,8 @@ def test_required_group_loading_handles_invalid_and_valid_configurations() -> No
     runs = _sample_runs()
     derived = post_ci_summary._load_required_groups("not-json", runs)
     assert [item["label"] for item in derived] == [
-        "Core Tests (3.12)",
         "Core Tests (3.13)",
+        "Core Tests (3.14)",
         "Docker Smoke",
         "Gate",
     ]
@@ -426,8 +426,8 @@ def test_summary_helpers_render_empty_and_docs_only_paths(tmp_path: Path, monkey
     monkeypatch.setenv("REQUIRED_CONTEXTS_FILE", str(contexts))
     runs = _sample_runs(
         {
-            "Core Tests (3.12)": "skipped",
             "Core Tests (3.13)": "skipped",
+            "Core Tests (3.14)": "skipped",
             "Docker Smoke": "skipped",
             "Gate": "success",
         }
@@ -489,8 +489,8 @@ def test_summary_helpers_reject_invalid_configuration_and_render_unusual_run_sha
     ) == ["Build: ⏳ queued"]
     fallback = post_ci_summary._load_required_groups("[]", [])
     assert [group["label"] for group in fallback] == [
-        "core tests (3.12)",
         "core tests (3.13)",
+        "core tests (3.14)",
         "docker smoke",
         "gate",
     ]
@@ -573,7 +573,7 @@ def test_run_rendering_and_deduplication_cover_missing_and_jobless_records() -> 
 
 
 def test_required_segments_skip_bad_patterns_and_render_canonical_match() -> None:
-    runs = _sample_runs({"Core Tests (3.12)": "success"})
+    runs = _sample_runs({"Core Tests (3.13)": "success"})
     segments = post_ci_summary._collect_required_segments(
         runs,
         [
@@ -581,7 +581,7 @@ def test_required_segments_skip_bad_patterns_and_render_canonical_match() -> Non
             {"label": "core", "patterns": ["Core Tests"]},
         ],
     )
-    assert segments == ["Core Tests (3.12): ✅ success"]
+    assert segments == ["Core Tests (3.13): ✅ success"]
 
 
 def test_triage_and_playbook_helpers_reject_unusable_inputs(monkeypatch, tmp_path: Path) -> None:
@@ -605,14 +605,14 @@ def test_job_group_derivation_and_category_collection_ignore_malformed_records()
                 None,
                 {"name": 3},
                 {"name": "  "},
-                {"name": "Core Tests (3.12)", "status": "queued"},
+                {"name": "Core Tests (3.13)", "status": "queued"},
             ],
         },
     ]
     groups = post_ci_summary._derive_required_groups_from_runs(runs)
-    assert groups[0]["label"] == "Core Tests (3.12)"
+    assert groups[0]["label"] == "Core Tests (3.13)"
     states = post_ci_summary._collect_category_states(runs)
-    assert states["core312"] == ("fallback / Core Tests (3.12)", "queued")
+    assert states["core313"] == ("fallback / Core Tests (3.13)", "queued")
     assert post_ci_summary._is_docs_only_fast_pass({}) is False
 
 
@@ -620,8 +620,8 @@ def test_job_group_derivation_and_category_collection_ignore_malformed_records()
 def test_required_group_configuration_falls_back_when_no_usable_groups(raw: str) -> None:
     groups = post_ci_summary._load_required_groups(raw, [])
     assert [group["label"] for group in groups] == [
-        "core tests (3.12)",
         "core tests (3.13)",
+        "core tests (3.14)",
         "docker smoke",
         "gate",
     ]
@@ -722,14 +722,14 @@ def test_derive_required_groups_skips_duplicate_casefold_matches() -> None:
     runs = [
         {
             "jobs": [
-                {"name": "Core Tests (3.12)"},
-                {"name": "core tests (3.12)"},
+                {"name": "Core Tests (3.13)"},
+                {"name": "core tests (3.13)"},
                 {"name": "Unrelated Job"},
             ]
         }
     ]
     groups = post_ci_summary._derive_required_groups_from_runs(runs)
-    assert groups[0]["patterns"] == [r"^Core\ Tests\ \(3\.12\)$"]
+    assert groups[0]["patterns"] == [r"^Core\ Tests\ \(3\.13\)$"]
 
 
 def test_load_required_groups_skips_empty_pattern_lists() -> None:
@@ -958,8 +958,8 @@ def test_build_summary_docs_only_and_coverage_section_only(tmp_path: Path, monke
     summary = post_ci_summary.build_summary_comment(
         runs=_sample_runs(
             {
-                "Core Tests (3.12)": "skipped",
                 "Core Tests (3.13)": "skipped",
+                "Core Tests (3.14)": "skipped",
                 "Docker Smoke": "skipped",
             }
         ),
@@ -993,19 +993,19 @@ def test_category_states_prefer_higher_priority_and_docs_only_requires_skipped()
             "present": True,
             "displayName": "CI",
             "jobs": [
-                {"name": "Core Tests (3.12)", "conclusion": "success"},
-                {"name": "Core Tests (3.12)", "conclusion": "failure"},
-                {"name": "Core Tests (3.13)", "conclusion": "skipped"},
+                {"name": "Core Tests (3.13)", "conclusion": "success"},
+                {"name": "Core Tests (3.13)", "conclusion": "failure"},
+                {"name": "Core Tests (3.14)", "conclusion": "skipped"},
                 {"name": "Docker Smoke", "conclusion": "success"},
             ],
         }
     ]
     states = post_ci_summary._collect_category_states(runs)
-    assert states["core312"][1] == "failure"
+    assert states["core313"][1] == "failure"
     assert post_ci_summary._is_docs_only_fast_pass(states) is False
     skipped_only = {
-        "core312": ("a", "skipped"),
-        "core313": ("b", "skipped"),
+        "core313": ("a", "skipped"),
+        "core314": ("b", "skipped"),
         "docker": ("c", None),
     }
     assert post_ci_summary._is_docs_only_fast_pass(skipped_only) is False
@@ -1019,7 +1019,7 @@ def test_derive_and_category_skip_non_sequence_jobs() -> None:
     runs = [{"jobs": {"name": "Gate"}}, {"present": True, "jobs": {"name": "Gate"}}]
     assert [
         group["label"] for group in post_ci_summary._derive_required_groups_from_runs(runs)
-    ] == ["core tests (3.12)", "core tests (3.13)", "docker smoke", "gate"]
+    ] == ["core tests (3.13)", "core tests (3.14)", "docker smoke", "gate"]
     assert post_ci_summary._collect_category_states(runs) == {}
 
 
@@ -1058,15 +1058,15 @@ def test_category_states_keep_worse_state_when_later_job_is_weaker() -> None:
             "present": True,
             "displayName": "CI",
             "jobs": [
-                {"name": "Core Tests (3.12)", "conclusion": "failure"},
-                {"name": "Core Tests (3.12)", "conclusion": "success"},
-                {"name": "Core Tests (3.13)", "conclusion": "skipped"},
+                {"name": "Core Tests (3.13)", "conclusion": "failure"},
+                {"name": "Core Tests (3.13)", "conclusion": "success"},
+                {"name": "Core Tests (3.14)", "conclusion": "skipped"},
                 {"name": "Docker Smoke", "conclusion": "skipped"},
             ],
         }
     ]
     states = post_ci_summary._collect_category_states(runs)
-    assert states["core312"][1] == "failure"
+    assert states["core313"][1] == "failure"
 
 
 def test_dedupe_runs_keeps_present_over_absent_and_equal_priority() -> None:

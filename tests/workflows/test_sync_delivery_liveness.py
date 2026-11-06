@@ -125,7 +125,9 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     candidate_refresh = workflow.split("      - name: Refresh stale candidate bases")[1].split(
         "      - name: Refresh stale delivery bases"
     )[0]
-    assert "await dispatchCanaryRefresh({" in candidate_refresh
+    assert "await dispatchCandidateRefreshFromReport({" in candidate_refresh
+    assert "trustedActors:" in candidate_refresh
+    assert "withRetry, context, core, report" in candidate_refresh
     assert "createWorkflowDispatch" not in candidate_refresh
     delivery_refresh = workflow.split("      - name: Refresh stale delivery bases")[1].split(
         "      - name: Promote complete exact-plan canary evidence"
@@ -235,8 +237,13 @@ def test_canary_digest_guard_runs_before_consumer_mutation_and_tracks_real_recei
     workflow = Path(".github/workflows/maint-68-sync-consumer-repos.yml").read_text()
     executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text()
     guard = workflow.split("      - name: Check content refresh guard")[1].split(
-        "      - name: Compile typed consumer sync plan"
+        "      - name: Build phase-gated repo matrix"
     )[0]
+    assert (
+        workflow.index("      - name: Compile typed consumer sync plan")
+        < workflow.index("      - name: Select full or exact source-delta plan")
+        < workflow.index("      - name: Check content refresh guard")
+    )
     assert "readCanaryRefreshState" in guard
     assert "ignoreRunId: context.runId" in guard
     assert "sourceSha: process.env.SOURCE_COMMIT" in guard

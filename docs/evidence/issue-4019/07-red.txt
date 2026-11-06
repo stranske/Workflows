@@ -1,0 +1,28 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestGitHubModelsConfidenceValidation.test_validate_confidence_applies_data_quality_cap _
+
+self = <tests.tools.test_llm_provider.TestGitHubModelsConfidenceValidation object at 0x119e2cc80>
+
+    def test_validate_confidence_applies_data_quality_cap(self):
+        provider = GitHubModelsProvider()
+        quality_context = SessionQualityContext(
+            data_quality="minimal",
+            analysis_text_length=500,
+        )
+    
+        confidence, warnings = provider._validate_confidence(
+            raw_confidence=0.95,
+            completed_count=1,
+            in_progress_count=0,
+            quality_context=quality_context,
+            reasoning="Done.",
+        )
+    
+>       assert confidence == 0.4
+E       assert 0.95 == 0.4
+
+tests/tools/test_llm_provider.py:1923: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_applies_data_quality_cap
+1 failed in 0.22s

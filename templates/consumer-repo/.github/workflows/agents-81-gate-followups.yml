@@ -78,6 +78,7 @@ jobs:
     outputs:
       pr_number: ${{ steps.evaluate.outputs.pr_number }}
       pr_ref: ${{ steps.evaluate.outputs.pr_ref }}
+      base_ref: ${{ steps.evaluate.outputs.base_ref }}
       head_sha: ${{ steps.evaluate.outputs.head_sha }}
       action: ${{ steps.evaluate.outputs.action }}
       reason: ${{ steps.evaluate.outputs.reason }}
@@ -332,6 +333,7 @@ jobs:
             const output = {
               pr_number: String(result.prNumber || ''),
               pr_ref: String(result.prRef || ''),
+              base_ref: String(result.baseRef || ''),
               head_sha: String(result.headSha || ''),
               action: result.action || '',
               reason: result.reason || '',
@@ -844,6 +846,7 @@ jobs:
       codex_reasoning_effort: ${{ needs.evaluate.outputs.worker_reasoning_effort || 'high' }}
       pr_number: ${{ needs.evaluate.outputs.pr_number }}
       pr_ref: ${{ needs.evaluate.outputs.pr_ref }}
+      base_ref: ${{ needs.evaluate.outputs.base_ref }}
       appendix: ${{ needs.evaluate.outputs.task_appendix }}
       iteration: ${{ needs.evaluate.outputs.iteration }}
 
@@ -987,7 +990,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
 
@@ -1078,7 +1081,7 @@ jobs:
           echo "$metrics_json" >> keepalive-metrics.ndjson
 
       - name: Upload keepalive metrics artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: keepalive-metrics
           path: keepalive-metrics.ndjson
@@ -1086,6 +1089,7 @@ jobs:
           if-no-files-found: error
 
       - name: Auto-reconcile task checkboxes
+        id: reconcile
         if: |
           needs.run-codex.outputs.changes-made == 'true' ||
           needs.run-claude.outputs.changes-made == 'true' ||
@@ -1181,6 +1185,7 @@ jobs:
             core.setOutput('llm_confidence', llmConfidence);
             core.setOutput('llm_analysis_run', llmAnalysisRun);
             core.setOutput('llm_tasks_count', llmCompletedTasks.length);
+            core.setOutput('llm_ticked_tasks', result.updated ? (result.llmTasksChecked || 0) : 0);
             core.setOutput('commit_tasks_count', result.sources?.commit || 0);
 
       - name: Mint KEEPALIVE_APP summary token
@@ -1287,6 +1292,7 @@ jobs:
               github.event.inputs.authority_challenge_claim || '' }}
           AUTHORITY_CHALLENGE_SIGNING_KEY: >-
             ${{ secrets.KEEPALIVE_AUTHORITY_SIGNING_KEY || '' }}
+          LLM_TICKED_TASKS: ${{ steps.reconcile.outputs.llm_ticked_tasks }}
           KEEPALIVE_SUMMARY_WRITER: >-
             ${{
               steps.summary_keepalive_app_token.outputs.token != '' &&
@@ -1406,6 +1412,7 @@ jobs:
               llm_provider: llmProvider,
               llm_confidence: llmConfidence,
               llm_analysis_run: llmAnalysisRun,
+              llm_ticked_tasks: Number(process.env.LLM_TICKED_TASKS) || 0,
               force_retry: process.env.FORCE_RETRY === 'true',
               authority_challenge_fingerprint:
                 process.env.AUTHORITY_CHALLENGE_FINGERPRINT || '',
@@ -2454,7 +2461,7 @@ jobs:
           PY
 
       - name: Upload metrics artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: agents-autofix-metrics
           path: autofix-metrics.ndjson
@@ -2622,7 +2629,7 @@ jobs:
 
             // #2270 (FO-5): consumer in-repo guarded merger. Mirrors the reusable-70
             // automerge sweep guards (combined status + all check-runs success), REFUSES
-            // bootstrap-only placeholder PRs, and REFUSES PRs whose linked issue/PR still
+            // bootstrap-only placeholder PRs, and REFUSES PRs whose task block still
             // has unchecked tasks. This gives consumers an in-repo merge leg instead of
             // depending on the local closer lane, now that the belt worker no longer
             // enables guardless native auto-merge.
@@ -2684,7 +2691,7 @@ jobs:
 
             // Count unchecked GitHub task checkboxes ("- [ ]") in real (non-quoted) lines.
             // Quoted lines ("> - [ ]", e.g. the belt PR's mirrored issue body) are ignored
-            // so they do not block a merge; the linked issue's own body is the source of truth.
+            // so they do not block a merge; the PR's actionable tasks carry progress.
             function countUnchecked(text) {
               if (!text) return 0;
               let count = 0;
@@ -2759,7 +2766,7 @@ jobs:
             function uncheckedTaskFailure(pr, linkedIssueSnapshot) {
               const referenceFailure = issueReferenceFailure(pr);
               if (referenceFailure) return referenceFailure;
-              let unchecked = countUnchecked(pr?.body);
+              const unchecked = countUnchecked(pr?.body);
               const linkedIssue = inferIssue(pr);
               if (linkedIssue) {
                 if (
@@ -2771,11 +2778,45 @@ jobs:
                 if (linkedIssueSnapshot.failure) {
                   return linkedIssueSnapshot.failure;
                 }
-                unchecked += countUnchecked(linkedIssueSnapshot.body);
+                // Source identity/version remain binding; progress lives in the PR.
+                // Keepalive reconciles PR checks, never writes source task completion.
               }
               return unchecked > 0
                 ? 'Refusing auto-merge: linked issue/PR has unchecked tasks.'
                 : '';
+            }
+
+            async function reportTaskRefusal(prNumber, headSha, reason) {
+              core.warning(`PR #${prNumber}: ${reason}`);
+              try {
+                // Only update this token writer's own receipt. If identity is unavailable,
+                // publish a new receipt rather than editing a possibly foreign comment.
+                let login = authenticatedLogin;
+                if (!login) {
+                  try {
+                    const { data } = await withRetry((client) => client.rest.users.getAuthenticated());
+                    login = String(data?.login || '').toLowerCase();
+                  } catch (error) {
+                    core.info(`Receipt writer identity unavailable: ${error.message || error}`);
+                  }
+                }
+                const marker = '<!-- agents-guarded-merge-result:v1 -->';
+                const body = `${marker}\nHead: ${headSha}\nTask precheck refused: ${reason}`;
+                const comments = login ? await paginateWithRetry(github.rest.issues.listComments, {
+                  owner, repo, issue_number: prNumber, per_page: 100,
+                }) : [];
+                const own = comments.filter((comment) =>
+                  String(comment.user?.login || '').toLowerCase() === login
+                  && String(comment.body || '').includes(marker)
+                ).sort((a, b) => Number(b.id) - Number(a.id))[0];
+                if (own) {
+                  await withRetry((client) => client.rest.issues.updateComment({ owner, repo, comment_id: own.id, body }));
+                } else {
+                  await withRetry((client) => client.rest.issues.createComment({ owner, repo, issue_number: prNumber, body }));
+                }
+              } catch (error) {
+                core.warning(`Unable to publish task refusal for #${prNumber}: ${error.message || error}`);
+              }
             }
 
             async function loadPullRequest(prNumber) {
@@ -3133,6 +3174,7 @@ jobs:
                 const finalLinkedIssueSnapshot = await linkedIssueTaskSnapshot(finalPr);
                 const finalTaskFailure = uncheckedTaskFailure(finalPr, finalLinkedIssueSnapshot);
                 if (finalTaskFailure) {
+                  await reportTaskRefusal(prNumber, expectedHead, finalTaskFailure);
                   return finalTaskFailure;
                 }
                 const finalCheckFailure = await checkStateFailure(expectedHead);
@@ -3329,8 +3371,8 @@ jobs:
                           }
                         }
 
-                        // Unchecked-task refusal: inspect the PR body and, when resolvable,
-                        // the linked issue body. Either carrying an open "- [ ]" blocks merge.
+                        // PR tasks carry progress. Bind the linked issue identity/version without
+                        // treating its unreconciled source checkboxes as current progress.
                         let taskFailure = '';
                         if (checksOk && !bootstrapOnly) {
                           const linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr);
@@ -3343,6 +3385,7 @@ jobs:
                           note = failingCheck || 'Refusing auto-merge: bootstrap-only placeholder PR (no work landed).';
                         } else if (taskFailure) {
                           note = taskFailure;
+                          await reportTaskRefusal(prNumber, headSha, taskFailure);
                         } else {
                           try {
                             await assertRuntimeAcMergeAllowed({

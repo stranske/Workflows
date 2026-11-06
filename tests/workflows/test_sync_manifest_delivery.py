@@ -99,8 +99,14 @@ def test_auto_pilot_sync_uses_consumer_specific_source() -> None:
             "target": ".github/workflows/agents-auto-pilot.yml",
             "description": (
                 "Auto-pilot - end-to-end automation orchestrator "
-                "(format → optimize → agent → verify)"
+                "(format → optimize → agent → verify); PR/head-bound dispatch or confirmed-run "
+                "handoff; requires verifier entry point, transition helper + retry wrapper"
             ),
+            "requires": [
+                ".github/workflows/agents-verifier.yml",
+                ".github/scripts/auto_pilot_transitions.js",
+                ".github/scripts/github-api-with-retry.js",
+            ],
         }
     ]
 
@@ -549,7 +555,7 @@ def test_maint_71_persists_validated_candidate_evidence_before_merge() -> None:
     assert "EXPECTED_SOURCE_COMMIT_INPUT" in source
     assert "CANARY_BASELINE_EVIDENCE_JSON" in source
     assert "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3" in source
-    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in source
+    assert "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in source
 
 
 def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head() -> None:
@@ -679,7 +685,7 @@ def test_gate_and_shared_mergers_hold_mutable_stable_deliveries() -> None:
     assert "generated-delivery-seal" in gate
     action_ref = (
         "stranske/Workflows/.github/actions/generated-delivery-seal"
-        "@632eb20586f8403219d101e8a982b62efeb94104"
+        "@fe1efdada4ece0e9668db83ae3867e74c29c7744"
     )
     assert action_ref in gate
     assert action_ref in template_gate

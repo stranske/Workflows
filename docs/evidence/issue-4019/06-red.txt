@@ -1,0 +1,29 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestGitHubModelsConfidenceValidation.test_validate_confidence_flags_no_evidence_language_with_work _
+
+self = <tests.tools.test_llm_provider.TestGitHubModelsConfidenceValidation object at 0x1071687a0>
+
+    def test_validate_confidence_flags_no_evidence_language_with_work(self):
+        provider = GitHubModelsProvider()
+        quality_context = SessionQualityContext(
+            has_work_evidence=True,
+            analysis_text_length=500,
+            data_quality="high",
+        )
+    
+        confidence, warnings = provider._validate_confidence(
+            raw_confidence=0.6,
+            completed_count=0,
+            in_progress_count=0,
+            quality_context=quality_context,
+            reasoning="There is no evidence of completed work.",
+        )
+    
+>       assert confidence <= 0.35
+E       assert 0.6 <= 0.35
+
+tests/tools/test_llm_provider.py:1905: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestGitHubModelsConfidenceValidation::test_validate_confidence_flags_no_evidence_language_with_work
+1 failed in 0.24s

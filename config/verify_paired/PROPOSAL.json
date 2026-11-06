@@ -1,0 +1,95 @@
+{
+  "schema": "verify-public-api-paired-proposal/v1",
+  "status": "SYNTHETIC_PAIR_INDEPENDENTLY_CLEAR_EXECUTION_FACILITY_UNESTABLISHED",
+  "source_head": "b2528b793946e1f04adfea839db4bf8f8b98c412",
+  "cases": [
+    {
+      "case": "square-pass",
+      "prompt_bytes": 5559,
+      "prompt_sha256": "0a54a2ad44d4e935a12f38b111458754d9cad87ae93a3fd6fb90b4a9731379a5",
+      "capture_id": "664f5e181ca65ec58f3c1a6fb98fad59b43248a6acd44e751b2c7342dca36c98",
+      "gold_sha256": "a0d99aee11e3e4cff729ef1e71f1af0faa8ef7af76d02682dc29d97563084afe"
+    },
+    {
+      "case": "square-nonpass",
+      "prompt_bytes": 5553,
+      "prompt_sha256": "ed656f38aa56d1b7d87634e0dd80501f19979125f3d100bc8b8a5ff4a8aef851",
+      "capture_id": "5c6f489878244ffd5c2e48da88757400bf6ab1b053969091d300835a1d978097",
+      "gold_sha256": "25e6dfffc15a07ce4868f26810ed702d3b25d196640c39981e64e7ad8ad9190e"
+    }
+  ],
+  "independent_review": {
+    "path": "/tmp/verify-public-api-pair-independent-review-20261027/REVIEW.json",
+    "sha256": "97d0c3bf668c9819582d48fe5e1cd253e377bb024982a37e64b19c01a57b42ec"
+  },
+  "intended_matrix": {
+    "generation_calls_max": 4,
+    "slots": [
+      {
+        "provider": "openai",
+        "model": "gpt-5.6-terra",
+        "profile": "verifier-balanced",
+        "status": "registry-provisional; API entitlement unproven"
+      },
+      {
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5",
+        "profile": "verifier-balanced",
+        "status": "registry-provisional; API entitlement unproven"
+      }
+    ],
+    "retry_limit": 0,
+    "fallback": false,
+    "repair_calls": 0,
+    "token_preflight": "Existing semantic path counts both cells before invocation and recounts immediately before each generation. Two cases imply eight successful native count requests, four generations; count failure stops before corresponding generation. No new endpoint/client.",
+    "token_limits": "Native exact count + configured context/output-reserve admission. No locally invented char-to-token estimate or claimed count result.",
+    "actual_source_bounds": {
+      "per_client_timeout_default_seconds": 60,
+      "semantic_matrix_cells_max": 16,
+      "semantic_matrix_seconds_max": 1200,
+      "two_separate_case_matrix_seconds_max": 2400,
+      "anthropic_claude5_max_tokens": 128000,
+      "openai_explicit_max_output_tokens": "not set in generic builder; native capacity facts required"
+    },
+    "requested_small_trial_bound": "4generations/8count_requests; exact smaller wall/output ceiling must be frozen by actual executor before execution. Current source-only packet does not claim enforcement not present in source."
+  },
+  "entrypoint": {
+    "command": "PR_HEAD_SHA=<case.head> VERIFIER_SEMANTIC_MODE=1 VERIFIER_SEMANTIC_KEY_PATH=<ephemeral32byte key> python scripts/langchain/pr_verifier.py --context-file <case/context.md> --diff-file <case/diff.patch> --compare --json --output-file <local-report>",
+    "write_effects": "local manifests/output only; compare returns before create-issue branch; no workflowdispatch"
+  },
+  "facility_audit": {
+    "local_environment": "Neither provider key name present; no value read or credential files inspected. This does not mean connection unavailable.",
+    "existing_reusable_verifier": "Both existing secret names mapped; but later PR comment/publication steps and no no-comment input. Do not dispatch for no-write screen.",
+    "maint78_confirm": "Existing read-only workflow with OPENAI_API_KEY only, requires prior screen artifact, uses run_model_eval_api_confirm legacy response parser. Not exact two-native semantic path; no dispatch.",
+    "minimal_next_action": "Parent identifies an already-approved local/native execution facility that can inject existing API clients without exposing key values, OR canonical workflow owner supplies a narrow no-write invocation of existing CLI with existing secret mappings. No new connector, key, endpoint, purchasing or broad framework is necessary."
+  },
+  "limitations": [
+    "Two easy source-only Verify screens, not complete Verify role qualification",
+    "Content-derived synthetic40hex heads are not attested Git commits or merged PRs",
+    "No provider or capacity/authentication/execution receipts exist",
+    "Old Closer typed39/namedStrong30 evidence not credited"
+  ],
+  "frozen_files": {
+    "build.py": "56b6dc2bc8fcead82e697fe04b64ef668c990b40a3bd512624b2c87e1a60702d",
+    "build-receipt.json": "65d9ad8c4a33ba88dc9992166ae12c670b2da4b0ed2bcffaac89b238c09b3016",
+    "square-nonpass/diff.patch": "e1aa7a9b807efed3a7c5f6cdf239b5e188976f12b0e43194d67d973ea8a0a7b7",
+    "square-nonpass/verifier-capture-obligation-manifest.json": "527a7901d304789fe912dc47c6bbdadf96451cea10954ee0f40d84af9aac7796",
+    "square-nonpass/context.md": "817d95241e0eeeeb4e310c307364b2732c9035f31ee29ca86c212d4b0dc0ae56",
+    "square-nonpass/verifier-capture-reassembly-contract.json": "7bf152e2ab219815e0c4ba9942da21be26bda059ba237b286dc0e4e3c4ce8b52",
+    "square-nonpass/verifier-capture-byte-inventory.json": "0ede3db0893449278b21446cd911e4a452eda472ccb887fdb04e9fe669ebc9b2",
+    "square-nonpass/capture.json": "3799d3be898bdbdc0b04da8722c188f7d066bea23015669634daf04cb14e1add",
+    "square-nonpass/prompt.txt": "ed656f38aa56d1b7d87634e0dd80501f19979125f3d100bc8b8a5ff4a8aef851",
+    "square-nonpass/oracle.json": "25e6dfffc15a07ce4868f26810ed702d3b25d196640c39981e64e7ad8ad9190e",
+    "square-nonpass/manifest-result.json": "527a7901d304789fe912dc47c6bbdadf96451cea10954ee0f40d84af9aac7796",
+    "square-pass/diff.patch": "1f2e387efd75dd19e7bad4c8396c679fe4e17fa7c8b02792f6c5752aad374cdc",
+    "square-pass/verifier-capture-obligation-manifest.json": "5a89e1930c05765427f70bbb37bfbb846a62928ee51b6467ac52bc47229d8006",
+    "square-pass/context.md": "10e63baa2fa865580293ac3fe87e6a941b6ff9ad403ef629078364a5755bcecd",
+    "square-pass/verifier-capture-reassembly-contract.json": "a58ff54a9aeace1cef028753c898b0b5495cac80335148ad62812c6c8baf9a21",
+    "square-pass/verifier-capture-byte-inventory.json": "2acef03ff20574cb5dc5c60823fdaada2e9df36a1a4fb4d7977225adf3b53d75",
+    "square-pass/capture.json": "3de07cbee78baec1e14b7bbd664d172bd75a2e8e5bba93e8c540488cf0d58027",
+    "square-pass/prompt.txt": "0a54a2ad44d4e935a12f38b111458754d9cad87ae93a3fd6fb90b4a9731379a5",
+    "square-pass/oracle.json": "a0d99aee11e3e4cff729ef1e71f1af0faa8ef7af76d02682dc29d97563084afe",
+    "square-pass/manifest-result.json": "5a89e1930c05765427f70bbb37bfbb846a62928ee51b6467ac52bc47229d8006"
+  },
+  "provider_calls_by_preparer": 0
+}

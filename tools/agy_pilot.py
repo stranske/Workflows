@@ -163,8 +163,20 @@ def _run_pytest(
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
                 )
         (package / f"{module_name}.py").write_text(module_source)
-        (Path(scratch) / f"test_{module_name}_pilot.py").write_text(tests)
-        command = [sys.executable, "-m", "pytest", "-x", "-q", "-p", "no:cacheprovider", scratch]
+        test_file = Path(scratch) / f"test_{module_name}_pilot.py"
+        test_file.write_text(tests)
+        # Copied import context may contain archived test sources. Collect only
+        # the requested fixture, never unrelated files from that context.
+        command = [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-x",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            str(test_file),
+        ]
         env = _clean_env()
         if isolated:
             sandboxed = _sandbox_command(scratch, command)

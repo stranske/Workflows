@@ -170,6 +170,9 @@
 - name: verify:create-new-pr
   color: "5319e7"
   description: Create a follow-up issue and new PR from verification results
+- name: verify:pr-handoff
+  color: "0e8a16"
+  description: Auto-pilot recorded a PR-bound verification handoff
 
 # ROUTING LABELS — load-bearing for lane dispatch (synced to consumers via Maint 69).
 - name: refactor

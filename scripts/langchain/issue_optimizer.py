@@ -29,11 +29,21 @@ from scripts.langchain.structured_output import (
 try:
     from scripts.langchain._llm_client import get_llm_client as _get_llm_client
     from scripts.langchain.injection_guard import check_prompt_injection
-    from scripts.langchain.issue_pr_context import ContextOptions, build_issue_context
+    from scripts.langchain.issue_pr_context import (
+        ContextOptions,
+        build_issue_context,
+        render_correction_context,
+        require_complete_correction_prompt,
+    )
 except ModuleNotFoundError:
     from _llm_client import get_llm_client as _get_llm_client
     from injection_guard import check_prompt_injection
-    from issue_pr_context import ContextOptions, build_issue_context
+    from issue_pr_context import (
+        ContextOptions,
+        build_issue_context,
+        render_correction_context,
+        require_complete_correction_prompt,
+    )
 
 AGENT_LIMITATIONS = [
     "Cannot modify .github/workflows/*.yml (protected)",
@@ -1015,9 +1025,28 @@ def _process_llm_response(
     return result, None
 
 
-def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimizationResult:
+def analyze_issue(
+    issue_body: str, *, use_llm: bool = True, correction_context: dict[str, Any] | None = None
+) -> IssueOptimizationResult:
     if not issue_body:
         issue_body = ""
+
+    if correction_context is None and os.environ.get("CORRECTION_CONTEXT_FILE"):
+        correction_context = json.loads(
+            Path(os.environ["CORRECTION_CONTEXT_FILE"]).read_text(encoding="utf-8")
+        )
+    if correction_context is not None:
+        # The complete original body is mandatory. Never reset to an embedded
+        # original or run it through the legacy truncating context formatter.
+        issue_body = issue_body + render_correction_context(correction_context)
+        final_inputs = {
+            "issue_body": issue_body,
+            "agent_limitations": "\n".join(f"- {item}" for item in AGENT_LIMITATIONS),
+        }
+        require_complete_correction_prompt(
+            _load_prompt().format(**final_inputs),
+            ContextOptions(token_budget=_context_token_budget()),
+        )
 
     guard_result = check_prompt_injection(issue_body)
     if guard_result["blocked"]:
@@ -1035,11 +1064,12 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
 
     # Size pre-check: analyze the embedded original instead of a silently
     # truncated ballooned body (see _reset_oversized_body).
-    reset = _reset_oversized_body(issue_body, _context_workflow("issue_optimizer"))
-    if reset is not None:
-        issue_body = reset
+    if correction_context is None:
+        reset = _reset_oversized_body(issue_body, _context_workflow("issue_optimizer"))
+        if reset is not None:
+            issue_body = reset
 
-    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
+        issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
 
     last_error: str | None = None
     if use_llm:
@@ -1057,8 +1087,6 @@ def analyze_issue(issue_body: str, *, use_llm: bool = True) -> IssueOptimization
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client  # type: ignore[operator]
                 try:
-                    import os
-
                     issue_num = None
                     env_issue = os.environ.get("ISSUE_NUMBER", "")
                     if env_issue.isdigit():
@@ -1305,10 +1333,32 @@ def _mark_optimized_body(formatted: str) -> str:
 
 
 def apply_suggestions(
-    issue_body: str, suggestions: dict[str, Any], *, use_llm: bool = True
+    issue_body: str,
+    suggestions: dict[str, Any],
+    *,
+    use_llm: bool = True,
+    correction_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not issue_body:
         issue_body = ""
+
+    original_issue_body = issue_body
+    if correction_context is None and os.environ.get("CORRECTION_CONTEXT_FILE"):
+        correction_context = json.loads(
+            Path(os.environ["CORRECTION_CONTEXT_FILE"]).read_text(encoding="utf-8")
+        )
+    if correction_context is not None:
+        # The complete original body is mandatory. Never reset to an embedded
+        # original or run it through the legacy truncating context formatter.
+        issue_body = issue_body + render_correction_context(correction_context)
+        final_inputs = {
+            "original_body": issue_body,
+            "suggestions_json": json.dumps(suggestions, ensure_ascii=True, indent=2),
+        }
+        require_complete_correction_prompt(
+            _load_apply_prompt().format(**final_inputs),
+            ContextOptions(token_budget=_context_token_budget()),
+        )
 
     guard_result = check_prompt_injection(issue_body)
     if guard_result["blocked"]:
@@ -1324,11 +1374,12 @@ def apply_suggestions(
     # silently truncating to the token budget and re-embedding the rest (which
     # grows the document), reset to the embedded verbatim original and re-format
     # that — the documented manual recovery, automated.
-    reset = _reset_oversized_body(issue_body, _context_workflow("issue_optimizer"))
-    if reset is not None:
-        issue_body = reset
+    if correction_context is None:
+        reset = _reset_oversized_body(issue_body, _context_workflow("issue_optimizer"))
+        if reset is not None:
+            issue_body = reset
 
-    issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
+        issue_body = _capped_issue_body(issue_body, _context_workflow("issue_optimizer"))
 
     if use_llm:
         from tools.llm_provider import _is_token_limit_error
@@ -1345,8 +1396,6 @@ def apply_suggestions(
                 template = ChatPromptTemplate.from_template(prompt)
                 chain = template | client  # type: ignore[operator]
                 try:
-                    import os
-
                     issue_num = None
                     env_issue = os.environ.get("ISSUE_NUMBER", "")
                     if env_issue.isdigit():
@@ -1374,7 +1423,11 @@ def apply_suggestions(
                             )
                         else:
                             result = {
-                                "formatted_body": _finalize_apply_body(formatted),
+                                "formatted_body": (
+                                    original_issue_body
+                                    if correction_context is not None
+                                    else _finalize_apply_body(formatted)
+                                ),
                                 "provider_used": provider,
                                 "used_llm": True,
                             }
@@ -1422,7 +1475,11 @@ def apply_suggestions(
                                             file=sys.stderr,
                                         )
                                         result = {
-                                            "formatted_body": _finalize_apply_body(formatted),
+                                            "formatted_body": (
+                                                original_issue_body
+                                                if correction_context is not None
+                                                else _finalize_apply_body(formatted)
+                                            ),
                                             "provider_used": openai_provider,
                                             "used_llm": True,
                                         }
@@ -1460,7 +1517,11 @@ def apply_suggestions(
     formatted = _append_deferred_tasks(formatted, suggestions)
     formatted = _deduplicate_task_lines(formatted)
     return {
-        "formatted_body": _finalize_apply_body(formatted),
+        "formatted_body": (
+            original_issue_body
+            if correction_context is not None
+            else _finalize_apply_body(formatted)
+        ),
         "provider_used": None,
         "used_llm": False,
     }

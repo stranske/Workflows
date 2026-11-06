@@ -63,9 +63,10 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
 
     assert resolve_step.get("id") == "codex_model"
     assert install_step.get("id") == "codex_cli"
+    assert "inputs.verification_recovery == ''" in resolve_step["if"]
     assert (
-        resolve_step.get("if")
-        == "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'"
+        "steps.context.outputs.should_run == 'true' && inputs.mode != 'evaluate' && inputs.evidence_profile != 'expanded'"
+        in resolve_step["if"]
     )
     assert install_step["env"]["CODEX_CLI_PACKAGE"] == "@openai/codex@0.153.2"
     assert (
@@ -149,7 +150,7 @@ def test_reusable_verifier_uploads_terminal_disposition_artifact() -> None:
     assert upload_step.get("if") == "always()"
     assert (
         upload_step.get("uses")
-        == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        == "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
     )
     assert upload_step["with"]["name"] == "verifier-terminal-disposition-${{ github.run_id }}"
     assert "agent-metrics/verifier-terminal-disposition.ndjson" in upload_step["with"]["path"]
@@ -256,6 +257,9 @@ def _resolve_env(step_env: dict, outputs: dict) -> dict:
         elif key in {"CONTEXT_OUTCOME", "VERIFIER_OUTCOME", "CI_FAILED"}:
             expression = " ".join(expr.removeprefix("${{").removesuffix("}}").split())
             expression = expression.replace("inputs.mode", repr(outputs["mode"]))
+            expression = expression.replace(
+                "inputs.verification_recovery", repr(outputs.get("verification_recovery", ""))
+            )
             expression = expression.replace(
                 "steps.context.outputs.ci_failed", repr(str(outputs["ci_failed"]).lower())
             )

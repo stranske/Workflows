@@ -1,0 +1,67 @@
+{
+  "id": "7cf7381b2593473c804ce91e5090689cf445abd949a266f4ee008ecc73ad1e2b",
+  "implementation_head": "e0779157e05d86076a92ac631ebd6a768bdd3fa0",
+  "governing_sha256": "805b825bf2f5d0b9504926f4e03e4215c15b3ff8570217d926333e8bcb9bde2a",
+  "raw_inputs": {
+    "context": "805b825bf2f5d0b9504926f4e03e4215c15b3ff8570217d926333e8bcb9bde2a",
+    "diff": "5b379773ac48ca59858a02aaa17fa74ba3010700b933fc269d17a54d189fb758"
+  },
+  "gaps": [],
+  "resource_admitted": true,
+  "manifest": {
+    "schema": "workflows-verifier-capture-obligation-manifest/v1",
+    "sufficient": true,
+    "gaps": [],
+    "obligations": [
+      {
+        "source": ".github/scripts/__tests__/maint71_devtool_final_binding.test.js",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 3629,
+        "total_chars": 3629
+      },
+      {
+        "source": ".github/scripts/__tests__/maint71_finding_verification.test.js",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 17426,
+        "total_chars": 17426
+      },
+      {
+        "source": ".github/scripts/maint71_finding_verification.js",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 10123,
+        "total_chars": 10123
+      },
+      {
+        "source": ".github/scripts/maint71_merge_sync_prs.js",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 155256,
+        "total_chars": 155256
+      },
+      {
+        "source": "docs/ops/CONSUMER_REPO_MAINTENANCE.md",
+        "kind": "changed_code",
+        "status": "included",
+        "included_chars": 167531,
+        "total_chars": 167531
+      },
+      {
+        "source": "https://github.com/stranske/Workflows/issues/3849",
+        "kind": "acceptance_source",
+        "status": "included",
+        "included_chars": 3783,
+        "total_chars": 3783
+      },
+      {
+        "source": "verifier-pr-diff.patch",
+        "kind": "full_diff_artifact",
+        "status": "included",
+        "included_chars": 16985,
+        "total_chars": 16985
+      }
+    ]
+  }
+}

@@ -22,10 +22,10 @@ python_version=$(python --version 2>&1 | awk '{print $2}')
 python_major=$(echo "$python_version" | cut -d. -f1)
 python_minor=$(echo "$python_version" | cut -d. -f2)
 
-if [[ "$python_major" -gt 3 ]] || { [[ "$python_major" -eq 3 ]] && [[ "$python_minor" -ge 12 ]]; }; then
-    echo -e "${GREEN}✓${NC} Python $python_version (>=3.12 required)"
+if [[ "$python_major" -gt 3 ]] || { [[ "$python_major" -eq 3 ]] && [[ "$python_minor" -ge 13 ]]; }; then
+    echo -e "${GREEN}✓${NC} Python $python_version (>=3.13 required)"
 else
-    echo -e "${RED}✗${NC} Python $python_version (>=3.12 required)"
+    echo -e "${RED}✗${NC} Python $python_version (>=3.13 required)"
     all_ok=false
 fi
 echo ""

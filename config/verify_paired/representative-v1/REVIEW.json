@@ -1,0 +1,97 @@
+{
+  "schema": "verify-paired-independent-source-and-oracle-review/v1",
+  "status": "CLEARED_FOR_PROPOSAL_ASSEMBLY_SOURCE_AND_GOLD_ONLY",
+  "created_at_UTC": "2026-10-27T19:03:07.183767+00:00",
+  "reviewer": "task-6 independent acceptance reviewer",
+  "source_freeze": {
+    "path": "SOURCE_FREEZE.json",
+    "sha256": "5e5e4f4bdf803961a8cce8d4b7facd9083de1b54bc8bbde89396f367b2bbf0f4"
+  },
+  "frozen_members_verified": 59,
+  "cases": [
+    {
+      "case": "workflows-3850",
+      "implementation_head": "e0779157e05d86076a92ac631ebd6a768bdd3fa0",
+      "prompt_sha256": "e9e1a6d99644e88ec688001c10cee835b20fe8b7edb56f9b92b64645bf915fcb",
+      "prompt_bytes": 469268,
+      "oracle_ref": {
+        "path": "workflows-3850/oracle.json",
+        "sha256": "9c92f0c717748044c9fdd658af0bebb3e1148a71eb15e0739340cb414b9efe6a"
+      }
+    },
+    {
+      "case": "workflows-4265-verified",
+      "implementation_head": "40622701645e1c9c13ff28861ba606a3f78d2e4a",
+      "prompt_sha256": "af177a2516603464790d28a14a50434f76e4f951ed4299995384a18a42dafac6",
+      "prompt_bytes": 481446,
+      "oracle_ref": {
+        "path": "workflows-4265-verified/oracle.json",
+        "sha256": "fbaf0a8380f0dd1db47a0c6bca9d15c81d3ceaae4394414349f1d9429241212a"
+      }
+    }
+  ],
+  "new4265_receipt_verification": {
+    "receipt_sha256": "87e45c38296887a04681519b4d42bf207835bbed0187a2a62cdb1bb7894d3a07",
+    "evidence_index_sha256": "1f4965caf9109a6f199f62a4b74a15302655d498d5c13f41afc78877478ba0c1",
+    "observed_xml_counts": "9PASS / 5 assertion FAIL / 9PASS",
+    "mutation_and_exact_restore_verified": true,
+    "current_reviewer_attribution_preserved": true,
+    "independent_gold_addendum_sha256": "5fe4df0674688ef51b9a4b57794edbd14bcbcdad01569a3563abaf919e1c7232"
+  },
+  "prior_setup_attempts_preserved": [
+    {
+      "attempt": 1,
+      "receipt_sha256": "3ce5c1bc1780d2c9404e6d27965580838ac9c42f6ff8e7c69ad8821ae41f368e",
+      "reported_block": "Kernel network-denial/runtime probe failed; no pytest or mutation execution.",
+      "recorded_exits": [
+        [
+          "sandbox-and-runtime-probe",
+          71
+        ]
+      ],
+      "mutation_attempted": false
+    },
+    {
+      "attempt": 2,
+      "receipt_sha256": "49794234f70f15289824bf3cb7816afdb92b4bbc4db43a4c001e984fde220bb7",
+      "reported_block": "Kernel network-denial/runtime probe failed; no pytest or mutation execution.",
+      "recorded_exits": [
+        [
+          "sandbox-and-runtime-probe",
+          1
+        ]
+      ],
+      "mutation_attempted": false
+    },
+    {
+      "attempt": 3,
+      "receipt_sha256": "7472dbee6b3c7e6c6be6745a0f7f52e2dbbcce11530cfb69bcd3f51413c9fdbf",
+      "reported_block": "Original selected tests did not pass; deliberate break not attempted.",
+      "recorded_exits": [
+        [
+          "sandbox-and-runtime-probe",
+          0
+        ],
+        [
+          "original-two-named-tests",
+          3
+        ]
+      ],
+      "mutation_attempted": false
+    }
+  ],
+  "3850_scope": "Exact18 old inputmembers unchanged; gold53ea52 retained, portable criterion annotations only. Required historical execution and external admission/replay remain unknown, not manufactured.",
+  "prior4265_gold_sha256": "9a85724789894d6f92783a481988ffaabbfadbd2f90ddac256b2f9d2674aac19",
+  "review_does_not_clear": [
+    "Final PROPOSAL (not yet assembled/reviewed).",
+    "Provider token/context/output admission; bytecounts do not prove fit with128000outputreserve.",
+    "Provider execution authorization, model quality, enrollment or activation."
+  ],
+  "gold_model_separation": "oracle.json and REVIEW.json are reviewer-side files; they must not be appended to modelprompt. All original SOURCE_FREEZE input hashes remain unchanged after writing gold.",
+  "no_new_independent_reviewer_test_or_model_calls": true,
+  "no_forced_verdict_or_exactwording_proxy": true,
+  "production_source_head": "2af422251cb446cc4a3f424dfc8009e4aa9283d7",
+  "production_verifier_sha256": "5b5c9f37042ece103939ee1375f9083c5c3d59930f7927355f4ddb3644d3d740",
+  "raw_prompt_template_sha256": "53a4464172333f6b2b6ca0c19f1585188932c238e7654e80e1135965f4970031",
+  "script_sha256": "d62b6a97e2e0026e601d3d61d1190eca319648827e225684aa7a7e377e35fa11"
+}

@@ -437,3 +437,52 @@ test('bootstrap contract pins match the published source and consumer contract b
       `${prefix}: sync_pr_lease_contract.js changed; update BOOTSTRAP_DELIVERY_CONTRACT_SHA256 in BOTH classifiers`);
   }
 });
+
+for (const [name, classifier] of [
+  ['source', require('../../actions/path-classifier/classify.js')],
+  ['managed consumer', require('../../../templates/consumer-repo/.github/actions/path-classifier/classify.js')],
+]) {
+  test(`${name}: fresh sealed metadata replaces frozen staging without changing identity`, (t) => {
+    const before = { context: process.env.GITHUB_CONTEXT_JSON, resolved: process.env.GATE_PR_JSON };
+    t.after(() => {
+      for (const [key, value] of [['GITHUB_CONTEXT_JSON', before.context], ['GATE_PR_JSON', before.resolved]]) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
+    });
+    const original = deliveryContext(deliveryRecord);
+    Object.assign(original.event.pull_request, { number: 1080, state: 'open' });
+    const sealed = { ...deliveryRecord, delivery_state: 'sealed', sealed_head_sha: 'head-abc',
+      review_started_at: '2026-08-11T23:45:00Z', sealed_at: '2026-08-12T00:00:00Z' };
+    const resolved = { ...original.event.pull_request, body: deliveryContract.formatDeliveryRecord(sealed) };
+    process.env.GITHUB_CONTEXT_JSON = JSON.stringify(original);
+    process.env.GATE_PR_JSON = JSON.stringify(resolved);
+    assert.equal(classifier.stableDeliverySealStatus(classifier.parseGithubContext(), {
+      contract: deliveryContract, now: '2026-08-12T00:01:00Z',
+    }).valid, true);
+    // The original unsealed event remains inadmissible without fresh metadata.
+    delete process.env.GATE_PR_JSON;
+    assert.equal(classifier.stableDeliverySealStatus(classifier.parseGithubContext(), {
+      contract: deliveryContract, now: '2026-08-12T00:01:00Z',
+    }).valid, false);
+    for (const changed of [
+      { ...resolved, number: 1081 },
+      { ...resolved, head: { ...resolved.head, sha: 'foreign-head' } },
+      { ...resolved, head: { ...resolved.head, repo: { full_name: 'foreign/repo' } } },
+      { ...resolved, state: 'closed' },
+    ]) {
+      process.env.GATE_PR_JSON = JSON.stringify(changed);
+      assert.throws(() => classifier.parseGithubContext(), /Resolved Gate PR/);
+    }
+    process.env.GATE_PR_JSON = '{invalid';
+    assert.throws(() => classifier.parseGithubContext(), /malformed/);
+  });
+}
+
+test('managed classifier remains byte-identical to the reviewed source', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  assert.deepEqual(
+    fs.readFileSync(path.resolve(__dirname, '../../actions/path-classifier/classify.js')),
+    fs.readFileSync(path.resolve(__dirname, '../../../templates/consumer-repo/.github/actions/path-classifier/classify.js')),
+  );
+});

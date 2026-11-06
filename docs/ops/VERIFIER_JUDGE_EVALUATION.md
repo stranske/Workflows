@@ -24,9 +24,10 @@ define the gates, with false PASS as the highest-cost error:
 
 - Screen: at most 0 false PASS, 0 schema errors, at least 50% PASS recall, no accuracy loss versus the
   incumbent, no regression in either verdict class.
-- Approval: false-PASS rate Wilson upper bound at most 0.05, false-FAIL bound at most 0.10,
-  schema-error bound at most 0.05, success-rate lower bound at least 0.85, paired non-inferiority
-  margin 0.02, at least 75 adjudicated cases.
+- Approval (retired 2026-10-30, owner decision): it never approved a judge; the bounds were
+  loosened to false PASS 0.10 and false FAIL 0.20 on 2026-10-18 and still required a perfect run.
+  A judge now changes by the owner's decision after a corpus trial (`VERIFIER_SHADOW.md`,
+  "Trialling a new candidate"); the bounds are reported as information only.
 
 A screen result is **exploratory evidence**. It can justify the capped API confirmation, never a
 promotion. Zero false PASS on 4 NON_PASS cases only bounds the false-PASS rate below about 0.49; the
@@ -57,7 +58,7 @@ Safeguards built in (each pinned by a test):
 
 ```bash
 # incumbent baseline (existing Codex screen), then candidates on the same cases
-python -m tools.run_model_eval_cli_screen --models gpt-5.6-terra,gpt-6-luna --output codex-screen.json
+python -m tools.run_model_eval_cli_screen --models gpt-6.1-sol,gpt-6-luna --output codex-screen.json
 MUSE_API_KEY=... CURSOR_API_KEY=... python -m tools.run_judge_backend_screen \
   --judges claude-cli,muse-cli,cursor-cli,agy-cli,muse-api \
   --muse-api-price-in <USD/M> --muse-api-price-out <USD/M> --output judge-screen.json
@@ -262,7 +263,9 @@ That content is already published, so contributor-tier training adds no confiden
 | Anything unpublished or local (audits, personal notes, local projects, the Brain), private or internal repositories, secrets or credential values, personal data | **Refused** |
 
 The guard is mechanical: `--allow-contributor-tier` is refused unless GitHub confirms every case
-repository is public, and an unknown answer counts as not public (`require_public_sources`; tests pin it).
+repository is public and every prompt input matches the shipped immutable corpus or a published
+verifier-input manifest for the named run (`require_contributor_tier_inputs`; tests pin it). An
+unknown repository visibility or unverifiable prompt input counts as refusal.
 Residual risks: CI logs in a public repository can still carry text a masking rule missed; a
 repository that later turns private would need the flag withdrawn; and the policy cannot see what Meta
 retains. These are reasons to keep the cheap tier behind the quality gates, not to refuse it.

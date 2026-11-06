@@ -1,0 +1,78 @@
+{
+  "description": "Synthetic inert cross-language contract fixture; no provider evaluation or public result.",
+  "decision": {
+    "schema": "verifier-corpus-decision/v1",
+    "repo": "stranske/example",
+    "pr": "7",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "run_id": "100",
+    "run_attempt": "2",
+    "ci_failed": false,
+    "provider_verdicts": [
+      "CONCERNS"
+    ],
+    "verdict": "NON_PASS",
+    "verification_event": {
+      "schema": "verification-event/v1",
+      "repo": "stranske/example",
+      "pr": "7",
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "request_sha256": "10249b5312bd7c839ab6283260b004f4ab79c3f1694ae859de53ada2b5283386",
+      "material_sha256": "0bd95865a12b37ee4341205b71b60bbfa0ac9f5475fec52809ea822aa9811e64",
+      "event_id": "85e29871498bb7949747490dd3e2262d5ca0b350b1c3ef05c0d43b4268030f00"
+    },
+    "assessment_identity": {
+      "mode": "evaluate",
+      "provider": "anthropic",
+      "model": "",
+      "model2": "",
+      "canonical": true
+    }
+  },
+  "source_comment": {
+    "author": "github-actions[bot]",
+    "url": "https://github.com/stranske/example/pull/7#issuecomment-43",
+    "body": "<!-- verifier-corpus-decision/v1 {\"schema\":\"verifier-corpus-decision/v1\",\"repo\":\"stranske/example\",\"pr\":\"7\",\"head_sha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"evaluated_sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"run_id\":\"100\",\"run_attempt\":\"2\",\"ci_failed\":false,\"provider_verdicts\":[\"CONCERNS\"],\"verdict\":\"NON_PASS\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/example\",\"pr\":\"7\",\"head_sha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"evaluated_sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"request_sha256\":\"10249b5312bd7c839ab6283260b004f4ab79c3f1694ae859de53ada2b5283386\",\"material_sha256\":\"0bd95865a12b37ee4341205b71b60bbfa0ac9f5475fec52809ea822aa9811e64\",\"event_id\":\"85e29871498bb7949747490dd3e2262d5ca0b350b1c3ef05c0d43b4268030f00\"},\"assessment_identity\":{\"mode\":\"evaluate\",\"provider\":\"anthropic\",\"model\":\"\",\"model2\":\"\",\"canonical\":true}} -->"
+  },
+  "canonical_decision": "{\"assessment_identity\":{\"canonical\":true,\"mode\":\"evaluate\",\"model\":\"\",\"model2\":\"\",\"provider\":\"anthropic\"},\"ci_failed\":false,\"evaluated_sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"head_sha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"pr\":\"7\",\"provider_verdicts\":[\"CONCERNS\"],\"repo\":\"stranske/example\",\"run_attempt\":\"2\",\"run_id\":\"100\",\"schema\":\"verifier-corpus-decision/v1\",\"verdict\":\"NON_PASS\",\"verification_event\":{\"evaluated_sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"event_id\":\"85e29871498bb7949747490dd3e2262d5ca0b350b1c3ef05c0d43b4268030f00\",\"head_sha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"material_sha256\":\"0bd95865a12b37ee4341205b71b60bbfa0ac9f5475fec52809ea822aa9811e64\",\"pr\":\"7\",\"repo\":\"stranske/example\",\"request_sha256\":\"10249b5312bd7c839ab6283260b004f4ab79c3f1694ae859de53ada2b5283386\",\"schema\":\"verification-event/v1\"}}",
+  "correlation": {
+    "schema": "verifier-request-correlation/v1",
+    "repo": "stranske/example",
+    "pr": "7",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "verification_request_basis": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "verification_event": {
+      "schema": "verification-event/v1",
+      "repo": "stranske/example",
+      "pr": "7",
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evaluated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "request_sha256": "10249b5312bd7c839ab6283260b004f4ab79c3f1694ae859de53ada2b5283386",
+      "material_sha256": "0bd95865a12b37ee4341205b71b60bbfa0ac9f5475fec52809ea822aa9811e64",
+      "event_id": "85e29871498bb7949747490dd3e2262d5ca0b350b1c3ef05c0d43b4268030f00"
+    },
+    "assessment_identity": {
+      "mode": "evaluate",
+      "provider": "anthropic",
+      "model": "",
+      "model2": "",
+      "canonical": true
+    },
+    "result_run_id": "100",
+    "result_run_attempt": "2",
+    "result_comment_url": "https://github.com/stranske/example/pull/7#issuecomment-43",
+    "result_decision_sha256": "f01b62dfba1b590d218dbe3a7c8d26d587d9c1807b61d07798afa048c5c0dd6b",
+    "correlation_run_id": "800",
+    "correlation_run_attempt": "1"
+  },
+  "unicode_canonical_example": {
+    "value": {
+      "text": "Café — 東京"
+    },
+    "canonical": "{\"text\":\"Café — 東京\"}",
+    "sha256": "adfd9aae9ee5d781370469c72a67be1364121a217cde6bd04e3b97023733447d"
+  }
+}

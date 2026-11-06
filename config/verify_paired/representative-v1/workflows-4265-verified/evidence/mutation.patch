@@ -1,0 +1,11 @@
+--- original/tools/coverage_guard.py
++++ broken/tools/coverage_guard.py
+@@ -618,7 +618,7 @@
+     if run_url:
+         sample.setdefault("run_url", run_url)
+     records: list[dict[str, Any]] = []
+-    for record in [*(previous if isinstance(previous, list) else []), sample]:
++    for record in [*(previous if isinstance(previous, list) else [])]:
+         if not isinstance(record, dict):
+             continue
+         key = _coverage_record_key(record)

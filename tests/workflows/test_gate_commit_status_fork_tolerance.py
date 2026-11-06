@@ -75,6 +75,7 @@ RUNNER_JS = textwrap.dedent("""
         process: {
           env: {
             STATE: state,
+            RESOLVER_RESULT: 'success',
             DESCRIPTION: 'all checks passed',
             TARGET_URL: 'https://example.invalid/run',
           },

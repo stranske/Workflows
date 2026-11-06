@@ -114,3 +114,38 @@ def test_stable_cases_are_written_as_listed_corpus_cases_and_rebuild_replaces_th
     )
     g.write_corpus(corpus_path, snaps, {}, [], rebuild=True)
     assert json.loads(corpus_path.read_text())["cases"] == []
+
+
+def test_diagnostic_only_cases_never_count_toward_any_floor():
+    corpus, registry, policy = (
+        json.loads((ROOT / path).read_text())
+        for path in (
+            "config/model_eval_pilot.json",
+            "config/model_registry.json",
+            "config/model_selection_policy.json",
+        )
+    )
+    base = build_plan(corpus, registry, policy)
+    extra = [
+        {
+            "case_id": f"diag-{i}",
+            "repo": "stranske/Workflows",
+            "pr": 9500 + i,
+            "expected_verdict": "NON_PASS",
+            "category": "ci-failure-disqualifier",
+            "provenance": "controlled-mutation",
+            "diagnostic_only": True,
+            "mutation_recipe": {"mutation": "fail-ci-row"},
+            "coverage_sufficient": True,
+        }
+        for i in range(10)
+    ]
+    plan = build_plan({**corpus, "cases": [*corpus["cases"], *extra]}, registry, policy)
+    for key in (
+        "expected_non_pass_cases",
+        "evaluable_non_pass_cases",
+        "controlled_mutation_non_pass_cases",
+    ):
+        assert plan[key] == base[key], key
+    assert plan["diagnostic_only_cases"] == base["diagnostic_only_cases"] + 10
+    assert base["diagnostic_only_cases"] == 22  # the failed-CI mutants already in the corpus

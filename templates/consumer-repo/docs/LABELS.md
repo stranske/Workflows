@@ -39,6 +39,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `runner:<agent>` | Issue labeled | Selects an auto-pilot runner without triggering issue intake
 | `verify:checkbox` | PR labeled | Runs verifier checkbox mode after merge
 | `verify:evaluate` | PR labeled | Runs verifier evaluation mode after merge
+| `verify:pr-handoff` | Issue labeled | Auto-pilot recorded a PR-bound verification handoff
 | `verify:compare` | PR labeled | Runs verifier comparison mode after merge
 | `verify:create-issue` | PR labeled | Creates follow-up issue from verification
 | `verify:create-new-pr` | PR labeled | Creates follow-up issue and PR from verification
@@ -473,6 +474,18 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 **CI failure hard gate:** If any polled CI workflow concludes `failure` on the merge commit, the verdict is floored at CONCERNS before the LLM runs, so a merge that breaks `main` can never verify PASS.
 
 **Workflow:** `agents-verifier.yml`
+
+---
+
+### `verify:pr-handoff`
+
+**Applies to:** Issues
+
+**Trigger:** Written by `agents-auto-pilot.yml` after it labels a merged source PR with `verify:evaluate`
+
+**Effect:** Marks a PR-bound verification handoff. Auto-pilot treats a closed issue as `done` only when this label is present (or a legacy recovery path applies). Issue-only `verify:evaluate` without this marker stays on `verify`.
+
+**Workflow:** `agents-auto-pilot.yml` (tracking); verifier still runs from the PR label
 
 ---
 

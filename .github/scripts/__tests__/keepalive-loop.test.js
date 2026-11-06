@@ -299,7 +299,7 @@ const buildGithubStub = ({
     rest: {
       pulls: {
         async get() {
-          return { data: { ...pr, head: pr?.head || { sha: 'fixture-head' } } };
+          return { data: { id: 100000 + (pr?.number || 0), node_id: `PR_fixture_${pr?.number || 0}`, ...pr, head: pr?.head || { sha: 'fixture-head' } } };
         },
         async update({ body }) {
           pr.body = body;
@@ -308,7 +308,12 @@ const buildGithubStub = ({
         },
       },
       actions: {
-        async listWorkflowRuns() {
+        async listWorkflowRuns(args = {}) {
+          // Ordinary legacy fixtures have a complete empty native correction
+          // inventory; their unrelated Gate workflowRuns are not correction runs.
+          if (args.workflow_id === 'agents-verify-to-new-pr.yml' && args.event === 'workflow_dispatch') {
+            return { data: { total_count: 0, workflow_runs: [] } };
+          }
           return { data: { workflow_runs: workflowRuns } };
         },
         async getWorkflowRun() {
@@ -6789,6 +6794,7 @@ test('autoReconcileTasks handles tasks with backticks and special characters', a
   const llmCompletedTasks = [
     'Create `src/trend_analysis/stages/__init__.py` package',
     'Add "quoted" task name',
+    'Already completed task',
   ];
 
   let updatedBody = null;
@@ -6826,7 +6832,7 @@ test('autoReconcileTasks handles tasks with backticks and special characters', a
 
   assert.ok(result.updated, 'Should update PR body with special character tasks');
   assert.equal(result.tasksChecked, 2, 'Should check off both LLM-detected tasks');
-  assert.equal(result.sources.llm, 2, 'Should report LLM sources');
+  assert.equal(result.llmTasksChecked, 2, 'Counts only newly changed boxes, not already-complete suggestions');
   
   if (updatedBody) {
     assert.ok(updatedBody.includes('[x] Create `src/trend_analysis/stages/__init__.py` package'), 
@@ -7127,9 +7133,11 @@ test('updateKeepaliveLoopSummary displays LLM provider analysis details', async 
       llm_provider: 'github-models',
       llm_confidence: 0.95,
       llm_analysis_run: true,
+      llm_ticked_tasks: 2,
     },
   });
 
+  assert.match(github.actions[0].body, /llm-ticked-tasks: 2/);
   assert.equal(github.actions.length, 2);
   assert.equal(github.actions[0].type, 'update');
   assert.match(github.actions[0].body, /### 🧠 Task Analysis/);

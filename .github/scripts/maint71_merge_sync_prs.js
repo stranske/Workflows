@@ -16,9 +16,26 @@ const CLAIM_EXPIRY = 2 * 60 * 60 * 1000;
 const STALE_CANARY_HOURS = 6;
 const CANARY_REFRESH_DEBOUNCE_MS = 6 * 60 * 60 * 1000;
 const CANARY_SEALED_REFRESH_WAIT_MS = 60 * 60 * 1000;
+// A cancelled exact-head Gate reached no verdict. Full reruns may replace it
+// until this attempt number; the next one must come from a new head event.
+const CANCELLED_GATE_MAX_ATTEMPT = 3;
 const deliveryPayload = require('./consumer_delivery_digest');
 const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
+const { parseBooleanInput } = require('./sync_pr_merge_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
+
+// Share the fleet's existing exhausted-primary-limit policy with Gate readers.
+function isPrimaryRateLimitExhausted(error) {
+  const retryHelpers = require('./github-api-with-retry');
+  return typeof retryHelpers.isRateLimitError === 'function'
+    && typeof retryHelpers.isSecondaryRateLimitError === 'function'
+    && retryHelpers.isRateLimitError(error)
+    && !retryHelpers.isSecondaryRateLimitError(error);
+}
+
+function rethrowPrimaryRateLimit(error) {
+  if (isPrimaryRateLimitExhausted(error)) throw error;
+}
 
 function canaryHasBlockingReviewDebt(canary) {
   return require('./sync_pr_merge_contract').canaryReviewDebtIsBlocking({ ...canary,
@@ -47,9 +64,59 @@ function canaryRecoveryKey(canary, state) {
     .update(`${canary.owner}/${canary.repo}:${state.delivery_digest || state.sha}:${canary.head_sha}`).digest('hex');
 }
 
-async function readRefreshPayload(sha, candidates) {
+function refreshPlanContext({ planId = '', planScope = 'full', scopeBaseSha = '', sourceSha = '', plan } = {}) {
+  if (planScope === 'auto') planScope = 'full';
+  if (!['full', 'source-delta'].includes(planScope)) throw new Error('canary_refresh_scope_unknown');
+  if (planScope === 'source-delta' && (!/^sha256:[a-f0-9]{64}$/.test(planId)
+    || !/^[a-f0-9]{40}$/.test(scopeBaseSha) || !/^[a-f0-9]{40}$/.test(sourceSha))) {
+    throw new Error('canary_refresh_scoped_identity_unknown');
+  }
+  if (planScope === 'full' && scopeBaseSha) throw new Error('canary_refresh_full_base_forbidden');
+  if (plan && (plan.plan_id !== planId || !Array.isArray(plan.entries) || !Array.isArray(plan.removals))) {
+    throw new Error('canary_refresh_compiled_plan_changed');
+  }
+  return { plan_id: planId, plan_scope: planScope, scope_base_sha: scopeBaseSha,
+    source_commit: sourceSha, ...(plan ? { plan } : {}) };
+}
+
+async function verifiedCanaryRefreshPlan({ owner, repo, pr, record, metadata, nativeHead, withRetry }) {
+  const head = nativeHead || (await withRetry(client => client.rest.repos.getCommit({
+    owner, repo, ref: pr.head.sha }))).data;
+  const commit = head.commit || head;
+  if (head.sha !== pr.head.sha || commit.verification?.verified !== true
+    || commit.verification.reason !== 'valid') throw new Error('canary_refresh_native_head_unverified');
+  const fields = Object.create(null);
+  for (const line of String(commit.message || '').split(/\r?\n/)) {
+    const match = line.match(/^(Consumer-sync plan ID|Plan scope|Scope base SHA|Source commit):\s*(.+?)\s*$/);
+    if (!match) continue;
+    if (Object.hasOwn(fields, match[1])) throw new Error('canary_refresh_duplicate_native_scope');
+    fields[match[1]] = match[2];
+  }
+  const scope = fields['Plan scope'];
+  const base = scope === 'full' && fields['Scope base SHA'] === 'full' ? '' : fields['Scope base SHA'];
+  if (!record || fields['Consumer-sync plan ID'] !== record.plan_id
+    || fields['Source commit'] !== record.source_commit
+    || !/^[a-f0-9]{40}$/.test(fields['Source commit'] || '')
+    || (record.head_observed_sha && record.head_observed_sha !== pr.head.sha)
+    || String(metadata?.plan_scope || 'full') !== scope) throw new Error('canary_refresh_native_scope_mismatch');
+  if (scope === 'source-delta') {
+    const binding = require('./sync_pr_merge_contract').validateSourceDeltaEvidenceBinding({
+      metadata, deliveryRecord: record, commitMessage: commit.message });
+    if (!binding.ok) throw new Error(`canary_refresh_native_scope_mismatch:${binding.errors.join(',')}`);
+  }
+  return refreshPlanContext({ planId: record.plan_id, planScope: scope,
+    scopeBaseSha: base, sourceSha: record.source_commit });
+}
+
+function sameRefreshPlan(left, right) {
+  return ['plan_id', 'plan_scope', 'scope_base_sha', 'source_commit']
+    .every(field => left?.[field] === right?.[field]);
+}
+
+async function readRefreshPayload(sha, candidates, refreshPlan) {
   try {
-    return await deliveryPayload.readDeliveryPayload(sha, candidates);
+    return await deliveryPayload.readDeliveryPayload(sha, candidates,
+      refreshPlan?.plan_scope === 'source-delta' ? refreshPlan : null);
   } catch (error) {
     console.log(`refresh: digest unavailable (${error.message || String(error)}); falling back to sha key`);
     return null;
@@ -57,6 +124,10 @@ async function readRefreshPayload(sha, candidates) {
 }
 
 function shaRefreshFallback(state, now) {
+  if (state.refresh_plan?.plan_scope === 'source-delta') {
+    return Object.assign(state, { eligible: false, state: 'unknown', producer_succeeded: false,
+      queue_reason: 'scoped payload cannot fall back to a source-only receipt' });
+  }
   return Object.assign(state, canaryRefreshDecision({ runs: state.runs || [], sha: state.sha,
     candidates: state.candidates, defaultBranch: state.default_branch || 'main',
     driftKey: state.drift_key, now }), { queue_reason: undefined });
@@ -87,6 +158,68 @@ async function readCanaryDefaultTip({ canary, withRetry, consumerTipCache }) {
 }
 
 // Reruns retain their run ID. Execution time must precede ID in receipt order.
+// Observability only: never echo native error text or turn these fields into admission proof.
+const REFRESH_REASON_CODES = new Set([
+  'invalid_native_phase_repositories', 'invalid_native_plan', 'invalid_native_plan_targets',
+  'noncanonical_native_plan_json',
+  'native_plan_digest_mismatch', 'native_scope_archive_digest', 'native_scope_archive_members',
+  'native_scope_artifact_absent_or_ambiguous', 'native_scope_artifact_attempt_window',
+  'native_scope_artifact_identity_mismatch', 'native_scope_attempt_changed', 'native_scope_inventory_bound',
+  'native_scope_inventory_changed', 'native_scope_inventory_duplicate', 'native_scope_inventory_incomplete',
+  'native_scope_inventory_unreadable', 'native_scope_phase_binding', 'native_scope_plan_binding',
+  'native_scope_prepare_mismatch', 'native_scope_run_identity_absent', 'native_scope_run_mismatch',
+  'native_scope_step_ambiguous', 'native_scope_workflow_blob_mismatch', 'native_scope_workflow_source_unreadable',
+  'native_scope_effect_disposition_unknown', 'native_scope_prior_attempt_unknown',
+  'native_scope_receipt_identity_absent', 'native_scope_read_failed',
+  'native_scope_schedule_workflow_unverified', 'native_scope_schedule_identity_mismatch',
+  'native_scope_bootstrap_report_source_unverified', 'native_scope_bootstrap_artifacts_present',
+  'native_scope_bootstrap_not_started',
+]);
+function refreshReceiptDiagnostic(run, receipt = {}, reason = receipt.reason) {
+  const result = { state: ['completed', 'not_started', 'unknown'].includes(receipt.state) ? receipt.state : 'unknown',
+    reason_code: REFRESH_REASON_CODES.has(reason) ? reason : receipt.state === 'unknown' && !reason
+      ? 'native_scope_effect_disposition_unknown' : !reason && ['completed', 'not_started'].includes(receipt.state)
+        ? null : 'native_scope_read_failed',
+    source_identity_bound: receipt.proof?.source_identity_bound === true };
+  for (const [key, value] of Object.entries({ run_id: run.id, run_attempt: run.run_attempt,
+    artifact_id: receipt.proof?.artifact_id, prepare_job_id: receipt.proof?.prepare_job_id })) {
+    if (Number.isSafeInteger(value) && value > 0) result[key] = value;
+  }
+  for (const [key, value] of Object.entries({ head_sha: run.head_sha, source_commit: receipt.source_commit,
+    scope_base_sha: receipt.scope_base_sha, workflow_blob_sha: receipt.proof?.workflow_blob_sha })) {
+    if (typeof value === 'string' && /^[a-f0-9]{40}$/.test(value)) result[key] = value;
+  }
+  const operations = ['actions.getWorkflowRunAttempt', 'actions.listJobsForWorkflowRunAttempt',
+    'actions.listWorkflowRunArtifacts', 'actions.getArtifact', 'actions.downloadArtifact',
+    'actions.getWorkflowRun', 'repos.getContent.workflow', 'repos.getContent.report'];
+  if (operations.includes(receipt.proof?.last_read)) result.last_read = receipt.proof.last_read;
+  if (Number.isSafeInteger(receipt.proof?.http_status) && receipt.proof.http_status >= 100
+    && receipt.proof.http_status <= 599) result.http_status = receipt.proof.http_status;
+  if (/^sha256:[a-f0-9]{64}$/.test(receipt.plan_id || '')) result.plan_id = receipt.plan_id;
+  if (['full', 'source-delta'].includes(receipt.plan_scope)) result.plan_scope = receipt.plan_scope;
+  return result;
+}
+function canaryRefreshDiagnostics(state) {
+  const runs = Array.isArray(state.runs) ? state.runs : [];
+  const unknown = runs.filter(run => run.refresh_unknown);
+  return { schema: 'workflows.canary-refresh-diagnostics/v1',
+    state: ['unknown', 'success', 'unseen', 'writer-active', ...ACTIVE_SYNC_STATES,
+      'failure', 'cancelled', 'timed_out', 'action_required', 'completed', 'sealed-cycle'].includes(state.state)
+      ? state.state : 'unknown', eligible: state.eligible === true,
+    inventory: { observed: runs.length, native_receipts: runs.filter(run => run.refresh_receipt).length,
+      unknown: unknown.length, potential_overwrites: runs.filter(run => run.refresh_potential_overwrite).length,
+      confirmed_not_started: runs.filter(run => run.refresh_not_started).length },
+    blocking_receipt: unknown.find(run => run.id === state.run_id)?.refresh_receipt || null,
+    refusals: unknown.slice(0, 8).map(run => run.refresh_receipt || refreshReceiptDiagnostic(run)),
+    omitted_refusals: Math.max(0, unknown.length - 8) };
+}
+async function reportCanaryRefreshDiagnostics({ core, state }) {
+  if (state.refresh_plan?.plan_scope !== 'source-delta') return;
+  const encoded = JSON.stringify(canaryRefreshDiagnostics(state));
+  core.notice(`canary-refresh-diagnostics: ${encoded}`);
+  await core.summary.addRaw(`\nCanary refresh diagnostics\n\n\`\`\`json\n${encoded}\n\`\`\`\n`).write();
+}
+
 function newestRefreshExecution(a, b) {
   const started = run => Date.parse(run.run_started_at || run.created_at) || 0;
   return started(b) - started(a) || Number(b.run_attempt || 1) - Number(a.run_attempt || 1)
@@ -96,41 +229,60 @@ function newestRefreshExecution(a, b) {
 // The latest delivered payload is reusable across SHAs. Older payload receipts
 // cannot mask a rollback after a different payload was delivered. The retry
 // window bounds failed producers; an active writer never expires into a second writer.
-function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', driftKey = '', deliveryDigest = '', now = Date.now() }) {
+function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', driftKey = '', deliveryDigest = '', refreshPlan = null, now = Date.now() }) {
   const key = candidateSet(candidates).join(',');
   const valid = runs.flatMap((run) => {
-    const title = String(run.display_title || '').trim();
-    const match = title.match(/^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
+    const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
+    const match = title.match(/^Maint 68 canary (full|auto|source-delta)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
+    const exactCandidates = match && (match[3] === '*' || candidateSet(match[3].split(',')).join(',') === key);
+    const overlappingCandidates = match && (match[3] === '*'
+      || candidateSet(match[3].split(',')).some(repo => candidateSet(candidates).includes(repo)));
     return match && run.head_branch === defaultBranch && /^[a-f0-9]{40}$/.test(run.head_sha || '')
-      && (match[2] === '*' || candidateSet(match[2].split(',')).join(',') === key)
-      ? [{ ...run, source_commit: match[1] }] : [];
+      && (exactCandidates || (refreshPlan?.plan_scope === 'source-delta' && overlappingCandidates))
+      && (refreshPlan?.plan_scope === 'source-delta' || match[1] !== 'source-delta')
+      ? [{ ...run, source_commit: match[2], refresh_candidates_match: exactCandidates }] : [];
   });
-  const matching = valid.filter(run => deliveryDigest ? run.delivery_digest === deliveryDigest
-    : run.source_commit === sha);
-  const latestSuccess = valid.filter(run => run.status === 'completed' && run.conclusion === 'success'
-    && (!deliveryDigest || run.delivery_digest)).sort(newestRefreshExecution)[0];
+  const matching = valid.filter(run => run.refresh_candidates_match && (refreshPlan?.plan_scope === 'source-delta'
+    ? sameRefreshPlan(run.refresh_plan, refreshPlan)
+    : deliveryDigest ? run.delivery_digest === deliveryDigest : run.source_commit === sha));
+  // A later full/different scoped delivery can overwrite these targets. Keep it
+  // as a barrier even when its digest differs or was not rendered for this request.
+  const latestSuccess = valid.filter(run => run.refresh_potential_overwrite || (!run.refresh_not_started && !run.refresh_unknown
+    && run.status === 'completed' && run.conclusion === 'success'
+    && (refreshPlan?.plan_scope === 'source-delta' || !deliveryDigest || run.delivery_digest)))
+    .sort(newestRefreshExecution)[0];
   const identityMatches = (run) => !driftKey || String(run.display_title).includes(` drift=${driftKey}`);
-  const successful = matching.find((run) => (!deliveryDigest || latestSuccess?.delivery_digest === deliveryDigest) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
-  const active = matching.find((run) => ACTIVE_SYNC_STATES.includes(run.status));
-  const writer = runs.find((run) => ACTIVE_SYNC_STATES.includes(run.status)
+  const successful = matching.find((run) => !run.refresh_not_started && (refreshPlan?.plan_scope === 'source-delta'
+    ? latestSuccess === run && run.delivery_digest === deliveryDigest
+    : !deliveryDigest || latestSuccess?.delivery_digest === deliveryDigest) && identityMatches(run) && run.status === 'completed' && run.conclusion === 'success');
+  const active = matching.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status));
+  const writer = runs.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status)
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
   const recent = matching.find((run) => run.status === 'completed' && run.conclusion !== 'success'
     && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
-  const prior = active || writer || successful || recent;
+  const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
+  const prior = active || writer || unknown || successful || recent;
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
-    producer_succeeded: Boolean(successful),
-    state: active ? active.status : writer ? 'writer-active' : successful ? 'success'
+    producer_succeeded: Boolean(successful) && !unknown,
+    ...(refreshPlan ? { refresh_plan: refreshPlan } : {}),
+    state: active ? active.status : writer ? 'writer-active' : unknown ? 'unknown' : successful ? 'success'
       : recent ? recent.conclusion || 'completed' : 'unseen',
     run_id: prior?.id,
     debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
 }
 
 async function readCanaryRefreshState({ withRetry, context, expectedCanaries, driftKey = '',
-  sourceSha, ignoreRunId, writerOnly = false, now = Date.now() }) {
+  sourceSha, ignoreRunId, ignoreRunAttempt, writerOnly = false, planId = '', planScope = 'full', scopeBaseSha = '', plan, now = Date.now() }) {
   const location = { owner: context.repo.owner, repo: context.repo.repo };
   const branch = context.payload.repository?.default_branch || 'main';
   const { data: source } = await withRetry((client) => client.rest.repos.getCommit({ ...location, ref: sourceSha || branch }));
   if (!/^[a-f0-9]{40}$/.test(source.sha || '')) throw new Error('canary_refresh_main_sha_unknown');
+  if (sourceSha && /^[a-f0-9]{40}$/.test(sourceSha) && source.sha !== sourceSha) throw new Error('canary_refresh_source_changed');
+  const refreshPlan = refreshPlanContext({ planId, planScope, scopeBaseSha, sourceSha: source.sha, plan });
+  if (refreshPlan.plan_scope === 'source-delta' && ignoreRunId
+    && (!Number.isSafeInteger(ignoreRunAttempt) || ignoreRunAttempt < 1)) {
+    throw new Error('canary_refresh_current_attempt_unknown');
+  }
   const { data: file } = await withRetry((client) => client.rest.repos.getContent({
     ...location, path: 'config/consumer_sync_canaries.json', ref: source.sha,
   }));
@@ -153,8 +305,10 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     runs.push(...data.workflow_runs);
   }
   if (writerOnly) return canaryRefreshDecision({ runs, sha: source.sha, candidates, defaultBranch: branch, now });
-  let payload = await readRefreshPayload(source.sha, candidates);
-  const observed = runs.filter(run => Number(run.id) !== Number(ignoreRunId));
+  let payload = refreshPlan.plan_scope === 'source-delta' && !refreshPlan.plan ? null
+    : await readRefreshPayload(source.sha, candidates, refreshPlan);
+  const observed = runs.filter(run => Number(run.id) !== Number(ignoreRunId)
+    || (refreshPlan.plan_scope === 'source-delta' && Number(run.run_attempt || 1) !== ignoreRunAttempt));
   // The API lists by creation, not latest attempt. Collect metadata before
   // selecting receipts, including older IDs rerun after a newer delivery.
   const history = [];
@@ -168,10 +322,61 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     if (page === 100) throw new Error('canary_refresh_history_truncated');
   }
   for (const original of history.sort(newestRefreshExecution)) {
-    if (Number(original.id) === Number(ignoreRunId)) continue;
+    if (Number(original.id) === Number(ignoreRunId)) {
+      if (refreshPlan.plan_scope === 'source-delta' && (Number(original.run_attempt || 1) > 1
+        || Number(original.run_attempt || 1) !== ignoreRunAttempt)) {
+        observed.push({ ...original, refresh_unknown: true,
+          refresh_receipt: refreshReceiptDiagnostic(original, { state: 'unknown' }, 'native_scope_prior_attempt_unknown'),
+          refresh_ignore_current_writer: Number(original.run_attempt || 1) === ignoreRunAttempt });
+      }
+      continue;
+    }
     const run = { ...original };
     observed.push(run);
-    const match = String(run.display_title || '').trim().match(
+    if (refreshPlan.plan_scope === 'source-delta') {
+      const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
+      if (!/^Maint 68 canary (?:full|auto|source-delta)\s+source=[a-f0-9]{40} candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/.test(title)) continue;
+      const receipt = await require('./maint68_scoped_receipt').readScopedCanaryReceipt({
+        withRetry, context, run, defaultBranch: branch, candidates });
+      run.refresh_receipt = refreshReceiptDiagnostic(run, receipt);
+      if (receipt.state === 'unknown') {
+        // This proof is produced only by the native reader after joining the
+        // original prepare steps to the reviewed workflow source projection.
+        if (receipt.proof?.source_identity_bound === true
+          && receipt.source_commit !== source.sha) {
+          // It cannot be this request's unresolved effect, but it might have
+          // partially overwritten an older matching delivery before failing.
+          run.refresh_potential_overwrite = true;
+          continue;
+        }
+        run.refresh_unknown = true;
+        continue;
+      }
+      if (receipt.state === 'not_started' && Number(run.run_attempt || 1) > 1) {
+        run.refresh_receipt = refreshReceiptDiagnostic(run, { ...receipt, state: 'unknown' }, 'native_scope_prior_attempt_unknown');
+        if (receipt.proof?.source_identity_bound === true && receipt.source_commit !== source.sha) {
+          run.refresh_potential_overwrite = true;
+          continue;
+        }
+        run.refresh_unknown = true;
+        continue;
+      }
+      if (receipt.state === 'not_started') run.refresh_not_started = true;
+      if (receipt.plan_id) {
+        run.refresh_plan = refreshPlanContext({ planId: receipt.plan_id, planScope: receipt.plan_scope,
+          scopeBaseSha: receipt.scope_base_sha, sourceSha: receipt.source_commit, plan: receipt.plan });
+        run.source_commit = receipt.source_commit;
+        run.refresh_not_started = receipt.state === 'not_started';
+        if (sameRefreshPlan(run.refresh_plan, refreshPlan)) {
+          if (!refreshPlan.plan && receipt.plan) refreshPlan.plan = receipt.plan;
+        }
+      } else if (receipt.state !== 'not_started') {
+        run.refresh_unknown = true;
+        run.refresh_receipt = refreshReceiptDiagnostic(run, { ...receipt, state: 'unknown' }, 'native_scope_receipt_identity_absent');
+      }
+      continue;
+    }
+    const match = String(run.display_title || '').trim().replace(/\s+/g, ' ').match(
       /^Maint 68 canary (?:full|auto)\s+source=([a-f0-9]{40}) candidates=(\S+) dry=false(?: drift=([a-f0-9]{64}))?(?: guard=delivery-v1)?$/);
     if (!match || run.head_branch !== branch || !/^[a-f0-9]{40}$/.test(run.head_sha || '')
       || (match[2] !== '*' && candidateSet(match[2].split(',')).join(',') !== candidates.join(','))) continue;
@@ -207,8 +412,18 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     }
   }
 
+  if (refreshPlan.plan_scope === 'source-delta') {
+    payload = refreshPlan.plan ? await readRefreshPayload(source.sha, candidates, refreshPlan) : null;
+    for (const run of observed) {
+      if (sameRefreshPlan(run.refresh_plan, refreshPlan)) run.delivery_digest = payload?.digest;
+    }
+  }
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,
-    defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, now });
+    defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, refreshPlan, now });
+  if (refreshPlan.plan_scope === 'source-delta' && !payload) {
+    Object.assign(state, { eligible: false, state: 'unknown', producer_succeeded: false,
+      queue_reason: 'compiled scoped payload unavailable' });
+  }
   state.default_branch = branch;
   if (state.eligible && payload) await deferSealedCanaryRefresh({ state, payload, withRetry, now });
   return state;
@@ -234,8 +449,9 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
         || record.repository !== repository || record.head_observed_sha !== pr.head?.sha) continue;
       const prior = await readRefreshPayload(record.source_commit, state.candidates);
       if (!prior) return shaRefreshFallback(state, now);
-      if (prior.digest === payload.digest && !state.drift_key) {
-        waiting.push({ reason: 'unchanged', source: record.source_commit });
+      if (state.refresh_plan?.plan_scope !== 'source-delta'
+        && prior.digest === payload.digest && !state.drift_key) {
+        waiting.push({ reason: 'unchanged', repository, source: record.source_commit });
         continue;
       }
       if (record.delivery_state !== 'sealed' || record.sealed_head_sha !== pr.head?.sha
@@ -244,7 +460,9 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
       if (!Number.isFinite(elapsed)) throw new Error('canary_refresh_seal_time_unknown');
       if (elapsed >= CANARY_SEALED_REFRESH_WAIT_MS) continue;
       const before = prior.files[repository] || {}, after = payload.files[repository] || {};
-      const changed = new Set([...Object.keys(before), ...Object.keys(after)]
+      const considered = state.refresh_plan?.plan_scope === 'source-delta'
+        ? Object.keys(after) : [...Object.keys(before), ...Object.keys(after)];
+      const changed = new Set(considered
         .filter(file => JSON.stringify(before[file]) !== JSON.stringify(after[file])));
       const files = [];
       for (let page = 1; ; page++) {
@@ -269,15 +487,21 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
       }
       const latest = history.workflow_runs.filter(run => run.head_sha === pr.head.sha
         && run.event === 'pull_request').sort((a, b) => Number(b.id) - Number(a.id))[0];
-      if (latest?.status === 'completed' && gateEvaluatesSeal(latest, record.sealed_at)
-        && ['failure', 'cancelled', 'timed_out', 'action_required'].includes(latest.conclusion)) continue;
+      if (latest?.status === 'completed' && await gateRunEvaluatesSeal({
+        owner, repo, run: latest, sealedAt: record.sealed_at, withRetry,
+      }) === true && ['failure', 'cancelled', 'timed_out', 'action_required'].includes(latest.conclusion)) continue;
       waiting.push({ reason: 'sealed', repository, head: pr.head.sha, sealed_at: record.sealed_at });
     }
   }
   // An overlap/expired wait in one repo must not overwrite a still-owned head
   // in another. A single full-set producer waits for every protected canary.
-  if (waiting.length) {
-    const sealed = waiting.filter(row => row.reason === 'sealed');
+  // Payload equality is a full-set receipt only when every canary is current;
+  // one already-current head cannot suppress delivery to the remaining repos.
+  const sealed = waiting.filter(row => row.reason === 'sealed');
+  const unchanged = new Set(waiting.filter(row => row.reason === 'unchanged')
+    .map(row => row.repository));
+  if (sealed.length || (state.candidates.length > 0
+    && state.candidates.every(repository => unchanged.has(repository)))) {
     const clearsAt = Math.max(...sealed.map(row => Date.parse(row.sealed_at) + CANARY_SEALED_REFRESH_WAIT_MS));
     Object.assign(state, { eligible: false, state: sealed.length ? 'sealed-cycle' : 'success',
       producer_succeeded: !sealed.length, unchanged_since: waiting[0].source,
@@ -287,7 +511,8 @@ async function deferSealedCanaryRefresh({ state, payload, withRetry, now = Date.
   return state;
 }
 
-async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now }) {
+async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now,
+  cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context?.payload?.client_payload?.cleanup_branches, true) }) {
   const state = refreshState || await readCanaryRefreshState({ withRetry, context, expectedCanaries, now });
   const line = state.queue_reason ? `refresh: queued (${state.queue_reason})`
     : state.producer_succeeded && state.delivery_digest
@@ -295,20 +520,108 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
     : state.eligible
     ? `refresh: dispatching canary for ${state.sha}`
     : `refresh: skipped (canary for ${state.sha} already ${state.state})`;
+  await reportCanaryRefreshDiagnostics({ core, state });
   core.notice(line);
   await core.summary.addRaw(`${line}; candidates=${state.candidates.join(',')}; debounce_ms=${CANARY_REFRESH_DEBOUNCE_MS}\n`).write();
   if (!state.eligible) return { ...state, dispatched: false };
+  if (state.refresh_plan?.plan_scope === 'source-delta') {
+    const request = state.refresh_plan;
+    refreshPlanContext({ planId: request.plan_id, planScope: request.plan_scope,
+      scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan });
+    if (!request.plan || state.sha !== request.source_commit) throw new Error('canary_refresh_scoped_payload_unknown');
+  }
   await withRetry((client) => client.rest.actions.createWorkflowDispatch({
     owner: context.repo.owner, repo: context.repo.repo,
     workflow_id: 'maint-68-sync-consumer-repos.yml',
     ref: context.payload.repository?.default_branch || 'main',
     inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: state.sha,
       repos: state.candidates.join(','), dry_run: 'false', force: 'false',
+      cleanup_branches: String(cleanupBranches),
+      ...(state.refresh_plan?.plan_id ? { expected_plan_id: state.refresh_plan.plan_id } : {}),
+      ...(state.refresh_plan?.plan_scope === 'source-delta' ? {
+        delivery_scope: 'source-delta', scope_base_sha: state.refresh_plan.scope_base_sha,
+        scope_head_sha: state.refresh_plan.source_commit, expected_plan_id: state.refresh_plan.plan_id,
+      } : {}),
       ...(state.drift_key ? { refresh_key: state.drift_key } : {}) },
   }));
   // Covers a second request in this run before REST exposes the queued run.
   Object.assign(state, { eligible: false, state: 'requested' });
   return { ...state, dispatched: true };
+}
+
+async function dispatchCandidateRefreshFromReport({ report, withRetry, context, core, expectedCanaries,
+  trustedActors = [] }) {
+  const rows = (Array.isArray(report?.results) ? report.results : []).filter(row =>
+    (row.status === 'stable_base_refresh_required'
+      && row.next_command === 'dispatch-maint-68-phase-canary-no-filter')
+    || (row.status === 'delivery_contract_blocked'
+      && row.next_command === 'refresh-candidate-from-exact-plan'));
+  if (!rows.length) return { eligible: false, state: 'no-refresh-request', dispatched: false };
+  const allowed = new Set(expectedCanaries), requests = [], freshCanaries = [];
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
+  const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
+  for (const row of rows) {
+    const repository = `${row.owner}/${row.repo}`;
+    if (!allowed.has(repository) || !Number.isSafeInteger(row.pr) || row.pr < 1
+      || !/^[a-f0-9]{40}$/.test(row.head_sha || '')) throw new Error('canary_refresh_report_subject_unknown');
+    const { data: pr } = await withRetry(client => client.rest.pulls.get({
+      owner: row.owner, repo: row.repo, pull_number: row.pr }));
+    if (pr.number !== row.pr || pr.state !== 'open' || pr.draft === true
+      || pr.head?.ref !== 'sync/workflows-candidate' || pr.head.sha !== row.head_sha
+      || pr.head.repo?.full_name !== repository || pr.base?.repo?.full_name !== repository
+      || !isTrustedGeneratedDeliveryPr(pr, trustedActors)) throw new Error('canary_refresh_report_native_subject_changed');
+    const matches = [...String(pr.body || '').matchAll(/<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/g)];
+    if (matches.length !== 1) throw new Error('canary_refresh_report_metadata_ambiguous');
+    const metadata = JSON.parse(matches[0][1]), record = parseDeliveryRecord(pr.body);
+    if (metadata.consumer_repo !== repository || metadata.sync_phase !== 'canary'
+      || record?.repository !== repository) throw new Error('canary_refresh_report_native_subject_changed');
+    const request = await verifiedCanaryRefreshPlan({ owner: row.owner, repo: row.repo,
+      pr, record, metadata, withRetry });
+    if (row.status === 'delivery_contract_blocked') {
+      // The native candidate is authenticated above, but is bound to the wrong
+      // source. Only a complete full-scope campaign tuple may request recovery.
+      const desired = row.refresh_plan;
+      if (!desired || desired.plan_scope !== 'full' || request.plan_scope !== 'full'
+        || !/^sha256:[a-f0-9]{64}$/.test(desired.plan_id || '')
+        || !/^[a-f0-9]{40}$/.test(desired.source_commit || '')
+        || desired.plan_id !== request.plan_id) throw new Error('canary_refresh_report_scope_changed');
+      requests.push(refreshPlanContext({ planId: desired.plan_id, planScope: desired.plan_scope,
+        scopeBaseSha: desired.scope_base_sha, sourceSha: desired.source_commit }));
+    } else {
+      if (!sameRefreshPlan(request, row)) throw new Error('canary_refresh_report_scope_changed');
+      requests.push(request);
+    }
+    freshCanaries.push({ owner: row.owner, repo: row.repo, head_sha: pr.head.sha,
+      mergeable_state: pr.mergeable_state, default_branch: pr.base.repo.default_branch });
+  }
+  if (requests.some(request => !sameRefreshPlan(request, requests[0]))) throw new Error('canary_refresh_mixed_report_plans');
+  const request = requests[0];
+  const inputs = { sourceSha: request.source_commit, planId: request.plan_id,
+    planScope: request.plan_scope, scopeBaseSha: request.scope_base_sha };
+  let state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, ...inputs });
+  if (state.state !== 'unknown') {
+    const recovery = freshCanaries.find(canary => canary.mergeable_state === 'behind') || freshCanaries[0];
+    await readCanaryDefaultTip({ canary: recovery, withRetry, consumerTipCache: new Map() });
+    state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, ...inputs,
+      driftKey: canaryRecoveryKey(recovery, state) });
+  }
+  const refresh = await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState: state,
+    cleanupBranches: report.inputs.cleanup_branches });
+  if (refresh.dispatched) {
+    const prior = report.canary_refresh || {};
+    report.canary_refresh = { ...prior,
+      refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
+      drainable: (prior.drainable || 0) + rows.length,
+      held_plans: [...new Set([...(prior.held_plans || []), request.plan_id])] };
+    // The workflow may have uploaded the report before this recovery step.
+    // Keep dispatch evidence visible in this step's logs and summary as well.
+    const counts = report.canary_refresh;
+    const line = `candidate refresh receipt: source_commit=${request.source_commit} plan_id=${request.plan_id} `
+      + `refresh_dispatched=${counts.refresh_dispatched} held_plans=${counts.held_plans.join(',')} drainable=${counts.drainable}`;
+    core.notice(line);
+    await core.summary.addRaw(`${line}\n`).write();
+  }
+  return refresh;
 }
 
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
@@ -357,6 +670,45 @@ function gateEvaluatesSeal(run, sealedAt) {
   return started > sealed || (started === sealed && Number(run.run_attempt) > 1);
 }
 
+// A failed-jobs rerun can reuse a successful resolver from before sealing.
+// Its run_started_at advances even though the metadata snapshot does not.
+async function gateRunEvaluatesSeal({ owner, repo, run, sealedAt, withRetry, jobs }) {
+  const sealed = Date.parse(sealedAt);
+  if (!Number.isFinite(sealed)) return null;
+  let rows = jobs;
+  if (!rows) {
+    try {
+      rows = await withRetry(client => client.paginate(
+        client.rest.actions.listJobsForWorkflowRun,
+        { owner, repo, run_id: run.id, filter: 'latest', per_page: 100 },
+      ));
+    } catch (error) {
+      console.log(`seal: ${owner}/${repo} run=${run.id} resolver jobs unreadable: status=${error?.status || error?.response?.status || 'unknown'}`);
+      rethrowPrimaryRateLimit(error);
+      return null;
+    }
+  }
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const resolvers = rows.filter(job => job.name === 'resolve Gate PR context');
+  if (!resolvers.length) {
+    // A legacy first event created before the seal proves an old snapshot,
+    // even if queue delay moves its start after sealing. Without a resolver,
+    // neither a later creation nor a repeated attempt proves a fresh snapshot.
+    const created = Date.parse(run.created_at);
+    return Number(run.run_attempt || 1) === 1 && Number.isFinite(created)
+      && created <= sealed ? false : null;
+  }
+  if (resolvers.length !== 1) return null;
+  const resolver = resolvers[0];
+  if (resolver.status !== 'completed' || resolver.conclusion !== 'success'
+    || resolver.head_sha !== run.head_sha
+    || Number(resolver.run_attempt) !== Number(run.run_attempt || 1)) return null;
+  const started = Date.parse(resolver.started_at);
+  const completed = Date.parse(resolver.completed_at);
+  if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started) return null;
+  return started > sealed;
+}
+
 // Recognize a seal-only hold, including a Gate that read an older PR-body
 // snapshot. This permits lifecycle progress, never merge authorization.
 async function isExpectedPresealGateFailure({
@@ -403,16 +755,16 @@ async function isExpectedPresealGateFailure({
       || String(run?.name || '').trim() !== 'Gate'
       || String(run?.path || '') !== '.github/workflows/pr-00-gate.yml'
       || run?.status !== 'completed' || run?.conclusion !== 'failure') return false;
-    // A current seal needs a new Gate only when the failed run predates it.
-    // A failure from a fresh sealed evaluation remains a real blocker.
-    if (deliveryState === 'sealed' && deliveryRecord.sealed_head_sha === headSha
-      && gateEvaluatesSeal(run, deliveryRecord.sealed_at) !== false) return false;
-
     const jobs = await withRetry((client) => client.paginate(
       client.rest.actions.listJobsForWorkflowRun,
-      { owner, repo, run_id: runId, per_page: 100 },
+      { owner, repo, run_id: runId, filter: 'latest', per_page: 100 },
     ));
     if (!Array.isArray(jobs) || jobs.length === 0) return false;
+    // Fresh failed evaluations remain blockers. Only an authenticated old
+    // snapshot can wake this sealed head; unknown metadata never permits POST.
+    if (deliveryState === 'sealed' && deliveryRecord.sealed_head_sha === headSha
+      && await gateRunEvaluatesSeal({ owner, repo, run,
+        sealedAt: deliveryRecord.sealed_at, withRetry, jobs }) !== false) return false;
     const failed = jobs.filter((job) => job?.status === 'completed'
       && job?.conclusion === 'failure').map((job) => String(job?.name || '').trim()).sort();
     const expectedJobs = EXPECTED_PRESEAL_GATE_JOB_SETS.find((names) =>
@@ -467,7 +819,9 @@ async function isExpectedPresealGateFailure({
       || errors.some((line) => ![`Error: ${exactReason}`, `##[error]${exactReason}`,
         `##[error]${EXPECTED_PRESEAL_ANNOTATION}`].includes(line))) return false;
     return true;
-  } catch {
+  } catch (error) {
+    rethrowPrimaryRateLimit(error);
+    // Unavailable proof stays a blocked PR, not a generic repository failure.
     return false;
   }
 }
@@ -523,6 +877,7 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
 async function refreshStableCanaries({
   canaries, withRetry, context, core, manifestEntries, enabled, expectedCanaries,
   refreshState, consumerTipCache = new Map(), now = Date.now(),
+  cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context?.payload?.client_payload?.cleanup_branches, true),
 }) {
   const counts = { red: 0, drainable: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
   // Preserve every held plan's reasons, but refresh the full candidate set once.
@@ -569,27 +924,39 @@ async function refreshStableCanaries({
       }
     }
     if (enabled && refreshState && !refreshState.eligible && !plans.size) {
-      await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now });
+      await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState, now, cleanupBranches });
     }
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      const recovery = [...plans.values()].flat().find(row => row.mergeable_state === 'behind')
-        || [...plans.values()][0][0];
-      const baseState = refreshState || recovery.refresh_state
-        || await readCanaryRefreshState({ withRetry, context, expectedCanaries, now });
-      const recoveryKey = canaryRecoveryKey(recovery, baseState);
-      const state = baseState.drift_key === recoveryKey ? baseState
-        : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
-          driftKey: recoveryKey });
       for (const [plan, rows] of plans) {
+        const recovery = rows.find(row => row.mergeable_state === 'behind') || rows[0];
+        const request = recovery.refresh_plan;
+        if (rows.some(row => row.plan_scope === 'source-delta' || row.refresh_plan?.plan_scope === 'source-delta')
+          && (!request || request.plan_scope !== 'source-delta'
+            || rows.some(row => !sameRefreshPlan(row.refresh_plan, request)))) {
+          throw new Error('canary_refresh_scoped_native_binding_missing_or_mixed');
+        }
+        const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
+          scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan } : {};
+        const reusable = recovery.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
+          ? null : refreshState);
+        const baseState = reusable || await readCanaryRefreshState({
+          withRetry, context, expectedCanaries, now, ...inputs });
+        const recoveryKey = canaryRecoveryKey(recovery, baseState);
+        const state = baseState.drift_key === recoveryKey ? baseState
+          : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
+            ...inputs, driftKey: recoveryKey });
         const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
-          expectedCanaries, refreshState: state, now });
+          expectedCanaries, refreshState: state, now, cleanupBranches });
         if (!refresh.dispatched) continue;
         counts.refresh_dispatched++;
         core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
           rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
           '; completion awaits a successful Maint 68 run');
+        // Stable candidate branches have one writer even before REST exposes
+        // this newly requested run. Other held plans remain for a later pass.
+        break;
       }
     }
   } catch (error) {
@@ -863,16 +1230,41 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
       ...query, event: 'pull_request',
     }));
     if (!Array.isArray(data?.workflow_runs)) throw new Error('Gate history unreadable');
-    const latest = data.workflow_runs.filter(run => run.id && run.event === 'pull_request'
-      && run.head_sha === pr.head.sha).sort((a, b) => Number(b.id) - Number(a.id))[0];
+    const exact = data.workflow_runs.filter(run => run.id && run.event === 'pull_request'
+      && run.head_sha === pr.head.sha).sort((a, b) => Number(b.id) - Number(a.id));
+    const latest = exact[0];
     if (latest) {
       // A queued/in-progress attempt or a completed post-seal evaluation must
       // settle through the ordinary checks path, not create a rerun loop.
-      if (latest.status !== 'completed' || (sealedAt && gateEvaluatesSeal(latest, sealedAt))) {
-        return { mode: 'existing', run_id: latest.id };
+      if (latest.status !== 'completed') return { mode: 'existing', run_id: latest.id };
+      if (latest.conclusion === 'action_required') return { mode: 'failed',
+        run_id: latest.id, status: 'action_required', reason: 'Gate requires workflow security review; no request sent' };
+      // An older run's rerun attempt keeps its lower ID; rerunning the newer
+      // run would cancel it in a cancel-in-progress concurrency group.
+      const active = exact.find(run => run.status !== 'completed');
+      if (active) return { mode: 'existing', run_id: active.id };
+      if (sealedAt && latest.conclusion === 'cancelled') {
+        // A superseded event (e.g. a label in a cancel-in-progress group)
+        // cancels its resolver before it reads the PR, so its freshness is
+        // never provable. It evaluated nothing: a full rerun is its only
+        // drain. An older success is never accepted in its place.
+        const attempt = Number(latest.run_attempt || 1);
+        if (!(attempt < CANCELLED_GATE_MAX_ATTEMPT)) {
+          const reason = `cancelled Gate rerun exhausted (${attempt}/${CANCELLED_GATE_MAX_ATTEMPT}); drainable=0 — needs a new head event or owner rerun`;
+          console.log(`${identity} ${reason}`);
+          return { mode: 'failed', status: 'cancelled', run_id: latest.id, reason };
+        }
+        console.log(`${identity} gate cancelled run=${latest.id} attempt=${attempt}; drainable by rerun`);
+      } else if (sealedAt) {
+        const evaluated = await gateRunEvaluatesSeal({ owner, repo, run: latest, sealedAt, withRetry });
+        if (evaluated === true) return { mode: 'existing', run_id: latest.id };
+        if (evaluated === null) return { mode: 'failed', status: 'unknown',
+          run_id: latest.id, reason: 'Gate resolver freshness unproven; no request sent' };
       }
       try {
-        const response = await withRetry(client => client.rest.actions.reRunWorkflowFailedJobs({
+        // Full reruns must execute the resolver again; failed-jobs reruns cache
+        // its successful pre-seal output and cannot observe the current seal.
+        const response = await withRetry(client => client.rest.actions.reRunWorkflow({
           owner, repo, run_id: latest.id,
         }));
         console.log(`${identity} gate rerun run=${latest.id}`);
@@ -931,6 +1323,7 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     if (refusal.blocked) console.log(`${identity} gate rerun refused; dispatched run=${run.id}`);
     return receipt({ mode: 'dispatch', status: response.status, run_id: run.id });
   } catch (error) {
+    rethrowPrimaryRateLimit(error);
     const status = error?.status || error?.response?.status || 'unknown';
     const reason = error?.response?.data?.message || error.message || 'Gate request failed';
     console.log(`${identity} gate request failed: ${status} ${reason}`);
@@ -1749,6 +2142,101 @@ function parseNoChangeEvidenceDocument(raw = '', {
   return evidenceByRepo;
 }
 
+// A squash merge can have the exact checked PR tree but a distinct commit SHA.
+// Adopt only native checks for that exact merged head, never an arbitrary ancestor.
+async function qualifyNoChangeMergedHead({ withRetry, owner, repo, branch, headSha, requiredContexts }) {
+  const { classifySyncPrChecks, selectSyncPrGatingChecks } = require('./sync_pr_merge_contract');
+  const need = (condition, reason) => { if (!condition) throw new Error(reason); };
+  const sha = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
+  const repository = `${owner}/${repo}`.toLowerCase();
+  const read = async (group, method, args) => (await withRetry(client => client.rest[group][method]({ owner, repo, ...args }))).data;
+  const inventory = async ref => {
+    const checks = [], statuses = [], ids = new Set(); let total;
+    for (let page = 1; page <= 10; page++) {
+      const data = await read('checks', 'listForRef', { ref, per_page: 100, page, filter: 'latest' });
+      need(Array.isArray(data?.check_runs) && Number.isSafeInteger(data.total_count)
+        && data.total_count >= 0 && (total === undefined || total === data.total_count), 'no_change_check_inventory_unknown');
+      total = data.total_count;
+      for (const row of data.check_runs) {
+        need(Number.isSafeInteger(row.id) && row.id > 0 && !ids.has(row.id) && row.head_sha === ref,
+          'no_change_check_identity_unknown'); ids.add(row.id); checks.push(row);
+      }
+      if (checks.length === total) break;
+      need(data.check_runs.length > 0 && checks.length < total && page < 10, 'no_change_check_inventory_incomplete');
+    }
+    ids.clear();
+    for (let page = 1; page <= 10; page++) {
+      const rows = await read('repos', 'listCommitStatusesForRef', { ref, per_page: 100, page });
+      need(Array.isArray(rows), 'no_change_status_inventory_unknown');
+      for (const row of rows) {
+        need(Number.isSafeInteger(row.id) && row.id > 0 && !ids.has(row.id), 'no_change_status_identity_unknown');
+        ids.add(row.id); statuses.push(row);
+      }
+      if (rows.length < 100) break;
+      need(page < 10, 'no_change_status_inventory_incomplete');
+    }
+    const checkNames = new Set(checks.map(row => row.name));
+    const all = [...checks, ...statuses.map(legacyStatusAsCheck).filter(row => !checkNames.has(row.name))];
+    const signature = JSON.stringify({ checks: checks.map(row => [row.id, row.head_sha, row.name, row.status, row.conclusion,
+      row.started_at, row.completed_at]).sort(), statuses: statuses.map(row => [row.id, row.context, row.state, row.updated_at]).sort() });
+    return { all, signature };
+  };
+  const positive = checks => {
+    const selected = selectSyncPrGatingChecks({ checkRuns: checks, requiredContexts });
+    return selected.length === requiredContexts.size && selected.every(row => row.status === 'completed' && row.conclusion === 'success');
+  };
+  const applicable = checks => {
+    const selected = selectSyncPrGatingChecks({ checkRuns: checks, requiredContexts });
+    return selected.every(row => row.status === 'completed' && row.conclusion === 'success')
+      && selected.length < requiredContexts.size;
+  };
+  try {
+    need(sha(headSha) && requiredContexts.size > 0, 'no_change_merge_identity_unknown');
+    const current = await inventory(headSha);
+    need(applicable(current.all), 'no_change_current_required_check_present_or_not_ready');
+    const associated = []; const seen = new Set();
+    for (let page = 1; page <= 10; page++) {
+      const rows = await read('repos', 'listPullRequestsAssociatedWithCommit', { commit_sha: headSha, per_page: 100, page });
+      need(Array.isArray(rows), 'no_change_merged_pr_inventory_unknown');
+      for (const row of rows) {
+        need(Number.isSafeInteger(row.number) && !seen.has(row.number), 'no_change_merged_pr_inventory_ambiguous');
+        seen.add(row.number); associated.push(row);
+      }
+      if (rows.length < 100) break;
+      need(page < 10, 'no_change_merged_pr_inventory_incomplete');
+    }
+    const matches = associated.filter(row => row.merge_commit_sha === headSha && row.state === 'closed'
+      && row.merged_at && row.base?.ref === branch && row.base?.repo?.full_name?.toLowerCase() === repository
+      && row.head?.repo?.full_name?.toLowerCase() === repository);
+    need(matches.length === 1, 'no_change_merged_pr_not_unique');
+    const pr = await read('pulls', 'get', { pull_number: matches[0].number });
+    const identity = row => JSON.stringify([row.number, row.state, row.merged, row.merged_at, row.merge_commit_sha,
+      row.base?.ref, row.base?.sha, row.base?.repo?.full_name, row.head?.sha, row.head?.repo?.full_name]);
+    need(pr.number === matches[0].number && pr.state === 'closed' && pr.merged === true && pr.merged_at
+      && pr.merge_commit_sha === headSha && pr.base?.ref === branch
+      && pr.base?.repo?.full_name?.toLowerCase() === repository
+      && pr.head?.repo?.full_name?.toLowerCase() === repository && sha(pr.head.sha), 'no_change_merged_pr_binding_unknown');
+    const mergedCommit = await read('git', 'getCommit', { commit_sha: headSha });
+    const checkedCommit = await read('git', 'getCommit', { commit_sha: pr.head.sha });
+    need(mergedCommit.sha === headSha && checkedCommit.sha === pr.head.sha && sha(mergedCommit.tree?.sha)
+      && mergedCommit.tree.sha === checkedCommit.tree?.sha, 'no_change_merged_tree_differs');
+    const checked = await inventory(pr.head.sha);
+    need(classifySyncPrChecks({ checkRuns: checked.all, requiredContexts }).status === 'ready'
+      && positive(checked.all), 'no_change_merged_required_checks_not_ready');
+    const finalChecked = await inventory(pr.head.sha), finalCurrent = await inventory(headSha);
+    need(checked.signature === finalChecked.signature && positive(finalChecked.all)
+      && current.signature === finalCurrent.signature && applicable(finalCurrent.all), 'no_change_check_inventory_changed');
+    const finalPr = await read('pulls', 'get', { pull_number: pr.number });
+    const finalRef = await read('git', 'getRef', { ref: `heads/${branch}` });
+    need(identity(pr) === identity(finalPr) && finalRef.object?.sha === headSha, 'no_change_merge_binding_changed');
+    return { ok: true, proof: { kind: 'exact-merged-pr-tree', pull_number: pr.number,
+      default_head_sha: headSha, checked_head_sha: pr.head.sha, tree_sha: mergedCommit.tree.sha,
+      required_contexts: [...requiredContexts].sort() } };
+  } catch (error) {
+    return { ok: false, reason: /^no_change_[a-z_]+$/.test(error?.message || '') ? error.message : 'no_change_native_read_unknown' };
+  }
+}
+
 function campaignNoChangeRequiresLiveGate(evidence = {}) {
   return evidence?.evidence_source !== 'no-change-delivery';
 }
@@ -2156,7 +2644,8 @@ function promotionRunMatches(run, binding, defaultBranch = 'main') {
 
 // Delivery reminting is deliberately replayable after base drift. Share the
 // active-writer scan and retry window rather than relying on the newest 20 runs.
-async function dispatchDeliveryRefresh({ decision, expectedCanaries, withRetry, context, core, now = Date.now() }) {
+async function dispatchDeliveryRefresh({ decision, expectedCanaries, withRetry, context, core, now = Date.now(),
+  cleanupBranches = parseBooleanInput(process.env.CLEANUP_BRANCHES_INPUT || context?.payload?.client_payload?.cleanup_branches, true) }) {
   const state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, now, writerOnly: true });
   if (['writer-active', ...ACTIVE_SYNC_STATES].includes(state.state)) {
     core.notice(`Delivery refresh skipped: Maint 68 writer ${state.run_id} is active`);
@@ -2182,10 +2671,34 @@ async function dispatchDeliveryRefresh({ decision, expectedCanaries, withRetry, 
     workflow_id: 'maint-68-sync-consumer-repos.yml',
     ref: context.payload.repository?.default_branch || 'main',
     inputs: { phase: 'promote', canary_evidence_json: JSON.stringify(decision.evidence),
-      delivery_scope: 'auto', dry_run: 'false', force: 'false' },
+      delivery_scope: 'auto', dry_run: 'false', force: 'false',
+      cleanup_branches: String(cleanupBranches) },
   }));
   core.notice(`Replayed exact-plan promotion ${decision.plan_id}`);
   return { dispatched: true };
+}
+
+// The blocking side of promotion: each canary without evidence and the drain
+// its report row shows. Only an in-flight Gate request or run is drainable.
+function missingCanaryDrains(expectedCanaries, evidenceRows, reportRows) {
+  const { validateCanaryEvidence } = require('./sync_pr_merge_contract');
+  return expectedCanaries.filter((repo) => {
+    const rows = evidenceRows.filter((row) => row.repo === repo);
+    return !(rows.length === 1 && validateCanaryEvidence(rows, [repo]).ok);
+  }).map((repo) => {
+    const row = (reportRows || []).find((item) => `${item.owner}/${item.repo}` === repo);
+    const gate = row?.gate_request;
+    // An active Gate (`existing`) continues to the checks path, which records
+    // pending checks without the request; those checks are the run in flight.
+    const checksRunning = !gate && row?.status === 'checks_pending';
+    const drainable = checksRunning || Boolean(gate && !gate.blocked
+      && (['rerun', 'existing'].includes(gate.mode) || (gate.mode === 'dispatch' && gate.run_id)));
+    const via = checksRunning ? ' awaiting-checks' : !gate ? '' : drainable
+      ? ` ${gate.mode === 'existing' ? 'awaiting-gate' : 'drainable-by-rerun'} run ${gate.run_id}`
+      : ` no-drain gate ${gate.mode}/${gate.status ?? 'unknown'}${gate.run_id ? ` run ${gate.run_id}` : ''}` +
+        `${gate.reason ? ` (${gate.reason})` : ''}`;
+    return { repo, drainable, state: `${row?.status || 'no-report-row'}${via}` };
+  });
 }
 
 async function dispatchCanaryPromotion({
@@ -2210,7 +2723,8 @@ async function dispatchCanaryPromotion({
   });
   const errors = [...built.errors, ...decision.errors];
   const promotionInputs = { phase: 'promote', delivery_scope: 'auto',
-    canary_evidence_json: JSON.stringify(built.evidence), dry_run: 'false', force: 'false' };
+    canary_evidence_json: JSON.stringify(built.evidence), dry_run: 'false', force: 'false',
+    cleanup_branches: String(report.inputs?.cleanup_branches !== false) };
   if (Buffer.byteLength(JSON.stringify(promotionInputs), 'utf8') > 60000) {
     errors.push('promotion_inputs_too_large');
   }
@@ -2234,8 +2748,11 @@ async function dispatchCanaryPromotion({
     const reason = ['dispatched', 'already-promoted'].includes(status) ? 'none' : `${status}: ${detail}`;
     const quantity = built.evidence.results.length === 0 ? 'UNKNOWN (unmeasurable)' : drainable;
     const label = status === 'already-promoted' ? 'drained' : `blocked ${reason}`;
+    const missing = missingCanaryDrains(expectedCanaries, built.evidence.results, normalizedReport.results);
+    const missingText = missing.length ? `missing ${missing.length} (drainable ${missing.filter(row => row.drainable).length}): ` +
+      `${missing.map(row => `${row.repo}=${row.state}`).join(', ')}; ` : '';
     const message = `promote: ${label}; canaries green ${green}/${expectedCanaries.length}; drainable ${quantity}; ` +
-      `Canary promotion ${decision.plan_id || '<unbound>'}: ${status}; ${detail}`;
+      `${missingText}Canary promotion ${decision.plan_id || '<unbound>'}: ${status}; ${detail}`;
     core.notice(message);
     await core.summary.addRaw(`${message}\n`).write();
     return { status, plan_id: decision.plan_id, errors };
@@ -2427,6 +2944,7 @@ async function run({ github, context, core }) {
     syncBranchForHash,
     syncSelectorForRepository,
     validateCanaryEvidence,
+    refreshedSourceRepin,
     validateExpectedCandidateIdentity,
     validateSourceDeltaEvidenceBinding,
   } = require('./sync_pr_merge_contract.js');
@@ -2475,6 +2993,9 @@ async function run({ github, context, core }) {
     process.env.CLEANUP_BRANCHES_INPUT ||
       (context.payload.client_payload && context.payload.client_payload.cleanup_branches),
     true,
+  );
+  const skipObsoleteBranchCleanup = parseBooleanInput(
+    process.env.SKIP_OBSOLETE_BRANCH_CLEANUP_INPUT, false,
   );
   let campaignCommitAuthorization = null;
   const rawCampaignAuthorization = String(
@@ -2538,14 +3059,6 @@ async function run({ github, context, core }) {
     : null;
   const withReviewReadRetry = reviewReadClient?.withRetry
     || ((fn) => withRetry(fn));
-  const isPrimaryRateLimitExhausted = (error) =>
-    typeof retryHelpers.isRateLimitError === 'function'
-    && typeof retryHelpers.isSecondaryRateLimitError === 'function'
-    && retryHelpers.isRateLimitError(error)
-    && !retryHelpers.isSecondaryRateLimitError(error);
-  const rethrowPrimaryRateLimit = (error) => {
-    if (isPrimaryRateLimitExhausted(error)) throw error;
-  };
   async function getRequiredContexts({ owner, repo, branch }) {
     try {
       const { data: protection } = await withRetry((client) =>
@@ -2698,6 +3211,22 @@ async function run({ github, context, core }) {
         : [],
       requiredContexts,
     };
+  }
+
+  // Only authorized no-change evidence can use identical merged-tree checks.
+  // Generated PR checks and the final pre-merge guard keep their exact-head rule.
+  async function qualifyNoChangeRequiredChecks({ owner, repo, branch, ref }) {
+    const checks = await classifyRequiredChecksForRef({ owner, repo, branch, ref });
+    if (checks.requiredContexts.size === 0) return { ...checks, noChangeQualified: false };
+    if (checks.classification.status === 'ready') return { ...checks, noChangeQualified: true };
+    const seen = new Set(checks.allChecks.map(row => row.name));
+    const missingOnly = checks.classification.failed.length === 0
+      && checks.classification.pending.length > 0
+      && checks.classification.pending.every(row => !seen.has(row.name));
+    const merged = missingOnly ? await qualifyNoChangeMergedHead({ withRetry, owner, repo, branch,
+      headSha: ref, requiredContexts: checks.requiredContexts }) : { ok: false };
+    return { ...checks, noChangeQualified: merged.ok,
+      noChangeCheckProvenance: merged.proof, nativeCheckReason: merged.reason };
   }
 
   async function resolveProvenReviewDebt({ owner, repo, pr, deliveryRecord }) {
@@ -2986,16 +3515,29 @@ async function run({ github, context, core }) {
   }
 
   let refreshState;
+  const refreshStates = new Map();
+  const nativeRefreshInputs = new WeakMap();
   const consumerTipCache = new Map();
   const getRefreshState = async (canary) => {
-    if (!refreshState) refreshState = await readCanaryRefreshState({
-      withRetry, context, expectedCanaries: expectedCanaryRepos,
-    });
-    if (!canary || !canaryNeedsRefresh(canary)) return refreshState;
+    const native = nativeRefreshInputs.get(canary);
+    if (!native) throw new Error('canary_refresh_native_context_missing');
+    const nativePlan = await verifiedCanaryRefreshPlan(native);
+    const request = nativePlan.plan_scope === 'source-delta' ? nativePlan : null;
+    if (request) canary.refresh_plan = request;
+    Object.assign(canary, { plan_scope: nativePlan.plan_scope, scope_base_sha: nativePlan.scope_base_sha });
+    const key = request ? JSON.stringify([request.plan_id, request.plan_scope,
+      request.scope_base_sha, request.source_commit]) : 'legacy-full';
+    const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
+      scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit } : {};
+    if (!refreshStates.has(key)) refreshStates.set(key, await readCanaryRefreshState({
+      withRetry, context, expectedCanaries: expectedCanaryRepos, ...inputs,
+    }));
+    refreshState = refreshStates.get(key);
+    if (!canaryNeedsRefresh(canary) || refreshState.state === 'unknown') return refreshState;
     await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
     return canaryRefreshDecision({ runs: refreshState.runs, sha: refreshState.sha,
       candidates: refreshState.candidates, driftKey: canaryRecoveryKey(canary, refreshState),
-      deliveryDigest: refreshState.delivery_digest,
+      deliveryDigest: refreshState.delivery_digest, refreshPlan: refreshState.refresh_plan,
       defaultBranch: context.payload.repository?.default_branch || 'main' });
   };
 
@@ -3064,7 +3606,8 @@ async function run({ github, context, core }) {
     `Reviewer policy: minimum=${minimumReviewerResponses}, ` +
       `quiet=${reviewerQuietPeriodMs / 60000}m, max=${reviewerMaximumWaitMs / 60000}m`,
   );
-  console.log(`Cleanup stale sync branches: ${cleanupBranches}\n`);
+  console.log(`Cleanup stale sync branches: ${cleanupBranches && !skipObsoleteBranchCleanup}`);
+  console.log(`Cleanup merged/stale PR branches: ${cleanupBranches}\n`);
   if (requestedSyncHash) {
     console.log(`Target sync hash: ${requestedSyncHash}`);
   }
@@ -3076,6 +3619,23 @@ async function run({ github, context, core }) {
   const canaryEvidence = [];
   const stableCanaries = [];
   
+  let canaryRefreshRunsCache = null;
+  async function listCanaryRefreshRuns() {
+    if (canaryRefreshRunsCache) return canaryRefreshRunsCache;
+    try {
+      const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+        owner: context.repo.owner, repo: context.repo.repo,
+        workflow_id: 'maint-68-sync-consumer-repos.yml', status: 'success', per_page: 100,
+      }));
+      canaryRefreshRunsCache = Array.isArray(data?.workflow_runs) ? data.workflow_runs : [];
+    } catch (error) {
+      rethrowPrimaryRateLimit(error);
+      console.log(`Unable to list Maint 68 canary runs for source re-pin: ${String(error?.message || error)}`);
+      canaryRefreshRunsCache = [];
+    }
+    return canaryRefreshRunsCache;
+  }
+
   function syncMetadata(pr) {
     const match = String(pr.body || '').match(
       /<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/,
@@ -3570,7 +4130,7 @@ async function run({ github, context, core }) {
       const syncPRs = prs.filter((pr) => isTrustedGeneratedDeliveryPr(pr, trustedSyncActors));
       const closedPRs = pullRequests.closed;
   
-      if (cleanupBranches) {
+      if (cleanupBranches && !skipObsoleteBranchCleanup) {
         try {
           const branches = await withRetry((client) => client.paginate(
             client.rest.repos.listBranches,
@@ -3667,8 +4227,9 @@ async function run({ github, context, core }) {
           });
           continue;
         }
+        let noChangeCheckProvenance;
         if (campaignNoChangeRequiresLiveGate(campaignNoChangeEvidence)) {
-          const baselineChecks = await classifyRequiredChecksForRef({
+          const baselineChecks = await qualifyNoChangeRequiredChecks({
             owner,
             repo,
             branch: repositoryState.default_branch,
@@ -3676,7 +4237,7 @@ async function run({ github, context, core }) {
           });
           if (
             baselineChecks.requiredContexts.size === 0
-            || baselineChecks.classification.status !== 'ready'
+            || !baselineChecks.noChangeQualified
           ) {
             results.push({
               owner,
@@ -3687,14 +4248,17 @@ async function run({ github, context, core }) {
               expected_head_sha: campaignNoChangeEvidence.head_sha,
               observed_head_sha: liveHeadSha,
               reason: 'campaign_no_change_required_checks_not_ready',
+              native_check_reason: baselineChecks.nativeCheckReason,
             });
             continue;
           }
+          noChangeCheckProvenance = baselineChecks.noChangeCheckProvenance;
         }
         results.push({
           owner,
           repo,
           status: 'campaign_no_change_verified',
+          ...(noChangeCheckProvenance ? { check_provenance: noChangeCheckProvenance } : {}),
           observed_head_sha: liveHeadSha,
           plan_id: campaignNoChangeEvidence.plan_id,
           source_commit: campaignNoChangeEvidence.source_commit,
@@ -3728,7 +4292,7 @@ async function run({ github, context, core }) {
           });
           continue;
         }
-        const baselineChecks = await classifyRequiredChecksForRef({
+        const baselineChecks = await qualifyNoChangeRequiredChecks({
           owner,
           repo,
           branch: repository.default_branch,
@@ -3746,7 +4310,8 @@ async function run({ github, context, core }) {
           });
           continue;
         }
-        if (baselineChecks.classification.status !== 'ready') {
+        const noChangeCheckProvenance = baselineChecks.noChangeCheckProvenance;
+        if (!baselineChecks.noChangeQualified) {
           console.log(
             `No-change canary required checks are not green: ` +
               baselineChecks.classification.status,
@@ -3758,6 +4323,7 @@ async function run({ github, context, core }) {
             expected_head_sha: baselineEvidence.head_sha,
             observed_head_sha: liveHeadSha,
             reason: 'no_change_canary_required_checks_not_ready',
+            native_check_reason: baselineChecks.nativeCheckReason,
             failed_checks: baselineChecks.classification.failed.map((check) => check.name),
             pending_checks: baselineChecks.classification.pending.map((check) => check.name),
           });
@@ -3772,6 +4338,7 @@ async function run({ github, context, core }) {
           head_sha: baselineEvidence.head_sha,
           status: 'evidence_recovered',
           delivery_disposition: 'no-change-canary-confirmed',
+          ...(noChangeCheckProvenance ? { check_provenance: noChangeCheckProvenance } : {}),
           branch: syncBranchForHash('candidate'),
           observed_head_sha: liveHeadSha,
           active_review_thread_count: 0,
@@ -3985,17 +4552,19 @@ async function run({ github, context, core }) {
               const closureMatches = confirmedClosedPrIdentity(closedResponse, stalePR);
               console.log('✓ Closed');
   
-              // Delete branch
-              try {
-                await withRetry((client) => client.rest.git.deleteRef({
-                  owner,
-                  repo,
-                  ref: `heads/${stalePR.head.ref}`
-                }));
-                console.log('✓ Branch deleted');
-              } catch (delErr) {
-                rethrowPrimaryRateLimit(delErr);
-                console.log(`⚠ Branch delete failed: ${delErr.message}`);
+              // Delete branch only when this shipment permits cleanup.
+              if (cleanupBranches) {
+                try {
+                  await withRetry((client) => client.rest.git.deleteRef({
+                    owner,
+                    repo,
+                    ref: `heads/${stalePR.head.ref}`
+                  }));
+                  console.log('✓ Branch deleted');
+                } catch (delErr) {
+                  rethrowPrimaryRateLimit(delErr);
+                  console.log(`⚠ Branch delete failed: ${delErr.message}`);
+                }
               }
               results.push({
                 owner,
@@ -4157,6 +4726,53 @@ async function run({ github, context, core }) {
           repository: `${owner}/${repo}`,
         });
         if (!identity.ok) {
+          // Workflows#4466: a consistent other source produced by a successful Maint 68 canary run is an
+          // accepted refresh; hand the refreshed source back to Maint 82 so the next run's expected
+          // identity matches, instead of refusing until the daily compile re-pins by accident.
+          const repin = refreshedSourceRepin({
+            metadata,
+            deliveryRecord: selection.deliveryRecord,
+            identityErrors: identity.errors,
+            expectedPlanId,
+            expectedPlanScope,
+            expectedScopeBaseSha,
+            expectedSourceCommit,
+            repository: `${owner}/${repo}`,
+            branch: pr.head.ref,
+            refreshRuns: await listCanaryRefreshRuns(),
+            // the runs live in THIS repository (Workflows), so its default branch is the one that counts
+            defaultBranch: context.payload?.repository?.default_branch || 'main',
+          });
+          if (repin) {
+            console.log(`Candidate source refreshed by Maint 68 run ${repin.refresh_run_id}: re-pinning the campaign handoff `
+              + `${repin.repinned_from.slice(0, 12)} -> ${repin.source_commit.slice(0, 12)}`);
+            results.push({
+              owner,
+              repo,
+              pr: pr.number,
+              branch: pr.head.ref,
+              head_sha: pr.head.sha,
+              delivery_generation: selection.deliveryRecord?.generation || '',
+              status: 'delivery_handoff_repin',
+              delivery_disposition: 'source-repinned',
+              blocker_owner: 'maint-82',
+              next_command: 'rerun-with-repinned-handoff',
+              delivery_reason: 'candidate_source_refreshed',
+              plan_id: repin.plan_id,
+              plan_scope: repin.plan_scope,
+              scope_base_sha: repin.scope_base_sha,
+              source_commit: repin.source_commit,
+              repinned_from: repin.repinned_from,
+              refresh_run_id: repin.refresh_run_id,
+              // The baseline evidence input is validated against the OLD expected source and would be
+              // rejected on the next run; the re-pinned continuation starts without it and Maint 71's
+              // normal evidence path (candidate_evidence_required -> Maint 68) reacquires it for the
+              // refreshed source when a no-change canary needs it.
+              canary_baseline_evidence_json: '',
+              identity_errors: identity.errors,
+            });
+            continue;
+          }
           console.log(`Candidate immutable identity mismatch: ${identity.errors.join(', ')}`);
           results.push({
             owner,
@@ -4169,6 +4785,8 @@ async function run({ github, context, core }) {
             blocker_owner: 'maint-68',
             next_command: 'refresh-candidate-from-exact-plan',
             delivery_reason: 'candidate_immutable_identity_mismatch',
+            refresh_plan: refreshPlanContext({ planId: expectedPlanId, planScope: expectedPlanScope,
+              scopeBaseSha: expectedScopeBaseSha, sourceSha: expectedSourceCommit }),
             identity_errors: identity.errors,
           });
           continue;
@@ -4365,6 +4983,8 @@ async function run({ github, context, core }) {
           head_observed_at: deliveryRecord?.head_observed_at,
           updated_at: pr.updated_at, created_at: pr.created_at,
           threads: reviewThreadDetails.threads };
+        nativeRefreshInputs.set(canary, { owner, repo, pr, record: deliveryRecord, metadata,
+          nativeHead: selectedHeadCommit, withRetry });
         stableCanaries.push(canary);
         // Producer success never certifies consumer health. Recovery retains
         // the active-writer guard and is consumed once per payload/head key.
@@ -5204,28 +5824,31 @@ async function run({ github, context, core }) {
           }
         }
   
-        // Delete the branch
-        try {
-          await withRetry((client) => client.rest.git.deleteRef({
-            owner,
-            repo,
-            ref: `heads/${pr.head.ref}`
-          }));
-          console.log('✓ Branch deleted');
-          results.push({
-            ...deliveryContext,
-            status: 'branch_deleted',
-          });
-        } catch (e) {
-          rethrowPrimaryRateLimit(e);
-          console.log(`⚠ Could not delete branch: ${e.message}`);
-          results.push({
-            ...deliveryContext,
-            status: 'branch_delete_failed',
-            error: e.message,
-          });
+        // Delete the branch only when this shipment explicitly permits cleanup.
+        if (cleanupBranches) {
+          try {
+            await withRetry((client) => client.rest.git.deleteRef({
+              owner,
+              repo,
+              ref: `heads/${pr.head.ref}`
+            }));
+            console.log('✓ Branch deleted');
+            results.push({
+              ...deliveryContext,
+              status: 'branch_deleted',
+            });
+          } catch (e) {
+            rethrowPrimaryRateLimit(e);
+            console.log(`⚠ Could not delete branch: ${e.message}`);
+            results.push({
+              ...deliveryContext,
+              status: 'branch_delete_failed',
+              error: e.message,
+            });
+          }
+
         }
-  
+
         results.push({
           ...deliveryContext,
           status: 'merged',
@@ -5272,7 +5895,7 @@ async function run({ github, context, core }) {
   // Summary
   const canaryRefresh = await refreshStableCanaries({
     consumerTipCache,
-    canaries: stableCanaries, withRetry, context, core, manifestEntries,
+    canaries: stableCanaries, withRetry, context, core, manifestEntries, cleanupBranches,
     expectedCanaries: expectedCanaryRepos, refreshState,
     enabled: autoMerge && !dryRun && !resolutionOnly && !evidenceOnly,
   });
@@ -5295,6 +5918,7 @@ async function run({ github, context, core }) {
     targetRepos,
     autoMerge,
     dryRun,
+    cleanupBranches,
     syncHash: requestedSyncHash,
     run: {
       repository: `${context.repo.owner}/${context.repo.repo}`,
@@ -5416,15 +6040,24 @@ module.exports = {
   STALE_CANARY_HOURS,
   CANARY_REFRESH_DEBOUNCE_MS,
   CANARY_SEALED_REFRESH_WAIT_MS,
+  CANCELLED_GATE_MAX_ATTEMPT,
   deferSealedCanaryRefresh,
   canaryRefreshDecision,
+  refreshPlanContext,
+  verifiedCanaryRefreshPlan,
   readCanaryRefreshState,
+  refreshReceiptDiagnostic,
+  canaryRefreshDiagnostics,
+  reportCanaryRefreshDiagnostics,
   dispatchCanaryRefresh,
+  dispatchCandidateRefreshFromReport,
   canaryNeedsRefresh,
   isExpectedPresealGateFailure,
+  gateRunEvaluatesSeal,
   refreshStableCanaries,
   routeCanaryReviewUpstream,
   buildCanaryPromotionEvidence,
+  missingCanaryDrains,
   dispatchCanaryPromotion,
   dispatchDeliveryRefresh,
   reportSealedPromotionHealth,
@@ -5437,6 +6070,7 @@ module.exports = {
   confirmedClosedPrIdentity,
   devToolBaseRefreshResult,
   campaignNoChangeRequiresLiveGate,
+  qualifyNoChangeMergedHead,
   collectReviewerEvidence,
   enforceGeneratedDeliveryRequiredContexts,
   ensureExactHeadReviewRequest,

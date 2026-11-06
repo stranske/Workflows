@@ -1,0 +1,260 @@
+{
+  "schema": "workflows-new-typed-producer-deployment-audit/v1",
+  "scope": "THIS new correction producer only; no assertion about ordinary legacy issue effects",
+  "pr": {
+    "state": "open",
+    "merged": false,
+    "merged_at": null,
+    "head": "fdc2b85c5c63525bfa7127a905eb3360a7c00a4b",
+    "base": "045948bce8a417bb64805cd10b21632ebc45b25c"
+  },
+  "repositories": [
+    {
+      "repository": "stranske/Travel-Plan-Permission",
+      "default_branch": "main",
+      "commit": "704601534f31687e196e42aaf4b08f9764fe026b",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Template",
+      "default_branch": "main",
+      "commit": "4f9e42d18f0a8044cb836a890ab7bc75adb68d42",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Counter_Risk",
+      "default_branch": "main",
+      "commit": "288d22bd9ca934b27c6d96bae9f9c0ce82ecbfea",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Pension-Data",
+      "default_branch": "main",
+      "commit": "d8f443a4f26877914ec9a6816900e6d27fa7a340",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Inv-Man-Intake",
+      "default_branch": "main",
+      "commit": "3efce042a2f36b1709e0a7c682b69f60daacb505",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Ready",
+      "default_branch": "main",
+      "commit": "52d40401745a5bb701d749d9566d2115b8a4ac8d",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "default_branch": "main",
+      "commit": "77c55e82022e49d8d65e19025ed8737344895030",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Manager-Database",
+      "default_branch": "main",
+      "commit": "8609bb9fcb13781e2eaec083d8045b3a250b69c6",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "default_branch": "main",
+      "commit": "011d2731d8c9bfbcded480edb1ed9a22e08111ce",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "default_branch": "main",
+      "commit": "66ea58cb17877e8a6634a68311793c3b0976c63c",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/learning-management-system",
+      "default_branch": "main",
+      "commit": "32eae84548a14d285a3fa37786074bd33c1a4aee",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Fine-Art-Archive",
+      "default_branch": "main",
+      "commit": "e53777f008293230dd8f591c03f1c4ad0ba76564",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "default_branch": "main",
+      "commit": "0410a319373644c3f42c337d32745eb0a3824a22",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Doc-Lineage",
+      "default_branch": "main",
+      "commit": "9928fbbf00d3dd0bc2d73768496300ca01e085d7",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Deliverable-Render",
+      "default_branch": "main",
+      "commit": "b281ae13143e735afd1e322a17f90a1936bc7a79",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Manager-Mosaic",
+      "default_branch": "main",
+      "commit": "8ed944ded6b643e84ffe6dad1fabfd43a565310e",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "default_branch": "main",
+      "commit": "045948bce8a417bb64805cd10b21632ebc45b25c",
+      "workflow_blob": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+      "workflow_sha256": "980c5726a54e781dd576bd274deada76382e9ee5a70c5882707801b31b890f83",
+      "typed_markers": [],
+      "dispatch_total": 0,
+      "status": "observed_no_typed_deployed_source"
+    }
+  ],
+  "all_observed_sources_legacy_and_dispatch_zero": true,
+  "observed_at": "2026-10-26T12:44:04.570295+00:00",
+  "canonical_workflow_blob_all_repositories": "50ca772edbf5150f226d5db4f39333324d43b6b9",
+  "lineage_scope": "Only the new typed producer introduced by unmerged PR4264; ordinary legacy issue creation/dispatch is outside this negative typed-effect proof.",
+  "introduction": [
+    {
+      "commit": "6d99720fe5ea33703f1281fed294350ba49cab65",
+      "change": "read-only collection; no typed effect job",
+      "ancestor_of_canonical_main": false
+    },
+    {
+      "commit": "2fcfef42ccf93b4e8fd69c50854bcf0acc9e643c",
+      "change": "pure inert effect kernel; no workflow caller",
+      "ancestor_of_canonical_main": false
+    },
+    {
+      "commit": "c63d10e139825a4efcec695f3a761cab8c0c0310",
+      "change": "collector requires authenticateDecision callback; authored workflow omits it",
+      "ancestor_of_canonical_main": false
+    },
+    {
+      "commit": "de2aaff8f39427c90b06abc93305d6c27ecea18d",
+      "change": "effect job requires admitted output unreachable without omitted authentication dependency",
+      "ancestor_of_canonical_main": false
+    }
+  ],
+  "authored_producer_versions": [
+    {
+      "commit": "6d99720fe5ea33703f1281fed294350ba49cab65",
+      "has_apply_job": false,
+      "calls_collect_submission": false,
+      "passes_authenticate_decision": false
+    },
+    {
+      "commit": "abf3e1217fb2d2d72b50a828072794f22cb1f4c3",
+      "has_apply_job": false,
+      "calls_collect_submission": false,
+      "passes_authenticate_decision": false
+    },
+    {
+      "commit": "c63d10e139825a4efcec695f3a761cab8c0c0310",
+      "has_apply_job": false,
+      "calls_collect_submission": true,
+      "passes_authenticate_decision": false
+    },
+    {
+      "commit": "de2aaff8f39427c90b06abc93305d6c27ecea18d",
+      "has_apply_job": true,
+      "calls_collect_submission": true,
+      "passes_authenticate_decision": false
+    },
+    {
+      "commit": "7242874d4a37dea2849321284913e62317132038",
+      "has_apply_job": true,
+      "calls_collect_submission": true,
+      "passes_authenticate_decision": false
+    },
+    {
+      "commit": "874da6a3ba0f9f762883a045aac4c26263e30408",
+      "has_apply_job": true,
+      "calls_collect_submission": true,
+      "passes_authenticate_decision": false
+    },
+    {
+      "commit": "fdc2b85c5c63525bfa7127a905eb3360a7c00a4b",
+      "has_apply_job": true,
+      "calls_collect_submission": true,
+      "passes_authenticate_decision": false
+    }
+  ],
+  "source_admission_proof": "Every authored two-stage workflow omits authenticateDecision. Collector defaults it to null and requires authenticated decision/profile proof before admission. Effect job requires admitted=true. Candidate branch execution also cannot authenticate canonical default-branch origin. Rerun does not inject callback or change original branch.",
+  "conclusion": "No reachable typed effect admission in these authored versions and no observed deployed typed source/run; no genuine unknown THIS-producer issue creation or dispatch identified. Do not infer anything about unrelated legacy effects.",
+  "future_dynamic_main": "A later helper source change could alter imported behavior; inert split explicitly blocks production host factories and effect job independently of authentication defaults.",
+  "legacy_job_sha256": {
+    ".github/workflows/agents-verify-to-new-pr.yml": "6baaa1e87860a9c777f745a372af50bb69afbdcc707022f941beeb931dbcfae7",
+    "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml": "6baaa1e87860a9c777f745a372af50bb69afbdcc707022f941beeb931dbcfae7"
+  }
+}

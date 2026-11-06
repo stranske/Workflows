@@ -1,0 +1,247 @@
+{
+  "schema": "verify-paired-independent-substantive-oracle/v1",
+  "case": "workflows-4265-verified",
+  "created_at_UTC": "2026-10-27T19:03:07.183767+00:00",
+  "source_freeze_sha256": "5e5e4f4bdf803961a8cce8d4b7facd9083de1b54bc8bbde89396f367b2bbf0f4",
+  "prompt_sha256": "af177a2516603464790d28a14a50434f76e4f951ed4299995384a18a42dafac6",
+  "prompt_bytes": 481446,
+  "capture_id": "1c0dd50f747d008f6adb5cb3bbf94e587f53409ec612fc0839a24fb89a06d4e2",
+  "implementation_head": "40622701645e1c9c13ff28861ba606a3f78d2e4a",
+  "gold_written_before_model_observations": true,
+  "criterion_evidence_paths": "Relative to this case directory; only reviewer annotations use portable paths. Actual model prompt/raw source/evidence bytes are unchanged.",
+  "judging_policy": {
+    "semantic_paraphrase_allowed": true,
+    "supported_novel_concerns_allowed": true,
+    "forced_verdict": false,
+    "exact_citation_tag_or_wording_proxy": false,
+    "static_proof_suffices_unless_actual_criterion_requires_execution": true,
+    "schema_completion_and_operational_completion_separate": true,
+    "source_acceptance_not_historical_task_administration": "External operations absent from supplied packet are not automatically code defects or false nonexecution claims."
+  },
+  "criteria": [
+    {
+      "id": "T1_repository_scoped_history_cache",
+      "requirement": "Repository-scoped history cache, with restore prefix, restored before guard check.",
+      "judgment": "SUPPORTED_STATIC",
+      "evidence": [
+        {
+          "path": "source/.github/workflows/maint-coverage-guard.yml",
+          "sha256": "6135f2ee9bc58118dec5de1e3e62f859081726dc6d86c2bc2d8c2d12c2bcc2ae",
+          "line": 420
+        },
+        {
+          "path": "source/templates/consumer-repo/.github/workflows/maint-coverage-guard.yml",
+          "sha256": "32f8773485a6c7cd2c34b6eefc97871b437c5579468fa8e33c85195c43fefb4b",
+          "line": 434
+        },
+        {
+          "path": "source/tests/workflows/test_maint_coverage_guard_artifacts.py",
+          "sha256": "69fef0d653a66e4c940f670cedbe429e337c3f2b0ff2ed736c48aa4e05e46fd2",
+          "line": 42
+        }
+      ],
+      "reason": "Both workflows restore coverage_artifacts/history using repository prefix and a fresh guard-run/attempt immutable key, before Run coverage guard; they save afterward using cache-primary-key. Producer-run-scoped artifact cache removed.",
+      "limits": "Actual remote cache restore/save and cross-run execution not observed; do not certify live recovery from source."
+    },
+    {
+      "id": "T2_append_replace_persist_bound",
+      "requirement": "Before recovery check append current record to restored history, replace repeated run id, keep at most30, write history for cache.",
+      "judgment": "SUPPORTED_STATIC",
+      "evidence": [
+        {
+          "path": "source/tools/coverage_guard.py",
+          "sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+          "line": 612
+        },
+        {
+          "path": "source/tools/coverage_guard.py",
+          "sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+          "line": 756
+        }
+      ],
+      "reason": "Helper loads previous rows, strips nested history from current sample, supplies producer run_url fallback, deduplicates stable identity while retaining latest sample and returns[-30:]. main persists before branch/recovery evaluation and passes accumulated final record/history to window check.",
+      "limits": "Identity priority remains existing run_id/run_url/etc helper; no invented elapsed-day/daily-only requirement. No runtime persistence claimed."
+    },
+    {
+      "id": "T3_progress_message",
+      "requirement": "Message says how many qualifying records the window holds and how many required.",
+      "judgment": "SUPPORTED_STATIC",
+      "evidence": [
+        {
+          "path": "source/tools/coverage_guard.py",
+          "sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+          "line": 789
+        },
+        {
+          "path": "source/tests/test_coverage_guard.py",
+          "sha256": "778b90641854081857bfdf9123a6cc28ddf5f5517f5a8da418e5d8f5f3549648",
+          "line": 842
+        }
+      ],
+      "reason": "Counts values meeting current baseline/warning threshold inside latest configured window; emits N of M records at or above threshold. Exact prose need not match example."
+    },
+    {
+      "id": "AC1_named_accumulation_test",
+      "requirement": "Named test: restored two qualifying records plus current meets3; current alone doesnot; same run id not counted twice.",
+      "judgment": "SUPPORTED_SOURCE_AND_CURRENT_REVIEW_EXECUTION: five parameterizations pass in original/restored runs.",
+      "evidence": [
+        {
+          "path": "source/tests/test_coverage_guard.py",
+          "sha256": "778b90641854081857bfdf9123a6cc28ddf5f5517f5a8da418e5d8f5f3549648",
+          "line": 792
+        }
+      ],
+      "reason": "Parametrizes restored IDs including duplicate/retry positions; currentrun3 corrects stale low sample, checks closure, persisted IDs1/2/3 and repeated run count, deletes history then verifies current-only/retry never closes and size1. Calls real main with issue-close stub. Current reviewer original/restored runs provide actual passing outcomes.",
+      "prior_judgment_from_old_packet": "TEST_SOURCE_PRESENT_AND_SUBSTANTIVELY_ADEQUATE_STATIC",
+      "current_evidence": [
+        {
+          "path": "evidence/receipt.json",
+          "sha256": "87e45c38296887a04681519b4d42bf207835bbed0187a2a62cdb1bb7894d3a07"
+        },
+        {
+          "path": "evidence/EVIDENCE_INDEX.json",
+          "sha256": "1f4965caf9109a6f199f62a4b74a15302655d498d5c13f41afc78877478ba0c1"
+        }
+      ],
+      "attribution": "Current reviewer verification only; not historical author execution."
+    },
+    {
+      "id": "AC2_deliberate_break_revert",
+      "requirement": "Remove current-record append, confirm named test FAILS, then revert.",
+      "judgment": "SUPPORTED_CURRENT_REVIEW_EXECUTION: only current sample iteration removed, five actual assertion failures, exact source restored, named tests pass again. Historical author behavior remains unassessed.",
+      "evidence": [
+        {
+          "path": "original-issue.md",
+          "sha256": "f6de99225e0200012eb7d0f33491fb0e6621c7ea82d9c44c5f6e93bfc8ee3c5b"
+        },
+        {
+          "path": "context.md",
+          "sha256": "3b10d5e583e4d097b4e748593df49230e03e117510b0a1e8e5b4ef2f5ddcc37d",
+          "line": 10
+        }
+      ],
+      "reason": "Exact-head named tests pass9; removing only current appended sample yields5 assertion failures; exact-byte restoration returns9 passing tests. Receipt, XML,stdout and mutation hashes agree.",
+      "prior_judgment_from_old_packet": "UNVERIFIED_REQUIRED_EXECUTION_PROCEDURE_NOT_SUPPLIED",
+      "current_evidence": [
+        {
+          "path": "evidence/receipt.json",
+          "sha256": "87e45c38296887a04681519b4d42bf207835bbed0187a2a62cdb1bb7894d3a07"
+        },
+        {
+          "path": "evidence/EVIDENCE_INDEX.json",
+          "sha256": "1f4965caf9109a6f199f62a4b74a15302655d498d5c13f41afc78877478ba0c1"
+        }
+      ],
+      "attribution": "Current reviewer verification only; not historical author execution."
+    },
+    {
+      "id": "AC3_named_progress_test",
+      "requirement": "Named test asserts N of M records text.",
+      "judgment": "SUPPORTED_SOURCE_AND_CURRENT_REVIEW_EXECUTION: four parameterizations pass in original/restored runs.",
+      "evidence": [
+        {
+          "path": "source/tests/test_coverage_guard.py",
+          "sha256": "778b90641854081857bfdf9123a6cc28ddf5f5517f5a8da418e5d8f5f3549648",
+          "line": 842
+        }
+      ],
+      "reason": "Parameterized histories include recovered, below-baseline, window-only and current-alone cases, with premature close stub and expected threshold count output assertion. Current reviewer original/restored runs provide actual passing outcomes.",
+      "prior_judgment_from_old_packet": "TEST_SOURCE_PRESENT_AND_SUBSTANTIVELY_ADEQUATE_STATIC",
+      "current_evidence": [
+        {
+          "path": "evidence/receipt.json",
+          "sha256": "87e45c38296887a04681519b4d42bf207835bbed0187a2a62cdb1bb7894d3a07"
+        },
+        {
+          "path": "evidence/EVIDENCE_INDEX.json",
+          "sha256": "1f4965caf9109a6f199f62a4b74a15302655d498d5c13f41afc78877478ba0c1"
+        }
+      ],
+      "attribution": "Current reviewer verification only; not historical author execution."
+    },
+    {
+      "id": "NG1_no_baseline_policy_change",
+      "requirement": "No baseline, warn_drop, default recovery_days or repository coverage-floor changes.",
+      "judgment": "SUPPORTED_STATIC_CHANGE_SCOPE",
+      "evidence": [
+        {
+          "path": "source/tools/coverage_guard.py",
+          "sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+          "line": 27
+        },
+        {
+          "path": "diff.patch",
+          "sha256": "49d0183e2ca6c238615d3324ee5b793e95d9c69cd244820b16a46dcc6f90c7fb"
+        }
+      ],
+      "reason": "Exact eight-file before/head diff changes accumulation/messages/workflow cache/docs/tests and fingerprints. Baseline/default constants and baseline configuration policies are not edited; no coverage-floor file changed.",
+      "limits": "No claim about unrelated repository history outside this PR."
+    },
+    {
+      "id": "NG2_report_not_blocking_gate",
+      "requirement": "Guard remains report filing/closing one issue, not new blocking gate.",
+      "judgment": "SUPPORTED_STATIC_CHANGE_SCOPE",
+      "evidence": [
+        {
+          "path": "source/tools/coverage_guard.py",
+          "sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+          "line": 762
+        },
+        {
+          "path": "diff.patch",
+          "sha256": "49d0183e2ca6c238615d3324ee5b793e95d9c69cd244820b16a46dcc6f90c7fb"
+        }
+      ],
+      "reason": "No new failure-on-baseline condition, status-check enforcement or new issue stream introduced. Existing create/update/close helper flow reused, recovery-window not met still returns0. Existing GH/IO errors are not a new baseline policy blocker.",
+      "limits": "No live workflow/GitHub behavior observed."
+    },
+    {
+      "id": "NG3_concrete_change_and_verification",
+      "requirement": "No TODO/scaffolding-only changes; concrete edits verified by named tests.",
+      "judgment": "Concrete implementation plus current targeted verification supported.",
+      "evidence": [
+        {
+          "path": "source/tools/coverage_guard.py",
+          "sha256": "fd4b88605d88267a90ada88803754b4b171ba1a916ab4c5379009a74c304ba1d",
+          "line": 612
+        },
+        {
+          "path": "source/tests/test_coverage_guard.py",
+          "sha256": "778b90641854081857bfdf9123a6cc28ddf5f5517f5a8da418e5d8f5f3549648",
+          "line": 792
+        }
+      ],
+      "reason": "Concrete implementation/test source plus genuine targeted original/break/restored verification are now supplied.",
+      "prior_judgment_from_old_packet": "IMPLEMENTATION_AND_TEST_SOURCE_SUPPORTED_EXECUTION_UNVERIFIED",
+      "current_evidence": [
+        {
+          "path": "evidence/receipt.json",
+          "sha256": "87e45c38296887a04681519b4d42bf207835bbed0187a2a62cdb1bb7894d3a07"
+        },
+        {
+          "path": "evidence/EVIDENCE_INDEX.json",
+          "sha256": "1f4965caf9109a6f199f62a4b74a15302655d498d5c13f41afc78877478ba0c1"
+        }
+      ],
+      "attribution": "Current reviewer verification only; not historical author execution."
+    }
+  ],
+  "original_gold_sha256": "9a85724789894d6f92783a481988ffaabbfadbd2f90ddac256b2f9d2674aac19",
+  "execution_addendum_sha256": "5fe4df0674688ef51b9a4b57794edbd14bcbcdad01569a3563abaf919e1c7232",
+  "implementation_assessment": "Supported source changes and targeted current review verification. PASS is defensible without mandatory extra execution; allow any independently supported novel material concern.",
+  "uncertainty": [
+    "No claim about authorhistorical tests, hostedCI/fullsuite or livecrossrun operations.",
+    "Passing targeted tests are not proof against everypossible code defect."
+  ],
+  "mandatory_recognitions": [
+    "Correct recovery accumulation/dedup/30cap/cache/message behavior from exact source.",
+    "Current ratherthan authorhistorical attribution for9pass\u21925assertionfail\u21929pass."
+  ],
+  "unsupported_claims": [
+    "Required break/revert receipt is absent from this enriched packet.",
+    "Tests didnotrun or failed atcollection/import ratherthan targetedassertions.",
+    "Current receipt proves authorhistorical/livecache/provider success."
+  ],
+  "provider_calls_by_reviewer": 0,
+  "activation": false
+}

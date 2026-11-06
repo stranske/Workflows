@@ -21,7 +21,7 @@ Before starting, ensure you have:
 - [ ] A GitHub PAT for the service bot account (for SERVICE_BOT_PAT)
 - [ ] Admin access to create repository secrets and variables
 - [ ] Claude Code login/session available if you want Claude-run workflows
-- [ ] Python 3.12+ installed locally for testing
+- [ ] Python 3.13+ installed (3.14 preferred) locally for testing
 - [ ] GitHub CLI (`gh`) installed + authenticated (`brew install gh`; `gh auth status`) — the repo/label/secret steps below use it
 - [ ] Access to the team credentials store (e.g. `Code/Numbers/values.txt`), labeled by secret name — source for the Phase 3 secrets the table marks "contact admin"
 
@@ -755,7 +755,7 @@ For Python projects, ensure:
 - [ ] `pyproject.toml` exists with dependencies
 - [ ] `src/` directory structure follows package conventions
 - [ ] `tests/` directory exists with `conftest.py`
-- [ ] `.python-version` file specifies Python version (e.g., `3.12`)
+- [ ] `.python-version` file specifies Python version (e.g., `3.14`)
 
 ---
 

@@ -1,0 +1,213 @@
+version: 1
+issue: 4427
+base: main
+branch: closer-r1/issue-4427
+tasks:
+- id: task-02
+  title: 'Investigate whether the pytest==9.1.1 pin originates from pyproject.toml, a sync
+    template, or a protected workflow file, (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-11-04T18:00:00Z'
+  finished_at: '2026-11-04T18:00:00Z'
+  commit: 254f8e796c09fae6d21023ecc753e1b219783f2b
+  notes:
+  - 'Investigation complete: Workflows pins pytest==9.2.0; the original 9.1.1 install
+    was consumer-owned pages-wasm-demo.yml at 73120b9a594e, not a Maint 68 target.
+    Evidence: docs/ops/issue-4427-wasm-pytest-handoff.md.'
+- id: task-01
+  title: Fix the source configuration in `pyproject.toml` so the WASM workflow's pytest pin
+    matches the development dependency.
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'No pyproject pin change was required. The fix is Maint 52 rewriting and staging
+    pages-wasm-demo.yml (PR #4446). Historical failed attempts that edited pyproject
+    alone are obsolete.'
+- id: task-03
+  title: 'record the finding in the PR description. (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-11-05T02:00:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Finding recorded in merged PR #4446 investigation-finding block and this handoff.'
+- id: task-04
+  title: 'Update the pytest version pin in the identified non-workflow source file so it matches
+    the pytest==9.2.0 development dependency. (verify: dependencies updated)'
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Non-workflow pins were already 9.2.0. Maint 52 aligns the workflow install via
+    sync_dev_dependencies.py; test_reported_split_rewrites_wasm_install_to_development_pin.'
+- id: task-05
+  title: Add or extend a regression test beside `pyproject.toml` that fails with the reported
+    mismatch and passes after the fix.
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'tests/test_dependency_version_alignment.py and tests/scripts/test_sync_dev_dependencies.py
+    on main after #4446.'
+- id: task-06
+  title: Test regeneration through `.github/workflows/maint-68-sync-consumer-repos.yml` and
+    verify the resulting sync candidate resolves the reported mismatch.
+  status: done
+  started_at: '2026-11-05T02:10:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Local Maint 68 script delivery simulation plus live Maint 52 regeneration (#6189).
+    Maint 68 alone does not own pages-wasm-demo.yml.'
+- id: task-07
+  title: 'Add a local test that renders or reads the pytest pin in the generated WASM workflow
+    input (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Maint 52 apply tests read pages-wasm-demo.yml pytest pin after apply.'
+- id: task-08
+  title: 'asserts it equals the development dependency pin in pyproject.toml. (verify: dependencies
+    updated)'
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Same regression tests as task-05; candidate head 3083f697 confirms 9.2.0 in both files.'
+- id: task-09
+  title: 'Document the manual steps a maintainer should follow to trigger maint-68-sync-consumer-repos.yml
+    (verify: confirm completion in repo)'
+  status: done
+  started_at: '2026-11-04T18:00:00Z'
+  finished_at: '2026-11-04T18:00:00Z'
+  commit: 254f8e796c09fae6d21023ecc753e1b219783f2b
+  notes:
+  - Optional Maint 68 preview documented in handoff; primary delivery path is Maint 52.
+- id: task-10
+  title: 'confirm the sync candidate no longer has the pytest mismatch. (verify: confirm completion
+    in repo)'
+  status: done
+  started_at: '2026-11-05T01:10:00Z'
+  finished_at: '2026-11-05T04:00:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Local apply proved alignment before merge. Live candidate Trend_Model_Project#6189
+    head 3083f697e6e9bb675b67fe5dc5b71192935873fb matches workflow and dev pytest pins
+    (Maint 52 run 41964217277). Stale #6186 head 73120b9a594e remains pre-repair until
+    superseded.'
+- id: task-11
+  title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript
+    and `python3 -m pytest -q tests/` for Python; the handoff requires both to pass.'
+  status: done
+  started_at: '2026-11-05T02:15:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Recorded in PR #4446: JS 3369 passed; Python 50354 passed after coverage pin and
+    empty-session footer fixes.'
+- id: task-12
+  title: Reintroducing the reported behavior makes the regression test fail; reverting that
+    deliberate break makes it pass.
+  status: done
+  started_at: '2026-11-05T02:00:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Aligner stub failure output recorded in PR #4446 investigation-finding block.'
+- id: task-13
+  title: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Trend_Model_Project#6186
+    without this review thread, and sync-core stops bumping this issue.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Live post-merge check. Thread r4457616005 still unresolved on superseded #6186;
+    candidate is #6189 @ 3083f697. Awaiting Maint 71 report on wave 91791b44e525 and
+    sync-core quiet after candidate merge.'
+- id: task-14
+  title: 'Fix the finding at its source in `stranske/Workflows`: `pyproject.toml` (the consumer
+    PR stranske/Trend_Model_Project#6186 is generated from it by `.github/workflows/maint-68-sync-consumer-repos.yml`
+    and must not be edited by hand).'
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Source fix is Maint 52 workflow pin propagation, not a pyproject edit (PR #4446).'
+- id: task-15
+  title: Add or extend a test beside `pyproject.toml` that fails on the behaviour the reviewer
+    describes and passes after the fix.
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Same regression surface as task-05 on main.'
+- id: task-16
+  title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the sync candidate
+    and confirm the review thread on stranske/Trend_Model_Project#6186 is resolved.
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Maint 68 is not the delivery path for pages-wasm-demo.yml. Maint 52 candidate #6189
+    resolves the finding; thread clearance depends on merge and Maint 71 (task-13).'
+- id: task-17
+  title: Test regeneration through `.github/workflows/maint-68-sync-consumer-repos.yml` and
+    verify the resulting sync candidate resolves the reported mismatch. (Running a GitHub
+    Actions sync workflow and inspecting the resulting consumer PR is outside what the agent
+    can do. The agent also cannot retry CI pipelines. | Have a maintainer trigger the workflow
+    after merge. The agent should limit itself to a local test that simulates the generated
+    output.)
+  status: done
+  started_at: '2026-11-05T02:10:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Local Maint 68 script simulation on main; live regeneration via Maint 52 (#6189).'
+- id: task-18
+  title: 'Acceptance: The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports
+    stranske/Trend_Model_Project#6186 without this review thread, and sync-core stops bumping
+    this issue. (This is a post-merge live outcome in another repository that depends on scheduled
+    workflows and the reviewer''s thread state. The agent cannot verify or influence it. |
+    Move it to a separate maintainer verification checklist and keep it out of the agent''s
+    acceptance criteria.)'
+  status: deferred
+  started_at: null
+  finished_at: null
+  commit: ''
+  notes:
+  - 'Same live acceptance as task-13; track #6189 head 3083f697 after Maint 52 wave
+    91791b44e525.'
+- id: task-19
+  title: Fix the pytest pin if the source turns out to be `.github/workflows/pages-wasm-demo.yml`
+    (Workflow files under .github/workflows/ are protected. If the pin lives only in a workflow
+    file, the agent cannot change it. | If the source is a protected workflow, escalate to
+    a human. Otherwise fix the pin in a non-workflow template or config.)
+  status: done
+  started_at: '2026-11-05T01:35:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Consumer workflow is updated by Maint 52 sync_dev_dependencies.py in Workflows source,
+    not by editing the consumer repo by hand.'
+- id: task-20
+  title: Deliberate-break → revert acceptance step (This is a verification procedure rather
+    than a deliverable, and the agent can only partly perform it. | Have the agent demonstrate
+    it by running the new test against a temporarily mismatched pin and reporting the failure
+    output in the PR description.)
+  status: done
+  started_at: '2026-11-05T02:00:00Z'
+  finished_at: '2026-11-05T03:30:00Z'
+  commit: fac332aecc0b2ca38c652813b67670e1594baff1
+  notes:
+  - 'Recorded in PR #4446; source-lock break also documented in historical handoff notes.'

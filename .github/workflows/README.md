@@ -35,7 +35,7 @@ The CI stack now routes every pull request through a single Gate workflow that o
 
 `ci-python-versions.env` records the allowed first-party matrix in `CI_PYTHON_VERSIONS` and the primary runtime in `CI_PYTHON_VERSION`; the runtime-literal guard checks workflows, actions, starter workflows and consumer mirrors against that list.
 
-Both Gate runtimes use the same suite, markers, lock, branch coverage and four pytest workers. The package minimum remains Python >=3.12, and explicit reusable-call 3.12 overrides remain supported. Existing create-only consumer Gates retain their runtime policy until separately migrated.
+Both Gate runtimes use the same suite, markers, lock, branch coverage and four pytest workers. The package minimum is Python >=3.13 (3.14 first, 3.13 backup). Existing create-only consumer Gates retain their runtime policy until separately migrated.
 
 Legacy wrappers (`pr-10-ci-python.yml`, `pr-12-docker-smoke.yml`) have been removed now that branch protection enforces the Gate job directly.
 
@@ -113,7 +113,7 @@ on:
         default: "not quarantine and not slow"
       python-version:
         type: string
-        default: "3.12"
+        default: "3.14"
 jobs:
   ci:
     uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@v1
@@ -244,7 +244,7 @@ Low Coverage Spotlight (follow-up Issue #1386):
 - Customize the threshold with the `low-coverage-threshold` workflow input when calling `reusable-10-ci-python.yml`.
 - Table is separately truncated to the hotspot limit (15) with a truncation notice if more remain.
 Implemented follow-ups (Issue #1352):
-- Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.12`).
+- Normalized artifact naming: `coverage-<python-version>` (e.g. `coverage-3.14`).
 - Consistent file set per matrix job: `coverage.xml`, `coverage.json`, `htmlcov/**`, `pytest-junit.xml`, `pytest-report.xml`.
 - Retention window input `coverage-artifact-retention-days` has a default value of 10.
   This default is chosen to fall within the recommended 7–14 day observation horizon, allowing reviewers to compare multiple consecutive runs without long-term storage bloat.
@@ -276,7 +276,7 @@ Outputs:
   triggers remain disabled after consolidation.
 - **Inputs:**
   - `mode` — `summary`, `comment`, or `dual-runtime`. Summary posts only to the workflow run, comment publishes to a PR, and
-    dual-runtime fans out to both Python 3.12 and 3.13 before surfacing a summary.
+    dual-runtime fans out to both Python 3.13 and 3.14 before surfacing a summary.
   - `post_to` — `none` or `pr-number`. When paired with `mode: comment`, supply `pull_request_number` so the runner knows where
     to post. The workflow validates the number and fails fast on bad input rather than silently skipping the comment.
   - `enable_history` — toggle to download the `selftest-report` artifact emitted by the reusable matrix. Leave disabled for a

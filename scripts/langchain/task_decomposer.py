@@ -129,9 +129,9 @@ def _resolve_decomposer_provider(force_openai: bool = False) -> str | None:
     """Resolve the provider for task decomposition.
 
     Script-specific slot logic preserved from the former ``_get_llm_client``:
-    force OpenAI on retry, otherwise honor ``LANGCHAIN_PROVIDER`` and fall back to
-    GitHub Models when only a ``GITHUB_TOKEN`` is present. The actual client
-    construction is delegated to :func:`get_llm_client`.
+    force OpenAI on retry, otherwise honor ``LANGCHAIN_PROVIDER``; with neither, the
+    shared slot order picks the provider (GitHub Models is not a fallback since
+    2026-10-31). The actual client construction is delegated to :func:`get_llm_client`.
 
     Args:
         force_openai: If True, force OpenAI for retry after GitHub Models 401 error.
@@ -141,8 +141,6 @@ def _resolve_decomposer_provider(force_openai: bool = False) -> str | None:
     env_provider = os.environ.get("LANGCHAIN_PROVIDER")
     if env_provider:
         return env_provider
-    if os.environ.get("GITHUB_TOKEN") and not os.environ.get("OPENAI_API_KEY"):
-        return "github-models"
     return None
 
 

@@ -1,0 +1,35 @@
+LLM analysis found 3 completed task(s)
+Analyzing 0 commits against 3 unchecked tasks
+No clear task matches found in commits
+Auto-checked task: Create `src/trend_analysis/stages/__init__.py` pac... (LLM session analysis)
+Auto-checked task: Add "quoted" task name... (LLM session analysis)
+Updated PR body, checked 2 task(s)
+LLM analysis found 2 completed task(s)
+Analyzing 0 commits against 2 unchecked tasks
+No clear task matches found in commits
+Auto-checked task: Ship first numbered task... (LLM session analysis)
+Auto-checked task: Ship second numbered task... (LLM session analysis)
+Updated PR body, checked 2 task(s)
+Analyzing 1 commits against 2 unchecked tasks
+Found 2 potential task completion(s): 1 high, 1 medium confidence
+Commit analysis found 1 additional task(s)
+Auto-checked task: Add step summary output to keepalive loop... (100% keyword match (6 words), file match)
+Updated PR body, checked 1 task(s)
+Skipping reconciliation: missing repo context or PR number.
+Analyzing 1 commits against 2 unchecked tasks
+No clear task matches found in commits
+No high-confidence task matches to auto-check
+✔ autoReconcileTasks handles tasks with backticks and special characters (4.688625ms)
+✔ autoReconcileTasks checks numbered checklist items (0.642625ms)
+✔ autoReconcileTasks updates PR body for high-confidence matches (0.761708ms)
+✔ autoReconcileTasks skips when repo context is missing (0.424125ms)
+✔ autoReconcileTasks skips when no high-confidence matches (0.338334ms)
+✔ updateKeepaliveLoopSummary displays LLM provider analysis details (10.202542ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 85.635125

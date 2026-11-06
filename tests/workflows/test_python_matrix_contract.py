@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import tempfile
 from pathlib import Path
@@ -45,7 +46,10 @@ def test_gate_matrix_and_workload(path: Path) -> None:
     assert inputs.get("changed-files-json", "[]") == "[]", f"{path}: keep full-suite selection"
     assert inputs["pytest-workers"] == "4", f"{path}: use the same four-way split"
     assert inputs["pytest_markers"] == "${{ needs.detect.outputs.pytest_markers }}", str(path)
-    assert "pytest_args" not in inputs, f"{path}: do not narrow the canonical suite"
+    expected_args = ["-n", "auto", "--dist", "load"] if path == GATES[0] else []
+    assert (
+        shlex.split(inputs.get("pytest_args", "")) == expected_args
+    ), f"{path}: only scheduling/timing flags may supplement full-suite discovery"
     assert "strategy" not in gate, f"{path}: let the reusable fan out both versions"
 
 
@@ -126,8 +130,8 @@ def test_shared_pins_are_loaded_before_repo_overrides(job: str, tmp_path: Path) 
         "DOCFORMATTER_VERSION": ("docformatter_spec", "docformatter", "1.7.8"),
         "ISORT_VERSION": ("isort_spec", "isort", "9.0.2"),
         "RUFF_VERSION": ("ruff_spec", "ruff", "0.17.1"),
-        "MYPY_VERSION": ("mypy_spec", "mypy", "2.4.0"),
-        "PYTEST_VERSION": ("pytest_spec", "pytest", "9.1.1"),
+        "MYPY_VERSION": ("mypy_spec", "mypy", "2.4.1"),
+        "PYTEST_VERSION": ("pytest_spec", "pytest", "9.2.0"),
         "PYTEST_COV_VERSION": ("pytest_cov_spec", "pytest-cov", "7.1.0"),
         "PYTEST_XDIST_VERSION": ("pytest_xdist_spec", "pytest-xdist", "3.8.0"),
         "COVERAGE_VERSION": ("coverage_spec", "coverage", "7.16.2"),

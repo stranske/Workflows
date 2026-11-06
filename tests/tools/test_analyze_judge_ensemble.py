@@ -187,6 +187,34 @@ def test_cli_writes_json_and_markdown(tmp_path: Path):
     assert "Nothing is enabled by this report" in md.read_text()
 
 
+@pytest.mark.parametrize("metadata", [{"group": "fail-ci-row"}, {"diagnostic_only": True}])
+def test_cli_diagnostic_cases_never_confer_authority(tmp_path, metadata):
+    truth = _truth(80, 80)
+    diagnostic = {f"n{i}" for i in range(79)}
+    rows = [
+        {
+            "judge": judge,
+            "case_id": case,
+            "expected_verdict": expected,
+            "actual_verdict": expected,
+            "category": _categories(truth)[case],
+            **(metadata if case in diagnostic else {}),
+        }
+        for judge in ("incumbent", "candidate")
+        for case, expected in truth.items()
+    ]
+    source, out = tmp_path / "in.json", tmp_path / "out.json"
+    source.write_text(json.dumps({"rows": rows, "baseline": {"judge": "incumbent"}}))
+    ens.main(
+        ["--inputs", str(source), "--output", str(out), "--markdown", str(tmp_path / "out.md")]
+    )
+    result = json.loads(out.read_text())
+    assert result["non_pass_cases"] == 1
+    assert result["diagnostic_only_cases"] == 79
+    assert all(not judge["may_hold_pass_authority"] for judge in result["judges"])
+    assert result["pairs"][0]["cases"] == 81
+
+
 def _categories(truth):
     names = [
         "clean-pass",
@@ -291,3 +319,13 @@ def test_unverifiable_input_is_a_valid_verdict_and_never_a_pass(tmp_path):
     decisions, truth = ens.load_judgments([path])
     assert decisions["j"]["c"] == "UNVERIFIABLE_INPUT"
     assert ens._fail_closed(decisions["j"]["c"]) == "NON_PASS"
+
+
+def test_group_breakdown_separates_real_and_mutation_cases():
+    decisions = {"j": {"a": "PASS", "b": "PASS", "c": "NON_PASS", "d": "NON_PASS"}}
+    truth = {"a": "NON_PASS", "b": "NON_PASS", "c": "PASS", "d": "NON_PASS"}
+    groups = {"a": "fail-ci-row", "b": "drop-named-file", "c": "real"}
+    breakdown = ens.group_breakdown(decisions, truth, groups)["j"]
+    assert breakdown["fail-ci-row"] == {"cases": 1, "false_pass": 1, "false_fail": 0}
+    assert breakdown["drop-named-file"] == {"cases": 1, "false_pass": 1, "false_fail": 0}
+    assert breakdown["real"] == {"cases": 2, "false_pass": 0, "false_fail": 1}  # d defaults to real
