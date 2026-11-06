@@ -260,10 +260,12 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
   // A later same-payload success closes the retry window. An older cancelled
   // or failed producer must not keep a new recovery key in `skipped (cancelled)`
-  // after that delivery. A newer non-success still holds every key.
+  // after that delivery. A newer non-success still holds every key, except a
+  // completed delivery-v1 run that never authorized payload mutation.
   const newestSuccess = matching.filter((run) => !run.refresh_not_started && !run.refresh_unknown
     && run.status === 'completed' && run.conclusion === 'success').sort(newestRefreshExecution)[0];
-  const recent = matching.find((run) => run.status === 'completed' && run.conclusion !== 'success'
+  const recent = matching.find((run) => !run.refresh_not_started && run.status === 'completed'
+    && run.conclusion !== 'success'
     && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS
     && !(newestSuccess && newestRefreshExecution(newestSuccess, run) < 0));
   const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
@@ -395,12 +397,21 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     }
     // A guarded producer can succeed after queueing, without delivery. Its
     // explicit authorization step is the receipt, not the run conclusion.
-    if (run.status === 'completed' && run.conclusion === 'success'
-      && String(run.display_title).endsWith(' guard=delivery-v1')) {
+    // A rate-limit failure or a cancel before that step did not write, so it
+    // must not occupy the retry window. Older non-successes are already outside
+    // the window and do not need another job read.
+    const guarded = String(run.display_title).endsWith(' guard=delivery-v1');
+    const recentNonSuccess = run.status === 'completed' && run.conclusion !== 'success'
+      && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS;
+    if (run.status === 'completed' && guarded && (run.conclusion === 'success' || recentNonSuccess)) {
       const jobs = await withRetry(client => client.paginate(client.rest.actions.listJobsForWorkflowRun,
         { ...location, run_id: run.id, per_page: 100 }));
-      if (!jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
-        && step.conclusion === 'success'))) continue;
+      const authorized = jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
+        && step.conclusion === 'success'));
+      if (!authorized) {
+        run.refresh_not_started = true;
+        if (run.conclusion === 'success') continue;
+      }
     }
     run.source_commit = match[1];
     if (payload) {

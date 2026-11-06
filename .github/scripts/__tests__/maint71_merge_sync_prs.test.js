@@ -2551,6 +2551,21 @@ test('later same-payload success closes an older cancelled refresh window', () =
   const stillHeld = canaryRefreshDecision({ runs: [newerCancel, success], sha, candidates, driftKey: drift, now });
   assert.equal(stillHeld.eligible, false);
   assert.equal(stillHeld.state, 'cancelled');
+  const preAuthFailure = producerRun({ id: 42239701776, conclusion: 'failure', refresh_not_started: true,
+    created_at: '2026-11-06T15:05:00Z', run_started_at: '2026-11-06T15:05:00Z',
+    updated_at: '2026-11-06T15:05:20Z' });
+  const afterRateLimit = Date.parse('2026-11-06T15:06:00Z');
+  const releasedFailure = canaryRefreshDecision({
+    runs: [preAuthFailure, success, cancelled], sha, candidates, driftKey: drift, now: afterRateLimit,
+  });
+  assert.equal(releasedFailure.eligible, true);
+  assert.equal(releasedFailure.state, 'unseen');
+  const wroteThenFailed = { ...preAuthFailure, refresh_not_started: false };
+  const heldFailure = canaryRefreshDecision({
+    runs: [wroteThenFailed, success], sha, candidates, driftKey: drift, now: afterRateLimit,
+  });
+  assert.equal(heldFailure.eligible, false);
+  assert.equal(heldFailure.state, 'failure');
 });
 
 test('reader admits a new drift key after delivery when a skipped guard success follows an older cancel', async () => {
@@ -2569,7 +2584,7 @@ test('reader admits a new drift key after delivery when a skipped guard success 
   const skipped = producerRun({ id: 42233656300, display_title: title(` drift=${deliveredDrift}`),
     created_at: '2026-11-06T14:24:38Z', run_started_at: '2026-11-06T14:24:38Z',
     updated_at: '2026-11-06T14:25:41Z' });
-  const authorize = { 42220562715: 'success', 42233656300: 'skipped' };
+  const authorize = { 42220562715: 'success', 42233656300: 'skipped', 99: 'success' };
   const read = (driftKey, extra = []) => readCanaryRefreshState({
     ...refreshHarness(), driftKey, now, sourceSha: sha,
     withRetry: async fn => fn({ rest: {
@@ -2600,6 +2615,60 @@ test('reader admits a new drift key after delivery when a skipped guard success 
   const held = await read(recoveryDrift, [newerCancel]);
   assert.equal(held.eligible, false);
   assert.equal(held.state, 'cancelled');
+});
+
+test('pre-authorization rate-limit failure and empty-job cancel do not hold the refresh window', async () => {
+  const sha = 'a'.repeat(40);
+  const recoveryDrift = 'ab'.repeat(32);
+  const now = Date.parse('2026-11-06T15:10:00Z');
+  const title = (extra = '') => 'Maint 68 canary full ' +
+    `source=${sha} candidates=stranske/Ready,stranske/Template dry=false${extra} guard=delivery-v1`;
+  const cancelled = producerRun({ id: 42220291945, conclusion: 'cancelled', display_title: title(),
+    created_at: '2026-11-06T12:46:55Z', run_started_at: '2026-11-06T12:46:55Z',
+    updated_at: '2026-11-06T12:48:57Z' });
+  const delivered = producerRun({ id: 42220562715, display_title: title(),
+    created_at: '2026-11-06T12:49:03Z', run_started_at: '2026-11-06T12:49:03Z',
+    updated_at: '2026-11-06T12:52:36Z' });
+  const rateLimited = producerRun({ id: 42239701776, conclusion: 'failure', display_title: title(),
+    created_at: '2026-11-06T15:05:00Z', run_started_at: '2026-11-06T15:05:00Z',
+    updated_at: '2026-11-06T15:05:20Z' });
+  const jobsFor = {
+    42220291945: [],
+    42220562715: [{ steps: [{ name: 'Authorize canary payload mutation', conclusion: 'success' }] }],
+    42239701776: [{ name: 'Prepare sync from manifest', steps: [
+      { name: 'Check content refresh guard', conclusion: 'failure' },
+      { name: 'Authorize canary payload mutation', conclusion: 'skipped' },
+    ] }],
+  };
+  const read = (extra = []) => readCanaryRefreshState({
+    ...refreshHarness(), driftKey: recoveryDrift, now, sourceSha: sha,
+    withRetry: async fn => fn({ rest: {
+      repos: {
+        getCommit: async () => ({ data: { sha } }),
+        getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
+          canaries: ['stranske/Ready', 'stranske/Template'].map(repo => ({ repo })),
+        })).toString('base64') } }),
+      },
+      pulls: { list: async () => ({ data: [] }) },
+      actions: { listWorkflowRuns: async ({ status, page }) => ({ data: {
+        workflow_runs: status ? [] : page === 1 ? [rateLimited, delivered, cancelled, ...extra] : [],
+      } }) },
+    }, paginate: async (_method, params) => jobsFor[params.run_id] || [] }),
+  });
+  const released = await read();
+  assert.equal(released.state, 'unseen');
+  assert.equal(released.eligible, true);
+  assert.equal(released.producer_succeeded, false);
+  assert.equal(released.runs.find(run => run.id === 42239701776).refresh_not_started, true);
+  assert.equal(released.runs.find(run => run.id === 42220291945).refresh_not_started, true);
+  const wroteThenFailed = producerRun({ id: 42239701777, conclusion: 'failure', display_title: title(),
+    created_at: '2026-11-06T15:06:00Z', run_started_at: '2026-11-06T15:06:00Z',
+    updated_at: '2026-11-06T15:07:00Z' });
+  jobsFor[42239701777] = [{ steps: [{ name: 'Authorize canary payload mutation', conclusion: 'success' }] }];
+  const held = await read([wroteThenFailed]);
+  assert.equal(held.eligible, false);
+  assert.equal(held.state, 'failure');
+  assert.equal(held.runs.find(run => run.id === 42239701777).refresh_not_started, undefined);
 });
 
 test('unreadable or truncated history and changed main configuration fail closed', async () => {
