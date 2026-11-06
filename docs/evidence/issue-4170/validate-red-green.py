@@ -8,6 +8,7 @@ before the next case. Writes acceptance.json and log files alongside this script
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -191,31 +192,9 @@ CASES: tuple[Case, ...] = (
 )
 
 
-def run_pytest(nodeid: str) -> subprocess.CompletedProcess[str]:
-    cmd = [
-        PYTHON,
-        "-m",
-        "pytest",
-        *TARGET_TESTS,
-        "-q",
-        "--no-header",
-        f"-k={nodeid.split('::')[-1].split('[')[0]}",
-    ]
-    if "[" in nodeid:
-        cmd[-1] = f"-k={nodeid.split('::')[-1]}"
-    env = {**dict(**subprocess.os.environ), "PYTHONPATH": str(REPO)}
-    return subprocess.run(
-        cmd,
-        cwd=REPO,
-        env=env,
-        text=True,
-        capture_output=True,
-    )
-
-
 def run_pytest_exact(nodeid: str) -> subprocess.CompletedProcess[str]:
     cmd = [PYTHON, "-m", "pytest", nodeid, "-q", "--no-header"]
-    env = {**dict(**subprocess.os.environ), "PYTHONPATH": str(REPO)}
+    env = {**os.environ, "PYTHONPATH": str(REPO)}
     return subprocess.run(cmd, cwd=REPO, env=env, text=True, capture_output=True)
 
 
@@ -230,7 +209,7 @@ def main() -> int:
     green = subprocess.run(
         suite_cmd,
         cwd=REPO,
-        env={**dict(**subprocess.os.environ), "PYTHONPATH": str(REPO)},
+        env={**os.environ, "PYTHONPATH": str(REPO)},
         text=True,
         capture_output=True,
     )

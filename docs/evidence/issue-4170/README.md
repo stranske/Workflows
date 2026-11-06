@@ -111,7 +111,8 @@ and red-log `OSError`. Post-fix: `3 passed in 0.22s`.
 `git diff -- scripts/docs_drift_fix_agent.py scripts/export_keepalive_durability.py
 scripts/workflow_startup_failure_diagnostic.py` was empty.
 
-Per-case logs: `acceptance.json`, `red/`, and `green/`.
+Committed record: `acceptance.json`. The per-case `red/` and `green/` logs and
+`green-suite.log` are not committed; `validate-red-green.py` regenerates them.
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest \
@@ -120,7 +121,7 @@ Per-case logs: `acceptance.json`, `red/`, and `green/`.
   tests/scripts/test_workflow_startup_failure_diagnostic.py -q
 ```
 
-Green suite before mutations: `112 passed in 0.81s` (`green-suite.log`).
+Green suite before mutations: `112 passed in 0.94s` (recorded in `acceptance.json`).
 
 Regenerate the mutation table:
 
