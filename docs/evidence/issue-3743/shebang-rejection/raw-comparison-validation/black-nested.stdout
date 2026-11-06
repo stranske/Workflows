@@ -1,0 +1,177 @@
+[
+  {
+    "path": "packages/stranske_pdf_extract/tests/test_orchestration.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/tests/conftest.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/tests/test_text_baseline.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/tests/test_docling_provider.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/tests/test_contract.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/tests/test_reliability.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/tests/test_eval.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/contract.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/reliability.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/provider.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/orchestration.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/__init__.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/providers/text_baseline.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/providers/docling_provider.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/providers/__init__.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/eval/harness.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/eval/__init__.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/baseline_kit/directional.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/baseline_kit/snapshot.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/baseline_kit/golden.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/baseline_kit/manifest.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/baseline_kit/invariants.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/baseline_kit/catalog.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/baseline_kit/__init__.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/tests/test_snapshot.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "packages/app-baseline-kit/tests/test_catalog.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "tests/fixtures/reusable_ci_consumer/sample.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "tests/fixtures/reusable_ci_consumer/sample_contract.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "tests/fixtures/reusable_ci_consumer/__init__.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "templates/integration-repo/tests/test_example.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "templates/integration-repo/scripts/validate_dependency_test_setup.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "templates/integration-repo/scripts/sync_tool_versions.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "templates/integration-repo/scripts/sync_test_dependencies.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "templates/integration-repo/tools/resolve_mypy_pin.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  },
+  {
+    "path": "templates/integration-repo/src/example/__init__.py",
+    "exit": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+  }
+]

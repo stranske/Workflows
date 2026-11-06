@@ -6,6 +6,7 @@ Historical summary input rows that differ from the tree: 7.
 Archive-internal copies in those historical receipts still match their own summaries.
 
 Current acceptance is `acceptance-run/`, `validation-run/`, and `matched-comparison/`.
+`raw-comparison-validation/` binds the current verifier and its regression tests; its literal command attempts returned 127 because the required interpreter is absent.
 Current input bindings in those records match the files in this tree.
 `main-acceptance-map.json` remains the pre-change inspection record.
 
@@ -32,6 +33,7 @@ Current input bindings in those records match the files in this tree.
 - historical `docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz`: 151 members, verified True
 - historical `docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz`: 316 members, verified True
 - current `docs/evidence/issue-3743/shebang-rejection/matched-comparison/proof.tar.gz`: 19 members, verified True
+- current `docs/evidence/issue-3743/shebang-rejection/raw-comparison-validation/proof.tar.gz`: 37 members, verified True
 
 ## Matched comparison
 

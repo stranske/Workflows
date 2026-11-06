@@ -23,7 +23,10 @@ HISTORICAL = (
     EVIDENCE / "path-lookup/summary.json",
     EVIDENCE / "replay-validation/summary.json",
 )
-CURRENT = (EVIDENCE / "matched-comparison/summary.json",)
+CURRENT = (
+    EVIDENCE / "matched-comparison/summary.json",
+    EVIDENCE / "raw-comparison-validation/summary.json",
+)
 COUNT_LABELS = (
     ("black_files", "Black files left unchanged"),
     ("ruff_files", "Focused Ruff paths"),
@@ -114,6 +117,27 @@ def _problem(problems: list[str], condition: bool, message: str) -> None:
         problems.append(message)
 
 
+def verify_comparison(root: Path, summary: dict) -> dict:
+    """Recompute counts and outcomes; archive integrity cannot certify summary claims."""
+    compare = runpy.run_path(str(root / EVIDENCE / "compare_matched.py"))
+    directory = root / EVIDENCE / "matched-comparison"
+    computed = compare["build_comparison"](
+        compare["junit_nodes"](directory / "baseline.xml"),
+        compare["junit_nodes"](directory / "candidate.xml"),
+        read_json(directory / "baseline.json"),
+        read_json(directory / "candidate.json"),
+        compare["expected_added_nodes"](root),
+    )
+    if summary["comparison"] != computed:
+        raise ValueError("summary comparison drifted from raw inputs")
+    if read_json(directory / "comparison.json") != computed:
+        raise ValueError("stored comparison drifted from raw inputs")
+    problems = compare["contract_errors"](computed)
+    if problems:
+        raise ValueError("; ".join(problems))
+    return computed
+
+
 def _current_bindings(root: Path, problems: list[str]) -> None:
     matched_summary = read_json(root / CURRENT[0])
     bindings = matched_summary["input_sha256"]
@@ -162,6 +186,14 @@ def _current_bindings(root: Path, problems: list[str]) -> None:
         measured["ruff_files"] == len(validation["FOCUSED_RUFF"]),
         "ruff file count drifted",
     )
+    for summary in CURRENT[1:]:
+        for relative, spec in read_json(root / summary)["input_sha256"].items():
+            data = (root / relative).read_bytes()
+            _problem(
+                problems,
+                digest(data) == spec["sha256"] and len(data) == spec["bytes"],
+                f"current binding drifted: {relative}",
+            )
 
 
 def collect(root: Path) -> dict:
@@ -179,7 +211,7 @@ def collect(root: Path) -> dict:
     validation_summary = read_json(root / EVIDENCE / "validation-run/summary.json")
     acceptance_summary = read_json(root / EVIDENCE / "acceptance-run/summary.json")
     matched_summary = read_json(root / CURRENT[0])
-    comparison = matched_summary["comparison"]
+    comparison = verify_comparison(root, matched_summary)
     interpreters = validation_summary["interpreters"]
     return {
         "problems": problems,
@@ -220,6 +252,8 @@ def render(report: dict) -> str:
         "Archive-internal copies in those historical receipts still match their own summaries.",
         "",
         "Current acceptance is `acceptance-run/`, `validation-run/`, and `matched-comparison/`.",
+        "`raw-comparison-validation/` binds the current verifier and its regression tests; "
+        "its literal command attempts returned 127 because the required interpreter is absent.",
         "Current input bindings in those records match the files in this tree.",
         "`main-acceptance-map.json` remains the pre-change inspection record.",
         "",

@@ -3,6 +3,7 @@
 import io
 import json
 import runpy
+import shutil
 import tarfile
 from pathlib import Path
 
@@ -16,6 +17,57 @@ NOTE = EVIDENCE / "current-acceptance.md"
 
 def load_verifier():
     return runpy.run_path(str(VERIFIER))
+
+
+@pytest.mark.parametrize(
+    "field, replacement",
+    [
+        (None, None),
+        ("baseline_nodes", 0),
+        ("added_outcomes", ["failure"] * 8),
+        ("universes_identical", False),
+        ("exclusions", 1),
+        ("covered_line_regressions", [["scripts/check_deliberate_break.py", 1]]),
+        ("covered_branch_regressions", [["scripts/check_deliberate_break.py", [1, 2]]]),
+    ],
+)
+def test_comparison_summary_must_match_raw_junit_and_coverage(tmp_path, field, replacement):
+    module = load_verifier()
+    evidence = tmp_path / module["EVIDENCE"]
+    comparison = evidence / "matched-comparison"
+    comparison.mkdir(parents=True)
+    for name in ("compare_matched.py", "replay.py"):
+        shutil.copyfile(EVIDENCE / name, evidence / name)
+    for name in (
+        "baseline.xml",
+        "candidate.xml",
+        "baseline.json",
+        "candidate.json",
+        "comparison.json",
+    ):
+        shutil.copyfile(EVIDENCE / "matched-comparison" / name, comparison / name)
+    summary = json.loads((EVIDENCE / "matched-comparison/summary.json").read_text())
+    if field is None:
+        assert module["verify_comparison"](tmp_path, summary) == summary["comparison"]
+    else:
+        summary["comparison"][field] = replacement
+        with pytest.raises(ValueError, match="summary comparison drifted from raw inputs"):
+            module["verify_comparison"](tmp_path, summary)
+
+
+def test_collection_rejects_a_summary_claim_without_changing_archive_bytes(monkeypatch):
+    module = load_verifier()
+    read_json = module["read_json"]
+
+    def damaged_summary(path):
+        payload = read_json(path)
+        if path == ROOT / module["CURRENT"][0]:
+            payload["comparison"]["added_outcomes"] = ["failure"] * 8
+        return payload
+
+    monkeypatch.setitem(module["collect"].__globals__, "read_json", damaged_summary)
+    with pytest.raises(ValueError, match="summary comparison drifted from raw inputs"):
+        module["collect"](ROOT)
 
 
 @pytest.mark.parametrize(
@@ -96,6 +148,7 @@ def test_delivered_archives_and_current_bindings_match_the_note():
         "historical",
         "historical",
         "historical",
+        "current",
         "current",
     ]
     assert all(item["verified"] for item in archives)
