@@ -3645,6 +3645,29 @@ After restoring `refreshState: state` on that call, the same command **passed**
   `sync-pr-merge-report.json` and `sync-canary-evidence.json` from that artifact
   found **no** `candidate_immutable_identity_mismatch` string.
 
+**Following Maint 71 report (subsequent run after refresh dispatch):**
+
+- **Run:** `42278393127` — [workflow run](https://github.com/stranske/Workflows/actions/runs/42278393127)
+  (candidate selector, `Merge Sync PRs [candidate]`, head `c13984afb0cfb701d3acc3a649406a4057f4043c`).
+- **Observation command:**
+  `gh run view 42278393127 --repo stranske/Workflows --log`
+- **Refresh status:** `Candidate refresh not required: candidate report has no stable base refresh request`
+  (the refresh dispatched in run 42263579550 has been applied).
+- **Canary refresh accounting:** `canary_refresh.refresh_dispatched` is `1`,
+  `drainable` is `0`, `held_plans` contains the same campaign plan_id
+  `sha256:72846175e038355cadc4a015d08c6a2af2ee51ffe4192ea5038c323038d9b117`.
+- **Canary states in this subsequent report:**
+  - `stranske/Travel-Plan-Permission`: `check_status` = `checks_failed`, `refresh_state.sha` = campaign source `5af534766f3706b109eac5b163b74ff968eef74a`
+  - `stranske/trip-planner`: `check_status` = `seal_pending`, `refresh_state.sha` = campaign source `5af534766f3706b109eac5b163b74ff968eef74a`
+  - `stranske/Portable-Alpha-Extension-Model`: `check_status` = `seal_pending`, `refresh_state.sha` = campaign source `5af534766f3706b109eac5b163b74ff968eef74a`
+  Both `trip-planner` and `Portable-Alpha-Extension-Model` have advanced to
+  `seal_pending`, indicating the refresh completed and they are now ready for sealing.
+- **Artifacts:** `sync-pr-merge-and-canary-evidence` available on this run; artifact search
+  found **no** `candidate_immutable_identity_mismatch` in `sync-pr-merge-report.json`.
+- **No identity mismatch:** All three canaries carry the correct campaign
+  `source_commit`/`plan_id` tuple in their `refresh_state` and `delivery_binding`,
+  confirming full-scope campaign identity was preserved across the refresh.
+
 No production code change was required for this closer step; the live run did
 not expose a defect in `maint71_merge_sync_prs.js` beyond what #4477 already
 merged.
