@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -172,6 +173,146 @@ def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+_RANKING_GIT_REPO: Path | None = None
+
+
+def _has_commit(repo: Path, revision: str) -> bool:
+    result = subprocess.run(
+        ["git", "cat-file", "-e", f"{revision}^{{commit}}"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def _is_shallow(repo: Path) -> bool:
+    return _git(repo, "rev-parse", "--is-shallow-repository").strip() == "true"
+
+
+def _window_parents_present(repo: Path, revision: str, since: str) -> bool:
+    """True when ``git log --name-only`` can diff every commit in the window.
+
+    A shallow boundary commit has no parent object, so ``--name-only`` lists the
+    whole tree and inflates churn. A full clone only needs the revision itself.
+    """
+    if not _has_commit(repo, revision):
+        return False
+    if not _is_shallow(repo):
+        return True
+    raw = _git(repo, "rev-list", "--no-merges", f"--since={since}", "--parents", revision)
+    for line in raw.splitlines():
+        parts = line.split()
+        if len(parts) < 2:
+            return False
+        for parent in parts[1:]:
+            if not _has_commit(repo, parent):
+                return False
+    return True
+
+
+def _history_available(root: Path) -> bool:
+    measurement = _load(root / "docs/evidence/issue-4426/coverage-measurement.json")
+    ranking = _load(root / "docs/evidence/issue-4426/ranking.json")
+    pairs = (
+        (measurement["pre_round"]["main_oid"], ranking["revisions"]["pre_round_since"]),
+        (measurement["current"]["origin_main"], ranking["revisions"]["current_since"]),
+    )
+    return all(_window_parents_present(root, revision, since) for revision, since in pairs)
+
+
+def _copy_http_extraheaders(source: Path, dest: Path) -> None:
+    result = subprocess.run(
+        ["git", "-C", str(source), "config", "--local", "--get-regexp", r"^http\..*\.extraheader$"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return
+    for line in result.stdout.splitlines():
+        key, separator, value = line.partition(" ")
+        if separator and value:
+            subprocess.run(["git", "-C", str(dest), "config", "--local", key, value], check=True)
+
+
+def _redact_git_error(text: str) -> str:
+    kept = [
+        line
+        for line in text.splitlines()
+        if "authorization" not in line.lower() and "extraheader" not in line.lower()
+    ]
+    return "\n".join(kept)[-500:]
+
+
+def _fetch_ranking_history(source: Path, windows: tuple[tuple[str, str], ...]) -> Path:
+    """Fetch the pinned revisions into a new repo so the job checkout stays shallow."""
+    dest = Path(tempfile.mkdtemp(prefix="issue-4426-ranking-"))
+    subprocess.run(["git", "init", "-q", str(dest)], check=True)
+    origin = "https://github.com/stranske/Workflows"
+    remote = subprocess.run(
+        ["git", "-C", str(source), "remote", "get-url", "origin"],
+        capture_output=True,
+        text=True,
+    )
+    if remote.returncode == 0 and remote.stdout.strip():
+        origin = remote.stdout.strip()
+    subprocess.run(["git", "-C", str(dest), "remote", "add", "origin", origin], check=True)
+    _copy_http_extraheaders(source, dest)
+    earliest_since = min(since for _revision, since in windows)
+    anchor = datetime.fromisoformat(earliest_since.replace("Z", "+00:00"))
+    last_error = "pinned ranking history is unavailable"
+    for margin_days in (14, 45, 120):
+        fetch_since = (anchor - timedelta(days=margin_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        failed = False
+        for revision, _since in windows:
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(dest),
+                    "fetch",
+                    "--no-tags",
+                    f"--shallow-since={fetch_since}",
+                    "origin",
+                    revision,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                failed = True
+                last_error = _redact_git_error(result.stderr) or last_error
+                break
+        if failed:
+            continue
+        if all(_window_parents_present(dest, revision, since) for revision, since in windows):
+            return dest
+    raise RuntimeError(last_error)
+
+
+def git_repo_for_ranking(root: Path = ROOT) -> Path:
+    """Use ``root`` when it already contains the pinned history.
+
+    Gate Python CI checks out with fetch-depth 1, which does not include the
+    pre-round or current-main revisions. Those are fetched into a temporary
+    repository. Fetching the checkout itself would move its shallow boundary
+    for later tests in the same job.
+    """
+    global _RANKING_GIT_REPO
+    if _history_available(root):
+        return root
+    if _RANKING_GIT_REPO is not None:
+        return _RANKING_GIT_REPO
+    measurement = _load(root / "docs/evidence/issue-4426/coverage-measurement.json")
+    ranking = _load(root / "docs/evidence/issue-4426/ranking.json")
+    windows = (
+        (measurement["pre_round"]["main_oid"], ranking["revisions"]["pre_round_since"]),
+        (measurement["current"]["origin_main"], ranking["revisions"]["current_since"]),
+    )
+    _RANKING_GIT_REPO = _fetch_ranking_history(root, windows)
+    return _RANKING_GIT_REPO
+
+
 def _history_rows(
     repo: Path,
     revision: str,
@@ -224,16 +365,17 @@ def _history_rows(
     return ranked
 
 
-def build_ranking_record(root: Path = ROOT) -> dict:
+def build_ranking_record(root: Path = ROOT, git_repo: Path | None = None) -> dict:
     """Rebuild the ranking record from git history and the locked evidence files."""
+    repo = git_repo or root
     contract = _load(root / "docs/evidence/issue-4426/contract-3998.json")
     measurement = _load(root / "docs/evidence/issue-4426/coverage-measurement.json")
     inventory = _load(root / "docs/evidence/issue-4426/pr-inventory.json")
     issue_targets = {item["path"]: item for item in contract["ranking_method"]["targets"]}
     pre_round = measurement["pre_round"]["main_oid"]
     current = measurement["current"]["origin_main"]
-    pre_iso = _git(root, "log", "-1", "--format=%cI", pre_round).strip()
-    current_iso = _git(root, "log", "-1", "--format=%cI", current).strip()
+    pre_iso = _git(repo, "log", "-1", "--format=%cI", pre_round).strip()
+    current_iso = _git(repo, "log", "-1", "--format=%cI", current).strip()
     pre_since = lookback_since(pre_iso)
     current_since = lookback_since(current_iso)
 
@@ -253,9 +395,9 @@ def build_ranking_record(root: Path = ROOT) -> dict:
         }
         for path in TARGETS
     }
-    pre_rows = _history_rows(root, pre_round, pre_since, issue_uncovered, issue_targets)
+    pre_rows = _history_rows(repo, pre_round, pre_since, issue_uncovered, issue_targets)
     current_rows = _history_rows(
-        root,
+        repo,
         current,
         current_since,
         current_uncovered,
@@ -649,8 +791,13 @@ def test_parser_weights_revert_above_fix_and_ignores_prose() -> None:
     assert parsed["scripts/sync_test_dependencies.py"] == {"escaped": 0.0, "churn": 1}
 
 
+def _ranking_record() -> tuple[Path, dict]:
+    repo = git_repo_for_ranking(ROOT)
+    return repo, build_ranking_record(ROOT, git_repo=repo)
+
+
 def test_regenerated_ranking_reorders_the_six_targets() -> None:
-    record = build_ranking_record(ROOT)
+    _repo, record = _ranking_record()
     pre_round = {
         row["path"]: (row["escaped_defect_weight"], row["churn"])
         for row in record["regenerated_pre_round"]["targets"]
@@ -688,7 +835,7 @@ def test_regenerated_ranking_reorders_the_six_targets() -> None:
 
 
 def test_per_file_git_log_matches_the_whole_repo_scores() -> None:
-    record = build_ranking_record(ROOT)
+    repo, record = _ranking_record()
     revisions = {
         record["revisions"]["pre_round"]: (
             record["revisions"]["pre_round_since"],
@@ -702,7 +849,7 @@ def test_per_file_git_log_matches_the_whole_repo_scores() -> None:
     for revision, (since, rows) in revisions.items():
         for row in rows:
             subjects = _git(
-                ROOT,
+                repo,
                 "log",
                 revision,
                 f"--since={since}",
@@ -718,7 +865,7 @@ def test_per_file_git_log_matches_the_whole_repo_scores() -> None:
 
 
 def test_contribution_ledger_does_not_double_count() -> None:
-    record = build_ranking_record(ROOT)
+    _repo, record = _ranking_record()
     contributions = record["contributions"]
     assert contributions["counted_landed_reduction"] == 0
     assert contributions["about_180_met_by_counted_reduction"] is False
@@ -753,7 +900,7 @@ def test_contribution_ledger_does_not_double_count() -> None:
 
 
 def test_committed_ranking_record_matches_the_regeneration() -> None:
-    record = build_ranking_record(ROOT)
+    _repo, record = _ranking_record()
     assert _load(RANKING_JSON) == record
     assert RANKING_MD.read_text(encoding="utf-8") == render_ranking_markdown(record)
     readme = (EVIDENCE / "README.md").read_text(encoding="utf-8")
