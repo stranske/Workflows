@@ -2612,9 +2612,51 @@ jobs:
                     },
                   }),
                 };
-            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({ github, core });
+            const { withRetry, paginateWithRetry, getTokenSource } = await createTokenAwareRetry({ github, core });
             const summary = core.summary;
             const { owner, repo } = context.repo;
+
+            // Non-secret credential source label, following the WRITE_TOKEN fallback order.
+            function guardedMergeCredentialSource() {
+              return getTokenSource?.()
+                || (process.env.AGENTS_AUTOMATION_PAT ? 'AGENTS_AUTOMATION_PAT'
+                  : process.env.ACTIONS_BOT_PAT ? 'ACTIONS_BOT_PAT'
+                    : process.env.SERVICE_BOT_PAT ? 'SERVICE_BOT_PAT'
+                      : 'github.token');
+            }
+
+            // Failure receipt uses the configured WRITE_TOKEN client, not an arbitrary commenter.
+            async function reportMergeFailure(prNumber, message) {
+              const marker = '<!-- agents-guarded-merge-result:v1 -->';
+              core.warning(message);
+              try {
+                // Installation tokens (github.token fallback) cannot call GET /user; their writer is fixed.
+                const workflowToken = guardedMergeCredentialSource() === 'github.token';
+                const actor = workflowToken
+                  ? { login: 'github-actions[bot]', type: 'Bot' }
+                  : (await withRetry((client) => client.rest.users.getAuthenticated())).data;
+                const ownedByWriter = (user) => (workflowToken
+                  ? user?.login === 'github-actions[bot]' && user?.type === 'Bot'
+                  : user?.id === actor.id);
+                const comments = await paginateWithRetry(github.rest.issues.listComments, {
+                  owner, repo, issue_number: prNumber, per_page: 100,
+                });
+                const existing = comments.find((comment) =>
+                  ownedByWriter(comment.user) && comment.body?.startsWith(marker));
+                const receipt = `${marker}\n${message}`;
+                if (existing) {
+                  await withRetry((client) => client.rest.issues.updateComment({
+                    owner, repo, comment_id: existing.id, body: receipt,
+                  }));
+                } else {
+                  await withRetry((client) => client.rest.issues.createComment({
+                    owner, repo, issue_number: prNumber, body: receipt,
+                  }));
+                }
+              } catch (error) {
+                core.warning(`Unable to publish guarded merge failure receipt: HTTP ${error.status || 'unknown'} ${error.message || error}`);
+              }
+            }
 
             // Resolve the default branch (agent PRs must target it).
             let defaultBranch = (context.payload.repository && context.payload.repository.default_branch) || '';
@@ -3401,13 +3443,23 @@ jobs:
                             if (finalMergeFailure) {
                               throw new Error(finalMergeFailure);
                             }
-                            const response = await withRetry((client) => client.rest.pulls.merge({
-                              owner,
-                              repo,
-                              pull_number: prNumber,
-                              merge_method: 'squash',
-                              sha: headSha,
-                            }));
+                            const response = await withRetry(async (client) => {
+                              // Inspect the exact client used for this merge attempt; retries may switch tokens.
+                              const credentialSource = guardedMergeCredentialSource();
+                              try {
+                                const identity = await client.rest.users.getAuthenticated();
+                                core.info(`Guarded merge credential source=${credentialSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
+                              } catch (identityError) {
+                                core.info(`Guarded merge credential source=${credentialSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
+                              }
+                              return client.rest.pulls.merge({
+                                owner,
+                                repo,
+                                pull_number: prNumber,
+                                merge_method: 'squash',
+                                sha: headSha,
+                              });
+                            });
                             if (response && response.data && response.data.merged) {
                               status = 'merged';
                               note = `Merged via ${response.data.merge_method || 'squash'}.`;
@@ -3435,13 +3487,15 @@ jobs:
                               }
                             } else {
                               status = 'error';
-                              note = 'Merge API returned an unexpected response.';
+                              note = `Merge failed: HTTP ${response?.status || 'unknown'} ${response?.data?.message || 'Merge API returned an unexpected response.'}`;
+                              await reportMergeFailure(prNumber, note);
                             }
                           } catch (error) {
                             status = 'error';
                             const responseData = error && error.response ? error.response.data : undefined;
                             const detail = responseData && responseData.message ? responseData.message : (error.message || String(error));
-                            note = `Merge failed: ${detail}`;
+                            note = `Merge failed: HTTP ${error.status || error.response?.status || 'unknown'} ${detail}`;
+                            await reportMergeFailure(prNumber, note);
                           }
                         }
                       }

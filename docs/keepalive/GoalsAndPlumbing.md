@@ -825,3 +825,17 @@ review opportunity, runtime acceptance or post-merge source-issue verification.
 A refused task precheck emits a warning and an `agents-guarded-merge-result:v1`
 receipt on the PR. Only the authenticated receipt writer's own comment is updated;
 if its identity cannot be resolved, a new receipt is created.
+
+The guarded merge job uses the `WRITE_TOKEN` environment variable for merge operations,
+which follows this fallback order: `AGENTS_AUTOMATION_PAT` → `ACTIONS_BOT_PAT` →
+`SERVICE_BOT_PAT` → `github.token`. For the merge to succeed, the selected token must
+have `contents: write` and `pull_requests: write` scopes on the consumer repository (a
+classic `repo` scope PAT, or a fine-grained PAT with both permissions). The job itself
+declares these permissions, so `github.token` inherits them from the workflow's
+`permissions:` block. However, if a PAT in the fallback chain lacks these scopes, the
+merge call will fail with HTTP 403. The merge step logs the exact credential source
+used (masked to the secret name) and its authenticated actor at merge time to help
+diagnose capability failures. When a merge fails, the job publishes an
+`agents-guarded-merge-result:v1` failure receipt as a PR comment with the HTTP status
+and message, and emits a workflow warning annotation with the same text so the 403
+is visible on the PR and in run annotations instead of only in the job summary.
