@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[template]",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/tmp/shebang-rejection-additional-mlnef2fw/proof/template-test_empty_pytest_launcher_has_no_probe/green.xml"
+  ],
+  "cwd": "/tmp/shebang-rejection-proof-dhr90f05",
+  "exit": 0,
+  "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[template]"
+}

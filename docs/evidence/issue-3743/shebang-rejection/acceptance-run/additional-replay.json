@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/replay.py",
+    "--output",
+    "/tmp/shebang-rejection-additional-mlnef2fw/proof"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "attempt": 1,
+  "limit_seconds": 600,
+  "exit": 0,
+  "stdout": "{\"pair_count\": 8, \"output\": \"/tmp/shebang-rejection-additional-mlnef2fw/proof\"}\n",
+  "stderr": "",
+  "stopped": null,
+  "duration_seconds": 18.1
+}

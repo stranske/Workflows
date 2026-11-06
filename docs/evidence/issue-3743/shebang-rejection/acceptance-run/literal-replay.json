@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/opt/anaconda3/bin/python3",
+    "docs/evidence/issue-3743/shebang-rejection/replay.py",
+    "--output",
+    "/tmp/fresh-shebang-rejection-proof"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "attempt": 1,
+  "limit_seconds": 600,
+  "exit": 127,
+  "stdout": "",
+  "stderr": "/opt/anaconda3/bin/python3: No such file or directory\n",
+  "stopped": "interpreter-absent",
+  "duration_seconds": 0.0
+}

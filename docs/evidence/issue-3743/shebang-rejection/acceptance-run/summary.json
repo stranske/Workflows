@@ -1,0 +1,38 @@
+{
+  "role": "Current acceptance-run receipts. Historical README, summary.json, proof.tar.gz, path-lookup/, and replay-validation/ are not acceptance for this run.",
+  "check_date": "2026-11-06",
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "literal_interpreter": "/opt/anaconda3/bin/python3",
+  "receipt_interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+  "pair_count": 8,
+  "satisfies_literal_acceptance": false,
+  "literal_pytest_exit": 127,
+  "literal_replay_exit": 127,
+  "operational_pytest_exit": 0,
+  "focused_junit_exit": 0,
+  "replay_exit": 0,
+  "reuse_exit": 1,
+  "historical_unchanged": true,
+  "historical_sha256": {
+    "docs/evidence/issue-3743/shebang-rejection/README.md": "8db08c1b204bfa908f2292f352b300c366bdd47f53a28c737a7f30ab33f4f52e",
+    "docs/evidence/issue-3743/shebang-rejection/coverage.ini": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+    "docs/evidence/issue-3743/shebang-rejection/replay.py": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+    "docs/evidence/issue-3743/shebang-rejection/summary.json": "c4f78b1edef8812eba7f3cf8ce205aab744b3a6498efdbf661c3e3c4463e3e3f",
+    "docs/evidence/issue-3743/shebang-rejection/proof.tar.gz": "83bf8bec764c0630a08c661876eaf7a24b5a7b27e1ee2875f6f96565ff281fae",
+    "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json": "dd7f81c8a2cbae55083ebb1ad690ffc78c8e9862a296ee0c14850eabe09452c9",
+    "docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz": "f432fadc3959ac92e548b37b949f4070c4c9e00ad2ea19f8d1b5a9645c2fd254",
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json": "841ef4290cb8183320fa90b1241113d55736e74ab2f7c2827e21bd4dcc689e66",
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz": "0a1974ad9d253eba6d78fca5b36a870aa9eac20b11db9b3bf0ac8be3c38abf8a",
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/task-reconciliation.md": "00ca3121382545c09272638b5ca68be50b98a5d6d27bd2bbba01b7102b4373c5",
+    "docs/evidence/issue-3743/shebang-rejection/pre-change-record.json": "987d35ea935db2ecc8cd0339c8619c50763ce18600b42a98340a9524c5c05dc7",
+    "docs/evidence/issue-3743/shebang-rejection/main-acceptance-map.json": "074da0915ae48f483eb059c32ba94c6fb1f0f22b3f9cc55a9df94a34610879e4",
+    "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": "9b2d20412949c106cb2f5a7ea789f8e5bb0f760b3999550a6b10ccec58b27a85",
+    "scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a"
+  },
+  "production_sha256": {
+    "scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "templates/consumer-repo/scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27"
+  }
+}
