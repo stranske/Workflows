@@ -1,6 +1,6 @@
 {
   "argv": [
-    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "/opt/anaconda3/bin/python3",
     "scripts/validate_template_completeness.py",
     "--workflows-dir",
     ".github/workflows",
@@ -12,7 +12,7 @@
     "sync-manifest",
     "--strict"
   ],
-  "cwd": "/home/runner/work/Workflows/Workflows",
+  "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
   "attempt": 1,
   "limit_seconds": 180,
   "env_overrides": {
@@ -22,5 +22,5 @@
   "stdout": "\u2705 All consumer workflows are properly templated and manifested\n",
   "stderr": "",
   "stopped": null,
-  "duration_seconds": 0.143
+  "duration_seconds": 0.113
 }

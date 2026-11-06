@@ -1,22 +1,22 @@
 {
   "role": "Current validation receipts for full-repository Black, focused Ruff, strict template completeness, and git diff --check. Historical README.md, summary.json, proof.tar.gz, path-lookup/, and replay-validation/ are earlier receipts. acceptance-run/ retains the eight-case pytest and replay commands.",
   "check_date": "2026-11-06",
-  "cwd": "/home/runner/work/Workflows/Workflows",
+  "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
   "interpreters": {
     "python": {
-      "path": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
-      "version": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]"
+      "path": "/opt/anaconda3/bin/python3",
+      "version": "3.12.2 | packaged by conda-forge | (main, Feb 16 2024, 20:54:21) [Clang 16.0.6 ]"
     },
     "black": {
-      "path": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/black",
+      "path": "/opt/anaconda3/bin/black",
       "exit": 0,
-      "stdout": "black, 26.10.1 (compiled: yes)\nPython (CPython) 3.14.10\n",
+      "stdout": "black, 26.10.1 (compiled: yes)\nPython (CPython) 3.12.2\n",
       "stderr": ""
     },
     "ruff": {
-      "path": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/ruff",
+      "path": "/opt/anaconda3/bin/ruff",
       "exit": 0,
-      "stdout": "ruff 0.17.3\n",
+      "stdout": "ruff 0.17.1\n",
       "stderr": ""
     }
   },
@@ -25,13 +25,13 @@
     "template_directory_yml": 35,
     "manifest_workflow_targets": 35,
     "strict_validation_inputs": 166,
-    "black_files": 927,
+    "black_files": 928,
     "ruff_files": 15
   },
   "commands": {
     "black": {
       "argv": [
-        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/black",
+        "/opt/anaconda3/bin/black",
         "--check",
         "--line-length",
         "100",
@@ -39,20 +39,20 @@
         "(\\.workflows-lib|node_modules)",
         "."
       ],
-      "cwd": "/home/runner/work/Workflows/Workflows",
+      "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 72.154,
+      "duration_seconds": 0.738,
       "env_overrides": {
         "BLACK_NUM_WORKERS": "1",
         "BLACK_CACHE_DIR": "/tmp/shebang-rejection-validation-black-cache"
       },
       "stdout": "",
-      "stderr": "All done! \u2728 \ud83c\udf70 \u2728\n927 files would be left unchanged.\n"
+      "stderr": "Warning: Python 3.12 cannot parse code formatted for Python 3.13. To fix this: run Black with Python 3.13, set --target-version to py312, or use --fast to skip the safety check. Black's safety check verifies equivalence by parsing the AST, which fails when the running Python is older than the target version.\nAll done! \u2728 \ud83c\udf70 \u2728\n928 files would be left unchanged.\n"
     },
     "ruff": {
       "argv": [
-        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/ruff",
+        "/opt/anaconda3/bin/ruff",
         "check",
         "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py",
         "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py",
@@ -70,17 +70,17 @@
         "tests/scripts/test_shebang_rejection_replay.py",
         "tests/scripts/test_shebang_rejection_validation_run.py"
       ],
-      "cwd": "/home/runner/work/Workflows/Workflows",
+      "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.012,
+      "duration_seconds": 0.014,
       "env_overrides": {},
-      "stdout": "\u001b[1;32mAll checks passed!\u001b[0m\n",
+      "stdout": "All checks passed!\n",
       "stderr": ""
     },
     "template": {
       "argv": [
-        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "/opt/anaconda3/bin/python3",
         "scripts/validate_template_completeness.py",
         "--workflows-dir",
         ".github/workflows",
@@ -92,10 +92,10 @@
         "sync-manifest",
         "--strict"
       ],
-      "cwd": "/home/runner/work/Workflows/Workflows",
+      "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.143,
+      "duration_seconds": 0.113,
       "env_overrides": {
         "GITHUB_STEP_SUMMARY": "/tmp/shebang-rejection-validation/template-summary.md"
       },
@@ -108,10 +108,10 @@
         "diff",
         "--check"
       ],
-      "cwd": "/home/runner/work/Workflows/Workflows",
+      "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.005,
+      "duration_seconds": 0.016,
       "env_overrides": {},
       "stdout": "",
       "stderr": ""
@@ -181,8 +181,8 @@
     },
     "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py": {
       "kind": "file",
-      "sha256": "56008683da422160fcb1fcc89badff636d130938f3e556b93c1c35a498f50c96",
-      "bytes": 20345,
+      "sha256": "a7118ac751640fbb9f11fcc0cd6865a69366f8c1a9e10d04bc450d4e905289ee",
+      "bytes": 20287,
       "files": 1
     },
     "docs/evidence/issue-3743/shebang-rejection/acceptance-run": {
@@ -217,8 +217,8 @@
     },
     "tests/scripts/test_shebang_rejection_acceptance_run.py": {
       "kind": "file",
-      "sha256": "6d7c3f3a1a8f231be506c4866db7f028117528460397dd51c01349014d6f9c3e",
-      "bytes": 5953,
+      "sha256": "47344b037d84e176d0d6ca667331759564fd9c5266df818c7469958669536c2b",
+      "bytes": 5657,
       "files": 1
     },
     "tests/scripts/test_shebang_rejection_acceptance_inspection.py": {

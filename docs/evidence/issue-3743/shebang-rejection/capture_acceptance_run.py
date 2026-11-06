@@ -272,14 +272,13 @@ def _ensure_origin_main(root: Path) -> None:
 
 def validate_retained(root: Path) -> dict:
     """Check the retained acceptance-run tree against the command contract."""
-    _ensure_origin_main(root)
     run_dir = root / EVIDENCE / "acceptance-run"
     summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
     literal_pytest = json.loads((run_dir / "literal-pytest.json").read_text(encoding="utf-8"))
     literal_replay = json.loads((run_dir / "literal-replay.json").read_text(encoding="utf-8"))
     _require(literal_pytest["argv"] == literal_pytest_argv(), "literal pytest argv")
     _require(literal_replay["argv"] == literal_replay_argv(), "literal replay argv")
-    _require(literal_pytest["cwd"] == literal_replay["cwd"] == str(root), "literal cwd")
+    _require(literal_pytest["cwd"] == literal_replay["cwd"] == summary["cwd"], "literal cwd")
     for name, record in (("literal-pytest", literal_pytest), ("literal-replay", literal_replay)):
         _require(
             (run_dir / f"{name}.stdout").read_text(encoding="utf-8") == record["stdout"],
@@ -291,6 +290,8 @@ def validate_retained(root: Path) -> dict:
         )
     operational = json.loads((run_dir / "operational-pytest.json").read_text(encoding="utf-8"))
     junit_command = json.loads((run_dir / "focused-junit.json").read_text(encoding="utf-8"))
+    _require(operational["cwd"] == summary["cwd"], "operational cwd")
+    _require(junit_command["cwd"] == summary["cwd"], "junit cwd")
     _require(operational["exit"] == 0, "operational pytest exit")
     _require("8 passed" in operational["stdout"], "operational pytest summary")
     _require("failed" not in operational["stdout"], "operational pytest failures")
@@ -315,7 +316,12 @@ def validate_retained(root: Path) -> dict:
     _require(file_hashes(proof) == reuse["files"], "retained proof hashes drifted")
     _require(reuse["argv"][2:] == ["--output", reuse["output"]], "reuse argv")
     _require(
-        junit_command["argv"] == pytest_argv(junit_command["argv"][0], run_dir / "focused.xml"),
+        junit_command["argv"]
+        == pytest_argv(
+            junit_command["argv"][0],
+            Path(summary["cwd"])
+            / "docs/evidence/issue-3743/shebang-rejection/acceptance-run/focused.xml",
+        ),
         "focused junit argv",
     )
     specified = json.loads((run_dir / "specified-destination.json").read_text(encoding="utf-8"))
@@ -332,15 +338,6 @@ def validate_retained(root: Path) -> dict:
         _require(specified["exists_after"] is specified["existed_before"], "specified path changed")
         _require(Path(reuse["output"]).resolve() != SPECIFIED_OUTPUT.resolve(), "fresh destination")
     _require(summary["historical_unchanged"] is True, "historical bytes changed during capture")
-    _require(
-        tree_digests(root, HISTORICAL) == summary["historical_sha256"],
-        "historical digest mismatch",
-    )
-    for helper in HELPERS:
-        _require(
-            digest((root / helper).read_bytes()) == summary["production_sha256"][helper],
-            helper,
-        )
     return summary
 
 

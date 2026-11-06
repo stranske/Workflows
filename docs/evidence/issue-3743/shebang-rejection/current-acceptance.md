@@ -14,13 +14,13 @@ Current input bindings in those records match the files in this tree.
 
 - Acceptance-run receipt interpreter: `/opt/anaconda3/bin/python3`
 - Matched-comparison interpreter: `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`
-- Validation Python: `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`
-- Validation Black: `/opt/hostedtoolcache/Python/3.14.10/x64/bin/black`
-- Validation Ruff: `/opt/hostedtoolcache/Python/3.14.10/x64/bin/ruff`
+- Validation Python: `/opt/anaconda3/bin/python3`
+- Validation Black: `/opt/anaconda3/bin/black`
+- Validation Ruff: `/opt/anaconda3/bin/ruff`
 
 ## Measured validation file counts
 
-- Black files left unchanged: 927
+- Black files left unchanged: 928
 - Focused Ruff paths: 15
 - Workflow directory YAML files: 130
 - Template workflow YAML files: 35

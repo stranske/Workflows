@@ -108,7 +108,9 @@ def test_retained_comparison_rejects_command_drift_before_reading_results(
     directory = tmp_path / module["RUN"]
     directory.mkdir(parents=True)
     recorded = EVIDENCE / "matched-comparison"
-    (directory / "summary.json").write_bytes((recorded / "summary.json").read_bytes())
+    summary = json.loads((recorded / "summary.json").read_text())
+    summary["cwd"] = str(tmp_path)
+    (directory / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
     commands = {
         phase: json.loads((recorded / f"{phase}-command.json").read_text())
         for phase in ("baseline", "candidate")

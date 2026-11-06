@@ -206,7 +206,7 @@ def collect(root: Path) -> dict:
     _current_bindings(root, problems)
     inspector = runpy.run_path(str(root / EVIDENCE / "inspect_main_acceptance.py"))
     rows = inspector["binding_rows"](root)
-    copies_ok = all(row["archive_copy_matches_summary"] is not False for row in rows)
+    copies_ok = all(row["archive_copy_matches_summary"] is True for row in rows)
     _problem(problems, copies_ok, "historical archive input copy does not match its summary")
     validation_summary = read_json(root / EVIDENCE / "validation-run/summary.json")
     acceptance_summary = read_json(root / EVIDENCE / "acceptance-run/summary.json")
