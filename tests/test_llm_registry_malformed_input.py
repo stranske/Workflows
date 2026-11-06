@@ -214,30 +214,50 @@ def _clear_slot_env(monkeypatch):
 @pytest.mark.parametrize(
     "provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
 )
+@pytest.mark.parametrize(
+    "history_provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
+)
 def test_a_missing_provider_cannot_become_a_retired_slot(
-    registry_at, slots_at, monkeypatch, provider_fields
+    registry_at, slots_at, monkeypatch, provider_fields, history_provider_fields
 ):
-    """Malformed retirement history must not admit a SlotDefinition with provider=None."""
+    """Reject missing providers while preserving valid retired slots and their positions."""
     _clear_slot_env(monkeypatch)
     registry_at(
         {
             "models": [{"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"}],
             "selections": [],
-            "selection_history": [{"profile": "verifier-balanced", "superseded_by": "retired"}],
+            "selection_history": [
+                {
+                    "profile": "verifier-balanced",
+                    "superseded_by": "retired",
+                    **history_provider_fields,
+                },
+                {
+                    "profile": "verifier-balanced",
+                    "provider": "openai",
+                    "superseded_by": "retired",
+                },
+            ],
         }
     )
     slots_at(
         {
             "slots": [
                 {"name": "invalid", "model": "unusable", **provider_fields},
+                {"name": "retired", "provider": "openai", "model": "old-model"},
                 {"name": "valid", "provider": "anthropic", "model": "claude-x"},
             ]
         }
     )
+    retired_slot = llm_registry.SlotDefinition(name="retired", provider="openai", model="old-model")
     valid_slot = llm_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-x")
 
-    assert llm_registry._load_positional_slots() == [(2, "verifier-balanced", valid_slot, False)]
+    assert llm_registry._load_positional_slots() == [
+        (2, "verifier-balanced", retired_slot, True),
+        (3, "verifier-balanced", valid_slot, False),
+    ]
     assert llm_registry.load_slot_config() == [valid_slot]
+    assert llm_registry.resolve_slots() == [valid_slot]
 
 
 def test_a_skipped_retired_slot_does_not_shift_numbered_overrides(slots_at, monkeypatch):
