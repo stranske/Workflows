@@ -169,3 +169,9 @@ Escaped-defect, churn, and uncovered-mass rankings are in `ranking.md` and
 order. Counted landed reduction from #4000 and #4405 is 0. The current Gate
 remainder across the six targets is 327 uncovered statements and branches.
 The about-180 rule is unchanged.
+
+## First test chunk
+
+The first behavioral chunk is `docs/evidence/issue-4426/test-chunk.md`.
+It covers `expanded_comparison_verdict` only. Lower-ranked targets are not
+excluded.
