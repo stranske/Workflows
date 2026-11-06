@@ -175,3 +175,13 @@ The about-180 rule is unchanged.
 The first behavioral chunk is `docs/evidence/issue-4426/test-chunk.md`.
 It covers `expanded_comparison_verdict` only. Lower-ranked targets are not
 excluded.
+
+## Deliberate-break receipts
+
+Executed red and restored green runs are in `mutation-receipts.md` and
+`mutation-receipts.json`. Checked 2026-11-06T19:13:08Z. Each of the 13
+`expanded_comparison_verdict` tests has a named failure. The three tests
+landed by #4000 were run again for artifact coercion, nested-list handling,
+payload handling, and duplicate-verdict parsing. The earlier #4000 and #4405
+transcripts were not recoverable. Production mutations are not left in the
+tree. The about-180 rule is unchanged.

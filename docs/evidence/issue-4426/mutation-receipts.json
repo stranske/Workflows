@@ -1,0 +1,810 @@
+{
+  "schema": "workflows.issue-4426-mutation-receipts/v1",
+  "checked_on": "2026-11-06T19:13:08Z",
+  "unavailable_prior_receipts": {
+    "pr_4000": "PR #4000 body describes one coercion mutation and names one pytest command. It does not record stdout, the assertion text, or exit codes for nested-list or duplicate-verdict tests. Gate run 39003191738 has no downloadable artifacts.",
+    "pr_4405": "PR #4405 body cites /tmp/3998-mutation-transcript.txt on the repair runner. That path is not in this clone and is not a GitHub Actions artifact. The #4405 tests themselves are unmerged, so they are not reproduced here."
+  },
+  "production_restored": true,
+  "receipts": [
+    {
+      "id": "semantic-non-dict",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_non_dict_payload",
+      "behavior": "A non-dict compare payload is rejected before envelope parsing.",
+      "original_snippet": "    if _semantic_mode():\n        if not isinstance(data, dict):\n            return \"CONCERNS\"\n",
+      "mutant_snippet": "    if _semantic_mode():\n        if not isinstance(data, dict):\n            return \"PASS\"\n",
+      "source_start_line": 8855,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "32899204376cf27e98fa094652b6921e8c2d2194844cdc96ccfa75fb09e6613f",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_non_dict_payload",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.743,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'PASS' == 'CONCERNS'\n      \n      - CONCERNS\n      + PASS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:71: AssertionError: assert 'PASS' == 'CONCERNS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_non_dict_payload - AssertionError: assert 'PASS' == 'CONCERNS'\n  \n  - CONCERNS\n  + PASS\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_non_dict_payload - AssertionError: assert 'PASS' == 'CONCERNS' | E   AssertionError: assert 'PASS' == 'CONCERNS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_non_dict_payload",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.676,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "semantic-bad-signature",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_a_signature_that_does_not_match",
+      "behavior": "A mismatched semantic signature is rejected before the admission verdict is returned.",
+      "original_snippet": "            if not isinstance(signature, str) or not hmac.compare_digest(\n                signature, _semantic_envelope_signature(unsigned)\n            ):\n                return \"CONCERNS\"\n",
+      "mutant_snippet": "            if False and (\n                not isinstance(signature, str)\n                or not hmac.compare_digest(signature, _semantic_envelope_signature(unsigned))\n            ):\n                return \"CONCERNS\"\n",
+      "source_start_line": 8864,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "9d96fd3e8dc1017b6fd8a1f6d447655decb5c455da1bc0af002bd4229cd63213",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_a_signature_that_does_not_match",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.697,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'FAIL' == 'CONCERNS'\n      \n      - CONCERNS\n      + FAIL\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:86: AssertionError: assert 'FAIL' == 'CONCERNS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_a_signature_that_does_not_match - AssertionError: assert 'FAIL' == 'CONCERNS'\n  \n  - CONCERNS\n  + FAIL\n1 failed in 0.50s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_a_signature_that_does_not_match - AssertionError: assert 'FAIL' == 'CONCERNS' | E   AssertionError: assert 'FAIL' == 'CONCERNS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_a_signature_that_does_not_match",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.679,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "semantic-unreadable-key",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_unreadable_or_missing_runner_key",
+      "behavior": "An unreadable or missing runner key is a rejection, not an escaped exception.",
+      "original_snippet": "        except (OSError, ValueError):\n            return \"CONCERNS\"\n",
+      "mutant_snippet": "        except (OSError, ValueError):\n            raise\n",
+      "source_start_line": 8868,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "ce4f8be137096f33e27eb9c5d6d6b1cf1b81ad7a39007d3be3e1d087b6f21764",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_unreadable_or_missing_runner_key",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.692,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-runner/pytest-2/test_semantic_mode_rejects_unr0'\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/pathlib/__init__.py:771: IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-runner/pytest-2/test_semantic_mode_rejects_unr0'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_unreadable_or_missing_runner_key - IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-runner/pytest-2/test_semantic_mode_rejects_unr0'\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_unreadable_or_missing_runner_key - IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-runner/pytest-2/test_semantic_mode_rejects_unr0' | E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-runner/pytest-2/test_semantic_mode_rejects_unr0'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_unreadable_or_missing_runner_key",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.675,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "semantic-admission-allowlist",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_signed_envelope_without_admission_verdict",
+      "behavior": "A signed admission whose verdict is outside PASS, CONCERNS, and FAIL is rejected.",
+      "original_snippet": "        if not isinstance(admission, dict) or admission.get(\"verdict\") not in {\n            \"PASS\",\n            \"CONCERNS\",\n            \"FAIL\",\n        }:\n            return \"CONCERNS\"\n",
+      "mutant_snippet": "        if not isinstance(admission, dict) or admission.get(\"verdict\") not in {\n            \"PASS\",\n            \"CONCERNS\",\n            \"FAIL\",\n            \"UNVERIFIABLE_INPUT\",\n        }:\n            return \"CONCERNS\"\n",
+      "source_start_line": 8871,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "a1c14b9b686901f572dcc0b384feddc6c03ccfa7d14481480043fad7bafca6f3",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_signed_envelope_without_admission_verdict",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.683,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'UNVERIFIABLE_INPUT' == 'CONCERNS'\n      \n      - CONCERNS\n      + UNVERIFIABLE_INPUT\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:111: AssertionError: assert 'UNVERIFIABLE_INPUT' == 'CONCERNS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_signed_envelope_without_admission_verdict - AssertionError: assert 'UNVERIFIABLE_INPUT' == 'CONCERNS'\n  \n  - CONCERNS\n  + UNVERIFIABLE_INPUT\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_signed_envelope_without_admission_verdict - AssertionError: assert 'UNVERIFIABLE_INPUT' == 'CONCERNS' | E   AssertionError: assert 'UNVERIFIABLE_INPUT' == 'CONCERNS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_rejects_signed_envelope_without_admission_verdict",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.675,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "semantic-signed-verdict",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_signed_verdict_ignores_legacy_judge_results",
+      "behavior": "A valid signed admission returns its own verdict and ignores legacy judge results.",
+      "original_snippet": "            return \"CONCERNS\"\n        return str(admission[\"verdict\"])\n",
+      "mutant_snippet": "            return \"CONCERNS\"\n        return \"CONCERNS\"\n",
+      "source_start_line": 8876,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "3b3bd4ebbcac759ae4855b53a0657bca8c7659d3d2fff81f0076c5de5eb927e6",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_signed_verdict_ignores_legacy_judge_results",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.685,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'CONCERNS' == 'FAIL'\n      \n      - FAIL\n      + CONCERNS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:129: AssertionError: assert 'CONCERNS' == 'FAIL'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_signed_verdict_ignores_legacy_judge_results - AssertionError: assert 'CONCERNS' == 'FAIL'\n  \n  - FAIL\n  + CONCERNS\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_signed_verdict_ignores_legacy_judge_results - AssertionError: assert 'CONCERNS' == 'FAIL' | E   AssertionError: assert 'CONCERNS' == 'FAIL'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_semantic_mode_signed_verdict_ignores_legacy_judge_results",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.68,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "legacy-two-providers",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_requires_two_distinct_provider_slots",
+      "behavior": "Legacy compare requires two configured slots with distinct providers.",
+      "original_snippet": "    if len(expected) != 2 or len({provider for provider, _ in expected}) != 2:\n        return \"CONCERNS\"\n",
+      "mutant_snippet": "    if len(expected) != 2 or len({provider for provider, _ in expected}) != 2:\n        return \"PASS\"\n",
+      "source_start_line": 8887,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "faf24b20827f2d49494e603af5e189caf3e5d09586342905f1f9bcfd5035abd9",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_requires_two_distinct_provider_slots",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.681,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'PASS' == 'CONCERNS'\n      \n      - CONCERNS\n      + PASS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:137: AssertionError: assert 'PASS' == 'CONCERNS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_requires_two_distinct_provider_slots - AssertionError: assert 'PASS' == 'CONCERNS'\n  \n  - CONCERNS\n  + PASS\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_requires_two_distinct_provider_slots - AssertionError: assert 'PASS' == 'CONCERNS' | E   AssertionError: assert 'PASS' == 'CONCERNS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_requires_two_distinct_provider_slots",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.663,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "legacy-results-shape",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_rejects_payloads_that_are_not_judge_results",
+      "behavior": "Legacy compare rejects payloads that are not a results list.",
+      "original_snippet": "    if not isinstance(data, dict) or not isinstance(data.get(\"results\"), list):\n        return \"CONCERNS\"\n",
+      "mutant_snippet": "    if not isinstance(data, dict) or not isinstance(data.get(\"results\"), list):\n        return \"PASS\"\n",
+      "source_start_line": 8889,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "b99d075539c96a76d9a508662e37506e1c90a45cc119e67de42a277b2201af6e",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_rejects_payloads_that_are_not_judge_results",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.683,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'PASS' == 'CONCERNS'\n      \n      - CONCERNS\n      + PASS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:146: AssertionError: assert 'PASS' == 'CONCERNS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_rejects_payloads_that_are_not_judge_results - AssertionError: assert 'PASS' == 'CONCERNS'\n  \n  - CONCERNS\n  + PASS\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_rejects_payloads_that_are_not_judge_results - AssertionError: assert 'PASS' == 'CONCERNS' | E   AssertionError: assert 'PASS' == 'CONCERNS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_mode_rejects_payloads_that_are_not_judge_results",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.664,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "legacy-both-judges",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_pass_requires_both_configured_judges",
+      "behavior": "PASS requires every configured judge to be present and passing.",
+      "original_snippet": "    return \"PASS\" if complete and set(observed) == set(expected) else \"CONCERNS\"\n",
+      "mutant_snippet": "    return \"CONCERNS\" if complete and set(observed) == set(expected) else \"CONCERNS\"\n",
+      "source_start_line": 8938,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "b7609b5213fdbde80084421eeca76f8001cdc4002fd30fddd4995e9f991b2401",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_pass_requires_both_configured_judges",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.669,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'CONCERNS' == 'PASS'\n      \n      - PASS\n      + CONCERNS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:158: AssertionError: assert 'CONCERNS' == 'PASS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_pass_requires_both_configured_judges - AssertionError: assert 'CONCERNS' == 'PASS'\n  \n  - PASS\n  + CONCERNS\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_pass_requires_both_configured_judges - AssertionError: assert 'CONCERNS' == 'PASS' | E   AssertionError: assert 'CONCERNS' == 'PASS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_legacy_pass_requires_both_configured_judges",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.671,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "configured-fail",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_configured_fail_survives_a_malformed_sibling",
+      "behavior": "A configured FAIL is preserved when a sibling arm is malformed.",
+      "original_snippet": "    if failed:\n        return \"FAIL\"\n    if input_only and saw_unverifiable and set(observed) == set(expected):\n",
+      "mutant_snippet": "    if failed:\n        return \"CONCERNS\"\n    if input_only and saw_unverifiable and set(observed) == set(expected):\n",
+      "source_start_line": 8934,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "7f2561442407fcdb3a83059f7352c21f626a88f4a8854731bc2b74ab6c581928",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_configured_fail_survives_a_malformed_sibling",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.687,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'CONCERNS' == 'FAIL'\n      \n      - FAIL\n      + CONCERNS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:177: AssertionError: assert 'CONCERNS' == 'FAIL'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_configured_fail_survives_a_malformed_sibling - AssertionError: assert 'CONCERNS' == 'FAIL'\n  \n  - FAIL\n  + CONCERNS\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_configured_fail_survives_a_malformed_sibling - AssertionError: assert 'CONCERNS' == 'FAIL' | E   AssertionError: assert 'CONCERNS' == 'FAIL'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_configured_fail_survives_a_malformed_sibling",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.685,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "impersonation-guard",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unused_or_foreign_judge_cannot_impersonate_a_configured_slot",
+      "behavior": "Unused, foreign, and schema-invalid arms cannot take a configured slot's place.",
+      "original_snippet": "        if identity not in expected or (\n            result.used_llm is not True and result.verdict != \"UNVERIFIABLE_INPUT\"\n        ):\n            complete = False\n            input_only = False\n            continue\n",
+      "mutant_snippet": "        if False and (\n            identity not in expected\n            or (result.used_llm is not True and result.verdict != \"UNVERIFIABLE_INPUT\")\n        ):\n            complete = False\n            input_only = False\n            continue\n",
+      "source_start_line": 8912,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "1d2b2c816188c64f5e8e63500b7cbd0331eb651681f0c34702fd1925badf7a33",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unused_or_foreign_judge_cannot_impersonate_a_configured_slot",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.666,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'FAIL' == 'CONCERNS'\n      \n      - CONCERNS\n      + FAIL\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:201: AssertionError: assert 'FAIL' == 'CONCERNS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unused_or_foreign_judge_cannot_impersonate_a_configured_slot - AssertionError: assert 'FAIL' == 'CONCERNS'\n  \n  - CONCERNS\n  + FAIL\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unused_or_foreign_judge_cannot_impersonate_a_configured_slot - AssertionError: assert 'FAIL' == 'CONCERNS' | E   AssertionError: assert 'FAIL' == 'CONCERNS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unused_or_foreign_judge_cannot_impersonate_a_configured_slot",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.673,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "concerns-block-pass",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_concerns_and_judge_errors_block_pass_without_becoming_fail",
+      "behavior": "CONCERNS and judge errors block PASS without being rewritten to FAIL.",
+      "original_snippet": "        if identity in observed or result.verdict != \"PASS\" or result.error:\n            complete = False\n",
+      "mutant_snippet": "        if identity in observed or result.error:\n            complete = False\n",
+      "source_start_line": 8931,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "f81efbe5c224b85396290c55bccf5bbcf8cfcf68af46cae46eeeec73a758f2ac",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_concerns_and_judge_errors_block_pass_without_becoming_fail",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.673,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'PASS' == 'CONCERNS'\n      \n      - CONCERNS\n      + PASS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:227: AssertionError: assert 'PASS' == 'CONCERNS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_concerns_and_judge_errors_block_pass_without_becoming_fail - AssertionError: assert 'PASS' == 'CONCERNS'\n  \n  - CONCERNS\n  + PASS\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_concerns_and_judge_errors_block_pass_without_becoming_fail - AssertionError: assert 'PASS' == 'CONCERNS' | E   AssertionError: assert 'PASS' == 'CONCERNS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_concerns_and_judge_errors_block_pass_without_becoming_fail",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.786,
+        "output": ".                                                                        [100%]\n1 passed in 0.56s\n"
+      }
+    },
+    {
+      "id": "unverifiable-both-slots",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unverifiable_input_requires_both_configured_slots",
+      "behavior": "UNVERIFIABLE_INPUT is returned only when both configured slots report it.",
+      "original_snippet": "    if input_only and saw_unverifiable and set(observed) == set(expected):\n        return \"UNVERIFIABLE_INPUT\"\n",
+      "mutant_snippet": "    if input_only and saw_unverifiable and set(observed) == set(expected):\n        return \"CONCERNS\"\n",
+      "source_start_line": 8936,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "8737a5aa7b788cb6f2db7bb82326c71f84fc5479152a3674abc396842d5cdd24",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unverifiable_input_requires_both_configured_slots",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.916,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'CONCERNS' == 'UNVERIFIABLE_INPUT'\n      \n      - UNVERIFIABLE_INPUT\n      + CONCERNS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:248: AssertionError: assert 'CONCERNS' == 'UNVERIFIABLE_INPUT'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unverifiable_input_requires_both_configured_slots - AssertionError: assert 'CONCERNS' == 'UNVERIFIABLE_INPUT'\n  \n  - UNVERIFIABLE_INPUT\n  + CONCERNS\n1 failed in 0.56s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unverifiable_input_requires_both_configured_slots - AssertionError: assert 'CONCERNS' == 'UNVERIFIABLE_INPUT' | E   AssertionError: assert 'CONCERNS' == 'UNVERIFIABLE_INPUT'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_unverifiable_input_requires_both_configured_slots",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.754,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "model-overrides",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "nodeid": "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_model_overrides_follow_the_slot_client_order",
+      "behavior": "Model overrides follow slot order: model1, then model2, then LANGCHAIN_MODEL.",
+      "original_snippet": "    slots = resolve_slots()[:2]\n    overrides = [model1 or os.environ.get(\"LANGCHAIN_MODEL\"), model2 or model1]\n    expected = [\n",
+      "mutant_snippet": "    slots = resolve_slots()[:2]\n    overrides = [None, None]\n    expected = [\n",
+      "source_start_line": 8881,
+      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "mutant_sha256": "e9d418f30f28d68fb0505fb39d228afa2ca837a974304d2810daab6a30369c2f",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_model_overrides_follow_the_slot_client_order",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.69,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'CONCERNS' == 'PASS'\n      \n      - PASS\n      + CONCERNS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py:256: AssertionError: assert 'CONCERNS' == 'PASS'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_model_overrides_follow_the_slot_client_order - AssertionError: assert 'CONCERNS' == 'PASS'\n  \n  - PASS\n  + CONCERNS\n1 failed in 0.49s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_model_overrides_follow_the_slot_client_order - AssertionError: assert 'CONCERNS' == 'PASS' | E   AssertionError: assert 'CONCERNS' == 'PASS'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py::test_model_overrides_follow_the_slot_client_order",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.685,
+        "output": ".                                                                        [100%]\n1 passed in 0.49s\n"
+      }
+    },
+    {
+      "id": "nested-list",
+      "source": "scripts/langchain/verifier_config.py",
+      "symbol": "is_terminal_artifact",
+      "nodeid": "tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts",
+      "behavior": "A nested list is terminal only when every item is a terminal artifact.",
+      "original_snippet": "    if isinstance(data, list):\n        return bool(data) and all(is_terminal_artifact(item) for item in data)\n",
+      "mutant_snippet": "    if isinstance(data, list):\n        return False\n",
+      "source_start_line": 102,
+      "restored_sha256": "18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7",
+      "mutant_sha256": "d81fdf88558c69c50bccf2348883070ebb6d6618b0f7982069d836956a8f9eda",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.781,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert False\n     +  where False = is_terminal_artifact([{'verdict': 'PASS'}, {'verdict': 'ERROR'}])\n/home/runner/work/Workflows/Workflows/tests/scripts/test_verifier_config.py:139: AssertionError: assert False\n=========================== short test summary info ============================\nFAILED tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts - AssertionError: assert False\n +  where False = is_terminal_artifact([{'verdict': 'PASS'}, {'verdict': 'ERROR'}])\n1 failed in 0.50s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts - AssertionError: assert False | E   AssertionError: assert False",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.683,
+        "output": ".                                                                        [100%]\n1 passed in 0.50s\n"
+      }
+    },
+    {
+      "id": "nested-payload",
+      "source": "scripts/langchain/verifier_config.py",
+      "symbol": "is_terminal_artifact",
+      "nodeid": "tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts",
+      "behavior": "A dict payload is judged by the same terminal-artifact rule as the outer run.",
+      "original_snippet": "    payload = data.get(\"payload\")\n    if isinstance(payload, dict):\n        return is_terminal_artifact(payload)\n",
+      "mutant_snippet": "    payload = data.get(\"payload\")\n    if isinstance(payload, dict):\n        return False\n",
+      "source_start_line": 123,
+      "restored_sha256": "18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7",
+      "mutant_sha256": "1db83a0f19cc1be832d94b466a4f093c96a83e767bf72b32327f39912a85ef7e",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.702,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert False\n     +  where False = is_terminal_artifact({'payload': {'verdict': 'PASS'}})\n/home/runner/work/Workflows/Workflows/tests/scripts/test_verifier_config.py:142: AssertionError: assert False\n=========================== short test summary info ============================\nFAILED tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts - AssertionError: assert False\n +  where False = is_terminal_artifact({'payload': {'verdict': 'PASS'}})\n1 failed in 0.50s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts - AssertionError: assert False | E   AssertionError: assert False",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_verifier_config.py::test_is_terminal_artifact_handles_nested_lists_payloads_and_non_artifacts",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.695,
+        "output": ".                                                                        [100%]\n1 passed in 0.50s\n"
+      }
+    },
+    {
+      "id": "artifact-coercion",
+      "source": "scripts/langchain/verifier_config.py",
+      "symbol": "_coerce_artifact",
+      "nodeid": "tests/scripts/test_verifier_config.py::test_terminal_artifact_coercion_and_pending_stage_edges",
+      "behavior": "model_dump objects are coerced into artifact dicts before the terminal check.",
+      "original_snippet": "    if hasattr(value, \"model_dump\"):\n        return value.model_dump()\n",
+      "mutant_snippet": "    if hasattr(value, \"model_dump\"):\n        return None\n",
+      "source_start_line": 219,
+      "restored_sha256": "18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7",
+      "mutant_sha256": "38b94fa08d54c4fe078b3e64c9bb43dfcbe145b03558cb9772c2115a1461ed5e",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_verifier_config.py::test_terminal_artifact_coercion_and_pending_stage_edges",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.69,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert False\n     +  where False = is_terminal_artifact(<tests.scripts.test_verifier_config.test_terminal_artifact_coercion_and_pending_stage_edges.<locals>.Dumpable object at 0x78e2911627b0>)\n     +    where <tests.scripts.test_verifier_config.test_terminal_artifact_coercion_and_pending_stage_edges.<locals>.Dumpable object at 0x78e2911627b0> = <class 'tests.scripts.test_verifier_config.test_terminal_artifact_coercion_and_pending_stage_edges.<locals>.Dumpable'>()\n/home/runner/work/Workflows/Workflows/tests/scripts/test_verifier_config.py:154: AssertionError: assert False\n=========================== short test summary info ============================\nFAILED tests/scripts/test_verifier_config.py::test_terminal_artifact_coercion_and_pending_stage_edges - AssertionError: assert False\n +  where False = is_terminal_artifact(<tests.scripts.test_verifier_config.test_terminal_artifact_coercion_and_pending_stage_edges.<locals>.Dumpable object at 0x78e2911627b0>)\n +    where <tests.scripts.test_verifier_config.test_terminal_artifact_coercion_and_pending_stage_edges.<locals>.Dumpable object at 0x78e2911627b0> = <class 'tests.scripts.test_verifier_config.test_terminal_artifact_coercion_and_pending_stage_edges.<locals>.Dumpable'>()\n1 failed in 0.50s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_verifier_config.py::test_terminal_artifact_coercion_and_pending_stage_edges - AssertionError: assert False | E   AssertionError: assert False",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_verifier_config.py::test_terminal_artifact_coercion_and_pending_stage_edges",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.694,
+        "output": ".                                                                        [100%]\n1 passed in 0.50s\n"
+      }
+    },
+    {
+      "id": "duplicate-verdicts",
+      "source": "scripts/langchain/verifier_config.py",
+      "symbol": "artifact_from_verification_text",
+      "nodeid": "tests/scripts/test_verifier_config.py::test_artifact_text_without_report_marker_and_duplicate_verdicts",
+      "behavior": "Duplicate verdict lines keep the most severe verdict, so FAIL outranks PASS.",
+      "original_snippet": "        artifact[\"verdict\"] = max(verdicts, key=lambda verdict: severity.get(verdict, -1))\n",
+      "mutant_snippet": "        artifact[\"verdict\"] = min(verdicts, key=lambda verdict: severity.get(verdict, -1))\n",
+      "source_start_line": 147,
+      "restored_sha256": "18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7",
+      "mutant_sha256": "3e5f4986398ba9c0baf26f78928f96adff7198b02df1a5734483cbbe901f2fee",
+      "red": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_verifier_config.py::test_artifact_text_without_report_marker_and_duplicate_verdicts",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.687,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\nE   AssertionError: assert 'PASS' == 'FAIL'\n      \n      - FAIL\n      + PASS\n/home/runner/work/Workflows/Workflows/tests/scripts/test_verifier_config.py:162: AssertionError: assert 'PASS' == 'FAIL'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_verifier_config.py::test_artifact_text_without_report_marker_and_duplicate_verdicts - AssertionError: assert 'PASS' == 'FAIL'\n  \n  - FAIL\n  + PASS\n1 failed in 0.50s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_verifier_config.py::test_artifact_text_without_report_marker_and_duplicate_verdicts - AssertionError: assert 'PASS' == 'FAIL' | E   AssertionError: assert 'PASS' == 'FAIL'",
+      "green": {
+        "command": [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_verifier_config.py::test_artifact_text_without_report_marker_and_duplicate_verdicts",
+          "-m",
+          "not slow",
+          "--tb=line",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.691,
+        "output": ".                                                                        [100%]\n1 passed in 0.50s\n"
+      }
+    }
+  ]
+}
