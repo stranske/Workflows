@@ -357,7 +357,14 @@ def select_read_token(
         session = session_for_token(candidate["token"], session_factory=session_factory)
         first_failure = ""
         for repo in repos[:TOKEN_PROBE_REPO_LIMIT]:
-            repo_response = session.get(f"https://api.github.com/repos/{repo}")
+            try:
+                repo_response = session.get(f"https://api.github.com/repos/{repo}")
+            except requests.RequestException as exc:
+                # Exception messages may contain request headers or other private details.
+                first_failure = first_failure or (
+                    f"repo preflight failed for {repo}: request failed ({type(exc).__name__})"
+                )
+                continue
             if repo_response.status_code >= 400:
                 first_failure = (
                     first_failure
@@ -368,9 +375,16 @@ def select_read_token(
                 if not path:
                     diagnostics["selected_source"] = source
                     return session, diagnostics
-                content_response = session.get(
-                    f"https://api.github.com/repos/{repo}/contents/{path}"
-                )
+                try:
+                    content_response = session.get(
+                        f"https://api.github.com/repos/{repo}/contents/{path}"
+                    )
+                except requests.RequestException as exc:
+                    first_failure = first_failure or (
+                        f"content preflight failed for {repo}/contents/{path}: "
+                        f"request failed ({type(exc).__name__})"
+                    )
+                    continue
                 if content_response.status_code in {200, 404}:
                     diagnostics["selected_source"] = source
                     diagnostics["probe_repo"] = repo

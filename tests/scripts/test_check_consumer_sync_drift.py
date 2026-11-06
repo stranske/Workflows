@@ -13,6 +13,63 @@ from scripts.sync_manifest_compiler import (
 )
 
 
+@pytest.mark.parametrize("failed_probe", ["repo", "contents"])
+def test_read_preflight_reports_transport_failure(tmp_path, monkeypatch, capsys, failed_probe):
+    """An unavailable GitHub read must produce evidence, without an uncaught exception."""
+
+    class Response:
+        status_code = 200
+
+    class Session:
+        def __init__(self):
+            self.headers = {}
+
+        def get(self, url):
+            if failed_probe == "repo" or "/contents/" in url:
+                raise check_consumer_sync_drift.requests.ConnectionError("private request details")
+            return Response()
+
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries="unused.json",
+        report_json=str(tmp_path / "report.json"),
+        summary="",
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    compiled = SimpleNamespace(to_plan=lambda: {"plan_id": "sha256:" + "a" * 64})
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_: set())
+    monkeypatch.setattr(check_consumer_sync_drift, "probe_targets", lambda *_: ["gate.yml"])
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "token_candidates",
+        lambda: [{"source": "test-source", "token": "test-value"}],
+    )
+    select = check_consumer_sync_drift.select_read_token
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "select_read_token",
+        lambda **kwargs: select(**kwargs, session_factory=Session),
+    )
+
+    assert check_consumer_sync_drift.main() == 1
+    report_text = Path(args.report_json).read_text(encoding="utf-8")
+    report = json.loads(report_text)
+    assert report["status"] == "drift"
+    assert report["counts"]["errors"] == 1
+    diagnostics = report["token_diagnostics"]
+    assert diagnostics["selected_source"] == ""
+    assert diagnostics["error"] == "no_usable_token"
+    assert "ConnectionError" in diagnostics["rejected"][0]["reason"]
+    assert ("/contents/" in diagnostics["rejected"][0]["reason"]) == (failed_probe == "contents")
+    output = capsys.readouterr().out
+    assert "gate triggers: all match" not in output + report_text
+    for private_detail in ("private request details", "test-value"):
+        assert private_detail not in output + report_text
+
+
 def test_comparable_lines_ignores_leading_comment_and_blank_headers() -> None:
     """maint-68 syncs header-insensitively; the drift checker must match so a
     header-only difference is not reported as eternal drift (review E1)."""

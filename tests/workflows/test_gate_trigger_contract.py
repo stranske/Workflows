@@ -10,6 +10,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+from scripts.check_consumer_sync_drift import (
+    manifest_skip_reason,
+    repo_overwrites_create_only,
+)
+from scripts.sync_manifest_compiler import compile_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
 GATE_FILES = (
@@ -24,6 +29,24 @@ ALLOWED_PULL_REQUEST_TYPES = (
     "ready_for_review",
 )
 FORBIDDEN_LABEL_TYPES = ("labeled", "unlabeled")
+
+
+def test_gate_trigger_campaign_preserves_consumer_sync_policy() -> None:
+    """Trigger alignment must not grant authority to replace consumer Gate policy."""
+    compiled = compile_manifest(ROOT / ".github/sync-manifest.yml", repo_root=ROOT)
+    gate = next(entry for entry in compiled.section("workflows") if entry.target == GATE_FILES[0])
+
+    assert Path(gate.resolved_source).resolve() == ROOT / GATE_FILES[1]
+    assert gate.sync_mode == "create_only"
+    assert gate.overwrite_repos == ("stranske/Template",)
+    assert [skip.repo for skip in gate.skip_repos] == ["stranske/Manager-Database"]
+    assert gate.skip_repos[0].reason
+    assert repo_overwrites_create_only(gate, "stranske/Template")
+    assert not manifest_skip_reason(gate, "stranske/Template")
+    assert manifest_skip_reason(gate, "stranske/Manager-Database") == gate.skip_repos[0].reason
+    assert not repo_overwrites_create_only(gate, "stranske/Manager-Database")
+    assert not manifest_skip_reason(gate, "stranske/Doc-Lineage")
+    assert not repo_overwrites_create_only(gate, "stranske/Doc-Lineage")
 
 
 @pytest.mark.parametrize("workflow_path", GATE_FILES)
