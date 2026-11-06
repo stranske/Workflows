@@ -2553,6 +2553,55 @@ test('later same-payload success closes an older cancelled refresh window', () =
   assert.equal(stillHeld.state, 'cancelled');
 });
 
+test('reader admits a new drift key after delivery when a skipped guard success follows an older cancel', async () => {
+  const sha = 'a'.repeat(40);
+  const deliveredDrift = 'cd'.repeat(32);
+  const recoveryDrift = 'ab'.repeat(32);
+  const now = Date.parse('2026-11-06T14:25:41Z');
+  const title = (extra = '') => 'Maint 68 canary full ' +
+    `source=${sha} candidates=stranske/Ready,stranske/Template dry=false${extra} guard=delivery-v1`;
+  const cancelled = producerRun({ id: 42220291945, conclusion: 'cancelled', display_title: title(),
+    created_at: '2026-11-06T12:46:55Z', run_started_at: '2026-11-06T12:46:55Z',
+    updated_at: '2026-11-06T12:47:30Z' });
+  const delivered = producerRun({ id: 42220562715, display_title: title(),
+    created_at: '2026-11-06T12:49:03Z', run_started_at: '2026-11-06T12:49:03Z',
+    updated_at: '2026-11-06T12:52:36Z' });
+  const skipped = producerRun({ id: 42233656300, display_title: title(` drift=${deliveredDrift}`),
+    created_at: '2026-11-06T14:24:38Z', run_started_at: '2026-11-06T14:24:38Z',
+    updated_at: '2026-11-06T14:25:41Z' });
+  const authorize = { 42220562715: 'success', 42233656300: 'skipped' };
+  const read = (driftKey, extra = []) => readCanaryRefreshState({
+    ...refreshHarness(), driftKey, now, sourceSha: sha,
+    withRetry: async fn => fn({ rest: {
+      repos: {
+        getCommit: async () => ({ data: { sha } }),
+        getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
+          canaries: ['stranske/Ready', 'stranske/Template'].map(repo => ({ repo })),
+        })).toString('base64') } }),
+      },
+      pulls: { list: async () => ({ data: [] }) },
+      actions: { listWorkflowRuns: async ({ status, page }) => ({ data: {
+        workflow_runs: status ? [] : page === 1 ? [skipped, delivered, cancelled, ...extra] : [],
+      } }) },
+    }, paginate: async (_method, params) => [{ steps: [{
+      name: 'Authorize canary payload mutation', conclusion: authorize[params.run_id] || 'skipped',
+    }] }] }),
+  });
+  const released = await read(recoveryDrift);
+  assert.equal(released.state, 'unseen');
+  assert.equal(released.eligible, true, 'older cancellation must not skip after an authorized delivery');
+  assert.equal(released.producer_succeeded, false);
+  const sameSkippedKey = await read(deliveredDrift);
+  assert.equal(sameSkippedKey.eligible, true, 'a guard success that never authorized is not a delivery receipt');
+  assert.equal(sameSkippedKey.producer_succeeded, false);
+  const newerCancel = producerRun({ id: 99, conclusion: 'cancelled', display_title: title(),
+    created_at: '2026-11-06T14:26:00Z', run_started_at: '2026-11-06T14:26:00Z',
+    updated_at: '2026-11-06T14:26:10Z' });
+  const held = await read(recoveryDrift, [newerCancel]);
+  assert.equal(held.eligible, false);
+  assert.equal(held.state, 'cancelled');
+});
+
 test('unreadable or truncated history and changed main configuration fail closed', async () => {
   for (const truncated of [false, true]) {
     const pages = [];
