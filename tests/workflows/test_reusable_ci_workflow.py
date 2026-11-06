@@ -446,12 +446,14 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref() -> None:
     commits that are merely present fail the #4426 ancestor check.
     """
     steps = _load_workflow()["jobs"]["tests"]["steps"]
-    step = next(item for item in steps if item.get("name") == "Fetch pinned verifier revision history")
+    step = next(
+        item for item in steps if item.get("name") == "Fetch pinned verifier revision history"
+    )
     script = step["run"]
     assert step["if"] == "${{ hashFiles('tests/test_verifier_4422_audit.py') != '' }}"
     assert 'git fetch --no-tags --shallow-since="$since" origin main' in script
     assert 'git fetch --no-tags --shallow-since="$since" origin "${GITHUB_REF}"' in script
-    assert '021ec67ef580c83a88402a1574e27ea34db14dde' in script
+    assert "021ec67ef580c83a88402a1574e27ea34db14dde" in script
 
 
 # --- Coverage config / editable-install gating -----------------------------
