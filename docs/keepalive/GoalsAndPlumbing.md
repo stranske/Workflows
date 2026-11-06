@@ -830,16 +830,28 @@ publishes that same warning and receipt, naming the boundary refusal, before
 the merge is blocked. Only the authenticated receipt writer's own comment is
 updated; if its identity cannot be resolved, a new receipt is created.
 
-The guarded merge job uses the `WRITE_TOKEN` environment variable for merge operations,
-which follows this fallback order: `AGENTS_AUTOMATION_PAT` → `ACTIONS_BOT_PAT` →
-`SERVICE_BOT_PAT` → `github.token`. For the merge to succeed, the selected token must
-have `contents: write` and `pull_requests: write` scopes on the consumer repository (a
-classic `repo` scope PAT, or a fine-grained PAT with both permissions). The job itself
-declares these permissions, so `github.token` inherits them from the workflow's
-`permissions:` block. However, if a PAT in the fallback chain lacks these scopes, the
-merge call will fail with HTTP 403. The merge step logs the exact credential source
-used (masked to the secret name) and its authenticated actor at merge time to help
-diagnose capability failures. When a merge fails, the job publishes an
+The rest of the workflow still uses `WRITE_TOKEN` (`AGENTS_AUTOMATION_PAT` →
+`ACTIONS_BOT_PAT` → `SERVICE_BOT_PAT` → `github.token`). The guarded-merge step does
+not. On consumers where all three PAT secrets are set, that expression resolves to
+`AGENTS_AUTOMATION_PAT`. Run 41471668770 on stranske/Travel-Plan-Permission#1722
+passed that `WRITE_TOKEN` to the merge step, did not log a token-registry switch,
+and `PUT /pulls/1722/merge` returned HTTP 403. The same job's review-window comment
+was authored by `stranske`, so the effective `/user` login is `stranske`. The job
+log kept the status but not the response body. That 403 matches a token grant
+missing classic `repo` or fine-grained `contents:write` and `pull_requests:write`:
+the job's `GITHUB_TOKEN` permission block already listed Contents: write and Pull
+requests: write, and `stranske-automation-bot` (`SERVICE_BOT_PAT`) has repository
+write. `AGENTS_AUTOMATION_PAT` is the secret the owner must rotate if any other
+lane still uses it to merge. Do not rotate it from inside a workflow.
+
+The merge step's token order is `SERVICE_BOT_PAT`, then `ACTIONS_BOT_PAT`, then
+`github.token`. `AGENTS_AUTOMATION_PAT` is not a merge candidate. At job start the
+step masks token values with `core.setSecret` and logs the winning secret name, the
+`/user` login, and `x-oauth-scopes` when GitHub reports them. A reported scope list
+without `repo` warns immediately. For the merge to succeed, the selected token must
+have `contents:write` and `pull_requests:write` on the consumer (classic `repo`, or
+a fine-grained PAT granting both). `github.token` inherits those permissions from
+the job `permissions:` block. When a merge fails, the job publishes one
 `agents-guarded-merge-result:v1` failure receipt as a PR comment with the HTTP status
 and message, and emits a workflow warning annotation with the same text so the 403
 is visible on the PR and in run annotations instead of only in the job summary.

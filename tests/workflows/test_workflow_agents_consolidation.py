@@ -446,10 +446,23 @@ def test_consumer_guarded_merge_publishes_failure_receipt():
     # The merge call must be wrapped to log credential source
     assert "const credentialSource = guardedMergeCredentialSource()" in guarded_merge
     assert "Guarded merge credential source=" in guarded_merge
+    # The receipt body is the marker plus the same HTTP status/message text.
+    assert "const receipt = `${marker}\\n${message}`;" in guarded_merge
     # The guardedMergeCredentialSource function must exist
     assert "function guardedMergeCredentialSource()" in guarded_merge
     # getTokenSource must be extracted from createTokenAwareRetry
     assert "const { withRetry, paginateWithRetry, getTokenSource }" in guarded_merge
+    # Job start names the winning secret and the masked token's /user login.
+    assert "GUARDED_MERGE_TOKEN_SOURCE:" in guarded_merge
+    assert "secrets.SERVICE_BOT_PAT || secrets.ACTIONS_BOT_PAT || github.token" in guarded_merge
+    assert (
+        "AGENTS_AUTOMATION_PAT"
+        not in guarded_merge.split("github-token:", 1)[1].split("script:", 1)[0]
+    )
+    assert "core.setSecret(mergeTokenEnv[secretName])" in guarded_merge
+    assert "Guarded merge job start token source=" in guarded_merge
+    assert "/user login=" in guarded_merge
+    assert "tokenRegistry: null, github" in guarded_merge
 
 
 def test_generated_sync_prs_are_excluded_from_autofix_lanes():
