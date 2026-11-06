@@ -24,3 +24,20 @@ copy would be an add/add conflict when #4431 merges.
 - Main's `tools/llm_provider.py::_supports_quality_context` still has
   `if supports is not None` after the `try/except`; #4431 changes it to
   `elif`. The raising-helper fix is therefore not on main.
+
+## Task 2 (complete): retention verified
+
+- `gh pr view 4021` -> MERGED, `5dee9a65400f`; adds 18/55/13 lines (all
+  additions) to `tests/scripts/test_aggregate_agent_metrics.py`,
+  `tests/scripts/test_check_consumer_sync_drift.py`,
+  `tests/tools/test_llm_provider.py`.
+- `gh pr view 4406` -> MERGED, `2bd1aa094698`; adds the 33 files under
+  `docs/evidence/issue-4019/` (additions only, plus one line in
+  `.github/workflows/autofix-versions.env`).
+- #4431 file list (`gh pr view 4431 --json files`): the only files with
+  deletions are `tools/llm_provider.py` (1+/1-, the `if` -> `elif` fix). Tests
+  gain +29 (aggregate) and +221 (llm_provider) lines with 0 deletions, the
+  sync-drift test is untouched, and all new evidence lives under
+  `docs/evidence/issue-4019/r3/`, so no existing evidence file is overwritten.
+- Conclusion: delivered behavior from #4021/#4406 is retained on main and is
+  not removed or altered by #4431.
