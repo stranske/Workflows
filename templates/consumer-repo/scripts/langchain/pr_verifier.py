@@ -8733,6 +8733,8 @@ class CapacityBackupClient:
         )
 
     def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:
+        # LangChain passes RunnableConfig by keyword. This backup client does not apply it.
+        _ = config
         import urllib.error
         import urllib.request
         from types import SimpleNamespace
