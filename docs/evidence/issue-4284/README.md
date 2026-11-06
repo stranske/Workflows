@@ -18,5 +18,11 @@ python -m scripts.gate_run_view_evidence \
 `gate-run-40551187519.json` keeps the CLI status, conclusion, and the
 `python ci / python 3.13` and `python ci / python 3.14` job objects, plus the
 calculated seconds and job URLs. Both jobs on this run finished within 600
-seconds. The separate Health 85 trailing-seven-day Gate p50 series is not this
-file.
+seconds.
+
+Health 85 is workflow id `387854305` (`Health 85 CI Time Budget`).
+`health85-daily-observations.json` is the 2026-10-31 through 2026-11-06 log
+extract. `docs/reports/ci-budget.json` retains those dates, minute p50 values,
+second equivalents, and source run URLs. That series does not qualify: every
+measured p50 is above 600 seconds, and 2026-11-05 and 2026-11-06 are
+measurement failures.
