@@ -2091,17 +2091,17 @@ test('review GraphQL reads rotate separately while mutations remain owner-pinned
   assert.match(source, /sha: pr\.head\.sha/);
 });
 
-async function reportSelection(t, { syncHash, withRecord }) {
+async function reportSelection(t, { syncHash, withRecord,
+  repository = 'stranske/Travel-Plan-Permission', sourceCommit = 'c'.repeat(40),
+  expectedSourceCommit = '', planId = `sha256:${'a'.repeat(64)}`,
+  expectedPlanId = planId, headSha = 'd'.repeat(40), refreshRuns = null }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-selection-'));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const reportPath = path.join(tempDir, 'report.json');
-  const repository = 'stranske/Travel-Plan-Permission';
-  const headSha = 'd'.repeat(40);
-  const sourceCommit = 'c'.repeat(40);
   const observedAt = new Date().toISOString();
   const metadata = {
     schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
-    plan_id: `sha256:${'a'.repeat(64)}`, plan_scope: 'full',
+    plan_id: planId, plan_scope: 'full',
     source_commit: sourceCommit, source_sha: sourceCommit,
     template_hash: 'candidate-generation', sync_phase: 'canary',
   };
@@ -2123,10 +2123,12 @@ async function reportSelection(t, { syncHash, withRecord }) {
   };
   // Expose read methods only: an unexpected mutation fails the test.
   const github = {
-    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
+    paginate: async (_method, params) => params.state === 'open'
+      && `${params.owner}/${params.repo}` === repository ? [candidate] : [],
     rest: {
       pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
+      ...(refreshRuns ? { actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: refreshRuns } }) } } : {}),
     },
   };
   const logs = [];
@@ -2144,8 +2146,9 @@ async function reportSelection(t, { syncHash, withRecord }) {
     REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
     CLEANUP_BRANCHES_INPUT: 'false', DRY_RUN_INPUT: 'true', AUTO_MERGE_INPUT: 'false',
     ACTIVE_SYNC_HASH_INPUT: syncHash, SYNC_HASH_INPUT: '',
-    EXPECTED_PLAN_ID_INPUT: '', EXPECTED_PLAN_SCOPE_INPUT: '',
-    EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: '',
+    EXPECTED_PLAN_ID_INPUT: expectedSourceCommit ? expectedPlanId : '',
+    EXPECTED_PLAN_SCOPE_INPUT: expectedSourceCommit ? 'full' : '',
+    EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: expectedSourceCommit,
     OWNER_PR_PAT: 'test-owner-token', TRUSTED_SYNC_ACTORS: 'stranske',
     SYNC_PR_MERGE_REPORT_JSON: reportPath,
   };
@@ -2163,7 +2166,7 @@ async function reportSelection(t, { syncHash, withRecord }) {
     });
     assert.deepEqual(failures, []);
     assert.deepEqual(warnings, []);
-    return { report: JSON.parse(fs.readFileSync(reportPath, 'utf8')), logs: logs.join('\n') };
+    return { report: JSON.parse(fs.readFileSync(reportPath, 'utf8')), logs: logs.join('\n'), candidate };
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {
@@ -2205,6 +2208,105 @@ test('Maint 71 empty-hash dispatch still selects a candidate with a valid delive
   assert.equal(report.results[0].pr, 1480);
   assert.doesNotMatch(JSON.stringify(report), /no_active_sync_pr|missing_delivery_record/);
   assert.doesNotMatch(logs, /no_active_sync_pr|missing_delivery_record/);
+});
+
+test('Maint 71 admits all three campaign-bound canaries to review after exact-plan source recovery', async t => {
+  const campaignSource = 'e'.repeat(40);
+  const { canaries } = require('../../../config/consumer_sync_canaries.json');
+  assert.equal(canaries.length, 3);
+  const blockedResults = [], nativeCandidates = new Map();
+  for (const { repo: repository } of canaries) {
+    const options = { syncHash: 'candidate', withRecord: true, repository,
+      expectedSourceCommit: campaignSource };
+    const blocked = await reportSelection(t, options);
+    const row = blocked.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(row.status, 'delivery_contract_blocked', repository);
+    assert.equal(row.delivery_reason, 'candidate_immutable_identity_mismatch');
+    assert.equal(row.next_command, 'refresh-candidate-from-exact-plan');
+    assert.deepEqual(row.refresh_plan, { plan_id: `sha256:${'a'.repeat(64)}`,
+      plan_scope: 'full', scope_base_sha: '', source_commit: campaignSource });
+    blockedResults.push(row);
+    const candidate = blocked.candidate;
+    candidate.draft = false;
+    candidate.head.repo = { full_name: repository };
+    candidate.base.repo = { full_name: repository, default_branch: 'main' };
+    nativeCandidates.set(repository, candidate);
+  }
+
+  const expectedCanaries = canaries.map(({ repo }) => repo);
+  const dispatches = [];
+  const github = { rest: {
+    pulls: {
+      get: async ({ owner, repo }) => ({ data: nativeCandidates.get(`${owner}/${repo}`) }),
+      list: async ({ owner, repo }) => ({ data: [nativeCandidates.get(`${owner}/${repo}`)] }),
+    },
+    repos: {
+      getContent: async () => ({ data: {
+        content: Buffer.from(JSON.stringify({ canaries })).toString('base64'),
+      } }),
+      getCommit: async ({ owner, repo, ref }) => {
+        if (repo === 'Workflows') {
+          return { data: { sha: ref === 'main' ? 'f'.repeat(40) : ref } };
+        }
+        const candidate = nativeCandidates.get(`${owner}/${repo}`);
+        return { data: { sha: ref === 'main' ? 'c'.repeat(40) : candidate.head.sha,
+          commit: { verification: { verified: true, reason: 'valid' },
+            message: `Consumer-sync plan ID: ${blockedResults[0].refresh_plan.plan_id}\n`
+              + 'Plan scope: full\nScope base SHA: full\nSource commit: ' + 'c'.repeat(40) } } };
+      },
+    },
+    actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      createWorkflowDispatch: async args => { dispatches.push(args); return { status: 204 }; },
+    },
+  } };
+  const report = { inputs: { sync_hash: 'candidate', cleanup_branches: false }, results: blockedResults };
+  assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report }).eligible, true);
+  const { dispatchCandidateRefreshFromReport } = require('../maint71_merge_sync_prs');
+  await dispatchCandidateRefreshFromReport({ report, withRetry: fn => fn(github), expectedCanaries,
+    trustedActors: ['stranske'], context: { repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: { repository: { default_branch: 'main' } } },
+    core: { notice() {}, summary: { addRaw() { return this; }, async write() {} } } });
+  assert.equal(dispatches.length, 1);
+  const { inputs } = dispatches[0];
+  assert.equal(inputs.scope_head_sha, campaignSource);
+  assert.equal(inputs.expected_plan_id, blockedResults[0].refresh_plan.plan_id);
+  assert.equal(inputs.delivery_scope, 'full');
+  assert.deepEqual(inputs.repos.split(',').sort(), [...expectedCanaries].sort());
+  assert.match(inputs.refresh_key, /^[a-f0-9]{64}$/);
+  assert.deepEqual(report.canary_refresh, { refresh_dispatched: 1, drainable: 3,
+    held_plans: [inputs.expected_plan_id] });
+
+  // Replacing the source alone must not admit a delivery from a different plan.
+  // Model a new native head for each refreshed canary, independent of its source.
+  for (const repository of inputs.repos.split(',')) {
+    const row = blockedResults.find(result => `${result.owner}/${result.repo}` === repository);
+    const refreshedHead = String(expectedCanaries.indexOf(repository) + 1).repeat(40);
+    const options = { syncHash: 'candidate', withRecord: true, repository,
+      expectedSourceCommit: campaignSource, sourceCommit: inputs.scope_head_sha,
+      expectedPlanId: inputs.expected_plan_id, headSha: refreshedHead };
+    const wrongPlan = await reportSelection(t, { ...options, planId: `sha256:${'b'.repeat(64)}` });
+    const refused = wrongPlan.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(refused.status, 'delivery_plan_handoff', repository);
+    assert.equal(refused.delivery_reason, 'plan_mismatch');
+    assert.equal(refused.next_command, 'resume-owning-plan');
+    assert.equal(refused.expected_plan_id, inputs.expected_plan_id);
+    assert.equal(refused.observed_plan_id, `sha256:${'b'.repeat(64)}`);
+    assert.equal(refused.source_commit, campaignSource);
+    assert.equal(refused.review_state, 'not-applicable');
+    assert.equal(refused.head_sha, refreshedHead);
+
+    const recovered = await reportSelection(t, { ...options, planId: inputs.expected_plan_id });
+    const reviewed = recovered.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(reviewed.status, 'review_window_pending', repository);
+    assert.equal(`${reviewed.owner}/${reviewed.repo}`, repository);
+    assert.equal(reviewed.source_commit, row.refresh_plan.source_commit);
+    assert.equal(reviewed.plan_id, inputs.expected_plan_id);
+    assert.equal(reviewed.plan_scope, 'full');
+    assert.equal(reviewed.head_sha, refreshedHead);
+    assert.notEqual(reviewed.head_sha, row.head_sha);
+    assert.doesNotMatch(JSON.stringify(recovered.report), /candidate_immutable_identity_mismatch/);
+  }
 });
 
 
@@ -3467,4 +3569,101 @@ test('in-run stable canary recovery explicitly retains a false cleanup policy', 
   assert.equal(result.refresh_dispatched, 1);
   assert.equal(api.dispatches.length, 1);
   assert.equal(api.dispatches[0].inputs.cleanup_branches, 'false');
+});
+
+
+test('accepted canary refresh records a delivery handoff for the refreshed source', async (t) => {
+  // Workflows#4466: the handoff follows the refresh. The candidate consistently names source c…, the
+  // campaign handoff still says e…, and a successful Maint 68 canary run produced c… for this consumer.
+  const refreshed = 'c'.repeat(40);
+  const { report, logs } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, sourceCommit: refreshed, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 41992460488, status: 'completed', conclusion: 'success', head_branch: 'main',
+      head_sha: refreshed, display_title: `Maint 68 canary full source=${refreshed} candidates=* dry=false` }],
+  });
+  const row = report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission');
+  assert.ok(row, JSON.stringify(report.results));
+  assert.equal(row.status, 'delivery_handoff_repin');
+  assert.equal(row.delivery_disposition, 'source-repinned');
+  assert.equal(row.blocker_owner, 'maint-82');
+  assert.equal(row.next_command, 'rerun-with-repinned-handoff');
+  assert.equal(row.source_commit, refreshed);
+  assert.equal(row.repinned_from, 'e'.repeat(40));
+  assert.equal(row.refresh_run_id, 41992460488);
+  assert.equal(row.plan_id, `sha256:${'a'.repeat(64)}`);
+  assert.equal(report.summary.delivery_handoff_repin, 1);
+  assert.equal(report.summary.delivery_contract_blocked, 0);
+  assert.equal(report.handoff_records.length, 1);
+  const record = report.handoff_records[0];
+  assert.equal(record.source_commit, refreshed);
+  assert.equal(record.plan_id, `sha256:${'a'.repeat(64)}`);
+  assert.equal(record.continuation.class, 'transient');
+  assert.equal(record.continuation.lane, 'candidate');
+  assert.equal(record.continuation.resume_after, record.observed_at);
+  assert.match(logs, /re-pinning the campaign handoff eeeeeeeeeeee -> cccccccccccc/);
+  assert.doesNotMatch(logs, /Candidate immutable identity mismatch/);
+});
+
+test('a consistent other source with no producing Maint 68 run stays a contract block', async (t) => {
+  const { report } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 1, status: 'completed', conclusion: 'success', head_branch: 'main',
+      head_sha: 'f'.repeat(40), display_title: `Maint 68 canary full source=${'f'.repeat(40)} candidates=* dry=false` }],
+  });
+  const row = report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission');
+  assert.equal(row.status, 'delivery_contract_blocked');
+  assert.equal(row.delivery_reason, 'candidate_immutable_identity_mismatch');
+  assert.deepEqual(report.handoff_records, []);
+});
+
+test('a producing run for another consumer does not re-pin this one', async (t) => {
+  const refreshed = 'c'.repeat(40);
+  const { report } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, sourceCommit: refreshed, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 2, status: 'completed', conclusion: 'success', head_branch: 'main', head_sha: refreshed,
+      display_title: `Maint 68 canary full source=${refreshed} candidates=stranske/trip-planner dry=false` }],
+  });
+  assert.equal(report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission').status,
+    'delivery_contract_blocked');
+});
+
+test('Maint 68 verified no-op keeps the existing head source identity in the body', () => {
+  // 2026-11-06: a refresh from a newer main with an unchanged plan kept the signed head (trailer
+  // `Source commit: 298200cb…`) but relabelled the body with the new source, so Maint 71 failed every
+  // canary with canary_refresh_native_scope_mismatch. The body must carry the head's own source.
+  const { spawnSync } = require('node:child_process');
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const start = workflow.indexOf('          body_source_commit="$PLAN_SOURCE_COMMIT"');
+  const end = workflow.indexOf('          if [ -n "$existing_pr" ] \\\n            && { [ "$matching_existing" != "true" ]', start);
+  assert.ok(start >= 0 && end > start, 'no-op source block present');
+  const block = workflow.slice(start, end);
+  const plan = `sha256:${'a'.repeat(64)}`;
+  const run = (message, matching) => spawnSync('bash', ['-c',
+    `git() { printf '%s\\n' "$MSG"; }\nmatching_existing=${matching}\nmigrating_legacy_lifecycle=false\n${block}\n`
+    + 'printf "%s|%s" "$body_source_commit" "$matching_existing"'], {
+    encoding: 'utf8', env: { ...process.env, MSG: message, PLAN_ID: plan, PLAN_SCOPE: 'full',
+      PLAN_SOURCE_COMMIT: 'f'.repeat(40), existing_pr: '1716', existing_head: 'h'.repeat(40), SCOPE_BASE_SHA: '' } });
+  const trailers = (planId, scope, source, base = 'full') => ['chore: sync workflow templates from Workflows repo', '',
+    `Consumer-sync plan ID: ${planId}`, `Plan scope: ${scope}`, `Scope base SHA: ${base}`, `Source commit: ${source}`].join('\n');
+  // same plan, head produced from an older source: keep the head's source, keep the head
+  let result = run(trailers(plan, 'full', 'c'.repeat(40)), 'true');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim().split('\n').pop(), `${'c'.repeat(40)}|true`);
+  // trailers name another plan: regenerate a signed delivery under this run's source
+  result = run(trailers(`sha256:${'b'.repeat(64)}`, 'full', 'c'.repeat(40)), 'true');
+  assert.equal(result.stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope base (source-delta plans can share a plan id across bases): regenerate
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40), 'b'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope, or a malformed source trailer: regenerate
+  assert.equal(run(trailers(plan, 'source-delta', 'c'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  assert.equal(run(trailers(plan, 'full', 'not-a-sha'), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // not a no-op: the new commit carries this run's source, so the body does too
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40)), 'false').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // every body field that names the source uses the reconciled value; the new commit's trailer does not
+  const body = workflow.slice(workflow.indexOf('          sync_marker=$(jq -nc'), workflow.indexOf('**Template hash:**'));
+  assert.match(body, /--arg source_sha "\$body_source_commit"/);
+  assert.equal((body.match(/--arg source_commit "\$body_source_commit"/g) || []).length, 2);
+  assert.match(body, /\*\*Source SHA:\*\* \\`\$body_source_commit\\`/);
+  assert.doesNotMatch(body, /PLAN_SOURCE_COMMIT/);
+  assert.match(workflow, /\n {10}Source commit: \$PLAN_SOURCE_COMMIT\n/);
 });

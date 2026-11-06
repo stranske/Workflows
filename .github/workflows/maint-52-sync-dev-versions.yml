@@ -327,6 +327,9 @@ jobs:
           if [ -f requirements-dev.txt ]; then git add requirements-dev.txt; fi
           if [ -f uv.lock ]; then git add uv.lock; fi
           if [ -f .pre-commit-config.yaml ]; then git add .pre-commit-config.yaml; fi
+          # Quoted dev-tool installs in this consumer-owned workflow are rewritten
+          # by sync_dev_dependencies.py so they match the development pytest pin.
+          if [ -f .github/workflows/pages-wasm-demo.yml ]; then git add .github/workflows/pages-wasm-demo.yml; fi
 
           matching_existing=false
           if [ -n "$existing_pr" ]; then
