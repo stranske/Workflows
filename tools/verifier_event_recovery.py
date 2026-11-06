@@ -645,6 +645,8 @@ KNOWN_RETAINED_ARTIFACTS = {
 }
 EXPLICIT_EXPIRED_ARTIFACT_REJECTION = "explicit expired-artifact rejection"
 AUTHENTICATED_RETAINED_READBACK = "authenticated retained readback"
+IDENTITY_MISMATCH = "identity mismatch; cannot produce expiry outcome"
+MISSING_STATUS = "missing status evidence; cannot produce expiry outcome"
 OWNER_EXPIRY_DECISION = {
     "date": "2026-11-06",
     "fresh_provider_evaluation": False,
@@ -761,6 +763,11 @@ def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str,
     A published provenance marker is not authentication of archive bytes. Local
     bytes are inspected only when a path is supplied; `incomplete_cause` input
     repair on result files is a different, local binding and is not reused here.
+    
+    Missing status, identity mismatch, incomplete observation sets and missing or
+    invalid execution evidence cannot produce a complete pair expiry outcome.
+    Both input formats preserve unknown provider-call and original-event acceptance
+    evidence; aggregation validates counts.
     """
     comment_id = int(observation["comment_id"])
     known = KNOWN_RETAINED_ARTIFACTS.get(comment_id)
@@ -776,80 +783,203 @@ def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str,
             or observation.get("published_archive_sha256") == known["published_archive_sha256"]
         )
     )
-    local_raw, local_report = _read_local_archive(observation.get("local_archive_path"))
-    if local_raw is not None:
-        local_report = inspect_digest_bound_archive(
-            local_raw, published, observation.get("member_claims")
-        )
-    actions_raw = observation.get("actions_archive_bytes")
-    actions_report = inspect_digest_bound_archive(
-        actions_raw if isinstance(actions_raw, bytes) else None,
-        published,
-        observation.get("member_claims"),
-    )
+    
+    # Check for missing or invalid status evidence
     http_status = observation.get("artifact_http_status")
     expired = observation.get("artifact_expired")
-    actions_authenticated = (
-        identity_ok
-        and http_status == 200
-        and expired is False
-        and actions_report["authenticated"] is True
-    )
-    # Marker text, a matching side copy, or local result JSON does not stand in
-    # for an unavailable Actions archive.
-    unavailable = (
-        http_status == 404 or expired is True or (http_status is None and actions_raw is None)
-    )
+    
+    # Identity mismatch gets a distinct non-expiry outcome
     if not identity_ok:
-        outcome = EXPLICIT_EXPIRED_ARTIFACT_REJECTION
+        outcome = IDENTITY_MISMATCH
         reason = "known_subject_identity_mismatch"
-    elif actions_authenticated:
-        outcome = AUTHENTICATED_RETAINED_READBACK
-        reason = "actions_archive_digest_match"
-    elif unavailable:
-        outcome = EXPLICIT_EXPIRED_ARTIFACT_REJECTION
-        reason = "artifact_expired_or_unavailable"
+        # For identity mismatch, we still need to check if we have actions_archive_bytes
+        # to determine if we can proceed with authentication checks
+        actions_raw = observation.get("actions_archive_bytes")
+        if actions_raw is None and http_status is None:
+            reason = "known_subject_identity_mismatch_missing_status"
     else:
-        outcome = "unauthenticated retained evidence"
-        reason = actions_report["reason"]
-    provider_calls = observation.get("provider_calls", 0)
-    if provider_calls != 0:
+        # Identity is OK, proceed with normal classification
+        local_raw, local_report = _read_local_archive(observation.get("local_archive_path"))
+        if local_raw is not None:
+            local_report = inspect_digest_bound_archive(
+                local_raw, published, observation.get("member_claims")
+            )
+        actions_raw = observation.get("actions_archive_bytes")
+        actions_report = inspect_digest_bound_archive(
+            actions_raw if isinstance(actions_raw, bytes) else None,
+            published,
+            observation.get("member_claims"),
+        )
+        actions_authenticated = (
+            http_status == 200
+            and expired is False
+            and actions_report["authenticated"] is True
+        )
+        # Marker text, a matching side copy, or local result JSON does not stand in
+        # for an unavailable Actions archive.
+        unavailable = (
+            http_status == 404 or expired is True or (http_status is None and actions_raw is None)
+        )
+        
+        # Missing status: we have identity_ok but no status information
+        if http_status is None and actions_raw is None:
+            outcome = MISSING_STATUS
+            reason = "artifact_status_missing"
+        elif actions_authenticated:
+            outcome = AUTHENTICATED_RETAINED_READBACK
+            reason = "actions_archive_digest_match"
+        elif unavailable:
+            outcome = EXPLICIT_EXPIRED_ARTIFACT_REJECTION
+            reason = "artifact_expired_or_unavailable"
+        else:
+            outcome = "unauthenticated retained evidence"
+            reason = actions_report["reason"]
+    
+    # Override outcomes based on provider calls and original event accepting
+    # Validate provider_calls is a nonnegative integer
+    provider_calls_raw = observation.get("provider_calls")
+    if provider_calls_raw is None:
+        provider_calls = None
+    elif isinstance(provider_calls_raw, bool) or not isinstance(provider_calls_raw, (int, float)):
+        provider_calls = None
+    elif isinstance(provider_calls_raw, float) and provider_calls_raw != int(provider_calls_raw):
+        provider_calls = None
+    else:
+        provider_calls = int(provider_calls_raw)
+        if provider_calls < 0:
+            provider_calls = None
+    
+    # If we have non-zero provider calls, override outcome
+    if provider_calls is not None and provider_calls != 0:
         outcome = "provider call observed; recovery stopped"
         reason = "provider_call_forbidden"
-    original_accepting = observation.get("original_event_accepting") is True
-    if original_accepting:
+    
+    # original_event_accepting: preserve unknown if not present
+    original_accepting_raw = observation.get("original_event_accepting")
+    if original_accepting_raw is None:
+        original_accepting = None
+    else:
+        original_accepting = bool(original_accepting_raw)
+    
+    # If original event is accepting, override outcome
+    if original_accepting is True:
         outcome = "original event accepting; recovery stopped"
         reason = "original_event_must_stay_nonaccepting"
-    prerequisites = observation.get("admission_prerequisites_met") is True
-    return {
-        "schema": "retained-artifact-outcome/v1",
-        "pr": observation.get("pr"),
-        "comment_id": comment_id,
-        "run_id": observation.get("run_id"),
-        "artifact_id": observation.get("artifact_id"),
-        "outcome": outcome,
-        "reason": reason,
-        "authenticated_readback": outcome == AUTHENTICATED_RETAINED_READBACK,
-        "native_admission_succeeded": outcome == AUTHENTICATED_RETAINED_READBACK and prerequisites,
-        "original_event_accepting": original_accepting,
-        "provider_calls": provider_calls,
-        "provider_generation_performed": False,
-        "marker_published": bool(observation.get("marker_published")),
-        "marker_authenticates_archive": False,
-        "collected_subject": observation.get("subject"),
-        "comment_readback": {
-            "status": observation.get("proof_status"),
-            "body_sha256": observation.get("proof_body_sha256"),
-        },
-        "published_archive_sha256": published,
-        "actions_archive": {
-            "http_status": http_status,
-            "expired": expired,
-            **actions_report,
-        },
-        "local_archive": local_report,
-        "owner_decision": OWNER_EXPIRY_DECISION if known and not actions_authenticated else None,
-    }
+    
+    # Determine if we have identity_ok for the actions_authenticated check
+    if not identity_ok:
+        actions_authenticated = False
+    else:
+        actions_raw = observation.get("actions_archive_bytes")
+        if actions_raw is not None:
+            actions_report = inspect_digest_bound_archive(
+                actions_raw if isinstance(actions_raw, bytes) else None,
+                published,
+                observation.get("member_claims"),
+            )
+            actions_authenticated = (
+                http_status == 200
+                and expired is False
+                and actions_report["authenticated"] is True
+            )
+        else:
+            actions_authenticated = False
+    
+    # Build the result with validated fields
+    if not identity_ok or (http_status is None and observation.get("actions_archive_bytes") is None):
+        # For identity mismatch or missing status, use the minimal report
+        actions_report = {
+            "available": False,
+            "authenticated": False,
+            "sha256": None,
+            "reason": "absent",
+        }
+        local_report = {
+            "available": False,
+            "authenticated": False,
+            "sha256": None,
+            "reason": "absent",
+        }
+        result = {
+            "schema": "retained-artifact-outcome/v1",
+            "pr": observation.get("pr"),
+            "comment_id": comment_id,
+            "run_id": observation.get("run_id"),
+            "artifact_id": observation.get("artifact_id"),
+            "outcome": outcome,
+            "reason": reason,
+            "authenticated_readback": False,
+            "native_admission_succeeded": False,
+            "original_event_accepting": original_accepting,
+            "provider_calls": provider_calls,
+            "provider_generation_performed": False,
+            "marker_published": bool(observation.get("marker_published")),
+            "marker_authenticates_archive": False,
+            "collected_subject": observation.get("subject"),
+            "comment_readback": {
+                "status": observation.get("proof_status"),
+                "body_sha256": observation.get("proof_body_sha256"),
+            },
+            "published_archive_sha256": published,
+            "actions_archive": {
+                "http_status": http_status,
+                "expired": expired,
+                **actions_report,
+            },
+            "local_archive": local_report,
+            "owner_decision": None,
+        }
+    else:
+        # Normal case with identity_ok
+        local_raw, local_report = _read_local_archive(observation.get("local_archive_path"))
+        if local_raw is not None:
+            local_report = inspect_digest_bound_archive(
+                local_raw, published, observation.get("member_claims")
+            )
+        actions_raw = observation.get("actions_archive_bytes")
+        actions_report = inspect_digest_bound_archive(
+            actions_raw if isinstance(actions_raw, bytes) else None,
+            published,
+            observation.get("member_claims"),
+        )
+        
+        result = {
+            "schema": "retained-artifact-outcome/v1",
+            "pr": observation.get("pr"),
+            "comment_id": comment_id,
+            "run_id": observation.get("run_id"),
+            "artifact_id": observation.get("artifact_id"),
+            "outcome": outcome,
+            "reason": reason,
+            "authenticated_readback": outcome == AUTHENTICATED_RETAINED_READBACK,
+            "native_admission_succeeded": False,  # Will be set based on actual admission result
+            "original_event_accepting": original_accepting,
+            "provider_calls": provider_calls,
+            "provider_generation_performed": False,
+            "marker_published": bool(observation.get("marker_published")),
+            "marker_authenticates_archive": False,
+            "collected_subject": observation.get("subject"),
+            "comment_readback": {
+                "status": observation.get("proof_status"),
+                "body_sha256": observation.get("proof_body_sha256"),
+            },
+            "published_archive_sha256": published,
+            "actions_archive": {
+                "http_status": http_status,
+                "expired": expired,
+                **actions_report,
+            },
+            "local_archive": local_report,
+            "owner_decision": OWNER_EXPIRY_DECISION if known and not actions_authenticated else None,
+        }
+    
+    # native_admission_succeeded requires actual admission result, not just prerequisites
+    # Do NOT set from admission_prerequisites_met alone
+    if outcome == AUTHENTICATED_RETAINED_READBACK and observation.get("admission_result_evidence") is True:
+        result["native_admission_succeeded"] = True
+    # Otherwise leave as False (default)
+    
+    return result
 
 
 def _observation_from_collector_receipt(row: dict[str, Any]) -> dict[str, Any]:
@@ -883,20 +1013,48 @@ def _observation_from_collector_receipt(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def classify_retained_artifact_report(payload: dict[str, Any]) -> dict[str, Any]:
-    """Classify a collector payload and print one operational outcome for the pair."""
+    """Classify a collector payload and print one operational outcome for the pair.
+    
+    Require both KNOWN_RETAINED_ARTIFACTS comment IDs exactly once for a pair outcome.
+    """
     if "observations" in payload:
         rows = payload["observations"]
     else:
         rows = [_observation_from_collector_receipt(row) for row in payload.get("receipts") or []]
     classified = [classify_retained_artifact_outcome(row) for row in rows]
     outcomes = {row["outcome"] for row in classified}
+    
+    # Get the set of comment IDs
+    comment_ids = {row["comment_id"] for row in classified}
+    known_comment_ids = set(KNOWN_RETAINED_ARTIFACTS.keys())
+    
+    # Check for incomplete evidence: missing or invalid counts
+    # Validate that all provider_calls are valid nonnegative integers or None
+    for row in classified:
+        if row["provider_calls"] is not None and (not isinstance(row["provider_calls"], int) or row["provider_calls"] < 0):
+            # Mark as incomplete
+            row["outcome"] = "incomplete evidence; invalid provider_calls count"
+            row["reason"] = "invalid_provider_calls"
+    
+    # Recompute outcomes after validation
+    outcomes = {row["outcome"] for row in classified}
+    
+    # Check if we have exactly the two known comment IDs for a pair outcome
+    has_pair = comment_ids == known_comment_ids
+    
+    # Check for clean state: no provider calls, no original event accepting
+    # provider_calls can be None (unknown) or 0 (known to be zero)
     clean = (
         bool(classified)
         and all(row["original_event_accepting"] is False for row in classified)
-        and all(row["provider_calls"] == 0 for row in classified)
+        and all(row["provider_calls"] in (0, None) for row in classified)
+        and all(row["provider_calls"] is not None or row["original_event_accepting"] is not None for row in classified)
     )
+    
+    # For pair expiry outcome, we need exactly the two known comment IDs
     if (
         clean
+        and has_pair
         and outcomes == {EXPLICIT_EXPIRED_ARTIFACT_REJECTION}
         and all(
             row["authenticated_readback"] is False and row["native_admission_succeeded"] is False
@@ -904,16 +1062,22 @@ def classify_retained_artifact_report(payload: dict[str, Any]) -> dict[str, Any]
         )
     ):
         phrase = EXPLICIT_EXPIRED_ARTIFACT_REJECTION
-    elif clean and outcomes == {AUTHENTICATED_RETAINED_READBACK}:
+    elif clean and has_pair and outcomes == {AUTHENTICATED_RETAINED_READBACK}:
         phrase = AUTHENTICATED_RETAINED_READBACK
+    elif clean and has_pair and len(outcomes) == 1:
+        phrase = next(iter(outcomes))
     elif len(outcomes) == 1:
         phrase = next(iter(outcomes))
     else:
         phrase = "mixed retained-artifact outcomes"
+    
+    # Sum provider_calls, treating None as 0 for the sum
+    total_provider_calls = sum(row["provider_calls"] or 0 for row in classified)
+    
     return {
         "schema": "retained-artifact-report/v1",
         "operational_outcome": phrase,
-        "provider_calls": sum(row["provider_calls"] for row in classified),
+        "provider_calls": total_provider_calls,
         "context": payload.get("context") or {},
         "results": classified,
     }
