@@ -496,10 +496,44 @@ jobs:
             const {
               findLatestClosureEvent,
               findLatestVerifyHandoff,
+              selectMergedClosingPr,
             } = require('./.github/scripts/auto_pilot_transitions.js');
             const latestClosure = findLatestClosureEvent(timelineEvents);
             const persistedHandoff = findLatestVerifyHandoff(comments);
-            const closureSourcePr = linkedPR || '';
+            // Same merged-PR rule as Execute step - Verify. The last timeline
+            // reference can be a later unmerged PR and must not become the
+            // closure source, or a successful handoff can never reach done.
+            let closureSourcePr = '';
+            if (String(issue.state || '').toLowerCase() === 'closed') {
+              const maxPages = 10;
+              const perPage = 100;
+              for (let page = 1; page <= maxPages; page += 1) {
+                let pageItems = [];
+                try {
+                  const response = await withRetry((client) => client.rest.pulls.list({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    state: 'closed',
+                    sort: 'updated',
+                    direction: 'desc',
+                    per_page: perPage,
+                    page,
+                  }));
+                  pageItems = Array.isArray(response?.data) ? response.data : [];
+                } catch (error) {
+                  if (deferForRateLimit('merged source PR scan', error)) return;
+                  throw error;
+                }
+                const selected = selectMergedClosingPr(pageItems, issueNumber);
+                if (selected?.number) {
+                  closureSourcePr = selected.number;
+                  break;
+                }
+                if (pageItems.length < perPage) {
+                  break;
+                }
+              }
+            }
             core.setOutput('closure_id', latestClosure?.id != null ? String(latestClosure.id) : '');
             core.setOutput('closure_source_pr', closureSourcePr ? String(closureSourcePr) : '');
             core.setOutput(
@@ -582,7 +616,10 @@ jobs:
             }
 
             const stepComments = allComments.filter(c =>
-              typeof c.body === 'string' && c.body.includes('🤖 Auto-pilot step')
+              typeof c.body === 'string' && (
+                c.body.includes('🤖 **Auto-pilot step') ||
+                c.body.includes('🤖 Auto-pilot step')
+              )
             );
 
             const stepCount = stepComments.length;
@@ -2340,6 +2377,7 @@ jobs:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { selectMergedClosingPr } = require('./.github/scripts/auto_pilot_transitions.js');
             const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -2356,26 +2394,6 @@ jobs:
             let truncated = false;
             let linkedPr = null;
 
-            // Helper to detect explicit closing/fixing references to this issue
-            function matchesIssueReference(text, num) {
-              if (!text) return false;
-              // Match: closes #123, fixes #123, resolves #123 (and variations)
-              const pattern = new RegExp(
-                `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`, 'i'
-              );
-              return pattern.test(text);
-            }
-
-            function matchesLinkedIssue(pr) {
-              return Boolean(
-                pr?.merged_at && (
-                  new RegExp(`meta:issue:${issueNumber}(?!\\d)`).test(pr.body || '') ||
-                  matchesIssueReference(pr.body, issueNumber) ||
-                  matchesIssueReference(pr.title, issueNumber)
-                )
-              );
-            }
-
             for (let page = 1; page <= maxPages; page += 1) {
               const { data: pageItems } = await withRetry((client) => client.rest.pulls.list({
                 owner: context.repo.owner,
@@ -2387,7 +2405,7 @@ jobs:
                 page,
               }));
               const batch = Array.isArray(pageItems) ? pageItems : [];
-              linkedPr = batch.find((pr) => matchesLinkedIssue(pr)) || null;
+              linkedPr = selectMergedClosingPr(batch, issueNumber);
               if (linkedPr) {
                 break;
               }
@@ -4234,6 +4252,7 @@ jobs:
             const {
               buildDetermineNextStepEventFromEnv,
               determineNextStep,
+              selectMergedClosingPr,
             } = require('./.github/scripts/auto_pilot_transitions.js');
             const { withRetry } = await createTokenAwareRetry({
               github,
@@ -4253,25 +4272,6 @@ jobs:
               VERIFY_HANDOFF_CLOSURE_ID: process.env.VERIFY_HANDOFF_CLOSURE_ID,
               VERIFY_HANDOFF_SOURCE_PR: process.env.VERIFY_HANDOFF_SOURCE_PR,
             }));
-
-            // Helper to check if a PR matches this issue
-            function matchesIssueReference(text, num) {
-              if (!text) return false;
-              const pattern = new RegExp(
-                `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`, 'i'
-              );
-              return pattern.test(text);
-            }
-
-            function matchesLinkedIssue(pr, issueNum) {
-              return Boolean(
-                pr?.merged_at && (
-                  new RegExp(`meta:issue:${issueNum}(?!\\d)`).test(pr.body || '') ||
-                  matchesIssueReference(pr.body, issueNum) ||
-                  matchesIssueReference(pr.title, issueNum)
-                )
-              );
-            }
 
             function isApplicableVerifierRun(run, prNumber, headSha) {
               if (!run || !headSha) return false;
@@ -4303,7 +4303,7 @@ jobs:
                   page,
                 }));
                 const batch = Array.isArray(pageItems) ? pageItems : [];
-                linkedPr = batch.find((pr) => matchesLinkedIssue(pr, issueNum)) || null;
+                linkedPr = selectMergedClosingPr(batch, issueNum);
                 if (linkedPr) break;
                 if (batch.length < perPage) break;
               }

@@ -208,7 +208,10 @@ test('matching closure ID with a different source PR cannot complete the issue',
 test('handoff marker helpers round-trip persisted identity', () => {
   const marker = formatVerifyHandoffMarker({ closureId: 3001, sourcePr: 2454 });
   assert.match(marker, /auto-pilot-verify-handoff:v1/);
-  const comments = [{ body: `note\n${marker}` }];
+  const comments = [{
+    body: `note\n${marker}`,
+    user: { login: 'github-actions[bot]', type: 'Bot' },
+  }];
   assert.deepEqual(findLatestVerifyHandoff(comments), {
     closureId: '3001',
     sourcePr: '2454',
@@ -277,6 +280,50 @@ for (const [surface, transitions] of [
   ['source', require('../auto_pilot_transitions.js')],
   ['consumer template', require('../../../templates/consumer-repo/.github/scripts/auto_pilot_transitions.js')],
 ]) {
+  test(`${surface}: untrusted handoff markers cannot authorize a closure`, () => {
+    const marker = transitions.formatVerifyHandoffMarker({ closureId: 3001, sourcePr: 2454 });
+    const trusted = {
+      body: marker,
+      user: { login: 'agents-workflows-bot[bot]', type: 'Bot' },
+    };
+    const forged = {
+      body: transitions.formatVerifyHandoffMarker({ closureId: 3002, sourcePr: 2455 }),
+      user: { login: 'someone', type: 'User' },
+    };
+    assert.equal(transitions.findLatestVerifyHandoff([forged]), null);
+    assert.equal(transitions.findLatestVerifyHandoff([{ body: marker }]), null);
+    assert.equal(
+      transitions.findLatestVerifyHandoff([{
+        body: marker,
+        user: { login: 'github-actions[bot]', type: 'User' },
+      }]),
+      null,
+    );
+    assert.deepEqual(transitions.findLatestVerifyHandoff([trusted, forged]), {
+      closureId: '3001',
+      sourcePr: '2454',
+    });
+    const newerTrusted = {
+      body: transitions.formatVerifyHandoffMarker({ closureId: 3002, sourcePr: 2455 }),
+      user: { login: 'stranske-automation-bot', type: 'User' },
+    };
+    assert.deepEqual(transitions.findLatestVerifyHandoff([trusted, newerTrusted]), {
+      closureId: '3002',
+      sourcePr: '2455',
+    });
+  });
+
+  test(`${surface}: merged closing PR selection skips newer unmerged and prefix issue refs`, () => {
+    const pulls = [
+      { number: 101, merged_at: null, title: 'later', body: 'Closes #12' },
+      { number: 123, merged_at: '2026-03-01T00:00:00Z', body: '<!-- meta:issue:123 -->' },
+      { number: 100, merged_at: '2026-02-01T00:00:00Z', title: 'Fix', body: 'Fixes #12' },
+    ];
+    assert.equal(transitions.selectMergedClosingPr(pulls, 12)?.number, 100);
+    assert.equal(transitions.selectMergedClosingPr(pulls, '12')?.number, 100);
+    assert.equal(transitions.selectMergedClosingPr([{ number: 9, merged_at: null }], 12), null);
+  });
+
   test(`${surface}: serialized false handoff status cannot authorize matching closure proof`, () => {
     const issue = {
       issueState: 'closed',

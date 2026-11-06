@@ -239,7 +239,7 @@ process.stdout.write(JSON.stringify({
             "ISSUE_NUMBER": str(ISSUE_NUMBER),
             "TRANSITIONS_MODULE": str(
                 ROOT / "templates/consumer-repo/.github/scripts/auto_pilot_transitions.js"
-                if "consumer" in workflow.parts
+                if "consumer-repo" in workflow.parts
                 else ROOT / ".github/scripts/auto_pilot_transitions.js"
             ),
             "FIXTURE": json.dumps(

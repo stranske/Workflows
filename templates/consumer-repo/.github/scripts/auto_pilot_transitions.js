@@ -232,6 +232,18 @@ function redispatchForceStep(currentStep) {
 
 const VERIFY_HANDOFF_MARKER_PREFIX = '<!-- auto-pilot-verify-handoff:v1 ';
 
+// Same automation-owned writer class as keepalive state. Bot and user
+// logins stay in separate sets so a non-bot account cannot satisfy a bot login.
+const TRUSTED_VERIFY_HANDOFF_BOT_LOGINS = new Set([
+  'agents-workflows-bot[bot]',
+  'stranske-keepalive[bot]',
+  'github-actions[bot]',
+]);
+const TRUSTED_VERIFY_HANDOFF_USER_LOGINS = new Set([
+  'stranske',
+  'stranske-automation-bot',
+]);
+
 function isPositiveId(value) {
   return (typeof value === 'string' || Number.isSafeInteger(value)) &&
     /^[1-9]\d*$/.test(normalizeText(value));
@@ -278,15 +290,51 @@ function parseVerifyHandoffMarker(text) {
   }
 }
 
+function isTrustedVerifyHandoffAuthor(comment) {
+  const type = normalizeText(comment?.user?.type).toLowerCase();
+  const login = normalizeText(comment?.user?.login).toLowerCase();
+  return (type === 'bot' && TRUSTED_VERIFY_HANDOFF_BOT_LOGINS.has(login))
+    || (type === 'user' && TRUSTED_VERIFY_HANDOFF_USER_LOGINS.has(login));
+}
+
 function findLatestVerifyHandoff(comments) {
   const entries = Array.isArray(comments) ? [...comments].reverse() : [];
   for (const comment of entries) {
+    // A marker is automation-owned state only when its author is in the
+    // trusted writer class. Any other commenter is ignored.
+    if (!isTrustedVerifyHandoffAuthor(comment)) {
+      continue;
+    }
     const parsed = parseVerifyHandoffMarker(comment?.body);
     if (parsed) {
       return parsed;
     }
   }
   return null;
+}
+
+function textReferencesIssue(text, issueNumber) {
+  const num = normalizeText(issueNumber);
+  if (!/^[1-9]\d*$/.test(num)) {
+    return false;
+  }
+  const body = String(text ?? '');
+  const meta = new RegExp(`meta:issue:${num}(?!\\d)`);
+  const closing = new RegExp(
+    `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`,
+    'i',
+  );
+  return meta.test(body) || closing.test(body);
+}
+
+function selectMergedClosingPr(pulls, issueNumber) {
+  const batch = Array.isArray(pulls) ? pulls : [];
+  return batch.find((pr) =>
+    Boolean(pr?.merged_at) && (
+      textReferencesIssue(pr.body, issueNumber) ||
+      textReferencesIssue(pr.title, issueNumber)
+    )
+  ) || null;
 }
 
 function findLatestClosureEvent(timelineEvents) {
@@ -343,6 +391,7 @@ module.exports = {
   findLatestClosureEvent,
   findLatestVerifyHandoff,
   formatVerifyHandoffMarker,
+  selectMergedClosingPr,
   hasLinkedPr,
   isKeepaliveTasksComplete,
   normalizeForceStep,

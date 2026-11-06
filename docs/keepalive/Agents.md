@@ -87,13 +87,15 @@ insufficient, and reopening followed by another closure requires a fresh
 handoff even if the source PR is unchanged. Missing or mismatched identities
 keep the issue at `verify`.
 
-The current `agents-auto-pilot.yml` passes only the label-derived boolean.
-Deploying the stricter transition helper requires a coordinated workflow update
-to produce and pass these identities; otherwise closed issues remain at
-`verify`. The same protected workflow owns the event gate's `custom-predicate`
-and the redispatch step's stage allowlist. A maintainer must admit issue
-`verify:pr-handoff` label events with auto-pilot enabled and schedule continuation
-only after a successful handoff, or complete the done report in that run.
+`agents-auto-pilot.yml` reads the latest closed timeline event and accepts an
+`auto-pilot-verify-handoff:v1` marker only from the automation-owned writer
+class. The closure source PR is the same merged closing PR the verify step
+records. The event gate admits issue `verify:pr-handoff` label events when
+`agents:auto-pilot` is present, and redispatch runs only when
+`verify_handoff == 'found'`. Report - Done completes only when that persisted
+marker matches the current closure. A stale, missing, or forged marker keeps
+`agents:auto-pilot` and stays on `verify`.
+
 After merge, maintainers run Maint 68 to regenerate the consumer candidate and
 check the subsequent Maint 71 report for the original review finding. Local
 source tests do not establish that deployment or live acceptance.

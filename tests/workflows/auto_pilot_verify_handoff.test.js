@@ -146,6 +146,7 @@ for (const [surface, workflowPath] of SURFACES) {
       knownLabels: new Set(seed.knownLabels || []),
       prLabels: new Map(Object.entries(seed.prLabels || {}).map(([k, v]) => [Number(k), new Set(v)])),
       issueLabels: new Set(seed.issueLabels || ['agents:auto-pilot']),
+      issueState: seed.issueState || 'open',
       timeline: Object.hasOwn(seed, 'timeline')
         ? seed.timeline
         : [{ event: 'closed', id: 9001 }],
@@ -211,7 +212,7 @@ for (const [surface, workflowPath] of SURFACES) {
               data: {
                 number: params.issue_number,
                 title: 'Issue',
-                state: 'open',
+                state: world.issueState,
                 labels: [...world.issueLabels].map((n) => ({ name: n })),
               },
             };
@@ -664,5 +665,66 @@ for (const [surface, workflowPath] of SURFACES) {
       payload: { inputs: { issue_number: '12' } },
     });
     assert.equal(exact.outputs.linked_pr, '902');
+  });
+
+  test(`${surface}: context: closure source PR is the merged closer, not a later unmerged reference`, async () => {
+    const crossRef = (number, body) => ({
+      event: 'cross-referenced',
+      source: {
+        issue: {
+          number,
+          body,
+          title: 'Work',
+          pull_request: {},
+          repository: { full_name: 'stranske/Workflows' },
+        },
+      },
+    });
+    const world = createWorld({
+      issueState: 'closed',
+      prs: [
+        {
+          number: 101,
+          merged_at: null,
+          title: 'follow-up',
+          body: `Closes #${ISSUE}`,
+          head: { sha: OTHER_HEAD },
+        },
+        mergedPr(100, ISSUE),
+      ],
+      timeline: [
+        { event: 'closed', id: 9001 },
+        crossRef(100, `<!-- meta:issue:${ISSUE} -->`),
+        crossRef(101, `Closes #${ISSUE}`),
+      ],
+    });
+    const result = await runStep('Determine context', { world });
+    assert.equal(result.outcome, 'success', result.failures.join('; ') || result.error?.message);
+    assert.equal(result.outputs.linked_pr, '101');
+    assert.equal(result.outputs.closure_source_pr, '100');
+    assert.equal(result.outputs.closure_id, '9001');
+  });
+
+  test(`${surface}: verify: handoff records the merged closer when a newer unmerged PR also references the issue`, async () => {
+    const world = createWorld({
+      prs: [
+        {
+          number: 101,
+          merged_at: null,
+          title: 'follow-up',
+          body: `Closes #${ISSUE}`,
+          head: { sha: OTHER_HEAD },
+        },
+        mergedPr(100, ISSUE),
+      ],
+    });
+    const result = await runVerify(world);
+    assert.equal(result.outputs.verify_handoff, 'found');
+    assert.equal(result.outputs.verify_handoff_source_pr, '100');
+  });
+
+  test(`${surface}: cycle cap recognizes the bold step comments the workflow writes`, () => {
+    const workflow = fs.readFileSync(workflowPath, 'utf8');
+    assert.match(workflow, /c\.body\.includes\('🤖 \*\*Auto-pilot step'\)/);
   });
 }

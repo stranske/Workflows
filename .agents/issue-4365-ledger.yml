@@ -12,6 +12,7 @@ tasks:
     commit: f18ca1b27
     notes:
       - 'PR #4447 transition helper + closer workflow identity plumbing'
+      - 'findLatestVerifyHandoff accepts only the keepalive automation writer class'
   - id: task-02
     title: Update `.github/scripts/auto_pilot_transitions.js` to schedule continuation
       after a handoff or complete the `done` disposition in the same run.
@@ -20,6 +21,7 @@ tasks:
     commit: b2c7598d7
     notes:
       - 'Re-dispatch after successful verify handoff (force_step=auto)'
+      - 'closure_source_pr and verify/done share selectMergedClosingPr'
   - id: task-03
     title: Update the redispatch allowlist logic in auto_pilot_transitions.js to include
       the verify stage after a successful pr-handoff so that continuation is scheduled

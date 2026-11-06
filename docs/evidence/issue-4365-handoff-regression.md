@@ -240,3 +240,19 @@ Full gates (preserved failures, not substituted):
 
 Deliberate-break: temporarily removing `hasCurrentVerifyHandoff` identity checks
 still fails focused regressions; restoration passes (see earlier table in this doc).
+
+## Closer repair (2026-11-06): trusted marker and one merged source PR
+
+`findLatestVerifyHandoff` ignores markers whose author is outside the keepalive
+automation writer class. Determine context, verify, and Report - Done select
+the closure source PR with `selectMergedClosingPr`, so a later unmerged
+timeline reference cannot disagree with the recorded handoff. The cycle cap
+counts the bold `🤖 **Auto-pilot step` comments the workflow writes.
+
+```sh
+node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js tests/workflows/auto_pilot_verify_handoff.test.js
+python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -p no:langsmith_plugin -m "not slow"
+black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Result: Node **114 passed**, Python **64 passed**, Black **891 files unchanged**.
