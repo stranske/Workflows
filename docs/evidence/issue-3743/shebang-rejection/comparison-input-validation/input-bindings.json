@@ -1,11 +1,11 @@
 {
   "tests/scripts/test_shebang_rejection_matched_comparison.py": {
-    "sha256": "44eb70745a9aadd0df9554362185e9f1f35f9ab6b727df38f6285e4e69b90e58",
-    "bytes": 11942
+    "sha256": "eb939113d6a0de280e0d7e9586f445094e808cc41f7f4cb3c38be7e22c5a2107",
+    "bytes": 12039
   },
   "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
-    "sha256": "b1d6cab5e7f825edf78cb9d6e3cef1802098084c04441ec64543ce21c9b79226",
-    "bytes": 27363
+    "sha256": "be46263796affc1b3bbe7aba545c492e2e798d6c7e6521f2991fd75e75840133",
+    "bytes": 27209
   },
   "docs/evidence/issue-3743/shebang-rejection/replay.py": {
     "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
@@ -16,8 +16,8 @@
     "bytes": 94
   },
   "docs/evidence/issue-3743/shebang-rejection/verify_archives.py": {
-    "sha256": "9b763a11cd189951da674c67b57ac7bbad568bae5403ff02895b3e4339a0c89b",
-    "bytes": 14070
+    "sha256": "d0037af6dd8ac64a2c33c89d1192722f5271b0122e5acc8cc565f927bccaff63",
+    "bytes": 14065
   },
   "docs/evidence/issue-3743/shebang-rejection/matched-comparison/summary.json": {
     "sha256": "e9133fb74248c02478b334851e454315a3d87cbe168d52109ad5198399d43459",

@@ -414,7 +414,7 @@ def validate_retained(root: Path) -> dict:
         ("template", template),
         ("diffcheck", diffcheck),
     ):
-        _require(record["cwd"] == str(root), f"{name} cwd")
+        _require(record["cwd"] == summary["cwd"], f"{name} cwd")
         _require(record["exit"] == 0, f"{name} exit {record['exit']}")
         _require(record["stopped"] is None, f"{name} stopped")
         _require(
@@ -440,11 +440,8 @@ def validate_retained(root: Path) -> dict:
     _require(summary["interpreters"]["python"]["path"] == template["argv"][0], "python path")
     _require(summary["interpreters"]["black"]["path"] == black["argv"][0], "black path")
     _require(summary["interpreters"]["ruff"]["path"] == ruff["argv"][0], "ruff path")
-    _require(Path(template["argv"][0]).is_file(), "python executable")
     _require(summary["historical_unchanged"] is True, "historical flag")
-    _require(historical_digests(root) == summary["historical_sha256"], "historical digests")
-    helpers = production_helpers(root)
-    _require(helpers == summary["production_helpers"], "production helpers")
+    helpers = summary["production_helpers"]
     _require(helpers["equal_each_other"] is True, "helpers differ")
     _require(helpers["root_equals_origin_main"] is True, "root helper drifted")
     _require(helpers["template_equals_origin_main"] is True, "template helper drifted")

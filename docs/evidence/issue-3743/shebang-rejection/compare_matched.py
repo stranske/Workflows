@@ -441,7 +441,8 @@ def pack_archive(directory: Path) -> dict:
     members = sorted(
         path
         for path in directory.iterdir()
-        if path.is_file() and path.name not in {"proof.tar.gz", "summary.json"}
+        if path.is_file()
+        and path.name not in {"proof.tar.gz", "summary.json", "manifest.json"}
     )
     manifest = {
         path.name: {"sha256": digest(path.read_bytes()), "bytes": path.stat().st_size}

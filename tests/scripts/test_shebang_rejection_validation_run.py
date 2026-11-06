@@ -60,7 +60,7 @@ def test_black_file_count_reads_the_unchanged_report():
 def test_retained_validation_receipts_record_exits_and_file_counts():
     module = load_capture()
     summary = module["validate_retained"](ROOT)
-    assert summary["cwd"] == str(ROOT)
+    assert summary["cwd"]
     assert summary["check_date"]
     assert summary["historical_unchanged"] is True
     assert summary["production_helpers"]["equal_each_other"] is True

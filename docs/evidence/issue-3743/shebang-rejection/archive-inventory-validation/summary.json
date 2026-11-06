@@ -23,16 +23,16 @@
       "bytes": 6406
     },
     "docs/evidence/issue-3743/shebang-rejection/verify_archives.py": {
-      "sha256": "9b763a11cd189951da674c67b57ac7bbad568bae5403ff02895b3e4339a0c89b",
-      "bytes": 14070
+      "sha256": "d0037af6dd8ac64a2c33c89d1192722f5271b0122e5acc8cc565f927bccaff63",
+      "bytes": 14065
     }
   },
   "archive": {
     "path": "proof.tar.gz",
-    "sha256": "b4472533dad1f265f048e0a57c67113034fb6e40d76dbca7080fc126f5f3ca5f",
-    "bytes": 20818,
-    "manifest_sha256": "b9e0238716e04aaa6eaf4ebc9f9ff4578a3ac227b63a1c3d0ada4ee84adf989e",
-    "verified_manifest_members": 19
+    "sha256": "de0c82625cd97ea28ef3ab0e43fb2c8fcfabf0c5d105caec9bfb8dae2054f94f",
+    "bytes": 20142,
+    "verified_manifest_members": 19,
+    "manifest_sha256": "6d985549f2a4efcf739e9206d4ea071633fe42f849aabd7663063d0d2b734364"
   },
   "measured_file_counts": {
     "workflows_directory_yml": 130,
