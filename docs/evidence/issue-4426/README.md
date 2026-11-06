@@ -161,3 +161,11 @@ Pre-round and current whole-suite figures are in `coverage-measurement.md` and
 displays are 81.83% and 81.84%, and the issue snapshot is 82.29%. All three are
 below 90%, so the close-without-a-PR exception does not apply. Current blended
 coverage is 91.08%. The about-180 rule remains the numerical rule.
+
+## Regenerated ranking
+
+Escaped-defect, churn, and uncovered-mass rankings are in `ranking.md` and
+`ranking.json`. The fresh 180-day window does not keep the issue's printed
+order. Counted landed reduction from #4000 and #4405 is 0. The current Gate
+remainder across the six targets is 327 uncovered statements and branches.
+The about-180 rule is unchanged.
