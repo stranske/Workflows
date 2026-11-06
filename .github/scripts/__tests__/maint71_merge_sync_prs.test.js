@@ -2094,7 +2094,7 @@ test('review GraphQL reads rotate separately while mutations remain owner-pinned
 async function reportSelection(t, { syncHash, withRecord,
   repository = 'stranske/Travel-Plan-Permission', sourceCommit = 'c'.repeat(40),
   expectedSourceCommit = '', planId = `sha256:${'a'.repeat(64)}`,
-  expectedPlanId = planId, headSha = 'd'.repeat(40) }) {
+  expectedPlanId = planId, headSha = 'd'.repeat(40), refreshRuns = null }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-selection-'));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const reportPath = path.join(tempDir, 'report.json');
@@ -2128,6 +2128,7 @@ async function reportSelection(t, { syncHash, withRecord,
     rest: {
       pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
+      ...(refreshRuns ? { actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: refreshRuns } }) } } : {}),
     },
   };
   const logs = [];
@@ -3568,4 +3569,60 @@ test('in-run stable canary recovery explicitly retains a false cleanup policy', 
   assert.equal(result.refresh_dispatched, 1);
   assert.equal(api.dispatches.length, 1);
   assert.equal(api.dispatches[0].inputs.cleanup_branches, 'false');
+});
+
+
+test('accepted canary refresh records a delivery handoff for the refreshed source', async (t) => {
+  // Workflows#4466: the handoff follows the refresh. The candidate consistently names source c…, the
+  // campaign handoff still says e…, and a successful Maint 68 canary run produced c… for this consumer.
+  const refreshed = 'c'.repeat(40);
+  const { report, logs } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, sourceCommit: refreshed, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 41992460488, status: 'completed', conclusion: 'success', head_branch: 'main',
+      head_sha: refreshed, display_title: `Maint 68 canary full source=${refreshed} candidates=* dry=false` }],
+  });
+  const row = report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission');
+  assert.ok(row, JSON.stringify(report.results));
+  assert.equal(row.status, 'delivery_handoff_repin');
+  assert.equal(row.delivery_disposition, 'source-repinned');
+  assert.equal(row.blocker_owner, 'maint-82');
+  assert.equal(row.next_command, 'rerun-with-repinned-handoff');
+  assert.equal(row.source_commit, refreshed);
+  assert.equal(row.repinned_from, 'e'.repeat(40));
+  assert.equal(row.refresh_run_id, 41992460488);
+  assert.equal(row.plan_id, `sha256:${'a'.repeat(64)}`);
+  assert.equal(report.summary.delivery_handoff_repin, 1);
+  assert.equal(report.summary.delivery_contract_blocked, 0);
+  assert.equal(report.handoff_records.length, 1);
+  const record = report.handoff_records[0];
+  assert.equal(record.source_commit, refreshed);
+  assert.equal(record.plan_id, `sha256:${'a'.repeat(64)}`);
+  assert.equal(record.continuation.class, 'transient');
+  assert.equal(record.continuation.lane, 'candidate');
+  assert.equal(record.continuation.resume_after, record.observed_at);
+  assert.match(logs, /re-pinning the campaign handoff eeeeeeeeeeee -> cccccccccccc/);
+  assert.doesNotMatch(logs, /Candidate immutable identity mismatch/);
+});
+
+test('a consistent other source with no producing Maint 68 run stays a contract block', async (t) => {
+  const { report } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 1, status: 'completed', conclusion: 'success', head_branch: 'main',
+      head_sha: 'f'.repeat(40), display_title: `Maint 68 canary full source=${'f'.repeat(40)} candidates=* dry=false` }],
+  });
+  const row = report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission');
+  assert.equal(row.status, 'delivery_contract_blocked');
+  assert.equal(row.delivery_reason, 'candidate_immutable_identity_mismatch');
+  assert.deepEqual(report.handoff_records, []);
+});
+
+test('a producing run for another consumer does not re-pin this one', async (t) => {
+  const refreshed = 'c'.repeat(40);
+  const { report } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, sourceCommit: refreshed, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 2, status: 'completed', conclusion: 'success', head_branch: 'main', head_sha: refreshed,
+      display_title: `Maint 68 canary full source=${refreshed} candidates=stranske/trip-planner dry=false` }],
+  });
+  assert.equal(report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission').status,
+    'delivery_contract_blocked');
 });
