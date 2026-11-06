@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import runpy
 import shutil
 import subprocess
@@ -20,7 +21,8 @@ import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from xml.etree import ElementTree as ET
+
+from defusedxml import ElementTree as ET
 
 TEST = "tests/scripts/test_check_deliberate_break_shebang_rejection.py"
 REPLAY = "docs/evidence/issue-3743/shebang-rejection/replay.py"
@@ -228,8 +230,49 @@ def validate_pairs(root: Path, proof: Path) -> list[dict]:
     return pairs
 
 
+def _ensure_origin_main(root: Path) -> None:
+    """Fetch origin/main when a depth-1 checkout has no remote-tracking main."""
+    ref = "refs/remotes/origin/main"
+
+    def present() -> bool:
+        probe = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", ref],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+        return probe.returncode == 0
+
+    if present():
+        return
+    last = subprocess.CompletedProcess(["git", "fetch"], 128, b"", b"")
+    for _attempt in range(6):
+        last = subprocess.run(
+            [
+                "git",
+                "fetch",
+                "--depth=1",
+                "origin",
+                "+refs/heads/main:refs/remotes/origin/main",
+            ],
+            cwd=root,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+        if present():
+            return
+        if b"lock" not in last.stderr.lower():
+            break
+        time.sleep(0.5)
+    raise subprocess.CalledProcessError(
+        last.returncode, last.args, output=last.stdout, stderr=last.stderr
+    )
+
+
 def validate_retained(root: Path) -> dict:
     """Check the retained acceptance-run tree against the command contract."""
+    _ensure_origin_main(root)
     run_dir = root / EVIDENCE / "acceptance-run"
     summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
     literal_pytest = json.loads((run_dir / "literal-pytest.json").read_text(encoding="utf-8"))

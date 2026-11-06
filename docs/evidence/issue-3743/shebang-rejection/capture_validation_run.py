@@ -272,9 +272,50 @@ def historical_digests(root: Path) -> dict[str, dict]:
     return {relative: digest_path(root, relative) for relative in HISTORICAL_PATHS}
 
 
+def _ensure_origin_main(root: Path) -> None:
+    """Fetch origin/main when a depth-1 checkout has no remote-tracking main."""
+    ref = "refs/remotes/origin/main"
+
+    def present() -> bool:
+        probe = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", ref],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+        return probe.returncode == 0
+
+    if present():
+        return
+    last = subprocess.CompletedProcess(["git", "fetch"], 128, b"", b"")
+    for _attempt in range(6):
+        last = subprocess.run(
+            [
+                "git",
+                "fetch",
+                "--depth=1",
+                "origin",
+                "+refs/heads/main:refs/remotes/origin/main",
+            ],
+            cwd=root,
+            capture_output=True,
+            check=False,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+        if present():
+            return
+        if b"lock" not in last.stderr.lower():
+            break
+        time.sleep(0.5)
+    raise subprocess.CalledProcessError(
+        last.returncode, last.args, output=last.stdout, stderr=last.stderr
+    )
+
+
 def production_helpers(root: Path) -> dict:
     root_bytes = (root / HELPERS[0]).read_bytes()
     template_bytes = (root / HELPERS[1]).read_bytes()
+    _ensure_origin_main(root)
     base_root = subprocess.check_output(["git", "show", f"origin/main:{HELPERS[0]}"], cwd=root)
     base_template = subprocess.check_output(["git", "show", f"origin/main:{HELPERS[1]}"], cwd=root)
     return {

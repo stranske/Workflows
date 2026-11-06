@@ -177,8 +177,8 @@
     },
     "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py": {
       "kind": "file",
-      "sha256": "1b62f77257e6dcd69863593095d6033835791b22a10e4923891d34533ea6b0d9",
-      "bytes": 19127,
+      "sha256": "56008683da422160fcb1fcc89badff636d130938f3e556b93c1c35a498f50c96",
+      "bytes": 20345,
       "files": 1
     },
     "docs/evidence/issue-3743/shebang-rejection/acceptance-run": {
