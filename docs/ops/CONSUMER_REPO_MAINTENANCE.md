@@ -3341,8 +3341,9 @@ closes any open alert so a recovered incident cannot remain as a stale red issue
   only after every in-scope consumer, including skipped consumers, matches.
   Unreadable or invalid Gates are reported as unknown and prevent all-match.
   Unknown lines also appear in logs, JSON, and the step summary when read preflight
-  fails before consumer trees can be fetched. The comparison lines do not fail
-  Health 68, create an alert, or authorize overwriting a Gate.
+  fails before consumer trees can be fetched, including when no read credential
+  is available. The comparison lines do not fail Health 68, create an alert,
+  or authorize overwriting a Gate.
 - The uploaded `consumer-sync-drift-report` artifact uses
   `workflows-consumer-sync-drift/v1` and includes safe
   `token_diagnostics` (`workflows-drift-token-selection/v1`) so permission or

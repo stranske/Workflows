@@ -976,25 +976,6 @@ def main() -> int:
         )
         return 1
 
-    candidates = token_candidates()
-    if not candidates:
-        print("::error::No GitHub token available for cross-repo reads")
-        write_report_json(
-            args.report_json,
-            build_report(
-                repos=repos,
-                drift=set(),
-                missing=set(),
-                errors={"No GitHub token available for cross-repo reads"},
-                obsolete=set(),
-                token_diagnostics={
-                    "schema": "workflows-drift-token-selection/v1",
-                    "error": "no_token_candidates",
-                },
-            ),
-        )
-        return 1
-
     try:
         compiled = compile_manifest(manifest_path)
     except ManifestCompileError as exc:
@@ -1037,18 +1018,24 @@ def main() -> int:
         ),
         None,
     )
+    candidates = token_candidates()
     session, token_diagnostics = select_read_token(
         candidates=candidates,
         repos=repos,
         paths=probe_targets(compiled, sections),
     )
     if session is None:
-        print("::error::No usable GitHub token available for consumer repo contents reads")
+        read_error = (
+            "No usable GitHub token available for consumer repo contents reads"
+            if candidates
+            else "No GitHub token available for cross-repo reads"
+        )
+        print(f"::error::{read_error}")
         report = build_report(
             repos=repos,
             drift=set(),
             missing=set(),
-            errors={"No usable GitHub token available for consumer repo contents reads"},
+            errors={read_error},
             obsolete=set(),
             token_diagnostics=token_diagnostics,
         )

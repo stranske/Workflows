@@ -13,8 +13,8 @@ from scripts.sync_manifest_compiler import (
 )
 
 
-@pytest.mark.parametrize("failed_probe", ["repo", "contents"])
-def test_read_preflight_reports_transport_failure(tmp_path, monkeypatch, capsys, failed_probe):
+@pytest.mark.parametrize("failed_probe", ["repo", "contents", "credentials"])
+def test_read_preflight_reports_unavailable_reads(tmp_path, monkeypatch, capsys, failed_probe):
     """An unavailable GitHub read must produce evidence, without an uncaught exception."""
 
     class Response:
@@ -25,6 +25,7 @@ def test_read_preflight_reports_transport_failure(tmp_path, monkeypatch, capsys,
             self.headers = {}
 
         def get(self, url):
+            assert failed_probe != "credentials", "Missing credentials must not issue API requests"
             if failed_probe == "repo" or "/contents/" in url:
                 raise check_consumer_sync_drift.requests.ConnectionError("private request details")
             return Response()
@@ -56,7 +57,11 @@ def test_read_preflight_reports_transport_failure(tmp_path, monkeypatch, capsys,
     monkeypatch.setattr(
         check_consumer_sync_drift,
         "token_candidates",
-        lambda: [{"source": "test-source", "token": "test-value"}],
+        lambda: (
+            []
+            if failed_probe == "credentials"
+            else [{"source": "test-source", "token": "test-value"}]
+        ),
     )
     select = check_consumer_sync_drift.select_read_token
     monkeypatch.setattr(
@@ -72,9 +77,16 @@ def test_read_preflight_reports_transport_failure(tmp_path, monkeypatch, capsys,
     assert report["counts"]["errors"] == 1
     diagnostics = report["token_diagnostics"]
     assert diagnostics["selected_source"] == ""
-    assert diagnostics["error"] == "no_usable_token"
-    assert "ConnectionError" in diagnostics["rejected"][0]["reason"]
-    assert ("/contents/" in diagnostics["rejected"][0]["reason"]) == (failed_probe == "contents")
+    if failed_probe == "credentials":
+        assert diagnostics["error"] == "no_token_candidates"
+        assert diagnostics["attempted_sources"] == []
+        assert diagnostics["rejected"] == []
+    else:
+        assert diagnostics["error"] == "no_usable_token"
+        assert "ConnectionError" in diagnostics["rejected"][0]["reason"]
+        assert ("/contents/" in diagnostics["rejected"][0]["reason"]) == (
+            failed_probe == "contents"
+        )
     output = capsys.readouterr().out
     expected = [
         f"gate triggers: {repo} unknown (Gate/tree unavailable)"
@@ -86,7 +98,7 @@ def test_read_preflight_reports_transport_failure(tmp_path, monkeypatch, capsys,
         assert line in output
         assert line in summary
     assert "gate triggers: all match" not in output + report_text + summary
-    for private_detail in ("private request details", "test-value"):
+    for private_detail in ("private request details", "test-value", '"token":'):
         assert private_detail not in output + report_text + summary
 
 
@@ -1460,6 +1472,11 @@ def test_main_writes_actionable_reports_for_early_preflight_failures(tmp_path, m
     manifest = tmp_path / "manifest.yml"
     manifest.write_text("version: 1\n", encoding="utf-8")
     args.manifest = str(manifest)
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64}, section=lambda _section: ()
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
     monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [])
     assert check_consumer_sync_drift.main() == 1
     report = json.loads(report_path.read_text(encoding="utf-8"))
