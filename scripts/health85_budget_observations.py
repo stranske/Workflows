@@ -116,7 +116,8 @@ def build_observations(
     if dates != sorted(dates):
         failures.append("observation dates are not sorted")
     consecutive = all(
-        later - earlier == timedelta(days=1) for earlier, later in zip(dates, dates[1:])
+        later - earlier == timedelta(days=1)
+        for earlier, later in zip(dates, dates[1:], strict=False)
     )
     if not consecutive:
         failures.append("observation dates are not consecutive calendar days")

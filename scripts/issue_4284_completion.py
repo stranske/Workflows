@@ -132,7 +132,8 @@ def _computed_series_failures(report: Mapping[str, Any]) -> list[str]:
             failures.append(f"{day.isoformat()}: missing Health 85 source URL")
     if len(dates) == len(observations) and dates:
         consecutive = dates == sorted(dates) and all(
-            later - earlier == timedelta(days=1) for earlier, later in zip(dates, dates[1:])
+            later - earlier == timedelta(days=1)
+            for earlier, later in zip(dates, dates[1:], strict=False)
         )
         if not consecutive:
             failures.append("observation dates are not consecutive calendar days")

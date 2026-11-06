@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts.health85_budget_observations import (
     HEALTH85_PATH,
     build_observations,

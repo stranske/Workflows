@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts.gate_run_view_evidence import (
     NAMED_JOBS,
     evidence_json,
