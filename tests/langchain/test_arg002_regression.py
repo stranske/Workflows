@@ -1,82 +1,47 @@
-"""Regression test for ARG002 unused method argument violations.
-
-This test ensures that the fixes for issue #4484 (unused config arguments in
-_llm_client.py:40 and pr_verifier.py:8735) remain in place and that no new
-ARG002 violations are introduced.
-
-The test runs ruff with ARG002 enabled against the authoritative source files
-and verifies that no violations are found.
-"""
+"""Consumer lint and invoke compatibility regressions for issue #4484."""
 
 from __future__ import annotations
 
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
-# The authoritative source files that sync to consumer repos
-SOURCE_FILES = [
-    Path("scripts/langchain/_llm_client.py"),
-    Path("scripts/langchain/pr_verifier.py"),
-]
+import pytest
+from scripts.langchain._llm_client import SubscriptionClientAdapter
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_no_arg002_violations() -> None:
-    """Verify that no ARG002 violations exist in the source files."""
-    # Run ruff check with ARG002 enabled
+@pytest.mark.parametrize("filename", ["_llm_client.py", "pr_verifier.py"])
+def test_no_arg002_violations(filename: str) -> None:
+    """Check each copy-delivered source with the consumer's unused-argument rule."""
+    source = ROOT / "scripts" / "langchain" / filename
     result = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", "--select", "ARG002"] + [str(f) for f in SOURCE_FILES],
+        [sys.executable, "-m", "ruff", "check", "--isolated", "--select", "ARG002", str(source)],
         capture_output=True,
         text=True,
+        timeout=30,
     )
 
-    # Should exit successfully with no output
-    assert result.returncode == 0, (
-        f"ruff check --select ARG002 failed with exit code {result.returncode}:\n"
-        f"stdout: {result.stdout}\n"
-        f"stderr: {result.stderr}"
-    )
-    assert result.stdout.strip() == "" or "All checks passed" in result.stdout, (
-        f"Unexpected ruff output: {result.stdout}"
-    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_config_parameter_present_in_invoke() -> None:
-    """Verify that the config parameter is still present in invoke method signatures.
-    
-    This ensures we haven't accidentally removed the parameter, which would
-    break the calling contract.
-    """
-    # Check _llm_client.py
-    llm_client_path = Path("scripts/langchain/_llm_client.py")
-    llm_client_content = llm_client_path.read_text()
-    
-    # The SubscriptionClientAdapter.invoke should have config parameter
-    assert "def invoke(self, prompt: Any, config: Any = None" in llm_client_content, (
-        "SubscriptionClientAdapter.invoke should have config parameter"
-    )
-    
-    # And it should pass config to the underlying client
-    assert "return self.client.invoke(prompt, config=config, **kwargs)" in llm_client_content, (
-        "SubscriptionClientAdapter.invoke should pass config to underlying client"
-    )
-    
-    # Check pr_verifier.py
-    pr_verifier_path = Path("scripts/langchain/pr_verifier.py")
-    pr_verifier_content = pr_verifier_path.read_text()
-    
-    # The CapacityBackupClient.invoke should have config parameter
-    assert "def invoke(self, prompt: str, config: Any = None" in pr_verifier_content, (
-        "CapacityBackupClient.invoke should have config parameter"
-    )
-    
-    # And it should have the noqa comment for ARG002
-    assert "# noqa: ARG002" in pr_verifier_content, (
-        "CapacityBackupClient.invoke should have noqa: ARG002 comment"
+@pytest.mark.parametrize("config", [None, {}, {"tags": ["arg002-regression"]}])
+@pytest.mark.parametrize("prompt_value", [False, True], ids=["string", "prompt-value"])
+def test_subscription_adapter_forwards_config_and_kwargs(config, prompt_value: bool) -> None:
+    """Using config must preserve both prompt rendering and invocation options."""
+    client = Mock()
+    adapter = SubscriptionClientAdapter(client)
+    prompt = (
+        SimpleNamespace(to_string=lambda: "Review the change")
+        if prompt_value
+        else "Review the change"
     )
 
+    result = adapter.invoke(prompt, config=config, stop=["END"])
 
-if __name__ == "__main__":
-    test_no_arg002_violations()
-    test_config_parameter_present_in_invoke()
-    print("All ARG002 regression tests passed!")
+    client.invoke.assert_called_once_with("Review the change", config=config, stop=["END"])
+    assert client.invoke.call_args.kwargs["config"] is config
+    assert result is client.invoke.return_value
