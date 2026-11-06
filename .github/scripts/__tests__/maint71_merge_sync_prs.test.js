@@ -2094,7 +2094,7 @@ test('review GraphQL reads rotate separately while mutations remain owner-pinned
 async function reportSelection(t, { syncHash, withRecord,
   repository = 'stranske/Travel-Plan-Permission', sourceCommit = 'c'.repeat(40),
   expectedSourceCommit = '', planId = `sha256:${'a'.repeat(64)}`,
-  expectedPlanId = planId, headSha = 'd'.repeat(40) }) {
+  expectedPlanId = planId, headSha = 'd'.repeat(40), refreshRuns = null }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-selection-'));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const reportPath = path.join(tempDir, 'report.json');
@@ -2128,6 +2128,7 @@ async function reportSelection(t, { syncHash, withRecord,
     rest: {
       pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
+      ...(refreshRuns ? { actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: refreshRuns } }) } } : {}),
     },
   };
   const logs = [];
@@ -3568,4 +3569,101 @@ test('in-run stable canary recovery explicitly retains a false cleanup policy', 
   assert.equal(result.refresh_dispatched, 1);
   assert.equal(api.dispatches.length, 1);
   assert.equal(api.dispatches[0].inputs.cleanup_branches, 'false');
+});
+
+
+test('accepted canary refresh records a delivery handoff for the refreshed source', async (t) => {
+  // Workflows#4466: the handoff follows the refresh. The candidate consistently names source c…, the
+  // campaign handoff still says e…, and a successful Maint 68 canary run produced c… for this consumer.
+  const refreshed = 'c'.repeat(40);
+  const { report, logs } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, sourceCommit: refreshed, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 41992460488, status: 'completed', conclusion: 'success', head_branch: 'main',
+      head_sha: refreshed, display_title: `Maint 68 canary full source=${refreshed} candidates=* dry=false` }],
+  });
+  const row = report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission');
+  assert.ok(row, JSON.stringify(report.results));
+  assert.equal(row.status, 'delivery_handoff_repin');
+  assert.equal(row.delivery_disposition, 'source-repinned');
+  assert.equal(row.blocker_owner, 'maint-82');
+  assert.equal(row.next_command, 'rerun-with-repinned-handoff');
+  assert.equal(row.source_commit, refreshed);
+  assert.equal(row.repinned_from, 'e'.repeat(40));
+  assert.equal(row.refresh_run_id, 41992460488);
+  assert.equal(row.plan_id, `sha256:${'a'.repeat(64)}`);
+  assert.equal(report.summary.delivery_handoff_repin, 1);
+  assert.equal(report.summary.delivery_contract_blocked, 0);
+  assert.equal(report.handoff_records.length, 1);
+  const record = report.handoff_records[0];
+  assert.equal(record.source_commit, refreshed);
+  assert.equal(record.plan_id, `sha256:${'a'.repeat(64)}`);
+  assert.equal(record.continuation.class, 'transient');
+  assert.equal(record.continuation.lane, 'candidate');
+  assert.equal(record.continuation.resume_after, record.observed_at);
+  assert.match(logs, /re-pinning the campaign handoff eeeeeeeeeeee -> cccccccccccc/);
+  assert.doesNotMatch(logs, /Candidate immutable identity mismatch/);
+});
+
+test('a consistent other source with no producing Maint 68 run stays a contract block', async (t) => {
+  const { report } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 1, status: 'completed', conclusion: 'success', head_branch: 'main',
+      head_sha: 'f'.repeat(40), display_title: `Maint 68 canary full source=${'f'.repeat(40)} candidates=* dry=false` }],
+  });
+  const row = report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission');
+  assert.equal(row.status, 'delivery_contract_blocked');
+  assert.equal(row.delivery_reason, 'candidate_immutable_identity_mismatch');
+  assert.deepEqual(report.handoff_records, []);
+});
+
+test('a producing run for another consumer does not re-pin this one', async (t) => {
+  const refreshed = 'c'.repeat(40);
+  const { report } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, sourceCommit: refreshed, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 2, status: 'completed', conclusion: 'success', head_branch: 'main', head_sha: refreshed,
+      display_title: `Maint 68 canary full source=${refreshed} candidates=stranske/trip-planner dry=false` }],
+  });
+  assert.equal(report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission').status,
+    'delivery_contract_blocked');
+});
+
+test('Maint 68 verified no-op keeps the existing head source identity in the body', () => {
+  // 2026-11-06: a refresh from a newer main with an unchanged plan kept the signed head (trailer
+  // `Source commit: 298200cb…`) but relabelled the body with the new source, so Maint 71 failed every
+  // canary with canary_refresh_native_scope_mismatch. The body must carry the head's own source.
+  const { spawnSync } = require('node:child_process');
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const start = workflow.indexOf('          body_source_commit="$PLAN_SOURCE_COMMIT"');
+  const end = workflow.indexOf('          if [ -n "$existing_pr" ] \\\n            && { [ "$matching_existing" != "true" ]', start);
+  assert.ok(start >= 0 && end > start, 'no-op source block present');
+  const block = workflow.slice(start, end);
+  const plan = `sha256:${'a'.repeat(64)}`;
+  const run = (message, matching) => spawnSync('bash', ['-c',
+    `git() { printf '%s\\n' "$MSG"; }\nmatching_existing=${matching}\nmigrating_legacy_lifecycle=false\n${block}\n`
+    + 'printf "%s|%s" "$body_source_commit" "$matching_existing"'], {
+    encoding: 'utf8', env: { ...process.env, MSG: message, PLAN_ID: plan, PLAN_SCOPE: 'full',
+      PLAN_SOURCE_COMMIT: 'f'.repeat(40), existing_pr: '1716', existing_head: 'h'.repeat(40), SCOPE_BASE_SHA: '' } });
+  const trailers = (planId, scope, source, base = 'full') => ['chore: sync workflow templates from Workflows repo', '',
+    `Consumer-sync plan ID: ${planId}`, `Plan scope: ${scope}`, `Scope base SHA: ${base}`, `Source commit: ${source}`].join('\n');
+  // same plan, head produced from an older source: keep the head's source, keep the head
+  let result = run(trailers(plan, 'full', 'c'.repeat(40)), 'true');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim().split('\n').pop(), `${'c'.repeat(40)}|true`);
+  // trailers name another plan: regenerate a signed delivery under this run's source
+  result = run(trailers(`sha256:${'b'.repeat(64)}`, 'full', 'c'.repeat(40)), 'true');
+  assert.equal(result.stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope base (source-delta plans can share a plan id across bases): regenerate
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40), 'b'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope, or a malformed source trailer: regenerate
+  assert.equal(run(trailers(plan, 'source-delta', 'c'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  assert.equal(run(trailers(plan, 'full', 'not-a-sha'), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // not a no-op: the new commit carries this run's source, so the body does too
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40)), 'false').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // every body field that names the source uses the reconciled value; the new commit's trailer does not
+  const body = workflow.slice(workflow.indexOf('          sync_marker=$(jq -nc'), workflow.indexOf('**Template hash:**'));
+  assert.match(body, /--arg source_sha "\$body_source_commit"/);
+  assert.equal((body.match(/--arg source_commit "\$body_source_commit"/g) || []).length, 2);
+  assert.match(body, /\*\*Source SHA:\*\* \\`\$body_source_commit\\`/);
+  assert.doesNotMatch(body, /PLAN_SOURCE_COMMIT/);
+  assert.match(workflow, /\n {10}Source commit: \$PLAN_SOURCE_COMMIT\n/);
 });
