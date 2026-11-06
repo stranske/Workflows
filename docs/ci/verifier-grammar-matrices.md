@@ -435,3 +435,27 @@ Branch/line comparison of baseline and candidate is an additional check, not a
 proof about arbitrary grammar strings or future implementations. These bounded
 spines must expand if a new branch couples previously independent lexical axes.
 The existing adjacent integration suites and named regressions remain required.
+
+## Floor-context filler
+
+Destination real-floor checks used `_context(1, 1000, 1000)`. That helper pads the
+plan with repeated `- [x] scoped task detail` lines until the acceptance section
+is about 1000 characters. The criterion replaces only the acceptance sentinel, so
+the filler is not a grammar axis. `prompt_coverage` still classifies the whole
+plan, and that repeated checklist dominated pytest time inside
+`tests/scripts/test_pr_verifier_delivery_destinations.py` (30,461 cases, the
+longest Gate job's main cost).
+
+`_floor_context()` now builds one file with 50 code characters and 40 acceptance
+characters. The sentinel criterion, evidence block, and real
+`prompt_coverage` / `_apply_coverage_floor` path are unchanged. The short diff
+stays inside the prompt budget, so file coverage remains complete and does not
+withhold PASS on its own. Missing required body evidence is still `CONCERNS`,
+and unavailable evidence is still `UNVERIFIABLE_INPUT`. No matrix row, marker,
+coverage threshold, or production verifier behavior changes. The guard is
+`test_floor_context_drops_checklist_filler_and_keeps_evidence_floor`.
+
+On this machine, serial `pytest -q -p no:cacheprovider` of the destination file
+was 308.62s before the shorter context and 225.79s after (30,461 passed both
+times). That is an 83-second serial reduction in the file Health 85 already
+identified as the Gate hotspot. It does not itself record seven daily p50s.

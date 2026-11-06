@@ -173,3 +173,25 @@ def test_emitted_cases_preserve_every_declared_semantic_and_lexical_projection()
                     for value in (item if "," in axis else [item])
                 )
                 assert witness in cases, (name, axes, selected)
+
+
+def test_floor_context_drops_checklist_filler_and_keeps_evidence_floor():
+    """The shared floor context must stay small without masking channel verdicts."""
+    context = delivery._floor_context()
+    assert "- [x] scoped task detail" not in context
+    assert delivery._COVERAGE_FIXTURE.ACCEPTANCE_SENTINEL in context
+    large, _ = delivery._COVERAGE_FIXTURE._context(1, 1000, 1000)
+    assert len(context) < len(large) // 2
+    criterion = "Evidence must be recorded in the PR body by the reviewer"
+    assert delivery._floor_verdict(criterion, body="present", comments="present") == "PASS"
+    assert delivery._floor_verdict(criterion, body="absent", comments="present") == "CONCERNS"
+    assert (
+        delivery._floor_verdict(criterion, body="unavailable", comments="present")
+        == "UNVERIFIABLE_INPUT"
+    )
+    covered = delivery.verifier.prompt_coverage(
+        context.replace("- " + delivery._COVERAGE_FIXTURE.ACCEPTANCE_SENTINEL, criterion),
+        None,
+    )
+    assert covered.files
+    assert all(item.status == "complete" for item in covered.files)

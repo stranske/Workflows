@@ -57,9 +57,25 @@ def _semantic_matrix(*, dimensions, semantic, lexical_spines, pairwise=False):
     return pytest.mark.parametrize(flattened, values)
 
 
+# _context(1, 1000, 1000) pads the plan with repeated "- [x] scoped task detail"
+# lines. Those lines are not the criterion, but prompt_coverage classifies the
+# whole plan on every floor call and that filler dominated Gate pytest time.
+# One short complete diff still keeps file coverage from withholding PASS.
+_FLOOR_CONTEXT_CODE_CHARS = 50
+_FLOOR_CONTEXT_ACCEPTANCE_CHARS = 40
+
+
+def _floor_context() -> str:
+    """Build the real-floor verifier context without repeated checklist filler."""
+    context, _ = _COVERAGE_FIXTURE._context(
+        1, _FLOOR_CONTEXT_CODE_CHARS, _FLOOR_CONTEXT_ACCEPTANCE_CHARS
+    )
+    return context
+
+
 def _floor_verdict(criterion, *, body, comments, artifacts="present", overall="present"):
     """Use the real prompt and coverage floor with one immutable fixture module."""
-    context, _ = _COVERAGE_FIXTURE._context(1, 1000, 1000)
+    context = _floor_context()
     evidence = (
         f"- Overall retrieval status: **{overall}**\n"
         f"- PR body: **{body}**\n- PR comments: **{comments}**\n"
@@ -811,7 +827,7 @@ def test_availability_first_final_retains_parent_condition(
     fixture = _COVERAGE_FIXTURE
     for missing in ("absent", "unavailable"):
         for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
-            context, _ = fixture._context(1, 1000, 1000)
+            context = _floor_context()
             evidence = (
                 "- Overall retrieval status: **present**\n"
                 + f"- PR body: **{'present' if 'body' in present else missing}**\n"
@@ -883,7 +899,7 @@ def test_relative_qualifier_preserves_parent_and_local_condition_scope(
                 f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
                 "- Referenced workflow artifacts: **present**"
             )
-            context, _ = fixture._context(1, 1000, 1000)
+            context = _floor_context()
             context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
                 "## PR Diff Summary",
                 "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary",
@@ -927,7 +943,7 @@ def test_passive_destination_quantifier_retains_bare_sibling(
     assert verifier._required_evidence_options(criterion) == [expected]
     fixture = _COVERAGE_FIXTURE
     for missing in ("absent", "unavailable"):
-        context, _ = fixture._context(1, 1000, 1000)
+        context = _floor_context()
         context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
             "## PR Diff Summary",
             "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -1132,7 +1148,7 @@ def test_product_component_coordination_real_floor(
         voice,
     )
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -1270,7 +1286,7 @@ def test_passive_aliases_preserve_actor_options_and_actual_floor(
             f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
             "- Referenced workflow artifacts: **present**"
         )
-        context, _ = fixture._context(1, 1000, 1000)
+        context = _floor_context()
         context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
             "## PR Diff Summary", "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary"
         )
@@ -1353,7 +1369,7 @@ def test_component_availability_preserves_bare_sibling_and_passive_actor(
             f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
             "- Referenced workflow artifacts: **present**"
         )
-        context, _ = fixture._context(1, 1000, 1000)
+        context = _floor_context()
         context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
             "## PR Diff Summary", "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary"
         )
@@ -1724,7 +1740,7 @@ def test_relative_negative_adjective_shares_internal_adverbs(
     assert verifier._required_evidence_options(criterion) == [expected]
     if adjective == "required" and negative == "not":
         fixture = _COVERAGE_FIXTURE
-        context, _ = fixture._context(1, 1000, 1000)
+        context = _floor_context()
         context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
             "## PR Diff Summary",
             "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -1763,7 +1779,7 @@ def test_body_delivery_uses_shared_operation_and_polarity(
     assert verifier._required_evidence_options(criterion) == [expected]
 
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -1871,7 +1887,7 @@ def test_component_alternatives_preserve_optional_negative_floor(
     options = verifier._required_evidence_options(criterion)
     assert options == ([{"comments"}] if independent else [set()])
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **absent**\n"
@@ -1942,7 +1958,7 @@ def test_component_temporal_boundary_preserves_bare_and_independent_delivery(
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -2058,7 +2074,7 @@ def test_component_options_and_actual_floor_are_order_symmetric(
         frozenset(x) for x in expected
     }
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -2110,7 +2126,7 @@ def test_temporal_checklist_shorthand_preserves_named_delivery(
     assert verifier._required_evidence_channels(criterion + extra) == expected
     assert verifier._required_evidence_options(criterion + extra) == [expected]
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion + extra).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -2259,7 +2275,7 @@ def test_attached_availability_relative_preserves_destination_or(
     ]
     fixture = _COVERAGE_FIXTURE
     for present in ["body", "comments"]:
-        context, _ = fixture._context(1, 1000, 1000)
+        context = _floor_context()
         context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
             "## PR Diff Summary",
             "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -2311,7 +2327,7 @@ def test_checklist_destination_lists_control_real_floor(
     if body_first:
         destinations.reverse()
     criterion = "- [ ] Test evidence in " + f" {operator} ".join(destinations)
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **present**\n"
@@ -3295,7 +3311,7 @@ def test_destination_list_cannot_consume_independent_affirmative_actor(
     criterion = negative + separator + positive
     assert verifier._required_evidence_options(criterion) == [{channel}]
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
         "## PR Diff Summary",
         "## Acceptance evidence\n\n- Overall retrieval status: **unavailable**\n"
@@ -4846,7 +4862,7 @@ def test_reverse_record_output_binds_its_own_recipient(participle, recipient):
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
 def test_fresh_canary_findings_control_actual_coverage_floor(criterion, channel, status):
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     if criterion.startswith("Test evidence in "):
         # This fixture starts with a plain bullet. The canary finding is an
         # actual checkbox noun phrase, not an ungoverned prose fragment.
@@ -4893,7 +4909,7 @@ def test_negative_checklist_does_not_regain_actual_evidence_floor(
     prefix, criterion, positive, body_status
 ):
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace(
         "- " + fixture.ACCEPTANCE_SENTINEL, prefix + criterion + positive
     ).replace(
@@ -4929,7 +4945,7 @@ def test_generated_docs_drift_body_requirement_controls_floor(prefix, status, ex
     assert "record the before/after evidence in the pull request body" in criterion
     assert verifier._required_evidence_channels(prefix + criterion) == {"body"}
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace(fixture.ACCEPTANCE_SENTINEL, prefix + criterion).replace(
         "## PR Diff Summary",
         f"## Acceptance evidence\n\n- Overall retrieval status: **absent**\n- PR body: **{status}**\n- PR comments: **absent**\n- Referenced workflow artifacts: **absent**\n\n## PR Diff Summary",
@@ -5044,7 +5060,7 @@ def test_body_is_its_own_evidence_channel():
 )
 def test_actual_body_channel_controls_full_coverage_floor(status, verdict):
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace(
         fixture.ACCEPTANCE_SENTINEL, "Include before/after evidence in the PR body"
     )
@@ -5341,7 +5357,7 @@ def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, st
     """
     expected = set(expected)
     fixture = _COVERAGE_FIXTURE
-    context, _ = fixture._context(1, 1000, 1000)
+    context = _floor_context()
     context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion)
     statuses = {
         name: status if name == channel else "present" for name in ("body", "comments", "artifacts")
