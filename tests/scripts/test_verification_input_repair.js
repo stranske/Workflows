@@ -9,6 +9,16 @@ const { fetchVerifierEvidence } = require('../../.github/scripts/agents_verifier
 
 // Exact retained #4231/#4235 bytes, joined to native Actions provenance. API replay
 // below is offline regression coverage, not fresh artifact/native admission.
+//
+// Mapping to tests/scripts/test_verifier_input_repair_provenance.js (#4238 only):
+// that file covers provenance publication, idempotent repeat, malformed markers,
+// workflow wiring, and archive-reader safety. It does not cover these #4231/#4235
+// cases: wrong artifact digest, unavailable archive, optional-only changes,
+// model-alias changes, unchanged necessary material, reuse of the original event,
+// predecessor_event_id propagation, or resulting-event deduplication. Those live
+// here. Neither file treats a published marker or fixture bytes as live Actions
+// authentication after the retained archives 404. The optional #4238 zip behind
+// VERIFIER_REAL_4238_ARCHIVE is a separate downloaded-archive check.
 const FIXTURES = path.join(__dirname, '../fixtures/verification_input_repair');
 const sha = c => c.repeat(64);
 const bot = (n, id, body) => ({ author: 'github-actions[bot]', url: `https://github.com/stranske/workflows/pull/${n}#issuecomment-${id}`, body });
@@ -189,6 +199,19 @@ test(`#${n} negative matrix: wrong subject, event, run, attempt, assessment and 
   for (const [name, over] of Object.entries(cases)) {
     assert.throws(() => buildVerificationEvent(s.withHistory([...s.stateComments, s.markerComment(s.marker(over))])), NOT_AUTH, name);
   }
+});
+
+test(`#${n} negative matrix: unavailable archive is rejected`, () => {
+  const s = scenario(n);
+  const absent = s.changed();
+  absent.evidence.diagnostics.archive_inventory = [];
+  assert.throws(() => buildVerificationEvent(absent), NOT_AUTH);
+  const expired = s.changed();
+  expired.evidence.diagnostics.archive_inventory = [{
+    run_id: Number(s.state.run_id), artifact_id: s.inventory()[0].artifact_id, status: 'unavailable',
+    reason: 'expired', member_inventory_complete: false, members: null,
+  }];
+  assert.throws(() => buildVerificationEvent(expired), NOT_AUTH);
 });
 
 test(`#${n} negative matrix: wrong artifact digest is rejected`, () => {

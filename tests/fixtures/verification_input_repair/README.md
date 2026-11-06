@@ -75,3 +75,18 @@ exit 0
 contains full command output. Separate broader regression validation passed
 122 tests, with one optional downloaded #4238 archive test skipped. Production
 source remains byte-exact; this change adds fixtures, coverage and receipts.
+
+## Expiry decision, checked 2026-11-06
+
+The retained result artifacts `12579928048` (#4231) and `12584318436` (#4235)
+still return HTTP 404. `2026-11-06-expiry-receipts.json` is the read-only
+collector run plus `classify_retained_artifact_report`. The operational outcome
+is `explicit expired-artifact rejection` for comments `6390994169` and
+`6392557346`. Published markers and local `comparison.json` bytes are recorded
+and are not authenticated archive readback or native admission. Both original
+events stay nonaccepting. Provider calls are zero. The 2026-11-06 owner
+decision is no fresh provider evaluation. `2026-11-06-digest-gate.json` records
+the temporary removal of `|| found[0].raw_sha256!==claim.raw_sha256`, the two
+named wrong-artifact-digest failures, and the byte-exact restore
+(`d2b0e789efba0e966f5c68789e0e5ec8533e615660a7afad26513df67ef1785b`) followed
+by 55 passing tests.
