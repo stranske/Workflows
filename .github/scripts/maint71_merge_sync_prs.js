@@ -2005,6 +2005,24 @@ async function runReviewReassessment({
       `https://github.com/${request.repository}/pull/${request.pr}#discussion_r`)) {
     throw new Error('Reassessment request lacks durable URL, ID or timestamp');
   }
+  // A reviewer that only re-reviews on request (Copilot) gets a best-effort review
+  // request beside the in-thread request. It is never required: when the reviewer is
+  // out of capacity the thread drains through the unanswered-reassessment window.
+  let reviewRequested = null;
+  const reviewRequestLogins = Array.isArray(profile.reassessment_review_request)
+    ? profile.reassessment_review_request.filter((login) => typeof login === 'string' && login) : [];
+  if (!found && !dispositionOnly && !retryFailed && !nativeConversation && reviewRequestLogins.length) {
+    try {
+      await withRetry((client) => client.rest.pulls.requestReviewers({
+        owner, repo, pull_number: request.pr, reviewers: reviewRequestLogins,
+      }), { maxRetries: 0 });
+      reviewRequested = true;
+    } catch (error) {
+      rethrowPrimaryRateLimit(error);
+      console.log(`Best-effort review request to ${reviewRequestLogins.join(',')} failed: ${error.message}`);
+      reviewRequested = false;
+    }
+  }
   let task = null;
   let taskReused = false;
   let taskSuppressed = false;
@@ -2089,6 +2107,7 @@ async function runReviewReassessment({
     request_url: comment.html_url,
     requested_at: comment.created_at,
     writer: comment.user?.login || '',
+    ...(reviewRequested === null ? {} : { review_requested: reviewRequested }),
     ...(task ? {
       task_status: taskReused ? `${taskKind}_task_reused` : `${taskKind}_task_requested`,
       task_id: task.id, task_url: task.html_url, task_requested_at: task.created_at,

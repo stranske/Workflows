@@ -3667,3 +3667,70 @@ test('Maint 68 verified no-op keeps the existing head source identity in the bod
   assert.doesNotMatch(body, /PLAN_SOURCE_COMMIT/);
   assert.match(workflow, /\n {10}Source commit: \$PLAN_SOURCE_COMMIT\n/);
 });
+
+test('Copilot reassessment posts the in-thread request and a best-effort review request', async () => {
+  // Owner decision 2026-11-06: Copilot only re-reviews on request and is often out of capacity.
+  // The review request is attempted once with the in-thread request; its failure is reported,
+  // never fatal, because the thread drains through the unanswered-reassessment window.
+  for (const reviewOutcome of ['ok', 'fails']) {
+    const request = {
+      schema: 'maint71-review-reassessment/v1', repository: 'stranske/Ready', pr: 593,
+      head_sha: 'c'.repeat(40), thread_id: 'PRRT_copilot', plan_id: 'plan-1',
+      generation: 'gen-1', source_commit: 'd'.repeat(40), originating_reviewer: 'copilot',
+    };
+    const record = {
+      schema: 'sync-pr-delivery-record/v1', repository: request.repository,
+      durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+      plan_id: request.plan_id, generation: request.generation, desired_tree_hash: 'tree-1',
+      source_commit: request.source_commit, head_observed_sha: request.head_sha,
+      head_observed_at: '2026-09-24T22:00:00Z', lease_expires_at: '2099-01-01T00:00:00Z',
+    };
+    const pr = { state: 'open', draft: false, auto_merge: null, user: { login: 'stranske-automation-bot' },
+      head: { ref: 'deps/sync-dev-versions-test', sha: request.head_sha },
+      body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->` };
+    const thread = { id: request.thread_id, isResolved: false, isOutdated: false,
+      comments: { pageInfo: { hasNextPage: false }, nodes: [
+        { fullDatabaseId: '4294967298', author: { login: 'copilot-pull-request-reviewer[bot]' }, body: 'Shifted overrides' },
+      ] } };
+    const comments = [];
+    const reviewRequests = [];
+    const github = {
+      paginate: async () => [],
+      rest: {
+        pulls: {
+          get: async () => ({ data: pr }),
+          requestReviewers: async (params) => {
+            reviewRequests.push(params.reviewers);
+            if (reviewOutcome === 'fails') throw Object.assign(new Error('Reviews may only be requested from collaborators'), { status: 422 });
+            return { data: {} };
+          },
+          createReplyForReviewComment: async ({ body }) => {
+            const comment = { id: comments.length + 1, body, created_at: '2026-09-24T22:00:00Z',
+              html_url: `https://github.com/stranske/Ready/pull/593#discussion_r${comments.length + 1}`,
+              user: { login: 'stranske' } };
+            comments.push(comment);
+            return { data: comment };
+          },
+        },
+        users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+        issues: { listComments: async () => [], createComment: async () => { throw new Error('no task transport for copilot'); } },
+      },
+      graphql: async () => ({ repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{
+        ...thread, comments: { ...thread.comments, nodes: [...thread.comments.nodes, ...comments.map((comment) => ({
+          fullDatabaseId: String(comment.id), body: comment.body, author: comment.user,
+          createdAt: comment.created_at, url: comment.html_url }))] } }] } } } }),
+    };
+    const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main',
+      payload: { action: 'maint71-review-reassessment' }, actor: 'stranske' },
+      withRetry: (fn) => fn(github), rawRequest: JSON.stringify(request), registeredRepos: [request.repository],
+      policyPath: path.join(__dirname, '..', '..', '..', 'config', 'consumer_sync_review_policy.json') };
+    const first = await runReviewReassessment(args);
+    assert.equal(first.status, 'review_blocked_reassessment_requested', reviewOutcome);
+    assert.equal(first.review_requested, reviewOutcome === 'ok');
+    assert.deepEqual(reviewRequests, [['copilot-pull-request-reviewer[bot]']]);
+    assert.match(comments[0].body, /@copilot please reassess this specific finding/);
+    const second = await runReviewReassessment(args);
+    assert.equal(second.status, 'review_blocked_reassessment_reused');
+    assert.equal(reviewRequests.length, 1, 'a reused request never re-requests review');
+  }
+});

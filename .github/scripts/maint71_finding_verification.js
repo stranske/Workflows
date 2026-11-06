@@ -74,8 +74,26 @@ function validateIndependentFindingVerification({
     item.url === result.originating_completion_url && profile.logins.includes(item.author?.login)
     && item.commit?.oid === proof.head_sha
     && profile.disposition_completion_prefixes?.some((prefix) => item.body?.startsWith(prefix)));
-  if (!completion) return deny('originating_completion_missing');
-  const times = [request?.createdAt, completion?.createdAt, result.completed_at,
+  let completedAt = completion?.createdAt;
+  if (!completion) {
+    // Reviewer-unanswered path (owner decision 2026-11-06): a reviewer that is out of
+    // capacity (Copilot most months) would otherwise latch its findings forever. When
+    // the targeted request has stood for the policy window and the originating reviewer
+    // has said nothing IN THIS THREAD since, the independent assessment stands on its
+    // own; every other binding, validation and freshness check below still applies.
+    const windowMinutes = Number(fallback.unanswered_reassessment_minutes);
+    if (!(windowMinutes > 0) || result.reviewer_unanswered !== true
+      || result.originating_completion_url !== null) return deny('originating_completion_missing');
+    const requestedAt = Date.parse(request?.createdAt || '');
+    if (!Number.isFinite(requestedAt)) return deny('originating_completion_missing');
+    if (thread.comments.nodes.some((item) => profile.logins.includes(item?.author?.login)
+      && Date.parse(item?.createdAt || '') > requestedAt)) return deny('originating_reviewer_answered');
+    if (Date.parse(result.completed_at || '') - requestedAt < windowMinutes * 60 * 1000) {
+      return deny('reassessment_window_open');
+    }
+    completedAt = request.createdAt;
+  }
+  const times = [request?.createdAt, completedAt, result.completed_at,
     comment?.created_at].map((value) => Date.parse(value || ''));
   if (times.some((value) => !Number.isFinite(value)) || times[1] < times[0]
     || times[2] < times[1] || times[3] < times[2] || times[3] > now
