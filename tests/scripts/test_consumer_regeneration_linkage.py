@@ -37,6 +37,12 @@ def test_full_regeneration_links_qualification_promotion_and_reconciliation() ->
     assert record["reconciliation"]["merged"] == 16
     assert record["reconciliation"]["failed"] == 0
     assert record["reconciliation"]["pending"] == 0
+    assert record["reconciliation"]["delivery_refresh"]["eligible"] is False
+    assert record["reconciliation"]["delivery_refresh"]["errors"] == (
+        "delivery report has no stable base refresh request",
+    )
+    assert "306fc9e79d891030395211fdae8ae1387f2b37c3" in record["qualification"]["notice"]
+    assert "canaries green 3/3" in record["qualification"]["notice"]
     assert (
         record["reconciliation"]["continuation_run_ids"][-1] == record["reconciliation"]["run_id"]
     )
@@ -108,6 +114,16 @@ def test_source_delta_scope_is_not_a_full_regeneration() -> None:
     record = _record()
     record["plan_scope"] = "source-delta"
     assert "plan_scope" in regeneration_gaps(record)
+
+
+def test_false_canary_hold_is_not_terminal_reconciliation() -> None:
+    record = _record()
+    record["reconciliation"]["delivery_refresh"]["errors"] = (
+        "delivery report has no stable base refresh request",
+        "missing_canary_evidence:stranske/Travel-Plan-Permission",
+        "missing_or_mixed_canary_plan",
+    )
+    assert "reconciliation.delivery_refresh" in regeneration_gaps(record)
 
 
 def test_dependency_merge_cannot_be_the_plan_source() -> None:

@@ -43,7 +43,10 @@ FULL_CONSUMER_REGENERATION_3900: dict[str, object] = {
         "canaries_green": 3,
         "canaries_expected": 3,
         "notice": (
-            "promote: blocked none; canaries green 3/3; drainable 3; " "Canary promotion dispatched"
+            "promote: blocked none; canaries green 3/3; drainable 3; "
+            "Canary promotion sha256:1a22f551228736c4279b2b5434baffbb0e6d5b697dc43727bf5d7f808209dc0b: "
+            "dispatched; source 306fc9e79d891030395211fdae8ae1387f2b37c3; "
+            "completion awaits a successful Maint 68 run"
         ),
         "heads": (
             {
@@ -81,7 +84,16 @@ FULL_CONSUMER_REGENERATION_3900: dict[str, object] = {
         "failed": 0,
         "pending": 0,
         "continuation_run_ids": (41128913051, 41130701739, 41132061438),
-        "branch_cleanup_notice": "13 sync branch(es) could not be deleted",
+        "branch_cleanup_notice": (
+            "13 sync branch(es) could not be deleted; the next scheduled run retries the cleanup."
+        ),
+        # Run 41132061438 authorized and merged this plan. The live notice also
+        # listed missing canary evidence because empty refresh evidence was
+        # validated. That is not a canary hold: there was no refresh request.
+        "delivery_refresh": {
+            "eligible": False,
+            "errors": ("delivery report has no stable base refresh request",),
+        },
         "heads": (
             {
                 "repository": "stranske/Travel-Plan-Permission",
@@ -355,6 +367,30 @@ def regeneration_gaps(record: Mapping[str, object]) -> tuple[str, ...]:
             or not _text(reconciliation.get("branch_cleanup_notice"))
         ):
             gaps.append("reconciliation.verdict")
+        refresh = reconciliation.get("delivery_refresh")
+        refresh_errors = refresh.get("errors") if isinstance(refresh, Mapping) else None
+        rendered = (
+            tuple(refresh_errors)
+            if isinstance(refresh_errors, Sequence)
+            and not isinstance(refresh_errors, (str, bytes))
+            and all(_text(item) for item in refresh_errors)
+            else None
+        )
+        no_refresh = rendered == ("delivery report has no stable base refresh request",)
+        completed_refresh = rendered == ()
+        false_canary_hold = rendered is not None and any(
+            "missing_canary_evidence" in item or "missing_or_mixed_canary_plan" in item
+            for item in rendered
+        )
+        eligible = refresh.get("eligible") if isinstance(refresh, Mapping) else None
+        if (
+            rendered is None
+            or false_canary_hold
+            or (eligible is False and not no_refresh)
+            or (eligible is True and not completed_refresh)
+            or eligible not in (True, False)
+        ):
+            gaps.append("reconciliation.delivery_refresh")
         gaps.extend(_head_gaps(heads, "reconciliation"))
         if not isinstance(continuation, Sequence) or isinstance(continuation, (str, bytes)):
             gaps.append("reconciliation.continuation")

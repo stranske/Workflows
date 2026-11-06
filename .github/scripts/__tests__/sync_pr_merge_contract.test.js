@@ -652,6 +652,33 @@ test('delivery base drift replays only signed exact-plan promotion evidence', ()
   }).eligible, false);
 });
 
+test('completed campaign merge does not invent missing canary evidence', () => {
+  // Run 41132061438 merged plan sha256:1a22f551 after campaign authorization.
+  // Its notice listed missing_canary_evidence only because empty evidence was validated.
+  const expectedCanaries = [
+    'stranske/Travel-Plan-Permission',
+    'stranske/trip-planner',
+    'stranske/Portable-Alpha-Extension-Model',
+  ];
+  const decision = deliveryRefreshDecision({
+    report: {
+      inputs: { sync_hash: 'campaign' },
+      results: [{
+        owner: 'stranske',
+        repo: 'Travel-Plan-Permission',
+        branch: 'sync/workflows-candidate',
+        status: 'merged',
+        plan_id: 'sha256:1a22f551228736c4279b2b5434baffbb0e6d5b697dc43727bf5d7f808209dc0b',
+      }],
+    },
+    expectedCanaries,
+  });
+  assert.equal(decision.eligible, false);
+  assert.deepEqual(decision.errors, ['delivery report has no stable base refresh request']);
+  assert.equal(decision.errors.some((error) => error.includes('missing_canary_evidence')), false);
+  assert.equal(decision.errors.some((error) => error.includes('missing_or_mixed_canary_plan')), false);
+});
+
 test('dev-tool base drift hands off only leased producer refreshes', () => {
   const request = {
     owner: 'stranske', repo: 'Ready', branch: 'deps/sync-dev-versions-1234',

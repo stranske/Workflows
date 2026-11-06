@@ -1729,7 +1729,12 @@ function deliveryRefreshDecision({ report = {}, expectedCanaries = [] } = {}) {
     && String(result.status || '') === 'stable_base_refresh_required'
     && String(result.next_command || '') === 'rerun-maint-68-phase-promote-with-same-evidence'
   ));
-  if (requests.length === 0) errors.push('delivery report has no stable base refresh request');
+  // An empty request list is not missing canary evidence. Validating null
+  // evidence here made completed campaign merges look like canary holds.
+  if (requests.length === 0) {
+    errors.push('delivery report has no stable base refresh request');
+    return { eligible: false, errors, plan_id: '', evidence: null, repositories: [] };
+  }
   const firstEvidence = requests[0]?.promotion_evidence || null;
   const validation = validateCanaryEvidence(
     Array.isArray(firstEvidence) ? firstEvidence : firstEvidence?.results,
