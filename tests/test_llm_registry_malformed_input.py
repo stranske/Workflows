@@ -260,6 +260,32 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
     assert llm_registry.resolve_slots() == [valid_slot]
 
 
+@pytest.mark.parametrize(
+    "provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
+)
+@pytest.mark.parametrize("override", [False, True], ids=["no-override", "model-override"])
+def test_an_allowlist_with_only_a_missing_provider_remains_empty(
+    registry_at, slots_at, monkeypatch, provider_fields, override
+):
+    """An invalid identity cannot enable defaults or acquire an identity via overrides."""
+    _clear_slot_env(monkeypatch)
+    registry_at(
+        {
+            "models": [{"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"}],
+            "selections": [],
+        }
+    )
+    slots_at({"slots": [{"name": "invalid", "model": "claude-x", **provider_fields}]})
+    if override:
+        monkeypatch.setenv("LANGCHAIN_MODEL", "claude-x")
+        monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "anthropic")
+        monkeypatch.setenv("LANGCHAIN_SLOT1_MODEL", "claude-x")
+
+    assert llm_registry.load_slot_config() == []
+    assert llm_registry.resolve_slots() == []
+    assert llm_registry.configured_model_for_provider("anthropic", fallback="claude-x") == ""
+
+
 def test_a_skipped_retired_slot_does_not_shift_numbered_overrides(slots_at, monkeypatch):
     _clear_slot_env(monkeypatch)
     slots_at(

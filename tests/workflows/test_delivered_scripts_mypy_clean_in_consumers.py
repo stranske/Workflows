@@ -50,12 +50,25 @@ def test_delivered_ledger_scripts_type_check_in_a_consumer_layout(tmp_path):
 
 @pytest.mark.skipif(not mypy_available, reason="mypy is not installed")
 @pytest.mark.parametrize("source_tree", [".", "templates/consumer-repo"])
-def test_delivered_llm_registry_type_checks_in_a_consumer_layout(tmp_path, source_tree):
+@pytest.mark.parametrize("restore_bug", [False, True], ids=["fixed", "pre-fix"])
+def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
+    tmp_path, source_tree, restore_bug
+):
     """Consumer settings must catch optional providers passed to SlotDefinition (#4485)."""
     package = tmp_path / "tools"
     package.mkdir()
     (package / "__init__.py").write_text("")
-    shutil.copy(ROOT / source_tree / "tools/llm_registry.py", package / "llm_registry.py")
+    delivered = package / "llm_registry.py"
+    shutil.copy(ROOT / source_tree / "tools/llm_registry.py", delivered)
+    if restore_bug:
+        # Break only the isolated consumer copy: prove mypy really checks this call,
+        # rather than passing because an ignore_errors setting hid the defect.
+        source = delivered.read_text(encoding="utf-8")
+        guard = "if provider is not None and (profile, provider) in retired:"
+        assert source.count(guard) == 1
+        delivered.write_text(
+            source.replace(guard, "if (profile, provider) in retired:"), encoding="utf-8"
+        )
 
     result = subprocess.run(
         [
@@ -71,4 +84,11 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(tmp_path, sourc
         text=True,
     )
 
-    assert result.returncode == 0, result.stdout + result.stderr
+    if restore_bug:
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert (
+            'Argument "provider" to "SlotDefinition" has incompatible type "str | None"; '
+            'expected "str"  [arg-type]'
+        ) in result.stdout
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
