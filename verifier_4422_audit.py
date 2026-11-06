@@ -766,6 +766,431 @@ def resolve_production_surfaces(
     }
 
 
+LIVE_PR_EVIDENCE_PATH = REPO_ROOT / "verifier_4422_live_pr.json"
+_FILES_REVIEWED_LINE_RE = re.compile(r"- ([A-Za-z0-9_.-]+): files reviewed (\d+) of (\d+)")
+_UPLOAD_RE = re.compile(
+    r"Artifact (\S+) has been successfully uploaded! "
+    r"Final size is (\d+) bytes\. Artifact ID is (\d+)"
+)
+_PATH_LINE_RE = re.compile(r"[\w./-]+\.\w+")
+_COMMENT_URL_RE = re.compile(r"https://github\.com/stranske/Workflows/pull/\d+#issuecomment-\d+")
+PROMPT_BUDGET_TRUNCATION_MARKER = "[truncated: verifier prompt budget exceeded]"
+
+
+def _log_job(line: str) -> str:
+    return line.split("\t", 1)[0] if "\t" in line else ""
+
+
+def _log_message(line: str) -> str:
+    message = line.rsplit("\t", 1)[-1] if "\t" in line else line
+    return re.sub(r"^\d{4}-\d{2}-\d{2}T\S+Z\s*", "", message).strip()
+
+
+def _unique_values(values: Sequence[str]) -> str | None:
+    found = list(dict.fromkeys(values))
+    if len(found) == 1:
+        return found[0]
+    return None
+
+
+def files_reviewed_in_text(text: str) -> list[dict[str, Any]]:
+    """Return provider file-review lines, ignoring the same line when it repeats."""
+    found: list[dict[str, Any]] = []
+    seen: set[tuple[str, int, int]] = set()
+    for line in text.splitlines():
+        match = _FILES_REVIEWED_LINE_RE.fullmatch(_log_message(line))
+        if match is None:
+            continue
+        provider, reviewed, total = match.groups()
+        key = (provider, int(reviewed), int(total))
+        if key in seen:
+            continue
+        seen.add(key)
+        found.append({"provider": provider, "reviewed": key[1], "total": key[2]})
+    return found
+
+
+def parse_verifier_run_log(log_text: str) -> dict[str, Any]:
+    """Read the retained run-log lines for SHAs, the posted report, and artifact uploads."""
+    lines = log_text.splitlines()
+    messages = [_log_message(line) for line in lines]
+    jobs = [_log_job(line) for line in lines]
+    directory: dict[str, str] = {}
+    checkouts: list[dict[str, str]] = []
+    for index, message in enumerate(messages):
+        job = jobs[index]
+        if message.startswith("Working directory is "):
+            directory[job] = message.removeprefix("Working directory is ").strip("'\"")
+        if "git log -1 --format=%H" not in message or index + 1 >= len(lines):
+            continue
+        sha = messages[index + 1]
+        if jobs[index + 1] == job and SHA_RE.fullmatch(sha):
+            checkouts.append({"job": job, "directory": directory.get(job, UNKNOWN), "sha": sha})
+    lib_shas = [
+        item["sha"]
+        for item in checkouts
+        if item["directory"].rstrip("/").endswith(".workflows-lib")
+    ]
+    paths: list[str] = []
+    file_count: int | None = None
+    capturing = False
+    awaiting_count = False
+    for message in messages:
+        if message.startswith("name: comparison-results-"):
+            capturing = True
+            awaiting_count = True
+            paths = []
+            continue
+        if capturing:
+            if message.startswith("if-no-files-found:"):
+                capturing = False
+                continue
+            if message.startswith("path:"):
+                paths.append(message.split(":", 1)[1].strip())
+                continue
+            if _PATH_LINE_RE.fullmatch(message):
+                paths.append(message)
+            continue
+        if awaiting_count:
+            count_match = re.search(r"there will be (\d+) files uploaded", message)
+            if count_match:
+                file_count = int(count_match.group(1))
+                awaiting_count = False
+    issue_groups = [
+        [int(part) for part in group.split(",") if part.strip()]
+        for group in re.findall(r"ISSUE_NUMBERS:\s*\[([0-9,\s]*)\]", log_text)
+    ]
+    closure_values = [
+        line.strip() for line in re.findall(r"Closed source issues:\s*(.+)", log_text)
+    ]
+    posted_urls: list[str] = []
+    for message in messages:
+        if _COMMENT_URL_RE.fullmatch(message) and message not in posted_urls:
+            posted_urls.append(message)
+    return {
+        "checkouts": checkouts,
+        "workflows_lib_sha": _unique_values(lib_shas),
+        "reusable_workflow_shas": list(
+            dict.fromkeys(
+                re.findall(
+                    r"reusable-agents-verifier\.yml@\S+ \(([0-9a-f]{40})\)",
+                    log_text,
+                )
+            )
+        ),
+        "target_shas": list(dict.fromkeys(re.findall(r"TARGET_SHA:\s*([0-9a-f]{40})", log_text))),
+        "evaluated_shas": list(
+            dict.fromkeys(re.findall(r"EVALUATED_SHA:\s*([0-9a-f]{40})", log_text))
+        ),
+        "pull_numbers": list(
+            dict.fromkeys(re.findall(r"(?:Manual dispatch: PR #|PR_NUMBER:\s*)(\d+)", log_text))
+        ),
+        "issue_number_groups": issue_groups,
+        "files_reviewed": files_reviewed_in_text(log_text),
+        "posted_comment_urls": posted_urls,
+        "uploads": [
+            {"name": name, "size_bytes": int(size), "artifact_id": artifact_id}
+            for name, size, artifact_id in _UPLOAD_RE.findall(log_text)
+        ],
+        "comparison_named_paths": paths,
+        "comparison_uploaded_file_count": file_count,
+        "closure_log": _unique_values(closure_values),
+    }
+
+
+def issue_state_as_of(timeline: Sequence[Mapping[str, Any]], as_of: str) -> dict[str, Any]:
+    """Apply closed and reopened events that occurred at or before ``as_of``."""
+    cutoff = _parse_timestamp(as_of)
+    state = "open"
+    last: dict[str, str] | None = None
+    for event in timeline:
+        if event.get("event") not in {"closed", "reopened"}:
+            continue
+        if _parse_timestamp(str(event["created_at"])) > cutoff:
+            continue
+        state = "closed" if event["event"] == "closed" else "open"
+        last = {
+            "event": str(event["event"]),
+            "created_at": str(event["created_at"]),
+            "actor": str(event.get("actor") or UNKNOWN),
+        }
+    return {"as_of": as_of, "state": state, "last_event": last}
+
+
+def build_live_pr_collection_commands(evidence: Mapping[str, Any]) -> list[str]:
+    """List the collection commands. An excluded repository is rejected first."""
+    repo = str(evidence["repository"])
+    if is_owner_excluded(repo):
+        raise OwnerExcludedRepository(repo)
+    run_id = str(evidence["selected_run_id"])
+    pull_number = evidence["pull_request"]["number"]
+    issue_number = evidence["source_issue"]["number"]
+    comment_id = evidence["report_comment"]["id"]
+    return [
+        (
+            "gh run list --repo "
+            f"{repo} --workflow Agents Verifier "
+            "--created 2026-10-18T02:30:00Z..2026-10-18T02:40:00Z --limit 20 "
+            "--json databaseId,displayTitle,conclusion,headSha,event,url,createdAt,status"
+        ),
+        f"gh run view {run_id} --repo {repo} --log",
+        f"gh run download {run_id} --repo {repo}",
+        f"{_GH_API} repos/{repo}/pulls/{pull_number}",
+        f"{_GH_API} repos/{repo}/pulls/{pull_number}/files",
+        f"{_GH_API} repos/{repo}/issues/comments/{comment_id}",
+        f"{_GH_API} repos/{repo}/issues/{issue_number}",
+        f"{_GH_API} repos/{repo}/issues/{issue_number}/timeline",
+        f"{_GH_API} repos/{repo}/actions/runs/{run_id}/artifacts",
+    ]
+
+
+def _load_live_pr_evidence() -> dict[str, Any]:
+    return json.loads(LIVE_PR_EVIDENCE_PATH.read_text(encoding="utf-8"))
+
+
+def assemble_live_pr_record(evidence: Mapping[str, Any]) -> dict[str, Any]:
+    """Turn saved GitHub records into the live pull-request packet.
+
+    Missing artifacts and missing report sections stay explicit. A close that
+    happens after the run does not become the run's source-issue disposition.
+    """
+    repo = str(evidence["repository"])
+    if is_owner_excluded(repo):
+        raise OwnerExcludedRepository(repo)
+    gaps: list[str] = []
+    log_facts = parse_verifier_run_log(str(evidence["log_excerpt"]))
+    commands = build_live_pr_collection_commands(evidence)
+    selected_id = str(evidence["selected_run_id"])
+    matches = [run for run in evidence["run_list"] if str(run.get("databaseId")) == selected_id]
+    selected_run = matches[0] if len(matches) == 1 else None
+    if selected_run is None:
+        gaps.append(
+            f"The saved run list does not contain exactly one record for run {selected_id}."
+        )
+    pull = evidence["pull_request"]
+    comment = evidence["report_comment"]
+    report_reviewed = files_reviewed_in_text(str(comment["body"]))
+    merge_values = [str(pull["merge_commit_sha"])]
+    if len(log_facts["target_shas"]) == 1:
+        merge_values.append(log_facts["target_shas"][0])
+    else:
+        gaps.append("The run log does not contain one TARGET_SHA.")
+    if len(log_facts["evaluated_shas"]) == 1:
+        merge_values.append(log_facts["evaluated_shas"][0])
+    else:
+        gaps.append("The run log does not contain one EVALUATED_SHA.")
+    merge_sha = merge_values[0] if len(set(merge_values)) == 1 else None
+    if merge_sha is None:
+        gaps.append("The pull request merge SHA and the run-log SHAs do not agree.")
+    pin = _unique_values(log_facts["reusable_workflow_shas"])
+    lib_sha = log_facts["workflows_lib_sha"]
+    if pin is None:
+        gaps.append("The run log does not contain one reusable-agents-verifier.yml pin.")
+    if lib_sha is None:
+        gaps.append("The run log does not contain one git log SHA for the .workflows-lib checkout.")
+    revision = pin if pin is not None and pin == lib_sha else None
+    if revision is None:
+        gaps.append("The reusable workflow pin and the .workflows-lib checkout SHA do not agree.")
+    changed_files = [dict(item) for item in evidence["changed_files"]]
+    api_artifacts = [dict(item) for item in evidence["artifact_api"]]
+    api_names = {item["name"] for item in api_artifacts}
+    downloaded = list(evidence["downloaded_artifact_names"])
+    absent_uploads = [item for item in log_facts["uploads"] if item["name"] not in api_names]
+    if absent_uploads:
+        rendered = ", ".join(
+            (f"{item['name']} (artifact {item['artifact_id']}, " f"{item['size_bytes']} bytes)")
+            for item in absent_uploads
+        )
+        gaps.append(
+            "Uploaded artifacts absent from the current artifacts API and from "
+            f"gh run download: {rendered}."
+        )
+    comparison_absent = any(
+        item["name"].startswith("comparison-results-") for item in absent_uploads
+    )
+    named_paths = list(log_facts["comparison_named_paths"])
+    if comparison_absent and named_paths:
+        gaps.append(
+            "The comparison upload named these paths, and none of them were downloaded: "
+            + ", ".join(named_paths)
+            + "."
+        )
+    uploaded_count = log_facts["comparison_uploaded_file_count"]
+    if uploaded_count is None:
+        gaps.append("The comparison upload log does not state how many files were uploaded.")
+    elif uploaded_count != len(named_paths):
+        gaps.append(
+            f"The comparison upload log says {uploaded_count} files were uploaded and "
+            f"names {len(named_paths)} paths. Which named path was omitted is not stated."
+        )
+    if "files_not_reviewed" not in str(comment["body"]):
+        gaps.append(
+            "The posted report has no files_not_reviewed section. "
+            "That absence is not recorded as an empty unreviewed-file list."
+        )
+    report_url = str(comment["html_url"])
+    if report_url not in log_facts["posted_comment_urls"]:
+        gaps.append("The saved report URL is not the comment URL printed by the run log.")
+    if report_reviewed != log_facts["files_reviewed"]:
+        gaps.append("The posted report and the run log do not have the same files-reviewed lines.")
+    pull_number = str(pull["number"])
+    if log_facts["pull_numbers"] != [pull_number]:
+        gaps.append("The run log does not name only the saved pull request number.")
+    issue = evidence["source_issue"]
+    issue_groups = log_facts["issue_number_groups"]
+    expected_issue = [int(issue["number"])]
+    if not issue_groups or any(group != expected_issue for group in issue_groups):
+        gaps.append("The run log does not name only the saved source issue number.")
+    metrics = dict(evidence["metrics"])
+    if str(metrics.get("pr_number")) != pull_number:
+        gaps.append("The downloaded metrics artifact names a different pull request.")
+    for name in downloaded:
+        if name not in api_names:
+            gaps.append(f"Downloaded artifact {name} is absent from the artifacts API record.")
+    run_completed_at = str(evidence["run_completed_at"])
+    disposition = issue_state_as_of(evidence["source_issue_timeline"], run_completed_at)
+    collection_close = issue.get("closed_at")
+    uses_later_close = bool(
+        disposition["state"] == "closed"
+        and disposition["last_event"] is not None
+        and collection_close
+        and disposition["last_event"]["created_at"] == collection_close
+        and _parse_timestamp(str(collection_close)) > _parse_timestamp(run_completed_at)
+    )
+    created_at = selected_run.get("createdAt") if selected_run else None
+    merged_at = pull.get("merged_at")
+    post_merge: bool | None
+    if created_at and merged_at:
+        post_merge = _parse_timestamp(str(merged_at)) < _parse_timestamp(str(created_at))
+    else:
+        post_merge = None
+        gaps.append("The run time or the pull request merge time is missing.")
+    closure_log = log_facts["closure_log"]
+    if closure_log is None:
+        gaps.append("The run log does not contain one source-issue closure line.")
+    return {
+        "artifacts": {
+            "api": api_artifacts,
+            "downloaded_names": downloaded,
+            "uploads_recorded_in_log": log_facts["uploads"],
+        },
+        "changed_files": changed_files,
+        "changed_file_count": len(changed_files),
+        "collected_at": evidence["collected_at"],
+        "collection_commands": commands,
+        "deployed_verifier_revision": {
+            "closure_checkout_sha": _unique_values(
+                [
+                    item["sha"]
+                    for item in log_facts["checkouts"]
+                    if item["job"] == "Apply verified source issue closure rule"
+                ]
+            ),
+            "reusable_workflow_sha": pin,
+            "revision": revision,
+            "source": (
+                "run log pins reusable-agents-verifier.yml and the following "
+                ".workflows-lib git log -1 SHA agrees"
+                if revision
+                else UNKNOWN
+            ),
+            "workflows_lib_sha": lib_sha,
+        },
+        "evidence_gaps": gaps,
+        "immutable_merge_sha": {
+            "log_evaluated_sha": (
+                log_facts["evaluated_shas"][0] if len(log_facts["evaluated_shas"]) == 1 else None
+            ),
+            "log_target_sha": (
+                log_facts["target_shas"][0] if len(log_facts["target_shas"]) == 1 else None
+            ),
+            "pull_request_merge_commit_sha": pull["merge_commit_sha"],
+            "sha": merge_sha,
+            "values_agree": merge_sha is not None,
+        },
+        "multi_file": len(changed_files) > 1,
+        "network_used_for_replay": False,
+        "pull_request": {
+            "agent_pr_basis": (
+                "The issue #4036 comment calls this run's subject a multi-file agent PR. "
+                "agent_pr_definition remains unknown."
+            ),
+            "author_login": pull["author_login"],
+            "base_ref": pull["base_ref"],
+            "head_ref": pull["head_ref"],
+            "head_sha": pull["head_sha"],
+            "labels": list(pull["labels"]),
+            "merged_at": pull["merged_at"],
+            "number": pull["number"],
+            "state": pull["state"],
+            "title": pull["title"],
+            "url": pull["html_url"],
+        },
+        "report": {
+            "body": comment["body"],
+            "comment_id": comment["id"],
+            "created_at": comment["created_at"],
+            "files_reviewed": report_reviewed,
+            "files_reviewed_match_log": report_reviewed == log_facts["files_reviewed"],
+            "html_url": report_url,
+            "log_comment_urls": log_facts["posted_comment_urls"],
+            "prompt_budget_marker_present": (
+                PROMPT_BUDGET_TRUNCATION_MARKER in str(comment["body"])
+            ),
+            "truncated_substring_count": str(comment["body"]).count("truncated"),
+            "user_login": comment["user_login"],
+        },
+        "repository": repo,
+        "run": (
+            None
+            if selected_run is None
+            else {
+                "conclusion": selected_run.get("conclusion"),
+                "created_at": selected_run.get("createdAt"),
+                "event": selected_run.get("event"),
+                "head_sha": selected_run.get("headSha"),
+                "id": selected_run.get("databaseId"),
+                "post_merge": post_merge,
+                "status": selected_run.get("status"),
+                "updated_at": run_completed_at,
+                "url": selected_run.get("url"),
+                "workflow_name": selected_run.get("displayTitle"),
+            }
+        ),
+        "selected_run_id": selected_id,
+        "source_issue": {
+            "closed_at_collection": issue.get("closed_at"),
+            "closed_by_at_collection": issue.get("closed_by"),
+            "closure_job_log": closure_log,
+            "created_at": issue.get("created_at"),
+            "disposition_at_run_completion": disposition,
+            "later_close_used_as_run_disposition": uses_later_close,
+            "number": issue["number"],
+            "repository": repo,
+            "state_at_collection": issue.get("state"),
+            "state_reason_at_collection": issue.get("state_reason"),
+            "timeline": [dict(item) for item in evidence["source_issue_timeline"]],
+            "title": issue.get("title"),
+            "url": issue.get("html_url"),
+        },
+        "metrics": metrics,
+    }
+
+
+def live_pr_record(
+    repo: str = WORKFLOWS_REPO,
+    *,
+    loader: Callable[[], Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Replay the saved live pull-request packet. The repository check happens first."""
+    if is_owner_excluded(repo):
+        raise OwnerExcludedRepository(repo)
+    evidence = (loader or _load_live_pr_evidence)()
+    if str(evidence["repository"]) != repo:
+        raise ValueError(f"saved live evidence is for {evidence['repository']}, not {repo}")
+    return assemble_live_pr_record(evidence)
+
+
 def _print_json(payload: dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -784,7 +1209,12 @@ def main(argv: list[str] | None = None) -> int:
             "locations plus the implementation revision. It does not use the network. "
             "The saved evidence was collected with "
             f"`{_GH_API} repos/stranske/Workflows/actions/runs/{INITIAL_EVIDENCE_RUN_ID}` and "
-            f"`gh run view {INITIAL_EVIDENCE_RUN_ID} --repo stranske/Workflows --log`."
+            f"`gh run view {INITIAL_EVIDENCE_RUN_ID} --repo stranske/Workflows --log`. "
+            "live-pr-evidence replays the saved multi-file pull request packet and "
+            "does not use the network. Its collection commands are gh run list, "
+            f"gh run view {INITIAL_EVIDENCE_RUN_ID} --log, gh run download "
+            f"{INITIAL_EVIDENCE_RUN_ID}, and the pull request, report, issue, and "
+            "artifact API reads."
         )
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -807,12 +1237,24 @@ def main(argv: list[str] | None = None) -> int:
             f"{INITIAL_EVIDENCE_RUN_ID}. Local git only; replays saved run evidence."
         ),
     )
+    subparsers.add_parser(
+        "live-pr-evidence",
+        help=(
+            "Replay the saved multi-file pull request packet for run "
+            f"{INITIAL_EVIDENCE_RUN_ID}. No network access. "
+            "The output lists the gh run list, gh run view --log, gh run download, "
+            "and GitHub API commands that collected the packet."
+        ),
+    )
     args = parser.parse_args(argv)
     if args.command == "campaign-definition":
         _print_json(campaign_definition())
         return 0
     if args.command == "resolve-production-surfaces":
         _print_json(resolve_production_surfaces())
+        return 0
+    if args.command == "live-pr-evidence":
+        _print_json(live_pr_record())
         return 0
     result = run_initial_evidence()
     _print_json(result)

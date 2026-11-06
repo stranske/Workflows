@@ -524,6 +524,247 @@ The gate job checks out `7ccda2ad80ccac05348ad305fb2248b02b0c2c81`. That is the 
 }
 ```
 
+## Live multi-file pull request packet
+
+Collected on 2026-11-06T20:11:03Z from `stranske/Workflows` only. The owner-excluded repository was not queried.
+
+The run list window `2026-10-18T02:30:00Z..2026-10-18T02:40:00Z` contains run 39090617832. That is the post-merge Agents Verifier dispatch for pull request 4065. The pull request API records two changed files, merge SHA `7ccda2ad80ccac05348ad305fb2248b02b0c2c81`, and merge time 2026-10-18T02:27:01Z, before the run was created. Issue #4036 calls this subject a multi-file agent PR. `agent_pr_definition` remains unknown.
+
+The run log pins `reusable-agents-verifier.yml` at `021ec67ef580c83a88402a1574e27ea34db14dde`. The `.workflows-lib` checkout's `git log -1` prints that same SHA. Run URL: https://github.com/stranske/Workflows/actions/runs/39090617832
+
+`gh run download 39090617832 --repo stranske/Workflows` retrieved only `agents-verifier-metrics`. The comparison upload had already left the artifact API. The retained complete report is the pull request comment posted by that run: https://github.com/stranske/Workflows/pull/4065#issuecomment-6244798951. Both providers' lines say `files reviewed 2 of 2`. The comment has no `files_not_reviewed` section, so this packet does not invent an empty unreviewed-file list. The comment contains the substring `truncated` five times and does not contain `[truncated: verifier prompt budget exceeded]`.
+
+Source issue #4063 was reopened at 2026-10-18T02:27:19Z. At run completion, 2026-10-18T02:39:02Z, the timeline state is open. The closure job logged `Closed source issues: none`. The issue's later close at 2026-11-03T18:23:53Z is the collection-time state and is not the run disposition.
+
+Replay command, no network:
+
+```text
+python3 verifier_4422_audit.py live-pr-evidence
+```
+
+`python3` is the repository interpreter. `/opt/anaconda3/bin/python3` is not installed here.
+
+```json
+{
+  "artifacts": {
+    "api": [
+      {
+        "expired": false,
+        "expires_at": "2026-11-17T02:37:31Z",
+        "name": "agents-verifier-metrics",
+        "size_in_bytes": 578
+      }
+    ],
+    "downloaded_names": [
+      "agents-verifier-metrics"
+    ],
+    "uploads_recorded_in_log": [
+      {
+        "artifact_id": "12121843705",
+        "name": "verifier-closure-plans-39090617832",
+        "size_bytes": 2918
+      },
+      {
+        "artifact_id": "12122284286",
+        "name": "comparison-results-39090617832",
+        "size_bytes": 51501
+      },
+      {
+        "artifact_id": "12122512553",
+        "name": "verifier-terminal-disposition-39090617832",
+        "size_bytes": 1549
+      },
+      {
+        "artifact_id": "12122527482",
+        "name": "agents-verifier-metrics",
+        "size_bytes": 578
+      },
+      {
+        "artifact_id": "12122721349",
+        "name": "verifier-closure-results-39090617832",
+        "size_bytes": 3448
+      }
+    ]
+  },
+  "changed_file_count": 2,
+  "changed_files": [
+    {
+      "additions": 26,
+      "blob_sha": "8d27163ae36cd13c4b5f0ac256f26ef2559d8317",
+      "deletions": 4,
+      "path": "scripts/langchain/issue_optimizer.py",
+      "status": "modified"
+    },
+    {
+      "additions": 518,
+      "blob_sha": "d95747ecc19fd2910dbf3b375ba438c65d388641",
+      "deletions": 0,
+      "path": "tests/scripts/test_issue_optimizer.py",
+      "status": "modified"
+    }
+  ],
+  "collected_at": "2026-11-06T20:11:03Z",
+  "collection_commands": [
+    "gh run list --repo stranske/Workflows --workflow Agents Verifier --created 2026-10-18T02:30:00Z..2026-10-18T02:40:00Z --limit 20 --json databaseId,displayTitle,conclusion,headSha,event,url,createdAt,status",
+    "gh run view 39090617832 --repo stranske/Workflows --log",
+    "gh run download 39090617832 --repo stranske/Workflows",
+    "gh api repos/stranske/Workflows/pulls/4065",
+    "gh api repos/stranske/Workflows/pulls/4065/files",
+    "gh api repos/stranske/Workflows/issues/comments/6244798951",
+    "gh api repos/stranske/Workflows/issues/4063",
+    "gh api repos/stranske/Workflows/issues/4063/timeline",
+    "gh api repos/stranske/Workflows/actions/runs/39090617832/artifacts"
+  ],
+  "deployed_verifier_revision": {
+    "closure_checkout_sha": "021ec67ef580c83a88402a1574e27ea34db14dde",
+    "reusable_workflow_sha": "021ec67ef580c83a88402a1574e27ea34db14dde",
+    "revision": "021ec67ef580c83a88402a1574e27ea34db14dde",
+    "source": "run log pins reusable-agents-verifier.yml and the following .workflows-lib git log -1 SHA agrees",
+    "workflows_lib_sha": "021ec67ef580c83a88402a1574e27ea34db14dde"
+  },
+  "evidence_gaps": [
+    "Uploaded artifacts absent from the current artifacts API and from gh run download: verifier-closure-plans-39090617832 (artifact 12121843705, 2918 bytes), comparison-results-39090617832 (artifact 12122284286, 51501 bytes), verifier-terminal-disposition-39090617832 (artifact 12122512553, 1549 bytes), verifier-closure-results-39090617832 (artifact 12122721349, 3448 bytes).",
+    "The comparison upload named these paths, and none of them were downloaded: comparison.json, comparison-stderr.log, comparison-comment.md, verifier-context.md, verifier-diff-summary.md, verifier-pr-diff.patch, verifier-input-manifest.json, verifier-capacity-checks.jsonl.",
+    "The comparison upload log says 7 files were uploaded and names 8 paths. Which named path was omitted is not stated.",
+    "The posted report has no files_not_reviewed section. That absence is not recorded as an empty unreviewed-file list."
+  ],
+  "immutable_merge_sha": {
+    "log_evaluated_sha": "7ccda2ad80ccac05348ad305fb2248b02b0c2c81",
+    "log_target_sha": "7ccda2ad80ccac05348ad305fb2248b02b0c2c81",
+    "pull_request_merge_commit_sha": "7ccda2ad80ccac05348ad305fb2248b02b0c2c81",
+    "sha": "7ccda2ad80ccac05348ad305fb2248b02b0c2c81",
+    "values_agree": true
+  },
+  "metrics": {
+    "acceptance_criteria_count": 52,
+    "chain_depth": 0,
+    "checks_run": 9,
+    "codex_cli_version": "codex-cli 0.153.2",
+    "codex_model": "gpt-6-astra",
+    "codex_model_selection_reason": "default",
+    "issue_numbers": [],
+    "issues_created": 0,
+    "langsmith_trace_id": "lc_run--01a14cde-b198-7963-8367-db7899011573-0",
+    "langsmith_trace_url": "https://smith.langchain.com/r/lc_run--01a14cde-b198-7963-8367-db7899011573-0",
+    "langsmith_traces": [
+      {
+        "operation": "comparison",
+        "provider": "provider-0",
+        "trace_id": "lc_run--01a14cde-b198-7963-8367-db7899011573-0",
+        "trace_url": "https://smith.langchain.com/r/lc_run--01a14cde-b198-7963-8367-db7899011573-0"
+      },
+      {
+        "operation": "comparison",
+        "provider": "provider-1",
+        "trace_id": "lc_run--01a14cde-d39c-73f0-9edb-01d5d67d9406-0",
+        "trace_url": "https://smith.langchain.com/r/lc_run--01a14cde-d39c-73f0-9edb-01d5d67d9406-0"
+      }
+    ],
+    "metric_type": "evaluation",
+    "pr_number": 4065,
+    "recorded_at": "2026-10-18T02:37:30.317251+00:00",
+    "skip_reason": "",
+    "verdict": "UNVERIFIABLE_INPUT",
+    "verifier_mode": "compare"
+  },
+  "multi_file": true,
+  "network_used_for_replay": false,
+  "pull_request": {
+    "agent_pr_basis": "The issue #4036 comment calls this run's subject a multi-file agent PR. agent_pr_definition remains unknown.",
+    "author_login": "stranske",
+    "base_ref": "main",
+    "head_ref": "orchestrator/issue-4063",
+    "head_sha": "117e1aa9a53564c41ac7a297c82728d2150c364c",
+    "labels": [
+      "verify:compare"
+    ],
+    "merged_at": "2026-10-18T02:27:01Z",
+    "number": 4065,
+    "state": "closed",
+    "title": "test: expand issue optimizer fallback coverage",
+    "url": "https://github.com/stranske/Workflows/pull/4065"
+  },
+  "report": {
+    "body": "## Provider Comparison Report\n\n- openai: files reviewed 2 of 2\n- anthropic: files reviewed 2 of 2\n\n### Provider Summary\n| Provider | Model | Verdict | Confidence | Summary |\n| --- | --- | --- | --- | --- |\n| openai | gpt-5.6-terra | UNVERIFIABLE_INPUT | 90% | The PR is a focused, low-blast-radius change. `_cap_checkbox_lines` now suppresses indented descendants of dropped top-level tasks while retaining descendants of permitted parents. `_append_deferre... |\n| anthropic | claude-sonnet-5-5 | PASS | 72% | The PR adds roughly 500 lines of behavior-focused tests to `tests/scripts/test_issue_optimizer.py`. They cover the CLI loaders and `main()`, the OpenAI token-limit retry and fallback paths, malform... |\n\n<details>\n<summary>\ud83d\udccb Full Provider Details (click to expand)</summary>\n\n#### openai\n- **Model:** gpt-5.6-terra\n- **Verdict:** UNVERIFIABLE_INPUT\n- **Confidence:** 90%\n- **Scores:**\n  - Correctness: 9.0/10\n  - Completeness: 8.0/10\n  - Quality: 9.0/10\n  - Testing: 9.0/10\n  - Risks: 9.0/10\n- **Summary:** The PR is a focused, low-blast-radius change. `_cap_checkbox_lines` now suppresses indented descendants of dropped top-level tasks while retaining descendants of permitted parents. `_append_deferred_tasks` now merges distinct deferred tasks into an existing deferred section before the next section and is idempotent for repeated suggestions. The added tests directly cover both regressions and extensively exercise fallback, provider-retry, CLI, parsing, and helper paths. No material correctness, security, compatibility, or maintainability defect was identified in the reviewed code. A PASS cannot be issued because required coverage and break-and-revert evidence remains unverifiable due to incomplete/truncated acceptance-artifact retrieval.\n- **Concerns:**\n  - The changed code and both changed files were completely reviewed and appear to implement the two described fixes correctly. However, the acceptance evidence is truncated/unavailable for required deliverables: the authoritative whole-suite coverage artifact is incomplete, and the complete break-and-revert test transcript required for every new test cannot be verified from the supplied evidence. Per the verification rules, this prevents a PASS but is not evidence that those deliverables are absent.\n\n#### anthropic\n- **Model:** claude-sonnet-5-5\n- **Verdict:** PASS\n- **Confidence:** 72%\n- **Scores:**\n  - Correctness: 8.0/10\n  - Completeness: 8.0/10\n  - Quality: 8.0/10\n  - Testing: 8.0/10\n  - Risks: 8.0/10\n- **Summary:** The PR adds roughly 500 lines of behavior-focused tests to `tests/scripts/test_issue_optimizer.py`. They cover the CLI loaders and `main()`, the OpenAI token-limit retry and fallback paths, malformed-suggestion handling, prompt fallbacks, the parser and legacy-chain invocation, and section-capping helpers. It makes two small production fixes that the tests exposed: `_cap_checkbox_lines` no longer keeps nested children of a dropped parent, and `_append_deferred_tasks` now merges new distinct tasks into an existing Deferred Tasks section instead of silently discarding them. Both fixes are minimal, and the diff shows tests that exercise them, including idempotency and placement before the next section. The PR body reports 198 uncovered units removed from the recorded 301 baseline, above the ~180 target, and a break-and-revert run against old production. The required Gate was green on the PR head. Production changes are limited to real bugs found by the tests, and each is explained in the PR body. The remaining uncertainty is evidence retrieval, not the code.\n- **Concerns:**\n  - The break-and-revert evidence is only partly visible. The PR body is truncated, and the gate-coverage artifacts for the 3.13 and 3.14 runs could not be fully extracted. The coverage figures (103 uncovered units remaining against a recorded baseline of 301, a reduction of 198) and the '2 failures / 56 passed on old production, 58 passed restored' run come from the PR body's own statements, not from artifacts I could read.\n  - The `selftest-ci.yml` run on the merge commit shows as cancelled. This is outside the PR's scope and is not treated as a defect.\n  - The `_cap_checkbox_lines` fix drops indented lines after an elided parent and resets on the next unindented non-empty line. This is reasonable for the checklist structure but is a heuristic about indentation.\n\n</details>\n\n### Agreement\n- Correctness: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n- Completeness: scores within 1 point (avg 8.0/10, range 8.0-8.0)\n- Quality: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n- Testing: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n- Risks: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n\n### Disagreement\n| Dimension | openai | anthropic |\n| --- | --- | --- |\n| Verdict | UNVERIFIABLE_INPUT | PASS |\n\n### Unique Insights\n- openai: The changed code and both changed files were completely reviewed and appear to implement the two described fixes correctly. However, the acceptance evidence is truncated/unavailable for required deliverables: the authoritative whole-suite coverage artifact is incomplete, and the complete break-and-revert test transcript required for every new test cannot be verified from the supplied evidence. Per the verification rules, this prevents a PASS but is not evidence that those deliverables are absent.\n- anthropic: The break-and-revert evidence is only partly visible. The PR body is truncated, and the gate-coverage artifacts for the 3.13 and 3.14 runs could not be fully extracted. The coverage figures (103 uncovered units remaining against a recorded baseline of 301, a reduction of 198) and the '2 failures / 56 passed on old production, 58 passed restored' run come from the PR body's own statements, not from artifacts I could read.; The `selftest-ci.yml` run on the merge commit shows as cancelled. This is outside the PR's scope and is not treated as a defect.; The `_cap_checkbox_lines` fix drops indented lines after an elided parent and resets on the next unindented non-empty line. This is reasonable for the checklist structure but is a heuristic about indentation.\n\n### \ud83d\udd0d LangSmith Traces\n- [openai](https://smith.langchain.com/r/lc_run--01a14cde-b198-7963-8367-db7899011573-0)\n- [anthropic](https://smith.langchain.com/r/lc_run--01a14cde-d39c-73f0-9edb-01d5d67d9406-0)\n\n",
+    "comment_id": 6244798951,
+    "created_at": "2026-10-18T02:37:28Z",
+    "files_reviewed": [
+      {
+        "provider": "openai",
+        "reviewed": 2,
+        "total": 2
+      },
+      {
+        "provider": "anthropic",
+        "reviewed": 2,
+        "total": 2
+      }
+    ],
+    "files_reviewed_match_log": true,
+    "html_url": "https://github.com/stranske/Workflows/pull/4065#issuecomment-6244798951",
+    "log_comment_urls": [
+      "https://github.com/stranske/Workflows/pull/4065#issuecomment-6244798951"
+    ],
+    "prompt_budget_marker_present": false,
+    "truncated_substring_count": 5,
+    "user_login": "github-actions[bot]"
+  },
+  "repository": "stranske/Workflows",
+  "run": {
+    "conclusion": "success",
+    "created_at": "2026-10-18T02:35:09Z",
+    "event": "workflow_dispatch",
+    "head_sha": "021ec67ef580c83a88402a1574e27ea34db14dde",
+    "id": 39090617832,
+    "post_merge": true,
+    "status": "completed",
+    "updated_at": "2026-10-18T02:39:02Z",
+    "url": "https://github.com/stranske/Workflows/actions/runs/39090617832",
+    "workflow_name": "Agents Verifier"
+  },
+  "selected_run_id": "39090617832",
+  "source_issue": {
+    "closed_at_collection": "2026-11-03T18:23:53Z",
+    "closed_by_at_collection": "stranske",
+    "closure_job_log": "none",
+    "created_at": "2026-10-18T01:02:08Z",
+    "disposition_at_run_completion": {
+      "as_of": "2026-10-18T02:39:02Z",
+      "last_event": {
+        "actor": "stranske",
+        "created_at": "2026-10-18T02:27:19Z",
+        "event": "reopened"
+      },
+      "state": "open"
+    },
+    "later_close_used_as_run_disposition": false,
+    "number": 4063,
+    "repository": "stranske/Workflows",
+    "state_at_collection": "closed",
+    "state_reason_at_collection": "completed",
+    "timeline": [
+      {
+        "actor": "stranske",
+        "created_at": "2026-10-18T02:27:02Z",
+        "event": "closed"
+      },
+      {
+        "actor": "stranske",
+        "created_at": "2026-10-18T02:27:19Z",
+        "event": "reopened"
+      },
+      {
+        "actor": "stranske",
+        "created_at": "2026-11-03T18:23:53Z",
+        "event": "closed"
+      }
+    ],
+    "title": "Raise test coverage toward 90% (autopilot round 6, lane D, low blast radius only)",
+    "url": "https://github.com/stranske/Workflows/issues/4063"
+  }
+}
+```
+
 ## Follow-ups
 
-The deployed workflow revision and verifier implementation for run 39090617832 are recorded above. Later tasks still have to download the complete report, reconcile the changed-file inventory, and reconstruct the historical population.
+The live packet above keeps the expired comparison artifact, the unnamed omitted upload path, and the missing `files_not_reviewed` section as evidence gaps. Historical population reconstruction is unchanged by this packet.

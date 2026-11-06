@@ -326,3 +326,129 @@ def test_resolve_command_matches_the_library_and_audit_record() -> None:
     blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
     assert json.loads(blocks[2]) == payload
     assert "python3 verifier_4422_audit.py resolve-production-surfaces" in text
+
+
+def test_owner_excluded_repository_is_rejected_before_live_evidence_loads() -> None:
+    def loader() -> dict[str, object]:
+        raise AssertionError("saved evidence must not load")
+
+    with pytest.raises(audit.OwnerExcludedRepository):
+        audit.live_pr_record(EXCLUDED_REPO, loader=loader)
+    with pytest.raises(audit.OwnerExcludedRepository):
+        audit.build_live_pr_collection_commands({"repository": EXCLUDED_REPO})
+
+
+def test_workflows_lib_sha_stays_distinct_from_another_jobs_checkout() -> None:
+    lib_sha = "a" * 40
+    merge_sha = "b" * 40
+    log = "\n".join(
+        [
+            "verifier / Run post-merge verifier\tSTEP\t"
+            "2026-10-18T02:35:39.0000000Z "
+            "Working directory is '/work/.workflows-lib'",
+            "verifier / Run post-merge verifier\tSTEP\t"
+            "2026-10-18T02:35:42.0000000Z "
+            "[command]/usr/bin/git log -1 --format=%H",
+            f"verifier / Run post-merge verifier\tSTEP\t2026-10-18T02:35:42.0000001Z {lib_sha}",
+            "Verify named gates on immutable merge commit\tSTEP\t"
+            "2026-10-18T02:37:47.0000000Z "
+            "[command]/usr/bin/git log -1 --format=%H",
+            "Verify named gates on immutable merge commit\tSTEP\t"
+            f"2026-10-18T02:37:47.0000001Z {merge_sha}",
+            "verifier / Run post-merge verifier\tSTEP\t"
+            "2026-10-18T02:35:28.0000000Z "
+            "Uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml"
+            f"@refs/heads/main ({lib_sha})",
+        ]
+    )
+    parsed = audit.parse_verifier_run_log(log)
+    assert parsed["workflows_lib_sha"] == lib_sha
+    assert parsed["reusable_workflow_shas"] == [lib_sha]
+    assert merge_sha not in parsed["reusable_workflow_shas"]
+
+
+def test_live_packet_disagreement_remains_unresolved() -> None:
+    evidence = json.loads((REPO_ROOT / "verifier_4422_live_pr.json").read_text(encoding="utf-8"))
+    evidence["log_excerpt"] = evidence["log_excerpt"].replace(
+        "reusable-agents-verifier.yml@refs/heads/main "
+        "(021ec67ef580c83a88402a1574e27ea34db14dde)",
+        "reusable-agents-verifier.yml@refs/heads/main (" + ("c" * 40) + ")",
+    )
+    record = audit.assemble_live_pr_record(evidence)
+    assert record["deployed_verifier_revision"]["revision"] is None
+    assert any("do not agree" in gap for gap in record["evidence_gaps"])
+
+
+def test_live_pr_record_keeps_the_collected_packet_and_its_gaps() -> None:
+    record = audit.live_pr_record()
+    assert record["network_used_for_replay"] is False
+    assert record["repository"] == "stranske/Workflows"
+    assert record["multi_file"] is True
+    assert record["changed_file_count"] == 2
+    assert [item["path"] for item in record["changed_files"]] == [
+        "scripts/langchain/issue_optimizer.py",
+        "tests/scripts/test_issue_optimizer.py",
+    ]
+    assert record["immutable_merge_sha"]["sha"] == ("7ccda2ad80ccac05348ad305fb2248b02b0c2c81")
+    assert record["immutable_merge_sha"]["values_agree"] is True
+    revision = record["deployed_verifier_revision"]["revision"]
+    assert revision == "021ec67ef580c83a88402a1574e27ea34db14dde"
+    assert record["run"]["url"] == (
+        "https://github.com/stranske/Workflows/actions/runs/39090617832"
+    )
+    assert record["run"]["post_merge"] is True
+    assert record["report"]["files_reviewed"] == [
+        {"provider": "openai", "reviewed": 2, "total": 2},
+        {"provider": "anthropic", "reviewed": 2, "total": 2},
+    ]
+    assert record["report"]["files_reviewed_match_log"] is True
+    assert record["report"]["truncated_substring_count"] == 5
+    assert record["report"]["prompt_budget_marker_present"] is False
+    assert record["report"]["body"].startswith("## Provider Comparison Report")
+    source = record["source_issue"]
+    assert source["disposition_at_run_completion"]["state"] == "open"
+    assert source["disposition_at_run_completion"]["last_event"]["event"] == "reopened"
+    assert source["state_at_collection"] == "closed"
+    assert source["later_close_used_as_run_disposition"] is False
+    assert source["closure_job_log"] == "none"
+    gaps = "\n".join(record["evidence_gaps"])
+    assert "comparison.json" in gaps
+    assert "files_not_reviewed" in gaps
+    assert "Which named path was omitted is not stated." in gaps
+    commands = "\n".join(record["collection_commands"])
+    assert "gh run list --repo stranske/Workflows" in commands
+    assert "gh run view 39090617832 --repo stranske/Workflows --log" in commands
+    assert "gh run download 39090617832 --repo stranske/Workflows" in commands
+    assert EXCLUDED_REPO not in json.dumps(record)
+    opened = audit.issue_state_as_of(source["timeline"], "2026-10-18T02:39:02Z")
+    closed = audit.issue_state_as_of(source["timeline"], "2026-11-03T18:23:53Z")
+    assert opened["state"] == "open"
+    assert closed["state"] == "closed"
+
+
+def test_live_pr_command_matches_the_saved_replay_and_audit_record() -> None:
+    completed = subprocess.run(
+        ["python3", "verifier_4422_audit.py", "live-pr-evidence"],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload == audit.live_pr_record()
+    help_text = subprocess.run(
+        ["python3", "verifier_4422_audit.py", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert help_text.returncode == 0
+    assert "live-pr-evidence" in help_text.stdout
+    assert "gh run download" in help_text.stdout
+    assert "does not use the network" in help_text.stdout
+    text = (REPO_ROOT / "verifier-4422-audit.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"```json\n(.*?)\n```", text, re.S)
+    assert json.loads(blocks[3]) == payload
+    assert "python3 verifier_4422_audit.py live-pr-evidence" in text
