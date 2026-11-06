@@ -1271,3 +1271,72 @@ test('direct github.token failure updates one bot receipt without requiring GET 
     assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
   }
 });
+
+for (const writer of ['SERVICE_BOT_PAT', 'github.token']) {
+  for (const operation of ['list', 'create', 'update']) {
+    test(`${writer} receipt ${operation} failure preserves the merge HTTP warning and result`, async () => {
+      const { c, actions, comments } = mergeScanHarness();
+      c.actions = actions;
+      c.comments = comments;
+      const actor = installMergeFailurePublisher(c);
+      c.guardedMergeCredentialSource = () => writer;
+      if (writer === 'github.token') {
+        Object.assign(actor, { login: 'github-actions[bot]', type: 'Bot' });
+        c.github.rest.users.getAuthenticated = async () => {
+          // The merge diagnostic tolerates an unavailable identity; receipt
+          // publication must use the known bot writer without this endpoint.
+          actions.push(['identity-denied']);
+          throw Object.assign(new Error('Identity unavailable'), { status: 403 });
+        };
+      }
+      const previousBody = `${mergeFailureMarker}\nMerge failed: HTTP 409 Previous failure`;
+      if (operation === 'update') {
+        comments.push({ id: 100, user: { ...actor }, body: previousBody });
+      }
+      const publicationError = Object.assign(new Error(`${operation} unavailable`), { status: 503 });
+      if (operation === 'list') {
+        const paginate = c.paginateWithRetry;
+        c.paginateWithRetry = async (method, args) => {
+          if (method === c.github.rest.issues.listComments) {
+            actions.push(['list-failed']);
+            throw publicationError;
+          }
+          return paginate(method, args);
+        };
+      } else {
+        c.github.rest.issues[`${operation}Comment`] = async (args) => {
+          actions.push([`${operation}-failed`, args]);
+          throw publicationError;
+        };
+      }
+      const message = 'Resource not accessible by integration';
+      const note = `Merge failed: HTTP 403 ${message}`;
+      failMerge(c, { status: 403, message });
+
+      await assert.doesNotReject(c.runScan());
+
+      assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+        ['warning', note],
+        ['warning', `Unable to publish guarded merge failure receipt: HTTP 503 ${operation} unavailable`],
+      ]);
+      assert.equal(actions.filter(([kind]) => kind === `${operation}-failed`).length, 1);
+      assert.equal(actions.some(([kind]) => ['create', 'update', 'remove-label'].includes(kind)), false,
+        'publication failure must not create another receipt or perform merge cleanup');
+      assert.equal(comments.length, operation === 'update' ? 1 : 0);
+      if (operation === 'update') assert.equal(comments[0].body, previousBody);
+      if (operation !== 'list') {
+        const attemptedWrite = actions.find(([kind]) => kind === `${operation}-failed`)[1];
+        assert.equal(attemptedWrite.body, `${mergeFailureMarker}\n${note}`);
+        assert.equal(attemptedWrite[operation === 'create' ? 'issue_number' : 'comment_id'],
+          operation === 'create' ? 42 : 100);
+      }
+      if (writer === 'github.token') {
+        assert.equal(actions.filter(([kind]) => kind === 'identity-denied').length, 1,
+          'only the merge diagnostic may call GET /user for a workflow writer');
+      }
+      const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+      assert.deepEqual([...summaryRows[1]], ['#42', 'error', note]);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+    });
+  }
+}
