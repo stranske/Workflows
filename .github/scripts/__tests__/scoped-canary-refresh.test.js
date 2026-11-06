@@ -548,6 +548,62 @@ test('full-scope candidate refresh dispatches with the campaign source and plan 
     refresh_key: f.writes[0].inputs.refresh_key });
   assert.match(f.writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
 });
+test('full-scope stable refresh dispatches the campaign source instead of newer main', async t => {
+  const campaignSource = 'e'.repeat(40), mainSource = 'f'.repeat(40);
+  const planId = `sha256:${'9'.repeat(64)}`;
+  const sourceReads = [];
+  t.mock.method(payloads, 'readDeliveryPayload', async sha => {
+    sourceReads.push(sha);
+    return { digest: 'digest', files: { 'owner/a': {} } };
+  });
+  const writes = [];
+  const github = { rest: {
+    actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      createWorkflowDispatch: async args => { writes.push(args); return { status: 204 }; },
+    },
+    repos: {
+      getCommit: async ({ ref }) => ({ data: { sha: ref === campaignSource ? campaignSource : mainSource } }),
+      getContent: async ({ ref }) => {
+        sourceReads.push(ref);
+        return { data: { content: Buffer.from(JSON.stringify({
+          canaries: [{ repo: 'owner/a' }],
+        })).toString('base64') } };
+      },
+    },
+    pulls: { list: async () => ({ data: [] }) },
+  } };
+  const canary = { owner: 'owner', repo: 'a', pr: 4, plan_id: planId, plan_scope: 'full',
+    scope_base_sha: '', source_commit: campaignSource, head_sha: head,
+    check_status: 'checks_failed', mergeable_state: 'dirty', active_review_thread_count: 0 };
+  const { core } = recorder();
+  const result = await refreshStableCanaries({ withRetry: fn => fn(github), context, core,
+    expectedCanaries: candidates, enabled: true, cleanupBranches: false, canaries: [canary] });
+  assert.equal(result.refresh_dispatched, 1);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].inputs.delivery_scope, 'full');
+  assert.equal(writes[0].inputs.scope_head_sha, campaignSource);
+  assert.equal(writes[0].inputs.expected_plan_id, planId);
+  assert.match(writes[0].inputs.refresh_key, /^[a-f0-9]{64}$/);
+  assert.ok(sourceReads.includes(campaignSource));
+  assert.ok(!sourceReads.includes(mainSource));
+  assert.equal(result.errors.length, 0);
+});
+test('full-scope stable refresh refuses mixed campaign sources before dispatch', async () => {
+  const planId = `sha256:${'9'.repeat(64)}`;
+  const writes = [], failures = [];
+  const canary = sourceCommit => ({ owner: 'owner', repo: 'a', pr: 4, plan_id: planId, plan_scope: 'full',
+    scope_base_sha: '', source_commit: sourceCommit, head_sha: head, check_status: 'checks_failed',
+    mergeable_state: 'dirty', active_review_thread_count: 0 });
+  const { core } = recorder();
+  core.setFailed = reason => failures.push(reason);
+  const result = await refreshStableCanaries({ withRetry: () => assert.fail('mixed sources must not read'),
+    context, core, expectedCanaries: ['owner/a', 'owner/b'], enabled: true, cleanupBranches: false,
+    canaries: [canary(source), { ...canary('e'.repeat(40)), repo: 'b' }] });
+  assert.equal(writes.length, 0);
+  assert.equal(result.refresh_dispatched, 0);
+  assert.ok(failures.some(reason => reason.includes('canary_refresh_mixed_report_plans')));
+});
 for (const mixedSources of [false, true]) {
   test(`full-scope native candidates ${mixedSources ? 'refuse mixed sources with a named error' : 'share one campaign-bound refresh'}`, async t => {
     const fleet = ['owner/a', 'owner/b', 'owner/c'];

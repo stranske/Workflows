@@ -64,6 +64,28 @@ function canaryRecoveryKey(canary, state) {
     .update(`${canary.owner}/${canary.repo}:${state.delivery_digest || state.sha}:${canary.head_sha}`).digest('hex');
 }
 
+function isFullCampaignPlan(plan) {
+  return plan?.plan_scope === 'full'
+    && /^sha256:[a-f0-9]{64}$/.test(plan.plan_id || '')
+    && /^[a-f0-9]{40}$/.test(plan.source_commit || '')
+    && !plan.scope_base_sha;
+}
+
+// Full-scope recovery must keep the immutable handoff. A verified sha256 plan
+// and source are that handoff; anything else stays on the legacy main read.
+function campaignBoundRefreshPlan(canary) {
+  if (!canary) return null;
+  if (canary.refresh_plan?.plan_scope === 'source-delta') return canary.refresh_plan;
+  if (isFullCampaignPlan(canary.refresh_plan)) return canary.refresh_plan;
+  if (canary.refresh_plan) return canary.refresh_plan;
+  if (canary.plan_scope && canary.plan_scope !== 'full') return null;
+  if (canary.scope_base_sha) return null;
+  if (!isFullCampaignPlan({ plan_scope: 'full', plan_id: canary.plan_id,
+    scope_base_sha: '', source_commit: canary.source_commit })) return null;
+  return refreshPlanContext({ planId: canary.plan_id, planScope: 'full',
+    scopeBaseSha: '', sourceSha: canary.source_commit });
+}
+
 function refreshPlanContext({ planId = '', planScope = 'full', scopeBaseSha = '', sourceSha = '', plan } = {}) {
   if (planScope === 'auto') planScope = 'full';
   if (!['full', 'source-delta'].includes(planScope)) throw new Error('canary_refresh_scope_unknown');
@@ -542,6 +564,10 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
         delivery_scope: 'source-delta', scope_base_sha: state.refresh_plan.scope_base_sha,
         scope_head_sha: state.refresh_plan.source_commit, expected_plan_id: state.refresh_plan.plan_id,
       } : {}),
+      ...(isFullCampaignPlan(state.refresh_plan) ? {
+        scope_head_sha: state.refresh_plan.source_commit,
+        expected_plan_id: state.refresh_plan.plan_id,
+      } : {}),
       ...(state.drift_key ? { refresh_key: state.drift_key } : {}) },
   }));
   // Covers a second request in this run before REST exposes the queued run.
@@ -931,16 +957,25 @@ async function refreshStableCanaries({
       // refresh owns these stable heads; leave the request visible for retry.
       for (const [plan, rows] of plans) {
         const recovery = rows.find(row => row.mergeable_state === 'behind') || rows[0];
-        const request = recovery.refresh_plan;
+        const request = campaignBoundRefreshPlan(recovery);
         if (rows.some(row => row.plan_scope === 'source-delta' || row.refresh_plan?.plan_scope === 'source-delta')
           && (!request || request.plan_scope !== 'source-delta'
             || rows.some(row => !sameRefreshPlan(row.refresh_plan, request)))) {
           throw new Error('canary_refresh_scoped_native_binding_missing_or_mixed');
         }
+        if (request?.plan_scope === 'full'
+          && rows.some(row => !sameRefreshPlan(campaignBoundRefreshPlan(row), request))) {
+          throw new Error('canary_refresh_mixed_report_plans');
+        }
         const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
           scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan } : {};
-        const reusable = recovery.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
-          ? null : refreshState);
+        const fullAligned = (state) => request?.plan_scope === 'full'
+          && state?.sha === request.source_commit && sameRefreshPlan(state.refresh_plan, request);
+        const reusable = request?.plan_scope === 'full'
+          ? (fullAligned(recovery.refresh_state) ? recovery.refresh_state
+            : fullAligned(refreshState) ? refreshState : null)
+          : (recovery.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
+            ? null : refreshState));
         const baseState = reusable || await readCanaryRefreshState({
           withRetry, context, expectedCanaries, now, ...inputs });
         const recoveryKey = canaryRecoveryKey(recovery, baseState);
@@ -3522,7 +3557,8 @@ async function run({ github, context, core }) {
     const native = nativeRefreshInputs.get(canary);
     if (!native) throw new Error('canary_refresh_native_context_missing');
     const nativePlan = await verifiedCanaryRefreshPlan(native);
-    const request = nativePlan.plan_scope === 'source-delta' ? nativePlan : null;
+    const request = nativePlan.plan_scope === 'source-delta' || isFullCampaignPlan(nativePlan)
+      ? nativePlan : null;
     if (request) canary.refresh_plan = request;
     Object.assign(canary, { plan_scope: nativePlan.plan_scope, scope_base_sha: nativePlan.scope_base_sha });
     const key = request ? JSON.stringify([request.plan_id, request.plan_scope,

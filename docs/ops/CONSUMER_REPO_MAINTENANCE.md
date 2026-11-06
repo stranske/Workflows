@@ -3561,7 +3561,10 @@ Coordinated negative subjects use shared descriptor-aware URL tokens and a bound
 ### Stable canary refresh clock
 
 Full-scope report refreshes retain the verified campaign source commit and pass
-its expected plan ID to Maint 68. An immutable-identity block may request
+its expected plan ID to Maint 68. The in-loop stable refresh does the same
+when the canary carries that sha256 plan and source, including when current
+main has moved ahead; mixed campaign sources refuse before dispatch. An
+immutable-identity block may request
 `refresh-candidate-from-exact-plan` only with a complete full-scope campaign
 tuple and a freshly authenticated candidate for the same compiled plan. Mixed
 plan/source requests refuse before dispatch. The refresh step persists
