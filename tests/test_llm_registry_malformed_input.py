@@ -217,14 +217,20 @@ def _clear_slot_env(monkeypatch):
 @pytest.mark.parametrize(
     "history_provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
 )
+@pytest.mark.parametrize(
+    "override_position", [None, 1, 3], ids=["no-override", "invalid-slot", "valid-slot"]
+)
 def test_a_missing_provider_cannot_become_a_retired_slot(
-    registry_at, slots_at, monkeypatch, provider_fields, history_provider_fields
+    registry_at, slots_at, monkeypatch, provider_fields, history_provider_fields, override_position
 ):
-    """Reject missing providers while preserving valid retired slots and their positions."""
+    """Reject missing providers without shifting numbered overrides onto other slots."""
     _clear_slot_env(monkeypatch)
     registry_at(
         {
-            "models": [{"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"}],
+            "models": [
+                {"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"},
+                {"provider": "anthropic", "model_id": "claude-y", "lifecycle": "current"},
+            ],
             "selections": [],
             "selection_history": [
                 {
@@ -251,13 +257,20 @@ def test_a_missing_provider_cannot_become_a_retired_slot(
     )
     retired_slot = llm_registry.SlotDefinition(name="retired", provider="openai", model="old-model")
     valid_slot = llm_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-x")
+    if override_position is not None:
+        monkeypatch.setenv(f"LANGCHAIN_SLOT{override_position}_MODEL", "claude-y")
 
     assert llm_registry._load_positional_slots() == [
         (2, "verifier-balanced", retired_slot, True),
         (3, "verifier-balanced", valid_slot, False),
     ]
     assert llm_registry.load_slot_config() == [valid_slot]
-    assert llm_registry.resolve_slots() == [valid_slot]
+    expected_slot = (
+        llm_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-y")
+        if override_position == 3
+        else valid_slot
+    )
+    assert llm_registry.resolve_slots() == [expected_slot]
 
 
 @pytest.mark.parametrize(
