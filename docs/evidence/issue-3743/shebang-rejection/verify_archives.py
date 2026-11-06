@@ -13,6 +13,7 @@ import hashlib
 import json
 import runpy
 import tarfile
+from collections import Counter
 from pathlib import Path
 
 EVIDENCE = Path("docs/evidence/issue-3743/shebang-rejection")
@@ -46,7 +47,7 @@ def read_json(path: Path) -> dict:
 
 
 def verify_archive(root: Path, summary_rel: Path, kind: str) -> dict:
-    """Open one proof archive and check every manifest hash and length."""
+    """Require unique regular-file members and check every manifest hash and length."""
     summary_path = root / summary_rel
     summary = read_json(summary_path)
     meta = summary["archive"]
@@ -54,21 +55,33 @@ def verify_archive(root: Path, summary_rel: Path, kind: str) -> dict:
     payload = archive.read_bytes()
     mismatches: list[str] = []
     with tarfile.open(archive, "r:gz") as tar:
-        extracted = tar.extractfile("manifest.json")
+        members = tar.getmembers()
+        counts = Counter(member.name for member in members)
+        mismatches.extend(f"{name}:duplicate" for name, count in counts.items() if count != 1)
+        manifest_member = tar.getmember("manifest.json")
+        if not manifest_member.isfile():
+            raise ValueError(f"{archive} manifest.json is not a regular file")
+        extracted = tar.extractfile(manifest_member)
         if extracted is None:
             raise ValueError(f"{archive} has no manifest.json")
         manifest_bytes = extracted.read()
         manifest = json.loads(manifest_bytes)
-        names = {member.name for member in tar.getmembers() if member.isfile()}
-        for member in tar.getmembers():
-            if not member.isfile() or member.name == "manifest.json":
+        names = {member.name for member in members if member.isfile()}
+        for member in members:
+            if not member.isfile():
+                mismatches.append(f"{member.name}:not-regular-file")
+                continue
+            if member.name == "manifest.json":
                 continue
             body_file = tar.extractfile(member)
             if body_file is None:
                 mismatches.append(member.name)
                 continue
             body = body_file.read()
-            spec = manifest[member.name]
+            spec = manifest.get(member.name)
+            if spec is None:
+                mismatches.append(f"{member.name}:unmanifested")
+                continue
             if digest(body) != spec["sha256"] or len(body) != spec["bytes"]:
                 mismatches.append(member.name)
             if kind == "current" and body != (summary_path.parent / member.name).read_bytes():

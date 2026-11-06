@@ -1,7 +1,12 @@
 """Verify delivered shebang-rejection archives and current input bindings."""
 
+import io
+import json
 import runpy
+import tarfile
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs/evidence/issue-3743/shebang-rejection"
@@ -11,6 +16,76 @@ NOTE = EVIDENCE / "current-acceptance.md"
 
 def load_verifier():
     return runpy.run_path(str(VERIFIER))
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        None,
+        "duplicate-payload",
+        "duplicate-manifest",
+        "directory",
+        "symlink",
+        "hardlink",
+        "unlisted-file",
+        "missing-file",
+        "wrong-hash",
+        "wrong-length",
+    ],
+)
+def test_archive_verification_requires_unique_manifested_regular_members(tmp_path, defect):
+    module = load_verifier()
+    payload = b"retained proof bytes\n"
+    manifest = {"receipt.txt": {"sha256": module["digest"](payload), "bytes": len(payload)}}
+    if defect == "missing-file":
+        manifest["missing.txt"] = dict(manifest["receipt.txt"])
+    elif defect == "wrong-hash":
+        manifest["receipt.txt"]["sha256"] = "0" * 64
+    elif defect == "wrong-length":
+        manifest["receipt.txt"]["bytes"] += 1
+    manifest_bytes = json.dumps(manifest).encode()
+    archive = tmp_path / "proof.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+
+        def add_file(name, data):
+            member = tarfile.TarInfo(name)
+            member.size = len(data)
+            tar.addfile(member, io.BytesIO(data))
+
+        add_file("receipt.txt", payload)
+        add_file("manifest.json", manifest_bytes)
+        if defect == "duplicate-payload":
+            add_file("receipt.txt", payload)
+        elif defect == "duplicate-manifest":
+            add_file("manifest.json", manifest_bytes)
+        elif defect in {"directory", "symlink", "hardlink"}:
+            member = tarfile.TarInfo("extra")
+            member.type = {
+                "directory": tarfile.DIRTYPE,
+                "symlink": tarfile.SYMTYPE,
+                "hardlink": tarfile.LNKTYPE,
+            }[defect]
+            if defect != "directory":
+                member.linkname = "receipt.txt"
+            tar.addfile(member)
+        elif defect == "unlisted-file":
+            add_file("extra.txt", payload)
+    data = archive.read_bytes()
+    summary = {
+        "archive": {
+            "path": archive.name,
+            "sha256": module["digest"](data),
+            "bytes": len(data),
+            "manifest_sha256": module["digest"](manifest_bytes),
+            "verified_manifest_members": len(manifest),
+        }
+    }
+    (tmp_path / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    # Outer archive hashes are valid even for defects in the member inventory.
+    report = module["verify_archive"](tmp_path, Path("summary.json"), "historical")
+    assert report["sha256_matches_summary"] is True
+    assert report["bytes_match_summary"] is True
+    assert report["verified"] is (defect is None)
 
 
 def test_delivered_archives_and_current_bindings_match_the_note():
