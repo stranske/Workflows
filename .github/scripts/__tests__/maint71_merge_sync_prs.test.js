@@ -2631,6 +2631,87 @@ test('the guard reads listJobsForWorkflowRunAttempt and exempts one prepare fail
   assert.equal((await readCanaryRefreshState(quiet)).eligible, true, 'an expired failure no longer holds');
 });
 
+test('paged job evidence cannot hide a started Sync behind a failed Prepare', async (t) => {
+  for (const totalCount of [undefined, 200]) await t.test(`total_count=${totalCount}`, async () => {
+    const pages = [];
+    const failed = producerRun({ conclusion: 'failure', run_attempt: 2 });
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+      listJobsForWorkflowRunAttempt: async ({ page, per_page, run_id, attempt_number }) => {
+        pages.push(page);
+        assert.equal(per_page, 100);
+        assert.equal(run_id, failed.id);
+        assert.equal(attempt_number, 2);
+        const jobs = Array.from({ length: page <= 2 ? 100 : 0 }, (_, i) => ({
+          name: `Summary ${page}-${i}`, status: 'completed', conclusion: 'success',
+        }));
+        if (page === 1) jobs[0] = { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' };
+        if (page === 2) jobs[99] = { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'failure' };
+        return { data: { total_count: totalCount, jobs } };
+      },
+    } });
+    const state = await readCanaryRefreshState(api);
+    assert.deepEqual(pages, totalCount === undefined ? [1, 2, 3] : [1, 2]);
+    assert.equal(state.eligible, false);
+    assert.equal(state.state, 'failure');
+    assert.equal(canaryRefreshDiagnostics(state).inventory.consumer_failures, 1);
+    assert.equal(canaryRefreshDiagnostics(state).inventory.infrastructure_failures, 0);
+  });
+});
+
+test('incomplete job evidence retains debounce after a failed Prepare', async (t) => {
+  for (const shape of ['ten full pages', 'missing jobs', 'null jobs', 'object jobs', 'malformed later page']) {
+    await t.test(shape, async () => {
+      const pages = [];
+      const failed = producerRun({ conclusion: 'failure' });
+      const api = refreshHarness({ actions: {
+        listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+        listJobsForWorkflowRunAttempt: async ({ page }) => {
+          pages.push(page);
+          if (shape === 'missing jobs') return { data: {} };
+          if (shape === 'null jobs') return { data: { jobs: null } };
+          if (shape === 'object jobs' || (shape === 'malformed later page' && page === 2)) {
+            return { data: { jobs: {} } };
+          }
+          return { data: { jobs: [
+            { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+            ...Array.from({ length: 99 }, (_, i) => ({ name: `Summary ${page}-${i}`, conclusion: 'success' })),
+          ] } };
+        },
+      } });
+      const state = await readCanaryRefreshState(api);
+      assert.deepEqual(pages, shape === 'ten full pages' ? Array.from({ length: 10 }, (_, i) => i + 1)
+        : shape === 'malformed later page' ? [1, 2] : [1]);
+      assert.equal(state.eligible, false);
+      assert.equal(state.state, 'failure');
+      assert.equal(canaryRefreshDiagnostics(state).inventory.infrastructure_failures, 0);
+    });
+  }
+});
+
+test('cancelled Sync evidence distinguishes started consumers from an unstarted matrix', async (t) => {
+  for (const [name, evidence, started] of [
+    ['executed step', { steps: [{ conclusion: 'success' }] }, true],
+    ['runner name', { runner_name: 'runner-1' }, true],
+    ['runner id', { runner_id: 42 }, true],
+    ['neither', { steps: [{ conclusion: 'skipped' }], runner_name: '', runner_id: 0 }, false],
+  ]) await t.test(name, async () => {
+    const failed = producerRun({ conclusion: 'failure' });
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+      listJobsForWorkflowRunAttempt: async () => ({ data: { total_count: 2, jobs: [
+        { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+        { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'cancelled', ...evidence },
+      ] } }),
+    } });
+    const state = await readCanaryRefreshState(api);
+    assert.equal(state.eligible, !started);
+    assert.equal(state.state, started ? 'failure' : 'unseen');
+    assert.equal(canaryRefreshDiagnostics(state).inventory.consumer_failures, started ? 1 : 0);
+    assert.equal(canaryRefreshDiagnostics(state).inventory.infrastructure_failures, started ? 0 : 1);
+  });
+});
+
 // Runs 42239701776 and 42249799768: the rate-limited prepare and the next
 // refresh used different source SHAs and one delivery digest. The follow-up
 // guard must print refresh: allowed. A second prepare failure of that digest
