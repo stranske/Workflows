@@ -1280,8 +1280,12 @@ jobs:
                   if keep_tail:
                       truncated |= len(sanitized.decode('utf-8', errors='replace').encode()) > limit
                       sanitized = bounded_diagnostic(sanitized, limit)
-              text = sanitized.decode('utf-8', errors='replace')
-              raw = text.encode()
+              # Replacement of an incomplete sequence is 3 bytes. Clip again so
+              # that expansion cannot blow the cap and fail receipt validation.
+              raw = sanitized.decode('utf-8', errors='replace').encode()
+              if len(raw) > limit:
+                  truncated = True
+                  raw = bounded_diagnostic(raw, limit)
               try:
                   path.write_bytes(raw)
               except OSError as exc:
@@ -2241,6 +2245,30 @@ jobs:
           path: verifier-evidence/
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Require evaluation execution evidence
+        # Other retained files must not mask a missing evaluation receipt.
+        if: >-
+          always() &&
+          steps.context.outputs.should_run == 'true' &&
+          inputs.mode == 'evaluate' &&
+          steps.llm_evaluate.outcome != 'skipped'
+        run: |
+          set -euo pipefail
+          for evidence in \
+            evaluation-execution.json \
+            evaluation.json \
+            evaluation-stderr.log
+          do
+            if [ ! -e "$evidence" ]; then
+              echo "::error::Missing evaluation evidence file: $evidence"
+              exit 1
+            fi
+          done
+          if [ ! -s evaluation-execution.json ]; then
+            echo "::error::Evaluation execution receipt is empty"
+            exit 1
+          fi
 
       - name: Retain evaluation execution evidence
         if: always() && steps.context.outputs.should_run == 'true' && inputs.mode == 'evaluate'

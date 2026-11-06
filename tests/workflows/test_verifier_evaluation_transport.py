@@ -76,9 +76,15 @@ def _run(
     (tmp_path / "verifier-pr-diff.patch").write_text("+exact changed code\n")
     (tmp_path / "verifier-diff-summary.md").write_text("source.py | 1 +\n")
     output = tmp_path / "provider-stdout"
-    output.write_text(raw)
     err = tmp_path / "provider-stderr"
-    err.write_text(stderr)
+    if isinstance(raw, bytes):
+        output.write_bytes(raw)
+    else:
+        output.write_text(raw)
+    if isinstance(stderr, bytes):
+        err.write_bytes(stderr)
+    else:
+        err.write_text(stderr)
     bin_path = tmp_path / "bin"
     bin_path.mkdir()
     python = bin_path / "python"
@@ -465,6 +471,83 @@ def test_original_and_retained_redaction_metadata_stay_distinct(tmp_path, locati
     assert ref["redacted"] == ref["original_redacted"]
     assert secret not in result.stdout + result.stderr
     assert len((tmp_path / "evaluation-stderr.log").read_bytes()) <= 1024 * 1024
+
+
+def test_utf8_replacement_stays_inside_the_byte_cap(tmp_path):
+    """Replacement of invalid or split UTF-8 must not expand past the cap.
+
+    Expanding past the cap used to fail receipt validation and replace a typed
+    truncation with ``receipt_validation_failed``.
+    """
+    stdout_limit = 8 * 1024 * 1024
+    stderr_limit = 1024 * 1024
+    split_stdout = ("€" * ((stdout_limit // 3) + 4)).encode()
+    assert len(split_stdout) > stdout_limit
+    result, outputs, _ = _run(tmp_path, raw=split_stdout, stderr=b"\xff" * stderr_limit)
+    receipt = json.loads((tmp_path / "evaluation-execution.json").read_text())
+    assert result.returncode == 0
+    assert receipt["status"] == "output_truncated"
+    assert outputs["verdict"] == "UNVERIFIABLE_INPUT"
+    assert receipt["decision_available"] is False
+    retained = (tmp_path / "evaluation.json").read_bytes()
+    assert len(retained) <= stdout_limit
+    ref = receipt["outputs"]["evaluation.json"]
+    assert ref["truncated"] is True and ref["bytes"] == len(retained)
+    assert ref["sha256"] == hashlib.sha256(retained).hexdigest()
+    diagnostic = (tmp_path / "evaluation-stderr.log").read_bytes()
+    assert len(diagnostic) <= stderr_limit
+    assert "receipt_validation_failed" not in diagnostic.decode()
+
+
+def test_utf8_stderr_expansion_does_not_drop_a_valid_decision(tmp_path):
+    stderr_limit = 1024 * 1024
+    result, outputs, _ = _run(tmp_path, raw=_payload(), stderr=b"\xff" * stderr_limit)
+    receipt = json.loads((tmp_path / "evaluation-execution.json").read_text())
+    assert result.returncode == 0
+    assert receipt["status"] == "completed" and receipt["decision_available"] is True
+    assert outputs["verdict"] == "PASS"
+    retained = (tmp_path / "evaluation-stderr.log").read_bytes()
+    assert len(retained) <= stderr_limit
+    ref = receipt["outputs"]["evaluation-stderr.log"]
+    assert ref["bytes"] == len(retained)
+    assert ref["sha256"] == hashlib.sha256(retained).hexdigest()
+    assert "**Verdict:** PASS" in result.stdout
+
+
+def test_missing_receipt_is_not_masked_by_sibling_artifact_files(tmp_path):
+    steps = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)["jobs"]["verifier"]["steps"]
+    guard = next(s for s in steps if s.get("name") == "Require evaluation execution evidence")
+    upload = next(s for s in steps if s.get("name") == "Retain evaluation execution evidence")
+    evaluate = next(s for s in steps if s.get("id") == "llm_evaluate")
+    assert "always()" in guard["if"]
+    assert "inputs.mode == 'evaluate'" in guard["if"]
+    assert "steps.llm_evaluate.outcome != 'skipped'" in guard["if"]
+    assert guard.get("continue-on-error", "false") == "false"
+    assert evaluate.get("continue-on-error", "false") == "false"
+    assert steps.index(evaluate) < steps.index(guard) < steps.index(upload)
+    # These siblings satisfy the upload glob, so if-no-files-found cannot see
+    # a missing receipt. The explicit guard must still fail the step.
+    (tmp_path / "verifier-context.md").write_text("present\n")
+    (tmp_path / "verifier-input-manifest.json").write_text("{}\n")
+    (tmp_path / "verification-event-manifest.json").write_text("{}\n")
+    missing = subprocess.run(
+        ["bash", "-c", guard["run"]], cwd=tmp_path, capture_output=True, text=True
+    )
+    assert missing.returncode != 0
+    assert "evaluation-execution.json" in missing.stdout
+    (tmp_path / "evaluation-execution.json").write_text("")
+    (tmp_path / "evaluation.json").write_text("")
+    (tmp_path / "evaluation-stderr.log").write_text("")
+    empty = subprocess.run(
+        ["bash", "-c", guard["run"]], cwd=tmp_path, capture_output=True, text=True
+    )
+    assert empty.returncode != 0
+    assert "empty" in empty.stdout
+    (tmp_path / "evaluation-execution.json").write_text("{}\n")
+    present = subprocess.run(
+        ["bash", "-c", guard["run"]], cwd=tmp_path, capture_output=True, text=True
+    )
+    assert present.returncode == 0, present.stderr
 
 
 def test_multibyte_optional_diagnostic_cannot_discard_a_valid_decision(tmp_path):
