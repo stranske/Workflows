@@ -79,13 +79,39 @@ source remains byte-exact; this change adds fixtures, coverage and receipts.
 ## Expiry decision, checked 2026-11-06
 
 The retained result artifacts `12579928048` (#4231) and `12584318436` (#4235)
-still return HTTP 404. `2026-11-06-expiry-receipts.json` is the read-only
-collector run plus `classify_retained_artifact_report`. The operational outcome
-is `explicit expired-artifact rejection` for comments `6390994169` and
-`6392557346`. Published markers and local `comparison.json` bytes are recorded
-and are not authenticated archive readback or native admission. Both original
-events stay nonaccepting. Provider calls are zero. The 2026-11-06 owner
-decision is no fresh provider evaluation. `2026-11-06-digest-gate.json` records
+still return HTTP 404. `2026-11-06-expiry-receipts.json` is a **classifier
+receipt** from `classify_retained_artifact_report` over read-only observation
+rows aligned to the same collector evidence (required-comment proof, HTTP 404,
+and local `4231-original/comparison.json` / `4235-original/comparison.json`
+paths). The historical `fetchVerifierEvidence` JSON for that 2026-11-06 run was
+**not** retained as a separate file; context in the receipt states that
+explicitly.
+
+Exact executable classifier command (from repository root):
+
+```text
+/opt/anaconda3/bin/python3 tools/verifier_event_recovery.py \\
+  --classify-retained-artifact <payload.json> \\
+  --receipt tests/fixtures/verification_input_repair/2026-11-06-expiry-receipts.json
+```
+
+`<payload.json>` is JSON with `"observations": [ … ]` holding one object per
+known comment (`6390994169`, `6392557346`) including `pr`, `run_id`,
+`artifact_id`, `published_archive_sha256`, `artifact_http_status`, 404,
+`original_event_accepting` false, `provider_calls` 0, proof fields, `subject`, and
+`local_archive_path` pointing at the two fixture `comparison.json` files above.
+
+Classifier source revision: git HEAD `cbb08201ee12ddf767b853fc15feb0aa9caa0376`;
+`tools/verifier_event_recovery.py` SHA-256
+`856a443f321fa390b5de946cfe897b480529dbb524a10475b4bd60a6d263d344`
+(`shasum -a 256`).
+
+The operational outcome is `explicit expired-artifact rejection` for comments
+`6390994169` and `6392557346`. Published markers and local `comparison.json`
+bytes are recorded and are not authenticated Actions readback or native
+admission. Both original events stay nonaccepting. Observed provider calls are
+integer zero. The 2026-11-06 owner decision is no fresh provider evaluation.
+`2026-11-06-digest-gate.json` records
 the temporary removal of `|| found[0].raw_sha256!==claim.raw_sha256`, the two
 named wrong-artifact-digest failures, and the byte-exact restore
 (`d2b0e789efba0e966f5c68789e0e5ec8533e615660a7afad26513df67ef1785b`) followed

@@ -11,6 +11,7 @@ from tools.verifier_event_recovery import (
     AUTHENTICATED_RETAINED_READBACK,
     EXPLICIT_EXPIRED_ARTIFACT_REJECTION,
     IDENTITY_MISMATCH,
+    INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE,
     KNOWN_RETAINED_ARTIFACTS,
     MISSING_STATUS,
     classify_retained_artifact_outcome,
@@ -208,10 +209,12 @@ def test_cli_prints_the_pair_outcome(tmp_path: Path):
     import subprocess
     import sys
 
+    repo_root = Path(__file__).resolve().parents[2]
+    script = repo_root / "tools/verifier_event_recovery.py"
     completed = subprocess.run(
         [
             sys.executable,
-            "tools/verifier_event_recovery.py",
+            str(script),
             "--classify-retained-artifact",
             str(payload),
             "--receipt",
@@ -226,6 +229,21 @@ def test_cli_prints_the_pair_outcome(tmp_path: Path):
     saved = json.loads(receipt.read_text(encoding="utf-8"))
     assert saved["operational_outcome"] == EXPLICIT_EXPIRED_ARTIFACT_REJECTION
     assert [row["comment_id"] for row in saved["results"]] == [6390994169, 6392557346]
+
+
+def test_cli_rejects_classify_with_manifest():
+    import subprocess
+    import sys
+
+    repo_root = Path(__file__).resolve().parents[2]
+    script = repo_root / "tools/verifier_event_recovery.py"
+    completed = subprocess.run(
+        [sys.executable, str(script), "--classify-retained-artifact", "x.json", "--manifest", "y.json"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode != 0
 
 
 def test_collector_receipt_conversion():
@@ -261,6 +279,21 @@ def test_collector_receipt_conversion():
     assert observation["artifact_expired"] is True  # inferred from "expired" failure
     assert observation["original_event_accepting"] is False
     assert observation["provider_calls"] == 0
+
+    not_found_receipt = dict(receipt)
+    not_found_receipt.pop("artifact_http_status")
+    not_found_receipt["artifact_failures"] = [
+        {"kind": "metadata_lookup_failed", "detail": "artifact 12579928048 Not Found"},
+    ]
+    not_found = _observation_from_collector_receipt(not_found_receipt)
+    assert not_found["artifact_http_status"] == 404
+
+    missing_calls_receipt = dict(receipt)
+    missing_calls_receipt.pop("provider_calls")
+    missing_calls = _observation_from_collector_receipt(missing_calls_receipt)
+    assert missing_calls["provider_calls"] is None
+    incomplete = classify_retained_artifact_outcome(missing_calls)
+    assert incomplete["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
 
 
 def test_identity_mismatch_outcome():
@@ -306,8 +339,8 @@ def test_missing_duplicate_empty_pairs():
     """Test handling of missing, duplicate, and empty pair observations."""
     # Empty observations
     empty_report = classify_retained_artifact_report({"observations": []})
-    assert empty_report["operational_outcome"] == "mixed retained-artifact outcomes"
-    assert empty_report["provider_calls"] == 0
+    assert empty_report["operational_outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+    assert empty_report["provider_calls"] is None
 
     # Duplicate comment IDs
     duplicate_report = classify_retained_artifact_report(
@@ -316,6 +349,7 @@ def test_missing_duplicate_empty_pairs():
     comment_ids = {row["comment_id"] for row in duplicate_report["results"]}
     assert len(comment_ids) == 1
     assert 6390994169 in comment_ids
+    assert duplicate_report["operational_outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
 
     # Missing one of the pair
     single_report = classify_retained_artifact_report({"observations": [_known(6390994169)]})
@@ -323,6 +357,7 @@ def test_missing_duplicate_empty_pairs():
     assert comment_ids == {6390994169}
     known_ids = set(KNOWN_RETAINED_ARTIFACTS.keys())
     assert comment_ids != known_ids
+    assert single_report["operational_outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
 
 
 def test_mixed_outcomes():
@@ -409,7 +444,8 @@ def test_invalid_provider_calls_count():
             "provider_calls": -1,  # Invalid: negative
         }
     )
-    assert row["provider_calls"] is None  # Should be rejected as invalid
+    assert row["provider_calls"] is None
+    assert row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
 
     row = classify_retained_artifact_outcome(
         {
@@ -423,4 +459,55 @@ def test_invalid_provider_calls_count():
             "provider_calls": "invalid",  # Invalid: not a number
         }
     )
-    assert row["provider_calls"] is None  # Should be rejected as invalid
+    assert row["provider_calls"] is None
+    assert row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+
+
+def test_expired_without_http_status():
+    row = classify_retained_artifact_outcome(
+        {
+            "pr": 4231,
+            "comment_id": 6390994169,
+            "run_id": 40143755394,
+            "artifact_id": 12579928048,
+            "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+            "artifact_expired": True,
+            "original_event_accepting": False,
+            "provider_calls": 0,
+        }
+    )
+    assert row["outcome"] == EXPLICIT_EXPIRED_ARTIFACT_REJECTION
+    assert row["actions_archive"]["http_status"] is None
+
+
+def test_non_boolean_original_event_accepting_is_incomplete():
+    row = classify_retained_artifact_outcome(
+        _known(6390994169, **{"original_event_accepting": "false"})
+    )
+    assert row["original_event_accepting"] is None
+    assert row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+
+
+def test_pair_aggregate_incomplete_when_acceptance_unknown():
+    one = _known(6390994169)
+    two = _known(6392557346, original_event_accepting=None)
+    report = classify_retained_artifact_report({"observations": [one, two]})
+    assert report["operational_outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+    assert report["provider_calls"] is None
+
+
+def test_identity_mismatch_preserves_local_digest_without_authenticating_readback(tmp_path: Path):
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures/verification_input_repair/4231-original/comparison.json"
+    )
+    row = classify_retained_artifact_outcome(
+        _known(
+            6390994169,
+            pr=9999,
+            local_archive_path=str(fixture),
+        )
+    )
+    assert row["outcome"] == IDENTITY_MISMATCH
+    assert row["local_archive"]["available"] is True
+    assert row["authenticated_readback"] is False

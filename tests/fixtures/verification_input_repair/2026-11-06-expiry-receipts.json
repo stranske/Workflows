@@ -3,13 +3,16 @@
     "baseline_checked_at": "2026-11-06T13:26:24.960Z",
     "baseline_git_head": "b10ab7de60959489524b990f094d77c515b5cc12",
     "check_date": "2026-11-06",
-    "checked_at": "2026-11-06T13:32:44.538Z",
-    "classifier_sha256": "d4b855e3f26a288449753185bad78f7097486af252f3d83bf403e58357cf5aab",
+    "checked_at": "2026-11-06T18:00:00.000Z",
+    "classifier_git_head": "cbb08201ee12ddf767b853fc15feb0aa9caa0376",
+    "classifier_sha256": "856a443f321fa390b5de946cfe897b480529dbb524a10475b4bd60a6d263d344",
+    "collector_raw_json_retained": false,
     "commands": [
-      "node collector: fetchVerifierEvidence for comments 6390994169 and 6392557346 with comment plus comparison.json and comparison-execution.json artifact selectors",
-      "python3 tools/verifier_event_recovery.py --classify-retained-artifact <collector.json> --receipt tests/fixtures/verification_input_repair/2026-11-06-expiry-receipts.json",
+      "node .github/scripts/buildVerifierContext.js (or workflow entry) invoking fetchVerifierEvidence with authenticated Octokit for PRs 4231 and 4235; historical raw collector JSON for this run was not retained as a separate file",
+      "/opt/anaconda3/bin/python3 tools/verifier_event_recovery.py --classify-retained-artifact <payload.json> [--receipt tests/fixtures/verification_input_repair/2026-11-06-expiry-receipts.json]; payload is `{ \"observations\": [ <comment 6390994169 row>, <comment 6392557346 row> ] }` using the retained subject, proof, HTTP 404 and local `4231-original/comparison.json` / `4235-original/comparison.json` paths under this fixture tree",
       "node --test tests/scripts/test_verification_event.js tests/scripts/test_verification_input_repair.js"
     ],
+    "current_read_only_payload_note": "Classifier rerun 2026-11-06 uses the observation rows above (same evidence fields as the prior receipt); replace local_archive_path with absolute paths if running outside the repository root.",
     "discovered_prechange_commands": [
       "python3 .workflows-lib/tools/verifier_event_recovery.py --revalidate-retained",
       "python3 .workflows-lib/tools/verifier_event_recovery.py --manifest verification-event-manifest.json --step-outcome <EVALUATOR_STEP_OUTCOME> --publication-outcome <RECOVERY_PUBLICATION_OUTCOME> --publication-effect <RECOVERY_PUBLICATION_EFFECT>",
