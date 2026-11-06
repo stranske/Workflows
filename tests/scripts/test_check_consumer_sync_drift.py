@@ -1,5 +1,8 @@
 import base64
 import json
+import os
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,6 +14,77 @@ from scripts.sync_manifest_compiler import (
     SkipRepo,
     compile_manifest,
 )
+
+
+def test_registered_gate_cli_preserves_unknowns_without_read_access(tmp_path: Path) -> None:
+    """Exercise Health 68's real inputs and entry point, without mocked configuration."""
+    root = Path(__file__).resolve().parents[2]
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in check_consumer_sync_drift.TOKEN_ENV_ORDER
+    }
+    registered = subprocess.run(
+        [sys.executable, "scripts/list_registered_consumer_repos.py", "--separator=,"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=True,
+    ).stdout.strip()
+    repos = registered.split(",")
+    assert repos and all("/" in repo for repo in repos)
+    report_path = tmp_path / "report.json"
+    summary_path = tmp_path / "summary.md"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/check_consumer_sync_drift.py",
+            "--repos",
+            registered,
+            "--summary",
+            str(summary_path),
+            "--report-json",
+            str(report_path),
+        ],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    report_text = report_path.read_text(encoding="utf-8")
+    report = json.loads(report_text)
+    assert report["repos"] == repos
+    assert report["repo_count"] == len(repos)
+    assert report["errors"] == ["No GitHub token available for cross-repo reads"]
+    assert report["token_diagnostics"]["error"] == "no_token_candidates"
+    gate = next(
+        entry
+        for entry in compile_manifest(root / ".github/sync-manifest.yml", repo_root=root).section(
+            "workflows"
+        )
+        if entry.target == ".github/workflows/pr-00-gate.yml"
+    )
+    # Custom skip_repos Gates remain visible; only include_repos narrows FYI scope.
+    expected = [
+        f"gate triggers: {repo} unknown (Gate/tree unavailable)"
+        for repo in repos
+        if not gate.include_repos or repo in gate.include_repos
+    ]
+    assert expected
+    assert report["gate_triggers"] == expected
+    summary = summary_path.read_text(encoding="utf-8")
+    assert [line for line in result.stdout.splitlines() if line.startswith("gate triggers:")] == (
+        expected
+    )
+    for line in expected:
+        assert line in summary
+    assert "gate triggers: all match" not in result.stdout + result.stderr + report_text + summary
 
 
 @pytest.mark.parametrize("failed_probe", ["repo", "contents", "credentials"])
