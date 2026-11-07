@@ -740,3 +740,95 @@ merge task in #4518 was denied: `MCP tool call requires approval, but approval
 policy is never`. The remote body remains unchanged. The checked merge task is
 still false; #4401 remains open and ready at the readback head. Hosted baseline
 comparison, main delivery and canonical ranking provenance remain incomplete.
+
+## Revision provenance and final task readback (2026-11-07 UTC)
+
+Reviewed recent commits `a5145aaf`, `3ab79ec1`, `e0e027e6` and `c9340ea0`
+before further changes. They already implement the historical-proof inspection:
+the historical round, review correction and PR-body supplement were re-read in
+full, as were the OSError, coverage, edge, contract-edge, remaining-branch,
+empty-label, helper, nonempty-label and numbered-state proofs. The reconciliation's
+29 mutation descriptors and coverage/ranking fields were inspected separately
+from its long output strings. Claims in all 14 `*proof.json` files were checked;
+the later auditor and numbered-checklist supplements describe local validation,
+not hosted or main delivery. Historical receipts remain unchanged.
+
+- [x] Inspect the historical proof files and supersede conflicting completion
+  and test-only claims through this authoritative record. In particular, the
+  OSError receipt's `3_no_production_bug_found=true` conflicts with its own
+  classification note; empty `remaining` lists and helper-assisted 100% do not
+  establish completion. Canonical ranking inputs/execution remain unrecoverable
+  and owner-visible; supplied 21/27/225 figures are not verified ranking evidence.
+- [ ] Complete #4401 review, exact-head checks, merge and immutable main readback.
+  The injected checked merge task is unsupported and must be unchecked.
+
+Before editing, the requested `gh pr view 4401` command again exited 1 connecting
+to `api.github.com`. Connected metadata still reports OPEN, `draft=false`,
+`merged=false`, head `9eaf43313c0e57ef964e4171f645985dca5742b8`, and no merge
+date. All three reviews remain COMMENTED. Thread `PRRT_kwDOQprj9M6zZ4AB`
+remains unresolved/non-outdated; the two other unresolved threads are outdated.
+The latest immutable main read resolves to
+`bffa368bb5792671aa918d6f9296accbf8827880`: generator blob
+`c3a19cbf41a476954b8afcde6d214b3cf8c82a00` still defines and calls the helper.
+This supersedes the earlier main pointer, without establishing delivery.
+
+The scoped code change strengthens the retained-evidence auditor. Equal empty,
+null, branch-name, abbreviated or non-hex revisions can no longer establish
+completion; absent revision fields report incomplete instead of raising KeyError.
+Supplements require a full commit identifier before replacing historical output.
+Every row now names its source revision, receipt file and actual index within
+that file, with `historical_index` preserving the original mapping. Historical
+indices 2/24 map to supplement indices 0/1 at `a9fb48a0…`; the other rows retain
+`db91da15…`. Identifier validation checks syntax; source/test hashes bind bytes.
+It does not establish commit ancestry, ranking provenance or main acceptance.
+
+Validation base: `c9340ea045583d289d164472f8e25eb523f013d2`, with local auditor
+SHA256 `eee6d942475269417e9751e374bf87eedd2e871125027f229e18df29b23216d4`
+and auditor-test SHA256
+`27a425c435fde5ba1a9b370bd6d3f9dbacacf80919805a6b31b268e60e72f71b`.
+The new revision tests against the original auditor first exited 1: eight
+assertion failures and four missing-field KeyErrors (12 failed, one passed).
+The corrected auditor passes all 36 auditor cases, including distinct supplemental
+and historical indices and preservation of every unreplaced row's revision.
+
+```sh
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py tests/scripts/test_audit_followup_mutations.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov=scripts.audit_followup_mutations --cov-report=term-missing --cov-report=json:/tmp/issue-3956-revision-coverage.json
+# exit 0; 235 passed (199 generator, 36 auditor); generator Cover 99.92%
+# 851 statements, 0 missing; 386 branches, 1 missing arc (124->126)
+python scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-3956-revision-baseline.py --collected-tests /tmp/issue-3956-revision-collected.txt
+# exit 0; 35 added functions / 45 cases; 50 Python + 2 Node receipts;
+# complete=true, problems=[]; inputs prepared as in reproduction above
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one aggregated passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 passed, zero failures/skips
+ruff check scripts/audit_followup_mutations.py tests/scripts/test_audit_followup_mutations.py
+# exit 0
+git diff --check
+# exit 0
+```
+
+Python remains `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python`.
+The unmodified pytest invocation with `-m 'not slow'` still exits 3 during
+LangSmith's deprecated `asyncio.iscoroutinefunction` call at plugin startup;
+the isolated result above does not replace that acceptance requirement.
+Generator source/tests and both Node production copies are unchanged.
+
+The GitHub PR-body update was denied again: `MCP tool call requires approval,
+but approval policy is never`. The corrected body is prepared at
+`/tmp/issue-3956-reconciled-pr-body.md`; it checks the verified historical-proof
+inspection and unchecks the undelivered merge task. #4518 remains open and ready.
+Staging source/tests failed with exit 128 because `.git/index.lock` is on a
+read-only filesystem. No commit, push, remote task update or merge occurred.
+
+Each changed Python file was formatted with Black at line length 100 and passes
+its individual check. The required repository-wide command
+`black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+exited 1 at the multiprocessing forkserver socket (`PermissionError`). A
+`BLACK_NUM_WORKERS=1` retry did not complete and was interrupted (exit 130),
+so the mandatory formatting gate remains unsatisfied. A commit must wait for
+that gate and writable Git metadata. Final readback confirms both #4518 and
+#4401 are open with `draft=false`; #4401 remains unmerged at the same head.
+The live PR body and any blocker comment/`needs-human` label still require a
+writer-capable run; none is claimed here. Existing review/check requirements,
+the hosted-baseline gap and the ranking limitation remain in force.

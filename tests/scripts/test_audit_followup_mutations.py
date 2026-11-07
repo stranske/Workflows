@@ -195,17 +195,57 @@ def test_different_revisions_cannot_be_silently_combined(receipts):
     assert "different source revisions" in result["problems"][0]
 
 
-@pytest.mark.parametrize("valid_binding", [True, False])
+@pytest.mark.parametrize("revision", ["", "main", "a" * 8, "z" * 40, None])
+def test_equal_nonimmutable_revisions_cannot_prove_source_identity(receipts, revision):
+    python, node, _, run = receipts
+    python["revision"] = node["revision"] = revision
+    result = run()
+    assert result["complete"] is False
+    assert "Python receipt revision must be a full commit SHA" in result["problems"]
+    assert "Node receipt revision must be a full commit SHA" in result["problems"]
+
+
+def test_missing_revision_is_reported_as_incomplete(receipts):
+    python, node, _, run = receipts
+    del python["revision"], node["revision"]
+    result = run()
+    assert result["complete"] is False
+    assert "Python receipt revision must be a full commit SHA" in result["problems"]
+    assert "Node receipt revision must be a full commit SHA" in result["problems"]
+
+
+def test_each_audit_row_identifies_its_receipt_and_source_revision(receipts):
+    result = receipts[-1]()
+    assert result["complete"] is True
+    for row in result["receipts"]:
+        assert row["source_revision"] == "a" * 40
+        assert row["receipt_file"] == (
+            "retained-mutation-reconciliation.json"
+            if row["language"] == "python"
+            else "numbered-checklist-repair-proof.json"
+        )
+
+
+@pytest.mark.parametrize(
+    ("valid_binding", "revision", "complete"),
+    [
+        (True, "c" * 40, True),
+        (False, "c" * 40, False),
+        (True, "", False),
+        (True, "main", False),
+        (True, None, False),
+    ],
+)
 def test_supplement_must_bind_original_index_and_preserve_mutation(
-    receipts, tmp_path, valid_binding
+    receipts, tmp_path, valid_binding, revision, complete
 ):
     python, _, _, run = receipts
-    replacement = dict(python["proofs"][0], historical_index=0)
-    python["proofs"][0]["red_output"] += "\nFull output truncated (4 lines hidden)"
+    replacement = dict(python["proofs"][1], historical_index=1)
+    python["proofs"][1]["red_output"] += "\nFull output truncated (4 lines hidden)"
     run()
     directory = tmp_path / auditor.EVIDENCE
     supplement = {
-        "revision": "c" * 40,
+        "revision": revision,
         "historical_sha256": hashlib.sha256(
             (directory / "retained-mutation-reconciliation.json").read_bytes()
         ).hexdigest(),
@@ -217,5 +257,20 @@ def test_supplement_must_bind_original_index_and_preserve_mutation(
         supplement["historical_sha256"] = "b" * 64
     (directory / "retained-mutation-unabridged-reruns.json").write_text(json.dumps(supplement))
     result = run()
-    assert result["complete"] is valid_binding
-    assert result["rerun_revision"] == ("c" * 40 if valid_binding else None)
+    assert result["complete"] is complete
+    assert result["rerun_revision"] == (revision if complete else None)
+    row = result["receipts"][1]
+    assert row["source_revision"] == (revision if complete else "a" * 40)
+    assert row["receipt_file"] == (
+        "retained-mutation-unabridged-reruns.json"
+        if complete
+        else "retained-mutation-reconciliation.json"
+    )
+    assert row["receipt_index"] == (0 if complete else 1)
+    assert row["historical_index"] == 1
+    # Other rows must retain their original provenance when a supplement is used.
+    assert all(
+        row["source_revision"] == "a" * 40
+        for index, row in enumerate(result["receipts"])
+        if index != 1
+    )

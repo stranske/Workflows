@@ -28,6 +28,11 @@ def _functions(text: str) -> set[str]:
     return {node.name for node in ast.parse(text).body if isinstance(node, ast.FunctionDef)}
 
 
+def _is_commit_sha(value: object) -> bool:
+    """Require an immutable revision identifier, not a branch or abbreviation."""
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value) is not None
+
+
 def _matches_mutation(source: str, before: str, mutant: str, expected: str) -> bool:
     """Bind the replacement to its recorded location even when text repeats."""
     if not before or before == mutant:
@@ -62,11 +67,19 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
     mapped = {proof["test"] for proof in python["proofs"]}
     problems = []
     rows = []
+    for label, receipt in (("Python", python), ("Node", node)):
+        if not _is_commit_sha(receipt.get("revision")):
+            problems.append(f"{label} receipt revision must be a full commit SHA")
+    python_revisions = [python.get("revision")] * len(python["proofs"])
+    python_receipt_files = ["retained-mutation-reconciliation.json"] * len(python["proofs"])
+    python_receipt_indices = list(range(len(python["proofs"])))
     reruns = root / EVIDENCE / "retained-mutation-unabridged-reruns.json"
     rerun_revision = None
     if reruns.exists():
         supplement = json.loads(reruns.read_text(encoding="utf-8"))
-        if (
+        if not _is_commit_sha(supplement.get("revision")):
+            problems.append("Supplemental receipt revision must be a full commit SHA")
+        elif (
             supplement["historical_sha256"] != _sha(original_receipt)
             or supplement["source_sha256"] != _sha(source)
             or supplement["test_sha256"] != _sha(tests)
@@ -77,7 +90,7 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
         else:
             rerun_revision = supplement["revision"]
             seen = set()
-            for replacement in supplement["proofs"]:
+            for replacement_index, replacement in enumerate(supplement["proofs"]):
                 index = replacement["historical_index"]
                 if (
                     type(index) is not int
@@ -95,9 +108,12 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
                     problems.append(f"Supplemental receipt {index} changes the historical mutation")
                     continue
                 python["proofs"][index] = replacement
+                python_revisions[index] = supplement["revision"]
+                python_receipt_files[index] = reruns.name
+                python_receipt_indices[index] = replacement_index
     if python["source_sha256"] != _sha(source) or python["test_sha256"] != _sha(tests):
         problems.append("Python source/test hashes do not match the inspected checkout")
-    if python["revision"] != node["revision"]:
+    if python.get("revision") != node.get("revision"):
         problems.append("Python and Node receipts name different source revisions")
     uncollected = added - {case.split("::")[-1].split("[")[0] for case in expected}
     if not expected or uncollected:
@@ -156,7 +172,18 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
                     "language": language,
                     "test": proof["test"],
                     "mutation": proof.get("name", proof["test"]),
-                    "receipt_index": index,
+                    "receipt_index": (
+                        python_receipt_indices[index] if language == "python" else index
+                    ),
+                    "historical_index": index,
+                    "receipt_file": (
+                        python_receipt_files[index]
+                        if language == "python"
+                        else "numbered-checklist-repair-proof.json"
+                    ),
+                    "source_revision": (
+                        python_revisions[index] if language == "python" else node.get("revision")
+                    ),
                     "before": proof["before"],
                     "mutant": proof["mutant"],
                     "assertion": "\n".join(
@@ -175,7 +202,7 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
     if mapped_node != NODE_CASES or not mapped_node <= expected_node:
         problems.append("The two retained Node cases are missing or do not exist in the test file")
     return {
-        "revision": python["revision"],
+        "revision": python.get("revision"),
         "rerun_revision": rerun_revision,
         "source_sha256": python["source_sha256"],
         "test_sha256": python["test_sha256"],
