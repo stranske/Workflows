@@ -1,0 +1,46 @@
+{
+  "target": "scripts/aggregate_agent_metrics.py",
+  "gap_units_definition": "missing_statements + partial_branches (same as PR #3962 and issue #3958)",
+  "pre3962_parent": "19d9c3c61c5a49d461671e9af68ddbce10da95a5",
+  "merge_commit_3962": "dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+  "focused_module_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py --cov=scripts.aggregate_agent_metrics --cov-branch --cov-report=term-missing -q",
+  "focused_pre3962": {
+    "commit": "19d9c3c61",
+    "tests_in_file": 61,
+    "missing_statements": 50,
+    "partial_branches": 48,
+    "gap_units": 98,
+    "line_branch_cover_display": "91.71%",
+    "log": "docs/evidence/issue-3958/focused-pre3962.log"
+  },
+  "focused_post3962_current_main": {
+    "commit": "3e513d30e",
+    "tests_in_file": 68,
+    "missing_statements": 0,
+    "partial_branches": 3,
+    "gap_units": 3,
+    "line_branch_cover_display": "99.77%",
+    "log": "docs/evidence/issue-3958/focused-post3962.log"
+  },
+  "pr3962_reported_at_merge": {
+    "before_gap_units": 98,
+    "after_gap_units": 35,
+    "delta_gap_units": 63,
+    "source": "https://github.com/stranske/Workflows/pull/3962"
+  },
+  "gate_full_suite_command": "From .github/workflows/pr-00-gate.yml via reusable-10-ci-python.yml: pytest -m 'not quarantine and not slow' -n 4 --dist loadgroup --cov --cov-config=pyproject.toml --cov-report=json:coverage.json tests (plus default testpaths including .github/scripts/__tests__)",
+  "gate_full_suite_local": {
+    "post3962_command": "/opt/anaconda3/bin/python3 -m pytest tests -m 'not quarantine and not slow' -n 4 --dist loadgroup --cov --cov-config=pyproject.toml --cov-report=json:docs/evidence/issue-3958/coverage-post3962-gate.json -q --tb=no",
+    "post3962_pytest_exit": 1,
+    "post3962_note": "50226 passed, 1 failed (tests/test_integration_repo_template.py::test_integration_template_installs_and_tests); pipeline initially recorded exit 0 because of tail in shell pipeline — corrected here. Gate also collects .github/scripts/__tests__ via pyproject testpaths; this local run used tests/ only.",
+    "post3962_target_gap_units": 3,
+    "post3962_json": "docs/evidence/issue-3958/coverage-post3962-gate.json",
+    "pre3962_json": "docs/evidence/issue-3958/coverage-pre3962-gate.json",
+    "pre3962_command": "same as post3962 at commit 19d9c3c61 in worktree",
+    "pre3962_pytest_exit": 0,
+    "pre3962_summary": "105967 passed, 30 skipped, 3 xfailed in 1826.81s",
+    "pre3962_target_gap_units": 90,
+    "pre3962_target_missing_statements": 42,
+    "pre3962_target_partial_branches": 48
+  }
+}
