@@ -1,5 +1,41 @@
 # Issue #4508 source verification
 
+## Closer continuation, 2026-11-07
+
+Outcome: the existing branch passes the API wrapper guard without modifying
+the guard or adding exemptions. Acceptance command:
+`/opt/anaconda3/bin/python3 scripts/check_api_wrapper_guard.py --base-ref main`.
+Stop rule: two focused attempts or 15 minutes; first attempt passed.
+
+Replaced only the classifier docstring's direct API pipeline with local-file
+stdin redirection, addressing run 42339081444/job 128302526521. Terminal local
+results using the fallback interpreter (no repository virtual environment selected):
+
+```text
+/opt/anaconda3/bin/python3 scripts/check_api_wrapper_guard.py --base-ref main
+No API guard violations detected.
+
+/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_ci_history.py tests/workflows/test_ci_history.py -m 'not slow' -q
+39 passed in 6.86s
+```
+
+Both outdated review threads were re-read. The P1 source-fix concern is addressed
+by #4509's `failure_record` rename already present here and the retained isolated
+consumer-layout/deliberate-break regression tests. The P2 external-task concern
+is addressed by ledger tasks 09 and 13 remaining `deferred`.
+
+Full local-suite outcome: **UNKNOWN**. Earlier interrupted/timed-out local runs
+have no terminal suite result; CI and this focused local run do not establish it.
+The combined local-suite/consumer-CI criterion must remain unchecked even though
+regenerated consumer mypy success was independently verified.
+
+Next controller-owned sync-core outcome: **UNKNOWN**. No subsequent receipt was
+present in issue #4508 or PR #4510 discussion at this check. Tasks 09/13 remain
+deferred until a receipt names its round, trip-planner#1957 target/head, and
+clearance of the original ci_history no-redef finding. The standalone classifier
+and pinned logs are supporting evidence only. The controller owns that drain;
+this agent does not trigger protected maint-68 or patch the consumer PR.
+
 Reviewed source fix `37e23000` and PR #4510 follow-up commits through `8226bd56`.
 The relevant source fix and regression tests are confined to CI history;
 merged base changes are outside this task.

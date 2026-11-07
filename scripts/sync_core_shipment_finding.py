@@ -10,8 +10,7 @@ command echo lines in ANSI color codes. Normalize before matching so both
 sanitized excerpts and raw downloaded job logs classify the same way::
 
     python scripts/sync_core_shipment_finding.py path/to/typecheck-mypy.log
-    gh api repos/OWNER/REPO/actions/jobs/JOB_ID/logs | \\
-      python scripts/sync_core_shipment_finding.py -
+    python scripts/sync_core_shipment_finding.py - < path/to/typecheck-mypy.log
 """
 
 from __future__ import annotations
