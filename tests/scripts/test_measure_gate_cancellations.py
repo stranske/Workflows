@@ -70,11 +70,18 @@ def test_collection_excludes_interval_end(monkeypatch):
     assert runs == [run(1)]
 
 
-@pytest.mark.parametrize("failure", ["command", "invalid_json", "missing_fields", "timeout"])
+@pytest.mark.parametrize(
+    "failure", ["command", "invalid_json", "missing_fields", "timeout", "unavailable"]
+)
 def test_failed_reads_cannot_become_zero_or_pass(monkeypatch, failure):
+    commands = []
+
     def execute(*args, **kwargs):
+        commands.append(args[0])
         if failure == "timeout":
             raise measure.subprocess.TimeoutExpired("gh", 1)
+        if failure == "unavailable":
+            raise FileNotFoundError("gh")
         return SimpleNamespace(
             returncode=1 if failure == "command" else 0,
             stdout={"command": "", "invalid_json": "{", "missing_fields": "[{}]"}[failure],
@@ -85,6 +92,29 @@ def test_failed_reads_cannot_become_zero_or_pass(monkeypatch, failure):
     assert report["status"] == "incomplete"
     assert report["numerator"] is report["denominator"] is report["percentage"] is None
     assert report["errors"]["owner/repo"]
+    assert report["commands"] == {"owner/repo": commands}
+    assert not report["passed"]
+
+
+def test_failed_split_read_retains_all_attempted_commands(monkeypatch):
+    monkeypatch.setattr(measure, "RUN_LIMIT", 2)
+    commands = []
+
+    def execute(command, **kwargs):
+        commands.append(command)
+        if len(commands) == 3:
+            return SimpleNamespace(returncode=1, stdout="")
+        page = [run(1), run(2)] if len(commands) == 1 else [run(3, 86401)]
+        return SimpleNamespace(returncode=0, stdout=json.dumps(page))
+
+    monkeypatch.setattr(measure.subprocess, "run", execute)
+    report = measure.observe(["owner/repo"], START, END, time.monotonic() + 110)
+
+    assert len(commands) == 3
+    assert report["commands"] == {"owner/repo": commands}
+    assert report["status"] == "incomplete"
+    assert report["runs"] == {}
+    assert report["numerator"] is report["denominator"] is report["percentage"] is None
     assert not report["passed"]
 
 
@@ -123,6 +153,7 @@ def test_expired_deadline_never_calls_gh(monkeypatch):
     monkeypatch.setattr(measure.subprocess, "run", lambda *a, **k: pytest.fail("deadline elapsed"))
     report = measure.observe(["owner/repo"], START, END, 0)
     assert report["status"] == "incomplete"
+    assert report["commands"] == {"owner/repo": []}
     assert not report["passed"]
 
 

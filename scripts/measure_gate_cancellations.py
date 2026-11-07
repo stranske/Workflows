@@ -26,6 +26,14 @@ RUN_LIMIT = 1000
 FIELDS = "databaseId,conclusion,headSha,createdAt,event"
 
 
+class CollectionError(ValueError):
+    """An incomplete read, retaining query evidence without publishing partial counts."""
+
+    def __init__(self, message: str, commands: list[list[str]]) -> None:
+        super().__init__(message)
+        self.commands = commands
+
+
 def timestamp(value: str) -> datetime:
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if parsed.tzinfo is None:
@@ -39,9 +47,19 @@ def iso(value: datetime) -> str:
 
 def collect_runs(repo: str, start: datetime, end: datetime, deadline: float) -> tuple[list, list]:
     """Read every page, bisecting saturated windows and retaining exact commands."""
+    commands = []
+    try:
+        runs = _collect_runs(repo, start, end, deadline, commands)
+    except (ValueError, TypeError) as exc:
+        raise CollectionError(str(exc), commands) from exc
+    return runs, commands
+
+
+def _collect_runs(
+    repo: str, start: datetime, end: datetime, deadline: float, commands: list[list[str]]
+) -> list:
     pending = [(start, end)]
     runs = {}
-    commands = []
     while pending:
         lower, upper = pending.pop()
         command = [
@@ -59,10 +77,10 @@ def collect_runs(repo: str, start: datetime, end: datetime, deadline: float) -> 
             "--json",
             FIELDS,
         ]
-        commands.append(command)
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ValueError("collection deadline exceeded")
+        commands.append(command)
         try:
             result = subprocess.run(
                 command, capture_output=True, text=True, timeout=remaining, check=False
@@ -99,7 +117,7 @@ def collect_runs(repo: str, start: datetime, end: datetime, deadline: float) -> 
                 previous = runs.setdefault(run["databaseId"], run)
                 if previous != run:
                     raise ValueError("run changed during paginated collection; collect again")
-    return list(runs.values()), commands
+    return list(runs.values())
 
 
 def counts(runs: list[dict]) -> tuple[int, int]:
@@ -146,6 +164,9 @@ def observe(repos: list[str], merge: datetime, now: datetime, deadline: float) -
             report["runs"][repo], report["commands"][repo] = collect_runs(
                 repo, merge, end, deadline
             )
+        except CollectionError as exc:
+            report["commands"][repo] = exc.commands
+            report["errors"][repo] = str(exc)
         except (ValueError, TypeError) as exc:
             report["errors"][repo] = str(exc)
     if not repos or report["errors"]:
