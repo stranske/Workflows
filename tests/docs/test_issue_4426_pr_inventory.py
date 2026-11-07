@@ -1,7 +1,8 @@
 """Lock the #4000 and #4405 inventory against this branch and the evidence files.
 
-#4000's three verifier tests are already in the tree. #4405's added tests are
-not, and its Gate run failed lint while pytest passed. Coverage arithmetic uses
+#4000's three verifier tests are already in the tree. #4405's added tests were
+absent at the recorded observation; later checkouts may contain them. Its Gate
+run failed lint while pytest passed. Coverage arithmetic uses
 the recovered 3.14 counters and keeps the original about-180 rule intact.
 """
 
@@ -73,19 +74,15 @@ def test_pr_4000_tests_are_on_this_branch_and_artifacts_are_unavailable() -> Non
             assert f"def {name}" in merged
 
 
-def test_pr_4405_tests_are_not_on_this_branch() -> None:
+def test_pr_4405_tests_were_absent_at_the_recorded_observation() -> None:
     record = _inventory()["pull_requests"]["4405"]
     assert record["state"] == "OPEN"
     assert record["merge_commit"] is None
     assert record["head_on_observed_main"] is False
     assert record["added_tests_on_observed_main"] is False
-    assert not (ROOT / "tests/scripts/test_pr_verifier_diff_path_parsing.py").exists()
-
-    for path, names in record["added_tests"].items():
-        file_path = ROOT / path
-        text = file_path.read_text(encoding="utf-8") if file_path.is_file() else ""
-        for name in names:
-            assert f"def {name}" not in text
+    # These flags describe the pinned historical main, not today's checkout.
+    assert record["added_tests"]
+    assert all(names for names in record["added_tests"].values())
 
     body = (ROOT / record["body_path"]).read_text(encoding="utf-8")
     assert hashlib.sha256(body.encode()).hexdigest() == record["body_sha256"]

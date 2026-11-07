@@ -49,6 +49,7 @@ The original numerical rule remains about 180 uncovered statements and branches.
 The pre-round 90% close-without-a-PR exception is inactive: recovered coverage was below 90% when the round opened.
 Counted landed reduction from #4000 and #4405: 0.
 Unmerged #4405 units are not added to the #4000 gap and are not subtracted from the current Gate remainder. The issue-snapshot difference is recorded separately and is not assigned to either pull request.
+Counted credit is not actual improvement: #4000 attribution is unknown, not a measured zero. See final-head-gate.json for the verified later #4481 run and the unresolved artifact/baseline recovery.
 Issue-listed units: 398. Current Gate units: 327. Unattributed snapshot difference: 71. That difference is not a #4000 measurement and is not added to the unmerged #4405 counters.
 Lines plus partial branches on the current Gate artifact: 287. This alternate total is not the remainder.
 Remainder on the current Gate artifact: 327 uncovered statements and branches across the six targets.

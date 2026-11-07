@@ -5,7 +5,11 @@
     "name": "coverage.py branch totals.percent_covered",
     "formula": "(covered_lines + covered_branches) / (num_statements + num_branches)",
     "branch": true,
-    "source": ["scripts", "tools", "src"],
+    "source": [
+      "scripts",
+      "tools",
+      "src"
+    ],
     "pyproject_coverage_run_identical": true,
     "compared_commits": [
       "21c87da23935bb2466cb55361d3296d225a92b7e",
@@ -46,12 +50,26 @@
       "coverage_json_available": false,
       "unavailable_reason": "Gate run 38980711116 reports artifact total_count 0, so coverage.json cannot be downloaded. The term-report TOTAL lines were recovered from the job logs. Those lines expose statements, missed statements, branches, and partial branches. They do not expose missing branch outcomes, so covered branch arcs cannot be reconstructed.",
       "primary_python_version": "3.12",
-      "python_versions": ["3.12", "3.13"],
+      "python_versions": [
+        "3.12",
+        "3.13"
+      ],
       "coverage_python_version": "",
       "marker": "not quarantine and not slow",
       "coverage_min": "",
       "pytest_invocation": "pytest \"${args[@]}\"",
-      "pytest_args_added": ["--cov", "--cov-config=pyproject.toml", "--cov-report=xml:coverage.xml", "--cov-report=term-missing", "--cov-report=json:coverage.json", "-m", "not quarantine and not slow", "-n", "auto", "--dist=loadgroup"],
+      "pytest_args_added": [
+        "--cov",
+        "--cov-config=pyproject.toml",
+        "--cov-report=xml:coverage.xml",
+        "--cov-report=term-missing",
+        "--cov-report=json:coverage.json",
+        "-m",
+        "not quarantine and not slow",
+        "-n",
+        "auto",
+        "--dist=loadgroup"
+      ],
       "runtimes": {
         "3.12": {
           "job_id": 117244209085,
@@ -79,7 +97,7 @@
     }
   },
   "current": {
-    "role": "Current origin/main and the Gate run for the pull request that squash-merged to that commit.",
+    "role": "Historical origin/main snapshot from 2026-11-06, retained unchanged in its counters; see final_head_reconciliation for the later PR #4481 run.",
     "origin_main": "d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4",
     "origin_main_tree": "d35e41d87be75f95d898b01de0b4d0d9591db73f",
     "branch_main_ancestor": "7b92760527da7c9a7a5282005009b75f7d01cd2e",
@@ -102,7 +120,10 @@
       "job_id": 128005600052,
       "primary_python_version": "3.14",
       "coverage_python_version": "3.14",
-      "python_versions": ["3.13", "3.14"],
+      "python_versions": [
+        "3.13",
+        "3.14"
+      ],
       "marker": "not quarantine and not slow",
       "pytest_workers": "4",
       "coverage_min": "70",
@@ -141,7 +162,10 @@
       "artifact_name": "selftest-coverage-3.14-1",
       "primary_python_version": "3.13",
       "coverage_python_version": "",
-      "python_versions": ["3.13", "3.14"],
+      "python_versions": [
+        "3.13",
+        "3.14"
+      ],
       "marker": "not quarantine and not slow",
       "pytest_workers": "4",
       "coverage_min": "70",
@@ -198,7 +222,10 @@
     }
   },
   "contract_decision": {
-    "pre_round_displays": ["81.83", "81.84"],
+    "pre_round_displays": [
+      "81.83",
+      "81.84"
+    ],
     "issue_snapshot_percent": 82.29,
     "current_percent_covered": 91.07752596925471,
     "pre_round_at_least_90": false,
@@ -219,5 +246,17 @@
     "gh api --allow-escape-sequences repos/stranske/Workflows/actions/jobs/128005600052/logs",
     "gh run view 42256644648 --repo stranske/Workflows",
     "gh run download 42256644648 --repo stranske/Workflows --name selftest-coverage-3.14-1"
-  ]
+  ],
+  "final_head_reconciliation": {
+    "record": "final-head-gate.json",
+    "run_id": 42287174423,
+    "artifact_id": 13537639987,
+    "head_sha": "97fa3cdd6b198623db4adc86f16f0b3788320794",
+    "head_identity_verified": true,
+    "coverage_json_locally_available": false,
+    "attributable_round_reduction": null,
+    "original_round_per_target_baseline": null,
+    "status": "blocked: final artifact bytes inaccessible locally and original-round per-target branch outcomes unavailable",
+    "unknown_is_not_zero_improvement": true
+  }
 }

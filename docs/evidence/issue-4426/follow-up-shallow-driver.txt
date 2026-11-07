@@ -1,0 +1,49 @@
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+root = Path.cwd()
+work = Path(tempfile.mkdtemp(prefix='issue-4426-offline-'))
+checkout = work / 'checkout'
+subprocess.run(['git', 'clone', '--quiet', '--depth=1', root.as_uri(), str(checkout)], check=True, capture_output=True, timeout=90)
+shutil.copytree(root / 'docs/evidence/issue-4426', checkout / 'docs/evidence/issue-4426', dirs_exist_ok=True)
+for path in ['tests/docs/test_issue_4426_mutation_receipts.py', 'tests/docs/test_issue_4426_pr_inventory.py', 'tests/docs/test_issue_4426_ranking.py', 'tests/tools/test_langchain_client.py', 'tests/scripts/test_pr_verifier_ranked_remainder.py']:
+    shutil.copyfile(root / path, checkout / path)
+plugin = work / 'issue4426_offline.py'
+plugin.write_text('''import socket
+import subprocess
+import pytest
+
+@pytest.fixture(autouse=True)
+def offline_guard(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("unexpected network access in evidence tests")
+    original_run = subprocess.run
+    def local_read_only(command, *args, **kwargs):
+        if command[0] != "git" or command[1] not in {"cat-file", "merge-base", "show", "rev-parse"}:
+            raise AssertionError("evidence tests attempted subprocess other than local read-only git")
+        return original_run(command, *args, **kwargs)
+    monkeypatch.setattr(socket, "create_connection", forbidden)
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setattr(subprocess, "run", local_read_only)
+''')
+shallow = subprocess.check_output(['git', 'rev-parse', '--is-shallow-repository'], cwd=checkout, text=True).strip()
+assert shallow == 'true'
+# Only test the status; no credential values are read into output or copied.
+assert subprocess.run(['git', 'config', '--local', '--get-regexp', r'^http\..*\.extraheader$'], cwd=checkout, capture_output=True).returncode == 1
+modules = ['contract_record', 'coverage_measurement', 'gate_check', 'mutation_receipts', 'pr_inventory', 'ranking']
+command = [sys.executable, '-m', 'pytest', '-q'] + ['tests/docs/test_issue_4426_'+name+'.py' for name in modules] + ['-m', 'not slow', '-p', 'issue4426_offline', '--tb=short']
+env = os.environ.copy()
+env['PYTHONPATH'] = str(work)+os.pathsep+str(checkout)
+start = time.monotonic()
+result = subprocess.run(command, cwd=checkout, env=env, text=True, capture_output=True, timeout=110)
+record = {'command': command, 'is_shallow': True, 'network_guard': True, 'credential_copying': False, 'checkout': str(checkout), 'exit_code': result.returncode, 'elapsed_seconds': round(time.monotonic()-start,3), 'output': result.stdout + result.stderr}
+(root/'docs/evidence/issue-4426/shallow-validation.json').write_text(json.dumps(record,indent=2)+'\n')
+print(record['output'])
+print('Shallow:', shallow, 'exit:', result.returncode, 'seconds:', record['elapsed_seconds'])
+sys.exit(result.returncode)

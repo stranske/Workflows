@@ -54,3 +54,109 @@ count and `--dist=loadgroup`.
 accounting is covered lines plus covered branches over statements plus
 branches. The coverage minimum step reads `coverage.xml` `line-rate`, which is
 not that blended total.
+
+## Follow-up check, 2026-11-07
+
+Before further source edits, the repository-selected Python 3.14.10 ran:
+
+```bash
+python -m pytest -q tests/docs/test_issue_4426_contract_record.py tests/docs/test_issue_4426_pr_inventory.py -m 'not slow' --tb=line
+```
+
+Real-input outcome: `6 passed in 1.04s`, exit 0. The existing finite stop rule
+continues to apply: two failed runs of the same required check, 10 minutes per
+command, 20 minutes per step, and under two minutes for focused checks.
+Deliberate mutation runs expect exit 1 and are not failed acceptance checks.
+
+The GitHub connector verified PR #4481 head
+`97fa3cdd6b198623db4adc86f16f0b3788320794` against run `42287174423`
+and artifact `13537639987` (`gate-coverage-3.14-1`, archive digest
+`sha256:c754151adf08a07da718d76b40da09c814ef2ae09e69b982c0635cd9e608c839`).
+Job `128131232558` reports `49864 passed, 27 skipped, 3 xfailed in 712.92s`
+and checks out merge `e4e584e` of that head into
+`d216eaafb02c97ed5f1da16a10d46d9a967c616f`. This is the prior PR's Gate,
+not a Gate run for this follow-up checkout.
+
+Artifact metadata and logs are accessible through the connector, but downloading
+the returned archive URL locally failed with `Temporary failure in name resolution`.
+Missing branch outcomes cannot be reconstructed from partial-branch counts or
+the rounded total percentage. Original-round per-target counters remain
+unavailable. Tasks 1 and 2 remain blocked on comparable artifact recovery;
+the historical snapshots are retained. Unknown attribution is not zero improvement.
+
+The next independent chunk repairs historical receipt/inventory validation and
+pins bounded ranking inputs, so evidence checks need no history fetch or HTTP
+extraheader copying in shallow checkouts.
+
+## Runnable checks for the follow-up payload
+
+Focused acceptance (repository-selected Python):
+
+```bash
+python -m pytest -q tests/scripts/test_pr_verifier_ranked_remainder.py tests/scripts/test_pr_verifier_expanded_comparison_verdict.py tests/scripts/test_pr_verifier_evidence_cache_miss.py tests/tools/test_langchain_client.py -m 'not slow'
+```
+
+Observed before final receipt refresh: `156 passed in 3.95s`, exit 0.
+The same selection with `--cov=scripts.langchain.pr_verifier --cov-branch
+--cov-report=json:/tmp/issue-4426-focused-coverage.json --cov-report=term`
+passed 156 tests in 5.75s. Module blended coverage is 22.90% for this focused
+selection; `_build_verifier_repair_callback` has no missing lines or branch
+arcs within lines 8201–8221. This is focused evidence, not whole-Gate coverage
+or the attributable approximately 180-unit reduction.
+
+Reproducible final-version mutation and original-code regression command:
+
+```bash
+python docs/evidence/issue-4426/follow-up-mutation-driver.txt
+```
+
+The driver uses bounded local source snapshots for original implementations,
+runs each named test with a 110-second timeout, records exit 1 for the mutant
+and exit 0 after restoration, and restores every source in a `finally` block.
+`follow_up_receipts`, `follow_up_regressions`, and `follow_up_recorded_source` in
+`mutation-receipts.json` preserve final test hashes and original/fixed hashes.
+The earlier receipts and their original source bytes remain separate.
+
+Whole-Gate coverage invocation, expanded from the recorded reusable step:
+
+```bash
+PYTHONPATH=scripts python -m pytest -p ci_test_growth -n auto --dist load --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -m 'not quarantine and not slow' -n 4 --dist=loadgroup
+```
+
+No whole-Gate run for this follow-up checkout is claimed. The recovered #4481
+job lasted 712.92 seconds, exceeding this local step's 10-minute command
+budget; the full run belongs in CI. The final-head artifact and comparable
+original-round baseline still need recovery before claiming acceptance.
+
+## Final local results and delivery constraint
+
+On 2026-11-07 the final focused acceptance selection reports `156 passed in
+3.97s`, exit 0 (`focused-validation.json`). All six documentation modules
+report `31 passed in 3.87s`, exit 0 from a fresh shallow checkout with the
+network guard enabled (`shallow-validation.json`). Reproduce the shallow
+validation with `python docs/evidence/issue-4426/follow-up-shallow-driver.txt`.
+The JSON records bind the tested source and test files by SHA-256.
+
+All 14 final-version behavioral mutations report named failures, exit 1,
+and restored passes, exit 0. Both actual original-code client regressions
+report exit 1 and fixed-code passes exit 0. The runnable driver and complete
+outputs are retained; no mutation remains and no permanent production fix
+was needed in this follow-up.
+
+Ruff on the five changed Python files passes. Default Black process-pool
+startup fails with sandbox `PermissionError`; its one-worker thread path did
+not finish promptly. The installed Black 26.10.1 CLI was also run with the
+same complete source discovery and check flags using a serial per-file
+dispatcher, retaining Black's formatter, safety checks and report exit code:
+
+```bash
+python docs/evidence/issue-4426/black-serial-driver.txt --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+That serial check reports `955 files would be left unchanged`, exit 0.
+The adapter changes execution scheduling only and is retained for review.
+
+Active-checkout staging is blocked: `git add` cannot create `.git/index.lock`
+because the Git metadata mount is read-only. The workspace edits are preserved;
+an isolated local commit/patch can carry the tested payload without changing
+this checkout's branch or representing a remote Gate run.

@@ -43,3 +43,17 @@ stays in regenerated order for a later chunk.
 Other uncovered regions inside `scripts/langchain/pr_verifier.py`, including
 follow-up issue creation, live model invocation, and CLI `main`, are separate
 chunks. This record does not call them dead or unfakeable.
+
+## Follow-up symbol selection, 2026-11-07
+
+Selected before editing: `_build_verifier_repair_callback`, specifically its nested
+`_repair` response normalization and rejection at lines 8216–8219. The verified
+final-head Gate job log in `final-head-gate.json` lists those statements as missing.
+The selection uses those real missing statements; complete missing-branch arcs
+and attributable round-wide accounting remain blocked on artifact recovery.
+This small chunk advances task 2 without completing its approximately 180-unit
+contract. All six targets retain their recorded ranking; the other five remain
+pending, with no exclusion claimed. `_create_followup_issue` is not selected:
+its feature switch currently always returns false, so re-enabling that switch
+only in a test would not validate a production path. This is a symbol-level
+selection decision, not an exclusion of `pr_verifier.py`.

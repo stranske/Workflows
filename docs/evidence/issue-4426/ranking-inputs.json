@@ -1,0 +1,2017 @@
+{
+  "schema": "workflows.issue-4426-ranking-inputs/v1",
+  "source": "Local git history captured 2026-11-07; no network or credential copying.",
+  "command": "git log <revision> --since=<utc-anchor> --no-merges --name-only --pretty=format:%x00%H%x00%s",
+  "targets": [
+    "scripts/sync_test_dependencies.py",
+    "scripts/langchain/issue_pr_context.py",
+    "scripts/langchain/verifier_config.py",
+    "tools/langchain_client.py",
+    "scripts/langchain/task_validator.py",
+    "scripts/langchain/pr_verifier.py"
+  ],
+  "windows": {
+    "pre_round": {
+      "revision": "21c87da23935bb2466cb55361d3296d225a92b7e",
+      "committer": "2026-10-16T20:23:58-05:00",
+      "since": "2026-04-20T01:23:58Z",
+      "commits": [
+        {
+          "oid": "e015a93aaa27bc613a979a0e10329a7d9f84b0ed",
+          "subject": "fix(verifier): retain complete artifact bytes before native review (#3951)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "23cd4a94bdb0451fb6f4582a179fcc17684ebd5c",
+          "subject": "fix(verifier): satisfy the consumer N806 rule so lint-ruff is green after sync (#3925) (#3927)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "5c1f0c0ad8fe65bea66cdc90a6d792c7c0af7b80",
+          "subject": "fix(verifier): keep bounded product storage separate from review evidence (#3910)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "5d0a45e49297b13968e402020a8b26284bd1907b",
+          "subject": "fix: recognize report evidence delivery (#3902)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "b087737e696bc965ae8c933bd8d511eb1d686613",
+          "subject": "fix(verifier): retain filename-qualified quantified comment destinations (#3890)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "e0a8925c70f8a3a47b2611bc9653b3cc384fff3c",
+          "subject": "fix(verifier): recognize active command-output send deliveries (#3894)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "35e4a877cf00286aad347d1d583c97d7ed62f7d8",
+          "subject": "fix(verifier): verify full patch bytes and reject lossy artifact text (#3896)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "51f86637d51b4478fc8e80ce2648ed2d645293c5",
+          "subject": "fix(verifier): retain artifact and review-comment evidence destinations (#3867)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "62f615e61d2e2d5b2c1f47ed276c1c577b68ad09",
+          "subject": "fix(verifier): derive capture obligation manifest from context coverage (#3831)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "fe15da509a833c5c838a5d3c675e8503873d17e2",
+          "subject": "fix(verifier): retain artifact and review-comment evidence destinations (#3836)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "ae4f0c8ac4ddbfd89b55112773d2917a1d4be5d6",
+          "subject": "fix: recover exact native capacity for expanded verification (#3822)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "cfeff10dd0213068fcc5ee893323d445a6ecc341",
+          "subject": "fix(verifier): recover bounded evidence and check native input capacity (#3821)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "427798df1c0dd46a39d1f94e809b8959952d9ca4",
+          "subject": "fix(sync): cover flat Python modules and named checklist evidence (#3802)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "ed90456ff075ac88138972b38a74cb4476bd8fed",
+          "subject": "fix(verifier): preserve alternative evidence destinations and passive CI logs (#3796)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "23cfcb161d3805e91971dce43f0daf6df28d1dc9",
+          "subject": "fix(verifier): common proof objects and PR-contained comments (#3774)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "5656aa96fc0f4f2d0525d42c40c15694ca2c949d",
+          "subject": "fix(verifier): preserve presence polarity and shared delivery vocabulary (#3772)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "596c11fd9791ffa3397d863429ac85fe5eb4fc09",
+          "subject": "fix(verifier): preserve named actor delivery boundaries (#3767)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "8b3b8f817060325ea4045b5ad62402e5cbafb0ee",
+          "subject": "fix(verifier): share put/place delivery and product-response vocabulary (#3764)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "d8dfcd853a753e5fc7ff3062e2c177a2c1ba1d69",
+          "subject": "fix(verifier): enforce mandatory comment evidence presence (#3762)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "747217d61492364cf523f64d6046ed761902a875",
+          "subject": "fix(verifier): preserve complete destination-specific evidence (#3759)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7d35ca1d612f88b50ead70fe2b30fc5e41ca15bd",
+          "subject": "fix(verifier): recognize submit delivery and let product capability (#3754)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "a3882189dcb162120cdf25ca584abecebd98d638",
+          "subject": "fix(verifier): isolate evidence channels and acceptance list items (#3750)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "bb5f24fae3f58f178b4dc97e602e874486af7677",
+          "subject": "Cover verifier late omissions in the required comparison command (#3738)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "6b45c2fa08b252c75ce99ea40d506320625bc3c1",
+          "subject": "fix(verifier): share delivery aliases and preserve evidence boundaries (#3747)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "c3285c9cb82e45c53be563133169163b03053b20",
+          "subject": "fix(verifier): test and recognize actual generated body evidence (#3746)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "2f0631e006750100b7655780641783e994bd2ef6",
+          "subject": "fix(verifier): complete evidence destinations and preserve diagnostics (#3740)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "89c9d29cacd28f5214fc96c32a0cf2875288d3b4",
+          "subject": "fix(verifier): preserve product nouns and literal summary destinations (#3737)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "af6e20c1c4d28c3bfbeee93edc82f2b38d206613",
+          "subject": "fix(verifier): close six final-review classification and Git-path gaps (#3735)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "22873949619e3ef22df9d6d0a4fb9ecdb17a314d",
+          "subject": "Fix verifier evidence and terminal verdicts blocking canaries (#3728)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "217a5c9d707ffb80bb73df54096e6d71fd5d4545",
+          "subject": "fix(verifier): preserve evidence channels and fitting diff text (#3713)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "e2dea1809ae05d9f72d1a7ae5be1fb4e95b115ec",
+          "subject": "Fail closed on verifier evidence and generated review disposition (#3711) (#3712)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7b2e2710da68164bf413a7a0da2d40b986398593",
+          "subject": "Update active Codex family defaults (#3718)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "0118af7410b29371058f883d6fee75a4f849fbd8",
+          "subject": "fix(verifier): state prompt coverage and withhold PASS on omitted code (#3701) (#3703)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "62474944c35ae8a7759eba8fa54134d96279685d",
+          "subject": "fix: preserve prefixed reasoning model policy in sync source (#3704)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "c90abebdd6de4a2aa65fd4c7422e588fccd12697",
+          "subject": "Fix GPT-5.6 verifier temperature compatibility",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "74992b418c837193b2021ce5562f09e4a4ae0f1b",
+          "subject": "MAINT-78: enable rapid paired verifier model screen (#3687)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7b9dbdf543b21b23231356098bad79091111fee0",
+          "subject": "MAINT-78: gate verifier model evaluation on cost and quality readiness (#3681)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "ec80ec9e2f49cf91ed96e6d3e07875f1a7aadf5c",
+          "subject": "chore(llm): move Anthropic defaults to claude-sonnet-5-5 (#3640)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "6e00279d2ab8e7f1a600b32647a7d86d86c5e777",
+          "subject": "fix(scripts): map the `docx` import to python-docx in the shared dependency checker (#3462)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "b06c6d16c3162a624c179a4c4f2080ec3c14876e",
+          "subject": "Complete Astra high-reasoning worker rollout (#3379)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "8714fb96e5e6c4aa00e7d4285312ec299602d988",
+          "subject": "fix(llm): resolve explicit provider model defaults (#3338)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "a377fd30ac155cc18978829064ed5b09aa11c34d",
+          "subject": "fix(sync): treat importable test modules as local (#3239)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "fa30c6c1a6270f42e8b06ea82d0954af206de57c",
+          "subject": "chore(sync): consolidate retired consumer cleanup",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "d7824f369e19b153cc064d3fb542ef64e9c83911",
+          "subject": "fix(sync): keep retired Trend packages removed (#3144)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "26f9bb909b47d7d83d93d9f72fa984a7cbe8c3ac",
+          "subject": "Fix shared agent-tooling contracts (#3060)",
+          "paths": [
+            "scripts/langchain/verifier_config.py",
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "73a3ab13e5196952abc2638c46bd1c155a3d5309",
+          "subject": "fix(tasks): preserve slash-separated subjective prose (#3038)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "5b8018cda049ee90ad1993b7097d8bbf6c112224",
+          "subject": "fix(agents): address sync review debt (#3022)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "ecda8dd48e776e547216a9fa927e8ebd0e4dbafb",
+          "subject": "fix: harden release and verifier automation (#2955)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "65dd1de0e2da68ad2cb0d788b9fec27108230a39",
+          "subject": "fix: harden probes and verifier content (#2951)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "3c22c3ec022e002253ffdd817b713de010290a31",
+          "subject": "fix(verifier): preserve ordinary coercion fallback",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "5d56c56c367c31eeb00ca4b2dfe5836ecaebb357",
+          "subject": "fix(verifier): narrow response coercion errors",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "84879ced2fae2c9b3173f4aad5c16e9b6b3bca07",
+          "subject": "fix(gate): harden runtime review fallbacks",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "258f761a0f69f019aabf9d778e1f77cbfef0c258",
+          "subject": "fix(sync): harden consumer review fallbacks",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "4d0a2d4208cf6657a2e624abb0e65a3a5c739d63",
+          "subject": "fix(sync): address generated review follow-ups",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "561bbced179fadfb7afaa2ccc74998c4e230b946",
+          "subject": "fix(sync): address generated review findings",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7f413be910537ef0f25a6b3aa890313149169fd8",
+          "subject": "perf(verifier): avoid copying response blocks",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "76c9383ea7c4c4e7f90e7ecc17c70139640004de",
+          "subject": "fix(verifier): preserve split-block whitespace",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "9f153da8f4c11e7d34d2e59b067bbe16cbe82db2",
+          "subject": "fix(sync): address generated review findings",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "6b845c266a19508229c5bb6a6edf1f6f1aae966a",
+          "subject": "fix: close the review findings that landed after their PRs merged (#2890)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "2e3e5b34957b835f7af951bc5c682f7292d6abcc",
+          "subject": "fix(verifier): normalize structured provider content (#2887)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "fcf8c214572a6465b121be6315c4fc9217f2367f",
+          "subject": "fix(llm): namespace github-models model ids for the GA endpoint (bare id \u2192 404) (#2825)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "5275c48a580cc0dde93c3b001b6d78b34ca46ad1",
+          "subject": "fix(llm): omit temperature for Anthropic models that reject it (unblocks verifier eval of Opus 4.8 / Claude 5) (#2822)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "d492af983de2f0adbaded974b904e632b5ff79ef",
+          "subject": "fix: harden synced registry contracts (#2806)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "47304edda491ca61939d8ef5977749b9d4ad9f82",
+          "subject": "fix: unblock generated maintenance waves (#2789)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "7a9e289f18ca1cd6a0059545a82f4a1a8d8d652c",
+          "subject": "feat(llm): add evidence-gated model evaluation pipeline (#2710)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "443df8bd43e5fcf7d97f12e3c0a90bc2c82a2f18",
+          "subject": "[Route Weight][codemod] Refactor PR verifier comparison client selection (#2567)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "9eda7b48d198b4559dcde7d25deec18a6a917468",
+          "subject": "fix: honor llm registry provider blocks (#2502)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "6f2b9df2c694c746ec71a1cd20fdcf6460754b6f",
+          "subject": "fix: consume blocked llm override before provider fallback (#2499)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "821168725d0568cade5bb9a18fc58cab97657975",
+          "subject": "fix: clear sync review debt at source (#2498)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "0b04de717dcadc23aea9e2eca0b8679d27e90666",
+          "subject": "fix: sync llm registry helper to consumers (#2496)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "8d8ac926f6e6cdc6d02a467cb371814a9bbd74ac",
+          "subject": "Agent belt for #2352",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "9ee2ef22554e4a48251c077d5ab2e796843498a0",
+          "subject": "refactor(langchain): extract shared llm client (#2355)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "551f804fa083ed5003866b4a391ded2379d05835",
+          "subject": "fix: resolve synced script type hygiene",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "c989974d7f676d3acbb6ccaf0e667afa6aca0184",
+          "subject": "fix: resolve synced typecheck and gate summary failures",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "b5491d83a1ef746a37e085ac8a6a80dc2ad62949",
+          "subject": "fix: resolve pythonpath review debt (#2232)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "60ddb5615a7f1eabce1c5a52e3d0ee6df96ce1c3",
+          "subject": "fix: harden pytest config pythonpath detection (#2231)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "08efd8ad97f9040a2db12c9167fda66648e30693",
+          "subject": "fix: harden synced dependency tooling",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "2a89714b84903864def14a373de040147089c63d",
+          "subject": "fix: harden pytest config discovery (#2227)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "18892408ec48b75a020f49435add3abec4be57c0",
+          "subject": "fix: read pytest pythonpath configs (#2226)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "d0a03fccf2d7417ee2f6dd1179b0ad9cf42a39c1",
+          "subject": "fix: refine packaged test module detection (#2225)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "f375fd1c92f6cb0569f4c793dd1885eb49e698f2",
+          "subject": "fix: keep packaged test helper detection",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "29b5a38c8206e6de9b2f054744252ef885ad61c2",
+          "subject": "fix: avoid packaged test submodule masking",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "edca1176fcce7cbb661e8b639c6f891863d460af",
+          "subject": "fix: refine test helper dependency detection (#2222)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "221a83f7799169d25da52aff4e26b1c82b103bd4",
+          "subject": "fix: ignore test helper modules in dependency sync (#2221)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "6c97b27fb653923bd430cdd0f35ffdc27d00d95f",
+          "subject": "fix: unblock sync template gate failures (#2217)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "5c423a37f9617f9d5ac2c29ad8916279f7ae71a6",
+          "subject": "Fix issue-optimizer/formatter runaway expansion (idempotency + caps + anti-rewrap) (#2178)",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "b2d74df4823e887a6c397fa522839710789539db",
+          "subject": "fix sync review trace helper followups",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "cd021105db8a71bf652127e3ded8486f580885c9",
+          "subject": "Handle delegated trace fallback wrappers",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "8d0e1c4d1ed8f69ec6b8128326189db6569a0d6f",
+          "subject": "fix sync review trace fallback docs (#2131)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "e94286eaf69dd1d79c12df98bcd951292ef78bf8",
+          "subject": "fix task validator fallback ordering (#2130)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "311bff976532c4df2db99316692b85a659474b0c",
+          "subject": "fix sync review followups (#2129)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "12d843158dd8bc41e9a72ede3c9430264ebc3bbe",
+          "subject": "fix langsmith sync review followups",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "1ec7ee000570b46b91dfc4ff856c61bfcb201af0",
+          "subject": "Improve LangSmith trace coverage (#2127)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "a616da4b1f32ae745f1fc2e12da7c7f4cabf5960",
+          "subject": "fix: count LangSmith trace URL coverage (#2124)",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "aa5fca74c8cf97d74d6847359c580925402f1080",
+          "subject": "fix: carry forward sync review followups (#2117)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "b944e1c6ae70e10fbc612d543957e524b09785fc",
+          "subject": "fix: address final sync review debt (#2069)",
+          "paths": [
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "bbb552da057ae61d4473d43c4e9305cbed1aabf2",
+          "subject": "fix: close remaining sync review debt (#2065)",
+          "paths": [
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "be246c17ba7041107c4a0fc5c4cf6e6ccaf46505",
+          "subject": "fix: address sync review followups (#2063)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "1339094087e2552adb4be8fc19391a65f6a6dc25",
+          "subject": "fix: address sync review automation debt (#2062)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "e09cfbb411eabab32448e148ba491675d40e0f22",
+          "subject": "fix: address replacement sync review blockers (#2060)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "8b12c11376e4c87f0f3def88c8b34c302d5c4b5a",
+          "subject": "fix: address sync review blockers (#2059)",
+          "paths": [
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "2f3ae1dfdacf716ca9d39be9cc05160190765bf0",
+          "subject": "fix: address sync review blockers (#2058)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "6bfb733d277a8132c5f1b2b98a77740c2906400e",
+          "subject": "feat: wire shared verifier config (#2041)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "7952540763fe342531e91b73eec1aea25eb28cde",
+          "subject": "feat: add shared verifier config module (#2038)",
+          "paths": [
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "14712a74486e8cc0325e7a818896dd75b32865ec",
+          "subject": "fix(issue-pr-context): floor token estimate at chars/4 to honor budget on compressible inputs (#2035)",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "fdb4c0f7ba1b54b7965212c3d27796a8bd640e99",
+          "subject": "feat: wire issue-pr-context-assembly into 5 workflows (#2026)",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "bb4d1b95248c758f62874494bc115639ed1c7ea8",
+          "subject": "fix: resolve sync tracker review debt",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "b683275a9a32a1b8253fc620f9ed3c7584532322",
+          "subject": "fix: resolve sync helper review debt",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "fd74ac90fc51c23d4df0b7666622c6ac2688dbcb",
+          "subject": "fix: harden issue PR context marker decoding",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "45e00580ea8e59626e59dea71b0a41bb84959512",
+          "subject": "fix: address sync helper review debt",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "b0a0bc9eb5665d3013640157ccdd435eaf73e7bb",
+          "subject": "feat: add issue-pr-context-assembly helper with token budget caps",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "988e5fe78e81cd726cc7975f11fc7ec8b5b6a29a",
+          "subject": "fix sync test dependency scan (#2006)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "88aaa4f4dfde4c4c0f3c68fcc286709cea127eca",
+          "subject": "docs: address issue 1922 review follow-up",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "33c2bac578cf587a959b60ada909a14f26b3b995",
+          "subject": "Fix synced langchain client import style",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "7b904c28140069baaf58f1ec5dfcd46236081323",
+          "subject": "Fix synced langchain client ruff violation",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "a921ff64e1ec4747c8ea4c3f9e01a7f794e8efbb",
+          "subject": "Harden sync review follow-ups (#1781)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        }
+      ],
+      "per_path_subjects": {
+        "scripts/sync_test_dependencies.py": [
+          "fix(scripts): map the `docx` import to python-docx in the shared dependency checker (#3462)",
+          "fix(sync): treat importable test modules as local (#3239)",
+          "chore(sync): consolidate retired consumer cleanup",
+          "fix(sync): keep retired Trend packages removed (#3144)",
+          "fix: resolve synced script type hygiene",
+          "fix: resolve synced typecheck and gate summary failures",
+          "fix: resolve pythonpath review debt (#2232)",
+          "fix: harden pytest config pythonpath detection (#2231)",
+          "fix: harden synced dependency tooling",
+          "fix: harden pytest config discovery (#2227)",
+          "fix: read pytest pythonpath configs (#2226)",
+          "fix: refine packaged test module detection (#2225)",
+          "fix: keep packaged test helper detection",
+          "fix: avoid packaged test submodule masking",
+          "fix: refine test helper dependency detection (#2222)",
+          "fix: ignore test helper modules in dependency sync (#2221)",
+          "fix: unblock sync template gate failures (#2217)",
+          "fix: carry forward sync review followups (#2117)",
+          "fix sync test dependency scan (#2006)",
+          "docs: address issue 1922 review follow-up"
+        ],
+        "scripts/langchain/issue_pr_context.py": [
+          "Fix issue-optimizer/formatter runaway expansion (idempotency + caps + anti-rewrap) (#2178)",
+          "fix: count LangSmith trace URL coverage (#2124)",
+          "fix(issue-pr-context): floor token estimate at chars/4 to honor budget on compressible inputs (#2035)",
+          "feat: wire issue-pr-context-assembly into 5 workflows (#2026)",
+          "fix: resolve sync tracker review debt",
+          "fix: resolve sync helper review debt",
+          "fix: harden issue PR context marker decoding",
+          "fix: address sync helper review debt",
+          "feat: add issue-pr-context-assembly helper with token budget caps"
+        ],
+        "scripts/langchain/verifier_config.py": [
+          "fix(verifier): state prompt coverage and withhold PASS on omitted code (#3701) (#3703)",
+          "Fix shared agent-tooling contracts (#3060)",
+          "fix: address final sync review debt (#2069)",
+          "fix: close remaining sync review debt (#2065)",
+          "fix: address sync review automation debt (#2062)",
+          "fix: address replacement sync review blockers (#2060)",
+          "fix: address sync review blockers (#2059)",
+          "fix: address sync review blockers (#2058)",
+          "feat: wire shared verifier config (#2041)",
+          "feat: add shared verifier config module (#2038)"
+        ],
+        "tools/langchain_client.py": [
+          "Update active Codex family defaults (#3718)",
+          "fix: preserve prefixed reasoning model policy in sync source (#3704)",
+          "Fix GPT-5.6 verifier temperature compatibility",
+          "MAINT-78: gate verifier model evaluation on cost and quality readiness (#3681)",
+          "chore(llm): move Anthropic defaults to claude-sonnet-5-5 (#3640)",
+          "Complete Astra high-reasoning worker rollout (#3379)",
+          "fix(llm): resolve explicit provider model defaults (#3338)",
+          "Fix shared agent-tooling contracts (#3060)",
+          "fix(llm): namespace github-models model ids for the GA endpoint (bare id \u2192 404) (#2825)",
+          "fix(llm): omit temperature for Anthropic models that reject it (unblocks verifier eval of Opus 4.8 / Claude 5) (#2822)",
+          "fix: harden synced registry contracts (#2806)",
+          "fix: unblock generated maintenance waves (#2789)",
+          "feat(llm): add evidence-gated model evaluation pipeline (#2710)",
+          "fix: honor llm registry provider blocks (#2502)",
+          "fix: consume blocked llm override before provider fallback (#2499)",
+          "fix: clear sync review debt at source (#2498)",
+          "fix: sync llm registry helper to consumers (#2496)",
+          "Fix synced langchain client import style",
+          "Fix synced langchain client ruff violation",
+          "Harden sync review follow-ups (#1781)"
+        ],
+        "scripts/langchain/task_validator.py": [
+          "fix(tasks): preserve slash-separated subjective prose (#3038)",
+          "fix(agents): address sync review debt (#3022)",
+          "refactor(langchain): extract shared llm client (#2355)",
+          "fix sync review trace helper followups",
+          "Handle delegated trace fallback wrappers",
+          "fix sync review trace fallback docs (#2131)",
+          "fix task validator fallback ordering (#2130)",
+          "fix sync review followups (#2129)",
+          "fix langsmith sync review followups",
+          "Improve LangSmith trace coverage (#2127)"
+        ],
+        "scripts/langchain/pr_verifier.py": [
+          "fix(verifier): retain complete artifact bytes before native review (#3951)",
+          "fix(verifier): satisfy the consumer N806 rule so lint-ruff is green after sync (#3925) (#3927)",
+          "fix(verifier): keep bounded product storage separate from review evidence (#3910)",
+          "fix: recognize report evidence delivery (#3902)",
+          "fix(verifier): retain filename-qualified quantified comment destinations (#3890)",
+          "fix(verifier): recognize active command-output send deliveries (#3894)",
+          "fix(verifier): verify full patch bytes and reject lossy artifact text (#3896)",
+          "fix(verifier): retain artifact and review-comment evidence destinations (#3867)",
+          "fix(verifier): derive capture obligation manifest from context coverage (#3831)",
+          "fix(verifier): retain artifact and review-comment evidence destinations (#3836)",
+          "fix: recover exact native capacity for expanded verification (#3822)",
+          "fix(verifier): recover bounded evidence and check native input capacity (#3821)",
+          "fix(sync): cover flat Python modules and named checklist evidence (#3802)",
+          "fix(verifier): preserve alternative evidence destinations and passive CI logs (#3796)",
+          "fix(verifier): common proof objects and PR-contained comments (#3774)",
+          "fix(verifier): preserve presence polarity and shared delivery vocabulary (#3772)",
+          "fix(verifier): preserve named actor delivery boundaries (#3767)",
+          "fix(verifier): share put/place delivery and product-response vocabulary (#3764)",
+          "fix(verifier): enforce mandatory comment evidence presence (#3762)",
+          "fix(verifier): preserve complete destination-specific evidence (#3759)",
+          "fix(verifier): recognize submit delivery and let product capability (#3754)",
+          "fix(verifier): isolate evidence channels and acceptance list items (#3750)",
+          "Cover verifier late omissions in the required comparison command (#3738)",
+          "fix(verifier): share delivery aliases and preserve evidence boundaries (#3747)",
+          "fix(verifier): test and recognize actual generated body evidence (#3746)",
+          "fix(verifier): complete evidence destinations and preserve diagnostics (#3740)",
+          "fix(verifier): preserve product nouns and literal summary destinations (#3737)",
+          "fix(verifier): close six final-review classification and Git-path gaps (#3735)",
+          "Fix verifier evidence and terminal verdicts blocking canaries (#3728)",
+          "fix(verifier): preserve evidence channels and fitting diff text (#3713)",
+          "Fail closed on verifier evidence and generated review disposition (#3711) (#3712)",
+          "fix(verifier): state prompt coverage and withhold PASS on omitted code (#3701) (#3703)",
+          "MAINT-78: enable rapid paired verifier model screen (#3687)",
+          "fix: harden release and verifier automation (#2955)",
+          "fix: harden probes and verifier content (#2951)",
+          "fix(verifier): preserve ordinary coercion fallback",
+          "fix(verifier): narrow response coercion errors",
+          "fix(gate): harden runtime review fallbacks",
+          "fix(sync): harden consumer review fallbacks",
+          "fix(sync): address generated review follow-ups",
+          "fix(sync): address generated review findings",
+          "perf(verifier): avoid copying response blocks",
+          "fix(verifier): preserve split-block whitespace",
+          "fix(sync): address generated review findings",
+          "fix: close the review findings that landed after their PRs merged (#2890)",
+          "fix(verifier): normalize structured provider content (#2887)",
+          "[Route Weight][codemod] Refactor PR verifier comparison client selection (#2567)",
+          "Agent belt for #2352",
+          "refactor(langchain): extract shared llm client (#2355)",
+          "fix: address sync review followups (#2063)",
+          "fix: address sync review automation debt (#2062)",
+          "fix: address replacement sync review blockers (#2060)",
+          "fix: address sync review blockers (#2058)",
+          "feat: wire shared verifier config (#2041)"
+        ]
+      }
+    },
+    "current": {
+      "revision": "d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4",
+      "committer": "2026-11-06T10:54:02-06:00",
+      "since": "2026-05-10T16:54:02Z",
+      "commits": [
+        {
+          "oid": "7b92760527da7c9a7a5282005009b75f7d01cd2e",
+          "subject": "Agent belt for #4370 (#4448)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "bdda6d0fbfea27fde3dd3ea56c34556c11ad3e82",
+          "subject": "fix(formatter): accept provider text content blocks (#4438)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "c4633a95058d927c309dc7d666ff1d8dc85c2cc3",
+          "subject": "Retire GitHub Models as a fallback provider (#4362)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "a2ffeddfa217b838d4fbd0cea840a81cf98406d1",
+          "subject": "feat(verifier): slot-3 capacity backup when one judge's budget is exhausted (#4357)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "2127a7d8a840f8b3cc877cc879fdbcbdc572aac9",
+          "subject": "fix(verifier): normalize typed summary transport (#4333)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "826ecfe743dc198aafb1b19c7d9b0b0ac4ff554e",
+          "subject": "fix(verifier): retain lint-clean parser client keyword compatibility (#4308)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "09f28d153006f616918a3aca7bd77c182867d1f9",
+          "subject": "fix(verify): recover strict original finals without provider replay (#4301)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "672762278bda5f4454535aec11528a18244d15e2",
+          "subject": "Enable bounded representative Verify API trial (#4294)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "0975eb30499f2397486456f1c4cbb0186cb4073a",
+          "subject": "Prepare bounded no-write paired Verify API screen (#4292)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7b811549be05d2669b263082f210c6eeb9f5b4ce",
+          "subject": "feat(verifier): authenticate additive corrective test scope (#4290)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "0cbf1f5992a8b7a3a3e478ac452a7c54b4c05ba6",
+          "subject": "Reject duplicate JSON members in strict semantic verifier responses (#4285)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "aa79ed58a95dd9d1ffc451ac39a7ecb6153c10d7",
+          "subject": "Give nonpackage dependency audits actionable lock maintenance advice (#4278)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "6df5fd443777c9e10854431f8e5eead23b3c3a41",
+          "subject": "Add inert correction interface without blocking ordinary workflows (#4264)",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "0bb9ef7fd0a3355f405d00645dca2f84802be590",
+          "subject": "Audit canonical lock pins for non-package consumer test dependencies (#4273)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "a11220f413f2dc2ccc8724d37a2153cf83b2d165",
+          "subject": "fix(verifier): retain explicitly required comment proof end to end (#4250)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "87d6d5c5713af00a9962df9716ef8cd4356f04fb",
+          "subject": "fix(verifier): preserve abbreviated duties and count necessary proof",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "9d125b85a395d8ba6853e51f50b90b718adcc782",
+          "subject": "fix(verifier): admit necessary whole inputs before optional packing",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7bd37e731a7906565ed6d2231724ca3bf5fefa83",
+          "subject": "fix(verifier): retain selected baseline proof through repeat events",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "1c8d5e10b2f782821f3809b04cfab29283759625",
+          "subject": "fix: capture compressed verification evidence as typed assets (#4226)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "98583f6fc77ac58e1952dc6ecfd68c8e10d2cc8f",
+          "subject": "fix(verifier): reconcile chunk coverage without losing review findings (#4220)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "8aec50e35fc47fd13e3706666aad3e642405704a",
+          "subject": "fix(verifier): retain required inputs through comparison and native admission (#4218)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "d036a6523bee0fe82d6e32220851b4952a3fa5ff",
+          "subject": "fix: carry repeat verification through material events and retained outcomes (#4216)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "f0fc47eb5af6710a5fd7a69940cf6f763236053c",
+          "subject": "fix(verifier): screen evaluate evidence by minimum availability (#4203)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "6924f1d263cd79832404315a451448920b4421d9",
+          "subject": "fix(verifier): admit original requests for explicit evaluation (#4199)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "f3668b30212693d523dc3f1323f5341f73bfef80",
+          "subject": "fix(verifier): preserve inputs and isolate acceptance execution (#4191)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "b7ca99883dacdd0466055ab0cb3082dd0ee9a545",
+          "subject": "fix(verifier): accept Anthropic and retain evaluation failures (#4188)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "288c41a24f290314dacba6d37d0915ea1d06c31f",
+          "subject": "Bind verifier follow-ups to the latest report (#4129)",
+          "paths": [
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "d23638939bc6442cf52999be7d5cfe6186ffac3e",
+          "subject": "fix: restore post-merge verifier evidence and visible outcomes (#4099)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "65347f1f00cac4e0802c7a68e171ad1b6b569bd3",
+          "subject": "fix(verifier): enforce merge CI and explain source closure decisions (#4085)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "021ec67ef580c83a88402a1574e27ea34db14dde",
+          "subject": "fix(verifier): review complete file chunks and guard source closure (#4037)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "d1070dc4dd8346b3bb66bc7515fdef02a4c6dd18",
+          "subject": "fix(verifier): accept complete fenced semantic JSON responses (#4017)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "e015a93aaa27bc613a979a0e10329a7d9f84b0ed",
+          "subject": "fix(verifier): retain complete artifact bytes before native review (#3951)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "23cd4a94bdb0451fb6f4582a179fcc17684ebd5c",
+          "subject": "fix(verifier): satisfy the consumer N806 rule so lint-ruff is green after sync (#3925) (#3927)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "5c1f0c0ad8fe65bea66cdc90a6d792c7c0af7b80",
+          "subject": "fix(verifier): keep bounded product storage separate from review evidence (#3910)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "5d0a45e49297b13968e402020a8b26284bd1907b",
+          "subject": "fix: recognize report evidence delivery (#3902)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "b087737e696bc965ae8c933bd8d511eb1d686613",
+          "subject": "fix(verifier): retain filename-qualified quantified comment destinations (#3890)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "e0a8925c70f8a3a47b2611bc9653b3cc384fff3c",
+          "subject": "fix(verifier): recognize active command-output send deliveries (#3894)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "35e4a877cf00286aad347d1d583c97d7ed62f7d8",
+          "subject": "fix(verifier): verify full patch bytes and reject lossy artifact text (#3896)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "51f86637d51b4478fc8e80ce2648ed2d645293c5",
+          "subject": "fix(verifier): retain artifact and review-comment evidence destinations (#3867)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "62f615e61d2e2d5b2c1f47ed276c1c577b68ad09",
+          "subject": "fix(verifier): derive capture obligation manifest from context coverage (#3831)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "fe15da509a833c5c838a5d3c675e8503873d17e2",
+          "subject": "fix(verifier): retain artifact and review-comment evidence destinations (#3836)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "ae4f0c8ac4ddbfd89b55112773d2917a1d4be5d6",
+          "subject": "fix: recover exact native capacity for expanded verification (#3822)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "cfeff10dd0213068fcc5ee893323d445a6ecc341",
+          "subject": "fix(verifier): recover bounded evidence and check native input capacity (#3821)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "427798df1c0dd46a39d1f94e809b8959952d9ca4",
+          "subject": "fix(sync): cover flat Python modules and named checklist evidence (#3802)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "ed90456ff075ac88138972b38a74cb4476bd8fed",
+          "subject": "fix(verifier): preserve alternative evidence destinations and passive CI logs (#3796)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "23cfcb161d3805e91971dce43f0daf6df28d1dc9",
+          "subject": "fix(verifier): common proof objects and PR-contained comments (#3774)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "5656aa96fc0f4f2d0525d42c40c15694ca2c949d",
+          "subject": "fix(verifier): preserve presence polarity and shared delivery vocabulary (#3772)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "596c11fd9791ffa3397d863429ac85fe5eb4fc09",
+          "subject": "fix(verifier): preserve named actor delivery boundaries (#3767)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "8b3b8f817060325ea4045b5ad62402e5cbafb0ee",
+          "subject": "fix(verifier): share put/place delivery and product-response vocabulary (#3764)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "d8dfcd853a753e5fc7ff3062e2c177a2c1ba1d69",
+          "subject": "fix(verifier): enforce mandatory comment evidence presence (#3762)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "747217d61492364cf523f64d6046ed761902a875",
+          "subject": "fix(verifier): preserve complete destination-specific evidence (#3759)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7d35ca1d612f88b50ead70fe2b30fc5e41ca15bd",
+          "subject": "fix(verifier): recognize submit delivery and let product capability (#3754)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "a3882189dcb162120cdf25ca584abecebd98d638",
+          "subject": "fix(verifier): isolate evidence channels and acceptance list items (#3750)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "bb5f24fae3f58f178b4dc97e602e874486af7677",
+          "subject": "Cover verifier late omissions in the required comparison command (#3738)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "6b45c2fa08b252c75ce99ea40d506320625bc3c1",
+          "subject": "fix(verifier): share delivery aliases and preserve evidence boundaries (#3747)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "c3285c9cb82e45c53be563133169163b03053b20",
+          "subject": "fix(verifier): test and recognize actual generated body evidence (#3746)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "2f0631e006750100b7655780641783e994bd2ef6",
+          "subject": "fix(verifier): complete evidence destinations and preserve diagnostics (#3740)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "89c9d29cacd28f5214fc96c32a0cf2875288d3b4",
+          "subject": "fix(verifier): preserve product nouns and literal summary destinations (#3737)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "af6e20c1c4d28c3bfbeee93edc82f2b38d206613",
+          "subject": "fix(verifier): close six final-review classification and Git-path gaps (#3735)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "22873949619e3ef22df9d6d0a4fb9ecdb17a314d",
+          "subject": "Fix verifier evidence and terminal verdicts blocking canaries (#3728)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "217a5c9d707ffb80bb73df54096e6d71fd5d4545",
+          "subject": "fix(verifier): preserve evidence channels and fitting diff text (#3713)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "e2dea1809ae05d9f72d1a7ae5be1fb4e95b115ec",
+          "subject": "Fail closed on verifier evidence and generated review disposition (#3711) (#3712)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7b2e2710da68164bf413a7a0da2d40b986398593",
+          "subject": "Update active Codex family defaults (#3718)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "0118af7410b29371058f883d6fee75a4f849fbd8",
+          "subject": "fix(verifier): state prompt coverage and withhold PASS on omitted code (#3701) (#3703)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/verifier_config.py"
+          ]
+        },
+        {
+          "oid": "62474944c35ae8a7759eba8fa54134d96279685d",
+          "subject": "fix: preserve prefixed reasoning model policy in sync source (#3704)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "c90abebdd6de4a2aa65fd4c7422e588fccd12697",
+          "subject": "Fix GPT-5.6 verifier temperature compatibility",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "74992b418c837193b2021ce5562f09e4a4ae0f1b",
+          "subject": "MAINT-78: enable rapid paired verifier model screen (#3687)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7b9dbdf543b21b23231356098bad79091111fee0",
+          "subject": "MAINT-78: gate verifier model evaluation on cost and quality readiness (#3681)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "ec80ec9e2f49cf91ed96e6d3e07875f1a7aadf5c",
+          "subject": "chore(llm): move Anthropic defaults to claude-sonnet-5-5 (#3640)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "6e00279d2ab8e7f1a600b32647a7d86d86c5e777",
+          "subject": "fix(scripts): map the `docx` import to python-docx in the shared dependency checker (#3462)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "b06c6d16c3162a624c179a4c4f2080ec3c14876e",
+          "subject": "Complete Astra high-reasoning worker rollout (#3379)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "8714fb96e5e6c4aa00e7d4285312ec299602d988",
+          "subject": "fix(llm): resolve explicit provider model defaults (#3338)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "a377fd30ac155cc18978829064ed5b09aa11c34d",
+          "subject": "fix(sync): treat importable test modules as local (#3239)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "fa30c6c1a6270f42e8b06ea82d0954af206de57c",
+          "subject": "chore(sync): consolidate retired consumer cleanup",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "d7824f369e19b153cc064d3fb542ef64e9c83911",
+          "subject": "fix(sync): keep retired Trend packages removed (#3144)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "26f9bb909b47d7d83d93d9f72fa984a7cbe8c3ac",
+          "subject": "Fix shared agent-tooling contracts (#3060)",
+          "paths": [
+            "scripts/langchain/verifier_config.py",
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "73a3ab13e5196952abc2638c46bd1c155a3d5309",
+          "subject": "fix(tasks): preserve slash-separated subjective prose (#3038)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "5b8018cda049ee90ad1993b7097d8bbf6c112224",
+          "subject": "fix(agents): address sync review debt (#3022)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "ecda8dd48e776e547216a9fa927e8ebd0e4dbafb",
+          "subject": "fix: harden release and verifier automation (#2955)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "65dd1de0e2da68ad2cb0d788b9fec27108230a39",
+          "subject": "fix: harden probes and verifier content (#2951)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "3c22c3ec022e002253ffdd817b713de010290a31",
+          "subject": "fix(verifier): preserve ordinary coercion fallback",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "5d56c56c367c31eeb00ca4b2dfe5836ecaebb357",
+          "subject": "fix(verifier): narrow response coercion errors",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "84879ced2fae2c9b3173f4aad5c16e9b6b3bca07",
+          "subject": "fix(gate): harden runtime review fallbacks",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "258f761a0f69f019aabf9d778e1f77cbfef0c258",
+          "subject": "fix(sync): harden consumer review fallbacks",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "4d0a2d4208cf6657a2e624abb0e65a3a5c739d63",
+          "subject": "fix(sync): address generated review follow-ups",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "561bbced179fadfb7afaa2ccc74998c4e230b946",
+          "subject": "fix(sync): address generated review findings",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "7f413be910537ef0f25a6b3aa890313149169fd8",
+          "subject": "perf(verifier): avoid copying response blocks",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "76c9383ea7c4c4e7f90e7ecc17c70139640004de",
+          "subject": "fix(verifier): preserve split-block whitespace",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "9f153da8f4c11e7d34d2e59b067bbe16cbe82db2",
+          "subject": "fix(sync): address generated review findings",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "6b845c266a19508229c5bb6a6edf1f6f1aae966a",
+          "subject": "fix: close the review findings that landed after their PRs merged (#2890)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "2e3e5b34957b835f7af951bc5c682f7292d6abcc",
+          "subject": "fix(verifier): normalize structured provider content (#2887)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "fcf8c214572a6465b121be6315c4fc9217f2367f",
+          "subject": "fix(llm): namespace github-models model ids for the GA endpoint (bare id \u2192 404) (#2825)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "5275c48a580cc0dde93c3b001b6d78b34ca46ad1",
+          "subject": "fix(llm): omit temperature for Anthropic models that reject it (unblocks verifier eval of Opus 4.8 / Claude 5) (#2822)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "d492af983de2f0adbaded974b904e632b5ff79ef",
+          "subject": "fix: harden synced registry contracts (#2806)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "47304edda491ca61939d8ef5977749b9d4ad9f82",
+          "subject": "fix: unblock generated maintenance waves (#2789)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "7a9e289f18ca1cd6a0059545a82f4a1a8d8d652c",
+          "subject": "feat(llm): add evidence-gated model evaluation pipeline (#2710)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "443df8bd43e5fcf7d97f12e3c0a90bc2c82a2f18",
+          "subject": "[Route Weight][codemod] Refactor PR verifier comparison client selection (#2567)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "9eda7b48d198b4559dcde7d25deec18a6a917468",
+          "subject": "fix: honor llm registry provider blocks (#2502)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "6f2b9df2c694c746ec71a1cd20fdcf6460754b6f",
+          "subject": "fix: consume blocked llm override before provider fallback (#2499)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "821168725d0568cade5bb9a18fc58cab97657975",
+          "subject": "fix: clear sync review debt at source (#2498)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "0b04de717dcadc23aea9e2eca0b8679d27e90666",
+          "subject": "fix: sync llm registry helper to consumers (#2496)",
+          "paths": [
+            "tools/langchain_client.py"
+          ]
+        },
+        {
+          "oid": "8d8ac926f6e6cdc6d02a467cb371814a9bbd74ac",
+          "subject": "Agent belt for #2352",
+          "paths": [
+            "scripts/langchain/pr_verifier.py"
+          ]
+        },
+        {
+          "oid": "9ee2ef22554e4a48251c077d5ab2e796843498a0",
+          "subject": "refactor(langchain): extract shared llm client (#2355)",
+          "paths": [
+            "scripts/langchain/pr_verifier.py",
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "551f804fa083ed5003866b4a391ded2379d05835",
+          "subject": "fix: resolve synced script type hygiene",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "c989974d7f676d3acbb6ccaf0e667afa6aca0184",
+          "subject": "fix: resolve synced typecheck and gate summary failures",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "b5491d83a1ef746a37e085ac8a6a80dc2ad62949",
+          "subject": "fix: resolve pythonpath review debt (#2232)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "60ddb5615a7f1eabce1c5a52e3d0ee6df96ce1c3",
+          "subject": "fix: harden pytest config pythonpath detection (#2231)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "08efd8ad97f9040a2db12c9167fda66648e30693",
+          "subject": "fix: harden synced dependency tooling",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "2a89714b84903864def14a373de040147089c63d",
+          "subject": "fix: harden pytest config discovery (#2227)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "18892408ec48b75a020f49435add3abec4be57c0",
+          "subject": "fix: read pytest pythonpath configs (#2226)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "d0a03fccf2d7417ee2f6dd1179b0ad9cf42a39c1",
+          "subject": "fix: refine packaged test module detection (#2225)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "f375fd1c92f6cb0569f4c793dd1885eb49e698f2",
+          "subject": "fix: keep packaged test helper detection",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "29b5a38c8206e6de9b2f054744252ef885ad61c2",
+          "subject": "fix: avoid packaged test submodule masking",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "edca1176fcce7cbb661e8b639c6f891863d460af",
+          "subject": "fix: refine test helper dependency detection (#2222)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "221a83f7799169d25da52aff4e26b1c82b103bd4",
+          "subject": "fix: ignore test helper modules in dependency sync (#2221)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "6c97b27fb653923bd430cdd0f35ffdc27d00d95f",
+          "subject": "fix: unblock sync template gate failures (#2217)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        },
+        {
+          "oid": "5c423a37f9617f9d5ac2c29ad8916279f7ae71a6",
+          "subject": "Fix issue-optimizer/formatter runaway expansion (idempotency + caps + anti-rewrap) (#2178)",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "b2d74df4823e887a6c397fa522839710789539db",
+          "subject": "fix sync review trace helper followups",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "cd021105db8a71bf652127e3ded8486f580885c9",
+          "subject": "Handle delegated trace fallback wrappers",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "8d0e1c4d1ed8f69ec6b8128326189db6569a0d6f",
+          "subject": "fix sync review trace fallback docs (#2131)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "e94286eaf69dd1d79c12df98bcd951292ef78bf8",
+          "subject": "fix task validator fallback ordering (#2130)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "311bff976532c4df2db99316692b85a659474b0c",
+          "subject": "fix sync review followups (#2129)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "12d843158dd8bc41e9a72ede3c9430264ebc3bbe",
+          "subject": "fix langsmith sync review followups",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "1ec7ee000570b46b91dfc4ff856c61bfcb201af0",
+          "subject": "Improve LangSmith trace coverage (#2127)",
+          "paths": [
+            "scripts/langchain/task_validator.py"
+          ]
+        },
+        {
+          "oid": "a616da4b1f32ae745f1fc2e12da7c7f4cabf5960",
+          "subject": "fix: count LangSmith trace URL coverage (#2124)",
+          "paths": [
+            "scripts/langchain/issue_pr_context.py"
+          ]
+        },
+        {
+          "oid": "aa5fca74c8cf97d74d6847359c580925402f1080",
+          "subject": "fix: carry forward sync review followups (#2117)",
+          "paths": [
+            "scripts/sync_test_dependencies.py"
+          ]
+        }
+      ],
+      "per_path_subjects": {
+        "scripts/sync_test_dependencies.py": [
+          "Give nonpackage dependency audits actionable lock maintenance advice (#4278)",
+          "Audit canonical lock pins for non-package consumer test dependencies (#4273)",
+          "fix(scripts): map the `docx` import to python-docx in the shared dependency checker (#3462)",
+          "fix(sync): treat importable test modules as local (#3239)",
+          "chore(sync): consolidate retired consumer cleanup",
+          "fix(sync): keep retired Trend packages removed (#3144)",
+          "fix: resolve synced script type hygiene",
+          "fix: resolve synced typecheck and gate summary failures",
+          "fix: resolve pythonpath review debt (#2232)",
+          "fix: harden pytest config pythonpath detection (#2231)",
+          "fix: harden synced dependency tooling",
+          "fix: harden pytest config discovery (#2227)",
+          "fix: read pytest pythonpath configs (#2226)",
+          "fix: refine packaged test module detection (#2225)",
+          "fix: keep packaged test helper detection",
+          "fix: avoid packaged test submodule masking",
+          "fix: refine test helper dependency detection (#2222)",
+          "fix: ignore test helper modules in dependency sync (#2221)",
+          "fix: unblock sync template gate failures (#2217)",
+          "fix: carry forward sync review followups (#2117)"
+        ],
+        "scripts/langchain/issue_pr_context.py": [
+          "Add inert correction interface without blocking ordinary workflows (#4264)",
+          "Fix issue-optimizer/formatter runaway expansion (idempotency + caps + anti-rewrap) (#2178)",
+          "fix: count LangSmith trace URL coverage (#2124)"
+        ],
+        "scripts/langchain/verifier_config.py": [
+          "fix(verifier): retain required inputs through comparison and native admission (#4218)",
+          "Bind verifier follow-ups to the latest report (#4129)",
+          "fix(verifier): review complete file chunks and guard source closure (#4037)",
+          "fix(verifier): state prompt coverage and withhold PASS on omitted code (#3701) (#3703)",
+          "Fix shared agent-tooling contracts (#3060)"
+        ],
+        "tools/langchain_client.py": [
+          "Retire GitHub Models as a fallback provider (#4362)",
+          "Update active Codex family defaults (#3718)",
+          "fix: preserve prefixed reasoning model policy in sync source (#3704)",
+          "Fix GPT-5.6 verifier temperature compatibility",
+          "MAINT-78: gate verifier model evaluation on cost and quality readiness (#3681)",
+          "chore(llm): move Anthropic defaults to claude-sonnet-5-5 (#3640)",
+          "Complete Astra high-reasoning worker rollout (#3379)",
+          "fix(llm): resolve explicit provider model defaults (#3338)",
+          "Fix shared agent-tooling contracts (#3060)",
+          "fix(llm): namespace github-models model ids for the GA endpoint (bare id \u2192 404) (#2825)",
+          "fix(llm): omit temperature for Anthropic models that reject it (unblocks verifier eval of Opus 4.8 / Claude 5) (#2822)",
+          "fix: harden synced registry contracts (#2806)",
+          "fix: unblock generated maintenance waves (#2789)",
+          "feat(llm): add evidence-gated model evaluation pipeline (#2710)",
+          "fix: honor llm registry provider blocks (#2502)",
+          "fix: consume blocked llm override before provider fallback (#2499)",
+          "fix: clear sync review debt at source (#2498)",
+          "fix: sync llm registry helper to consumers (#2496)"
+        ],
+        "scripts/langchain/task_validator.py": [
+          "fix(tasks): preserve slash-separated subjective prose (#3038)",
+          "fix(agents): address sync review debt (#3022)",
+          "refactor(langchain): extract shared llm client (#2355)",
+          "fix sync review trace helper followups",
+          "Handle delegated trace fallback wrappers",
+          "fix sync review trace fallback docs (#2131)",
+          "fix task validator fallback ordering (#2130)",
+          "fix sync review followups (#2129)",
+          "fix langsmith sync review followups",
+          "Improve LangSmith trace coverage (#2127)"
+        ],
+        "scripts/langchain/pr_verifier.py": [
+          "Agent belt for #4370 (#4448)",
+          "fix(formatter): accept provider text content blocks (#4438)",
+          "feat(verifier): slot-3 capacity backup when one judge's budget is exhausted (#4357)",
+          "fix(verifier): normalize typed summary transport (#4333)",
+          "fix(verifier): retain lint-clean parser client keyword compatibility (#4308)",
+          "fix(verify): recover strict original finals without provider replay (#4301)",
+          "Enable bounded representative Verify API trial (#4294)",
+          "Prepare bounded no-write paired Verify API screen (#4292)",
+          "feat(verifier): authenticate additive corrective test scope (#4290)",
+          "Reject duplicate JSON members in strict semantic verifier responses (#4285)",
+          "fix(verifier): retain explicitly required comment proof end to end (#4250)",
+          "fix(verifier): preserve abbreviated duties and count necessary proof",
+          "fix(verifier): admit necessary whole inputs before optional packing",
+          "fix(verifier): retain selected baseline proof through repeat events",
+          "fix: capture compressed verification evidence as typed assets (#4226)",
+          "fix(verifier): reconcile chunk coverage without losing review findings (#4220)",
+          "fix(verifier): retain required inputs through comparison and native admission (#4218)",
+          "fix: carry repeat verification through material events and retained outcomes (#4216)",
+          "fix(verifier): screen evaluate evidence by minimum availability (#4203)",
+          "fix(verifier): admit original requests for explicit evaluation (#4199)",
+          "fix(verifier): preserve inputs and isolate acceptance execution (#4191)",
+          "fix(verifier): accept Anthropic and retain evaluation failures (#4188)",
+          "fix: restore post-merge verifier evidence and visible outcomes (#4099)",
+          "fix(verifier): enforce merge CI and explain source closure decisions (#4085)",
+          "fix(verifier): review complete file chunks and guard source closure (#4037)",
+          "fix(verifier): accept complete fenced semantic JSON responses (#4017)",
+          "fix(verifier): retain complete artifact bytes before native review (#3951)",
+          "fix(verifier): satisfy the consumer N806 rule so lint-ruff is green after sync (#3925) (#3927)",
+          "fix(verifier): keep bounded product storage separate from review evidence (#3910)",
+          "fix: recognize report evidence delivery (#3902)",
+          "fix(verifier): retain filename-qualified quantified comment destinations (#3890)",
+          "fix(verifier): recognize active command-output send deliveries (#3894)",
+          "fix(verifier): verify full patch bytes and reject lossy artifact text (#3896)",
+          "fix(verifier): retain artifact and review-comment evidence destinations (#3867)",
+          "fix(verifier): derive capture obligation manifest from context coverage (#3831)",
+          "fix(verifier): retain artifact and review-comment evidence destinations (#3836)",
+          "fix: recover exact native capacity for expanded verification (#3822)",
+          "fix(verifier): recover bounded evidence and check native input capacity (#3821)",
+          "fix(sync): cover flat Python modules and named checklist evidence (#3802)",
+          "fix(verifier): preserve alternative evidence destinations and passive CI logs (#3796)",
+          "fix(verifier): common proof objects and PR-contained comments (#3774)",
+          "fix(verifier): preserve presence polarity and shared delivery vocabulary (#3772)",
+          "fix(verifier): preserve named actor delivery boundaries (#3767)",
+          "fix(verifier): share put/place delivery and product-response vocabulary (#3764)",
+          "fix(verifier): enforce mandatory comment evidence presence (#3762)",
+          "fix(verifier): preserve complete destination-specific evidence (#3759)",
+          "fix(verifier): recognize submit delivery and let product capability (#3754)",
+          "fix(verifier): isolate evidence channels and acceptance list items (#3750)",
+          "Cover verifier late omissions in the required comparison command (#3738)",
+          "fix(verifier): share delivery aliases and preserve evidence boundaries (#3747)",
+          "fix(verifier): test and recognize actual generated body evidence (#3746)",
+          "fix(verifier): complete evidence destinations and preserve diagnostics (#3740)",
+          "fix(verifier): preserve product nouns and literal summary destinations (#3737)",
+          "fix(verifier): close six final-review classification and Git-path gaps (#3735)",
+          "Fix verifier evidence and terminal verdicts blocking canaries (#3728)",
+          "fix(verifier): preserve evidence channels and fitting diff text (#3713)",
+          "Fail closed on verifier evidence and generated review disposition (#3711) (#3712)",
+          "fix(verifier): state prompt coverage and withhold PASS on omitted code (#3701) (#3703)",
+          "MAINT-78: enable rapid paired verifier model screen (#3687)",
+          "fix: harden release and verifier automation (#2955)",
+          "fix: harden probes and verifier content (#2951)",
+          "fix(verifier): preserve ordinary coercion fallback",
+          "fix(verifier): narrow response coercion errors",
+          "fix(gate): harden runtime review fallbacks",
+          "fix(sync): harden consumer review fallbacks",
+          "fix(sync): address generated review follow-ups",
+          "fix(sync): address generated review findings",
+          "perf(verifier): avoid copying response blocks",
+          "fix(verifier): preserve split-block whitespace",
+          "fix(sync): address generated review findings",
+          "fix: close the review findings that landed after their PRs merged (#2890)",
+          "fix(verifier): normalize structured provider content (#2887)",
+          "[Route Weight][codemod] Refactor PR verifier comparison client selection (#2567)",
+          "Agent belt for #2352",
+          "refactor(langchain): extract shared llm client (#2355)"
+        ]
+      }
+    }
+  }
+}

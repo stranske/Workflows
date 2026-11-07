@@ -280,6 +280,18 @@
       "scripts/langchain/verifier_config.py"
     ]
   },
+  "final_head_reconciliation": {
+    "record": "final-head-gate.json",
+    "run_id": 42287174423,
+    "artifact_id": 13537639987,
+    "head_sha": "97fa3cdd6b198623db4adc86f16f0b3788320794",
+    "head_identity_verified": true,
+    "coverage_json_locally_available": false,
+    "attributable_round_reduction": null,
+    "original_round_per_target_baseline": null,
+    "status": "blocked: final artifact bytes inaccessible locally and original-round per-target branch outcomes unavailable",
+    "unknown_is_not_zero_improvement": true
+  },
   "contributions": {
     "unit": "missing_lines + missing_branches",
     "numerical_rule_about_units": 180,
@@ -296,6 +308,7 @@
         "coverage_artifact_available": false,
         "measured_unit_reduction": null,
         "counted_unit_reduction": 0,
+        "attributable_unit_reduction": null,
         "reason": "PR #4000 merged and added only tests/scripts/test_verifier_config.py. Its Gate and selftest artifacts report total_count 0, so no coverage delta was recovered. The snapshot-to-current verifier gap is not used as that delta."
       },
       "4405": {
@@ -306,6 +319,7 @@
         "artifact_describes_main": false,
         "measured_landed_unit_reduction": null,
         "counted_unit_reduction": 0,
+        "attributable_unit_reduction": 0,
         "unmerged_target_units": 312,
         "reason": "PR #4405 is open and its head is not on main. The downloaded coverage counters describe that unmerged run. They are excluded from the landed reduction and are not subtracted from the current Gate remainder."
       }

@@ -1,0 +1,11 @@
+#!/opt/hostedtoolcache/Python/3.14.10/x64/bin/python
+"""Run the installed Black CLI with per-file execution in this restricted sandbox."""
+import black
+import black.concurrency
+
+def serial_reformat_many(*, sources, fast, write_back, mode, report, workers=None, no_cache=False, cache_dir=None):
+    for source in sorted(sources):
+        black.reformat_one(source, fast, write_back, mode, report, no_cache=no_cache, cache_dir=cache_dir)
+
+black.concurrency.reformat_many = serial_reformat_many
+black.patched_main()

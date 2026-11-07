@@ -1,0 +1,34 @@
+{
+  "schema": "workflows.issue-4426-final-head-gate/v1",
+  "checked_on": "2026-11-07",
+  "pr_number": 4481,
+  "head_sha": "97fa3cdd6b198623db4adc86f16f0b3788320794",
+  "run_id": 42287174423,
+  "artifact": {
+    "id": 13537639987,
+    "name": "gate-coverage-3.14-1",
+    "archive_digest": "sha256:c754151adf08a07da718d76b40da09c814ef2ae09e69b982c0635cd9e608c839",
+    "size_in_bytes": 1008837,
+    "expired_at_check": false
+  },
+  "job_id": 128131232558,
+  "job_conclusion": "success",
+  "head_identity_verified": true,
+  "coverage_json_locally_available": false,
+  "download_failure": "URLError: Temporary failure in name resolution",
+  "log_excerpts": [
+    "2026-11-06T20:19:06.3504215Z HEAD is now at e4e584e Merge 97fa3cdd6b198623db4adc86f16f0b3788320794 into d216eaafb02c97ed5f1da16a10d46d9a967c616f",
+    "2026-11-06T20:19:08.1055515Z HEAD is now at e4e584e Merge 97fa3cdd6b198623db4adc86f16f0b3788320794 into d216eaafb02c97ed5f1da16a10d46d9a967c616f",
+    "2026-11-06T20:31:20.6928463Z scripts/langchain/issue_pr_context.py                        359     13    150      2  96.27%   407->409, 413-431",
+    "2026-11-06T20:31:20.6933246Z scripts/langchain/pr_verifier.py                            3188    107   1288     79  95.53%   378, 452->449, 458->449, 655, 751->753, 761, 787, 792, 799-803, 812, 845, 868, 874, 875->852, 897, 980->982, 1256->1263, 2692, 3590, 3593, 3636-3637, 3917->3926, 3922->3926, 3945-3946, 4066, 4231-4239, 4764->4779, 4804->4806, 4818-4819, 4833->4845, 5055->5057, 5541->5545, 5641-5642, 5674-5675, 5952->5954, 6155, 6177, 6211, 6218, 6416-6417, 6456, 6543-6544, 6688, 6742->6733, 6801->6824, 6833-6843, 6901->6913, 6957->6959, 6960-6961, 7019, 7088-7089, 7125, 7131, 7281, 7321-7322, 7325-7326, 7493, 7507, 7836, 7859->7861, 7964-7967, 7994->7996, 8002->8001, 8008-8010, 8014->8017, 8038-8063, 8112, 8216-8219, 8358, 8454, 8463, 8464->8466, 8515, 8530, 8611, 8617, 8690, 8742, 9021, 9037, 9190-9193, 9270, 9277, 9291",
+    "2026-11-06T20:31:20.6941262Z scripts/langchain/task_validator.py                          248      3     70      3  98.11%   26-28, 398->408, 745->exit, 749->747",
+    "2026-11-06T20:31:20.6945680Z scripts/langchain/verifier_config.py                         144      1     70      1  99.07%   184",
+    "2026-11-06T20:31:20.7026496Z scripts/sync_test_dependencies.py                            339      1    158      5  98.79%   24->28, 224->203, 316->309, 423, 532->527",
+    "2026-11-06T20:31:20.7075126Z tools/langchain_client.py                                    287      3    112      2  98.75%   358, 592-593",
+    "2026-11-06T20:31:20.7116939Z TOTAL                                                      49564   3657  19862   1833  91.21%",
+    "2026-11-06T20:31:20.7134022Z =========== 49864 passed, 27 skipped, 3 xfailed in 712.92s (0:11:52) ==========="
+  ],
+  "attributable_round_reduction": null,
+  "original_round_per_target_baseline": null,
+  "reason": "No comparable original-round per-target missing line and branch counters; final archive file reference returned but bytes inaccessible in local sandbox."
+}

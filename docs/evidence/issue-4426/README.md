@@ -1,5 +1,10 @@
 # Issue #4426 evidence: recovered #3998 contract
 
+Follow-up checked 2026-11-07: [current task status](follow-up-status.md),
+[verified final-head Gate metadata/log excerpts](final-head-gate.json), and
+[local validation commands and delivery limits](gate-check.md#final-local-results-and-delivery-constraint).
+The original dated snapshots below are retained as historical evidence.
+
 Checked 2026-11-06. This record preserves the original contract from
 [issue #3998](https://github.com/stranske/Workflows/issues/3998) before later coverage measurements or test
 changes. The complete body is `issue-3998.body.md` (SHA-256

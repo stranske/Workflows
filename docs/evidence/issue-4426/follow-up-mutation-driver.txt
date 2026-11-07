@@ -1,0 +1,97 @@
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path.cwd()
+EVIDENCE = ROOT / 'docs/evidence/issue-4426'
+record_path = EVIDENCE / 'mutation-receipts.json'
+record = json.loads(record_path.read_text())
+receipts = []
+regressions = []
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+def run(node):
+    command = [sys.executable, '-m', 'pytest', '-q', node, '-m', 'not slow', '--tb=short', '-p', 'no:cacheprovider']
+    start = time.monotonic()
+    result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=110)
+    return {'command': command, 'exit_code': result.returncode, 'elapsed_seconds': round(time.monotonic()-start, 3), 'output': result.stdout + result.stderr}
+
+def mutation(name, path, symbol, node, old, new):
+    source = ROOT / path
+    original = source.read_bytes()
+    text = original.decode()
+    assert text.count(old) == 1, (name, text.count(old))
+    mutated = text.replace(old, new, 1).encode()
+    try:
+        source.write_bytes(mutated)
+        red = run(node)
+    finally:
+        source.write_bytes(original)
+    green = run(node)
+    item = {'id': name, 'source': path, 'symbol': symbol, 'nodeid': node, 'original_snippet': old, 'mutant_snippet': new, 'test_sha256': digest((ROOT/node.split('::')[0]).read_bytes()), 'restored_sha256': digest(original), 'mutant_sha256': digest(mutated), 'red': red, 'green': green}
+    failures = [line for line in red['output'].splitlines() if line.startswith('FAILED ')]
+    item['red_named_failure'] = '\n'.join(failures)
+    receipts.append(item)
+    record['follow_up_receipts'] = receipts
+    record_path.write_text(json.dumps(record, indent=2)+'\n')
+    assert red['exit_code'] == 1 and failures and node in failures[0], (name, red)
+    assert green['exit_code'] == 0, (name, green)
+    print(name, 'red=1 green=0', flush=True)
+
+verifier = 'scripts/langchain/pr_verifier.py'
+repair_test = 'tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text'
+for case in ['no-repair', 'metadata-only', 'blank-text', 'text-blocks']:
+    if case == 'no-repair':
+        old = '        if not repaired:\n            return None\n'
+        new = '        if not repaired:\n            return "mutant accepted an absent repair"\n'
+    elif case in ['metadata-only', 'blank-text']:
+        old = '        if text is None or not text.strip():\n            return None\n'
+        new = '        if text is None or not text.strip():\n            return repaired\n'
+    else:
+        old = '        return text\n\n    return _repair\n'
+        new = '        return repaired\n\n    return _repair\n'
+    mutation('repair-'+case, verifier, '_build_verifier_repair_callback._repair', repair_test+'['+case+']', old, new)
+
+historical = {x['id']: x for x in record['receipts']}
+for impl, path in [('root','tools/langchain_client.py'), ('consumer-template','templates/consumer-repo/tools/langchain_client.py')]:
+    for name in ['blocked-override-not-retried','unblocked-model1-shared','explicit-model2']:
+        old_receipt = historical[name]
+        mutation(impl+'-'+name, path, 'build_chat_clients', old_receipt['nodeid']+'['+impl+']', old_receipt['original_snippet'], old_receipt['mutant_snippet'])
+    suffix = ' and chat_openai_cls' if impl == 'root' else ''
+    old = '        if slot.provider == PROVIDER_GITHUB and github_token'+suffix+':\n            with contextlib.suppress(Exception):\n                client = _build_github_client(\n'
+    new = old.replace('if slot.provider', 'if False and slot.provider')
+    node = 'tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot['+impl+']'
+    mutation(impl+'-github-constructor-is-reached', path, 'build_chat_client', node, old, new)
+    old = '            logger.warning("Skipping blocked LLM model override: %s/%s", slot.provider, slot_model)\n            used_override = True\n            slot_model = slot.model\n'
+    new = old.replace('            used_override = True\n', '')
+    node = 'tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider['+impl+']'
+    mutation(impl+'-single-override-consumed', path, 'build_chat_client', node, old, new)
+    # Replay the actual implementation before #4481 rather than inventing original code.
+    previous = next(x for x in record['follow_up_regressions'] if x['source'] == path)
+    revision = previous['original_revision']
+    original_code = (EVIDENCE / previous['original_snapshot']).read_bytes()
+    assert digest(original_code) == previous['original_sha256']
+    live = ROOT / path
+    fixed = live.read_bytes()
+    node = historical['blocked-override-not-retried']['nodeid']+'['+impl+']'
+    try:
+        live.write_bytes(original_code)
+        red = run(node)
+    finally:
+        live.write_bytes(fixed)
+    green = run(node)
+    assert red['exit_code'] == 1 and node in red['output'], red
+    assert green['exit_code'] == 0, green
+    regressions.append({'source':path,'original_snapshot':previous['original_snapshot'],'original_revision':revision,'original_sha256':digest(original_code),'fixed_sha256':digest(fixed),'nodeid':node,'red':red,'green':green})
+    record_path.write_text(json.dumps({**record, 'follow_up_regressions': regressions},indent=2)+'\n')
+    print(impl, 'actual original-code regression red=1 fixed=0', flush=True)
+
+assert all((ROOT/p).read_bytes() == (EVIDENCE / record['recorded_source']['files'][p]['path']).read_bytes() for p in [verifier,'tools/langchain_client.py'])
+record['follow_up_regressions'] = regressions
+record['follow_up_production_restored'] = True
+record_path.write_text(json.dumps(record,indent=2)+'\n')

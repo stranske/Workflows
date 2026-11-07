@@ -3,16 +3,16 @@
 The sort is the Orchestrator ``escaped_defect_priority`` order: fix and revert
 weight, then non-merge churn, then uncovered statements plus branches. Issue
 #3998's printed integers stay the preserved snapshot. A fresh 180-day window
-does not reproduce that order. #4405 is unmerged, so its coverage counters are
-not subtracted from the current Gate remainder.
+does not reproduce that order. #4405 was unmerged at the recorded observation,
+so its counters are not subtracted from that historical Gate remainder.
+Inputs are pinned local evidence; validation never fetches repository history.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
-import subprocess
-import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -140,15 +140,18 @@ def landed_unit_reduction(
     merged: bool,
     coverage_artifact_available: bool,
     measured_unit_reduction: int | None,
-) -> int:
+) -> int | None:
     """Count a coverage delta only when the PR merged and the artifact exists.
 
-    An unmerged artifact and a merged PR with no artifact both contribute 0.
-    Callers must not substitute a snapshot gap for the missing measurement.
+    An unmerged PR contributes zero landed units. A merged PR without comparable
+    evidence has unknown improvement, represented by None, even if the ledger
+    counts no credit toward acceptance. A measured zero remains distinct.
     """
-    if merged and coverage_artifact_available and measured_unit_reduction is not None:
+    if not merged:
+        return 0
+    if coverage_artifact_available:
         return measured_unit_reduction
-    return 0
+    return None
 
 
 def uncovered_statements_and_branches(summary: dict[str, int]) -> int:
@@ -156,161 +159,46 @@ def uncovered_statements_and_branches(summary: dict[str, int]) -> int:
     return int(summary["missing_lines"]) + int(summary["missing_branches"])
 
 
-def _git(repo: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", *args],
-        cwd=repo,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or f"git {' '.join(args)} failed")
-    return result.stdout
-
-
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-_RANKING_GIT_REPO: Path | None = None
+RANKING_INPUTS_SHA256 = "de9d7b70280bbb6afe92ac5ba17a31ef7613be6bf1b60b8a141fd93cedf9f477"
 
 
-def _has_commit(repo: Path, revision: str) -> bool:
-    result = subprocess.run(
-        ["git", "cat-file", "-e", f"{revision}^{{commit}}"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0
+def _ranking_inputs(root: Path) -> dict:
+    """Validate bounded, pinned history without subprocesses or remote access."""
+    path = root / "docs/evidence/issue-4426/ranking-inputs.json"
+    if path.stat().st_size > 150_000:
+        raise ValueError("ranking inputs exceed the byte limit")
+    data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != RANKING_INPUTS_SHA256:
+        raise ValueError("ranking input digest mismatch")
+    record = json.loads(data)
+    if record["schema"] != "workflows.issue-4426-ranking-inputs/v1":
+        raise ValueError("unexpected ranking input schema")
+    if record["targets"] != list(TARGETS) or set(record["windows"]) != {"pre_round", "current"}:
+        raise ValueError("unexpected ranking input scope")
+    for window in record["windows"].values():
+        if len(window["commits"]) > 256:
+            raise ValueError("ranking inputs exceed the commit limit")
+        if window["since"] != lookback_since(window["committer"]):
+            raise ValueError("ranking input window mismatch")
+        seen = set()
+        for commit in window["commits"]:
+            if not re.fullmatch(r"[0-9a-f]{40}", commit["oid"]) or commit["oid"] in seen:
+                raise ValueError("invalid or duplicate ranking commit")
+            seen.add(commit["oid"])
+            if not commit["paths"] or not set(commit["paths"]) <= set(TARGETS):
+                raise ValueError("unexpected ranking commit path")
+    return record
 
 
-def _is_shallow(repo: Path) -> bool:
-    return _git(repo, "rev-parse", "--is-shallow-repository").strip() == "true"
-
-
-def _window_parents_present(repo: Path, revision: str, since: str) -> bool:
-    """True when ``git log --name-only`` can diff every commit in the window.
-
-    A shallow boundary commit has no parent object, so ``--name-only`` lists the
-    whole tree and inflates churn. A full clone only needs the revision itself.
-    """
-    if not _has_commit(repo, revision):
-        return False
-    if not _is_shallow(repo):
-        return True
-    raw = _git(repo, "rev-list", "--no-merges", f"--since={since}", "--parents", revision)
-    for line in raw.splitlines():
-        parts = line.split()
-        if len(parts) < 2:
-            return False
-        for parent in parts[1:]:
-            if not _has_commit(repo, parent):
-                return False
-    return True
-
-
-def _history_available(root: Path) -> bool:
-    measurement = _load(root / "docs/evidence/issue-4426/coverage-measurement.json")
-    ranking = _load(root / "docs/evidence/issue-4426/ranking.json")
-    pairs = (
-        (measurement["pre_round"]["main_oid"], ranking["revisions"]["pre_round_since"]),
-        (measurement["current"]["origin_main"], ranking["revisions"]["current_since"]),
-    )
-    return all(_window_parents_present(root, revision, since) for revision, since in pairs)
-
-
-def _copy_http_extraheaders(source: Path, dest: Path) -> None:
-    result = subprocess.run(
-        ["git", "-C", str(source), "config", "--local", "--get-regexp", r"^http\..*\.extraheader$"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return
-    for line in result.stdout.splitlines():
-        key, separator, value = line.partition(" ")
-        if separator and value:
-            subprocess.run(["git", "-C", str(dest), "config", "--local", key, value], check=True)
-
-
-def _redact_git_error(text: str) -> str:
-    kept = [
-        line
-        for line in text.splitlines()
-        if "authorization" not in line.lower() and "extraheader" not in line.lower()
-    ]
-    return "\n".join(kept)[-500:]
-
-
-def _fetch_ranking_history(source: Path, windows: tuple[tuple[str, str], ...]) -> Path:
-    """Fetch the pinned revisions into a new repo so the job checkout stays shallow."""
-    dest = Path(tempfile.mkdtemp(prefix="issue-4426-ranking-"))
-    subprocess.run(["git", "init", "-q", str(dest)], check=True)
-    origin = "https://github.com/stranske/Workflows"
-    remote = subprocess.run(
-        ["git", "-C", str(source), "remote", "get-url", "origin"],
-        capture_output=True,
-        text=True,
-    )
-    if remote.returncode == 0 and remote.stdout.strip():
-        origin = remote.stdout.strip()
-    subprocess.run(["git", "-C", str(dest), "remote", "add", "origin", origin], check=True)
-    _copy_http_extraheaders(source, dest)
-    earliest_since = min(since for _revision, since in windows)
-    anchor = datetime.fromisoformat(earliest_since.replace("Z", "+00:00"))
-    last_error = "pinned ranking history is unavailable"
-    for margin_days in (14, 45, 120):
-        fetch_since = (anchor - timedelta(days=margin_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        failed = False
-        for revision, _since in windows:
-            result = subprocess.run(
-                [
-                    "git",
-                    "-C",
-                    str(dest),
-                    "fetch",
-                    "--no-tags",
-                    f"--shallow-since={fetch_since}",
-                    "origin",
-                    revision,
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                failed = True
-                last_error = _redact_git_error(result.stderr) or last_error
-                break
-        if failed:
-            continue
-        if all(_window_parents_present(dest, revision, since) for revision, since in windows):
-            return dest
-    raise RuntimeError(last_error)
-
-
-def git_repo_for_ranking(root: Path = ROOT) -> Path:
-    """Use ``root`` when it already contains the pinned history.
-
-    Gate Python CI checks out with fetch-depth 1, which does not include the
-    pre-round or current-main revisions. Those are fetched into a temporary
-    repository. Fetching the checkout itself would move its shallow boundary
-    for later tests in the same job.
-    """
-    global _RANKING_GIT_REPO
-    if _history_available(root):
-        return root
-    if _RANKING_GIT_REPO is not None:
-        return _RANKING_GIT_REPO
-    measurement = _load(root / "docs/evidence/issue-4426/coverage-measurement.json")
-    ranking = _load(root / "docs/evidence/issue-4426/ranking.json")
-    windows = (
-        (measurement["pre_round"]["main_oid"], ranking["revisions"]["pre_round_since"]),
-        (measurement["current"]["origin_main"], ranking["revisions"]["current_since"]),
-    )
-    _RANKING_GIT_REPO = _fetch_ranking_history(root, windows)
-    return _RANKING_GIT_REPO
+def _input_window(root: Path, revision: str, since: str) -> dict:
+    for window in _ranking_inputs(root)["windows"].values():
+        if window["revision"] == revision and window["since"] == since:
+            return window
+    raise ValueError("revision/window is not in the pinned ranking inputs")
 
 
 def _history_rows(
@@ -321,14 +209,10 @@ def _history_rows(
     issue_targets: dict[str, dict[str, int]],
     extra_by_path: dict[str, dict[str, int | None]] | None = None,
 ) -> list[dict[str, object]]:
-    raw = _git(
-        repo,
-        "log",
-        revision,
-        f"--since={since}",
-        "--no-merges",
-        "--name-only",
-        "--pretty=format:%x00%s",
+    window = _input_window(repo, revision, since)
+    raw = "\n".join(
+        "\x00" + commit["subject"] + "\n" + "\n".join(commit["paths"])
+        for commit in window["commits"]
     )
     parsed = parse_name_only_log(raw)
     rows: list[dict[str, object]] = []
@@ -365,17 +249,20 @@ def _history_rows(
     return ranked
 
 
-def build_ranking_record(root: Path = ROOT, git_repo: Path | None = None) -> dict:
-    """Rebuild the ranking record from git history and the locked evidence files."""
-    repo = git_repo or root
+def build_ranking_record(root: Path = ROOT) -> dict:
+    """Rebuild the historical ranking from pinned inputs and evidence files."""
+    repo = root
     contract = _load(root / "docs/evidence/issue-4426/contract-3998.json")
     measurement = _load(root / "docs/evidence/issue-4426/coverage-measurement.json")
     inventory = _load(root / "docs/evidence/issue-4426/pr-inventory.json")
     issue_targets = {item["path"]: item for item in contract["ranking_method"]["targets"]}
     pre_round = measurement["pre_round"]["main_oid"]
     current = measurement["current"]["origin_main"]
-    pre_iso = _git(repo, "log", "-1", "--format=%cI", pre_round).strip()
-    current_iso = _git(repo, "log", "-1", "--format=%cI", current).strip()
+    inputs = _ranking_inputs(root)["windows"]
+    assert inputs["pre_round"]["revision"] == pre_round
+    assert inputs["current"]["revision"] == current
+    pre_iso = inputs["pre_round"]["committer"]
+    current_iso = inputs["current"]["committer"]
     pre_since = lookback_since(pre_iso)
     current_since = lookback_since(current_iso)
 
@@ -443,7 +330,8 @@ def build_ranking_record(root: Path = ROOT, git_repo: Path | None = None) -> dic
     current_total = sum(current_uncovered.values())
     partial_total = sum(item["lines_plus_partial_branches"] for item in per_file)
     unmerged_total = sum(unmerged_units.values())
-    counted = counted_4000 + counted_4405
+    # No credited units does not establish zero actual improvement.
+    counted = (counted_4000 or 0) + (counted_4405 or 0)
     return {
         "schema": "workflows.issue-4426-ranking/v1",
         "checked_on": CHECKED_ON,
@@ -521,6 +409,7 @@ def build_ranking_record(root: Path = ROOT, git_repo: Path | None = None) -> dic
                 )
             ],
         },
+        "final_head_reconciliation": measurement["final_head_reconciliation"],
         "contributions": {
             "unit": "missing_lines + missing_branches",
             "numerical_rule_about_units": contract["numerical_rule"]["about_units"],
@@ -534,7 +423,8 @@ def build_ranking_record(root: Path = ROOT, git_repo: Path | None = None) -> dic
                     "diff_paths": [item["path"] for item in pr_4000["files"]],
                     "coverage_artifact_available": pr_4000["coverage_artifacts"]["available"],
                     "measured_unit_reduction": None,
-                    "counted_unit_reduction": counted_4000,
+                    "counted_unit_reduction": counted_4000 or 0,
+                    "attributable_unit_reduction": counted_4000,
                     "reason": (
                         "PR #4000 merged and added only tests/scripts/test_verifier_config.py. "
                         "Its Gate and selftest artifacts report total_count 0, so no coverage "
@@ -549,7 +439,8 @@ def build_ranking_record(root: Path = ROOT, git_repo: Path | None = None) -> dic
                     "coverage_artifact_available": pr_4405["coverage_artifacts"]["available"],
                     "artifact_describes_main": False,
                     "measured_landed_unit_reduction": None,
-                    "counted_unit_reduction": counted_4405,
+                    "counted_unit_reduction": counted_4405 or 0,
+                    "attributable_unit_reduction": counted_4405,
                     "unmerged_target_units": unmerged_total,
                     "reason": (
                         "PR #4405 is open and its head is not on main. The downloaded coverage "
@@ -659,6 +550,9 @@ def render_ranking_markdown(record: dict) -> str:
             f"Counted landed reduction from #4000 and #4405: "
             f"{contributions['counted_landed_reduction']}.",
             contributions["double_count_guard"],
+            "Counted credit is not actual improvement: #4000 attribution is unknown, "
+            "not a measured zero. See final-head-gate.json for the verified later "
+            "#4481 run and the unresolved artifact/baseline recovery.",
             f"Issue-listed units: {contributions['issue_listed_units']}. "
             f"Current Gate units: {contributions['current_gate_units']}. "
             f"Unattributed snapshot difference: "
@@ -763,7 +657,7 @@ def test_landed_reduction_drops_unmerged_and_unmeasured_deltas() -> None:
             coverage_artifact_available=False,
             measured_unit_reduction=14,
         )
-        == 0
+        is None
     )
     assert (
         landed_unit_reduction(
@@ -772,6 +666,19 @@ def test_landed_reduction_drops_unmerged_and_unmeasured_deltas() -> None:
             measured_unit_reduction=14,
         )
         == 14
+    )
+
+    assert (
+        landed_unit_reduction(
+            merged=True, coverage_artifact_available=True, measured_unit_reduction=0
+        )
+        == 0
+    )
+    assert (
+        landed_unit_reduction(
+            merged=True, coverage_artifact_available=True, measured_unit_reduction=None
+        )
+        is None
     )
 
 
@@ -792,8 +699,7 @@ def test_parser_weights_revert_above_fix_and_ignores_prose() -> None:
 
 
 def _ranking_record() -> tuple[Path, dict]:
-    repo = git_repo_for_ranking(ROOT)
-    return repo, build_ranking_record(ROOT, git_repo=repo)
+    return ROOT, build_ranking_record(ROOT)
 
 
 def test_regenerated_ranking_reorders_the_six_targets() -> None:
@@ -834,7 +740,7 @@ def test_regenerated_ranking_reorders_the_six_targets() -> None:
     assert record["revisions"]["pre_round_coverage_json_available"] is False
 
 
-def test_per_file_git_log_matches_the_whole_repo_scores() -> None:
+def test_pinned_per_file_subjects_match_the_recorded_history_scores() -> None:
     repo, record = _ranking_record()
     revisions = {
         record["revisions"]["pre_round"]: (
@@ -848,16 +754,7 @@ def test_per_file_git_log_matches_the_whole_repo_scores() -> None:
     }
     for revision, (since, rows) in revisions.items():
         for row in rows:
-            subjects = _git(
-                repo,
-                "log",
-                revision,
-                f"--since={since}",
-                "--no-merges",
-                "--format=%s",
-                "--",
-                str(row["path"]),
-            ).splitlines()
+            subjects = _input_window(repo, revision, since)["per_path_subjects"][row["path"]]
             assert len(subjects) == row["churn"]
             assert (
                 sum(subject_weight(subject) for subject in subjects) == row["escaped_defect_weight"]
@@ -913,3 +810,29 @@ if __name__ == "__main__":
     record = build_ranking_record(ROOT)
     RANKING_JSON.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     RANKING_MD.write_text(render_ranking_markdown(record), encoding="utf-8")
+
+
+def test_ranking_regeneration_never_invokes_subprocesses(monkeypatch) -> None:
+    import subprocess
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("ranking validation must not run git or access the network")
+
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    assert build_ranking_record(ROOT) == _load(RANKING_JSON)
+
+
+def test_ranking_rejects_unpinned_or_unbounded_inputs(tmp_path: Path) -> None:
+    path = tmp_path / "docs/evidence/issue-4426/ranking-inputs.json"
+    path.parent.mkdir(parents=True)
+    path.write_text("{}")
+    with pytest.raises(ValueError, match="digest mismatch"):
+        _ranking_inputs(tmp_path)
+    path.write_bytes(b" " * 150_001)
+    with pytest.raises(ValueError, match="byte limit"):
+        _ranking_inputs(tmp_path)
+
+
+def test_ranking_rejects_an_unrecorded_revision_or_window() -> None:
+    with pytest.raises(ValueError, match="not in the pinned"):
+        _input_window(ROOT, "0" * 40, "2026-05-10T16:54:02Z")
