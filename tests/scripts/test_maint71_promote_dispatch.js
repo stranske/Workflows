@@ -8,6 +8,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const {
   buildCanaryPromotionEvidence, dispatchCanaryPromotion, dispatchDeliveryRefresh,
+  canaryRefreshDecision, dispatchCanaryRefresh,
   CANARY_REFRESH_DEBOUNCE_MS,
   sealedPromotionHealth, reportSealedPromotionHealth, publishPromotionHealthCheck,
 } = require('../../.github/scripts/maint71_merge_sync_prs');
@@ -476,3 +477,50 @@ test('delivery refresh shares active-writer scan, exact-plan debounce and fails 
     assert.equal(api.dispatched.length, mode === 'expired' ? 1 : 0);
   }
 });
+
+for (const phase of ['canary', 'promote']) {
+  for (const status of ['queued', 'in_progress', 'waiting', 'pending', 'requested']) {
+    test(`canary regeneration preserves an old-plan ${phase} writer in ${status}`, async () => {
+      const api = harness();
+      const previousSource = 'e'.repeat(40);
+      const previousPlan = `sha256:${'f'.repeat(64)}`;
+      const writer = promotionRun({
+        status, conclusion: null, head_sha: previousSource,
+        created_at: new Date(now - CANARY_REFRESH_DEBOUNCE_MS - 1).toISOString(),
+        updated_at: new Date(now - CANARY_REFRESH_DEBOUNCE_MS - 1).toISOString(),
+        display_title: phase === 'canary'
+          ? `Maint 68 canary full source=${previousSource} candidates=${expectedCanaries.join(',')} dry=false`
+          : `Maint 68 promote auto ${previousPlan} ${previousSource}`,
+      });
+      const original = structuredClone(writer);
+      const decide = () => canaryRefreshDecision({
+        runs: [writer], sha: sourceCommit, candidates: expectedCanaries, now,
+      });
+      const held = decide();
+      assert.equal(held.eligible, false);
+      assert.equal(held.state, 'writer-active');
+      assert.equal(held.run_id, writer.id);
+      const result = await dispatchCanaryRefresh({
+        ...api, expectedCanaries, refreshState: held,
+      });
+      assert.equal(result.dispatched, false);
+      assert.equal(api.dispatched.length, 0);
+      assert.deepEqual(writer, original, 'a retry must not cancel or expire the live writer');
+
+      // Only observing terminal native state releases the hold. An expired
+      // retry window and a different source/plan cannot release a live writer.
+      writer.status = 'completed';
+      writer.conclusion = 'cancelled';
+      const released = decide();
+      assert.equal(released.eligible, true);
+      assert.equal((await dispatchCanaryRefresh({
+        ...api, expectedCanaries, refreshState: released,
+      })).dispatched, true);
+      assert.equal(api.dispatched.length, 1);
+      assert.equal(api.dispatched[0].workflow_id, 'maint-68-sync-consumer-repos.yml');
+      assert.equal(api.dispatched[0].inputs.scope_head_sha, sourceCommit);
+      assert.equal(api.dispatched[0].inputs.force, 'false');
+      assert.deepEqual(api.dispatched[0].inputs.repos.split(',').sort(), [...expectedCanaries].sort());
+    });
+  }
+}

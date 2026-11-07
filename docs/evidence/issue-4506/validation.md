@@ -303,3 +303,38 @@ therefore still contains that unsupported checked criterion; it needs correction
 by an authorized writer. Final connector reads verified Workflows PR #4530 and
 consumer PR #1957 are both open and ready (`draft=false`). The full latest pytest
 result is appended to `pytest-consumer-behavior.txt`.
+
+## Controller writer preservation regression — 2026-11-07
+
+Added ten behavioral cases to `tests/scripts/test_maint71_promote_dispatch.js`
+for the first unchecked task's live-writer preservation requirement. The actual
+canary refresh decision and dispatch helpers must refuse a second writer in
+each of `queued`, `in_progress`, `waiting`, `pending`, and `requested`, for
+both canary and promotion producers from another source/plan. Their timestamps
+exceed the retry debounce window. The tests verify zero dispatches and unchanged
+writer observations while held. After observing a terminal cancelled run, they
+verify exactly one non-forced Maint 68 request pinned to the requested source.
+All API writes in these tests use the existing inert recorder.
+
+`node tests/scripts/test_maint71_promote_dispatch.js`: **46 passed, no skips**
+(36 existing plus 10 new). The selected Python interpreter's named two-file
+pytest command with `-m 'not slow'` also passed **351 tests in 7.84s, no skips**;
+mypy 2.4.1 is installed. `git diff --check` passed. No Python files changed.
+
+Fresh connected reads still show consumer head
+`7ca6deb8d219fe9137fcb220de745e063f42c51c` open and ready. Native mypy job
+`128338642025` remains successful with that full head in its checkout log.
+The literal `gh run view 42350906876 --repo stranske/trip-planner --log`
+again failed to connect. The latest available sync-core handoff is still
+round `20261107T011939Z` on older head prefix `7f96a095cbd6`; neither documented
+controller-local receipt path exists here. No live writer or consumer branch
+was changed, no controller dispatch was made, and no additional checkbox is
+complete. Regeneration and next-head sync-core classification remain blocked
+on a connected controller owner.
+
+Staging these two files failed with `.git/index.lock: Read-only file system`;
+no commit or push was possible. Attempts to add `needs-human` and publish the
+blocker comment were each rejected with `MCP tool call requires approval, but
+approval policy is never`. Neither remote mutation succeeded. Final connected
+reads verified Workflows PR #4530 and consumer PR #1957 are open and ready
+(`draft=false`). The tested JavaScript change and this record remain local.
