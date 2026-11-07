@@ -909,13 +909,13 @@ def test_main_keeps_unreadable_blob_cache_scoped_to_each_repo(
 
 
 @pytest.mark.parametrize("template_drift", [False, True])
-@pytest.mark.parametrize("missing_trigger", [False, True])
+@pytest.mark.parametrize("trigger_difference", ["extra", "missing", "both", "matching"])
 def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys,
     template_drift: bool,
-    missing_trigger: bool,
+    trigger_difference: str,
 ) -> None:
     """Fleet trigger reporting must not make consumer-owned Gate policy actionable."""
     root = Path(__file__).resolve().parents[2]
@@ -940,10 +940,11 @@ def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
         "    types: [opened, synchronize, reopened, ready_for_review, labeled]\n"
         "jobs:\n  consumer-policy:\n    runs-on: ubuntu-latest\n    steps: []\n"
     )
-    if missing_trigger:
-        # Replacing synchronize with labeled preserves the number of triggers;
-        # equality still requires reporting both differences for every consumer.
+    if trigger_difference in {"missing", "both"}:
+        # Missing synchronize must remain visible alone and alongside extra labeled.
         custom_gate = custom_gate.replace("synchronize, ", "", 1)
+    if trigger_difference in {"missing", "matching"}:
+        custom_gate = custom_gate.replace(", labeled", "", 1)
     contents = dict.fromkeys(registered, custom_gate)
     if not template_drift:
         contents["stranske/Template"] = source
@@ -990,14 +991,22 @@ def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
     assert report["skipped"] == [
         f"stranske/Manager-Database: {gate.target} ({gate.skip_repos[0].reason})"
     ]
-    expected_lines = [
-        f"gate triggers: {repo}"
-        + (" (custom gate, never overwritten)" if repo == "stranske/Manager-Database" else "")
-        + " extra=['labeled']"
-        + (" missing=['synchronize']" if missing_trigger else "")
-        for repo in registered
-        if repo != "stranske/Template" or template_drift
-    ]
+    if trigger_difference == "matching":
+        # Trigger equality does not require replacing consumer jobs with the template.
+        # Template still follows overwrite policy even when its triggers already match.
+        expected_lines = [
+            "gate triggers: stranske/Manager-Database (custom gate, never overwritten) matches",
+            "gate triggers: all match",
+        ]
+    else:
+        expected_lines = [
+            f"gate triggers: {repo}"
+            + (" (custom gate, never overwritten)" if repo == "stranske/Manager-Database" else "")
+            + (" extra=[]" if trigger_difference == "missing" else " extra=['labeled']")
+            + (" missing=['synchronize']" if trigger_difference in {"missing", "both"} else "")
+            for repo in registered
+            if repo != "stranske/Template" or template_drift
+        ]
     assert report["gate_triggers"] == expected_lines
     assert sorted(reads) == sorted(
         repo for repo in registered if repo != "stranske/Template" or template_drift
@@ -1006,7 +1015,10 @@ def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
     summary = Path(args.summary).read_text(encoding="utf-8")
     for line in expected_lines:
         assert line in output and line in summary
-    assert "gate triggers: all match" not in output + summary + Path(args.report_json).read_text()
+    if trigger_difference != "matching":
+        assert (
+            "gate triggers: all match" not in output + summary + Path(args.report_json).read_text()
+        )
 
 
 def test_manifest_skip_reason_honors_include_repos() -> None:
