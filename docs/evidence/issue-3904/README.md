@@ -228,3 +228,67 @@ BLACK_CACHE_DIR=/tmp/issue-4462-phase-black-cache BLACK_NUM_WORKERS=1 black --ch
 these checks, but `git add` failed with `Unable to create '.git/index.lock':
 Read-only file system`. These four changed source/test/doc files remain
 uncommitted. PR #4527 was rechecked as open with `draft=false` at handoff.
+
+## Follow-up #4462 comparison-harness validation (2026-11-07)
+
+`scripts/measure_verifier_runtime.py` now requires observed passing JUnit cases
+in all three scoped suites for both arms, independently of pytest's exit status.
+It retains per-suite passed/failure/error/skipped counts and an explicit
+`outcome_comparison` decision. Missing or empty scope, skipped cases, failures,
+errors and conflicting outcomes withhold successful scoped execution. Unreadable
+JUnit records an UNKNOWN diagnostic and preserves the remaining evidence.
+Coverage set comparisons now validate executed-line/branch lists in both arms;
+missing, unreadable or invalid coverage produces a null comparison and an UNKNOWN
+diagnostic instead of losing the final result receipt to a parser exception.
+Both arms still run, and raw artifacts remain hashed. Existing nonzero-exit,
+package-drift and lost-line/branch checks remain required and have explicit
+regressions. The real two-arm pytest/coverage fixture still passes.
+
+The new controls first reported **47 failed, 8 passed** against the prior harness.
+After the repair and additional malformed-XML/existing-check controls, local
+Python **3.14.10** validation reports **63 passed**, harness coverage **92.23%**:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_measure_verifier_runtime.py --cov=scripts.measure_verifier_runtime --cov-report=term-missing -q -m 'not slow'
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+ruff check scripts/measure_verifier_runtime.py tests/scripts/test_measure_verifier_runtime.py
+```
+
+The second command reports **2,202 passed in 11.96s**, and Ruff passes. No harness
+coverage percentage target is specified. This measures the harness using small
+fixture source arms; it is not scoped production-verifier coverage or hosted
+phase timing. All existing evidence archives and manifests remain unchanged.
+
+The installed Python **3.12.16** and **3.13.18** interpreters lack pytest. An
+isolated Python 3.12 venv dependency-install attempt failed because the public
+PyPI hostname could not resolve. No repository dependency pin was changed.
+The current hosted [Gate run 42375394733](https://github.com/stranske/Workflows/actions/runs/42375394733)
+for head `45cca3adf933e424c5ba99a0b87df33a18772da1` is successful, with successful
+Python 3.13 and 3.14 jobs (`128411953756` and `128411953784`). This supplies no
+Python 3.12 job, matched scoped comparison or controlled hosted phase timing.
+
+The remaining task stays unchecked. The manual workflow still schedules
+3.13/3.14 and pins the historical candidate. Collecting the requested evidence
+requires an authorized `agent-high-privilege` editor to align
+`.github/workflows/maint-88-verifier-runtime-comparison.yml` and its immutable
+source selection with an admissible reviewed baseline/current-candidate pair,
+then retain successful 3.12/3.13 scoped coverage, branch/outcome comparisons and
+measured hosted phase receipts. Production-source/configuration identity and
+existing acceptance checks must remain intact. No protected workflow was edited.
+
+The requested `needs-human` label and concrete blocker comment on PR #4527 were
+each rejected with `MCP tool call requires approval, but approval policy is never`;
+neither remote mutation succeeded.
+
+Black formatted both touched Python files individually. After the serial checker
+validated the full source set with the root configuration and populated a writable
+cache, the exact required CLI check passed, exit **0**, with **959 files unchanged**:
+
+```bash
+BLACK_CACHE_DIR=/tmp/issue-4462-harness-black-cache BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+`git diff --check` also passes. The requested commit was blocked at staging:
+`git add` returned `Unable to create '.git/index.lock': Read-only file system`.
+The four source/test/documentation changes remain uncommitted in the workspace.
+PR #4527 was verified open with `draft=false`; no task checkbox was changed.

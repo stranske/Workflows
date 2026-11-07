@@ -275,8 +275,11 @@ python scripts/gate_runtime_evidence.py --help
 
 `maint-88-verifier-runtime-comparison.yml` is a finite manual experiment for #3904,
 not a new PR gate or recurring benchmark service. After normal review/merge, dispatch
-it once from the reviewed harness commit. It runs Python 3.12 and 3.13 on standard
-`ubuntu-latest` runners. Within each job, both arms share the exact interpreter,
+it once from the reviewed harness commit. The current workflow schedules Python
+3.13 and 3.14 on standard `ubuntu-latest` runners; it does **not** establish the
+requested Python 3.12/3.13 evidence. An authorized workflow editor must align the
+matrix and immutable source selection before collecting that evidence. Within
+each job, both arms share the exact interpreter,
 installed dependency set, four loadgroup workers, markers, coverage configuration,
 commands and runner. The common dependency lock is taken from candidate
 `999ffe5fa00ac9c8ae8a807447f053277032b670`; baseline source is
@@ -287,8 +290,9 @@ a common candidate environment; it does not compare each historical installation
 
 No artifact or dependency cache restore runs. Each arm starts in a fresh source
 archive with pytest cache disabled, bytecode writes disabled, and its own temporary
-directory. OS page-cache effects are not controlled; Python 3.12 runs baseline first
-and Python 3.13 runs candidate first. These are one pair per interpreter, not repeated
+directory. OS page-cache effects are not controlled. The harness runs baseline first
+on Python 3.12 and candidate first on other versions, so both currently scheduled
+versions run candidate first. These are one pair per interpreter, not repeated
 trials sufficient to estimate variability. Dependency installation is outside the
 timed arms. This experiment therefore cannot claim that removing the former
 423-second artifact-discovery stall caused a test-execution speedup.
@@ -303,6 +307,19 @@ line/branch fails the measurement job; no coverage threshold or required Gate is
 changed. Retain and adjudicate losses rather than treating aggregate percentage
 equality as equivalence. Passing this experiment does not establish all removed
 lexical tuples equivalent, all required jobs under ten minutes, or closure of #3904.
+
+The harness also requires observed passing JUnit cases in each of the three scoped
+suites in both arms. Missing/empty scope, skipped cases, failures, errors or
+conflicting case outcomes cannot certify successful scoped execution, even when
+the process reports exit zero. Per-suite outcome counts are retained in the arm
+receipts and `outcome_comparison` records the decision and gaps. Unreadable JUnit
+leaves an UNKNOWN diagnostic while both arms and their raw artifacts are retained.
+Coverage comparison validates explicit executed-line/branch lists before taking
+set differences, including integer types and negative branch exits. Missing,
+unreadable or malformed coverage leaves `verifier_coverage: null` with a
+`coverage_error` UNKNOWN diagnostic and fails the job. These checks establish
+receipt validity; they do not supply missing hosted measurements or assert
+equivalence of deliberately removed parameter rows.
 
 Local checks before review:
 

@@ -15,6 +15,7 @@ import tarfile
 import time
 import tomllib
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
 
 BASELINE = "2f9eb2de718d1a561bce6fc0bff46fe8b9867905"
 CANDIDATE = "999ffe5fa00ac9c8ae8a807447f053277032b670"
@@ -87,7 +88,7 @@ def prepare(repo: Path, output: Path) -> None:
         "workflow_sha": os.environ.get("GITHUB_SHA"),
         "workflow_sha256": sha(repo / ".github/workflows/maint-88-verifier-runtime-comparison.yml"),
         "dependency_lock": "candidate/requirements.lock",
-        "cache_policy": "No actions/cache or artifact restore; fresh arm directories, pytest cache provider disabled, bytecode writes disabled. OS page cache is uncontrolled; arm order is counterbalanced across Python versions, not within-version replicated.",
+        "cache_policy": "No actions/cache or artifact restore; fresh arm directories, pytest cache provider disabled, bytecode writes disabled. OS page cache is uncontrolled; arm order is recorded in result.json (baseline first on Python 3.12, candidate first otherwise), not within-version replicated.",
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
@@ -126,14 +127,74 @@ def junit(path: Path) -> dict:
     by_file = {}
     for case in root.iter("testcase"):
         key = case.get("classname", "")
-        row = by_file.setdefault(key, {"cases": 0, "worker_seconds": 0.0})
+        row = by_file.setdefault(
+            key,
+            {
+                "cases": 0,
+                "worker_seconds": 0.0,
+                "passed": 0,
+                "failures": 0,
+                "errors": 0,
+                "skipped": 0,
+            },
+        )
         row["cases"] += 1
         row["worker_seconds"] += float(case.get("time", "0"))
+        outcomes = [
+            label
+            for tag, label in (("failure", "failures"), ("error", "errors"), ("skipped", "skipped"))
+            if case.find(tag) is not None
+        ]
+        if len(outcomes) > 1:
+            raise ValueError("JUnit case has conflicting outcomes")
+        row[outcomes[0] if outcomes else "passed"] += 1
     return {"suites": [s.attrib for s in suites], "per_file": by_file}
 
 
+def outcome_comparison(arms: dict) -> dict:
+    """Require actual passing cases in all scoped suites, independently of exit status.
+
+    Case totals may differ because this experiment reduces parametrized rows.
+    Missing receipts, skipped checks and reported failures cannot certify that
+    both arms successfully exercised the three suites.
+    """
+    gaps = []
+    for arm in ("baseline", "candidate"):
+        receipt = arms[arm].get("junit")
+        if receipt is None:
+            gaps.append(f"{arm} JUnit outcomes UNKNOWN")
+            continue
+        for suite in SUITES:
+            row = receipt["per_file"].get(suite[:-3].replace("/", "."))
+            if row is None or row["cases"] == 0:
+                gaps.append(f"{arm} {suite} has no observed cases")
+            elif row["failures"] or row["errors"] or row["skipped"]:
+                gaps.append(f"{arm} {suite} has non-passing outcomes")
+    return {"successful": not gaps, "gaps": gaps}
+
+
+def _coverage_entry(report: dict, arm: str) -> dict:
+    files = report.get("files") if isinstance(report, dict) else None
+    entry = files.get(VERIFIER) if isinstance(files, dict) else None
+    if isinstance(entry, dict):
+        lines, branches = entry.get("executed_lines"), entry.get("executed_branches")
+        if (
+            isinstance(lines, list)
+            and all(type(line) is int and line > 0 for line in lines)
+            and isinstance(branches, list)
+            and all(
+                isinstance(pair, list)
+                and len(pair) == 2
+                and all(type(node) is int and node != 0 for node in pair)
+                for pair in branches
+            )
+        ):
+            return entry
+    raise ValueError(f"{arm} verifier coverage has missing or invalid executed-line/branch lists")
+
+
 def coverage_comparison(before: dict, after: dict) -> dict:
-    a, b = before["files"][VERIFIER], after["files"][VERIFIER]
+    a, b = _coverage_entry(before, "baseline"), _coverage_entry(after, "candidate")
     return {
         "lost_lines": sorted(set(a["executed_lines"]) - set(b["executed_lines"])),
         "lost_branches": sorted(
@@ -153,6 +214,8 @@ def packages() -> list[dict]:
 
 
 def run(output: Path) -> int:
+    from defusedxml.common import DefusedXmlException
+
     manifest = json.loads((output / "manifest.json").read_text())
     initial_packages = packages()
     order = ["baseline", "candidate"] if sys.version_info.minor == 12 else ["candidate", "baseline"]
@@ -189,15 +252,22 @@ def run(output: Path) -> int:
             "wall_seconds": time.perf_counter() - started,
         }
         if (arm / "pytest-junit.xml").is_file():
-            row["junit"] = junit(arm / "pytest-junit.xml")
+            try:
+                row["junit"] = junit(arm / "pytest-junit.xml")
+            except (OSError, ValueError, ParseError, DefusedXmlException) as exc:
+                row["junit_error"] = f"JUnit outcomes UNKNOWN: {type(exc).__name__}"
         result["arms"][name] = row
         (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     result["packages_unchanged"] = initial_packages == packages()
+    result["outcome_comparison"] = outcome_comparison(result["arms"])
     coverage_files = [output / name / "coverage.json" for name in ("baseline", "candidate")]
-    if all(p.is_file() for p in coverage_files):
+    result["verifier_coverage"] = None
+    try:
         result["verifier_coverage"] = coverage_comparison(
             *(json.loads(p.read_text()) for p in coverage_files)
         )
+    except (OSError, ValueError) as exc:
+        result["coverage_error"] = f"Verifier coverage UNKNOWN: {type(exc).__name__}"
     result["artifact_sha256"] = {
         str(p.relative_to(output)): sha(p)
         for p in output.rglob("*")
@@ -212,6 +282,7 @@ def run(output: Path) -> int:
                 "order": order,
                 "exit_codes": {k: v["exit_code"] for k, v in result["arms"].items()},
                 "coverage": result.get("verifier_coverage"),
+                "outcomes": result["outcome_comparison"],
             },
             indent=2,
         )
@@ -219,6 +290,7 @@ def run(output: Path) -> int:
     coverage = result.get("verifier_coverage")
     return int(
         any(row["exit_code"] for row in result["arms"].values())
+        or not result["outcome_comparison"]["successful"]
         or not result["packages_unchanged"]
         or coverage is None
         or bool(coverage["lost_lines"] or coverage["lost_branches"])

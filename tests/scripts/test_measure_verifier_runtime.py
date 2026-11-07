@@ -1,6 +1,5 @@
 """Exercise the measurement refusal boundary and real two-arm pytest execution."""
 
-import importlib.util
 import io
 import json
 import subprocess
@@ -9,12 +8,7 @@ import tarfile
 from pathlib import Path
 
 import pytest
-
-SPEC = importlib.util.spec_from_file_location(
-    "measure_verifier_runtime", Path("scripts/measure_verifier_runtime.py")
-)
-measure = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(measure)
+from scripts import measure_verifier_runtime as measure
 
 
 def fixture_repo(tmp_path, monkeypatch, *, change_source=False):
@@ -74,6 +68,7 @@ def test_real_arms_keep_one_environment_and_preserve_coverage(tmp_path, monkeypa
     assert measure.run(output) == 0
     result = json.loads((output / "result.json").read_text())
     assert result["packages_unchanged"]
+    assert result["outcome_comparison"] == {"successful": True, "gaps": []}
     assert result["arms"]["baseline"]["command"] == result["arms"]["candidate"]["command"]
     assert result["verifier_coverage"]["baseline_lines"] > 0
     assert result["verifier_coverage"]["candidate_branches"] > 0
@@ -164,3 +159,166 @@ def test_source_archive_refuses_links(tmp_path):
     with pytest.raises(ValueError, match="links and special"):
         measure.extract_source(archive.getvalue(), target)
     assert not (target / "link").exists()
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        None,
+        {},
+        {"executed_lines": [1]},
+        {"executed_lines": None, "executed_branches": []},
+        {"executed_lines": [True], "executed_branches": []},
+        {"executed_lines": [0], "executed_branches": []},
+        {"executed_lines": [-1], "executed_branches": []},
+        {"executed_lines": ["1"], "executed_branches": []},
+        {"executed_lines": [], "executed_branches": None},
+        {"executed_lines": [], "executed_branches": [[1]]},
+        {"executed_lines": [], "executed_branches": [[1, 2, 3]]},
+        {"executed_lines": [], "executed_branches": [[True, 2]]},
+        {"executed_lines": [], "executed_branches": [[1, 0]]},
+        {"executed_lines": [], "executed_branches": [[1, "2"]]},
+    ],
+)
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_coverage_comparison_refuses_incomplete_or_invalid_lists(entry, arm):
+    valid = {"files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}}
+    invalid = {"files": {measure.VERIFIER: entry}}
+    before, after = (invalid, valid) if arm == "baseline" else (valid, invalid)
+    with pytest.raises(ValueError, match=arm + ".*coverage"):
+        measure.coverage_comparison(before, after)
+
+
+def test_coverage_comparison_accepts_explicit_empty_lists_and_negative_exits():
+    empty = {"files": {measure.VERIFIER: {"executed_lines": [], "executed_branches": []}}}
+    populated = {
+        "files": {measure.VERIFIER: {"executed_lines": [1, 2], "executed_branches": [[2, -1]]}}
+    }
+    assert measure.coverage_comparison(empty, empty)["lost_branches"] == []
+    assert measure.coverage_comparison(populated, populated)["candidate_branches"] == 1
+
+
+def _junit_receipt(tmp_path, *, name="receipt.xml", status="", omit_suite=False):
+    path = tmp_path / name
+    suites = measure.SUITES[:-1] if omit_suite else measure.SUITES
+    path.write_text(
+        '<testsuites><testsuite tests="3">'
+        + "".join(
+            f'<testcase classname="{suite[:-3].replace("/", ".")}" name="test_case" time="0">'
+            f"{status}</testcase>"
+            for suite in suites
+        )
+        + "</testsuite></testsuites>"
+    )
+    return path
+
+
+@pytest.mark.parametrize(
+    ("status", "outcome"),
+    [("", "passed"), ("<failure/>", "failures"), ("<error/>", "errors"), ("<skipped/>", "skipped")],
+)
+def test_junit_retains_explicit_outcome_counts(tmp_path, status, outcome):
+    receipt = measure.junit(_junit_receipt(tmp_path, status=status))
+    for suite in measure.SUITES:
+        row = receipt["per_file"][suite[:-3].replace("/", ".")]
+        assert row["cases"] == 1
+        assert row[outcome] == 1
+        assert sum(row[key] for key in ("passed", "failures", "errors", "skipped")) == 1
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize(
+    "defect",
+    ["missing", "empty", "unreadable", "conflicting", "scope", "failure", "error", "skipped"],
+)
+def test_run_refuses_incomplete_or_unsuccessful_outcome_evidence(
+    tmp_path, monkeypatch, arm, defect
+):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+    valid_coverage = {
+        "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
+    }
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        (cwd / "coverage.json").write_text(json.dumps(valid_coverage))
+        if cwd.name != arm or defect != "missing":
+            status = {"failure": "<failure/>", "error": "<error/>", "skipped": "<skipped/>"}.get(
+                defect, ""
+            )
+            if defect == "conflicting":
+                status = "<failure/><skipped/>"
+            receipt = _junit_receipt(
+                cwd,
+                name="pytest-junit.xml",
+                status=status if cwd.name == arm else "",
+                omit_suite=cwd.name == arm and defect == "scope",
+            )
+            if cwd.name == arm and defect == "empty":
+                receipt.write_text("<testsuites/>")
+            elif cwd.name == arm and defect == "unreadable":
+                receipt.write_text("<testsuites>")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    assert measure.run(output) == 1
+    result = json.loads((output / "result.json").read_text())
+    assert result["arms"][arm]["exit_code"] == 0
+    assert result["outcome_comparison"]["successful"] is False
+    assert any(arm in reason for reason in result["outcome_comparison"]["gaps"])
+    assert result["artifact_sha256"]
+    if defect in ("unreadable", "conflicting"):
+        assert "UNKNOWN" in result["arms"][arm]["junit_error"]
+
+
+@pytest.mark.parametrize("defect", ["missing", "unreadable", "invalid-lists"])
+def test_run_preserves_failed_coverage_comparison_receipt(tmp_path, monkeypatch, defect):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        _junit_receipt(cwd, name="pytest-junit.xml")
+        coverage = cwd / "coverage.json"
+        if defect == "unreadable":
+            coverage.write_text("{")
+        elif defect == "invalid-lists":
+            coverage.write_text(json.dumps({"files": {measure.VERIFIER: {}}}))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    assert measure.run(output) == 1
+    result = json.loads((output / "result.json").read_text())
+    assert result["verifier_coverage"] is None
+    assert result["coverage_error"]
+    assert result["outcome_comparison"]["successful"] is True
+    assert len(result["arms"]) == 2
+
+
+@pytest.mark.parametrize("failure", ["exit", "packages", "lost-lines", "lost-branches"])
+def test_existing_measurement_failure_checks_remain_required(tmp_path, monkeypatch, failure):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        _junit_receipt(cwd, name="pytest-junit.xml")
+        entry = {"executed_lines": [1, 2], "executed_branches": [[1, 2], [2, -1]]}
+        if cwd.name == "candidate":
+            if failure == "lost-lines":
+                entry["executed_lines"] = [1]
+            elif failure == "lost-branches":
+                entry["executed_branches"] = [[1, 2]]
+        (cwd / "coverage.json").write_text(json.dumps({"files": {measure.VERIFIER: entry}}))
+        return subprocess.CompletedProcess(command, 1 if failure == "exit" else 0)
+
+    package_reads = iter([[], [{"name": "changed"}]] if failure == "packages" else [[], []])
+    monkeypatch.setattr(measure, "packages", lambda: next(package_reads))
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    assert measure.run(output) == 1
+    result = json.loads((output / "result.json").read_text())
+    assert result["outcome_comparison"]["successful"] is True
+    assert result["verifier_coverage"] is not None
