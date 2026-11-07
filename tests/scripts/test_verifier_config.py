@@ -358,6 +358,16 @@ def test_provider_comparison_report_heading_aggregates_worst_verdict():
     assert is_terminal_artifact(artifact)
 
 
+def test_latest_verifier_report_rejects_malformed_comment_history() -> None:
+    import json
+
+    raw = json.dumps({"schema": "verifier-comment-history/v1", "comments": [1, "ok"]})
+    assert latest_verifier_report(raw) == ""
+    artifact = artifact_from_verification_text(raw)
+    assert artifact == {"raw_present": False}
+    assert not is_terminal_artifact(artifact)
+
+
 def test_latest_comment_preserves_embedded_report_headings_and_separators():
     import json
 
