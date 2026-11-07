@@ -10,13 +10,16 @@ from scripts import ci_history
 @pytest.mark.parametrize(
     "reintroduce_redefinition", [False, True], ids=["shipped-source", "duplicate-record"]
 )
+@pytest.mark.parametrize("regular_package", [False, True], ids=["namespace", "regular"])
 def test_ci_history_typechecks_in_consumer_layout(
-    tmp_path: Path, reintroduce_redefinition: bool
+    tmp_path: Path, reintroduce_redefinition: bool, regular_package: bool
 ) -> None:
-    """Consumer mypy accepts shipped code and rejects the original duplicate annotation."""
+    """Both consumer package layouts accept the fix and reject the duplicate annotation."""
     package = tmp_path / "scripts"
     package.mkdir()
-    (package / "__init__.py").write_text("", encoding="utf-8")
+    # Sync ships these modules without __init__.py; consumers may supply their own.
+    if regular_package:
+        (package / "__init__.py").write_text("", encoding="utf-8")
     source_dir = Path(ci_history.__file__).parent
     for name in ("ci_history.py", "ci_metrics.py"):
         shutil.copyfile(source_dir / name, package / name)
