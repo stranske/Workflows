@@ -1,5 +1,56 @@
 # Issue #4500 follow-up status, 2026-11-07
 
+## Current continuation disposition, 2026-11-07
+
+This section supersedes earlier live-state claims below; those remain historical.
+Both authenticated real ZIPs are now accessible and verified. The existing
+reconciler validates historical artifact 13537639987 against its advertised digest
+and pinned term report (`historical-archive-reconciled.json`). Separately,
+`--current-gate` validates artifact 13575534246, Gate run 42376857143, PR head
+02130e674dc2c69e8976edc51771c8a2038bfbf1 and actual tested merge
+c8e25743a017cc6ca41c8589b058b3fb36712ec0 against metadata, checkout logs, digest,
+term counters and exact missing inventories (`current-gate-inputs.json` and
+`current-gate-reconciled.json`). `final-head-gate.json` is unchanged historical
+#4481 evidence. Subsequent pushed heads require fresh external Gate reconciliation;
+these records must not be called evidence for an untested head.
+
+Verified `coverage.json` bytes are retained as deterministic gzip files. Their
+hashes match the archive reconciliation records. The comparable historical-to-current
+inventory has 33 unique removed units and zero new missing units, all in
+`pr_verifier.py`; the other five targets have unchanged gaps. Target source ASTs,
+executable line/arc universes, exclusions, coverage settings and coverage.py 7.17.2
+match. `verified-inventory-comparison.json` retains each line/arc set and source
+AST hashes; `verified-inventory-driver.txt` reproduces it using local Git objects.
+These two runs are both after the original round. They do not attribute the
+original 164-unit difference or establish the approximately 180-unit round-wide
+contract. None of the overlapping local gains is summed. Original-round unique
+attribution and target exclusions remain null. No further behavioral cases were
+selected on an unmeasured original-round remainder.
+
+Receipt checks now bind original snapshot bytes, named red output, contiguous
+`-m not slow` arguments and absence of remaining mutant snippets. The ranking
+renderer derives attribution cells, aggregate totals and zero-difference claims
+from the record. A changed-record case proves that the evidence changes with it.
+`continuation-mutations.json` records four named failing adversarial probes and
+restored passes, with the runnable bounded driver alongside it. The Gate command
+now extracts the exact generated observer from the reusable workflow and sets
+its resource directory. A focused test executes that extraction and checks hooks.
+
+Current validation: required behavioral selection `180 passed in 11.47s`;
+reconciliation/receipt/ranking selection `93 passed in 2.74s`; selection including
+Gate observer tests `95 passed in 2.66s`. Each exits 0 within 120 seconds.
+The six-module offline shallow run passes `73 passed in 2.57s`, exit 0,
+with networking blocked and no credential copying (continuation-shallow-validation.json).
+
+Review disposition: the receipt, observer and rendered-accounting findings are
+repaired with focused evidence. Round-wide attribution remains a valid blocker.
+The pre-push current Gate finding is reconciled, while final pushed-head Gate
+validation remains pending. Ranking caching/rejection expansion and optimized
+Python assert nits are deferred: no production behavior depends on this pytest
+helper under `-O`, and this acceptance push does not expand into review-nit work.
+Tasks 1, 2 and 6 remain incomplete for original-round/final-head portions. Prior
+claims of inaccessible archives or inability to commit describe earlier runs.
+
 ## Current follow-up changes, 2026-11-07
 
 Updated gate-check.md line 311 to remove redundant distribution flags and reproduce

@@ -313,6 +313,7 @@ def test_follow_up_receipts_bind_final_tests_and_both_client_implementations() -
         source = sources[receipt["source"]]
         assert hashlib.sha256(source.encode()).hexdigest() == receipt["restored_sha256"]
         assert source.count(receipt["original_snippet"]) == 1
+        assert receipt["mutant_snippet"] not in source, "mutant snippet remains"
         mutated = source.replace(receipt["original_snippet"], receipt["mutant_snippet"], 1)
         assert hashlib.sha256(mutated.encode()).hexdigest() == receipt["mutant_sha256"]
         test_path = receipt["nodeid"].split("::")[0]
@@ -323,7 +324,12 @@ def test_follow_up_receipts_bind_final_tests_and_both_client_implementations() -
             assert run["elapsed_seconds"] < 120
             assert summary in run["output"]
             assert receipt["nodeid"] in run["command"]
+            assert any(
+                run["command"][i : i + 2] == ["-m", "not slow"]
+                for i in range(len(run["command"]) - 1)
+            ), "missing not slow marker"
         assert receipt["nodeid"] in receipt["red_named_failure"]
+        assert receipt["red_named_failure"] in receipt["red"]["output"], "fabricated named failure"
 
     regressions = record["follow_up_regressions"]
     assert {item["source"] for item in regressions} == {
@@ -331,8 +337,41 @@ def test_follow_up_receipts_bind_final_tests_and_both_client_implementations() -
         "templates/consumer-repo/tools/langchain_client.py",
     }
     for item in regressions:
+        original = (EVIDENCE / item["original_snapshot"]).read_bytes()
+        assert (
+            hashlib.sha256(original).hexdigest() == item["original_sha256"]
+        ), "original snapshot digest"
+        for phase in ("red", "green"):
+            command = item[phase]["command"]
+            assert any(
+                command[i : i + 2] == ["-m", "not slow"] for i in range(len(command) - 1)
+            ), "missing not slow marker"
+        assert f"FAILED {item['nodeid']}" in item["red"]["output"], "fabricated regression failure"
         assert item["red"]["exit_code"] == 1
         assert item["green"]["exit_code"] == 0
         assert item["nodeid"] in item["red"]["output"]
         assert item["original_sha256"] != item["fixed_sha256"]
         assert hashlib.sha256(sources[item["source"]].encode()).hexdigest() == item["fixed_sha256"]
+
+
+@pytest.mark.parametrize("corruption", ["snapshot", "failure", "marker"])
+def test_follow_up_rejects_corrupted_evidence(monkeypatch, corruption) -> None:
+    record = copy.deepcopy(_load())
+    if corruption == "snapshot":
+        snapshot = EVIDENCE / record["follow_up_regressions"][0]["original_snapshot"]
+        read_bytes = Path.read_bytes
+        monkeypatch.setattr(
+            Path,
+            "read_bytes",
+            lambda path: read_bytes(path) + b"corrupt" if path == snapshot else read_bytes(path),
+        )
+        message = "original snapshot digest"
+    elif corruption == "failure":
+        record["follow_up_receipts"][0]["red_named_failure"] += " fabricated"
+        message = "fabricated named failure"
+    else:
+        record["follow_up_receipts"][0]["red"]["command"].remove("not slow")
+        message = "missing not slow marker"
+    monkeypatch.setitem(globals(), "_load", lambda: record)
+    with pytest.raises(AssertionError, match=message):
+        test_follow_up_receipts_bind_final_tests_and_both_client_implementations()

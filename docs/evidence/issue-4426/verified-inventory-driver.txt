@@ -1,0 +1,31 @@
+from pathlib import Path
+import ast,gzip,hashlib,json,subprocess,tomllib,sys
+import yaml
+sys.path.insert(0, str(Path.cwd()))
+E=Path('docs/evidence/issue-4426')
+from scripts import reconcile_issue_4426_coverage as mod
+before=json.loads(gzip.decompress((E/'historical-gate.coverage.json.gz').read_bytes()))
+after=json.loads(gzip.decompress((E/'current-gate.coverage.json.gz').read_bytes()))
+revs=['e4e584ea61852751c55749ab9ed6539fa10c9a31','c8e25743a017cc6ca41c8589b058b3fb36712ec0']
+def source(rev,path):
+ return subprocess.check_output(['git','show',f'{rev}:{path}'])
+projects=[tomllib.loads(source(rev,'pyproject.toml').decode()) for rev in revs]
+configs=[project['tool']['coverage'] for project in projects]
+pytest_equal=projects[0]['tool']['pytest']==projects[1]['tool']['pytest']
+def test_step(rev):
+ workflow=yaml.safe_load(source(rev,'.github/workflows/reusable-10-ci-python.yml'))
+ return next(step for job in workflow['jobs'].values() for step in job.get('steps',[]) if 'cat > \"${growth_plugin_dir}/ci_test_growth.py\"' in step.get('run',''))
+step_equal=test_step(revs[0])==test_step(revs[1])
+rows={}
+for path in mod.TARGETS:
+ b,a=before['files'][path],after['files'][path]
+ def universe(r):
+  return (set(r['executed_lines'])|set(r['missing_lines']),set(map(tuple,r['executed_branches']))|set(map(tuple,r['missing_branches'])))
+ hashes=[hashlib.sha256(ast.dump(ast.parse(source(rev,path)),include_attributes=False).encode()).hexdigest() for rev in revs]
+ comparable=(hashes[0]==hashes[1] and configs[0]==configs[1] and universe(a)==universe(b) and a['excluded_lines']==b['excluded_lines'] and before['meta']['version']==after['meta']['version'])
+ bl,al=set(b['missing_lines']),set(a['missing_lines']); bb,ab=set(map(tuple,b['missing_branches'])),set(map(tuple,a['missing_branches']))
+ rows[path]={'source_ast_sha256_by_checkout':dict(zip(revs,hashes)),'same_target_source_ast':hashes[0]==hashes[1],'same_executable_units_and_exclusions':universe(a)==universe(b) and a['excluded_lines']==b['excluded_lines'],'comparable_target_inventories':comparable,'historical_missing_lines':sorted(bl),'current_missing_lines':sorted(al),'historical_missing_branches':sorted(bb),'current_missing_branches':sorted(ab),'removed_lines':sorted(bl-al) if comparable else None,'removed_branches':sorted(bb-ab) if comparable else None,'new_missing_lines':sorted(al-bl) if comparable else None,'new_missing_branches':sorted(ab-bb) if comparable else None,'unique_observed_units_removed':len(bl-al)+len(bb-ab) if comparable else None,'unique_new_missing_units':len(al-bl)+len(ab-bb) if comparable else None,'attributable_round_reduction':None}
+result={'schema':'workflows.issue-4426-verified-inventory-comparison/v1','historical_checkout':revs[0],'current_checkout':revs[1],'pytest_settings_equal':pytest_equal,'reusable_test_step_equal':step_equal,'coverage_settings_equal':configs[0]==configs[1],'coverage_settings':configs[0],'coverage_version':before['meta']['version'],'targets':rows,'unique_observed_units_removed':sum(r['unique_observed_units_removed'] for r in rows.values()) if all(r['comparable_target_inventories'] for r in rows.values()) else None,'attributable_round_reduction':None,'original_round_comparable_inventory':None,'attribution_limit':'Matched target AST, executable inventory and coverage exclusions permit a historical-to-current set comparison. These two Gate runs are both after the original round. Tests and repository changed between runs; neither causal credit nor the original 164-unit difference is established. Local incremental gains are not summed.'}
+(E/'verified-inventory-comparison.json').write_text(json.dumps(result,indent=2)+'\n')
+print([(p,r['unique_observed_units_removed'],r['unique_new_missing_units']) for p,r in rows.items()])
+print('unique observed removed:', result['unique_observed_units_removed'], 'round attribution:',result['attributable_round_reduction'])

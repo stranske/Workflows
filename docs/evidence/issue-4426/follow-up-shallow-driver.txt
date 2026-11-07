@@ -12,7 +12,7 @@ work = Path(tempfile.mkdtemp(prefix='issue-4426-offline-'))
 checkout = work / 'checkout'
 subprocess.run(['git', 'clone', '--quiet', '--depth=1', root.as_uri(), str(checkout)], check=True, capture_output=True, timeout=90)
 shutil.copytree(root / 'docs/evidence/issue-4426', checkout / 'docs/evidence/issue-4426', dirs_exist_ok=True)
-for path in ['tests/docs/test_issue_4426_coverage_measurement.py', 'tests/docs/test_issue_4426_mutation_receipts.py', 'tests/docs/test_issue_4426_pr_inventory.py', 'tests/docs/test_issue_4426_ranking.py', 'tests/tools/test_langchain_client.py', 'tests/scripts/test_pr_verifier_ranked_remainder.py']:
+for path in ['tests/docs/test_issue_4426_gate_check.py', 'tests/docs/test_issue_4426_coverage_measurement.py', 'tests/docs/test_issue_4426_mutation_receipts.py', 'tests/docs/test_issue_4426_pr_inventory.py', 'tests/docs/test_issue_4426_ranking.py', 'tests/tools/test_langchain_client.py', 'tests/scripts/test_pr_verifier_ranked_remainder.py']:
     shutil.copyfile(root / path, checkout / path)
 plugin = work / 'issue4426_offline.py'
 plugin.write_text('''import socket

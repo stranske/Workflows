@@ -10,6 +10,7 @@ Inputs are pinned local evidence; validation never fetches repository history.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import re
@@ -639,15 +640,41 @@ def render_ranking_markdown(record: dict) -> str:
         lines.append(
             f"| `{row['path']}` | {baseline['3.12']} / {baseline['3.13']} | "
             f"{row['final_missing_units']} | {difference['3.12']} / {difference['3.13']} | "
-            f"{denominator['3.12']:+d} / {denominator['3.13']:+d} | unknown |"
+            f"{denominator['3.12']:+d} / {denominator['3.13']:+d} | "
+            f"{row['attributable_round_reduction'] if row['attributable_round_reduction'] is not None else 'unknown'} |"
         )
+    rows = comparison["targets"]
+    baseline_totals = {
+        version: sum(row["baseline_missing_units_by_runtime"][version] for row in rows)
+        for version in ("3.12", "3.13")
+    }
+    final_total = sum(row["final_missing_units"] for row in rows)
+    differences = {
+        version: sum(row["unattributed_difference_by_runtime"][version] for row in rows)
+        for version in ("3.12", "3.13")
+    }
     lines.extend(
         [
             "",
-            "Totals are 402 baseline units, 238 final units, and an unattributed "
-            "snapshot difference of 164 on each baseline runtime. Even the zero "
-            "snapshot difference for sync_test_dependencies.py is not measured zero "
-            "improvement. Attributable round-wide reduction remains unknown.",
+            f"Totals are {baseline_totals['3.12']} / {baseline_totals['3.13']} baseline units, "
+            f"{final_total} final units, and an unattributed snapshot difference of "
+            f"{differences['3.12']} / {differences['3.13']} (Python 3.12 / 3.13).",
+        ]
+    )
+    for row in rows:
+        if all(value == 0 for value in row["unattributed_difference_by_runtime"].values()):
+            lines.append(
+                f"The zero snapshot difference for `{row['path']}` "
+                "does not establish measured zero improvement."
+            )
+    attribution = comparison["attributable_round_reduction"]
+    lines.extend(
+        [
+            (
+                "Attributable round-wide reduction remains unknown."
+                if attribution is None
+                else f"Attributable round-wide reduction: {attribution}."
+            ),
             "",
         ]
     )
@@ -922,3 +949,23 @@ def test_ranking_rejects_unpinned_or_unbounded_inputs(tmp_path: Path) -> None:
 def test_ranking_rejects_an_unrecorded_revision_or_window() -> None:
     with pytest.raises(ValueError, match="not in the pinned"):
         _input_window(ROOT, "0" * 40, "2026-05-10T16:54:02Z")
+
+
+def test_rendered_accounting_changes_with_record_values() -> None:
+    record = copy.deepcopy(_load(RANKING_JSON))
+    before = render_ranking_markdown(record)
+    comparison = record["target_snapshot_comparison"]
+    row = comparison["targets"][0]
+    row["final_missing_units"] = 3
+    row["baseline_missing_units_by_runtime"] = {"3.12": 9, "3.13": 10}
+    row["unattributed_difference_by_runtime"] = {"3.12": 6, "3.13": 7}
+    row["attributable_round_reduction"] = 2
+    comparison["attributable_round_reduction"] = 2
+    after = render_ranking_markdown(record)
+    assert after != before
+    assert "| 9 / 10 | 3 | 6 / 7 | +51 / +51 | 2 |" in after
+    assert "Totals are 405 / 406 baseline units, 235 final units" in after
+    assert "difference of 170 / 171" in after
+    assert "The zero snapshot difference" not in after
+    assert "Attributable round-wide reduction: 2." in after
+    assert "Attributable round-wide reduction remains unknown." not in after

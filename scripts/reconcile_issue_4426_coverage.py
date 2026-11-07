@@ -379,15 +379,79 @@ def reconcile_archive(archive: Path, evidence: Path = EVIDENCE) -> dict:
     }
 
 
+def reconcile_current_archive(archive: Path, evidence: Path = EVIDENCE) -> dict:
+    """Validate current #4520 evidence separately from the historical #4481 record."""
+    inputs = json.loads((evidence / "current-gate-inputs.json").read_bytes())
+    artifact, run = inputs["artifact"], inputs["run"]
+    head = "02130e674dc2c69e8976edc51771c8a2038bfbf1"
+    checkout = "c8e25743a017cc6ca41c8589b058b3fb36712ec0"
+    digest = "sha256:452f3bdb6ff19f6db02ec10363a6662608d8fbc6708ad08151d03dac95b752f0"
+    if (
+        artifact["id"] != 13575534246
+        or artifact["digest"] != digest
+        or artifact["workflow_run"]["id"] != 42376857143
+        or artifact["workflow_run"]["head_sha"] != head
+        or run["id"] != 42376857143
+        or run["head_sha"] != head
+        or run["conclusion"] != "success"
+        or inputs["tested_checkout"] != checkout
+    ):
+        raise ValueError("current Gate identity mismatch")
+    if not any(f"Merge {head} into " in line for line in inputs["checkout_lines"]):
+        raise ValueError("current Gate checkout log mismatch")
+    if not any(line.endswith(checkout) for line in inputs["checkout_lines"]):
+        raise ValueError("current Gate tested checkout missing")
+    coverage, coverage_digest = read_coverage_archive(archive, digest)
+    _match_report(coverage["totals"], inputs["report_lines"], "TOTAL")
+    targets = {}
+    for path in TARGETS:
+        row = coverage["files"][path]
+        _match_report(row["summary"], inputs["report_lines"], path)
+        _validate_inventory(row["missing_lines"], row["missing_branches"], path)
+        if (
+            len(row["missing_lines"]) != row["summary"]["missing_lines"]
+            or len(row["missing_branches"]) != row["summary"]["missing_branches"]
+        ):
+            raise ValueError(f"missing-unit inventory disagrees with summary: {path}")
+        targets[path] = {key: row[key] for key in ("summary", "missing_lines", "missing_branches")}
+    return {
+        "schema": "workflows.issue-4426-current-archive/v1",
+        "run_id": run["id"],
+        "head_sha": head,
+        "tested_checkout": checkout,
+        "artifact_id": artifact["id"],
+        "archive_digest": digest,
+        "coverage_json_sha256": coverage_digest,
+        "coverage_meta": coverage["meta"],
+        "totals": coverage["totals"],
+        "targets": targets,
+        "attributable_round_reduction": None,
+        "original_round_comparable_baseline": None,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path, nargs="?", help="local artifact 13537639987 ZIP")
     parser.add_argument("--reports-only", action="store_true", help="recover pinned log counters")
+    parser.add_argument(
+        "--current-gate", action="store_true", help="validate separately pinned #4520 archive"
+    )
     args = parser.parse_args(argv)
+    if args.current_gate and args.archive is None:
+        parser.error("--current-gate requires an archive")
     if (args.archive is None) == (not args.reports_only):
         parser.error("provide either an archive or --reports-only")
     try:
-        result = reconcile_reports() if args.reports_only else reconcile_archive(args.archive)
+        result = (
+            reconcile_reports()
+            if args.reports_only
+            else (
+                reconcile_current_archive(args.archive)
+                if args.current_gate
+                else reconcile_archive(args.archive)
+            )
+        )
     except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile) as exc:
         print(f"Cannot reconcile final Gate artifact: {exc}", file=sys.stderr)
         return 1

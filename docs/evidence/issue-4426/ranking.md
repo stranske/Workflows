@@ -80,4 +80,6 @@ Run 38980711116 (Python 3.12 and 3.13) versus run 42287174423 (Python 3.14), art
 | `scripts/langchain/task_validator.py` | 38 / 38 | 6 | 32 / 32 | -4 / -4 | unknown |
 | `scripts/langchain/pr_verifier.py` | 283 / 283 | 200 | 83 / 83 | +874 / +874 | unknown |
 
-Totals are 402 baseline units, 238 final units, and an unattributed snapshot difference of 164 on each baseline runtime. Even the zero snapshot difference for sync_test_dependencies.py is not measured zero improvement. Attributable round-wide reduction remains unknown.
+Totals are 402 / 402 baseline units, 238 final units, and an unattributed snapshot difference of 164 / 164 (Python 3.12 / 3.13).
+The zero snapshot difference for `scripts/sync_test_dependencies.py` does not establish measured zero improvement.
+Attributable round-wide reduction remains unknown.

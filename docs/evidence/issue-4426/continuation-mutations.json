@@ -1,0 +1,146 @@
+{
+  "checked_on": "2026-11-07",
+  "receipts": [
+    {
+      "id": "corrupted-original-snapshot",
+      "nodeid": "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+      "original_sha256": "b15270cac1e7c26c027ff9ef84e7030bfa3623adf0987726dda286ae151f247d",
+      "red": {
+        "command": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___ test_follow_up_receipts_bind_final_tests_and_both_client_implementations ___\ntests/docs/test_issue_4426_mutation_receipts.py:341: in test_follow_up_receipts_bind_final_tests_and_both_client_implementations\n    assert (\nE   AssertionError: original snapshot digest\nE   assert '73a3ab7de991...fc2d73c89ee9a' == 'b15270cac1e7...286ae151f247d'\nE     \nE     - b15270cac1e7c26c027ff9ef84e7030bfa3623adf0987726dda286ae151f247d\nE     + 73a3ab7de99192a061c79f8c5180dcb55ae09ce3331feb7c870fc2d73c89ee9a\n=========================== short test summary info ============================\nFAILED tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations\n1 failed in 0.24s\n",
+        "elapsed_seconds": 1.4662486661691219
+      },
+      "green": {
+        "command": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n",
+        "elapsed_seconds": 1.0120599169749767
+      }
+    },
+    {
+      "id": "fabricated-named-failure",
+      "nodeid": "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+      "original_sha256": "c32ce674a70de89267439aba697f87b2c95d31cd4f66dded1d0c0bfefed0fb01",
+      "red": {
+        "command": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___ test_follow_up_receipts_bind_final_tests_and_both_client_implementations ___\ntests/docs/test_issue_4426_mutation_receipts.py:332: in test_follow_up_receipts_bind_final_tests_and_both_client_implementations\n    assert receipt[\"red_named_failure\"] in receipt[\"red\"][\"output\"], \"fabricated named failure\"\nE   AssertionError: fabricated named failure\nE   assert \"FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[no-repair] - AssertionError: assert 'mutant accepted an absent repair' == None fabricated\" in \"F                                                                        [100%]\\n=================================== ...able_response_text[no-repair] - AssertionError: assert 'mutant accepted an absent repair' == None\\n1 failed in 0.94s\\n\"\n=========================== short test summary info ============================\nFAILED tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations\n1 failed in 0.18s\n",
+        "elapsed_seconds": 1.0518843338359147
+      },
+      "green": {
+        "command": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n",
+        "elapsed_seconds": 1.0005154579412192
+      }
+    },
+    {
+      "id": "missing-not-slow-marker",
+      "nodeid": "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+      "original_sha256": "c32ce674a70de89267439aba697f87b2c95d31cd4f66dded1d0c0bfefed0fb01",
+      "red": {
+        "command": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___ test_follow_up_receipts_bind_final_tests_and_both_client_implementations ___\ntests/docs/test_issue_4426_mutation_receipts.py:327: in test_follow_up_receipts_bind_final_tests_and_both_client_implementations\n    assert any(\nE   AssertionError: missing not slow marker\nE   assert False\nE    +  where False = any(<generator object test_follow_up_receipts_bind_final_tests_and_both_client_implementations.<locals>.<genexpr> at 0x10771e0a0>)\n=========================== short test summary info ============================\nFAILED tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations\n1 failed in 0.18s\n",
+        "elapsed_seconds": 1.064868832938373
+      },
+      "green": {
+        "command": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.17s\n",
+        "elapsed_seconds": 1.0675066250842065
+      }
+    },
+    {
+      "id": "stale-rendered-accounting",
+      "nodeid": "tests/docs/test_issue_4426_ranking.py::test_committed_ranking_record_matches_the_regeneration",
+      "original_sha256": "d9d850534aff4bd0978f5b0d5684a66863636a81c807393edfe4200af96cd22d",
+      "red": {
+        "command": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/docs/test_issue_4426_ranking.py::test_committed_ranking_record_matches_the_regeneration",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________ test_committed_ranking_record_matches_the_regeneration ____________\ntests/docs/test_issue_4426_ranking.py:915: in test_committed_ranking_record_matches_the_regeneration\n    assert RANKING_MD.read_text(encoding=\"utf-8\") == render_ranking_markdown(record)\nE   AssertionError: assert '# Issue #442...ns unknown.\\n' == '# Issue #442...ns unknown.\\n'\nE     \nE     Skipping 6855 identical leading characters in diff, use -v to show\nE     Skipping 266 identical trailing characters in diff, use -v to show\nE     - otals are 402 / 402 baseline\nE     ?           ^^^   ^^^\nE     + otals are 999 / 999 baseline\nE     ?           ^^^   ^^^\n=========================== short test summary info ============================\nFAILED tests/docs/test_issue_4426_ranking.py::test_committed_ranking_record_matches_the_regeneration\n1 failed in 0.20s\n",
+        "elapsed_seconds": 1.0571427079848945
+      },
+      "green": {
+        "command": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/docs/test_issue_4426_ranking.py::test_committed_ranking_record_matches_the_regeneration",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "output": ".                                                                        [100%]\n1 passed in 0.15s\n",
+        "elapsed_seconds": 1.009073874913156
+      }
+    }
+  ],
+  "all_restored": true
+}

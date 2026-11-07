@@ -498,3 +498,64 @@ def test_execution_settings_require_unambiguous_observed_runtime(missing):
         lines.append(platform)
     with pytest.raises(ValueError, match="expected one execution setting"):
         reconcile._execution_settings(final["pyproject"], final["runtime"])
+
+
+def test_current_archive_stays_separate_from_historical_evidence(monkeypatch, tmp_path):
+    record = json.loads((reconcile.EVIDENCE / "current-gate-reconciled.json").read_bytes())
+    coverage = {
+        "meta": record["coverage_meta"],
+        "totals": record["totals"],
+        "files": record["targets"],
+    }
+    monkeypatch.setattr(
+        reconcile, "read_coverage_archive", lambda *args: (coverage, record["coverage_json_sha256"])
+    )
+    result = reconcile.reconcile_current_archive(tmp_path / "unused.zip")
+    assert result == record
+    assert result["attributable_round_reduction"] is None
+    assert result["tested_checkout"] != result["head_sha"]
+
+
+@pytest.mark.parametrize("corruption", ["head", "digest", "merge_log", "checkout_log"])
+def test_current_archive_rejects_unbound_provenance(tmp_path, corruption):
+    inputs = json.loads((reconcile.EVIDENCE / "current-gate-inputs.json").read_bytes())
+    if corruption == "head":
+        inputs["artifact"]["workflow_run"]["head_sha"] = "0" * 40
+    elif corruption == "digest":
+        inputs["artifact"]["digest"] = "sha256:" + "0" * 64
+    elif corruption == "merge_log":
+        inputs["checkout_lines"] = [inputs["tested_checkout"]]
+    else:
+        inputs["checkout_lines"] = ["Merge " + inputs["run"]["head_sha"] + " into base"]
+    (tmp_path / "current-gate-inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(ValueError, match="current Gate"):
+        reconcile.reconcile_current_archive(tmp_path / "unused.zip", tmp_path)
+
+
+def test_verified_archives_bind_unique_inventory_comparison():
+    import gzip
+
+    evidence = reconcile.EVIDENCE
+    comparison = json.loads((evidence / "verified-inventory-comparison.json").read_bytes())
+    coverages = []
+    for label, record_name in [
+        ("historical", "historical-archive-reconciled"),
+        ("current", "current-gate-reconciled"),
+    ]:
+        data = gzip.decompress((evidence / f"{label}-gate.coverage.json.gz").read_bytes())
+        record = json.loads((evidence / f"{record_name}.json").read_bytes())
+        assert hashlib.sha256(data).hexdigest() == record["coverage_json_sha256"]
+        coverages.append(json.loads(data))
+    total = 0
+    for path, row in comparison["targets"].items():
+        b, a = (coverage["files"][path] for coverage in coverages)
+        assert row["same_target_source_ast"]
+        assert row["same_executable_units_and_exclusions"]
+        removed = len(set(b["missing_lines"]) - set(a["missing_lines"])) + len(
+            set(map(tuple, b["missing_branches"])) - set(map(tuple, a["missing_branches"]))
+        )
+        assert row["unique_observed_units_removed"] == removed
+        assert row["attributable_round_reduction"] is None
+        total += removed
+    assert comparison["unique_observed_units_removed"] == total == 33
+    assert comparison["attributable_round_reduction"] is None

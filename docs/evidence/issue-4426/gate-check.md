@@ -1,5 +1,32 @@
 # Issue #4426 Gate check and stop rule
 
+## Continuation acceptance, 2026-11-07
+
+Outcome 1: verified archive inventories and unique attributable round-wide reduction
+for real Gate artifacts 13537639987 and 13575534246; attribution remains null
+until consistent-source/settings baseline evidence exists. Print the historical
+inventory with `/opt/anaconda3/bin/python3 scripts/reconcile_issue_4426_coverage.py
+/tmp/13537639987.zip`. Check date: 2026-11-07. Both real archives were retrieved
+through authenticated GitHub artifact endpoints before code changes.
+
+Finite stop rule: at most two failed attempts per acceptance command, each focused
+command under 120 seconds; at most 20 minutes on a broken reconciliation step.
+Stop that step at the first unmet provenance/comparability requirement and report
+it; continue independent receipt/rendering repairs. Blocking/drainable pair:
+missing comparable original-round inventories blocks attribution; archive validation
+and independent evidence checks remain drainable. No full local suite or Gate replay.
+
+Verified continuation outcome: both advertised ZIP digests match. The existing
+historical command exits 0; `/opt/anaconda3/bin/python3
+scripts/reconcile_issue_4426_coverage.py /tmp/13575534246.zip --current-gate`
+separately exits 0 and identifies the requested merge/head. The retained matched
+inventories remove 33 distinct units with zero newly missing; original-round
+attribution remains null. Required tests print `180 passed in 11.47s`,
+`93 passed in 2.74s`, and the shallow offline run prints `73 passed in 2.57s`.
+Four adversarial probes fail by name (exit 1) and pass after restoration (exit 0).
+No local full suite or Gate execution was run. Final pushed-head CI remains a
+separate live verification step. See follow-up-status.md for open dispositions.
+
 ## Execution configuration reconciliation, 2026-11-07
 
 Before source edits, `python -m pytest -q
@@ -368,7 +395,23 @@ The earlier receipts and their original source bytes remain separate.
 Whole-Gate coverage invocation, expanded from the recorded reusable step:
 
 ```bash
-PYTHONPATH=scripts python -m pytest -p ci_test_growth --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -m 'not quarantine and not slow' -n auto --dist loadgroup
+# Extract the generated observer verbatim from the reusable workflow (PyYAML).
+growth_plugin_dir="$(/opt/anaconda3/bin/python3 - <<'PYOBSERVER'
+from pathlib import Path
+import tempfile
+import yaml
+workflow = yaml.safe_load(Path('.github/workflows/reusable-10-ci-python.yml').read_text())
+step = next(step for job in workflow['jobs'].values() for step in job.get('steps', [])
+            if 'cat > "${growth_plugin_dir}/ci_test_growth.py"' in step.get('run', ''))
+observer = step['run'].split('cat > "${growth_plugin_dir}/ci_test_growth.py" <<\'PY\'\n', 1)[1].split('\nPY\n', 1)[0]
+directory = Path(tempfile.mkdtemp(prefix='issue4426-observer-'))
+(directory / 'ci_test_growth.py').write_text(observer + '\n')
+print(directory)
+PYOBSERVER
+)"
+export CI_TEST_RESOURCE_DIR="$(mktemp -d)"
+rm -f pytest-collection.json
+PYTHONPATH="${growth_plugin_dir}:scripts" /opt/anaconda3/bin/python3 -m pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-junit.xml --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -n auto --dist load -n 4 --dist=loadgroup
 ```
 
 No whole-Gate run for this follow-up checkout is claimed. The recovered #4481
