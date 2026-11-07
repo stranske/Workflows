@@ -3344,6 +3344,20 @@ closes any open alert so a recovered incident cannot remain as a stale red issue
   fails before consumer trees can be fetched, including when no read credential
   is available. The comparison lines do not fail Health 68, create an alert,
   or authorize overwriting a Gate.
+- For WF#4082's post-campaign observation, obtain the final campaign merge's
+  `mergedAt` from current PR metadata, then run
+  `python3 scripts/measure_gate_cancellations.py --merge "$FINAL_CAMPAIGN_MERGED_AT" --output /tmp/gate-observation.json`
+  with that verified timestamp in `FINAL_CAMPAIGN_MERGED_AT`.
+  The collector reads every registered consumer with authenticated `gh run list`,
+  paginates with `--limit 1000`, and splits saturated date windows to avoid
+  silently accepting truncated results. It retains raw runs and commands, counts
+  each cancelled `pull_request` run with a distinct same-repository, same-head
+  sibling within five seconds, and divides by all Gate runs in the half-open
+  interval `[mergedAt, mergedAt + 48 hours)`. Its total read budget is 110 seconds.
+  Pending intervals report their exact end time. Failed reads, incomplete runs,
+  saturated one-second windows, and an empty denominator cannot pass. This
+  diagnostic does not establish the final merge timestamp or replace live drift
+  readback; its caller must verify campaign disposition first.
 - The uploaded `consumer-sync-drift-report` artifact uses
   `workflows-consumer-sync-drift/v1` and includes safe
   `token_diagnostics` (`workflows-drift-token-selection/v1`) so permission or
