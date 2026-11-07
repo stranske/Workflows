@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 from pathlib import Path
@@ -176,8 +175,11 @@ def test_initial_evidence_handles_non_object_json() -> None:
     assert all("JSON value was not an object" in err for err in result["errors"])
 
 
-def test_initial_evidence_cli_returns_exit_code_2_on_failure(capsys: pytest.CaptureFixture[str]) -> None:
+def test_initial_evidence_cli_returns_exit_code_2_on_failure(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     import verifier_4422_audit as audit_module
+
     original_default_runner = audit_module._default_runner
 
     def failing_runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
@@ -186,6 +188,7 @@ def test_initial_evidence_cli_returns_exit_code_2_on_failure(capsys: pytest.Capt
     audit_module._default_runner = failing_runner
     try:
         import sys
+
         old_argv = sys.argv
         sys.argv = ["verifier_4422_audit.py", "initial-evidence"]
         try:

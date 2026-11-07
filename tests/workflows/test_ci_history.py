@@ -198,7 +198,15 @@ def test_main_handles_load_metrics_error(monkeypatch: pytest.MonkeyPatch, tmp_pa
             monkeypatch.delenv(key, raising=False)
 
     assert exit_code == 1
-    assert not history_path.exists()
+    assert history_path.exists()
+    record = json.loads(history_path.read_text(encoding="utf-8").strip())
+    assert record["status"] == "observed-failure"
+    assert record["reason"] == "file-not-found"
+    assert record["error"] == "bad"
+    assert record["junit_path"] == str(junit_path)
+    assert record["metrics_path"] == str(tmp_path / "ci-metrics.json")
+    assert record["regression_evidence"]["observed_failure"] is True
+    assert record["regression_evidence"]["regression_identified"] == "shallow-history-fetch"
 
 
 def test_main_removes_existing_classification_when_disabled(
