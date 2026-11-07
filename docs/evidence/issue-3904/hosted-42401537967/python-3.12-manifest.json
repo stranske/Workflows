@@ -1,0 +1,20 @@
+{
+  "status": "UNKNOWN",
+  "note": "Python 3.12 artifacts for run 42401537967 were not retained. Job 128490204156 was still in_progress at the time of inspection. This manifest is a placeholder documenting the absence of evidence.",
+  "run_id": 42401537967,
+  "job_id": 128490204156,
+  "expected_artifacts": [
+    "measurement/manifest.json",
+    "measurement/result.json",
+    "measurement/baseline.log",
+    "measurement/candidate.log",
+    "measurement/baseline/coverage.json",
+    "measurement/baseline/coverage.xml",
+    "measurement/baseline/pytest-junit.xml",
+    "measurement/candidate/coverage.json",
+    "measurement/candidate/coverage.xml",
+    "measurement/candidate/pytest-junit.xml"
+  ],
+  "actual_artifacts": [],
+  "retrieval_timestamp": null
+}

@@ -637,3 +637,66 @@ Python 3.13 passed both scoped arms with zero lost verifier lines/branches.
 Python 3.12 terminal receipts, complete phase evidence and final current-head Gate
 conclusions remain UNKNOWN after REST rate limiting. The evidence task remains
 unchecked; resume the original run after **19:15:34 UTC**, without redispatch.
+
+## Follow-up: Per-arm hosted phase measurement instrumentation (2026-11-07)
+
+The comparison harness now includes per-arm phase timing instrumentation via the
+embedded `ci_test_growth` pytest plugin. This plugin outputs:
+
+- `pytest-collection.json`: Test collection timing and selected node IDs
+- `pytest-resources.json`: Controller and worker resource timing
+
+From these, the harness computes:
+- `collection_seconds`: Time spent collecting tests
+- `controller_elapsed_seconds`: Total controller elapsed time
+- `worker_elapsed_max_seconds`: Maximum worker elapsed time
+- `worker_elapsed_min_seconds`: Minimum worker elapsed time
+- `in_pytest_reporting_seconds`: Reporting time (controller - collection - max_worker)
+
+When a negative remainder is computed, it indicates measured clock overlap between
+phases (e.g., controller finishing before the slowest worker completes), not a valid
+reporting interval. The `overlap_note` field explicitly documents this behavior:
+
+> "Controller elapsed spans collection + reporting; workers run concurrently. 
+> A negative remainder indicates measured clock overlap, not a valid reporting interval."
+
+All phase values are nullable: missing plugin outputs, malformed data, negative values,
+non-finite numbers, and invalid types render as `null` rather than fabricating values.
+The instrumentation is identical for both immutable arms.
+
+### Original Run 42401537967 vs. New Measurement
+
+**Original run 42401537967 (retained as-is):**
+- Job IDs: 128490204476 (3.13, succeeded), 128490204156 (3.12, in_progress at readback)
+- Hosted phases JSON: [hosted-phases-3.13.json](hosted-42401537967/hosted-phases-3.13.json)
+- Python 3.13: Complete receipts under [hosted-42401537967/](hosted-42401537967/)
+- Python 3.12: Terminal receipts **UNKNOWN** (rate limited), placeholder files:
+  - [python-3.12-result.json](hosted-42401537967/python-3.12-result.json)
+  - [python-3.12-manifest.json](hosted-42401537967/python-3.12-manifest.json)
+
+**New measurement instrumentation:**
+- Per-arm phase boundaries now captured in `result.json` under `arms[{baseline,candidate}].phases`
+- Plugins outputs retained in arm directories for independent verification
+- `execution_phases()` function validates and extracts timing from plugin outputs
+- Invalid/overlapping/measurements explicitly documented as `null` with `overlap_note`
+
+**What changed:**
+- `scripts/measure_verifier_runtime.py:command()`: Added `-p ci_test_growth` plugin
+- `scripts/measure_verifier_runtime.py:run()`: Writes plugin to temp dir, sets CI_TEST_RESOURCE_DIR
+- `scripts/measure_verifier_runtime.py:execution_phases()`: New function to parse plugin outputs
+- Workflow updated to set CI_TEST_RESOURCE_DIR and upload new artifacts
+- Test count updated from 6 to 12 artifacts (added collection/json, resources.json, coverage.xml)
+
+**What was preserved:**
+- All existing source, dependency, outcome, coverage and timing refusal checks
+- Immutable source selection via commit SHAs in manifest
+- Common lock reference and cache policy
+- Source integrity checks before/after both arms
+- JUnit outcome/timing validation with explicit UNKNOWN states
+- Coverage comparison with branch/line validation
+- All existing failure modes and regression controls
+
+The Python 3.12 job (128490204156) never produced terminal artifacts. No causal
+speedup claim is made from this single run pair. The new instrumentation enables
+controlled per-arm hosted phase measurement for future runs without fabricating
+overlapping-clock remainders; unavailable intervals are explicitly UNKNOWN.
