@@ -1,0 +1,79 @@
+{
+  "focused": {
+    "command": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_pr_verifier_ranked_remainder.py",
+      "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+      "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+      "tests/tools/test_langchain_client.py",
+      "-m",
+      "not slow"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 5.199,
+    "output": "........................................................................ [ 46%]\n........................................................................ [ 92%]\n............                                                             [100%]\n156 passed in 2.84s\n"
+  },
+  "targeted_coverage": {
+    "command": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_pr_verifier_ranked_remainder.py",
+      "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+      "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+      "tests/tools/test_langchain_client.py",
+      "-m",
+      "not slow",
+      "--cov=scripts.langchain.pr_verifier",
+      "--cov-report=term-missing",
+      "--cov-report=json:/tmp/issue4426-accounting-coverage.json"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 6.576,
+    "output": "........................................................................ [ 46%]\n........................................................................ [ 92%]\n............                                                             [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart   Cover   Missing\n-------------------------------------------------------------------------------\nscripts/langchain/pr_verifier.py    3188   2299   1288     66  22.90%   353-354, 358-371, 375-378, 393, 402-431, 443-481, 490-494, 536, 540-542, 545-549, 581-623, 636-641, 650-656, 670-745, 749-755, 759-884, 889-922, 927-944, 949-956, 962-982, 990-1037, 1044-1062, 1067-1112, 1118-1153, 1167-1267, 1357, 1604-1675, 1843, 1870-1888, 2184-2185, 2314-2325, 2357-2389, 2660-2684, 2692, 2758-2811, 2974-3026, 3082-3108, 3286-3349, 3442-3453, 3566-3637, 3795, 3810, 3815-3823, 3830->3842, 3851, 3865, 3876, 3907-3923, 3942-3943, 3945-3946, 3950-3951, 3958, 3974-3992, 4033, 4049, 4066, 4069-4146, 4150, 4152-4161, 4188, 4193, 4201-4214, 4226, 4231-4239, 4501-4502, 4504, 4668, 4673, 4700, 4716-4778, 4793-4805, 4818-4819, 4825-4844, 4866, 4891-4900, 5015, 5047-5056, 5084, 5087->5086, 5093, 5094->5100, 5108, 5116, 5135-5188, 5190, 5206-5209, 5216, 5218, 5258-5285, 5301, 5530-5542, 5545-5803, 5819, 5861-5868, 5911-5956, 5964->5962, 5989, 6001-6023, 6042-6104, 6115-6195, 6203-6227, 6234-6477, 6488, 6495-6524, 6529-6558, 6562-6570, 6580-6603, 6608-6623, 6640-7048, 7074-7102, 7106-7112, 7116-7134, 7138-7149, 7159-7201, 7208-7209, 7213-7216, 7227-7233, 7250-7291, 7300-7310, 7319-7383, 7398-7420, 7440-7607, 7641-7785, 7797-7869, 7879-7884, 7905-7969, 7973-7975, 7992-8020, 8025, 8035-8063, 8068-8069, 8087, 8101-8114, 8124-8160, 8166-8185, 8226-8229, 8251-8344, 8358, 8363-8383, 8388-8412, 8431-8480, 8486-8493, 8502-8516, 8523-8692, 8713-8718, 8728, 8736-8767, 8772-8791, 8797-8811, 8817-8842, 8942-8949, 8961, 8975-8990, 8994-8995, 8999-9002, 9006, 9010-9012, 9016-9028, 9032-9048, 9052-9195, 9199-9204, 9208-9211, 9215-9350\n-------------------------------------------------------------------------------\nTOTAL                               3188   2299   1288     66  22.90%\nCoverage JSON written to file /tmp/issue4426-accounting-coverage.json\n156 passed in 4.05s\n",
+    "module_summary": {
+      "covered_lines": 889,
+      "num_statements": 3188,
+      "percent_covered": 22.899910634495086,
+      "percent_covered_display": "22.90",
+      "missing_lines": 2299,
+      "excluded_lines": 35,
+      "percent_statements_covered": 27.88582183186951,
+      "percent_statements_covered_display": "27.89",
+      "num_branches": 1288,
+      "num_partial_branches": 66,
+      "covered_branches": 136,
+      "missing_branches": 1152,
+      "percent_branches_covered": 10.559006211180124,
+      "percent_branches_covered_display": "10.56"
+    },
+    "purpose": "Focused smoke coverage only; no round-wide coverage or attribution claimed"
+  },
+  "checked_on": "2026-11-07",
+  "parent_checkout_sha": "9967853244aaa180832ab6bc96b2405a64415274",
+  "source_sha256": {
+    "tests/docs/test_issue_4426_coverage_measurement.py": "790eba710f0eaff9ef0ee5ed331b0ea163173cfecd4343df8b55665810b8387c",
+    "tests/docs/test_issue_4426_ranking.py": "091ecb3fba8378062e73c8343c8aa99e0dcbfd6b7d2c14c1fccf0168f0d7f9be",
+    "docs/evidence/issue-4426/coverage-measurement.json": "eeefb732004d56be36f84986edd9f1d705b4ab0d3b9db6195e541e6981122f87",
+    "docs/evidence/issue-4426/ranking.json": "bd091ccce95ca24d6cf93c8ba085b8b42c14a0b5c38a1708223eec8917270f74"
+  },
+  "formatting": {
+    "command": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "--exclude",
+      "(\\.workflows-lib|node_modules)",
+      "."
+    ],
+    "execution": "installed Black CLI with serial scheduling via sitecustomize; formatter and safety checks unchanged",
+    "exit_code": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n955 files would be left unchanged.\n",
+    "default_dispatcher": "multi-worker PermissionError; one-worker interrupted after no progress (exit 130)"
+  }
+}

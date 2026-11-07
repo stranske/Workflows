@@ -1,5 +1,37 @@
 # Issue #4426 repository coverage measurements
 
+## Per-target snapshot accounting, 2026-11-07
+
+`target_snapshot_comparison` in `coverage-measurement.json` now retains the
+six targets' original and final counters together. The same computed record
+and a rendered table are included in `ranking.json` and `ranking.md` without
+overwriting either historical ranking. Reproduce the records with
+`compare_target_snapshots` in `tests/docs/test_issue_4426_coverage_measurement.py`
+and `build_ranking_record` in `tests/docs/test_issue_4426_ranking.py`.
+
+Both original runtimes give the same per-target baseline units. In the
+preserved issue order, the baseline/final/difference values are:
+
+| Target | Baseline units | Final units | Unattributed difference | Denominator change |
+| --- | ---: | ---: | ---: | ---: |
+| `scripts/sync_test_dependencies.py` | 6 | 6 | 0 | +51 |
+| `scripts/langchain/issue_pr_context.py` | 30 | 19 | 11 | +28 |
+| `scripts/langchain/verifier_config.py` | 16 | 2 | 14 | +17 |
+| `tools/langchain_client.py` | 29 | 5 | 24 | +17 |
+| `scripts/langchain/task_validator.py` | 38 | 6 | 32 | -4 |
+| `scripts/langchain/pr_verifier.py` | 283 | 200 | 83 | +874 |
+
+Units mean missing lines plus missing branch outcomes. Denominator change
+means final statements plus branches minus original statements plus branches.
+Every target's denominator changed. Equal missing-unit counts for
+`sync_test_dependencies.py` establish a zero snapshot difference, not zero
+attributable improvement. The original Python 3.12/3.13 Gate configuration
+and final Python 3.14 configuration are described below; these counters
+remain uniquely recovered term reports, not comparable coverage artifacts.
+Each target retains `requires_comparable_execution`, unknown attributable
+reduction and no exclusion. The 164-unit snapshot difference cannot satisfy
+the approximately 180 attributable-unit requirement.
+
 Checked 2026-11-06. Machine-readable fields are in `coverage-measurement.json`.
 The accounting is coverage.py's branch `percent_covered`: covered statements
 plus covered branches, divided by statements plus branches. `pyproject.toml`

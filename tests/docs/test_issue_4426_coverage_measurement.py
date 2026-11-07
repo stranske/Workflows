@@ -191,6 +191,59 @@ def _report_inputs() -> dict:
     return json.loads(data)
 
 
+def compare_target_snapshots(inputs: dict) -> dict:
+    """Account for every selected target without treating changed snapshots as credit.
+
+    Keep the two baseline runtimes separate even when their counters agree.
+    Denominator changes expose source/configuration drift; denominator equality
+    alone would not establish comparable execution or attributable improvement.
+    """
+    recovered = reconcile_gate_reports(inputs)
+    rows = []
+    for path in TARGETS:
+        final = recovered["final_head_targets"][path]
+        baselines = {
+            version: targets[path]
+            for version, targets in recovered["pre_round_targets_by_runtime"].items()
+        }
+        final_units = final["missing_lines"] + final["missing_branches"]
+        baseline_units = {
+            version: row["missing_lines"] + row["missing_branches"]
+            for version, row in baselines.items()
+        }
+        final_denominator = final["num_statements"] + final["num_branches"]
+        rows.append(
+            {
+                "path": path,
+                "baseline_counters_by_runtime": baselines,
+                "final_counters": final,
+                "baseline_missing_units_by_runtime": baseline_units,
+                "final_missing_units": final_units,
+                "unattributed_difference_by_runtime": {
+                    version: units - final_units for version, units in baseline_units.items()
+                },
+                "denominator_change_by_runtime": {
+                    version: final_denominator - row["num_statements"] - row["num_branches"]
+                    for version, row in baselines.items()
+                },
+                "attributable_round_reduction": None,
+                "disposition": "requires_comparable_execution",
+                "target_exclusion": None,
+            }
+        )
+    return {
+        "source": recovered["source"],
+        "source_sha256": recovered["source_sha256"],
+        "baseline_run_id": inputs["pre_round"]["run"]["id"],
+        "final_run_id": inputs["final_head"]["run"]["id"],
+        "final_artifact_id": inputs["final_head"]["artifact"]["id"],
+        "counter_source": "uniquely_recovered_term_reports",
+        "targets": rows,
+        "attributable_round_reduction": None,
+        "comparable_execution_configuration": False,
+    }
+
+
 def blended_coverage(totals: dict[str, int]) -> dict[str, int | float | str]:
     """Return the statement-plus-branch coverage figure for one totals object."""
     covered = totals["covered_lines"] + totals["covered_branches"]
@@ -383,6 +436,62 @@ def test_log_reconciliation_recovers_counts_without_claiming_attribution() -> No
     assert reconciliation["log_derived_target_missing_units"] == 238
     assert reconciliation["unattributed_original_round_snapshot_difference"] == 164
     assert reconciliation["attributable_round_reduction"] is None
+
+
+def test_per_target_accounting_preserves_both_runtimes_and_unknown_attribution() -> None:
+    comparison = compare_target_snapshots(_report_inputs())
+    assert comparison == _measurement()["target_snapshot_comparison"]
+    assert comparison["baseline_run_id"] == 38980711116
+    assert comparison["final_run_id"] == 42287174423
+    assert comparison["final_artifact_id"] == 13537639987
+    assert comparison["counter_source"] == "uniquely_recovered_term_reports"
+    assert comparison["attributable_round_reduction"] is None
+    assert comparison["comparable_execution_configuration"] is False
+    assert [row["path"] for row in comparison["targets"]] == list(TARGETS)
+    expected = [
+        (6, 6, 0, 51),
+        (30, 19, 11, 28),
+        (16, 2, 14, 17),
+        (29, 5, 24, 17),
+        (38, 6, 32, -4),
+        (283, 200, 83, 874),
+    ]
+    for row, (baseline, final, difference, denominator_change) in zip(
+        comparison["targets"], expected, strict=True
+    ):
+        assert row["baseline_missing_units_by_runtime"] == {"3.12": baseline, "3.13": baseline}
+        assert row["final_missing_units"] == final
+        assert row["unattributed_difference_by_runtime"] == {"3.12": difference, "3.13": difference}
+        assert row["denominator_change_by_runtime"] == {
+            "3.12": denominator_change,
+            "3.13": denominator_change,
+        }
+        assert set(row["baseline_counters_by_runtime"]) == {"3.12", "3.13"}
+        assert (
+            row["final_counters"]
+            == _measurement()["term_report_reconciliation"]["final_head_targets"][row["path"]]
+        )
+        assert row["attributable_round_reduction"] is None
+        assert row["disposition"] == "requires_comparable_execution"
+        assert row["target_exclusion"] is None
+    for version in ("3.12", "3.13"):
+        assert (
+            sum(row["baseline_missing_units_by_runtime"][version] for row in comparison["targets"])
+            == 402
+        )
+        assert (
+            sum(row["unattributed_difference_by_runtime"][version] for row in comparison["targets"])
+            == 164
+        )
+    assert sum(row["final_missing_units"] for row in comparison["targets"]) == 238
+
+
+def test_per_target_accounting_keeps_zero_difference_distinct_from_zero_improvement() -> None:
+    unchanged_gap = compare_target_snapshots(_report_inputs())["targets"][0]
+    assert unchanged_gap["unattributed_difference_by_runtime"] == {"3.12": 0, "3.13": 0}
+    assert unchanged_gap["denominator_change_by_runtime"] == {"3.12": 51, "3.13": 51}
+    assert unchanged_gap["attributable_round_reduction"] is None
+    assert unchanged_gap["target_exclusion"] is None
 
 
 @pytest.mark.parametrize(

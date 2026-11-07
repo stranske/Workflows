@@ -2274,5 +2274,14 @@
         "sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174"
       }
     }
+  },
+  "target_accounting_follow_up": {
+    "checked_on": "2026-11-07",
+    "receipts": "target-accounting-mutations.json",
+    "driver": "target-accounting-mutation-driver.txt",
+    "scope": "Evidence accounting and rendering; historical behavioral receipts remain separate",
+    "named_failures": 6,
+    "restored_passes": 6,
+    "source_restored": true
   }
 }

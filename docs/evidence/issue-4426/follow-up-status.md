@@ -1,5 +1,24 @@
 # Issue #4500 follow-up status, 2026-11-07
 
+Latest per-target accounting chunk:
+
+`coverage-measurement.json` and `ranking.json` now retain every selected
+target's original-runtime and final counters, denominator changes and explicit
+unresolved disposition. Historical snapshots remain intact. The totals are
+402 original units and 238 final units, a 164-unit unattributed snapshot
+difference. All six denominators changed. Even the sync dependency target's
+zero snapshot difference is not a measured zero improvement. Comparable
+execution/artifact attribution remains unavailable; no exclusion is claimed
+and the first task remains unchecked.
+
+Validation: 156 required behavioral tests pass; all 68 evidence tests pass in
+a fresh shallow offline checkout. Six new accounting/rendering mutants fail
+by name and pass after restoration. Ruff and the complete Black check pass
+(serial scheduling for Black's sandbox-incompatible concurrency). Separate
+`target-accounting-*` receipts retain these results and immutable symbol
+evidence without replacing historical receipts. Active-checkout staging is
+still read-only, so an isolated local commit/patch carries this chunk.
+
 Local acceptance verified for this reconciliation chunk:
 
 - [x] Required focused behavioral selection: 156 passed in 4.57s, exit 0.

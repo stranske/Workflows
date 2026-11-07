@@ -1,5 +1,51 @@
 # Issue #4426 Gate check and stop rule
 
+## Per-target accounting follow-up, 2026-11-07
+
+Before edits, `python -m pytest -q
+tests/docs/test_issue_4426_coverage_measurement.py
+tests/docs/test_issue_4426_ranking.py -m 'not slow' --tb=short` passes
+50 tests in 0.81s, exit 0. Selected symbols: the new
+`compare_target_snapshots`, `build_ranking_record`, and
+`render_ranking_markdown`. The existing two-failure, 10-minute command,
+20-minute step, and under-two-minute focused limits remain in force.
+
+The connector reverified run 42287174423, head
+`97fa3cdd6b198623db4adc86f16f0b3788320794`, merge checkout
+`e4e584ea61852751c55749ab9ed6539fa10c9a31`, and artifact 13537639987's
+recorded digest. Both `gh run download` and a bounded attempt to retrieve the
+connector's archive reference fail locally (connection error / URLError).
+No signed download URL is retained. This chunk exposes per-target log-derived
+counters and denominator changes; it cannot establish comparable artifacts or
+attribution. No task checkbox is advanced.
+
+Results for this per-target chunk:
+
+- `python docs/evidence/issue-4426/target-accounting-mutation-driver.txt`
+  records six named mutation failures (exit 1) and restored passes (exit 0).
+  `target-accounting-mutations.json` preserves immutable symbol/test fragments,
+  source hashes and complete outputs. Every changed source is restored.
+- The required four-module behavioral selection passes 156 tests in 2.84s.
+  The same selection with `--cov=scripts.langchain.pr_verifier
+  --cov-report=term-missing` passes 156 tests in 4.05s; the module's Cover column
+  is 22.90% for this selection only. Neither run claims round-wide attribution.
+  Commands and complete outputs are in `target-accounting-validation.json`.
+- `python docs/evidence/issue-4426/follow-up-shallow-driver.txt
+  docs/evidence/issue-4426/target-accounting-shallow-validation.json` passes
+  all 68 evidence tests in 3.08s from a fresh depth-one checkout with network
+  blocked and no credential copying, exit 0.
+- Ruff passes for both changed Python modules, and `git diff --check` passes.
+  The full `black --check --line-length 100 --exclude
+  '(\.workflows-lib|node_modules)' .` check passes: 955 files unchanged, exit 0.
+  It uses the installed CLI with serial scheduling through a temporary
+  `sitecustomize` adapter equivalent to `black-serial-driver.txt`, preserving
+  formatter and safety checks. Multi-worker startup raises sandbox
+  `PermissionError`; the one-worker attempt was interrupted with exit 130.
+- Active-checkout staging still fails to create `.git/index.lock` on the
+  read-only metadata mount. Delivery is an isolated local commit/patch;
+  the active branch is unchanged and no push or follow-up Gate run is claimed.
+  PR #4520 was verified open with `draft=false`.
+
 ## Identity validation follow-up, 2026-11-07
 
 Before this chunk's edits, `python -m pytest -q

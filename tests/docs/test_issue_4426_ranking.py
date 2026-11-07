@@ -410,6 +410,7 @@ def build_ranking_record(root: Path = ROOT) -> dict:
             ],
         },
         "final_head_reconciliation": measurement["final_head_reconciliation"],
+        "target_snapshot_comparison": measurement["target_snapshot_comparison"],
         "term_report_reconciliation": {
             key: measurement["term_report_reconciliation"][key]
             for key in (
@@ -611,6 +612,45 @@ def render_ranking_markdown(record: dict) -> str:
             "",
         ]
     )
+    comparison = record["target_snapshot_comparison"]
+    lines.extend(
+        [
+            "## Original-round and final-head target accounting",
+            "",
+            f"Run {comparison['baseline_run_id']} (Python 3.12 and 3.13) versus "
+            f"run {comparison['final_run_id']} (Python 3.14), artifact metadata "
+            f"{comparison['final_artifact_id']}. Counters come from uniquely recovered "
+            "term reports; archive bytes and branch arcs remain unavailable. "
+            "The two baseline runtimes agree for these targets. Denominator changes "
+            "are final minus baseline statements plus branches. Every target still "
+            "requires comparable execution; no target exclusion is claimed. "
+            "This table preserves the historical rankings above.",
+            "",
+            "| Target | Baseline units (3.12 / 3.13) | Final units | "
+            "Unattributed difference (3.12 / 3.13) | Denominator change (3.12 / 3.13) | "
+            "Attributable reduction |",
+            "| --- | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    for row in comparison["targets"]:
+        baseline = row["baseline_missing_units_by_runtime"]
+        difference = row["unattributed_difference_by_runtime"]
+        denominator = row["denominator_change_by_runtime"]
+        lines.append(
+            f"| `{row['path']}` | {baseline['3.12']} / {baseline['3.13']} | "
+            f"{row['final_missing_units']} | {difference['3.12']} / {difference['3.13']} | "
+            f"{denominator['3.12']:+d} / {denominator['3.13']:+d} | unknown |"
+        )
+    lines.extend(
+        [
+            "",
+            "Totals are 402 baseline units, 238 final units, and an unattributed "
+            "snapshot difference of 164 on each baseline runtime. Even the zero "
+            "snapshot difference for sync_test_dependencies.py is not measured zero "
+            "improvement. Attributable round-wide reduction remains unknown.",
+            "",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -698,6 +738,25 @@ def test_landed_reduction_drops_unmerged_and_unmeasured_deltas() -> None:
         )
         is None
     )
+
+
+def test_final_target_accounting_does_not_overwrite_historical_rankings() -> None:
+    record = build_ranking_record()
+    comparison = record["target_snapshot_comparison"]
+    assert comparison == _load(MEASUREMENT_PATH)["target_snapshot_comparison"]
+    assert record["revisions"]["gate_run_id"] == 42250720123
+    assert comparison["final_run_id"] == 42287174423
+    assert len(comparison["targets"]) == 6
+    markdown = render_ranking_markdown(record)
+    assert (
+        "| `scripts/sync_test_dependencies.py` | 6 / 6 | 6 | 0 / 0 | +51 / +51 | unknown |"
+        in markdown
+    )
+    assert (
+        "| `scripts/langchain/pr_verifier.py` | 283 / 283 | 200 | 83 / 83 | +874 / +874 | unknown |"
+        in markdown
+    )
+    assert "Attributable round-wide reduction remains unknown." in markdown
 
 
 def test_parser_weights_revert_above_fix_and_ignores_prose() -> None:

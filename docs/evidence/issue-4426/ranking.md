@@ -66,3 +66,18 @@ The counted reduction of 0 leaves the about-180 rule unmet.
 | `scripts/langchain/pr_verifier.py` | 281 | 273 | 8 | 274 | 0 |
 
 Unmerged #4405 target units sum to 312 and stay outside the remainder.
+
+## Original-round and final-head target accounting
+
+Run 38980711116 (Python 3.12 and 3.13) versus run 42287174423 (Python 3.14), artifact metadata 13537639987. Counters come from uniquely recovered term reports; archive bytes and branch arcs remain unavailable. The two baseline runtimes agree for these targets. Denominator changes are final minus baseline statements plus branches. Every target still requires comparable execution; no target exclusion is claimed. This table preserves the historical rankings above.
+
+| Target | Baseline units (3.12 / 3.13) | Final units | Unattributed difference (3.12 / 3.13) | Denominator change (3.12 / 3.13) | Attributable reduction |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `scripts/sync_test_dependencies.py` | 6 / 6 | 6 | 0 / 0 | +51 / +51 | unknown |
+| `scripts/langchain/issue_pr_context.py` | 30 / 30 | 19 | 11 / 11 | +28 / +28 | unknown |
+| `scripts/langchain/verifier_config.py` | 16 / 16 | 2 | 14 / 14 | +17 / +17 | unknown |
+| `tools/langchain_client.py` | 29 / 29 | 5 | 24 / 24 | +17 / +17 | unknown |
+| `scripts/langchain/task_validator.py` | 38 / 38 | 6 | 32 / 32 | -4 / -4 | unknown |
+| `scripts/langchain/pr_verifier.py` | 283 / 283 | 200 | 83 / 83 | +874 / +874 | unknown |
+
+Totals are 402 baseline units, 238 final units, and an unattributed snapshot difference of 164 on each baseline runtime. Even the zero snapshot difference for sync_test_dependencies.py is not measured zero improvement. Attributable round-wide reduction remains unknown.
