@@ -149,7 +149,7 @@ def main() -> int:
         timestamp = (
             _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         )
-        record = {
+        failure_record: dict[str, Any] = {
             "timestamp": timestamp,
             "status": "observed-failure",
             "reason": "file-not-found",
@@ -163,8 +163,8 @@ def main() -> int:
             if os.environ.get(key)
         }
         if github_meta:
-            record["github"] = github_meta
-        record["regression_evidence"] = {
+            failure_record["github"] = github_meta
+        failure_record["regression_evidence"] = {
             "observed_failure": True,
             "file_not_found": str(exc),
             "shallow_history_suspected": True,
@@ -172,7 +172,7 @@ def main() -> int:
         }
         history_path.parent.mkdir(parents=True, exist_ok=True)
         with history_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+            handle.write(json.dumps(failure_record, sort_keys=True) + "\n")
         print(f"Observed failure recorded: {exc} (wrote record to {history_path})", file=sys.stderr)
         return 1
 

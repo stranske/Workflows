@@ -207,3 +207,41 @@ def test_build_classification_payload_counts_statuses() -> None:
     assert payload["counts"] == {"failure": 2, "error": 1}
     assert payload["timestamp"].endswith("Z")
     assert payload["entries"][0]["nodeid"] == "a"
+
+
+def test_ci_history_type_checks_under_consumer_mypy(tmp_path) -> None:
+    """Consumers type-check this synced script; Workflows' own mypy covers only src/.
+
+    2026-11-07: a second ``record: dict[str, Any]`` annotation in main() raised mypy
+    ``no-redef`` and turned trip-planner's typecheck-mypy red on its sync canary.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    pytest.importorskip("mypy")
+    script = Path(__file__).resolve().parents[2] / "scripts" / "ci_history.py"
+    # Consumers run mypy with their own (near-default) config; Workflows' pyproject relaxes
+    # checks that consumers enforce, so use an empty config rather than this repo's.
+    config = tmp_path / "mypy.ini"
+    config.write_text("[mypy]\n")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--config-file",
+            str(config),
+            "--no-incremental",
+            "--ignore-missing-imports",
+            "--follow-imports=silent",
+            "--no-error-summary",
+            "--cache-dir",
+            str(tmp_path / ".mypy_cache"),
+            str(script),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
