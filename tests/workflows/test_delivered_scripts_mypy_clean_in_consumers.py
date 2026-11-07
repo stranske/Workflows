@@ -68,12 +68,18 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
     if restore_bug:
         # Break only the isolated consumer copy: prove mypy really checks this call,
         # rather than passing because an ignore_errors setting hid the defect.
+        # Reintroduce the pre-#4485 path that fed optional providers into the
+        # retired SlotDefinition call (no early None rejection).
         source = delivered.read_text(encoding="utf-8")
-        guard = "if provider is not None and (profile, provider) in retired:"
-        assert source.count(guard) == 1
-        delivered.write_text(
-            source.replace(guard, "if (profile, provider) in retired:"), encoding="utf-8"
+        early_reject = (
+            "        # Missing/unknown providers cannot form a slot identity (including a\n"
+            "        # retired placeholder). Reject early so every SlotDefinition call below\n"
+            "        # receives a str — consumer mypy rejects str | None (Workflows#4485).\n"
+            "        if provider is None:\n"
+            "            continue\n"
         )
+        assert source.count(early_reject) == 1, source
+        delivered.write_text(source.replace(early_reject, ""), encoding="utf-8")
 
     # Match the consumer pyproject knobs that surfaced the shipment-caused failure.
     (tmp_path / "mypy.ini").write_text(

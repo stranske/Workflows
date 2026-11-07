@@ -571,7 +571,12 @@ def _load_positional_slots(
         explicit_model = str(entry.get("model", "")).strip()
         configured_profile = str(entry.get("profile") or "").strip()
         profile = configured_profile or DEFAULT_SELECTION_PROFILE
-        if provider is not None and (profile, provider) in retired:
+        # Missing/unknown providers cannot form a slot identity (including a
+        # retired placeholder). Reject early so every SlotDefinition call below
+        # receives a str — consumer mypy rejects str | None (Workflows#4485).
+        if provider is None:
+            continue
+        if (profile, provider) in retired:
             name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
             slots.append(
                 (
