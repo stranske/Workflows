@@ -48,8 +48,6 @@ def _assert_consumer_mypy_receipt(observation):
 
     # Validate steps structure before indexing
     assert isinstance(ci["steps"], list), "steps must be a list"
-    assert len(ci["steps"]) >= 2, "At least 2 steps required: Mypy (type check) and Finalize mypy"
-
     step_names = [step["name"] for step in ci["steps"]]
     for required_name in ("Mypy (type check)", "Finalize mypy"):
         assert (
@@ -80,6 +78,7 @@ def test_retained_consumer_mypy_receipt_passed_for_the_delivered_head():
     _assert_consumer_mypy_receipt(observation)
 
 
+@pytest.mark.parametrize("reverse_evidence", [False, True], ids=["original", "reordered"])
 @pytest.mark.parametrize(
     ("path", "replacement"),
     [
@@ -87,22 +86,50 @@ def test_retained_consumer_mypy_receipt_passed_for_the_delivered_head():
         pytest.param(("ci", "name"), "Python CI / lint-ruff", id="different-job"),
         pytest.param(("ci", "status"), "in_progress", id="unfinished-job"),
         pytest.param(("ci", "conclusion"), "failure", id="failed-job"),
-        pytest.param(("ci", "steps", 0, "conclusion"), "skipped", id="skipped-mypy"),
-        pytest.param(("ci", "steps", 0, "status"), "queued", id="unstarted-mypy"),
-        pytest.param(("ci", "steps", 1, "conclusion"), "failure", id="failed-finalization"),
-        pytest.param(("ci", "log_excerpt", 1), "", id="missing-checkout-log"),
-        pytest.param(("ci", "log_excerpt", 3), "", id="missing-typecheck-result"),
-        pytest.param(("ci", "log_excerpt", 4), "", id="missing-final-outcome"),
+        pytest.param(
+            ("ci", "steps", "Mypy (type check)", "conclusion"), "skipped", id="skipped-mypy"
+        ),
+        pytest.param(("ci", "steps", "Mypy (type check)", "status"), "queued", id="unstarted-mypy"),
+        pytest.param(
+            ("ci", "steps", "Finalize mypy", "conclusion"), "failure", id="failed-finalization"
+        ),
+        pytest.param(("ci", "log_excerpt", "HEAD is now at"), "", id="missing-checkout-log"),
+        pytest.param(
+            ("ci", "log_excerpt", "Success: no issues found"), "", id="missing-typecheck-result"
+        ),
+        pytest.param(
+            ("ci", "log_excerpt", "MYPY_OUTCOME: success"), "", id="missing-final-outcome"
+        ),
     ],
 )
-def test_consumer_mypy_receipt_rejects_incomplete_or_stale_evidence(path, replacement):
-    """Keep the previously manual deliberate-break receipt checks executable."""
+def test_consumer_mypy_receipt_rejects_incomplete_or_stale_evidence(
+    path, replacement, reverse_evidence
+):
+    """Corrupt the named evidence even when native steps or retained logs reorder."""
     fixture = ROOT / "tests/fixtures/issue_4506"
     observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
-    target = observation
-    for key in path[:-1]:
-        target = target[key]
-    target[path[-1]] = replacement
+    if reverse_evidence:
+        observation["ci"]["steps"].reverse()
+        observation["ci"]["log_excerpt"].reverse()
+    # A malformed baseline or unresolved selector must fail outside pytest.raises.
+    _assert_consumer_mypy_receipt(observation)
+    if path[:2] == ("ci", "steps"):
+        matches = [step for step in observation["ci"]["steps"] if step["name"] == path[2]]
+        assert len(matches) == 1, path
+        assert matches[0][path[3]] != replacement
+        matches[0][path[3]] = replacement
+    elif path[:2] == ("ci", "log_excerpt"):
+        lines = observation["ci"]["log_excerpt"]
+        matches = [index for index, line in enumerate(lines) if path[2] in line]
+        assert len(matches) == 1, path
+        assert lines[matches[0]] != replacement
+        lines[matches[0]] = replacement
+    else:
+        target = observation
+        for key in path[:-1]:
+            target = target[key]
+        assert target[path[-1]] != replacement
+        target[path[-1]] = replacement
 
     with pytest.raises(AssertionError):
         _assert_consumer_mypy_receipt(observation)
@@ -129,16 +156,19 @@ def test_consumer_mypy_receipt_rejects_missing_ci_sections(missing_section):
     assert missing_section in str(exc_info.value)
 
 
-def test_consumer_mypy_receipt_rejects_missing_required_steps():
+@pytest.mark.parametrize("missing_step", ["Mypy (type check)", "Finalize mypy"])
+def test_consumer_mypy_receipt_rejects_missing_required_steps(missing_step):
     """Reject when required step names are missing from the steps list."""
     fixture = ROOT / "tests/fixtures/issue_4506"
     observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
-    # Keep only one step, remove the other
-    observation["ci"]["steps"] = [observation["ci"]["steps"][0]]
+    _assert_consumer_mypy_receipt(observation)
+    observation["ci"]["steps"] = [
+        step for step in observation["ci"]["steps"] if step["name"] != missing_step
+    ]
 
     with pytest.raises(AssertionError) as exc_info:
         _assert_consumer_mypy_receipt(observation)
-    assert "Finalize mypy" in str(exc_info.value)
+    assert f"Required step '{missing_step}' not found" in str(exc_info.value)
 
 
 def test_consumer_mypy_receipt_validates_reordered_steps():
