@@ -8,8 +8,11 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -35,27 +38,49 @@ def _step(job: dict, name: str) -> dict:
 @pytest.mark.parametrize("agent", AGENTS, ids=lambda agent: f"reusable-{agent}-run.yml")
 def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
     workflow, job = _runner(agent)
-    filename = f"reusable-{agent}-run.yml"
+    filename = f".github/workflows/reusable-{agent}-run.yml"
     caches = [step for step in job["steps"] if step.get("id") == f"{agent}_cli_cache"]
     assert len(caches) == 1, f"{filename}: missing CLI cache step"
     cache = caches[0]
     assert cache["uses"] == CACHE_REF, filename
+    assert cache.get("if", True) in (
+        True,
+        "${{ !cancelled() }}",
+    ), f"{filename}: CLI cache restore must run unless cancelled"
     key = cache["with"]["key"]
     assert "${{ runner.os }}" in key, filename
     assert "${{ runner.arch }}" in key, filename
     version_var = f"{agent.upper()}_CLI_VERSION"
-    assert f"${{{{ env.{version_var} }}}}" in key, filename
-    assert "restore-keys" not in cache["with"], filename
+    assert f"${{{{ env.{version_var} }}}}" in key, f"{filename}: CLI cache key missing version"
+    assert (
+        "restore-keys" not in cache["with"]
+    ), f"{filename}: CLI cache must match the exact version"
     install = _step(job, "Install Codex CLI" if agent == "codex" else f"Ensure {agent.title()} CLI")
-    assert job["steps"].index(cache) < job["steps"].index(install), filename
-    expose = _step(job, f"Expose cached {agent.title()} CLI")["run"]
+    assert job["steps"].index(cache) < job["steps"].index(
+        install
+    ), f"{filename}: CLI cache restored after installation"
+    expose_step = _step(job, f"Expose cached {agent.title()} CLI")
+    assert expose_step.get("if", True) in (
+        True,
+        "${{ !cancelled() }}",
+    ), f"{filename}: cached CLI path must be exposed unless cancelled"
+    assert job["steps"].index(expose_step) < job["steps"].index(
+        install
+    ), f"{filename}: CLI path exposed after installation"
+    expose = expose_step["run"]
     assert '>> "$GITHUB_PATH"' in expose, filename
 
     if agent != "muse":
         inputs = (workflow.get("on") or workflow[True])["workflow_call"]["inputs"]
         default = inputs[f"{agent}_cli_version"]["default"]
         assert default and default not in ("latest", "stable"), filename
-        assert default in job["env"][version_var], filename
+        if agent in ("codex", "claude", "gemini"):
+            assert re.fullmatch(
+                r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", default
+            ), f"{filename}: CLI default must pin an exact npm release"
+        assert job["env"][version_var] == (
+            f"${{{{ inputs.{agent}_cli_version || '{default}' }}}}"
+        ), f"{filename}: CLI cache fallback differs from input default"
         prefix = f"${{{{ runner.temp }}}}/agent-cli/{agent}"
         assert cache["with"]["path"] == prefix, filename
         assert prefix in expose, filename
@@ -93,6 +118,180 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
 
 
 @pytest.mark.parametrize("agent", AGENTS, ids=lambda agent: f"reusable-{agent}-run.yml")
+@pytest.mark.parametrize(
+    "regression",
+    (
+        "missing-cache",
+        "unversioned-key",
+        "late-path",
+        "skipped-path",
+        "skipped-cache",
+        "late-cache",
+        "fallback-key",
+    ),
+)
+def test_cli_cache_contract_rejects_regressions(
+    agent: str, regression: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mutate parsed copies so protected workflow files are never rewritten."""
+    workflow, job = _runner(agent)
+    cache = next(step for step in job["steps"] if step.get("id") == f"{agent}_cli_cache")
+    if regression == "missing-cache":
+        job["steps"].remove(cache)
+    elif regression == "unversioned-key":
+        version = f"${{{{ env.{agent.upper()}_CLI_VERSION }}}}"
+        assert version in cache["with"]["key"]
+        cache["with"]["key"] = cache["with"]["key"].replace(version, "fixed")
+    elif regression == "late-path":
+        expose = _step(job, f"Expose cached {agent.title()} CLI")
+        job["steps"].remove(expose)
+        job["steps"].append(expose)
+    elif regression == "skipped-path":
+        _step(job, f"Expose cached {agent.title()} CLI")["if"] = False
+    elif regression == "skipped-cache":
+        cache["if"] = False
+    elif regression == "late-cache":
+        job["steps"].remove(cache)
+        job["steps"].append(cache)
+    else:
+        cache["with"]["restore-keys"] = "${{ runner.os }}-"
+
+    monkeypatch.setattr(f"{__name__}._runner", lambda requested: (workflow, job))
+    filename = f".github/workflows/reusable-{agent}-run.yml"
+    messages = {
+        "missing-cache": "missing CLI cache step",
+        "unversioned-key": "CLI cache key missing version",
+        "late-path": "CLI path exposed after installation",
+        "skipped-path": "cached CLI path must be exposed unless cancelled",
+        "skipped-cache": "CLI cache restore must run unless cancelled",
+        "late-cache": "CLI cache restored after installation",
+        "fallback-key": "CLI cache must match the exact version",
+    }
+    with pytest.raises(AssertionError, match=re.escape(f"{filename}: {messages[regression]}")):
+        test_cli_cache_tracks_installed_version_and_path(agent)
+
+
+@pytest.mark.parametrize(
+    "inherited_addopts",
+    ("", "-x --maxfail=1", "--collect-only"),
+    ids=("default", "inherited-exitfirst", "inherited-collect-only"),
+)
+def test_cli_cache_deletion_fails_pytest_and_recovers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inherited_addopts: str
+) -> None:
+    """Remove the cache from YAML input and check pytest failure and recovery."""
+    monkeypatch.setenv("PYTEST_ADDOPTS", inherited_addopts)
+    codex_path = WORKFLOWS / "reusable-codex-run.yml"
+    original_source = codex_path.read_bytes()
+    plugin = tmp_path / "runner_cache_break.py"
+    plugin.write_text(textwrap.dedent("""\
+            import re
+            from pathlib import Path
+
+            import pytest
+
+            @pytest.fixture(autouse=True)
+            def remove_codex_cache(request, monkeypatch):
+                original = Path.read_text
+                target = request.module.WORKFLOWS / "reusable-codex-run.yml"
+
+                def without_cache(path, *args, **kwargs):
+                    source = original(path, *args, **kwargs)
+                    if path == target:
+                        # Delete the whole YAML step before the real loader parses it.
+                        source, removed = re.subn(
+                            r"(?ms)^      - name: Cache Codex CLI\\n.*?(?=^      - |\\Z)",
+                            "",
+                            source,
+                        )
+                        assert removed == 1, "Expected exactly one Codex cache step"
+                    return source
+
+                monkeypatch.setattr(Path, "read_text", without_cache)
+            """))
+    command = [
+        sys.executable,
+        "-m",
+        "pytest",
+        str(Path(__file__).resolve()),
+        "-k",
+        "test_cli_cache_tracks_installed_version_and_path",
+        "-m",
+        "not slow",
+        "--noconftest",
+        "-o",
+        "addopts=",
+        "-q",
+    ]
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join([str(tmp_path), os.environ.get("PYTHONPATH", "")]),
+        # -o addopts= clears ini options, but inherited env options still apply.
+        # Both subprocesses must execute all five runner assertions.
+        "PYTEST_ADDOPTS": "",
+    }
+    broken = subprocess.run(
+        [*command, "-p", "runner_cache_break"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    diagnostic = broken.stdout + broken.stderr
+    assert broken.returncode == pytest.ExitCode.TESTS_FAILED, diagnostic
+    assert ".github/workflows/reusable-codex-run.yml: missing CLI cache step" in diagnostic
+    assert "1 failed, 4 passed" in broken.stdout, diagnostic
+
+    recovered = subprocess.run(
+        command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=30
+    )
+    assert recovered.returncode == pytest.ExitCode.OK, recovered.stdout + recovered.stderr
+    assert "5 passed" in recovered.stdout
+    assert codex_path.read_bytes() == original_source, "Protected workflow source was modified"
+
+
+@pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
+@pytest.mark.parametrize("version", ("next", "^1.0.0", "~1.0.0", "*"))
+def test_cli_cache_contract_rejects_floating_npm_defaults(
+    agent: str, version: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stable cache key cannot describe a moving npm release selection."""
+    workflow, job = _runner(agent)
+    inputs = (workflow.get("on") or workflow[True])["workflow_call"]["inputs"]
+    inputs[f"{agent}_cli_version"]["default"] = version
+    version_var = f"{agent.upper()}_CLI_VERSION"
+    job["env"][version_var] = f"${{{{ inputs.{agent}_cli_version || '{version}' }}}}"
+    if agent == "codex":
+        _step(job, "Install Codex CLI")["env"][version_var] = job["env"][version_var]
+    monkeypatch.setattr(f"{__name__}._runner", lambda requested: (workflow, job))
+    filename = f".github/workflows/reusable-{agent}-run.yml"
+    with pytest.raises(
+        AssertionError, match=re.escape(f"{filename}: CLI default must pin an exact npm release")
+    ):
+        test_cli_cache_tracks_installed_version_and_path(agent)
+
+
+@pytest.mark.parametrize("agent", ("codex", "claude", "cursor", "gemini"))
+def test_cli_cache_contract_rejects_different_version_fallback(
+    agent: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workflow, job = _runner(agent)
+    version_var = f"{agent.upper()}_CLI_VERSION"
+    # Retain the input default as a substring to exercise the former weak check.
+    job["env"][version_var] = job["env"][version_var].replace("|| '", "|| '1")
+    if agent == "codex":
+        _step(job, "Install Codex CLI")["env"][version_var] = job["env"][version_var]
+    monkeypatch.setattr(f"{__name__}._runner", lambda requested: (workflow, job))
+    filename = f".github/workflows/reusable-{agent}-run.yml"
+    with pytest.raises(
+        AssertionError,
+        match=re.escape(f"{filename}: CLI cache fallback differs from input default"),
+    ):
+        test_cli_cache_tracks_installed_version_and_path(agent)
+
+
+@pytest.mark.parametrize("agent", AGENTS, ids=lambda agent: f"reusable-{agent}-run.yml")
 def test_octokit_restore_precedes_both_install_surfaces(agent: str) -> None:
     _, job = _runner(agent)
     steps = job["steps"]
@@ -105,63 +304,232 @@ def test_octokit_restore_precedes_both_install_surfaces(agent: str) -> None:
         ("Workflows", ".workflows-lib/.github/scripts", "Ensure Workflows script deps"),
     ):
         cache = _step(job, f"Cache {surface} Octokit dependencies")
-        assert cache["uses"] == CACHE_REF
-        assert cache["with"]["path"] == f"{path}/node_modules"
-        assert f"{path}/package-lock.json" in cache["with"]["key"]
-        assert "setup-api-client/action.yml" in cache["with"]["key"]
-        assert "${{ runner.os }}" in cache["with"]["key"]
-        assert "node24" in cache["with"]["key"]
-        assert steps.index(cache) < steps.index(_step(job, consumer))
+        filename = f".github/workflows/reusable-{agent}-run.yml"
+        key = cache["with"]["key"]
+        action_path = f"{Path(path).parent}/actions/setup-api-client/action.yml"
+        assert cache["uses"] == CACHE_REF, filename
+        assert cache["with"]["path"] == f"{path}/node_modules", filename
+        # The action contains the exact Octokit pins; both inputs must be hashed
+        # from the checkout whose installed modules are being restored.
+        assert f"hashFiles('{path}/package-lock.json', '{action_path}')" in key, filename
+        assert "${{ runner.os }}" in key, filename
+        assert "${{ runner.arch }}" in key, filename
+        assert "node24" in key, filename
+        assert "restore-keys" not in cache["with"], filename
+        assert steps.index(cache) < steps.index(_step(job, consumer)), filename
+
+
+@pytest.mark.parametrize("surface", ("workspace", "Workflows"))
+@pytest.mark.parametrize("missing_lru_cache", (False, True), ids=("complete", "needs-repair"))
+def test_octokit_restore_skips_install_and_repairs_incomplete_cache(
+    surface: str, missing_lru_cache: bool, tmp_path: Path
+) -> None:
+    """Exercise the shared installer with cached modules and an offline npm stub."""
+    _, job = _runner("codex")
+    cache = _step(job, f"Cache {surface} Octokit dependencies")
+    action_dir = ROOT / ".github/actions/setup-api-client"
+    action = yaml.safe_load((action_dir / "action.yml").read_text())
+    setup = {"steps": action["runs"]["steps"]}
+    install = _step(setup, "Install API client dependencies")["run"]
+    export_path = _step(setup, "Export NODE_PATH for shared deps")["run"]
+    fake_bin = tmp_path / "tools"
+    fake_bin.mkdir()
+    npm = fake_bin / "npm"
+    npm.write_text(
+        "#!/bin/bash\nset -euo pipefail\n"
+        'printf "%s\\n" "$*" >> "$INSTALL_LOG"\n'
+        'for spec in "$@"; do\n'
+        '  case "$spec" in\n'
+        "    @octokit/*@*|lru-cache@*)\n"
+        '      package="${spec%@*}"\n'
+        '      version="${spec##*@}"\n'
+        '      mkdir -p "node_modules/$package"\n'
+        '      printf \'module.exports = "%s";\\n\' "$version" '
+        '> "node_modules/$package/index.js"\n'
+        "      ;;\n  esac\ndone\n"
+    )
+    npm.chmod(0o755)
+    log = tmp_path / "installs"
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "INSTALL_LOG": str(log),
+        "GITHUB_ACTION_PATH": str(action_dir),
+    }
+    env.pop("NODE_PATH", None)
+
+    def run_setup(workspace: Path) -> None:
+        env["GITHUB_WORKSPACE"] = str(workspace)
+        env["GITHUB_ENV"] = str(workspace / "github-env")
+        # Workspace setup uses the action's default; Workflows setup supplies
+        # the explicit install_dir pointing into the shared scripts checkout.
+        install_dir = (
+            "" if surface == "workspace" else str((workspace / cache["with"]["path"]).parent)
+        )
+        for script in (install, export_path):
+            result = subprocess.run(
+                ["/bin/bash", "-c", script.replace("${{ inputs.install_dir }}", install_dir)],
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stdout + result.stderr
+
+    cold = tmp_path / "cold"
+    run_setup(cold)
+    archive = tmp_path / "archive"
+    shutil.copytree(cold / cache["with"]["path"], archive)
+    shutil.rmtree(cold)
+    restored = tmp_path / "restored"
+    modules = restored / cache["with"]["path"]
+    shutil.copytree(archive, modules)
+    if missing_lru_cache:
+        shutil.rmtree(modules / "lru-cache")
+    run_setup(restored)
+
+    expected_install = (
+        "install --no-save --location=project @octokit/rest@20.0.2 "
+        "@octokit/plugin-retry@6.0.1 @octokit/plugin-paginate-rest@9.1.5 "
+        "@octokit/auth-app@6.0.3 lru-cache@10.4.3"
+    )
+    assert log.read_text().splitlines() == [expected_install] * (2 if missing_lru_cache else 1)
+    assert (restored / "github-env").read_text() == f"NODE_PATH={modules}\n"
+    env["NODE_PATH"] = str(modules)
+    probe = subprocess.run(
+        ["node", "-p", "require('@octokit/rest') + ':' + require('lru-cache')"],
+        cwd=restored,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert probe.returncode == 0, probe.stderr
+    assert probe.stdout.strip() == "20.0.2:10.4.3"
+
+
+def _progress_review() -> dict:
+    workflow = yaml.safe_load((WORKFLOWS / "agents-keepalive-loop.yml").read_text())
+    return workflow["jobs"]["progress-review"]
 
 
 def test_progress_review_caches_pip_before_dependency_install() -> None:
-    workflow = yaml.safe_load((WORKFLOWS / "agents-keepalive-loop.yml").read_text())
-    job = workflow["jobs"]["progress-review"]
+    job = _progress_review()
+    filename = ".github/workflows/agents-keepalive-loop.yml"
     setup = next(
         step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-python@")
     )
-    assert setup["with"]["cache"] == "pip"
-    assert (ROOT / setup["with"]["cache-dependency-path"]).is_file()
+    assert setup["with"].get("cache") == "pip", f"{filename}: missing pip cache"
+    requirements = setup["with"]["cache-dependency-path"]
+    assert (ROOT / requirements).is_file(), f"{filename}: missing cache requirements file"
+    install = _step(job, "Install analysis dependencies")
+    command = shlex.split(install["run"])
+    assert "-r" in command and command[command.index("-r") + 1 :] == [
+        requirements
+    ], f"{filename}: pip cache must track installed requirements"
     assert job["steps"].index(setup) < job["steps"].index(
-        _step(job, "Install analysis dependencies")
-    )
+        install
+    ), f"{filename}: pip cache restored after installation"
+
+
+@pytest.mark.parametrize(
+    ("regression", "message"),
+    (
+        ("uncached", "missing pip cache"),
+        ("unrelated-requirements", "pip cache must track installed requirements"),
+        ("missing-requirements", "missing cache requirements file"),
+        ("late-setup", "pip cache restored after installation"),
+    ),
+)
+def test_progress_review_pip_cache_contract_rejects_regressions(
+    regression: str, message: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = _progress_review()
+    setup = _step(job, "Setup Python")
+    if regression == "uncached":
+        setup["with"].pop("cache")
+    elif regression == "unrelated-requirements":
+        setup["with"]["cache-dependency-path"] = "requirements.lock"
+    elif regression == "missing-requirements":
+        setup["with"]["cache-dependency-path"] = "nonexistent-cache-requirements.txt"
+    else:
+        job["steps"].remove(setup)
+        job["steps"].append(setup)
+    monkeypatch.setattr(f"{__name__}._progress_review", lambda: job)
+    with pytest.raises(
+        AssertionError, match=re.escape(f".github/workflows/agents-keepalive-loop.yml: {message}")
+    ):
+        test_progress_review_caches_pip_before_dependency_install()
 
 
 @pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
 def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Path) -> None:
     """Run the actual install shell with a fake npm, then restore into a fresh prefix."""
-    _, job = _runner(agent)
+    workflow, job = _runner(agent)
     install = _step(job, "Install Codex CLI" if agent == "codex" else f"Ensure {agent.title()} CLI")
+    expose = _step(job, f"Expose cached {agent.title()} CLI")["run"]
+    inputs = (workflow.get("on") or workflow[True])["workflow_call"]["inputs"]
+    version = inputs[f"{agent}_cli_version"]["default"]
     fake_bin = tmp_path / "tools"
     fake_bin.mkdir()
     npm = fake_bin / "npm"
     npm.write_text(
         "#!/bin/sh\nset -eu\n"
-        'echo install >> "$INSTALL_LOG"\n'
-        'mkdir -p "$NPM_CONFIG_PREFIX/bin"\n'
-        'printf "#!/bin/sh\\necho cached-cli\\n" > "$NPM_CONFIG_PREFIX/bin/$CLI_BINARY"\n'
-        'chmod +x "$NPM_CONFIG_PREFIX/bin/$CLI_BINARY"\n'
+        'printf "%s\\n" "$*" >> "$INSTALL_LOG"\n'
+        'package_dir="$NPM_CONFIG_PREFIX/lib/node_modules/$CLI_PACKAGE"\n'
+        'mkdir -p "$NPM_CONFIG_PREFIX/bin" "$package_dir/bin"\n'
+        'printf "#!/bin/sh\\necho cached-cli\\n" > "$package_dir/bin/cli.js"\n'
+        'chmod +x "$package_dir/bin/cli.js"\n'
+        'ln -s "../lib/node_modules/$CLI_PACKAGE/bin/cli.js" '
+        '"$NPM_CONFIG_PREFIX/bin/$CLI_BINARY"\n'
     )
     npm.chmod(0o755)
-    prefix = tmp_path / "cold" / agent
+    prefix_template = install["env"]["NPM_CONFIG_PREFIX"]
+    prefix = Path(prefix_template.replace("${{ runner.temp }}", str(tmp_path / "cold")))
     log = tmp_path / "installs"
+    package = {
+        "codex": "@openai/codex",
+        "claude": "@anthropic-ai/claude-code",
+        "gemini": "@google/gemini-cli",
+    }[agent]
     env = {
         **os.environ,
-        "PATH": f"{prefix / 'bin'}:{fake_bin}:/usr/bin:/bin",
+        "PATH": f"{fake_bin}:/usr/bin:/bin",
         "NPM_CONFIG_PREFIX": str(prefix),
         "INSTALL_LOG": str(log),
         "CLI_BINARY": agent,
-        "CODEX_CLI_VERSION": "0.160.0",
-        "VERSION": "1.2.3",
+        "CLI_PACKAGE": package,
+        "CODEX_CLI_VERSION": version,
+        "VERSION": version,
         "PACKAGE": "@anthropic-ai/claude-code",
     }
+
+    def expose_prefix(round_name: str) -> None:
+        github_path = tmp_path / f"{round_name}-github-path"
+        env["GITHUB_PATH"] = str(github_path)
+        subprocess.run(
+            ["/bin/bash", "-c", expose.replace("${{ runner.temp }}", str(tmp_path / round_name))],
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        paths = github_path.read_text().splitlines()
+        assert str(Path(env["NPM_CONFIG_PREFIX"]) / "bin") in paths
+        env["PATH"] = ":".join([*paths, str(fake_bin), "/usr/bin", "/bin"])
+
+    expose_prefix("cold")
     subprocess.run(
         ["/bin/bash", "-c", install["run"]], env=env, check=True, capture_output=True, text=True
     )
-    restored = tmp_path / "restored" / agent
-    shutil.copytree(prefix, restored)
+    restored = Path(prefix_template.replace("${{ runner.temp }}", str(tmp_path / "restored")))
+    shutil.copytree(prefix, restored, symlinks=True)
     shutil.rmtree(prefix)
-    env.update(PATH=f"{restored / 'bin'}:{fake_bin}:/usr/bin:/bin", NPM_CONFIG_PREFIX=str(restored))
+    restored_binary = restored / "bin" / agent
+    assert restored_binary.is_symlink()
+    assert restored_binary.resolve(strict=True) == (
+        restored / "lib" / "node_modules" / package / "bin" / "cli.js"
+    )
+    env.update(PATH=f"{fake_bin}:/usr/bin:/bin", NPM_CONFIG_PREFIX=str(restored))
+    expose_prefix("restored")
     if agent != "codex":
         subprocess.run(
             ["/bin/bash", "-c", install["run"]], env=env, check=True, capture_output=True, text=True
@@ -170,7 +538,7 @@ def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Pat
         [agent, "--version"], env=env, check=True, capture_output=True, text=True
     )
     assert result.stdout.strip() == "cached-cli"
-    assert log.read_text().splitlines() == ["install"]
+    assert log.read_text().splitlines() == [f"install -g {package}@{version}"]
 
 
 def test_muse_resolves_exact_release_and_rejects_unversioned_channel(tmp_path: Path) -> None:
