@@ -544,6 +544,58 @@ test('native writer API failures stop delivery refresh even after empty earlier 
   }
 });
 
+test('delivery refresh waits for every writer when one producer finishes', async () => {
+  const api = harness();
+  const previousSource = 'e'.repeat(40);
+  const writers = [
+    promotionRun({
+      id: 20, status: 'in_progress', conclusion: null, head_sha: previousSource,
+      display_title: `Maint 68 canary full source=${previousSource} candidates=${expectedCanaries.join(',')} dry=false`,
+    }),
+    promotionRun({
+      id: 21, status: 'waiting', conclusion: null, head_sha: previousSource,
+      display_title: `Maint 68 promote auto sha256:${'f'.repeat(64)} ${previousSource}`,
+    }),
+  ];
+  api.client.rest.repos.getCommit = async () => ({ data: {
+    sha: sourceCommit, commit: { committer: { date: '2026-10-01T00:00:00Z' } },
+  } });
+  api.client.rest.repos.getContent = async () => ({ data: {
+    content: Buffer.from(JSON.stringify({
+      canaries: expectedCanaries.map((repo) => ({ repo })),
+    })).toString('base64'),
+  } });
+  api.client.rest.actions.listWorkflowRuns = async (params) => {
+    api.reads.push(params);
+    assert.equal(params.head_sha, undefined, 'another source still owns its writer');
+    return { data: { workflow_runs: params.status
+      ? writers.filter((writer) => writer.status === params.status) : [] } };
+  };
+  const args = { ...api, expectedCanaries, now, decision: {
+    plan_id: planId, evidence: fixture().evidence,
+  } };
+
+  for (const finished of writers) {
+    const snapshot = structuredClone(writers);
+    api.reads.length = 0;
+    assert.equal((await dispatchDeliveryRefresh(args)).dispatched, false);
+    assert.equal(api.dispatched.length, 0);
+    assert.deepEqual(api.reads.map((row) => row.status),
+      ['queued', 'in_progress', 'waiting', 'pending', 'requested']);
+    assert.deepEqual(writers, snapshot, 'the controller must only observe live writers');
+    // Simulate native completion; the controller cannot cancel either producer.
+    finished.status = 'completed';
+    finished.conclusion = 'cancelled';
+  }
+
+  assert.equal((await dispatchDeliveryRefresh(args)).dispatched, true);
+  assert.equal(api.dispatched.length, 1);
+  assert.equal(api.dispatched[0].workflow_id, 'maint-68-sync-consumer-repos.yml');
+  assert.equal(api.dispatched[0].inputs.force, 'false');
+  assert.deepEqual(JSON.parse(api.dispatched[0].inputs.canary_evidence_json),
+    fixture().evidence, 'the released request must retain its selected payload');
+});
+
 test('unreadable or saturated native writer inventory prevents delivery refresh', async () => {
   for (const inventory of [undefined, null, {}, Array(100).fill(promotionRun())]) {
     const api = harness();

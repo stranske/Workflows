@@ -1,5 +1,40 @@
 # Issue #4506 delivery verification — 2026-11-07
 
+## Multiple-writer completion regression
+
+Reviewed recent commits `71509a7b`, `b6120277`, `42d89fd5`, and `73d3b51d`.
+They establish local regressions, not fresh operational receipts. No additional
+task is verified complete. Attempting to uncheck the unsupported literal-`gh`
+task and acceptance criterion on PR #4530 was rejected with
+`MCP tool call requires approval, but approval policy is never`.
+
+Added a behavioral case to `tests/scripts/test_maint71_promote_dispatch.js`
+that observes two old-source producers in different active states. Completing
+one producer must leave refresh held while the other remains active. Only
+observing both terminal allows one non-forced dispatch preserving the selected
+evidence payload. The test uses inert API doubles and checks that the controller
+does not mutate either writer observation.
+
+Validation: the dispatch suite passed **50 tests**, scoped-refresh suite passed
+**86 tests**, and `git diff --check` passed. With installed mypy 2.4.1, the selected
+Python interpreter ran the named two-file pytest command with `-m 'not slow'`:
+**351 passed in 10.83s, no skips**. No Python or workflow files changed.
+
+Fresh connector reads still show consumer head
+`7ca6deb8d219fe9137fcb220de745e063f42c51c` and both PRs open and ready.
+Native mypy job `128338642025` still binds success to that head. The literal
+`gh run view 42350906876 --repo stranske/trip-planner --log` again exited 1
+with `error connecting to api.github.com`. The available source/consumer
+comments contain no later sync-core receipt, and neither documented controller
+receipt directory exists here. No producer was dispatched or live lock changed.
+
+Git staging failed with `.git/index.lock: Read-only file system`, so no commit
+was possible. Attempts to add `needs-human` and post the concrete blocker
+comment were each rejected by the same MCP approval policy. Capacity mode is
+`local-only` for writes. A writer-capable continuation must commit the tested
+change and reconcile the remote checklist; the controller owner must retain
+the requested regeneration and exact-head sync-core classification receipts.
+
 ## Writer-inventory transport failure verification
 
 Added a regression case to `tests/scripts/test_maint71_promote_dispatch.js`
