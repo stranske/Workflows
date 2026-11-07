@@ -44,12 +44,14 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
     assert "${{ runner.os }}" in key, filename
     assert "${{ runner.arch }}" in key, filename
     version_var = f"{agent.upper()}_CLI_VERSION"
-    assert f"${{{{ env.{version_var} }}}}" in key, filename
+    assert f"${{{{ env.{version_var} }}}}" in key, f"{filename}: CLI cache key missing version"
     assert "restore-keys" not in cache["with"], filename
     install = _step(job, "Install Codex CLI" if agent == "codex" else f"Ensure {agent.title()} CLI")
     assert job["steps"].index(cache) < job["steps"].index(install), filename
     expose_step = _step(job, f"Expose cached {agent.title()} CLI")
-    assert job["steps"].index(expose_step) < job["steps"].index(install), filename
+    assert job["steps"].index(expose_step) < job["steps"].index(
+        install
+    ), f"{filename}: CLI path exposed after installation"
     expose = expose_step["run"]
     assert '>> "$GITHUB_PATH"' in expose, filename
 
@@ -106,6 +108,7 @@ def test_cli_cache_contract_rejects_regressions(
         job["steps"].remove(cache)
     elif regression == "unversioned-key":
         version = f"${{{{ env.{agent.upper()}_CLI_VERSION }}}}"
+        assert version in cache["with"]["key"]
         cache["with"]["key"] = cache["with"]["key"].replace(version, "fixed")
     else:
         expose = _step(job, f"Expose cached {agent.title()} CLI")
@@ -114,7 +117,12 @@ def test_cli_cache_contract_rejects_regressions(
 
     monkeypatch.setattr(f"{__name__}._runner", lambda requested: (workflow, job))
     filename = f".github/workflows/reusable-{agent}-run.yml"
-    with pytest.raises(AssertionError, match=re.escape(filename)):
+    messages = {
+        "missing-cache": "missing CLI cache step",
+        "unversioned-key": "CLI cache key missing version",
+        "late-path": "CLI path exposed after installation",
+    }
+    with pytest.raises(AssertionError, match=re.escape(f"{filename}: {messages[regression]}")):
         test_cli_cache_tracks_installed_version_and_path(agent)
 
 
