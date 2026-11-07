@@ -56,9 +56,10 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
 ):
     """Consumer settings must catch optional providers passed to SlotDefinition (#4485).
 
-    Mirror trip-planner's mypy gate (explicit_package_bases / namespace_packages) rather
-    than Workflows' pyproject, which sets ignore_errors for tools.* and would hide the
-    shipped arg-type failure that sync-core reported on tools/llm_registry.py:580.
+    Mirror trip-planner's mypy gate rather than Workflows' pyproject, which sets
+    ignore_errors for tools.* and would hide the shipped arg-type failure that
+    sync-core reported on tools/llm_registry.py:580. Match reusable-10-ci-python:
+    ``--config-file pyproject.toml --exclude .workflows-lib`` with target ``.``.
     """
     package = tmp_path / "tools"
     package.mkdir()
@@ -81,9 +82,9 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
         assert source.count(early_reject) == 1, source
         delivered.write_text(source.replace(early_reject, ""), encoding="utf-8")
 
-    # Match the consumer pyproject knobs that surfaced the shipment-caused failure.
-    (tmp_path / "mypy.ini").write_text(
-        "[mypy]\nexplicit_package_bases = true\nnamespace_packages = true\n",
+    # trip-planner pyproject knobs that surfaced the shipment-caused failure.
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.mypy]\n" "explicit_package_bases = true\n" "namespace_packages = true\n",
         encoding="utf-8",
     )
 
@@ -93,11 +94,13 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
             "-m",
             "mypy",
             "--config-file",
-            "mypy.ini",
+            "pyproject.toml",
+            "--exclude",
+            ".workflows-lib",
             "--cache-dir",
             str(tmp_path / "mypy-cache"),
             "--no-incremental",
-            "tools/llm_registry.py",
+            ".",
         ],
         cwd=tmp_path,
         capture_output=True,
@@ -116,3 +119,4 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
         # Zero exit code is the shipment gate; keep it explicit like other consumer
         # typecheck regressions (tests/scripts/test_consumer_script_typecheck.py).
         assert result.returncode == 0, result.stdout + result.stderr
+        assert "Success: no issues found" in result.stdout
