@@ -12,6 +12,8 @@ const {
 const {
   run: templateRun,
   stripPrTemplateContent: templateStripPrTemplateContent,
+  parseCheckboxStates: templateParseCheckboxStates,
+  mergeCheckboxStates: templateMergeCheckboxStates,
 } = require('../../../templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js');
 
 const {
@@ -453,6 +455,60 @@ test('mergeCheckboxStates restores numbered contract checklist items across refr
   assert.ok(merged.includes('5. [x] One PR per logical chunk of work.'));
   // Already-checked dash parent stays checked and is not rewritten as a dash mismatch
   assert.ok(merged.includes('- [x] Same contract as every round in this initiative:'));
+});
+
+test('numbered checklist parsing accepts tabs and multiple spaces in source and template', () => {
+  for (const [name, parse] of [
+    ['source', parseCheckboxStates],
+    ['template', templateParseCheckboxStates],
+  ]) {
+    for (const bullet of ['1.', '12)']) {
+      for (const spacing of [' ', '  ', '\t']) {
+        const block = [
+          `  ${bullet}${spacing}[X] Completed task`,
+          `${bullet}${spacing}[ ] Pending task`,
+          '```markdown',
+          `${bullet}${spacing}[x] Example only`,
+          '```',
+        ].join('\n');
+        assert.deepEqual(
+          parse(block),
+          new Map([['completed task', true]]),
+          `${name}: ${JSON.stringify(bullet + spacing)}`,
+        );
+      }
+    }
+  }
+});
+
+test('numbered checklist merging retains its single-space boundary in source and template', () => {
+  const states = new Map([['completed task', true], ['example only', true]]);
+  for (const [name, merge] of [
+    ['source', mergeCheckboxStates],
+    ['template', templateMergeCheckboxStates],
+  ]) {
+    for (const bullet of ['1.', '12)']) {
+      for (const spacing of [' ', '  ', '\t']) {
+        const lines = [
+          `  ${bullet}${spacing}[ ] Completed task`,
+          `${bullet}${spacing}[ ] Pending task`,
+          `${bullet}${spacing}[x] Already complete`,
+          '```markdown',
+          `${bullet}${spacing}[ ] Example only`,
+          '```',
+        ];
+        const content = lines.join('\n');
+        // Characterize the existing regex boundary; widening it is a separate repair.
+        const expected = [...lines];
+        if (spacing === ' ') {
+          expected[0] = `  ${bullet} [x] Completed task`;
+        }
+        const merged = merge(content, states);
+        assert.equal(merged, expected.join('\n'), `${name}: ${JSON.stringify(bullet + spacing)}`);
+        assert.equal(merge(merged, states), merged, `${name}: repeated refresh preserves state`);
+      }
+    }
+  }
 });
 
 test('ensureChecklist adds checkbox prefix to plain text lines', () => {

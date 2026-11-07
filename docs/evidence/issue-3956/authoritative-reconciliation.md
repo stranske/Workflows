@@ -34,6 +34,21 @@ Main was also read through the connected GitHub file API: lines 100–145 of
 That branch-relative read establishes the missing behavior at readback time;
 it does not pin an immutable main commit. Final main acceptance is unsatisfied.
 
+Repeated readback before the numbered-checklist test changes in this round:
+the requested CLI read again exited 1 connecting to `api.github.com`. Connected
+GitHub metadata still reports #4401 OPEN, ready for review, at the same full head
+above, with no merge date. All three reviews remain COMMENTED; the same one
+non-outdated unresolved table thread and two outdated threads remain. PR #3960's
+complete changed-filename list independently confirms all three Node paths named
+below. The injected task list's checked merge task conflicts with this readback
+and must not be treated as completed delivery.
+
+The repeated main read is now pinned: resolving `main` returned
+`d2106cc83e060d0063f63dd08ea94bbaa4104fbf`. Reading the generator at that exact
+commit returned blob `c3a19cbf41a476954b8afcde6d214b3cf8c82a00`; lines 105–115
+still define the helper and line 138 calls it. This immutable main read confirms
+that the inline-guard repair has not been delivered at the inspected revision.
+
 The following historical measurements were checked 2026-11-03 (America/Chicago).
 This record replaces the overlapping narratives in
 `pr-body-reconciled.md`, `followup-review-correction.md`, and historical receipts.
@@ -49,7 +64,8 @@ exact tested revision and artifact. A local run never establishes hosted Gate su
 | Merge #3960 | `314895ec5d0b1e102fc80aff8001eae2545ed7fa` | Original delivery |
 | Original repair implementation | `7bcca99bc` | Inline guard restore and helper-only test removal |
 | Measured repair source/tests | `db91da15d7c44e34dca7d4f3d74e5cae62fff62c` | Main was incorporated into the repair branch; this is not delivery to main |
-| Current local source snapshot | `a9fb48a0c90308a13c8f09ac01ac57d9dc309a45` | Same generator and target-test hashes as measured repair; this round adds the auditor separately |
+| Prior local source snapshot | `a9fb48a0c90308a13c8f09ac01ac57d9dc309a45` | Same generator and target-test hashes as measured repair; the prior round added the auditor separately |
+| Numbered-checklist validation base | `a5145aafbe1cf8bc6fc69bf6961eaf18a91b69d4` | Production bytes unchanged; new Node tests identified by the supplemental receipt's test hash |
 
 Historical repair work was integrated from `closer/issue-3956` (PR #4401),
 `closer-r1/issue-3956` (coverage JSON and retained-mutation reruns), and
@@ -119,7 +135,8 @@ or production extraction is used to force 100% coverage.
 - **Numbered checklist:** PR-meta refresh produced numbered unchecked items but the
   parse/merge regexes recognized only dash bullets. Checked state was lost on the
   next refresh. The source and consumer-template fixes and both numbered checklist
-  regressions remain. Current repair changes no JS production or test bytes.
+  regressions remain. PR #4401 changes no JS production or test bytes; the later
+  local validation below adds two tests for the existing whitespace boundary.
   PR #3960's file list locates the implementation at
   `.github/scripts/agents_pr_meta_update_body.js`, its identical consumer copy at
   `templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js`, and tests
@@ -176,6 +193,24 @@ iteration. `followup-review-correction.md` describes an abandoned frame-based te
 and later helper extraction; this repair removes the helper again. The OSError
 fallback and numbered-checklist changes are production fixes. Original historical
 receipts, including unsupported claims, remain intact for traceability.
+
+The follow-up inspection read `followup-coverage-round.md` in full, the OSError,
+empty-label, helper, nonempty-label, contract-edge, remaining-branch and numbered
+state proofs, and the coverage/ranking/contract fields of the larger historical
+proofs. Their mutation bodies remain subject to the bounded retained audit above;
+this inspection does not upgrade historical exit-only claims into assertion proof.
+Specific conflicting claims are superseded as follows:
+
+| Historical receipt | Conflicting claim | Authoritative disposition |
+| --- | --- | --- |
+| `followup-coverage-round.md` and `followup-coverage-proof.json` | Test-only 170→178-test round, 92.64%→94.98%, 29 units | Describes an earlier local iteration, not the final #3960 diff or hosted coverage. The round explicitly reports canonical ranking unavailable. |
+| `followup-oserror-fallback-proof.json` | `3_no_production_bug_found=true`, ranking verified, no remaining work, 100% | The OSError fallback is a real production fix. Its own classification note rejects test-only scope. Ranking numbers are supplied claims; exit-only/re-raise proofs do not establish relevant assertion failures and are superseded by current-source wrong-value receipts. |
+| `followup-contract-edge-proof.json`, `followup-remaining-branches-proof.json` and `followup-reconciliation-proof.json` | Ranked/test-only completion and intermediate coverage | Historical local stages at different source/test snapshots. The matched comparison and retained current-source audit govern; independent ranking remains unrecoverable. |
+| `followup-empty-label-proof.json`, `followup-blocked-reason-helper-proof.json` and `numbered-checklist-state-proof.json` | Empty-label/helper-assisted 100%, target exhausted, checked ranking contract | Abandoned frame-based test and removed helper-only test cannot establish repaired coverage. Numbered-checklist behavior is retained; its generator coverage/exhaustion narrative is historical. |
+
+No historical receipt is edited by this reconciliation. Recovering the canonical
+ranking inputs and execution remains an owner-visible limitation, not a completed
+ranking check.
 
 ## Every retained added Python test and parameter case
 
@@ -381,7 +416,11 @@ pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-juni
 These hosted results concern repair snapshots only. No comparable original
 hosted baseline has been recovered, and no main delivery is inferred from them.
 
-## Current local validation and remaining delivery work
+## Prior local validation and remaining delivery work
+
+This subsection preserves the prior agent round's results and commit blockers.
+Automation subsequently recorded that work in `a5145aaf…`; the later numbered
+checklist round and its independent commit attempt are recorded below.
 
 Checkout source revision: `a9fb48a0c90308a13c8f09ac01ac57d9dc309a45`.
 The generator and original target test file remain byte-for-byte unchanged in
@@ -445,3 +484,77 @@ active unresolved thread; the comparable hosted reduction is unproved; canonical
 ranking provenance is unrecoverable; and the unmodified Python invocation has an
 environment startup failure. The local table correction does not resolve the
 thread on the remote repair PR until it is delivered and reviewed there.
+
+## Numbered-checklist validation round (2026-11-07 UTC)
+
+- [x] Inspect the PR #3960 Node file list, source, consumer copy and tests;
+  preserve numbered handling and document the existing whitespace difference.
+- [x] Inspect the historical round/OSError/remaining proof claims and supersede
+  conflicting completion, test-only and ranking claims as recorded above.
+- [ ] Deliver the repair through #4401's review, checks, merge and main readback.
+
+The only source-code change in this round is two added Node tests in
+`.github/scripts/__tests__/agents-pr-meta-update-body.test.js`:
+
+1. `numbered checklist parsing accepts tabs and multiple spaces in source and template`
+2. `numbered checklist merging retains its single-space boundary in source and template`
+
+Both exercise the source and consumer exports, `1.` and multi-digit `12)` bullets,
+one space, two spaces and a tab, indentation, unchecked items and fenced examples.
+The merge test also checks already-completed items and repeated-refresh stability.
+It uses an independently constructed state map so a parser failure cannot conceal
+a merge regression. The existing two numbered tests remain unchanged. Generator
+source/tests, both production Node copies, templates and the sync manifest have
+no diff; no consumer payload changed.
+
+[numbered-checklist-whitespace-proof.json](numbered-checklist-whitespace-proof.json)
+maps both new tests to **8 assertion-failing RED / restored GREEN receipts**.
+Production source is pinned to `a5145aafbe1cf8bc6fc69bf6961eaf18a91b69d4`,
+SHA256 `3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f`
+for each copy. The new local test overlay is bound by its SHA256
+`3283b5b921327890064b5aebe82c214427dc49d0bdf200712251b4d0a0819eab`.
+Each selected test was run independently against a temporary module mutation,
+then the exact restored bytes, with Node v24.22.2. Checkout production was never
+mutated. Complete outputs were inspected in bounded pairs 0–1, 2–3, 4–5 and 6–7.
+
+| Receipt indices (source / template) | Test | Mutation and observed assertion |
+| --- | --- | --- |
+| 0 / 4 | Parsing | Replace arbitrary bullet whitespace with one space; the two-space checked item disappears from the expected state map. |
+| 1 / 5 | Merging | Widen the literal bullet space to arbitrary whitespace; a two-space item changes instead of remaining byte-identical. |
+| 2 / 6 | Parsing | Drop right-parenthesis bullets; `12)` disappears from the expected state map. |
+| 3 / 7 | Merging | Drop right-parenthesis bullets; `12)` stays unchecked instead of restoring completion. |
+
+All eight RED runs exit 1 with `AssertionError [ERR_ASSERTION]`; all restored
+GREEN runs exit 0 with one pass and zero failures. The original retained audit
+continues to cover the original two Node cases; this supplement covers the two
+new cases separately without rewriting historical evidence.
+
+Validation against the identified base plus the hash-bound Node test overlay:
+
+```sh
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; default process-isolated reporter aggregates one passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 172 passed, 0 failed, 0 skipped
+python -m pytest tests/test_followup_issue_generator.py -q -m 'not slow'
+# exit 3 during optional LangSmith plugin startup; no successful test run claimed
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-round-coverage.json
+# exit 0; 199 passed; generator Cover 99.92%, 851 statements, 0 missing,
+# 386 branches, 1 missing arc (124->126); selected Python 3.14.10
+python scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-3956-round-baseline-tests.py --collected-tests /tmp/issue-3956-round-collected-tests.txt
+# exit 0; 35 added Python functions / 45 cases, 50 Python and 2 original Node
+# receipts; complete=true, no problems. Inputs prepared as in reproduction above.
+git diff --check
+# exit 0
+```
+
+The original Python command's plugin startup failure remains an acceptance gap;
+the isolated passing run and focused local coverage do not replace it or hosted
+evidence. No Python files changed, so this round does not introduce a Python
+formatting gate. Staging only the Node test, this reconciliation and its new
+receipt failed creating `.git/index.lock` (**read-only file system**, exit 128).
+This round's changes remain uncommitted; no push or remote PR change occurred.
+#4401 remains open, ready for review at the readback head. Main still contains
+the helper at the pinned commit, the hosted comparable reduction is unproved and
+ranking provenance is unrecoverable. No delivery or overall acceptance checkbox
+is completed by these local results.
