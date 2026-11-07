@@ -10,6 +10,8 @@ import os
 import re
 import shutil
 import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -130,6 +132,65 @@ def test_cli_cache_contract_rejects_regressions(
     }
     with pytest.raises(AssertionError, match=re.escape(f"{filename}: {messages[regression]}")):
         test_cli_cache_tracks_installed_version_and_path(agent)
+
+
+def test_cli_cache_deletion_fails_pytest_and_recovers(tmp_path: Path) -> None:
+    """Check pytest's exit status and diagnostic without editing protected workflows."""
+    plugin = tmp_path / "runner_cache_break.py"
+    plugin.write_text(textwrap.dedent("""\
+            import pytest
+
+            @pytest.fixture(autouse=True)
+            def remove_codex_cache(request, monkeypatch):
+                original = request.module._runner
+
+                def without_cache(agent):
+                    workflow, job = original(agent)
+                    if agent == "codex":
+                        job["steps"] = [
+                            step for step in job["steps"]
+                            if step.get("id") != "codex_cli_cache"
+                        ]
+                    return workflow, job
+
+                monkeypatch.setattr(request.module, "_runner", without_cache)
+            """))
+    command = [
+        sys.executable,
+        "-m",
+        "pytest",
+        str(Path(__file__).resolve()),
+        "-k",
+        "test_cli_cache_tracks_installed_version_and_path",
+        "-m",
+        "not slow",
+        "--noconftest",
+        "-o",
+        "addopts=",
+        "-q",
+    ]
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join([str(tmp_path), os.environ.get("PYTHONPATH", "")]),
+    }
+    broken = subprocess.run(
+        [*command, "-p", "runner_cache_break"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    diagnostic = broken.stdout + broken.stderr
+    assert broken.returncode == pytest.ExitCode.TESTS_FAILED, diagnostic
+    assert ".github/workflows/reusable-codex-run.yml: missing CLI cache step" in diagnostic
+    assert "1 failed, 4 passed" in broken.stdout, diagnostic
+
+    recovered = subprocess.run(
+        command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=30
+    )
+    assert recovered.returncode == pytest.ExitCode.OK, recovered.stdout + recovered.stderr
+    assert "5 passed" in recovered.stdout
 
 
 @pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
