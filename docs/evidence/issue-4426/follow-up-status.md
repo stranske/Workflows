@@ -122,3 +122,16 @@ retrieval still fails with URLError, so attribution remains null and Tasks 1,
 2 and 6 retain their incomplete artifact/full-contract portions. The attempted
 PR-body correction was rejected because approval is unavailable in this run;
 remote checkboxes still overstate completion. No new task is marked complete.
+
+
+Diagnostic/trace follow-up, 2026-11-07: three behavioral tests in the ranked
+remainder file protect changed-request rejection before diagnostic generation,
+FAIL/findings/error retention across malformed responses and correctly labelled
+provider trace links. The five-module selection gains nine local units (five
+lines and four branches), with no coverage lost and unchanged production source.
+Three named mutations fail and pass after restoration; immutable source and
+complete local artifacts are in `diagnostic-trace-validation.json` and the
+reproduction driver. This is not original-round whole-Gate attribution.
+Tasks 1, 2 and 6 and both artifact/reduction acceptance criteria remain incomplete.
+The PR is open and ready for review. PR-body corrections were again rejected by
+the connector because approval is required under a never-approve policy.

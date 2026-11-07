@@ -335,3 +335,100 @@ def test_semantic_package_prompt_retains_bytes_selected_obligations_and_chain_de
         assert prompt.endswith(verifier.CHAIN_DEPTH_ADDENDUM.format(depth=depth))
     else:
         assert "Follow-up Iteration Context" not in prompt
+
+
+@pytest.fixture
+def diagnostic_review(monkeypatch):
+    """Simulate admission boundaries while exercising recovery and response parsing."""
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    monkeypatch.setenv("VERIFIER_PARTITION_RECOVERY", "diagnostic")
+    plan = {
+        "acceptance_sufficient": False,
+        "ranges": [{"capacity": {"request_sha256": "planned-request"}} for _ in range(3)],
+        "results": [],
+    }
+    client = SimpleNamespace(invoke=Mock())
+    monkeypatch.setattr(verifier, "_prepare_capacity_client", lambda value: value)
+    monkeypatch.setattr(
+        verifier, "_plan_diagnostic_partitions", Mock(return_value=(plan, ["a", "b", "c"]))
+    )
+    preflight = Mock(return_value={"request_sha256": "planned-request", "status": "PASS"})
+    monkeypatch.setattr(verifier, "_preflight_input_capacity", preflight)
+    overflow = verifier.InputCapacityError(
+        "whole request too large", receipt={"status": "overflow"}
+    )
+    return SimpleNamespace(client=client, plan=plan, preflight=preflight, overflow=overflow)
+
+
+def test_diagnostic_changed_request_blocks_generation_and_retains_capacity(diagnostic_review):
+    review = diagnostic_review
+    changed = {"request_sha256": "changed-request", "status": "PASS"}
+    review.preflight.return_value = changed
+
+    result = verifier._maybe_recover_partition_diagnostics(
+        review.overflow, review.client, "context", None, "openai", "model"
+    )
+
+    review.client.invoke.assert_not_called()
+    review.preflight.assert_called_once_with(review.client, "a")
+    assert result.verdict == "CONCERNS" and result.used_llm is False
+    assert result.error == "diagnostic request changed after planning"
+    assert result.partition_recovery["status"] == "diagnostic_incomplete"
+    assert result.partition_recovery["acceptance_sufficient"] is False
+    assert result.partition_recovery["overflow"] == {"status": "overflow"}
+    assert result.partition_recovery["results"] == [
+        {"range_index": 0, "error": result.error, "capacity": changed}
+    ]
+
+
+def test_diagnostic_sparse_failure_survives_multiple_malformed_responses(diagnostic_review):
+    review = diagnostic_review
+    # Plain string responses exercise the real response fallback and parser.
+    raw = ['{"verdict":"FAIL","concerns":["confirmed defect"]}', "invalid one", "invalid two"]
+    review.client.invoke.side_effect = raw
+
+    result = verifier._maybe_recover_partition_diagnostics(
+        review.overflow, review.client, "context", None, "openai", "model"
+    )
+
+    assert review.client.invoke.call_count == review.preflight.call_count == 3
+    assert [call.args[0] for call in review.client.invoke.call_args_list] == ["a", "b", "c"]
+    assert result.verdict == "FAIL" and result.used_llm is True
+    assert result.raw_content == "\n\n".join(raw)
+    assert result.summary == (
+        "Cross-range obligations remain unresolved; diagnostic partition review cannot grant PASS."
+    )
+    parse_error = "Failed to parse JSON response: JSONDecodeError"
+    assert result.error == f"{parse_error}; {parse_error}"
+    assert result.concerns[1:] == [
+        "confirmed defect",
+        f"Diagnostic range 1: {parse_error}",
+        f"Diagnostic range 2: {parse_error}",
+    ]
+    assert result.partition_recovery["status"] == "diagnostic_incomplete"
+    assert result.partition_recovery["acceptance_sufficient"] is False
+    assert [row["raw_content"] for row in result.partition_recovery["results"]] == raw
+
+
+def test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent():
+    results = [
+        verifier.EvaluationResult(verdict="PASS", provider_used="openai", used_llm=True),
+        verifier.EvaluationResult(
+            verdict="CONCERNS",
+            provider_used="anthropic",
+            used_llm=True,
+            langsmith_trace_url="https://smith.langchain.com/r/second-trace",
+        ),
+        verifier.EvaluationResult(
+            verdict="FAIL",
+            used_llm=True,
+            langsmith_trace_url="https://smith.langchain.com/r/third-trace",
+        ),
+    ]
+
+    report = verifier.format_comparison_report(results)
+
+    assert report.split("### 🔍 LangSmith Traces\n", 1)[1] == (
+        "- [anthropic](https://smith.langchain.com/r/second-trace)\n"
+        "- [provider-3](https://smith.langchain.com/r/third-trace)\n"
+    )

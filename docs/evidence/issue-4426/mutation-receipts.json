@@ -2320,5 +2320,13 @@
     "real_final_artifact_available": false,
     "attributable_original_round_reduction": null,
     "scope": "regeneration from pinned real term reports; no original-round credit"
+  },
+  "diagnostic_trace_follow_up": {
+    "record": "diagnostic-trace-validation.json",
+    "reproduction": "python docs/evidence/issue-4426/diagnostic-trace-driver.txt",
+    "named_mutation_failures_and_restored_passes": 3,
+    "production_restored": true,
+    "local_missing_unit_reduction": 9,
+    "attributable_original_round_reduction": null
   }
 }

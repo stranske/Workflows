@@ -664,3 +664,84 @@ active branch or remote head. PR-body corrections were rejected because the
 connector requires approval under the never policy. No task is newly checked;
 full archive reconciliation, comparable original execution, the approximately
 180 attributable units and exact-head follow-up Gate results remain incomplete.
+
+
+## Diagnostic and trace coverage follow-up, 2026-11-07
+
+Before edits, the repository-selected Python ran:
+
+```bash
+python -m pytest -q tests/scripts/test_reconcile_issue_4426_coverage.py tests/docs/test_issue_4426_contract_record.py tests/docs/test_issue_4426_pr_inventory.py -m 'not slow' --tb=short
+```
+
+Real-input outcome: 62 passed in 1.56s, exit 0. Selected symbols before
+editing: `_maybe_recover_partition_diagnostics` (the final Gate log misses
+line 7836 and branch 7859->7861) and `format_comparison_report` (missing
+lines 9190-9193). Test request revalidation before generation, diagnostic
+findings without summaries, and provider-specific trace links. Compare the
+existing `test_pr_verifier*.py` corpus before/after with identical source,
+configuration and interpreter; this local increment cannot establish
+original-round or whole-Gate attribution.
+
+Stop after two consecutive failing attempts at one operation, 110 seconds per
+focused selection, 10 minutes per command and 20 minutes for this step. Finish
+this selected chunk after named mutation failures and restored passes; do not
+claim archive verification or the approximately 180-unit contract. Metadata
+for run 42287174423/artifact 13537639987 was reverified through the GitHub
+connector. Its download call returned a remote file reference, but local
+`gh run download` failed connecting to api.github.com (exit 1). The historical
+merge checkout e4e584ea61852751c55749ab9ed6539fa10c9a31 is absent locally.
+PR-body correction was attempted and rejected because approval policy is never;
+Tasks 1, 2 and 6 remain incomplete in local reconciliation.
+
+
+Final results for this chunk: the five-module coverage selection passes 166
+baseline tests in 8.13s and 169 final tests in 8.35s (both exit 0). The target
+`scripts/langchain/pr_verifier.py` changes from 57.55% to 57.75% in this local
+selection; no percentage threshold is claimed. Missing units decrease by nine:
+lines 7836 and 9190-9193 and arcs 7835->7836, 9189->9190, 9191->9192 and
+9191->9193. Five of these lines were explicitly missing in the final Gate log.
+No covered units are lost. Source/configuration/runtime and the four unchanged
+test modules are identical across the two runs. The all-verifier corpus attempt
+was interrupted (exit 130) because its generated cases exceeded the focused
+budget; it supplies no measurement. The initial three-module comparison omitted
+existing report tests and is superseded by the five-module measurement.
+
+`diagnostic-trace-validation.json` retains complete outputs, coverage summaries,
+artifact and configuration hashes, immutable new test source and three named
+mutation failures (exit 1) with restored passes (exit 0). The original production
+source remains byte-identical to `recorded-source/scripts/langchain/pr_verifier.py.txt`.
+The two compressed `diagnostic-trace-*.coverage.json.gz` files retain the full
+local before/after coverage JSON. Reproduce using:
+
+```bash
+python docs/evidence/issue-4426/diagnostic-trace-driver.txt
+```
+
+This nine-unit local gain is not original-round attribution. All six ranked
+target dispositions and the historical Gate snapshots remain unchanged. The
+required approximately 180 whole-Gate units and exact-head full Gate artifact
+reconciliation are still incomplete. No new task is checked complete.
+
+
+Required focused acceptance: 180 passed in 3.51s, exit 0. Shallow offline
+acceptance: all six evidence modules pass, 68 tests in 4.05s, exit 0;
+`diagnostic-trace-shallow-validation.json` retains the command/output and guards.
+Ruff and `git diff --check` pass. PR #4520 was independently rechecked as open
+with `isDraft=false`; its remote head remains c6c9145715032d14b5225197fb9bcd9097e5436c.
+The active checkout's `.git` directory is read-only, so the source/test commit
+is prepared in a separate shallow local clone without changing this branch.
+
+
+The complete Black check passes with 957 files unchanged, exit 0, using the
+repository's existing serial dispatcher with unchanged formatting and safety
+checks:
+
+```bash
+python docs/evidence/issue-4426/black-serial-driver.txt --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+The direct `BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` invocation stalled and was interrupted
+(exit 130); the serial dispatcher completed the full tree without exclusions
+beyond the required command. No Python formatting changes remain.
