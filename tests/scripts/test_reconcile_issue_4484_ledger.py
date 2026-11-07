@@ -123,3 +123,66 @@ def test_unexpected_ledger_cannot_silently_lose_evidence(original, invalid):
         reconciliation.reconcile_ledger(original)
 
     assert original == before
+
+
+def test_cli_check_accepts_candidate_without_rewriting_either_file(original, tmp_path, capsys):
+    source = tmp_path / "original.yml"
+    candidate = tmp_path / "candidate.yml"
+    source.write_text(yaml.safe_dump(original), encoding="utf-8")
+    # Key order and YAML formatting are not evidence changes.
+    candidate.write_text(
+        yaml.safe_dump(reconciliation.reconcile_ledger(original), sort_keys=True), encoding="utf-8"
+    )
+    before = {path: path.read_bytes() for path in (source, candidate)}
+
+    assert reconciliation.main([str(source), "--check", str(candidate)]) == 0
+
+    assert capsys.readouterr() == ("", "")
+    assert {path: path.read_bytes() for path in before} == before
+
+
+@pytest.mark.parametrize(
+    "damage", ["unapplied", "lost_completion", "false_pass", "lost_receipt", "unrelated"]
+)
+def test_cli_check_rejects_incomplete_or_changed_evidence(original, tmp_path, capsys, damage):
+    source = tmp_path / "original.yml"
+    candidate = tmp_path / "candidate.yml"
+    source.write_text(yaml.safe_dump(original), encoding="utf-8")
+    corrected = reconciliation.reconcile_ledger(original)
+    tasks = {task["id"]: task for task in corrected["tasks"]}
+    if damage == "unapplied":
+        corrected = original
+    elif damage == "lost_completion":
+        tasks["task-02"]["consolidated_from"][1]["commit"] = ""
+    elif damage == "false_pass":
+        tasks["task-09"]["status"] = "done"
+    elif damage == "lost_receipt":
+        tasks["task-11"]["notes"] = []
+    else:
+        tasks["task-01"]["notes"] = []
+    candidate.write_text(yaml.safe_dump(corrected), encoding="utf-8")
+    before = {path: path.read_bytes() for path in (source, candidate)}
+
+    assert reconciliation.main([str(source), "--check", str(candidate)]) == 1
+
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "does not match" in output.err
+    assert {path: path.read_bytes() for path in before} == before
+
+
+@pytest.mark.parametrize("invalid", ["missing", "malformed"])
+def test_cli_check_reports_unreadable_candidate(original, tmp_path, capsys, invalid):
+    source = tmp_path / "original.yml"
+    candidate = tmp_path / "candidate.yml"
+    source.write_text(yaml.safe_dump(original), encoding="utf-8")
+    if invalid == "malformed":
+        candidate.write_text("tasks: [", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc:
+        reconciliation.main([str(source), "--check", str(candidate)])
+
+    assert exc.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "error:" in output.err

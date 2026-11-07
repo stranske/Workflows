@@ -1,8 +1,9 @@
 # Issue 4484 focused validation
 
-Latest continuation: a tested reconciliation tool now emits the complete proposed
-ledger correction while preserving the original records. Applying that correction
-remains blocked by the read-only ledger. Workflow acceptance remains incomplete.
+Latest continuation: the reconciliation tool now checks candidate evidence, and
+the batch runner retains failed summaries for corrupt or unreadable receipts.
+Applying the ledger correction remains blocked by the read-only ledger.
+Workflow acceptance remains incomplete.
 Successful consumer lint and classification remain distinct from consumer merge,
 which has not been established. See the final section for current checks and blockers.
 
@@ -1049,3 +1050,92 @@ A final connector read confirms #4531 is still **open**, **draft=false**, at
 `4a816b2382ef0d0720b14429c766a41f4af7c73a`. No new acceptance checkbox is claimed
 complete by the unapplied proposal, the mocked schema unit test, the denied remote
 mutations or the failed commit attempt.
+
+## PR #4531 candidate verification and corrupt-receipt review — 2026-11-07 UTC
+
+The first unchecked ledger task is still blocked. A normal patch to
+`.agents/issue-4484-ledger.yml` was rejected by the filesystem policy:
+`patch rejected: writing outside of the project; rejected by user approval settings`.
+No alternate writer was used. The original ledger remains unchanged.
+
+The reconciliation CLI now accepts `--check CANDIDATE`. It compares candidate YAML
+with the complete correction derived from the retained original, ignoring YAML
+key ordering while rejecting changed or missing completion records, receipts,
+unrelated evidence, an unapplied ledger, or a false task-09 PASS. It writes neither
+input file. Missing or malformed candidate files report an argument error.
+This evidence comparison does not replace real schema/Git-object validation.
+
+```text
+$ python3 scripts/reconcile_issue_4484_ledger.py .agents/issue-4484-ledger.yml > /tmp/issue-4484-reconciled-ledger.yml
+Exit: 0
+$ python3 scripts/reconcile_issue_4484_ledger.py .agents/issue-4484-ledger.yml --check /tmp/issue-4484-reconciled-ledger.yml
+Exit: 0
+$ python3 scripts/reconcile_issue_4484_ledger.py .agents/issue-4484-ledger.yml --check .agents/issue-4484-ledger.yml
+Candidate does not match the evidence-preserving correction.
+Exit: 1
+```
+
+A fresh `gh api graphql` inventory request for #4511 returned 1, `error connecting
+to api.github.com`; the read-only connector returned `review_threads: []`.
+The #4531 inventory found a new, unresolved, non-outdated thread
+`PRRT_kwDOQprj9M6049Eg`: [Handle a corrupt or partial receipt file](https://github.com/stranske/Workflows/pull/4531#discussion_r4502966552).
+The finding is valid: decoding a truncated child receipt raised before the runner
+could record the exit code and write its summary. This is a #4531 finding,
+distinct from #4511 and the historical #4487 fragment-consolidation finding.
+
+`execute_pytest` now catches receipt read/decode errors and rejects non-object
+JSON, retaining `receipt_error`, the child exit code, command, timing and log.
+The empty evidence produces a failed comparison and a written `summary.json`.
+Six regressions cover truncated JSON, non-object JSON and read errors with both
+zero and nonzero child exits. All six failed against the original implementation
+(JSONDecodeError, AttributeError or OSError); all pass with the correction.
+The review disposition is **fixed locally, delivery pending**; the live thread
+remains unresolved until the change is committed and delivered.
+
+```text
+$ python3 -m pytest -q tests/scripts/test_reconcile_issue_4484_ledger.py tests/scripts/test_validate_workflow_test_batches.py tests/langchain/test_arg002_regression.py tests/scripts/test_verifier_capacity_backup.py tests/scripts/test_pr_verifier_sync_manifest.py -m 'not slow'
+169 passed in 20.95s
+Exit: 0
+```
+
+Ruff passed on all four changed Python files, as did the isolated ARG002 check
+on the authoritative sources and verifier template. The six-file comparison
+against #4487's merge documented above again returned 0. Its fixes, regressions,
+consumer lint run `42325500360` and classification round `20261107T014654Z` remain
+preserved. Consumer merge remains unestablished.
+
+Both exact `/opt/anaconda3/bin/python3` acceptance commands returned 127 because
+the interpreter is absent. The available Python 3.14.10 ledger validator returned
+1 for missing historical commits `555c4bd79ee812a6032f0d98531ddf33cb64d36a` and
+`ad56949f14f2746a7e6240adcc215adb967f5fb8`; no evidence check was relaxed.
+The workflow suite was not rerun for these bounded runner/CLI changes. Its retained
+**3,534 passed, 3 skipped, 12 failed** result still does not satisfy passing-suite
+acceptance, regardless of the PR body's currently checked box.
+
+Attempts to uncheck that unsupported criterion, add `needs-human`, and post the
+blocker comment each returned `MCP tool call requires approval, but approval
+policy is never`. None was applied. The connector confirmed #4531 is open,
+`draft=false`, head `c0d05a110c67d64660b82bfb6dcf90430cf0c418`.
+Guarded merge remains held; no acceptance checkbox is newly marked complete.
+
+Black formatted each changed Python file at line length 100. The initial
+single-worker full check stalled and was interrupted (exit 130). Black's own
+source selection and sequential `reformat_one` API then checked the identical
+configured selection and populated its writable cache: **960 files, 0 changes,
+0 failures**, exit 0. The required normal CLI subsequently passed:
+
+```text
+$ BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-4484-check-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+All done!
+960 files would be left unchanged.
+Exit: 0
+```
+
+After that gate passed, staging the four Python files and this document before
+the requested commit failed: `fatal: Unable to create
+'/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system`
+(exit 128). No commit or push occurred, and no alternate Git metadata writer was
+used. The tested changes remain in the workspace. The ledger proposal and its
+unified diff are available at `/tmp/issue-4484-reconciled-ledger.yml` and
+`/tmp/issue-4484-ledger-reconciliation.patch` for an authorized writer; neither
+artifact is an applied correction.

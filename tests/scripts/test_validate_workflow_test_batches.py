@@ -2,6 +2,8 @@
 
 import copy
 import json
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from scripts import validate_workflow_test_batches as batches
@@ -156,3 +158,47 @@ def test_reports_cannot_be_borrowed_from_another_batch(transfer):
         "missing": {original[1]: 1},
         "extra": {original[0]: 1} if transfer == "swap" else {},
     }
+
+
+@pytest.mark.parametrize("corruption", ["partial", "nonmapping", "unreadable"])
+@pytest.mark.parametrize("child_exit", [0, 1])
+def test_bad_child_receipt_retains_failure_summary(tmp_path, monkeypatch, corruption, child_exit):
+    output = tmp_path / "evidence"
+    node = "test_one.py::test_one"
+
+    def popen(command, **kwargs):
+        path = Path(command[command.index("--workflow-batch-receipt") + 1])
+        collecting = "--collect-only" in command
+
+        def wait(timeout):
+            if collecting:
+                path.write_text(json.dumps({"nodes": [node], "files": {node: "test_one.py"}}))
+            else:
+                path.write_text("[]" if corruption == "nonmapping" else '{"nodes":')
+                kwargs["stdout"].write("child stopped while writing receipt\n")
+            return 0 if collecting else child_exit
+
+        return SimpleNamespace(wait=wait)
+
+    original_read = Path.read_text
+
+    def read_text(path, *args, **kwargs):
+        if corruption == "unreadable" and path == output / "batch-01.json":
+            raise OSError("receipt read failed")
+        return original_read(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(batches.subprocess, "Popen", popen)
+        patch.setattr(Path, "read_text", read_text)
+        assert batches.main(["test_one.py", "--output", str(output)]) == 1
+
+    summary = json.loads((output / "summary.json").read_text())
+    batch = json.loads((output / "batch-01.json").read_text())
+    assert not summary["success"]
+    assert summary["missing"] == summary["missing_results"] == {node: 1}
+    assert batch["exit_code"] == child_exit
+    assert batch["receipt_error"] == "unreadable pytest receipt"
+    assert batch["command"][-2:] == ["test_one.py", "-v"]
+    assert batch["seconds"] >= 0
+    assert not batch.get("nodes")
+    assert "child stopped" in (output / "batch-01.log").read_text()

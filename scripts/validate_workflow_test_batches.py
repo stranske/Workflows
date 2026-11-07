@@ -170,7 +170,12 @@ def execute_pytest(args: list[str], prefix: Path, timeout: float) -> dict:
             os.killpg(child.pid, signal.SIGKILL)
             child.wait()
             exit_code = 124
-    receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
+    try:
+        receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
+        if not isinstance(receipt, dict):
+            raise ValueError("pytest receipt must be an object")
+    except (ValueError, OSError):
+        receipt = {"receipt_error": "unreadable pytest receipt"}
     receipt.update(
         command=command,
         exit_code=exit_code,

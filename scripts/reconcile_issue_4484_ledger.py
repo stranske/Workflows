@@ -2,6 +2,8 @@
 """Emit the bounded issue-4484 ledger correction without writing the input file.
 
 An authorized writer must review and apply the output, then run ledger_validate.
+Use --check CANDIDATE with the retained original ledger to verify that applying
+the correction preserved its evidence. This does not validate Git objects.
 Retained external receipts establish lint/classification, not a passing local
 workflow suite or a consumer merge.
 """
@@ -97,10 +99,24 @@ def reconcile_ledger(original: dict) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("ledger", type=Path)
+    parser.add_argument(
+        "--check",
+        type=Path,
+        metavar="CANDIDATE",
+        help="check candidate YAML against the correction derived from the original ledger",
+    )
     args = parser.parse_args(argv)
     try:
         corrected = reconcile_ledger(yaml.safe_load(args.ledger.read_text(encoding="utf-8")))
-    except (KeyError, TypeError, AttributeError, ValueError, yaml.YAMLError) as exc:
+        if args.check is not None:
+            candidate = yaml.safe_load(args.check.read_text(encoding="utf-8"))
+            if candidate != corrected:
+                print(
+                    "Candidate does not match the evidence-preserving correction.", file=sys.stderr
+                )
+                return 1
+            return 0
+    except (OSError, KeyError, TypeError, AttributeError, ValueError, yaml.YAMLError) as exc:
         parser.error(str(exc))
     yaml.safe_dump(corrected, sys.stdout, sort_keys=False, width=100)
     return 0
