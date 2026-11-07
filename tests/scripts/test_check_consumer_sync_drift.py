@@ -9,7 +9,9 @@ from types import SimpleNamespace
 
 import pytest
 from scripts import check_consumer_sync_drift
+from scripts.list_registered_consumer_repos import extract_repos
 from scripts.sync_manifest_compiler import (
+    CompiledManifest,
     ManifestEntry,
     SkipRepo,
     compile_manifest,
@@ -199,7 +201,9 @@ def test_post_selection_request_failure_produces_sanitized_report(
         def get(self, url):
             self.call_count += 1
             if failed_request == "repo" and "repos/owner/repo" in url and "/git/trees/" not in url:
-                raise check_consumer_sync_drift.requests.ConnectionError("private connection details")
+                raise check_consumer_sync_drift.requests.ConnectionError(
+                    "private connection details"
+                )
             if failed_request == "tree" and "/git/trees/main" in url:
                 raise check_consumer_sync_drift.requests.Timeout("private timeout details")
             if failed_request == "sync_pr" and "/pulls" in url:
@@ -242,7 +246,7 @@ def test_post_selection_request_failure_produces_sanitized_report(
         lambda **kwargs: select(**kwargs, session_factory=FailingSession),
     )
 
-    result = check_consumer_sync_drift.main()
+    check_consumer_sync_drift.main()
     report_path = Path(args.report_json)
     assert report_path.exists()
     report_text = report_path.read_text(encoding="utf-8")
@@ -250,9 +254,9 @@ def test_post_selection_request_failure_produces_sanitized_report(
     summary_path = Path(args.summary)
     assert summary_path.exists()
     summary = summary_path.read_text(encoding="utf-8")
-    
+
     output = capsys.readouterr().out
-    
+
     # For repo and tree failures, errors should be in the errors set
     # For sync_pr failures, errors should be in sync_remediation.lookup_errors
     if failed_request in ("repo", "tree"):
@@ -270,13 +274,19 @@ def test_post_selection_request_failure_produces_sanitized_report(
             "gate triggers: owner/repo unknown (Gate/tree unavailable)"
         ]
         assert "gate triggers: all match" not in output + report_text + summary
-    
+
     # Errors are sanitized - no private details or tokens in any output
-    for exc_detail in ("private connection details", "private timeout details", "private request details", "test-value", '"token":'):
+    for exc_detail in (
+        "private connection details",
+        "private timeout details",
+        "private request details",
+        "test-value",
+        '"token":',
+    ):
         assert exc_detail not in report_text
         assert exc_detail not in summary
         assert exc_detail not in output
-    
+
     # Gate trigger lines are present in all outputs
     for line in report["gate_triggers"]:
         assert line in output
@@ -896,6 +906,97 @@ def test_main_keeps_unreadable_blob_cache_scoped_to_each_repo(
     assert report["gate_triggers"] == [
         f"gate triggers: {unreadable_repo} unknown (Gate unreadable)"
     ]
+
+
+@pytest.mark.parametrize("template_drift", [False, True])
+def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, template_drift: bool
+) -> None:
+    """Fleet trigger reporting must not make consumer-owned Gate policy actionable."""
+    root = Path(__file__).resolve().parents[2]
+    manifest = root / ".github/sync-manifest.yml"
+    registered = extract_repos(root / ".github/workflows/maint-68-sync-consumer-repos.yml")
+    compiled = compile_manifest(manifest, repo_root=root)
+    gate = next(
+        entry
+        for entry in compiled.section("workflows")
+        if entry.target == ".github/workflows/pr-00-gate.yml"
+    )
+    # Keep the real compiled Gate policy and source; unrelated files are outside this test.
+    selected = CompiledManifest(
+        version=compiled.version,
+        manifest_sha256=compiled.manifest_sha256,
+        sections={"workflows": [gate]},
+        removals=[],
+    )
+    source = Path(gate.resolved_source).read_text(encoding="utf-8")
+    custom_gate = (
+        "on:\n  pull_request:\n"
+        "    types: [opened, synchronize, reopened, ready_for_review, labeled]\n"
+        "jobs:\n  consumer-policy:\n    runs-on: ubuntu-latest\n    steps: []\n"
+    )
+    contents = dict.fromkeys(registered, custom_gate)
+    if not template_drift:
+        contents["stranske/Template"] = source
+    shas = {
+        repo: check_consumer_sync_drift.git_blob_hash(text.encode("utf-8"))
+        for repo, text in contents.items()
+    }
+    args = SimpleNamespace(
+        repos=",".join(registered),
+        manifest=str(manifest),
+        canaries=str(root / "config/consumer_sync_canaries.json"),
+        report_json=str(tmp_path / "report.json"),
+        summary=str(tmp_path / "summary.md"),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: selected)
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kwargs: (object(), {})
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, repo: ({gate.target: {"type": "blob", "sha": shas[repo]}}, None),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+    reads = []
+
+    def read_blob(_session, repo, sha):
+        assert sha == shas[repo]
+        reads.append(repo)
+        return contents[repo]
+
+    monkeypatch.setattr(check_consumer_sync_drift, "remote_blob_text", read_blob)
+
+    assert check_consumer_sync_drift.main() == int(template_drift)
+    report = json.loads(Path(args.report_json).read_text(encoding="utf-8"))
+    assert report["repos"] == registered
+    assert report["drift"] == ([f"stranske/Template: {gate.target}"] if template_drift else [])
+    assert report["unmeasured_create_only"] == sorted(
+        f"{repo}: {gate.target}"
+        for repo in registered
+        if repo not in {"stranske/Template", "stranske/Manager-Database"}
+    )
+    assert report["skipped"] == [
+        f"stranske/Manager-Database: {gate.target} ({gate.skip_repos[0].reason})"
+    ]
+    expected_lines = [
+        f"gate triggers: {repo}"
+        + (" (custom gate, never overwritten)" if repo == "stranske/Manager-Database" else "")
+        + " extra=['labeled']"
+        for repo in registered
+        if repo != "stranske/Template" or template_drift
+    ]
+    assert report["gate_triggers"] == expected_lines
+    assert sorted(reads) == sorted(
+        repo for repo in registered if repo != "stranske/Template" or template_drift
+    ), "Every differing Gate must be read once, including skipped and create-only consumers"
+    output = capsys.readouterr().out
+    summary = Path(args.summary).read_text(encoding="utf-8")
+    for line in expected_lines:
+        assert line in output and line in summary
+    assert "gate triggers: all match" not in output + summary
 
 
 def test_manifest_skip_reason_honors_include_repos() -> None:
