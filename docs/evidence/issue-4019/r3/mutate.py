@@ -1,4 +1,4 @@
-"""Break-and-revert driver for issue 4019 r3 (run from repo root).
+"""Break-and-revert driver for issue 4433 integration (run from repo root).
 
 Each mutation applies exact source replacements, runs ONE test node (must fail),
 restores the original bytes (sha256 checked), and reruns it (must pass).
