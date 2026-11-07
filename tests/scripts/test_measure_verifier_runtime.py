@@ -189,7 +189,7 @@ def test_real_arms_keep_one_environment_and_preserve_coverage(tmp_path, monkeypa
     assert result["verifier_coverage"]["baseline_lines"] > 0
     assert result["verifier_coverage"]["candidate_branches"] > 0
     assert not result["verifier_coverage"]["lost_lines"]
-    assert len(result["artifact_sha256"]) == 6
+    assert len(result["artifact_sha256"]) == 12
     assert result["source_integrity"]["verified"] is True
     for phase in ("before", "after"):
         receipt = result["source_integrity"][phase]
@@ -783,5 +783,168 @@ def test_hosted_comparison_selects_reviewed_sources_and_requested_runtimes():
     )
     assert install["env"]["PIP_NO_CACHE_DIR"] == "1"
     execute = next(step for step in steps if step["name"].startswith("Run both arms"))
-    assert execute["run"] == "python scripts/measure_verifier_runtime.py run --output measurement"
+    assert execute["run"] == "mkdir -p \"$CI_TEST_RESOURCE_DIR\"\npython scripts/measure_verifier_runtime.py run --output measurement\n"
     assert "continue-on-error" not in execute
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_run_captures_per_arm_phase_timing_with_growth_plugin(tmp_path, monkeypatch, arm):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+    assert measure.run(output) == 0
+    result = json.loads((output / "result.json").read_text())
+    phases = result["arms"][arm]["phases"]
+    assert isinstance(phases, dict)
+    assert "collection_seconds" in phases
+    assert "controller_elapsed_seconds" in phases
+    assert "worker_elapsed_max_seconds" in phases
+    assert "worker_elapsed_min_seconds" in phases
+    assert "in_pytest_reporting_seconds" in phases
+    assert "overlap_note" in phases
+    assert phases["overlap_note"] == "Controller elapsed spans collection + reporting; workers run concurrently. A negative remainder indicates measured clock overlap, not a valid reporting interval."
+
+
+def test_run_withholds_phase_timing_when_plugin_outputs_missing(tmp_path, monkeypatch):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        _junit_receipt(cwd, name="pytest-junit.xml")
+        coverage = {
+            "meta": {"branch_coverage": True},
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}},
+        }
+        (cwd / "coverage.json").write_text(json.dumps(coverage))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.platform, "platform", lambda: "fixture-platform")
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    monkeypatch.setattr(
+        measure, "_write_growth_plugin", lambda tmpdir: tmpdir / "growth_plugin"
+    )
+    assert measure.run(output) == 0
+    result = json.loads((output / "result.json").read_text())
+    for arm_name in ("baseline", "candidate"):
+        phases = result["arms"][arm_name]["phases"]
+        assert phases["collection_seconds"] is None
+        assert phases["controller_elapsed_seconds"] is None
+        assert phases["worker_elapsed_max_seconds"] is None
+        assert phases["worker_elapsed_min_seconds"] is None
+        assert phases["in_pytest_reporting_seconds"] is None
+
+
+@pytest.mark.parametrize(
+    ("missing_file", "expected_null_fields"),
+    [
+        ("collection", ("collection_seconds", "controller_elapsed_seconds", "in_pytest_reporting_seconds")),
+        ("resources", ("controller_elapsed_seconds", "worker_elapsed_max_seconds", "worker_elapsed_min_seconds", "in_pytest_reporting_seconds")),
+    ],
+)
+def test_run_phases_with_partial_plugin_outputs(tmp_path, monkeypatch, missing_file, expected_null_fields):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        _junit_receipt(cwd, name="pytest-junit.xml")
+        coverage = {
+            "meta": {"branch_coverage": True},
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}},
+        }
+        (cwd / "coverage.json").write_text(json.dumps(coverage))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.platform, "platform", lambda: "fixture-platform")
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    
+    def mock_write_plugin(tmpdir):
+        plugin_dir = tmpdir / "growth_plugin"
+        plugin_dir.mkdir(exist_ok=True)
+        plugin_file = plugin_dir / "ci_test_growth.py"
+        plugin_file.write_text("# mock plugin")
+        return plugin_dir
+    
+    monkeypatch.setattr(measure, "_write_growth_plugin", mock_write_plugin)
+    
+    # Simulate missing plugin output
+    original_execution_phases = measure.execution_phases
+    def mock_execution_phases(arm):
+        result = original_execution_phases(arm)
+        if missing_file == "collection":
+            result["collection_seconds"] = None
+        elif missing_file == "resources":
+            result["controller_elapsed_seconds"] = None
+            result["worker_elapsed_max_seconds"] = None
+            result["worker_elapsed_min_seconds"] = None
+        return result
+    
+    monkeypatch.setattr(measure, "execution_phases", mock_execution_phases)
+    
+    assert measure.run(output) == 0
+    result = json.loads((output / "result.json").read_text())
+    for arm_name in ("baseline", "candidate"):
+        phases = result["arms"][arm_name]["phases"]
+        for field in expected_null_fields:
+            assert phases[field] is None
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_phases_refuse_negative_or_invalid_timing_values(tmp_path, monkeypatch, arm):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        _junit_receipt(cwd, name="pytest-junit.xml")
+        coverage = {
+            "meta": {"branch_coverage": True},
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}},
+        }
+        (cwd / "coverage.json").write_text(json.dumps(coverage))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.platform, "platform", lambda: "fixture-platform")
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    monkeypatch.setattr(
+        measure, "_write_growth_plugin", lambda tmpdir: tmpdir / "growth_plugin"
+    )
+
+    # Simulate plugin output with invalid timing
+    if arm == "baseline":
+        collection_path = output / arm / "pytest-collection.json"
+        collection_path.parent.mkdir(parents=True, exist_ok=True)
+        collection_path.write_text(json.dumps({"collection_seconds": -1}))
+        
+        resources_path = output / arm / "pytest-resources.json"
+        resources_path.write_text(
+            json.dumps({
+                "controller": {"elapsed_seconds": "invalid"},
+                "workers": [{"elapsed_seconds": float("nan")}],
+            })
+        )
+    
+    assert measure.run(output) == 0
+    result = json.loads((output / "result.json").read_text())
+    phases = result["arms"][arm]["phases"]
+    assert phases["collection_seconds"] is None
+    assert phases["controller_elapsed_seconds"] is None
+    assert phases["worker_elapsed_max_seconds"] is None
+    assert phases["worker_elapsed_min_seconds"] is None
+
+
+def test_phases_document_overlap_explicitly(tmp_path, monkeypatch):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+    assert measure.run(output) == 0
+    result = json.loads((output / "result.json").read_text())
+    for arm_name in ("baseline", "candidate"):
+        phases = result["arms"][arm_name]["phases"]
+        assert "overlap_note" in phases
+        assert "overlap" in phases["overlap_note"].lower()
+        assert "Controller elapsed spans" in phases["overlap_note"]

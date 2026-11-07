@@ -1,0 +1,12 @@
+{
+  "status": "UNKNOWN",
+  "note": "Python 3.12 job 128490204156 was still in_progress at last readback (2026-11-07T18:47:50Z). No terminal receipt was retained due to REST rate limiting. The job started at 2026-11-07T18:29:37Z and had not completed when inspection was blocked by rate limit reset at 2026-11-07T19:15:34Z.",
+  "job_id": 128490204156,
+  "run_id": 42401537967,
+  "name": "compare (3.12)",
+  "started_at": "2026-11-07T18:29:37Z",
+  "completed_at": null,
+  "conclusion": null,
+  "workflow_commit": "8142060267fce57561d25735aa2e7c5f457ade14",
+  "evidence_status": "UNKNOWN"
+}
