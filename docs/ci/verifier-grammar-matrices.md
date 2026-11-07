@@ -239,12 +239,25 @@ ten-minute target can be evaluated; incomplete walls yield an `UNKNOWN` target
 status and no slowest-job measurement. JSON keeps unknown measurements as null,
 and Markdown renders them as `UNKNOWN`.
 
+Controlled phase timing also requires measured startup, pytest, summary/post-test,
+collection, controller, worker and scoped JUnit intervals in both arms. Missing
+phases, invalid resource clocks (including booleans, negative or nonfinite values),
+unknown CPU models and incomplete cache flags populate `timing_gaps` with explicit
+`UNKNOWN` diagnostics and withhold `timing_controlled`. All worker clocks must be
+valid before worker extrema or an in-pytest reporting remainder can be measured;
+real zero durations remain valid. Job-wall target status remains independent of
+these finer phase measurements.
+
 Scoped JUnit worker time requires exact scheduled-versus-observed case counts
 for each of the three files, with finite nonnegative durations for every row.
 Zero scheduled cases and zero observed rows measure zero; unknown scheduling,
 missing or extra rows, unreadable XML and invalid timings remain unknown.
 Coverage deltas require explicit executed-line and branch lists with valid
 integer entries; absent or malformed lists cannot establish zero branch loss.
+The aggregate `verifier_branch_loss` is null when an active coverage comparison
+is unavailable (or no comparison is available), false only for available loss-free
+comparisons, and true when any available comparison proves a loss. Markdown names
+each unavailable runtime's branch comparison as `UNKNOWN`.
 
 Pass `--repo /path/to/checkout` to verify source identity. `build_report` checks
 the common tested SHA for every runtime against the verifier, lock, pytest

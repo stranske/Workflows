@@ -596,3 +596,118 @@ def test_main_verifies_source_identity_inside_report(
         assert report["source_identity"]["identical"] is identical
         if not identical:
             assert any("tested-source" in gap for gap in report["configuration_gaps"])
+
+
+@pytest.fixture
+def controlled_pair(runtime_pair, tmp_path, monkeypatch):
+    monkeypatch.setattr(evidence, "source_identity", lambda *args: {"identical": True})
+    runtime_pair["repo"] = tmp_path
+    assert build_report(**runtime_pair)["timing_controlled"] is True
+    return runtime_pair
+
+
+@pytest.mark.parametrize("arm", ["before", "after"])
+@pytest.mark.parametrize("receipt", ["collection", "resources", "junit"])
+def test_missing_phase_receipts_withhold_controlled_timing(controlled_pair, arm, receipt):
+    directory = controlled_pair[f"{arm}_root"] / "runtimes/3.14"
+    filename = {
+        "collection": "pytest-collection.json",
+        "resources": "pytest-resources.json",
+        "junit": "pytest-junit.xml",
+    }[receipt]
+    (directory / filename).unlink()
+    summary_path = directory / "summary.json"
+    summary = json.loads(summary_path.read_text())
+    if receipt == "collection":
+        summary["test_growth"].pop("collection")
+    elif receipt == "resources":
+        summary.pop("worker_resources")
+    summary_path.write_text(json.dumps(summary))
+    report = build_report(**controlled_pair)
+    assert report["timing_controlled"] is False
+    assert any(f"3.14 {arm}" in gap and "UNKNOWN" in gap for gap in report["timing_gaps"])
+    assert "Timing gap:" in render_markdown(report)
+
+
+@pytest.mark.parametrize("arm", ["before_jobs", "after_jobs"])
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_missing_step_clocks_withhold_controlled_timing(controlled_pair, arm, index):
+    controlled_pair[arm][1]["steps"][index].pop("completed_at")
+    report = build_report(**controlled_pair)
+    assert report["timing_controlled"] is False
+    assert report["timing_gaps"]
+    assert report["ten_minute_target_status"] == "MET"
+
+
+@pytest.mark.parametrize("duration", [None, True, "1", -1, float("nan"), float("inf")])
+@pytest.mark.parametrize("clock", ["collection", "controller", "worker"])
+def test_invalid_execution_clocks_stay_unknown(clock, duration):
+    resources, collection = _resources("a" * 40), _collection(1, 1, 1)
+    if clock == "collection":
+        collection["collection_seconds"] = duration
+    elif clock == "controller":
+        resources["controller"]["elapsed_seconds"] = duration
+    else:
+        resources["workers"][0]["elapsed_seconds"] = duration
+    split = evidence.execution_split(resources, collection)
+    field = {
+        "collection": "collection_seconds",
+        "controller": "controller_elapsed_seconds",
+        "worker": "worker_elapsed_max_seconds",
+    }[clock]
+    assert split[field] is None
+    assert split["in_pytest_reporting_seconds"] is None
+    json.dumps(split, allow_nan=False)
+
+
+def test_zero_execution_clocks_are_measured():
+    resources, collection = _resources("a" * 40), _collection(0, 0, 0)
+    collection["collection_seconds"] = 0
+    for row in (resources["controller"], *resources["workers"]):
+        row["elapsed_seconds"] = 0
+    split = evidence.execution_split(resources, collection)
+    assert split["worker_elapsed_max_seconds"] == 0
+    assert split["in_pytest_reporting_seconds"] == 0
+
+
+@pytest.mark.parametrize(
+    "field,value", [("cpu_model", None), ("cpu_model", ""), ("cache", None), ("cache", {})]
+)
+def test_matching_missing_context_does_not_establish_controlled_timing(
+    controlled_pair, field, value
+):
+    for arm in ("before", "after"):
+        path = controlled_pair[f"{arm}_root"] / "runtimes/3.14/pytest-resources.json"
+        resources = json.loads(path.read_text())
+        resources["context"][field] = value
+        path.write_text(json.dumps(resources))
+    report = build_report(**controlled_pair)
+    assert report["timing_controlled"] is False
+    assert report["timing_gaps"]
+
+
+@pytest.mark.parametrize("arm", ["before", "after"])
+def test_missing_active_coverage_keeps_branch_loss_unknown(controlled_pair, arm):
+    (controlled_pair[f"{arm}_root"] / "runtimes/3.14/coverage.json").unlink()
+    report = build_report(**controlled_pair)
+    assert report["verifier_branch_loss"] is None
+    assert "Python 3.14 verifier branch comparison: UNKNOWN" in render_markdown(report)
+
+
+def test_measured_branch_loss_survives_another_unknown_comparison(controlled_pair):
+    for arm in ("before", "after"):
+        path = controlled_pair[f"{arm}_root"] / "runtimes/3.13/pytest-resources.json"
+        resources = json.loads(path.read_text())
+        resources["controller"]["coverage"] = {"status": "ACTIVE", "branch": True}
+        path.write_text(json.dumps(resources))
+    path = controlled_pair["after_root"] / "runtimes/3.14/coverage.json"
+    coverage = json.loads(path.read_text())
+    coverage["files"][VERIFIER]["executed_branches"].pop()
+    path.write_text(json.dumps(coverage))
+    report = build_report(**controlled_pair)
+    assert report["verifier_branch_loss"] is True
+    assert report["runtimes"]["3.13"]["verifier_coverage"]["available"] is False
+
+
+def test_complete_loss_free_branch_comparison_is_false(controlled_pair):
+    assert build_report(**controlled_pair)["verifier_branch_loss"] is False

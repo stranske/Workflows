@@ -150,3 +150,81 @@ The requested `needs-human` label and blocker comment on PR #4527 were each
 rejected with `MCP tool call requires approval, but approval policy is never`.
 Neither remote mutation succeeded. The implementation and tests remain local,
 with the protected workflow follow-up listed above.
+
+## Follow-up #4462 incomplete phase evidence (2026-11-07)
+
+The runtime reader now withholds `timing_controlled` when either arm lacks
+measured startup, pytest, summary/post-test, collection, controller, worker,
+in-pytest reporting or scoped JUnit time. It lists missing measurements, unknown
+CPU models and incomplete cache flags in `timing_gaps` as **UNKNOWN**. Resource
+clocks reject booleans, strings, negative and nonfinite values; one invalid worker
+clock invalidates the extrema and reporting remainder instead of measuring only
+the surviving workers. Real zero remains measured zero. These finer phase gaps
+do not override independently known job-wall target status or test outcomes.
+
+Unavailable active verifier coverage now leaves `verifier_branch_loss` null,
+with explicit per-runtime UNKNOWN Markdown. An available loss remains true even
+when another comparison is unavailable. Available loss-free coverage remains
+false. This prevents missing comparisons from appearing to prove no branch loss.
+
+The original reader baseline passed **109 tests**. New regressions initially
+produced **34 failed, 112 passed** against the prior implementation. After the
+repair and positive zero/loss-free/measured-loss controls, validation on Python
+**3.14.10** reports **148 passed**, reader coverage **93.85%**, using:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_gate_runtime_evidence.py --cov=scripts.gate_runtime_evidence --cov-report=term-missing -q -m 'not slow'
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+ruff check scripts/gate_runtime_evidence.py tests/scripts/test_gate_runtime_evidence.py
+```
+
+The existing verifier integration suite reports **2,054 passed in 15.16s**;
+Ruff passes. No coverage percentage target is specified for the reader.
+These are local reader/verifier checks, not scoped Python 3.12/3.13 coverage.
+The installed `/opt/hostedtoolcache/Python/3.12.16/x64/bin/python` and
+`/opt/hostedtoolcache/Python/3.13.18/x64/bin/python` both return
+`No module named pytest` for `-m pytest --version`.
+
+Read-only GitHub inspection found successful current-head
+[Gate run 42373778829](https://github.com/stranske/Workflows/actions/runs/42373778829)
+for source head `c21d2347a1f2c26508079e51ab5277c0ec937248`. Its Python jobs
+`128407235324` (3.14) and `128407235375` (3.13) both report success; retained
+artifacts include `gate-coverage-3.14-1` (`13574094465`) and
+`gate-coverage-3.13-1` (`13575615846`). The connector's job response omits wall and
+step timestamps, so it cannot establish phase timings. No Python 3.12 job or
+matched baseline/current candidate comparison is established by this run.
+
+The existing manual comparison workflow also currently schedules **3.13/3.14**
+and pins candidate `999ffe5fa00ac9c8ae8a807447f053277032b670`. It cannot collect
+the requested current-candidate 3.12/3.13 evidence unchanged. An authorized
+`agent-high-privilege` editor must update
+`.github/workflows/maint-88-verifier-runtime-comparison.yml` and its immutable
+source selection in the harness together, retain admissible baseline/candidate
+source identity, run both requested interpreters, and retain successful scoped
+coverage, branch/outcome comparisons and measured hosted phase receipts.
+Preserve existing checks and thresholds. No protected workflow was edited.
+
+The remaining evidence task and missing-runtime acceptance checkbox stay
+unchecked. The requested `needs-human` label and blocker comment on PR #4527
+were both rejected with `MCP tool call requires approval, but approval policy
+is never`; neither mutation succeeded. Existing evidence archives and manifests
+are unchanged.
+
+A Python 3.12 venv dependency-install attempt using the existing
+`requirements.lock` and the public PyPI index failed at
+`aiohappyeyeballs==2.7.1` with `No matching distribution found`; no successful
+older-interpreter environment or scoped coverage is claimed.
+
+Black formatted both touched Python files individually. The exact required
+repository-wide check passed, exit **0**, with **959 files unchanged**, after
+the serial checker populated a writable cache while honoring configured
+exclusions:
+
+```bash
+BLACK_CACHE_DIR=/tmp/issue-4462-phase-black-cache BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+`git diff --check` also passed. The requested source commit was attempted after
+these checks, but `git add` failed with `Unable to create '.git/index.lock':
+Read-only file system`. These four changed source/test/doc files remain
+uncommitted. PR #4527 was rechecked as open with `draft=false` at handoff.

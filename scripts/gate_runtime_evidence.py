@@ -156,6 +156,11 @@ def job_phases(job: dict) -> dict[str, object]:
     }
 
 
+def _duration(value: object) -> int | float | None:
+    """Keep real zero measurements; invalid clocks cannot stand in for missing time."""
+    return value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
+
+
 def execution_split(resources: dict | None, collection: dict | None) -> dict[str, object]:
     """Expose collection, worker execution, and in-pytest reporting from receipts."""
     controller = (resources or {}).get("controller")
@@ -163,21 +168,17 @@ def execution_split(resources: dict | None, collection: dict | None) -> dict[str
     workers = (resources or {}).get("workers")
     workers = workers if isinstance(workers, list) else []
     elapsed = [
-        worker.get("elapsed_seconds")
+        _duration(worker.get("elapsed_seconds")) if isinstance(worker, dict) else None
         for worker in workers
-        if isinstance(worker, dict) and isinstance(worker.get("elapsed_seconds"), (int, float))
     ]
+    workers_known = bool(elapsed) and all(value is not None for value in elapsed)
     context = (resources or {}).get("context")
     context = context if isinstance(context, dict) else {}
     coverage = controller.get("coverage") if isinstance(controller.get("coverage"), dict) else {}
-    collection_seconds = (collection or {}).get("collection_seconds")
-    controller_elapsed = controller.get("elapsed_seconds")
+    collection_seconds = _duration((collection or {}).get("collection_seconds"))
+    controller_elapsed = _duration(controller.get("elapsed_seconds"))
     reporting = None
-    if (
-        isinstance(controller_elapsed, (int, float))
-        and isinstance(collection_seconds, (int, float))
-        and elapsed
-    ):
+    if controller_elapsed is not None and collection_seconds is not None and workers_known:
         reporting = float(controller_elapsed) - float(collection_seconds) - max(elapsed)
         # A negative remainder is clock overlap, not a measured reporting interval.
         if reporting < 0:
@@ -185,8 +186,8 @@ def execution_split(resources: dict | None, collection: dict | None) -> dict[str
     return {
         "collection_seconds": collection_seconds,
         "controller_elapsed_seconds": controller_elapsed,
-        "worker_elapsed_max_seconds": max(elapsed) if elapsed else None,
-        "worker_elapsed_min_seconds": min(elapsed) if elapsed else None,
+        "worker_elapsed_max_seconds": max(elapsed) if workers_known else None,
+        "worker_elapsed_min_seconds": min(elapsed) if workers_known else None,
         "in_pytest_reporting_seconds": reporting,
         "expected_workers": (resources or {}).get("expected_workers"),
         "worker_count": len(workers),
@@ -423,6 +424,39 @@ def timing_confounders(compared: dict[str, dict]) -> list[str]:
     return reasons
 
 
+def timing_gaps(compared: dict[str, dict]) -> list[str]:
+    """Require measured phases and context before calling a comparison controlled."""
+    gaps: list[str] = []
+    for version, row in sorted(compared.items()):
+        for arm in ("before", "after"):
+            job, execution = row["job"][arm], row[arm]
+            clocks = {
+                "job wall": job.get("job_wall_seconds"),
+                "startup": job.get("startup_seconds"),
+                "pytest step": job.get("pytest_step_seconds"),
+                "record summary": job.get("record_summary_seconds"),
+                "after pytest": job.get("after_pytest_seconds"),
+                "collection": execution.get("collection_seconds"),
+                "controller": execution.get("controller_elapsed_seconds"),
+                "worker execution": execution.get("worker_elapsed_max_seconds"),
+                "in-pytest reporting": execution.get("in_pytest_reporting_seconds"),
+                "scoped JUnit": (row["junit"][arm] or {}).get("worker_seconds"),
+            }
+            for label, value in clocks.items():
+                if _duration(value) is None:
+                    gaps.append(f"{version} {arm} {label} UNKNOWN")
+            cpu = execution.get("cpu_model")
+            if not isinstance(cpu, str) or not cpu.strip():
+                gaps.append(f"{version} {arm} CPU model UNKNOWN")
+            cache = execution.get("cache") or {}
+            if any(
+                type(cache.get(key)) is not bool
+                for key in ("uv", "pytest", "ci_artifact_cache_hit", "ci_artifact_found")
+            ):
+                gaps.append(f"{version} {arm} cache state UNKNOWN")
+    return gaps
+
+
 def job_for_version(jobs: list[dict], version: str) -> dict:
     names = {f"python ci / python {version}", f"python {version}"}
     matches = [job for job in jobs if job.get("name") in names]
@@ -568,18 +602,18 @@ def build_report(
     walls_complete = (
         bool(compared) and len(after_walls) == len(compared) and set(before) == set(after)
     )
-    timing_gaps = [
-        f"{version} {arm} job wall UNKNOWN"
-        for version, row in compared.items()
-        for arm in ("before", "after")
-        if row["job"][arm]["job_wall_seconds"] is None
-    ]
+    phase_gaps = timing_gaps(compared)
     coverage_rows = [
         row["verifier_coverage"]
         for row in compared.values()
         if row["verifier_coverage"].get("available")
     ]
     lost = [row for row in coverage_rows if row.get("lost_lines") or row.get("lost_branches")]
+    coverage_unknown = not coverage_rows or any(
+        not row["verifier_coverage"].get("available")
+        and any(row[arm]["coverage"].get("status") == "ACTIVE" for arm in ("before", "after"))
+        for row in compared.values()
+    )
     green = set(before) == set(after) and all(
         (row["job"][arm].get("conclusion") == "success")
         and ((row["checks"][arm] or {}).get("tests") or {}).get("outcome") == "success"
@@ -613,10 +647,10 @@ def build_report(
         "configuration_identical": not config_gaps,
         "configuration_gaps": config_gaps,
         "timing_confounders": confounders,
-        "timing_gaps": timing_gaps,
-        "timing_controlled": not config_gaps and not confounders and not timing_gaps,
+        "timing_gaps": phase_gaps,
+        "timing_controlled": not config_gaps and not confounders and not phase_gaps,
         "runtimes": compared,
-        "verifier_branch_loss": bool(lost),
+        "verifier_branch_loss": True if lost else (None if coverage_unknown else False),
         "gates_green": green,
         "ten_minute_target_seconds": TARGET_SECONDS,
         "ten_minute_target_met": walls_complete and max(after_walls) < TARGET_SECONDS,
@@ -684,7 +718,8 @@ def render_markdown(report: dict) -> str:
             "## Configuration",
             "",
             f"- Workflow configuration identical: `{report['configuration_identical']}`.",
-            f"- Timing controlled (no CPU or cache confounder): `{report['timing_controlled']}`.",
+            f"- Timing controlled (complete phases/context, no CPU or cache confounder): "
+            f"`{report['timing_controlled']}`.",
         ]
     )
     for gap in report["configuration_gaps"]:
@@ -712,6 +747,7 @@ def render_markdown(report: dict) -> str:
     for version, row in report["runtimes"].items():
         delta = row["verifier_coverage"]
         if not delta.get("available"):
+            lines.append(f"- Python {version} verifier branch comparison: UNKNOWN.")
             continue
         lines.append(
             f"- Python {version} `{VERIFIER}` lost lines {len(delta['lost_lines'])}, "
