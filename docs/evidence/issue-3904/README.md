@@ -83,3 +83,70 @@ Staging the four changed files failed with
 changes remain uncommitted in the workspace. No remote task checkbox has been
 changed and no hosted acceptance is claimed. PR #4527 was verified open with
 `draft=false` at handoff.
+
+## Follow-up #4462 growth-summary preparation (2026-11-07)
+
+`scripts/ci_test_growth.py::format_growth_summary` now renders missing or
+incomplete collection budgets as **UNKNOWN**, including a null review decision
+in its rendered JSON. A default `review_required: false` is not evidence of a
+within-budget collection when the collection receipt is absent. The formatter
+also explicitly renders missing, unreadable or incomplete JUnit timing as
+**UNKNOWN**, retaining independently reported case counts and real zero timings.
+It preserves receipt diagnostics and does not mutate the input.
+
+Twenty bounded tests cover absent, unreadable, malformed and incomplete
+collection receipts, known zero/within-budget/over-budget signals, unknown review
+flags, absent/unreadable JUnit receipts and real parsed JUnit with missing,
+invalid, zero and positive durations.
+
+This is source preparation, not a deployed workflow fix. The current run has no
+explicit `agent-high-privilege` approval. The paired task and missing-runtime
+acceptance criterion therefore remain unchecked. An authorized editor must:
+
+1. Embed the formatter in `Record CI summary` in
+   `.github/workflows/reusable-10-ci-python.yml`, retaining consumer portability.
+2. Initialize `growth["review_required"]` to `None` until a valid complete
+   collection establishes its boolean value, so `summary.json` also preserves
+   the unknown budget decision.
+3. Replace the Markdown/JSON write block with
+   `handle.write(format_growth_summary(growth))`.
+4. Add bounded actual-summary subprocess controls for absent and unreadable
+   collection/JUnit receipts and invalid durations; assert explicit UNKNOWN text,
+   null budget decisions, retained counts and unchanged failed gate outcomes.
+   Preserve the existing embedded-helper parity and real serial/xdist controls.
+
+Local validation on Python 3.14.10:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_ci_test_growth.py tests/workflows/test_ci_test_growth.py tests/workflows/test_reusable_ci_workflow.py -q -m 'not slow'
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+ruff check scripts/ci_test_growth.py tests/scripts/test_ci_test_growth.py
+git diff --check
+```
+
+Results: **105 passed in 62.71s**, **2,054 passed in 25.27s**, Ruff passed, and
+the diff check passed. The initial existing-workflow run had nine failures caused
+by an inherited read-only `GITHUB_STEP_SUMMARY` path; clearing only that environment
+variable allowed all existing tests to pass without changing or skipping them.
+These local tests do not establish Python 3.12/3.13 coverage or controlled hosted
+phase timings. Existing evidence archives and their manifests are unchanged.
+
+Black formatted both touched Python files at line length 100, and individual
+checks pass. The auxiliary serial checker initially reported an unrelated frozen
+evidence file, but it omits the configured `force-exclude` for
+`config/verify_paired/representative-v1/`. After warming the cache, the actual
+required CLI command passed with **959 files unchanged**, exit **0**:
+
+```bash
+BLACK_CACHE_DIR=/tmp/issue-4462-growth-black-cache BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+No unrelated formatting was changed. The subsequent requested commit was blocked
+at `git add` with `Unable to create '.git/index.lock': Read-only file system`.
+This session cannot write the repository's Git metadata, so the validated source,
+tests and notes remain uncommitted.
+
+The requested `needs-human` label and blocker comment on PR #4527 were each
+rejected with `MCP tool call requires approval, but approval policy is never`.
+Neither remote mutation succeeded. The implementation and tests remain local,
+with the protected workflow follow-up listed above.
