@@ -43,3 +43,13 @@ The prior run's TARGET_MISSING=3 is historical evidence only; re-run
 `target_missing.py` on separately identified raw artifacts from the final
 integration head and name every residual. Original receipts are retained;
 fresh results live in `integration-rerun/`.
+
+
+The integrated-tree hosted checkpoint now measures TARGET_MISSING=3 on
+`c4c91e4c91e3860c3519eb8bc61c7943b7cd8c5b` (Gate 42335283865): both Python
+runtimes passed; 3.14 raw TOTAL=63868/70054, summary=92.60%, residual provider
+lines [265,270,292], branches []; 3.13 has no coverage JSON. See the final
+section of `acceptance-integration.md` and the distinct raw-artifact manifests.
+That is a checkpoint before this documentation reconciliation. Final-head
+confirmation and delivered-main acceptance are recorded in
+[PR #4516](https://github.com/stranske/Workflows/pull/4516), not inferred here.
