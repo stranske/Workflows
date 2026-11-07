@@ -493,3 +493,13 @@ mutation evidence).
 The mutation-receipt task is satisfied for the candidate head. Integration
 (merge commit, final focused pytest, ancestry check) remains UNMET until #4431
 merges.
+
+## Task 1 re-read (2026-11-07)
+
+- `gh pr view 4431 --repo stranske/Workflows --json state,headRefOid,mergeCommit,...`
+  re-run on 2026-11-07: state OPEN, head `69e5b6d6cd3fb154be29890f2ae212772de8ce45`
+  (unchanged since 2026-11-06), `mergeCommit: null`, `isDraft=false`,
+  mergeable MERGEABLE, `reviewDecision` empty (no review recorded).
+- #4431 is still not merged, so its results remain undelivered on main and the
+  merge-dependent acceptance criteria stay open. Merging is an outward-facing
+  action that this run does not take without explicit authorization.
