@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -397,17 +398,58 @@ def test_octokit_restore_skips_install_and_repairs_incomplete_cache(
     assert probe.stdout.strip() == "20.0.2:10.4.3"
 
 
-def test_progress_review_caches_pip_before_dependency_install() -> None:
+def _progress_review() -> dict:
     workflow = yaml.safe_load((WORKFLOWS / "agents-keepalive-loop.yml").read_text())
-    job = workflow["jobs"]["progress-review"]
+    return workflow["jobs"]["progress-review"]
+
+
+def test_progress_review_caches_pip_before_dependency_install() -> None:
+    job = _progress_review()
+    filename = ".github/workflows/agents-keepalive-loop.yml"
     setup = next(
         step for step in job["steps"] if step.get("uses", "").startswith("actions/setup-python@")
     )
-    assert setup["with"]["cache"] == "pip"
-    assert (ROOT / setup["with"]["cache-dependency-path"]).is_file()
+    assert setup["with"].get("cache") == "pip", f"{filename}: missing pip cache"
+    requirements = setup["with"]["cache-dependency-path"]
+    assert (ROOT / requirements).is_file(), f"{filename}: missing cache requirements file"
+    install = _step(job, "Install analysis dependencies")
+    command = shlex.split(install["run"])
+    assert "-r" in command and command[command.index("-r") + 1 :] == [
+        requirements
+    ], f"{filename}: pip cache must track installed requirements"
     assert job["steps"].index(setup) < job["steps"].index(
-        _step(job, "Install analysis dependencies")
-    )
+        install
+    ), f"{filename}: pip cache restored after installation"
+
+
+@pytest.mark.parametrize(
+    ("regression", "message"),
+    (
+        ("uncached", "missing pip cache"),
+        ("unrelated-requirements", "pip cache must track installed requirements"),
+        ("missing-requirements", "missing cache requirements file"),
+        ("late-setup", "pip cache restored after installation"),
+    ),
+)
+def test_progress_review_pip_cache_contract_rejects_regressions(
+    regression: str, message: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = _progress_review()
+    setup = _step(job, "Setup Python")
+    if regression == "uncached":
+        setup["with"].pop("cache")
+    elif regression == "unrelated-requirements":
+        setup["with"]["cache-dependency-path"] = "requirements.lock"
+    elif regression == "missing-requirements":
+        setup["with"]["cache-dependency-path"] = "nonexistent-cache-requirements.txt"
+    else:
+        job["steps"].remove(setup)
+        job["steps"].append(setup)
+    monkeypatch.setattr(f"{__name__}._progress_review", lambda: job)
+    with pytest.raises(
+        AssertionError, match=re.escape(f".github/workflows/agents-keepalive-loop.yml: {message}")
+    ):
+        test_progress_review_caches_pip_before_dependency_install()
 
 
 @pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
