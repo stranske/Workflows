@@ -3587,6 +3587,12 @@ Coordinated negative subjects use shared descriptor-aware URL tokens and a bound
 
 ### Stable canary refresh clock
 
+Maint 71 counts stale producer observations independently of overlapping check
+and review blockers. A bound review snapshot does not suppress the stale count:
+an old review-blocked canary contributes to both `review_blocked` and `stale`.
+Healthy green canaries and expected pre-seal Gate holds retain their existing
+age exemptions.
+
 Full-scope report refreshes retain the verified campaign source commit and pass
 its expected plan ID to Maint 68. The in-loop stable refresh does the same
 when the canary carries that sha256 plan and source, including when current

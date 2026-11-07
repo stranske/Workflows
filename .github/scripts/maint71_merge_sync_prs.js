@@ -773,6 +773,11 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
 
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
 // Only a successful producer observation resets the clock; comments do not.
+function canaryObservationIsStale(canary, now) {
+  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
+  return Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000;
+}
+
 function canaryNeedsRefresh(canary, now = Date.now()) {
   if (canary.mergeable_state === 'behind') return 'behind';
   if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) {
@@ -784,8 +789,7 @@ function canaryNeedsRefresh(canary, now = Date.now()) {
   // mergeability still goes through that path's existing fail-closed gates.
   if (['ready', 'success'].includes(canary.check_status) && canary.mergeable !== false
     && !['dirty', 'blocked', 'unknown', 'draft'].includes(canary.mergeable_state)) return null;
-  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
-  if (Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000) return 'stale';
+  if (canaryObservationIsStale(canary, now)) return 'stale';
   return null;
 }
 
@@ -1048,8 +1052,9 @@ async function refreshStableCanaries({
     await core.summary.addRaw(`${sealLine}\n`).write();
     if (canaryHasBlockingReviewDebt(canary)) counts.review_blocked++;
     const reason = canaryNeedsRefresh(canary, now);
-    if (reason && canaryNeedsRefresh({ ...canary, mergeable_state: '', mergeable: false,
-      check_status: '', active_review_thread_count: 0 }, now) === 'stale') counts.stale++;
+    // Age accounting is independent of review classification. Reclassifying a
+    // synthetic zero-thread row would invalidate its bound review snapshot.
+    if (reason && !canary.expected_preseal_gate_hold && canaryObservationIsStale(canary, now)) counts.stale++;
     canary.refresh_reason = reason;
     if (!reason) continue;
     if (!canary.plan_id) {

@@ -1006,6 +1006,34 @@ test('overlapping blockers are counted independently and dry-run cannot mutate',
   assert.equal(api.comments.length, 0);
 });
 
+for (const disposition of ['shared-source', 'unrelated']) {
+  test(`stale canary accounting preserves the ${disposition} review snapshot`, async () => {
+    const api = refreshHarness();
+    const packet = findingPacket(disposition);
+    const { binding } = packet;
+    const canary = refreshCanary({ pr: binding.pr, plan_id: binding.plan_id,
+      source_commit: binding.source_commit, head_sha: binding.head_sha,
+      delivery_generation: binding.delivery_generation, review_disposition: packet,
+      active_review_thread_count: packet.activeReviewThreadCount,
+      threads: packet.reviewThreads, mergeable_state: 'dirty',
+      head_observed_at: '2026-10-17T05:00:00Z' });
+    const snapshot = structuredClone(canary);
+    const reason = disposition === 'shared-source' ? 'review_blocked' : 'stale';
+    assert.equal(canaryNeedsRefresh(canary, refreshNow), reason);
+    const result = await refreshStableCanaries({ ...api, enabled: false, canaries: [canary] });
+    assert.equal(result.stale, 1, 'producer age must be counted with a bound review snapshot');
+    assert.equal(result.review_blocked, disposition === 'shared-source' ? 1 : 0);
+    assert.equal(result.canaries[0].refresh_reason, reason);
+    assert.ok(api.summaries.includes(`canaries: red=0 review_blocked=${result.review_blocked} `
+      + `stale=1 refresh_dispatched=0 held_plan=${binding.plan_id} drainable=0\n`));
+    assert.deepEqual(canary.review_disposition, snapshot.review_disposition);
+    assert.equal(canary.active_review_thread_count, snapshot.active_review_thread_count);
+    assert.equal(api.dispatches.length, 0);
+    assert.equal(api.comments.length, 0);
+    assert.deepEqual(api.failures, []);
+  });
+}
+
 test('active Maint 68 writer defers refresh; a failed dispatch emits zero and fails visibly', async () => {
   for (const active of [true, false]) {
     const api = refreshHarness({ actions: active ? {
