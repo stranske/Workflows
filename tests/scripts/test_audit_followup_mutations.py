@@ -50,8 +50,12 @@ def receipts(tmp_path):
                 "command": ["node", "--test", f"--test-name-pattern={case}", auditor.NODE_TEST],
                 "red_exit": 1,
                 "green_exit": 0,
-                "red_output": f"{case}\nAssertionError [ERR_ASSERTION]",
-                "green_output": f"{case}\npass 1\nfail 0",
+                "red_output": (
+                    f"✖ {case} (1ms)\n"
+                    "ℹ tests 1\nℹ pass 0\nℹ fail 1\n"
+                    "  AssertionError [ERR_ASSERTION]"
+                ),
+                "green_output": f"✔ {case} (1ms)\nℹ tests 1\nℹ pass 1\nℹ fail 0",
             }
             for case in sorted(auditor.NODE_CASES)
         ],
@@ -116,6 +120,73 @@ def test_python_assertion_red_must_identify_the_selected_case(receipts, failure)
     assert result["receipts"][0]["issues"] == ["RED/GREEN does not identify a single selected case"]
 
 
+@pytest.mark.parametrize(
+    ("field", "summary"),
+    [
+        ("red_output", "2 failed"),
+        ("red_output", "1 failed, 1 passed"),
+        ("red_output", "1 failed, 1 error"),
+        ("green_output", "1 passed, 1 failed"),
+        ("green_output", "1 passed, 1 error"),
+        ("green_output", "11 passed"),
+    ],
+)
+def test_python_mixed_or_multiple_results_cannot_prove_one_selected_case(receipts, field, summary):
+    python, _, _, run = receipts
+    proof = python["proofs"][0]
+    proof[field] = proof[field].rsplit("\n", 1)[0] + "\n" + summary
+
+    result = run()
+
+    assert result["complete"] is False
+    assert "RED/GREEN does not identify a single selected case" in result["receipts"][0]["issues"]
+
+
+@pytest.mark.parametrize("field", ["red_output", "green_output"])
+@pytest.mark.parametrize("mismatch", ["other-case", "multiple-results", "missing-count"])
+def test_node_result_must_belong_to_the_single_selected_case(receipts, field, mismatch):
+    _, node, _, run = receipts
+    proof = node["proofs"][0]
+    output = proof[field]
+    if mismatch == "other-case":
+        # The selected case appears, but its outcome belongs to another case.
+        output = output.replace(proof["test"], "unrelated test") + f"\nselected: {proof['test']}"
+    elif mismatch == "multiple-results":
+        output = output.replace("ℹ tests 1", "ℹ tests 2")
+    else:
+        output = output.replace("ℹ tests 1\n", "")
+    proof[field] = output
+
+    result = run()
+
+    assert result["complete"] is False
+    assert any(
+        "Node RED/GREEN does not identify a single selected case" in issue
+        for row in result["receipts"]
+        for issue in row["issues"]
+    )
+
+
+def test_node_passing_selected_case_cannot_borrow_an_unrelated_assertion_failure(receipts):
+    _, node, _, run = receipts
+    proof = node["proofs"][0]
+    proof["red_output"] = (
+        f"✔ {proof['test']} (1ms)\n"
+        "✖ unrelated test (1ms)\n"
+        "ℹ tests 2\nℹ pass 1\nℹ fail 1\n"
+        "  AssertionError [ERR_ASSERTION]"
+    )
+
+    result = run()
+
+    assert result["complete"] is False
+    assert any(
+        "Node RED/GREEN does not identify a single selected case" in issue
+        for row in result["receipts"]
+        for issue in row["issues"]
+    )
+
+
 @pytest.mark.parametrize("language", ["python", "node"])
 @pytest.mark.parametrize(
     ("field", "value", "problem"),
@@ -141,12 +212,13 @@ def test_abbreviated_assertion_diff_stays_incomplete(receipts):
     python["proofs"][0]["red_output"] += "\nFull output truncated (4 lines hidden)"
     result = run()
     assert result["complete"] is False
-    assert result["receipts"][0]["issues"] == ["receipt output is truncated"]
+    assert "receipt output is truncated" in result["receipts"][0]["issues"]
 
 
 def test_truncated_is_valid_payload_text_not_an_output_diagnostic(receipts):
     python, _, _, run = receipts
-    python["proofs"][0]["red_output"] += "\nE expected 'CSV trailer is truncated'"
+    proof = python["proofs"][0]
+    proof["red_output"] = "E expected 'CSV trailer is truncated'\n" + proof["red_output"]
     assert run()["complete"] is True
 
 

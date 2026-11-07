@@ -46,6 +46,35 @@ def _matches_mutation(source: str, before: str, mutant: str, expected: str) -> b
     return False
 
 
+def _single_pytest_result(output: str, outcome: str) -> bool:
+    """Require the final pytest summary to report exactly one outcome."""
+    lines = output.strip().splitlines()
+    return bool(
+        lines
+        and re.fullmatch(
+            rf"(?:=+\s*)?1 {outcome}(?: in \d+(?:\.\d+)?s)?(?:\s*=+)?",
+            lines[-1],
+        )
+    )
+
+
+def _single_node_result(output: str, case: str, *, passed: bool) -> bool:
+    """Bind the retained spec-reporter result and counts to the selected case."""
+    marker = "✔" if passed else "✖"
+    if not re.search(
+        rf"^[ \t]*{marker} {re.escape(case)}(?: \([^\r\n]*\))?[ \t]*$",
+        output,
+        re.MULTILINE,
+    ):
+        return False
+    counts = {"tests": 1, "pass": int(passed), "fail": int(not passed)}
+    for label, expected in counts.items():
+        recorded = re.findall(rf"^[ \t]*(?:ℹ[ \t]*)?{label} (\d+)[ \t]*$", output, re.MULTILINE)
+        if recorded != [str(expected)]:
+            return False
+    return True
+
+
 def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
     """Compare independently collected added cases with the retained evidence."""
     original_receipt = (root / EVIDENCE / "retained-mutation-reconciliation.json").read_text(
@@ -143,7 +172,11 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
                 selected_failure = re.search(
                     rf"^FAILED {re.escape(proof['test'])}(?: -|$)", red, re.MULTILINE
                 )
-                if not selected_failure or not re.search(r"\b1 passed\b", green):
+                if (
+                    not selected_failure
+                    or not _single_pytest_result(red, "failed")
+                    or not _single_pytest_result(green, "passed")
+                ):
                     issues.append("RED/GREEN does not identify a single selected case")
                 if proof["test"] not in proof["command"]:
                     issues.append("command does not select the recorded case")
@@ -156,6 +189,10 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
                     issues.append("RED/GREEN names a different Node case")
                 if not re.search(r"\bpass 1\b", green) or not re.search(r"\bfail 0\b", green):
                     issues.append("Node GREEN does not report one pass and zero failures")
+                if not _single_node_result(
+                    red, proof["test"], passed=False
+                ) or not _single_node_result(green, proof["test"], passed=True):
+                    issues.append("Node RED/GREEN does not identify a single selected case")
                 if (
                     f"--test-name-pattern={proof['test']}" not in proof["command"]
                     or NODE_TEST not in proof["command"]

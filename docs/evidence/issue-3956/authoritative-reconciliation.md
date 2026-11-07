@@ -2,6 +2,19 @@
 
 ## Current delivery readback (2026-11-07 UTC)
 
+Latest inspection before this round's code changes: the requested `gh pr view
+4401 --repo stranske/Workflows --json
+state,headRefOid,mergeCommit,statusCheckRollup` again exited 1 connecting to
+`api.github.com`. Connected PR metadata reports OPEN, `draft=false`,
+`merged=false`, unchanged head `9eaf43313c0e57ef964e4171f645985dca5742b8`,
+and `merged_at=null`. All three submitted reviews remain COMMENTED. The same
+non-outdated unresolved thread `PRRT_kwDOQprj9M6zZ4AB` concerns the revision
+table; the other two unresolved threads are outdated. Main now resolves to
+`00f43f81e51c4f8b9a057ac51f7e3c2d870d7769`; an immutable read of generator
+lines 100–145 returns blob `c3a19cbf41a476954b8afcde6d214b3cf8c82a00`,
+still defining and calling the helper. Neither main delivery criterion is met.
+This supersedes earlier main pointers while preserving their historical readbacks.
+
 Before changing source or tests in this round, attempted:
 
 ```sh
@@ -832,3 +845,64 @@ that gate and writable Git metadata. Final readback confirms both #4518 and
 The live PR body and any blocker comment/`needs-human` label still require a
 writer-capable run; none is claimed here. Existing review/check requirements,
 the hosted-baseline gap and the ranking limitation remain in force.
+
+## Single-case mutation receipt validation (2026-11-07 UTC)
+
+The first unchecked acceptance criterion remains blocked on #4401 delivery,
+and the next on optional LangSmith plugin startup. This round advances the
+retained-evidence criterion: the auditor previously accepted a passing selected
+Node case alongside an unrelated assertion failure, and accepted mixed or
+multiple Python results as a single-case receipt. It now requires one Python
+outcome in the final summary; Node receipts must report the selected case's
+actual failed/passed result and exactly one test with matching pass/fail counts.
+Unrecognized or mismatched results report incomplete. Receipt commands are never
+executed by the auditor.
+
+Validation base: `264e9cc6503be2e1eef1c4a0c3851a6f777f6985`, plus the local
+source/test overlay identified by SHA256 in
+[auditor-single-case-proof.json](auditor-single-case-proof.json). All 13 new
+parameter cases fail the baseline auditor with `assert True is False`, then
+pass the corrected auditor independently. Each full receipt records its selected
+command, RED exit 1, restored GREEN exit 0, and identical test/configuration
+hashes. Outputs were inspected without truncation in groups 0–2, 3–5, 6–9 and
+10–12. These local auditor regressions supplement the retained generator/Node
+mapping; they are not hosted measurements or main-delivery evidence.
+
+Using `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python`:
+
+```sh
+python -m pytest tests/test_followup_issue_generator.py -q -m 'not slow'
+# exit 3: LangSmith startup calls deprecated asyncio.iscoroutinefunction
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py tests/scripts/test_audit_followup_mutations.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov=scripts.audit_followup_mutations --cov-report=term-missing --cov-report=json:/tmp/issue-3956-single-case-coverage.json
+# exit 0; 248 passed: 199 generator + 49 auditor cases
+# generator: 851 statements, 0 missing; 386 branches, 1 missing arc; Cover 99.92%
+python scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-3956-single-case-baseline.py --collected-tests /tmp/issue-3956-single-case-collected.txt
+# exit 0; 35 added functions / 45 cases; 50 Python + 2 original Node receipts;
+# complete=true, problems=[], no row issues. Inputs prepared as above.
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one aggregated passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 passed, no failures or skips
+ruff check scripts/audit_followup_mutations.py tests/scripts/test_audit_followup_mutations.py
+# exit 0
+git diff --check
+# exit 0
+```
+
+Both changed Python files were formatted with Black at line length 100 and pass
+individual checks. The required repository-wide Black command exits 1 with
+`PermissionError` at the forkserver socket. A single-worker retry was interrupted
+(exit 130); a bounded verbose retry timed out after 30 seconds (exit 124),
+reporting 504 unchanged files. Neither is a completed passing check, so the
+formatting gate still prohibits a Python commit. Staging also exits 128 creating
+`.git/index.lock` on the read-only filesystem. No commit or push occurred.
+
+The remote #4401 table defect was independently confirmed against its pinned
+head. Attempting only its two-line header/delimiter correction through GitHub's
+contents API was rejected: `MCP tool call requires approval, but approval policy
+is never`. No remote file, thread or PR body changed, and no merge was attempted.
+Final metadata confirms #4401 OPEN, `draft=false`, unchanged head
+`9eaf43313c0e57ef964e4171f645985dca5742b8`, `merged=false`; #4518 is also OPEN
+and `draft=false`. Main delivery, the comparable hosted reduction and canonical
+ranking provenance remain incomplete as distinguished above. No acceptance
+checkbox is completed by this local change.
