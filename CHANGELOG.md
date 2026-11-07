@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes are called out with a **BREAKING** marker and scheduled according to the policy in `COMPATIBILITY.md`.
 
+## [1.51.0](https://github.com/stranske/Workflows/compare/v1.50.1...v1.51.0) (2026-11-07)
+
+
+### Features
+
+* **issues:** shared validate-and-rewrite loop; format guard counts real attempts, hands give-ups to the opener lane ([#4442](https://github.com/stranske/Workflows/issues/4442)) ([ff86eb8](https://github.com/stranske/Workflows/commit/ff86eb8d4ee151a039f386e98e24f6ee9483be16))
+
+
+### Bug Fixes
+
+* align synced LLM tool types with consumer mypy ([#4410](https://github.com/stranske/Workflows/issues/4410)) ([62672b6](https://github.com/stranske/Workflows/commit/62672b61b18b16d6301e5e671dfe43e5fd9f1d15))
+* **automerge:** use PR task completion instead of stale source boxes ([#4441](https://github.com/stranske/Workflows/issues/4441)) ([cb380fb](https://github.com/stranske/Workflows/commit/cb380fbef7618e173d5fb61967b273a5904b6a6e))
+* **autopilot:** require PR-bound verification before guarded completion ([#4463](https://github.com/stranske/Workflows/issues/4463)) ([7ab99d0](https://github.com/stranske/Workflows/commit/7ab99d09429a3b35aa55f7744f8c75b467f42536))
+* **backplane:** refresh expired registry rechecks ([#4440](https://github.com/stranske/Workflows/issues/4440)) ([c2dc847](https://github.com/stranske/Workflows/commit/c2dc84733a016e34939a49cd9b9cc70c128b9c3b))
+* bind public-capture contributor checks to case repository ([#4412](https://github.com/stranske/Workflows/issues/4412)) ([6cf49cb](https://github.com/stranske/Workflows/commit/6cf49cb29e356e1f400849dea36521c9647a2894))
+* **ci_history:** do not re-annotate record in the missing-file branch ([#4509](https://github.com/stranske/Workflows/issues/4509)) ([37e2300](https://github.com/stranske/Workflows/commit/37e230009cdba04743376410c9f72356b85fb64f))
+* finish stranske/Workflows[#4005](https://github.com/stranske/Workflows/issues/4005) (closer repair) ([#4403](https://github.com/stranske/Workflows/issues/4403)) ([8e25712](https://github.com/stranske/Workflows/commit/8e25712fa034141518ef45f4e5a22debfe500407))
+* finish stranske/Workflows[#4019](https://github.com/stranske/Workflows/issues/4019) (closer repair) ([#4406](https://github.com/stranske/Workflows/issues/4406)) ([2bd1aa0](https://github.com/stranske/Workflows/commit/2bd1aa094698d3e9f2ce91f754f6b00fb748a52d))
+* finish stranske/Workflows[#4170](https://github.com/stranske/Workflows/issues/4170) (closer repair) ([#4465](https://github.com/stranske/Workflows/issues/4465)) ([5af5347](https://github.com/stranske/Workflows/commit/5af534766f3706b109eac5b163b74ff968eef74a))
+* finish stranske/Workflows[#4364](https://github.com/stranske/Workflows/issues/4364) (closer repair) ([81e575a](https://github.com/stranske/Workflows/commit/81e575a008db219b8b63761014025d182d095128))
+* finish stranske/Workflows[#4366](https://github.com/stranske/Workflows/issues/4366) (closer repair) ([#4450](https://github.com/stranske/Workflows/issues/4450)) ([f2849e4](https://github.com/stranske/Workflows/commit/f2849e4ac5c30e8dd43bf5aafe4591e0aeb2bd9c))
+* finish stranske/Workflows[#4368](https://github.com/stranske/Workflows/issues/4368) (closer repair) ([#4445](https://github.com/stranske/Workflows/issues/4445)) ([f4992ef](https://github.com/stranske/Workflows/commit/f4992effac915a574241039b4b9b254d3162cbda))
+* finish stranske/Workflows[#4369](https://github.com/stranske/Workflows/issues/4369) (closer repair) ([d77a8e3](https://github.com/stranske/Workflows/commit/d77a8e3ad93aaf4339fff0180bafa1264e3ec7c0))
+* **formatter:** accept provider text content blocks ([#4438](https://github.com/stranske/Workflows/issues/4438)) ([bdda6d0](https://github.com/stranske/Workflows/commit/bdda6d0fbfea27fde3dd3ea56c34556c11ad3e82))
+* **guarded-merge:** publish guarded merge failure receipt and log credential source ([#4480](https://github.com/stranske/Workflows/issues/4480)) ([ebda98f](https://github.com/stranske/Workflows/commit/ebda98f8e3cdb3d8c9f91718c2dfb921a7961604))
+* **maint68:** a verified no-op keeps the existing head's source identity ([#4469](https://github.com/stranske/Workflows/issues/4469)) ([13f3943](https://github.com/stranske/Workflows/commit/13f3943cbab14058f5c3456efe5e160382b44808))
+* **maint71:** count the unanswered window from the first request on the thread ([#4498](https://github.com/stranske/Workflows/issues/4498)) ([0b49ae8](https://github.com/stranske/Workflows/commit/0b49ae80779d9c818a4916761a8e940c8d327f9d))
+* **maint71:** drain review findings whose originating reviewer stays silent ([#4490](https://github.com/stranske/Workflows/issues/4490)) ([c13984a](https://github.com/stranske/Workflows/commit/c13984afb0cfb701d3acc3a649406a4057f4043c))
+* **maint71:** keep reassessment requests out of the stable-PR writer queue ([#4496](https://github.com/stranske/Workflows/issues/4496)) ([e4bfc36](https://github.com/stranske/Workflows/commit/e4bfc366def4ae4c3e13e6b4c04b2336f017e873))
+* **maint71:** re-pin the campaign handoff to an accepted canary refresh ([#4467](https://github.com/stranske/Workflows/issues/4467)) ([f82deb3](https://github.com/stranske/Workflows/commit/f82deb3e0f00f1f9934bbe3b91ab212b6fed1199))
+* **pins:** propose dev-tool updates with the Workflows App token, not only OWNER_PR_PAT ([#4479](https://github.com/stranske/Workflows/issues/4479)) ([6f9c72e](https://github.com/stranske/Workflows/commit/6f9c72e17bbefd3f29ed35e2dda8ef01df8fd86a))
+* restore scoped rate-limit cleanup and prove HTTPError closure ([#4395](https://github.com/stranske/Workflows/issues/4395)) ([3e513d3](https://github.com/stranske/Workflows/commit/3e513d30e1b11b30bd6a2fdc224adbca97d85930))
+* **sync-findings:** keep slot override positions and survive a concurrent label create ([#4474](https://github.com/stranske/Workflows/issues/4474)) ([d52cf72](https://github.com/stranske/Workflows/commit/d52cf721226d692364b97db529fafda6a869390b))
+* **sync:** preserve campaign identity in full-scope refresh ([#4439](https://github.com/stranske/Workflows/issues/4439)) ([7862c73](https://github.com/stranske/Workflows/commit/7862c733f817353d3c1a9d0abb9e81d28bcfc4d0))
+* **verifier:** preserve truthful bounded evaluation failure receipts ([#4214](https://github.com/stranske/Workflows/issues/4214)) ([b415f5e](https://github.com/stranske/Workflows/commit/b415f5e50626fb9cc89cc1e4300b1e87671ac7d2))
+
 ## [1.50.1](https://github.com/stranske/Workflows/compare/v1.50.0...v1.50.1) (2026-10-31)
 
 
