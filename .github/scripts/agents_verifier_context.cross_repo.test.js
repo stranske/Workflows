@@ -244,11 +244,16 @@ function mockEvidenceClient({ mismatch = false, missing = false } = {}) {
 for (const [name, collector] of collectors) {
   async function collect(options = {}) {
     const { github, calls } = mockEvidenceClient(options);
+    if (options.local404) {
+      const { rest: { actions } } = github;
+      await assert.rejects(actions.getWorkflowRun({
+        owner: 'stranske', repo: 'Workflows', run_id: downstreamRunId,
+      }), { status: 404 });
+    }
     const result = await collector.fetchVerifierEvidence({
       github, owner: 'stranske', repo: 'Workflows', pullNumber: 4532,
       pullRequestBody: `Historical baseline evidence: ${downstreamUrl}`,
-      referenceTexts: ['https://github.com/stranske/trip-planner/pull/42',
-        ...(options.local404 ? ['Evidence: https://github.com/stranske/Workflows/actions/runs/123'] : [])],
+      referenceTexts: ['https://github.com/stranske/trip-planner/pull/42'],
       associatedCommitShas: [currentHead],
       extractArtifactText: () => ({ text: nonPassText, truncated: Boolean(options.incomplete) }),
     });
@@ -275,11 +280,12 @@ for (const [name, collector] of collectors) {
 
   test(`${name}: Workflows 404 does not override retrieved downstream evidence`, async () => {
     const { result, calls } = await collect({ local404: true });
-    assert.ok(calls.some(call => call.method === 'run' && call.repo === 'Workflows'));
+    assert.ok(calls.some(call => call.method === 'run' && call.repo === 'Workflows'
+      && call.run_id === downstreamRunId));
     assert.equal(result.artifacts.records.length, 1);
     assert.equal(result.artifacts.records[0].runId, downstreamRunId);
-    assert.equal(result.artifacts.complete, false);
-    assert.ok(result.diagnostics.failures.some(row => row.kind === 'provenance' && /123/.test(row.detail)));
+    assert.equal(result.artifacts.complete, true, result.artifacts.reason);
+    assert.equal(result.diagnostics.counters.provenance_failures, 0);
     assert.equal(calls.filter(call => call.method === 'download').length, 1);
   });
 
