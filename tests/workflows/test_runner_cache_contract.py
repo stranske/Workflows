@@ -134,8 +134,16 @@ def test_cli_cache_contract_rejects_regressions(
         test_cli_cache_tracks_installed_version_and_path(agent)
 
 
-def test_cli_cache_deletion_fails_pytest_and_recovers(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "inherited_addopts",
+    ("", "-x --maxfail=1", "--collect-only"),
+    ids=("default", "inherited-exitfirst", "inherited-collect-only"),
+)
+def test_cli_cache_deletion_fails_pytest_and_recovers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inherited_addopts: str
+) -> None:
     """Check pytest's exit status and diagnostic without editing protected workflows."""
+    monkeypatch.setenv("PYTEST_ADDOPTS", inherited_addopts)
     plugin = tmp_path / "runner_cache_break.py"
     plugin.write_text(textwrap.dedent("""\
             import pytest
@@ -172,6 +180,9 @@ def test_cli_cache_deletion_fails_pytest_and_recovers(tmp_path: Path) -> None:
     env = {
         **os.environ,
         "PYTHONPATH": os.pathsep.join([str(tmp_path), os.environ.get("PYTHONPATH", "")]),
+        # -o addopts= clears ini options, but inherited env options still apply.
+        # Both subprocesses must execute all five runner assertions.
+        "PYTEST_ADDOPTS": "",
     }
     broken = subprocess.run(
         [*command, "-p", "runner_cache_break"],
