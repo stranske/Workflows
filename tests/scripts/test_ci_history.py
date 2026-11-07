@@ -241,17 +241,14 @@ def test_build_classification_payload_counts_statuses() -> None:
     assert payload["entries"][0]["nodeid"] == "a"
 
 
-def test_ci_history_type_checks_under_consumer_mypy(tmp_path) -> None:
+def test_ci_history_type_checks_under_consumer_mypy(tmp_path: Path) -> None:
     """Consumers type-check this synced script; Workflows' own mypy covers only src/.
 
     2026-11-07: a second ``record: dict[str, Any]`` annotation in main() raised mypy
     ``no-redef`` and turned trip-planner's typecheck-mypy red on its sync canary.
     """
-    import subprocess
-    import sys
-    from pathlib import Path
-
-    pytest.importorskip("mypy")
+    # This named acceptance gate must fail, rather than skip, when mypy is missing.
+    # mypy is a required development dependency and runs through the test interpreter.
     script = Path(__file__).resolve().parents[2] / "scripts" / "ci_history.py"
     # Consumers run mypy with their own (near-default) config; Workflows' pyproject relaxes
     # checks that consumers enforce, so use an empty config rather than this repo's.

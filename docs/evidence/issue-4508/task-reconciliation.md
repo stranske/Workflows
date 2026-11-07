@@ -50,14 +50,14 @@ line length 100 and passes `black --check --line-length 100
 tests/workflows/test_ci_history.py`; the global formatting gate is not established.
 A fork-worker compatibility retry also returned no result and was interrupted.
 
-## Delivery verification remains external
+## Delivery verification
 
-- [ ] Confirm `Python CI / typecheck-mypy` succeeds on the regenerated
-  `stranske/trip-planner#1957` head.
+- [x] Confirm `Python CI / typecheck-mypy` succeeds on the regenerated
+  `stranske/trip-planner#1957` head (current evidence below).
 - [ ] Confirm the next sync-core round no longer reports this finding.
 
-These are post-merge or human verification steps, outside the agent's local
-completion criteria. The scheduled `.github/workflows/maint-68-sync-consumer-repos.yml`
+The unchecked sync-core item is a post-merge or human verification step, outside
+the agent's local completion criteria. The scheduled `.github/workflows/maint-68-sync-consumer-repos.yml`
 must regenerate the consumer PR. The workflow file must not be modified or
 manually triggered by this agent; the generated consumer PR must not be patched.
 
@@ -175,3 +175,49 @@ The new `file-target-namespace-shipped-source` regression was also run against
 the actual source with `failure_record` temporarily renamed back to `record`:
 it failed with the original `[no-redef]` diagnostic. The source was restored
 byte-for-byte in `finally`, and the same test then passed (1 passed in 1.45s).
+
+## Current consumer CI and required regression gate
+
+Reviewed follow-up commits through `b96816b5`. The source rename is already on
+`main` in `37e23000`; implementation checkboxes duplicated in the quoted source
+issue are complete. The named acceptance regression now requires mypy instead
+of silently skipping when that required development dependency is missing.
+
+- Focused history/metrics suite: **47 passed** with the four-file command above.
+- Empty-config mypy: **Success: no issues found in 1 source file**.
+- Named regression with duplicate annotation restored in the actual source:
+  **1 failed**, showing the original line-152 `[no-redef]` diagnostic. Restoring
+  the source byte-for-byte in `finally` gives **1 passed**.
+- Edited-file Black and Ruff pass; `git diff --check` passes.
+
+The read-only GitHub connector now confirms regenerated consumer PR #1957 head
+`948406465cf7cd65d1ac92206b4514aaad455443` has successful CI run
+[42327976097](https://github.com/stranske/trip-planner/actions/runs/42327976097),
+including `Python CI / typecheck-mypy` job
+[128267659502](https://github.com/stranske/trip-planner/actions/runs/42327976097/job/128267659502).
+The requested `gh run view` still cannot connect to `api.github.com`; the
+historical Evidence run does not establish current success. No subsequent
+sync-core classification was found in source issue #4508's comments. That
+post-merge check and full local suite success remain unverified.
+
+The connector again rejected PR-body reconciliation because approval is required
+and the session policy is `never`. The prepared replacement body is saved to
+`/tmp/issue-4508-reconciled-pr-body.md`; no remote update is claimed. It checks
+verified duplicate implementation tasks and consumer CI, keeps the combined
+full-suite criterion unchecked, and treats the sync-workflow instruction as a
+note. The protected workflow must not be edited or manually triggered.
+
+Staging also failed: `.git/index.lock` cannot be created on the read-only
+filesystem. The automation runner must commit the pending test change.
+
+The required repository-wide formatting gate is now established. Bounded passes
+with a writable temporary Black cache populated verified file entries; the final
+complete command exited **0**, reporting **952 files would be left unchanged**:
+
+```text
+BLACK_CACHE_DIR=/tmp/issue-4508-black-cache BLACK_NUM_WORKERS=1 \
+  black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Earlier interrupted attempts remain historical records, not the current
+formatting result. Full local suite success is still not claimed.
