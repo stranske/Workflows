@@ -274,6 +274,32 @@ for (const [surface, transitions] of surfaces) {
     }
   });
 
+  test(`${surface}: serialized handoff identities retain precision beyond safe numeric IDs`, () => {
+    const issue = {
+      issueState: 'closed',
+      verifyHandoffBound: 'true',
+      closure: { id: '9007199254740992', sourcePr: '9007199254740992' },
+      verifyHandoff: { closureId: '9007199254740992', sourcePr: '9007199254740992' },
+    };
+    assert.equal(transitions.hasCurrentVerifyHandoff(issue), true);
+    assert.equal(transitions.determineNextStep(issue).nextStep, NEXT_STEPS.DONE);
+
+    // These distinct decimal IDs collapse to the same JavaScript Number.
+    // A stale handoff must remain stale when IDs arrive as JSON strings.
+    for (const [closureKey, handoffKey] of [['id', 'closureId'], ['sourcePr', 'sourcePr']]) {
+      for (const [record, key] of [['closure', closureKey], ['verifyHandoff', handoffKey]]) {
+        const event = {
+          ...issue,
+          [record]: { ...issue[record], [key]: '9007199254740993' },
+        };
+        const message = `${record}.${key} differs by one`;
+        assert.equal(transitions.hasCurrentVerifyHandoff(event), false, message);
+        assert.equal(transitions.resolveCurrentState(event), STATES.CLOSED_NEEDS_VERIFY, message);
+        assert.equal(transitions.determineNextStep(event).nextStep, NEXT_STEPS.VERIFY, message);
+      }
+    }
+  });
+
   test(`${surface}: merged PR selection accepts body and title references in input order`, () => {
     const merged = { number: 100, merged_at: '2026-02-01T00:00:00Z' };
     const later = { number: 101, merged_at: '2026-03-01T00:00:00Z', body: 'Closes #12' };
@@ -314,6 +340,26 @@ for (const [surface, transitions] of surfaces) {
     ], 12), null);
     for (const issueNumber of ['', '0', '012', '1.2', 'abc', null, undefined]) {
       assert.equal(transitions.selectMergedClosingPr(pulls, issueNumber), null, String(issueNumber));
+    }
+  });
+
+  test(`${surface}: prefix issue references in either PR field cannot shadow the closing PR`, () => {
+    const closingPr = { number: 100, merged_at: '2026-02-01T00:00:00Z', body: 'Closes #12' };
+    for (const field of ['body', 'title']) {
+      for (const reference of ['meta:issue:120', 'Closes #120', 'Fixes #120', 'Resolves #120']) {
+        const unrelatedPr = {
+          number: 101,
+          merged_at: '2026-03-01T00:00:00Z',
+          [field]: reference,
+        };
+        const message = `${field}: ${reference}`;
+        assert.equal(transitions.selectMergedClosingPr([unrelatedPr], 12), null, message);
+        assert.equal(
+          transitions.selectMergedClosingPr([unrelatedPr, closingPr], 12),
+          closingPr,
+          message,
+        );
+      }
     }
   });
 

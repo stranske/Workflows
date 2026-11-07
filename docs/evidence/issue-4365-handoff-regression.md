@@ -80,3 +80,26 @@ and failed one existing runner-assembly test at line 167 because
 `spawnSync python3` returned `EPERM` in this execution environment. No test or
 security control was disabled to bypass that failure. Workflow integration and
 consumer delivery remain deferred as described above.
+
+## Additional regression validation (2026-11-07)
+
+Reviewed commits `92879ba6` and `71a65646` and re-ran the existing 80 helper
+tests before reconciling the three retained tasks. All three are implemented;
+the source and consumer helper files remain byte-identical.
+
+Added regressions on both surfaces for distinct decimal-string identities above
+JavaScript's safe integer limit, and for prefix issue references in either the
+PR body or title preceding a valid closing PR. Adjacent large IDs must not
+compare equal after numeric rounding; `#120` must not shadow issue 12.
+
+Validation using the commands above: 84 helper tests and 46 workflow handoff
+tests passed (130 combined); all 91 targeted Python tests passed; template
+drift validation exited 0 with no unallowlisted drift. The broader JavaScript
+run passed 149 tests and retained the same single `spawnSync python3 EPERM`
+runner-assembly failure described above.
+
+The PR-body reconciliation could not be published: the GitHub update tool
+requires approval, while this run's approval policy is `never`. The prepared
+body is saved at `/tmp/pr-4451-body.md` with all three verified tasks checked.
+Committing was also blocked: Git could not create `.git/index.lock` because
+the repository metadata directory is read-only. The changes remain uncommitted.
