@@ -51,6 +51,21 @@ def pytest_sessionstart(session):
     _role = getattr(session.config, "workerinput", {}).get("workerid", "controller")
     _mark("session_start")
     yield
+    # pytest-cov writes coverage reports inside runtestloop, before sessionfinish.
+    # Measure the actual reporting method separately, without attributing the
+    # overlapping loop remainder to reporting.
+    cov = session.config.pluginmanager.getplugin("_cov")
+    if _role == "controller" and cov is not None and cov.cov_controller is not None:
+        summary = cov.cov_controller.summary
+
+        def measured_summary(*args, **kwargs):
+            _mark("coverage_reporting_start")
+            try:
+                return summary(*args, **kwargs)
+            finally:
+                _mark("coverage_reporting_end")
+
+        cov.cov_controller.summary = measured_summary
 
 
 @pytest.hookimpl(wrapper=True, tryfirst=True)
@@ -352,12 +367,15 @@ def execution_phases(arm: Path) -> dict:
         except (OSError, ValueError, KeyError, TypeError):
             clocks = {}
         intervals = {}
-        for label, prefix in (
+        labels = [
             ("session", "session"),
             ("collection", "collection"),
             ("controller_worker_loop", "loop"),
             ("reporting", "reporting"),
-        ):
+        ]
+        if role == "controller":
+            labels.append(("coverage_reporting", "coverage_reporting"))
+        for label, prefix in labels:
             start, end = clocks.get(f"{prefix}_start"), clocks.get(f"{prefix}_end")
             valid = all(
                 type(v) in (int, float) and math.isfinite(v) and v >= 0 for v in (start, end)
@@ -374,7 +392,7 @@ def execution_phases(arm: Path) -> dict:
         "processes": processes,
         "overlap_note": "Controller session and loop overlap worker sessions and collection; "
         "worker intervals overlap each other. Session includes reporting. "
-        "Reporting measures pytest_sessionfinish hooks (coverage/JUnit/terminal), "
+        "Reporting measures pytest_sessionfinish hooks (JUnit/terminal); coverage_reporting measures pytest-cov summary inside the loop, "
         "not all per-test report handling. No intervals are additive across "
         "processes; startup, teardown outside hooks and exclusive overhead are UNKNOWN.",
     }

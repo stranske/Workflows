@@ -808,6 +808,8 @@ def _phase_receipts(arm):
                         "collection_end": 4,
                         "loop_start": 2,
                         "loop_end": 17,
+                        "coverage_reporting_start": 15,
+                        "coverage_reporting_end": 17,
                         "reporting_start": 17,
                         "reporting_end": 20,
                     },
@@ -821,6 +823,7 @@ def test_phases_measure_reporting_directly_despite_overlapping_clocks(tmp_path):
     phases = measure.execution_phases(tmp_path)
     assert phases["available"]
     assert "overlap" in phases["overlap_note"]
+    assert phases["processes"]["controller"]["coverage_reporting"]["seconds"] == 2
     for process in phases["processes"].values():
         assert process["reporting"] == {"start": 17, "end": 20, "seconds": 3}
         assert process["collection"]["seconds"] == 2
@@ -852,3 +855,15 @@ def test_phases_missing_receipt_is_unknown_without_inferred_remainder(tmp_path, 
     assert not phases["available"]
     assert all(value is None for value in phases["processes"]["controller"].values())
     assert phases["processes"]["gw0"]["session"]["seconds"] == 19
+
+
+def test_missing_coverage_reporting_boundary_remains_unknown(tmp_path):
+    _phase_receipts(tmp_path)
+    path = tmp_path / "phase-clocks/controller.json"
+    receipt = json.loads(path.read_text())
+    del receipt["boundaries"]["coverage_reporting_end"]
+    path.write_text(json.dumps(receipt))
+    phases = measure.execution_phases(tmp_path)
+    assert not phases["available"]
+    assert phases["processes"]["controller"]["coverage_reporting"] is None
+    assert phases["processes"]["controller"]["reporting"]["seconds"] == 3

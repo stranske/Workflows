@@ -659,8 +659,10 @@ pair, common lock, four workers and coverage settings. An identical external
 `phase-clocks/{controller,gw0,gw1,gw2,gw3}.json` for each arm. Intervals cover
 session hooks, collection hooks, the controller/worker execution-loop hooks and
 final reporting hooks. `reporting` is the directly measured
-`pytest_sessionfinish` hook interval, enclosing coverage, JUnit and terminal
-reporting; per-test report handling remains inside the execution loop. Controller
+`pytest_sessionfinish` hook interval, enclosing JUnit and terminal reporting.
+`coverage_reporting` directly measures the controller pytest-cov `summary` call
+inside the execution loop. Per-test report handling and coverage finalization
+remain inside that loop, without invented separate intervals. Controller
 collection is its own hook invocation; actual xdist collection occurs separately
 in each worker. The controller loop overlaps worker collection and execution.
 Sessions include reporting; all four workers overlap each other. These intervals

@@ -44,3 +44,20 @@ The initial exact integration command reported `2054 passed in 12.65s`.
 /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py
 ============================ 2054 passed in 12.11s =============================
 ```
+
+## Coverage-report boundary correction
+
+Run 42421695302 was canceled before accepting measurements. Inspection of the
+installed pytest-cov source showed `cov_controller.summary()` runs inside
+`pytest_runtestloop`, not `pytest_sessionfinish`. The draft's claim that the final
+hook enclosed coverage reporting was incorrect. The external probe now separately
+wraps the controller's actual summary call, with identical instrumentation on
+both arms. This interval overlaps the controller loop and is never derived by
+subtracting a worker or collection clock. Coverage finalization and per-test
+report handling remain inside the loop without invented separate intervals.
+
+After direct coverage-report instrumentation, the requested focused command
+printed `343 passed in 29.28s`; the exact integration command printed
+============================ 2054 passed in 13.68s =============================
+Both exited 0. Raw outputs are retained in the adjacent closer-r2 pytest files.
+The original 3.12 archive still independently validates with the updated checker.

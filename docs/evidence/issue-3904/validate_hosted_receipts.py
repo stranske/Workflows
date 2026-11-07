@@ -4,6 +4,7 @@ Usage: python validate_hosted_receipts.py ARCHIVE ARTIFACT_METADATA
 Metadata is the unmodified Actions artifacts API response for the run.
 """
 
+import ast
 import hashlib
 import json
 import math
@@ -84,6 +85,17 @@ def validate(archive, metadata):
             missing.append(path)
         else:
             assert digest(members[path]) == expected, f"uploaded hash mismatch: {path}"
+    if "phase_plugin_sha256" in result:
+        source = ast.parse(
+            git("show", f'{manifest["workflow_sha"]}:scripts/measure_verifier_runtime.py')
+        )
+        plugin = next(
+            ast.literal_eval(node.value)
+            for node in source.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "PHASE_PLUGIN" for t in node.targets)
+        )
+        assert digest(plugin.encode()) == result["phase_plugin_sha256"]
     outcomes, coverage, phases = {}, {}, {}
     for arm in PAIR:
         row = result["arms"][arm]
@@ -163,12 +175,15 @@ def validate(archive, metadata):
                 clock = json.loads(members[path])
                 assert clock["role"] == role and clock["clock"] == "time.monotonic"
                 intervals = {}
-                for label, prefix in (
+                labels = [
                     ("session", "session"),
                     ("collection", "collection"),
                     ("controller_worker_loop", "loop"),
                     ("reporting", "reporting"),
-                ):
+                ]
+                if role == "controller":
+                    labels.append(("coverage_reporting", "coverage_reporting"))
+                for label, prefix in labels:
                     start, end = (
                         clock["boundaries"][f"{prefix}_{edge}"] for edge in ("start", "end")
                     )
