@@ -357,7 +357,14 @@ def select_read_token(
         session = session_for_token(candidate["token"], session_factory=session_factory)
         first_failure = ""
         for repo in repos[:TOKEN_PROBE_REPO_LIMIT]:
-            repo_response = session.get(f"https://api.github.com/repos/{repo}")
+            try:
+                repo_response = session.get(f"https://api.github.com/repos/{repo}")
+            except requests.RequestException as exc:
+                # Exception messages may contain request headers or other private details.
+                first_failure = first_failure or (
+                    f"repo preflight failed for {repo}: request failed ({type(exc).__name__})"
+                )
+                continue
             if repo_response.status_code >= 400:
                 first_failure = (
                     first_failure
@@ -368,9 +375,16 @@ def select_read_token(
                 if not path:
                     diagnostics["selected_source"] = source
                     return session, diagnostics
-                content_response = session.get(
-                    f"https://api.github.com/repos/{repo}/contents/{path}"
-                )
+                try:
+                    content_response = session.get(
+                        f"https://api.github.com/repos/{repo}/contents/{path}"
+                    )
+                except requests.RequestException as exc:
+                    first_failure = first_failure or (
+                        f"content preflight failed for {repo}/contents/{path}: "
+                        f"request failed ({type(exc).__name__})"
+                    )
+                    continue
                 if content_response.status_code in {200, 404}:
                     diagnostics["selected_source"] = source
                     diagnostics["probe_repo"] = repo
@@ -459,7 +473,10 @@ def fetch_open_sync_prs(
     session: requests.Session, repo: str
 ) -> tuple[list[dict[str, object]], str | None]:
     """Return open Workflows sync PRs for a consumer repo, or a non-fatal lookup error."""
-    response = session.get(f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=50")
+    try:
+        response = session.get(f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=50")
+    except requests.RequestException as exc:
+        return [], f"{repo}: sync PR lookup failed (requests.{type(exc).__name__})"
     if response.status_code >= 400:
         return [], f"{repo}: sync PR lookup failed ({response_failure_reason(response)})"
 
@@ -898,7 +915,13 @@ def fetch_remote_tree(
     session: requests.Session, repo: str
 ) -> tuple[dict[str, dict[str, object]] | None, str | None]:
     """Fetch a repo's default-branch tree once so file comparisons are cheap."""
-    repo_response = session.get(f"https://api.github.com/repos/{repo}")
+    try:
+        repo_response = session.get(f"https://api.github.com/repos/{repo}")
+    except requests.RequestException as exc:
+        return (
+            None,
+            f"{repo}: repository access preflight failed (requests.{type(exc).__name__})",
+        )
     if repo_response.status_code >= 400:
         return (
             None,
@@ -907,9 +930,15 @@ def fetch_remote_tree(
 
     repo_data = repo_response.json()
     default_branch = str(repo_data.get("default_branch") or "main")
-    tree_response = session.get(
-        f"https://api.github.com/repos/{repo}/git/trees/{default_branch}?recursive=1"
-    )
+    try:
+        tree_response = session.get(
+            f"https://api.github.com/repos/{repo}/git/trees/{default_branch}?recursive=1"
+        )
+    except requests.RequestException as exc:
+        return (
+            None,
+            f"{repo}: repository tree fetch failed (requests.{type(exc).__name__})",
+        )
     if tree_response.status_code >= 400:
         return (
             None,
@@ -962,25 +991,6 @@ def main() -> int:
         )
         return 1
 
-    candidates = token_candidates()
-    if not candidates:
-        print("::error::No GitHub token available for cross-repo reads")
-        write_report_json(
-            args.report_json,
-            build_report(
-                repos=repos,
-                drift=set(),
-                missing=set(),
-                errors={"No GitHub token available for cross-repo reads"},
-                obsolete=set(),
-                token_diagnostics={
-                    "schema": "workflows-drift-token-selection/v1",
-                    "error": "no_token_candidates",
-                },
-            ),
-        )
-        return 1
-
     try:
         compiled = compile_manifest(manifest_path)
     except ManifestCompileError as exc:
@@ -1015,24 +1025,43 @@ def main() -> int:
         )
         return 1
 
+    gate_entry = next(
+        (
+            entry
+            for entry in compiled.section("workflows")
+            if entry.target == ".github/workflows/pr-00-gate.yml"
+        ),
+        None,
+    )
+    candidates = token_candidates()
     session, token_diagnostics = select_read_token(
         candidates=candidates,
         repos=repos,
         paths=probe_targets(compiled, sections),
     )
     if session is None:
-        print("::error::No usable GitHub token available for consumer repo contents reads")
-        write_report_json(
-            args.report_json,
-            build_report(
-                repos=repos,
-                drift=set(),
-                missing=set(),
-                errors={"No usable GitHub token available for consumer repo contents reads"},
-                obsolete=set(),
-                token_diagnostics=token_diagnostics,
-            ),
+        read_error = (
+            "No usable GitHub token available for consumer repo contents reads"
+            if candidates
+            else "No GitHub token available for cross-repo reads"
         )
+        print(f"::error::{read_error}")
+        report = build_report(
+            repos=repos,
+            drift=set(),
+            missing=set(),
+            errors={read_error},
+            obsolete=set(),
+            token_diagnostics=token_diagnostics,
+        )
+        if gate_entry is not None:
+            # No consumer tree was read; preserve that uncertainty in every output.
+            gate_lines = gate_trigger_lines(repos, gate_entry, {}, lambda *_args: None)
+            report["gate_triggers"] = gate_lines
+            for line in gate_lines:
+                print(line)
+        write_report_json(args.report_json, report)
+        write_summary_markdown(args.summary, report)
         return 1
 
     drift: set[str] = set()
@@ -1148,14 +1177,6 @@ def main() -> int:
         token_diagnostics=token_diagnostics,
         current_plan_id=current_plan_id,
         candidate_repos=candidate_repos,
-    )
-    gate_entry = next(
-        (
-            entry
-            for entry in compiled.section("workflows")
-            if entry.target == ".github/workflows/pr-00-gate.yml"
-        ),
-        None,
     )
     if gate_entry is not None:
         gate_lines = gate_trigger_lines(repos, gate_entry, remote_trees, read_blob)

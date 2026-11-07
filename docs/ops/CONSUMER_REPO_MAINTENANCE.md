@@ -3339,8 +3339,29 @@ closes any open alert so a recovered incident cannot remain as a stale red issue
   Skipped consumers show `(custom gate, never overwritten)` before the comparison,
   including an explicit `matches` when aligned. `gate triggers: all match` appears
   only after every in-scope consumer, including skipped consumers, matches.
-  Unreadable or invalid Gates are reported as unknown and prevent all-match. These
-  lines do not fail Health 68, create an alert, or authorize overwriting a Gate.
+  Unreadable or invalid Gates are reported as unknown and prevent all-match.
+  Unknown lines also appear in logs, JSON, and the step summary when read preflight
+  fails before consumer trees can be fetched, including when no read credential
+  is available. The comparison lines do not fail Health 68, create an alert,
+  or authorize overwriting a Gate.
+- For WF#4082's post-campaign observation, obtain the final campaign merge's
+  `mergedAt` from current PR metadata, then run
+  `python3 scripts/measure_gate_cancellations.py --merge "$FINAL_CAMPAIGN_MERGED_AT" --output /tmp/gate-observation.json`
+  with that verified timestamp in `FINAL_CAMPAIGN_MERGED_AT`.
+  Invalid, timezone-free, or fractional-second merge timestamps exit with a CLI
+  usage error before any consumer reads or output-file creation.
+  The collector reads every registered consumer with authenticated `gh run list --all`
+  so disabling Gate after the interval does not hide its historical runs,
+  paginates with `--limit 1000`, and splits saturated date windows to avoid
+  silently accepting truncated results. It retains raw runs and commands, counts
+  each cancelled `pull_request` run with a distinct same-repository, same-head
+  sibling within five seconds, and divides by all Gate runs in the half-open
+  interval `[mergedAt, mergedAt + 48 hours)`. Its total read budget is 110 seconds.
+  Runs outside that interval are excluded before checking their final conclusion.
+  Pending intervals report their exact end time. Failed reads, incomplete in-interval runs,
+  saturated one-second windows, and an empty denominator cannot pass. This
+  diagnostic does not establish the final merge timestamp or replace live drift
+  readback; its caller must verify campaign disposition first.
 - The uploaded `consumer-sync-drift-report` artifact uses
   `workflows-consumer-sync-drift/v1` and includes safe
   `token_diagnostics` (`workflows-drift-token-selection/v1`) so permission or

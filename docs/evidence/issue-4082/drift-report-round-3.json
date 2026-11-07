@@ -1,0 +1,163 @@
+{
+  "read_preflight_unavailable": {
+    "schema": "workflows-consumer-sync-drift/v1",
+    "status": "drift",
+    "repo_count": 16,
+    "repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/Template",
+      "stranske/Counter_Risk",
+      "stranske/Pension-Data",
+      "stranske/Inv-Man-Intake",
+      "stranske/Ready",
+      "stranske/trip-planner",
+      "stranske/Manager-Database",
+      "stranske/Portable-Alpha-Extension-Model",
+      "stranske/Trend_Model_Project",
+      "stranske/learning-management-system",
+      "stranske/Fine-Art-Archive",
+      "stranske/Orchestrator",
+      "stranske/Doc-Lineage",
+      "stranske/Deliverable-Render",
+      "stranske/Manager-Mosaic"
+    ],
+    "counts": {
+      "drift": 0,
+      "errors": 1,
+      "missing": 0,
+      "obsolete": 0,
+      "unmeasured_create_only": 0
+    },
+    "errors": [
+      "No usable GitHub token available for consumer repo contents reads"
+    ],
+    "gate_triggers": [
+      "gate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Template unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Ready unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/trip-planner unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)"
+    ],
+    "token_diagnostics": {
+      "attempted_sources": [
+        "GITHUB_TOKEN"
+      ],
+      "error": "no_usable_token",
+      "probe_paths": [
+        ".github/workflows/agents-guard-fork-status.yml",
+        ".github/codex/prompts/keepalive_next_task.md",
+        ".github/scripts/gate-fork-status-publication.js",
+        ".github/codex/AGENT_INSTRUCTIONS.md",
+        ".github/copilot-instructions.md",
+        ".github/templates/keepalive-instruction.md",
+        ".github/actions/agent-event-eligibility/action.yml",
+        "docs/CI_FAILURE_PLAYBOOK.md",
+        "config/model_registry.json",
+        ".gitattributes",
+        ".github/ISSUE_TEMPLATE/agent_task.yml",
+        "WORKFLOW_USER_GUIDE.md"
+      ],
+      "probe_repos": [
+        "stranske/Travel-Plan-Permission",
+        "stranske/Template",
+        "stranske/Counter_Risk"
+      ],
+      "rejected": [
+        {
+          "reason": "repo preflight failed for stranske/Travel-Plan-Permission: request failed (ConnectionError)",
+          "source": "GITHUB_TOKEN"
+        }
+      ],
+      "schema": "workflows-drift-token-selection/v1",
+      "selected_source": ""
+    }
+  },
+  "no_read_credential": {
+    "schema": "workflows-consumer-sync-drift/v1",
+    "status": "drift",
+    "repo_count": 16,
+    "repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/Template",
+      "stranske/Counter_Risk",
+      "stranske/Pension-Data",
+      "stranske/Inv-Man-Intake",
+      "stranske/Ready",
+      "stranske/trip-planner",
+      "stranske/Manager-Database",
+      "stranske/Portable-Alpha-Extension-Model",
+      "stranske/Trend_Model_Project",
+      "stranske/learning-management-system",
+      "stranske/Fine-Art-Archive",
+      "stranske/Orchestrator",
+      "stranske/Doc-Lineage",
+      "stranske/Deliverable-Render",
+      "stranske/Manager-Mosaic"
+    ],
+    "counts": {
+      "drift": 0,
+      "errors": 1,
+      "missing": 0,
+      "obsolete": 0,
+      "unmeasured_create_only": 0
+    },
+    "errors": [
+      "No GitHub token available for cross-repo reads"
+    ],
+    "gate_triggers": [
+      "gate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Template unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Ready unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/trip-planner unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)"
+    ],
+    "token_diagnostics": {
+      "attempted_sources": [],
+      "error": "no_token_candidates",
+      "probe_paths": [
+        ".github/workflows/agents-guard-fork-status.yml",
+        ".github/codex/prompts/keepalive_next_task.md",
+        ".github/scripts/gate-fork-status-publication.js",
+        ".github/codex/AGENT_INSTRUCTIONS.md",
+        ".github/copilot-instructions.md",
+        ".github/templates/keepalive-instruction.md",
+        ".github/actions/agent-event-eligibility/action.yml",
+        "docs/CI_FAILURE_PLAYBOOK.md",
+        "config/model_registry.json",
+        ".gitattributes",
+        ".github/ISSUE_TEMPLATE/agent_task.yml",
+        "WORKFLOW_USER_GUIDE.md"
+      ],
+      "probe_repos": [
+        "stranske/Travel-Plan-Permission",
+        "stranske/Template",
+        "stranske/Counter_Risk"
+      ],
+      "rejected": [],
+      "schema": "workflows-drift-token-selection/v1",
+      "selected_source": ""
+    }
+  }
+}

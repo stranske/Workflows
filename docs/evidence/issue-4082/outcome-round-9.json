@@ -1,0 +1,121 @@
+{
+  "baseline": {
+    "checked_at": "2026-11-07T02:58:13.979690+00:00",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "command": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+      "scripts/check_consumer_sync_drift.py",
+      "--repos",
+      "stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic",
+      "--summary",
+      "/tmp/issue-4082-round9/summary.md",
+      "--report-json",
+      "/tmp/issue-4082-round9/drift.json"
+    ],
+    "stop_rule": "One baseline Health 68 scan, deadline 110 seconds, no network retries. Do not repair expected authentication failure. Collector regression uses local fixtures; no final campaign timestamp is inferred.",
+    "exit_code": 1,
+    "elapsed_seconds": 0.783,
+    "gate_lines": [
+      "gate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Template unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Ready unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/trip-planner unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)"
+    ]
+  },
+  "cli_reads": {
+    "checked_at": "2026-11-07T02:59:57.824599+00:00",
+    "stop_rule": "One attempt per command, 10 seconds each, 110 seconds total; stop on deadline. No retries.",
+    "commands": [
+      "gh pr view 1178 -R stranske/Counter_Risk --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 1178 -R stranske/Counter_Risk",
+      "gh pr view 101 -R stranske/Deliverable-Render --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 101 -R stranske/Deliverable-Render",
+      "gh pr view 138 -R stranske/Doc-Lineage --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 138 -R stranske/Doc-Lineage",
+      "gh pr view 832 -R stranske/Fine-Art-Archive --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 832 -R stranske/Fine-Art-Archive",
+      "gh pr view 1037 -R stranske/Inv-Man-Intake --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 1037 -R stranske/Inv-Man-Intake",
+      "gh pr view 116 -R stranske/Manager-Mosaic --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 116 -R stranske/Manager-Mosaic",
+      "gh pr view 732 -R stranske/Orchestrator --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 732 -R stranske/Orchestrator",
+      "gh pr view 979 -R stranske/Pension-Data --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 979 -R stranske/Pension-Data",
+      "gh pr view 2390 -R stranske/Portable-Alpha-Extension-Model --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 2390 -R stranske/Portable-Alpha-Extension-Model",
+      "gh pr view 633 -R stranske/Ready --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 633 -R stranske/Ready",
+      "gh pr view 1682 -R stranske/Travel-Plan-Permission --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 1682 -R stranske/Travel-Plan-Permission",
+      "gh pr view 6112 -R stranske/Trend_Model_Project --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 6112 -R stranske/Trend_Model_Project",
+      "gh pr view 775 -R stranske/learning-management-system --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 775 -R stranske/learning-management-system",
+      "gh pr view 1921 -R stranske/trip-planner --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 1921 -R stranske/trip-planner",
+      "gh pr view 4084 -R stranske/Workflows --json state,isDraft,headRefOid,mergedAt",
+      "gh pr diff 4084 -R stranske/Workflows",
+      "gh api repos/stranske/Travel-Plan-Permission/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Template/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Counter_Risk/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Pension-Data/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Inv-Man-Intake/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Ready/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/trip-planner/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Manager-Database/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Portable-Alpha-Extension-Model/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Trend_Model_Project/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/learning-management-system/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Fine-Art-Archive/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Orchestrator/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Doc-Lineage/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Deliverable-Render/contents/.github/workflows/pr-00-gate.yml",
+      "gh api repos/stranske/Manager-Mosaic/contents/.github/workflows/pr-00-gate.yml"
+    ],
+    "exit_codes": [
+      1
+    ],
+    "diagnostics": [
+      "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com"
+    ]
+  },
+  "tests": {
+    "command": "python3 -m pytest tests/scripts/test_check_consumer_sync_drift.py tests/scripts/test_measure_gate_cancellations.py tests/workflows/test_gate_trigger_contract.py tests/workflows/test_consumer_sync_create_only_evidence.py -q -m 'not slow'",
+    "before": "173 passed in 19.54s",
+    "regression_before_fix": "3 failed, 27 deselected in 0.90s",
+    "after": "181 passed in 19.07s"
+  },
+  "observation": {
+    "final_merge": null,
+    "interval_end": null,
+    "numerator": null,
+    "denominator": null,
+    "percentage": null,
+    "reason": "PAEM#2390 remains open; no final campaign timestamp or observation interval can yet be established."
+  },
+  "publication": {
+    "pr_body": "MCP tool call requires approval, but approval policy is never",
+    "git_add": "fatal: Unable to create .git/index.lock: Read-only file system",
+    "needs_human_label": "MCP tool call requires approval, but approval policy is never",
+    "issue_comment": "MCP tool call requires approval, but approval policy is never"
+  },
+  "formatting": {
+    "single_files": "Black line length 100: both unchanged",
+    "required_command": "black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "required_result": "PermissionError: Operation not permitted (multiprocessing socket)",
+    "single_worker_fallback": "exit 0, 909 files unchanged; exact invocation in verification-round-9.md"
+  }
+}
