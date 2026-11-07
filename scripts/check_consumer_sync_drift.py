@@ -473,7 +473,10 @@ def fetch_open_sync_prs(
     session: requests.Session, repo: str
 ) -> tuple[list[dict[str, object]], str | None]:
     """Return open Workflows sync PRs for a consumer repo, or a non-fatal lookup error."""
-    response = session.get(f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=50")
+    try:
+        response = session.get(f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=50")
+    except requests.RequestException as exc:
+        return [], f"{repo}: sync PR lookup failed (requests.{type(exc).__name__})"
     if response.status_code >= 400:
         return [], f"{repo}: sync PR lookup failed ({response_failure_reason(response)})"
 
@@ -912,7 +915,13 @@ def fetch_remote_tree(
     session: requests.Session, repo: str
 ) -> tuple[dict[str, dict[str, object]] | None, str | None]:
     """Fetch a repo's default-branch tree once so file comparisons are cheap."""
-    repo_response = session.get(f"https://api.github.com/repos/{repo}")
+    try:
+        repo_response = session.get(f"https://api.github.com/repos/{repo}")
+    except requests.RequestException as exc:
+        return (
+            None,
+            f"{repo}: repository access preflight failed (requests.{type(exc).__name__})",
+        )
     if repo_response.status_code >= 400:
         return (
             None,
@@ -921,9 +930,15 @@ def fetch_remote_tree(
 
     repo_data = repo_response.json()
     default_branch = str(repo_data.get("default_branch") or "main")
-    tree_response = session.get(
-        f"https://api.github.com/repos/{repo}/git/trees/{default_branch}?recursive=1"
-    )
+    try:
+        tree_response = session.get(
+            f"https://api.github.com/repos/{repo}/git/trees/{default_branch}?recursive=1"
+        )
+    except requests.RequestException as exc:
+        return (
+            None,
+            f"{repo}: repository tree fetch failed (requests.{type(exc).__name__})",
+        )
     if tree_response.status_code >= 400:
         return (
             None,

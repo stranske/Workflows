@@ -176,6 +176,113 @@ def test_read_preflight_reports_unavailable_reads(tmp_path, monkeypatch, capsys,
         assert private_detail not in output + report_text + summary
 
 
+@pytest.mark.parametrize("failed_request", ["repo", "tree", "sync_pr"])
+def test_post_selection_request_failure_produces_sanitized_report(
+    tmp_path, monkeypatch, capsys, failed_request
+) -> None:
+    """Post-selection request failures must produce sanitized reports and visible uncertainty without uncaught exceptions."""
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            # For repo metadata, return default_branch
+            # For tree, return tree data
+            # For pulls, return []
+            return {"default_branch": "main", "tree": [], "truncated": False}
+
+    class FailingSession:
+        def __init__(self):
+            self.headers = {}
+            self.call_count = 0
+
+        def get(self, url):
+            self.call_count += 1
+            if failed_request == "repo" and "repos/owner/repo" in url and "/git/trees/" not in url:
+                raise check_consumer_sync_drift.requests.ConnectionError("private connection details")
+            if failed_request == "tree" and "/git/trees/main" in url:
+                raise check_consumer_sync_drift.requests.Timeout("private timeout details")
+            if failed_request == "sync_pr" and "/pulls" in url:
+                raise check_consumer_sync_drift.requests.RequestException("private request details")
+            return Response()
+
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries="unused.json",
+        report_json=str(tmp_path / "report.json"),
+        summary=str(tmp_path / "summary.md"),
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    source = tmp_path / "gate.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened, synchronize]\n", encoding="utf-8")
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        sync_mode="create_only",
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+        removals=(),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_: set())
+    monkeypatch.setattr(check_consumer_sync_drift, "probe_targets", lambda *_: ["gate.yml"])
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "token_candidates",
+        lambda: [{"source": "test-source", "token": "test-value"}],
+    )
+    select = check_consumer_sync_drift.select_read_token
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "select_read_token",
+        lambda **kwargs: select(**kwargs, session_factory=FailingSession),
+    )
+
+    result = check_consumer_sync_drift.main()
+    report_path = Path(args.report_json)
+    assert report_path.exists()
+    report_text = report_path.read_text(encoding="utf-8")
+    report = json.loads(report_text)
+    summary_path = Path(args.summary)
+    assert summary_path.exists()
+    summary = summary_path.read_text(encoding="utf-8")
+    
+    output = capsys.readouterr().out
+    
+    # For repo and tree failures, errors should be in the errors set
+    # For sync_pr failures, errors should be in sync_remediation.lookup_errors
+    if failed_request in ("repo", "tree"):
+        assert report["errors"]
+        # Tree failures prevent gate trigger verification
+        assert report["gate_triggers"] == [
+            "gate triggers: owner/repo unknown (Gate/tree unavailable)"
+        ]
+        assert "gate triggers: all match" not in output + report_text + summary
+    else:
+        # sync_pr failures are in sync_remediation.lookup_errors
+        assert report["sync_remediation"]["lookup_errors"]
+        # The tree is fetched successfully but is empty, so gate is still unavailable
+        assert report["gate_triggers"] == [
+            "gate triggers: owner/repo unknown (Gate/tree unavailable)"
+        ]
+        assert "gate triggers: all match" not in output + report_text + summary
+    
+    # Errors are sanitized - no private details or tokens in any output
+    for exc_detail in ("private connection details", "private timeout details", "private request details", "test-value", '"token":'):
+        assert exc_detail not in report_text
+        assert exc_detail not in summary
+        assert exc_detail not in output
+    
+    # Gate trigger lines are present in all outputs
+    for line in report["gate_triggers"]:
+        assert line in output
+        assert line in summary
+
+
 def test_comparable_lines_ignores_leading_comment_and_blank_headers() -> None:
     """maint-68 syncs header-insensitively; the drift checker must match so a
     header-only difference is not reported as eternal drift (review E1)."""
