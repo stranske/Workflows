@@ -1,6 +1,13 @@
 # Issue #4500 follow-up status, 2026-11-07
 
-- [ ] Task 1: final-head identity verified, metadata/logs saved in `final-head-gate.json`; comparable original-round counters and final coverage archive bytes remain unavailable. Historical snapshots retained. Unknown attribution is represented by null rather than measured zero.
+Local acceptance verified for this reconciliation chunk:
+
+- [x] Required focused behavioral selection: 156 passed in 4.57s, exit 0.
+- [x] Six documentation modules in a shallow offline checkout: 41 passed in 4.92s, exit 0.
+
+The full Gate/artifact attribution acceptance criteria remain unchecked.
+
+- [ ] Task 1: final-head identity and full merge checkout verified. Bounded pinned log excerpts now recover six-target original counters (402 units on both runtimes) and final counters (238 units), with an unattributed difference of 164. Historical snapshots are retained. Comparable execution/artifact attribution and final archive bytes remain unavailable, so attributable improvement stays null rather than measured zero. See `coverage-measurement.md` and `gate-report-inputs.json`.
 - [ ] Task 2: added `tests/scripts/test_pr_verifier_ranked_remainder.py` for the selected repair callback; full target accounting and approximately 180 attributable units remain unverified. No target exclusions claimed.
 - [x] Task 3: historical mutation receipts use immutable recorded source and test bytes; inventory assertions no longer require #4405 tests to stay absent in later checkouts. Verified by the six documentation modules in a shallow offline checkout.
 - [x] Task 4: removed history fetching and extraheader copying from ranking tests; bounded pinned local ranking inputs regenerate both historical windows. Verified with a subprocess prohibition test and the shallow offline run.

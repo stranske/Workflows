@@ -410,6 +410,19 @@ def build_ranking_record(root: Path = ROOT) -> dict:
             ],
         },
         "final_head_reconciliation": measurement["final_head_reconciliation"],
+        "term_report_reconciliation": {
+            key: measurement["term_report_reconciliation"][key]
+            for key in (
+                "source",
+                "source_sha256",
+                "pre_round_missing_units_by_runtime",
+                "final_head_missing_units",
+                "unattributed_snapshot_difference_by_runtime",
+                "attributable_round_reduction",
+                "branch_arcs_recovered",
+                "comparable_execution_configuration",
+            )
+        },
         "contributions": {
             "unit": "missing_lines + missing_branches",
             "numerical_rule_about_units": contract["numerical_rule"]["about_units"],
@@ -552,7 +565,12 @@ def render_ranking_markdown(record: dict) -> str:
             contributions["double_count_guard"],
             "Counted credit is not actual improvement: #4000 attribution is unknown, "
             "not a measured zero. See final-head-gate.json for the verified later "
-            "#4481 run and the unresolved artifact/baseline recovery.",
+            "#4481 run and the unresolved comparable artifact recovery.",
+            f"Log-derived final-head target units: "
+            f"{record['term_report_reconciliation']['final_head_missing_units']}. "
+            "Original-round log-derived units and the unattributed difference are "
+            "recorded separately in coverage-measurement.json. These counters do not "
+            "replace the historical downloaded Gate snapshot or establish attribution.",
             f"Issue-listed units: {contributions['issue_listed_units']}. "
             f"Current Gate units: {contributions['current_gate_units']}. "
             f"Unattributed snapshot difference: "
@@ -766,6 +784,13 @@ def test_contribution_ledger_does_not_double_count() -> None:
     contributions = record["contributions"]
     assert contributions["counted_landed_reduction"] == 0
     assert contributions["about_180_met_by_counted_reduction"] is False
+    reconciled = record["term_report_reconciliation"]
+    assert reconciled["pre_round_missing_units_by_runtime"] == {"3.12": 402, "3.13": 402}
+    assert reconciled["final_head_missing_units"] == 238
+    assert reconciled["unattributed_snapshot_difference_by_runtime"] == {"3.12": 164, "3.13": 164}
+    assert reconciled["attributable_round_reduction"] is None
+    assert reconciled["branch_arcs_recovered"] is False
+    assert reconciled["comparable_execution_configuration"] is False
     assert contributions["numerical_rule_about_units"] == 180
     assert "does not replace" in contributions["numerical_rule_status"]
     assert contributions["exception_applies"] is False

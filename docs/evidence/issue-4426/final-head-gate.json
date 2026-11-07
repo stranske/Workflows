@@ -30,5 +30,12 @@
   ],
   "attributable_round_reduction": null,
   "original_round_per_target_baseline": null,
-  "reason": "No comparable original-round per-target missing line and branch counters; final archive file reference returned but bytes inaccessible in local sandbox."
+  "reason": "Original-round and final per-target integer counts recovered uniquely from bounded log excerpts; no branch arcs or comparable artifact attribution recovered. Final archive bytes remain inaccessible locally.",
+  "checkout_sha": "e4e584ea61852751c55749ab9ed6539fa10c9a31",
+  "checkout_tree": "c9e0d5158f0dd4bc8166c3667439219b7e943fd9",
+  "checkout_parents": [
+    "d216eaafb02c97ed5f1da16a10d46d9a967c616f",
+    "97fa3cdd6b198623db4adc86f16f0b3788320794"
+  ],
+  "log_derived_counters": "coverage-measurement.json#term_report_reconciliation"
 }

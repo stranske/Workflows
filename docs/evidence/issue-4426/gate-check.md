@@ -1,5 +1,39 @@
 # Issue #4426 Gate check and stop rule
 
+Latest local reconciliation results, 2026-11-07: the required focused selection
+passes 156 tests in 4.57s (exit 0); targeted verifier smoke coverage passes the
+same 156 tests in 6.14s, reporting 22.90% for this selection only. All six
+documentation modules pass 41 tests in 4.92s from a fresh depth-one clone with
+network access blocked and no credential copying (exit 0). Four validator
+mutations fail by name and all restored selections pass; reproduce with
+`python docs/evidence/issue-4426/reconciliation-mutation-driver.txt`.
+
+Ruff passes on both changed Python modules. Black formats them at line length
+100; the full-tree check reports `955 files would be left unchanged`, exit 0,
+using the installed CLI with the serial dispatcher retained in
+`black-serial-driver.txt`. The unmodified default process-pool startup raises
+`PermissionError` in this sandbox. This scheduling adaptation preserves all
+formatting and safety checks. Active-checkout `git add` still fails because
+`.git/index.lock` is read-only; an isolated local commit carries this chunk.
+No push or exact-head Gate run for this follow-up is claimed.
+
+## Second reconciliation check, 2026-11-07
+
+Before this round's test edits, the repository-selected interpreter ran
+`python -m pytest -q tests/docs/test_issue_4426_contract_record.py tests/docs/test_issue_4426_pr_inventory.py -m 'not slow' --tb=line`:
+`6 passed in 1.09s`, exit 0. The finite stop rule below still applies.
+Selected symbols for this chunk are `recover_missing_branches`,
+`recover_report_targets`, and `reconcile_gate_reports` in the coverage evidence
+tests. No production behavior or target exclusion is changed.
+
+The connector reverified the final run/head, artifact/head, and full synthetic
+merge SHA and parents. Original Gate logs for Python 3.12 and 3.13 are accessible;
+their selected per-target reports are retained in `gate-report-inputs.json`.
+The final archive still cannot resolve locally. A unique integer count recovered
+from a small target's percentage is a log-derived counter, not a downloaded
+coverage artifact or a branch-arc inventory. Repository-wide rounded totals
+remain ambiguous. Cross-snapshot differences remain unattributed.
+
 Recorded 2026-11-06T17:31:27Z, after the contract and inventory commits. This
 stop rule binds the remaining coverage work. It was not in place before those
 two commits.

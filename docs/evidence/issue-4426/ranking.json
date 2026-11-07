@@ -289,8 +289,27 @@
     "coverage_json_locally_available": false,
     "attributable_round_reduction": null,
     "original_round_per_target_baseline": null,
-    "status": "blocked: final artifact bytes inaccessible locally and original-round per-target branch outcomes unavailable",
-    "unknown_is_not_zero_improvement": true
+    "status": "blocked: final artifact bytes inaccessible locally; original-round log counters recovered but runtime, source and test configurations differ, so attribution is unknown",
+    "unknown_is_not_zero_improvement": true,
+    "term_report_record": "term_report_reconciliation",
+    "log_derived_target_missing_units": 238,
+    "unattributed_original_round_snapshot_difference": 164
+  },
+  "term_report_reconciliation": {
+    "source": "gate-report-inputs.json",
+    "source_sha256": "edef0047a34517cdbd3543e0bc308e180865305bcc5f618ba3ea1619dc5e4a3c",
+    "pre_round_missing_units_by_runtime": {
+      "3.12": 402,
+      "3.13": 402
+    },
+    "final_head_missing_units": 238,
+    "unattributed_snapshot_difference_by_runtime": {
+      "3.12": 164,
+      "3.13": 164
+    },
+    "attributable_round_reduction": null,
+    "branch_arcs_recovered": false,
+    "comparable_execution_configuration": false
   },
   "contributions": {
     "unit": "missing_lines + missing_branches",

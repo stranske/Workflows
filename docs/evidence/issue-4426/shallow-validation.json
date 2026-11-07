@@ -19,21 +19,8 @@
   "is_shallow": true,
   "network_guard": true,
   "credential_copying": false,
-  "checkout": "/tmp/issue-4426-offline-y9siise_/checkout",
+  "checkout": "/tmp/issue-4426-offline-in0_icin/checkout",
   "exit_code": 0,
-  "elapsed_seconds": 5.682,
-  "output": "...............................                                          [100%]\n31 passed in 3.87s\n",
-  "base_checkout": "cdfeb6b78fd5db3a06596fa505220dfe31545f31",
-  "tested_files_sha256": {
-    "tests/scripts/test_pr_verifier_ranked_remainder.py": "c6b493b5008dd1e6431e57473ded7f59a35d5878c88b771c1f2121ab26921dd8",
-    "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py": "123722013183027dd2f51ff04809802c984d56958a62290730048fd8cf959772",
-    "tests/scripts/test_pr_verifier_evidence_cache_miss.py": "41b820b4017902a334f6f535a74e4fc63a33ef981eb646106b217ac239c3b503",
-    "tests/tools/test_langchain_client.py": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
-    "tests/docs/test_issue_4426_mutation_receipts.py": "f4d5e4b24ce8bb21e924770a027c64d64cca4c92482697d23057075754f79131",
-    "tests/docs/test_issue_4426_pr_inventory.py": "9637bed4f755ddcb41ec3f131c96ba778ec1b8cacda28b30d2bc7d9f00ff3b84",
-    "tests/docs/test_issue_4426_ranking.py": "bc07019f771e7c3dac7b8f8a075282ee77afbc30d942ca0bd532050524f8ef8a",
-    "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
-    "tools/langchain_client.py": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
-    "templates/consumer-repo/tools/langchain_client.py": "350e8ba6d312cdf4d6d111c0da1ad4d1b58d17cfbd3341c5625a2cc74c05518e"
-  }
+  "elapsed_seconds": 7.049,
+  "output": ".........................................                                [100%]\n41 passed in 4.92s\n"
 }

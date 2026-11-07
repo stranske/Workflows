@@ -256,7 +256,178 @@
     "coverage_json_locally_available": false,
     "attributable_round_reduction": null,
     "original_round_per_target_baseline": null,
-    "status": "blocked: final artifact bytes inaccessible locally and original-round per-target branch outcomes unavailable",
-    "unknown_is_not_zero_improvement": true
+    "status": "blocked: final artifact bytes inaccessible locally; original-round log counters recovered but runtime, source and test configurations differ, so attribution is unknown",
+    "unknown_is_not_zero_improvement": true,
+    "term_report_record": "term_report_reconciliation",
+    "log_derived_target_missing_units": 238,
+    "unattributed_original_round_snapshot_difference": 164
+  },
+  "term_report_reconciliation": {
+    "source": "gate-report-inputs.json",
+    "source_sha256": "edef0047a34517cdbd3543e0bc308e180865305bcc5f618ba3ea1619dc5e4a3c",
+    "pre_round_targets_by_runtime": {
+      "3.12": {
+        "scripts/langchain/issue_pr_context.py": {
+          "num_statements": 339,
+          "missing_lines": 17,
+          "num_branches": 142,
+          "num_partial_branches": 9,
+          "percent_covered_display": "93.76",
+          "missing_branches": 13
+        },
+        "scripts/langchain/pr_verifier.py": {
+          "num_statements": 2586,
+          "missing_lines": 169,
+          "num_branches": 1016,
+          "num_partial_branches": 76,
+          "percent_covered_display": "92.14",
+          "missing_branches": 114
+        },
+        "scripts/langchain/task_validator.py": {
+          "num_statements": 250,
+          "missing_lines": 25,
+          "num_branches": 72,
+          "num_partial_branches": 3,
+          "percent_covered_display": "88.20",
+          "missing_branches": 13
+        },
+        "scripts/langchain/verifier_config.py": {
+          "num_statements": 135,
+          "missing_lines": 7,
+          "num_branches": 62,
+          "num_partial_branches": 9,
+          "percent_covered_display": "91.88",
+          "missing_branches": 9
+        },
+        "scripts/sync_test_dependencies.py": {
+          "num_statements": 300,
+          "missing_lines": 1,
+          "num_branches": 146,
+          "num_partial_branches": 5,
+          "percent_covered_display": "98.65",
+          "missing_branches": 5
+        },
+        "tools/langchain_client.py": {
+          "num_statements": 278,
+          "missing_lines": 21,
+          "num_branches": 104,
+          "num_partial_branches": 8,
+          "percent_covered_display": "92.41",
+          "missing_branches": 8
+        }
+      },
+      "3.13": {
+        "scripts/langchain/issue_pr_context.py": {
+          "num_statements": 339,
+          "missing_lines": 17,
+          "num_branches": 142,
+          "num_partial_branches": 9,
+          "percent_covered_display": "93.76",
+          "missing_branches": 13
+        },
+        "scripts/langchain/pr_verifier.py": {
+          "num_statements": 2586,
+          "missing_lines": 169,
+          "num_branches": 1016,
+          "num_partial_branches": 76,
+          "percent_covered_display": "92.14",
+          "missing_branches": 114
+        },
+        "scripts/langchain/task_validator.py": {
+          "num_statements": 250,
+          "missing_lines": 25,
+          "num_branches": 72,
+          "num_partial_branches": 3,
+          "percent_covered_display": "88.20",
+          "missing_branches": 13
+        },
+        "scripts/langchain/verifier_config.py": {
+          "num_statements": 135,
+          "missing_lines": 7,
+          "num_branches": 62,
+          "num_partial_branches": 9,
+          "percent_covered_display": "91.88",
+          "missing_branches": 9
+        },
+        "scripts/sync_test_dependencies.py": {
+          "num_statements": 300,
+          "missing_lines": 1,
+          "num_branches": 146,
+          "num_partial_branches": 5,
+          "percent_covered_display": "98.65",
+          "missing_branches": 5
+        },
+        "tools/langchain_client.py": {
+          "num_statements": 278,
+          "missing_lines": 21,
+          "num_branches": 104,
+          "num_partial_branches": 8,
+          "percent_covered_display": "92.41",
+          "missing_branches": 8
+        }
+      }
+    },
+    "final_head_targets": {
+      "scripts/langchain/issue_pr_context.py": {
+        "num_statements": 359,
+        "missing_lines": 13,
+        "num_branches": 150,
+        "num_partial_branches": 2,
+        "percent_covered_display": "96.27",
+        "missing_branches": 6
+      },
+      "scripts/langchain/pr_verifier.py": {
+        "num_statements": 3188,
+        "missing_lines": 107,
+        "num_branches": 1288,
+        "num_partial_branches": 79,
+        "percent_covered_display": "95.53",
+        "missing_branches": 93
+      },
+      "scripts/langchain/task_validator.py": {
+        "num_statements": 248,
+        "missing_lines": 3,
+        "num_branches": 70,
+        "num_partial_branches": 3,
+        "percent_covered_display": "98.11",
+        "missing_branches": 3
+      },
+      "scripts/langchain/verifier_config.py": {
+        "num_statements": 144,
+        "missing_lines": 1,
+        "num_branches": 70,
+        "num_partial_branches": 1,
+        "percent_covered_display": "99.07",
+        "missing_branches": 1
+      },
+      "scripts/sync_test_dependencies.py": {
+        "num_statements": 339,
+        "missing_lines": 1,
+        "num_branches": 158,
+        "num_partial_branches": 5,
+        "percent_covered_display": "98.79",
+        "missing_branches": 5
+      },
+      "tools/langchain_client.py": {
+        "num_statements": 287,
+        "missing_lines": 3,
+        "num_branches": 112,
+        "num_partial_branches": 2,
+        "percent_covered_display": "98.75",
+        "missing_branches": 2
+      }
+    },
+    "pre_round_missing_units_by_runtime": {
+      "3.12": 402,
+      "3.13": 402
+    },
+    "final_head_missing_units": 238,
+    "unattributed_snapshot_difference_by_runtime": {
+      "3.12": 164,
+      "3.13": 164
+    },
+    "attributable_round_reduction": null,
+    "branch_arcs_recovered": false,
+    "comparable_execution_configuration": false
   }
 }

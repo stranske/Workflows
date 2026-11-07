@@ -102,3 +102,54 @@ blended coverage is 91.08%, measured after the round opened. Later tasks still
 owe a target-level remainder against the original numerical rule. The same-artifact
 target counters are stored beside the repository totals for that later ranking;
 they are not themselves the round-wide reduction.
+
+## Later log reconciliation, 2026-11-07
+
+The historical records above remain unchanged. `gate-report-inputs.json` pins
+bounded per-target log excerpts from original Gate jobs 117244209085 (3.12)
+and 117244209133 (3.13), plus final-head job 128131232558 (3.14). Selected
+REST metadata binds run 42287174423 and artifact 13537639987 to PR #4481 head
+`97fa3cdd6b198623db4adc86f16f0b3788320794`. The actual tested checkout is
+`e4e584ea61852751c55749ab9ed6539fa10c9a31`, tree
+`c9e0d5158f0dd4bc8166c3667439219b7e943fd9`; its parents are base
+`d216eaafb02c97ed5f1da16a10d46d9a967c616f` and that PR head.
+
+Each small target report permits exactly one integer missing-branch count
+under coverage.py's precision-two display. The evidence test enumerates every
+valid missing-branch count, requires a unique match, and rejects ambiguous
+totals, impossible counters, missing/duplicate targets, or mismatched identities.
+It does not use partial branches as missing branch outcomes. The original
+Python 3.12 and 3.13 target counters agree:
+
+| Target | Original missing lines | Original missing branches | Final missing lines | Final missing branches |
+| --- | ---: | ---: | ---: | ---: |
+| `scripts/sync_test_dependencies.py` | 1 | 5 | 1 | 5 |
+| `scripts/langchain/issue_pr_context.py` | 17 | 13 | 13 | 6 |
+| `scripts/langchain/verifier_config.py` | 7 | 9 | 1 | 1 |
+| `tools/langchain_client.py` | 21 | 8 | 3 | 2 |
+| `scripts/langchain/task_validator.py` | 25 | 13 | 3 | 3 |
+| `scripts/langchain/pr_verifier.py` | 169 | 114 | 107 | 93 |
+
+Original log-derived missing units total **402**; final log-derived missing
+units total **238**. Their difference, **164**, is an unattributed snapshot
+difference, not an attributable round-wide reduction. The issue-listed 398
+units and the earlier downloaded Gate's 327 units remain separate snapshots.
+No target exclusions are claimed and no units are credited toward acceptance.
+
+These are reconstructed counters from the recorded Gate configurations, not
+comparable downloaded artifacts or branch arcs. Original Gate used Python
+3.12/3.13, `pytest`, and automatic workers; final Gate used Python 3.14,
+`pytest -p ci_test_growth`, and four workers. Source and test inventories also
+changed (for example, verifier statements grew from 2586 to 3188). The current
+coverage configuration alone does not establish equivalent execution.
+The repository-wide final TOTAL has several possible missing-branch counts
+at its rounded percentage; no exact total is inferred. The final archive URL
+still fails local DNS resolution. `attributable_round_reduction` and the
+**comparable** original-round baseline remain null. Task 1 stays incomplete
+until comparable artifacts establish attribution against the about-180 rule.
+
+Reproduce the offline counter and identity checks:
+
+```bash
+python -m pytest -q tests/docs/test_issue_4426_coverage_measurement.py tests/docs/test_issue_4426_ranking.py -m 'not slow'
+```
