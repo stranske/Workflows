@@ -88,7 +88,8 @@ is therefore only satisfiable as: 3.14 measured, 3.13 not measured by Gate.
 
 The three llm_provider lines (265, 270, 292) are still uncovered at the Gate
 head `f485bbc`; #4431's later commits (head `69e5b6d6`) may change this and
-were not measured by a Gate coverage run in this task.
+were not measured at this earlier investigation stage; the continuation below
+adds current-candidate run 41720166203.
 
 Behavioral explanation: these three lines are `pass` statements in abstract methods
 of the `LLMProvider` abstract base class (lines 265: `name` property, line 270: 
@@ -419,3 +420,46 @@ This is the owner's selected local interpreter, not hosted Python 3.13/3.14.
 It is a current-branch focused check, not the requested post-#4431-integration
 acceptance. The 243 versus historical candidate 268 count reflects different
 candidate test trees and does not establish loss from an integrated delivery.
+
+### Additional current-candidate hosted evidence
+
+A later readback located [Gate 41720166203](https://github.com/stranske/Workflows/actions/runs/41720166203),
+whose API head is the current #4431 candidate
+`69e5b6d6cd3fb154be29890f2ae212772de8ce45`. Both Python job logs print tested
+checkout `d3997d8478a07a9a2d5ba98cb761a8717fe4494c`, base
+`2bd1aa094698d3e9f2ce91f754f6b00fb748a52d`. Git commit parents confirm that
+base/head pair. The three target blob IDs match the candidate head and the
+41717668636 row above: aggregate `ff8693012c52ab0966d818557d396d83011ed4e5`,
+sync drift `383a70446744e679bccbe66fb4f57c41f4933b5a`, provider
+`96d848a4385ed7299cd858aa10774d6f0476f129`.
+
+Hosted logs (both jobs SUCCESS) print:
+
+```text
+Python 3.13: 50373 passed, 27 skipped, 3 xfailed in 651.12s (0:10:51)
+Python 3.14: 50373 passed, 27 skipped, 3 xfailed in 430.57s (0:07:10)
+```
+
+Downloaded artifacts separately from the earlier runs. The positional script
+exits 0 on this run's Python 3.14 coverage.json:
+
+```text
+TOTAL 63110 69241 91.14541962132263
+scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+TARGET_MISSING 3
+```
+
+Per-file statement/branch denominators are respectively 899/380, 633/296,
+447/114. The 3.14 summary.json's 92.57 percent disagrees with the raw
+coverage.json total of 91.14541962132263; the raw counters above are used,
+not that summary percentage. Python 3.13's separately downloaded artifact
+reports coverage_json=false and coverage_xml=false and contains no
+coverage.json. Its runtime coverage discrepancy remains explicit.
+
+This supplies hosted pytest and raw coverage for the **current** candidate,
+correcting the earlier stage's lack of current-head artifact evidence. It is
+not acceptance for future owner repairs, the final integrated tree, or #4495's
+current tree. The restoration and environment-isolation fixes still require
+owner application and new final-reviewed-tree evidence before delivery.
