@@ -156,38 +156,59 @@ def test_progress_review_caches_pip_before_dependency_install() -> None:
 @pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
 def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Path) -> None:
     """Run the actual install shell with a fake npm, then restore into a fresh prefix."""
-    _, job = _runner(agent)
+    workflow, job = _runner(agent)
     install = _step(job, "Install Codex CLI" if agent == "codex" else f"Ensure {agent.title()} CLI")
+    expose = _step(job, f"Expose cached {agent.title()} CLI")["run"]
+    inputs = (workflow.get("on") or workflow[True])["workflow_call"]["inputs"]
+    version = inputs[f"{agent}_cli_version"]["default"]
     fake_bin = tmp_path / "tools"
     fake_bin.mkdir()
     npm = fake_bin / "npm"
     npm.write_text(
         "#!/bin/sh\nset -eu\n"
-        'echo install >> "$INSTALL_LOG"\n'
+        'printf "%s\\n" "$*" >> "$INSTALL_LOG"\n'
         'mkdir -p "$NPM_CONFIG_PREFIX/bin"\n'
         'printf "#!/bin/sh\\necho cached-cli\\n" > "$NPM_CONFIG_PREFIX/bin/$CLI_BINARY"\n'
         'chmod +x "$NPM_CONFIG_PREFIX/bin/$CLI_BINARY"\n'
     )
     npm.chmod(0o755)
-    prefix = tmp_path / "cold" / agent
+    prefix_template = install["env"]["NPM_CONFIG_PREFIX"]
+    prefix = Path(prefix_template.replace("${{ runner.temp }}", str(tmp_path / "cold")))
     log = tmp_path / "installs"
     env = {
         **os.environ,
-        "PATH": f"{prefix / 'bin'}:{fake_bin}:/usr/bin:/bin",
+        "PATH": f"{fake_bin}:/usr/bin:/bin",
         "NPM_CONFIG_PREFIX": str(prefix),
         "INSTALL_LOG": str(log),
         "CLI_BINARY": agent,
-        "CODEX_CLI_VERSION": "0.160.0",
-        "VERSION": "1.2.3",
+        "CODEX_CLI_VERSION": version,
+        "VERSION": version,
         "PACKAGE": "@anthropic-ai/claude-code",
     }
+
+    def expose_prefix(round_name: str) -> None:
+        github_path = tmp_path / f"{round_name}-github-path"
+        env["GITHUB_PATH"] = str(github_path)
+        subprocess.run(
+            ["/bin/bash", "-c", expose.replace("${{ runner.temp }}", str(tmp_path / round_name))],
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        paths = github_path.read_text().splitlines()
+        assert str(Path(env["NPM_CONFIG_PREFIX"]) / "bin") in paths
+        env["PATH"] = ":".join([*paths, str(fake_bin), "/usr/bin", "/bin"])
+
+    expose_prefix("cold")
     subprocess.run(
         ["/bin/bash", "-c", install["run"]], env=env, check=True, capture_output=True, text=True
     )
-    restored = tmp_path / "restored" / agent
+    restored = Path(prefix_template.replace("${{ runner.temp }}", str(tmp_path / "restored")))
     shutil.copytree(prefix, restored)
     shutil.rmtree(prefix)
-    env.update(PATH=f"{restored / 'bin'}:{fake_bin}:/usr/bin:/bin", NPM_CONFIG_PREFIX=str(restored))
+    env.update(PATH=f"{fake_bin}:/usr/bin:/bin", NPM_CONFIG_PREFIX=str(restored))
+    expose_prefix("restored")
     if agent != "codex":
         subprocess.run(
             ["/bin/bash", "-c", install["run"]], env=env, check=True, capture_output=True, text=True
@@ -196,7 +217,12 @@ def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Pat
         [agent, "--version"], env=env, check=True, capture_output=True, text=True
     )
     assert result.stdout.strip() == "cached-cli"
-    assert log.read_text().splitlines() == ["install"]
+    package = {
+        "codex": "@openai/codex",
+        "claude": env["PACKAGE"],
+        "gemini": "@google/gemini-cli",
+    }[agent]
+    assert log.read_text().splitlines() == [f"install -g {package}@{version}"]
 
 
 def test_muse_resolves_exact_release_and_rejects_unversioned_channel(tmp_path: Path) -> None:
