@@ -2288,5 +2288,13 @@
   "chunk_failure_production_restored": true,
   "bounded_review_receipts_record": "bounded-review-mutations.json",
   "bounded_review_validation_record": "bounded-review-validation.json",
-  "bounded_review_reproduction": "python docs/evidence/issue-4426/bounded-review-mutation-driver.txt"
+  "bounded_review_reproduction": "python docs/evidence/issue-4426/bounded-review-mutation-driver.txt",
+  "archive_reconciliation": {
+    "receipt_record": "archive-reconciliation-mutations.json",
+    "validation_record": "archive-reconciliation-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/archive-reconciliation-mutation-driver.txt",
+    "source_restored": true,
+    "real_final_artifact_available": false,
+    "scope": "offline ingestion only; synthetic fixtures do not establish comparable artifacts or attributable reduction"
+  }
 }

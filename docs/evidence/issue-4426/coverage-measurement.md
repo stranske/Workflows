@@ -185,3 +185,27 @@ Reproduce the offline counter and identity checks:
 ```bash
 python -m pytest -q tests/docs/test_issue_4426_coverage_measurement.py tests/docs/test_issue_4426_ranking.py -m 'not slow'
 ```
+
+
+## Offline archive ingestion
+
+`scripts/reconcile_issue_4426_coverage.py` can ingest the final artifact once
+its ZIP bytes are accessible locally:
+
+```bash
+python scripts/reconcile_issue_4426_coverage.py /tmp/issue-4426-final-gate.zip > /tmp/issue-4426-final-gate-reconciled.json
+```
+
+The command verifies the pinned metadata and archive SHA-256, selects exactly
+`runtimes/3.14/coverage.json` from the recorded workflow layout, and checks
+JSON counters and percentages against the final Gate term reports. It emits
+the original missing-line and missing-branch inventories and their combined
+counts, plus the coverage JSON hash and the tested merge identity. It leaves
+the historical measurement and ranking snapshots untouched. Comparable
+original-round execution and attributable reduction remain unknown even after
+a final archive is successfully reconciled.
+
+Tests use explicitly synthetic archives and cannot establish real artifact
+availability. A fresh download attempt on 2026-11-07 still failed DNS resolution.
+This implementation advances artifact ingestion; it does not complete task 1
+or either remaining acceptance criterion.

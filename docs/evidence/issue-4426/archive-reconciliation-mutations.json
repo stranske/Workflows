@@ -1,0 +1,617 @@
+{
+  "checked_on": "2026-11-07",
+  "scope": "offline archive reconciler with synthetic fixtures; no real artifact or attribution claimed",
+  "recorded_source": {
+    "scripts/reconcile_issue_4426_coverage.py": {
+      "path": "archive-reconciliation-source.py.txt",
+      "sha256": "4138b6fbd2ebe9c56ed3c3ce559c9a4511bf9237bc8190f13737ed8334755f8b"
+    },
+    "tests/scripts/test_reconcile_issue_4426_coverage.py": {
+      "path": "archive-reconciliation-tests.py.txt",
+      "sha256": "170a2848417c141ba2b58ece4c92691d3e17cce70e0c6bc87c34762dc8ee87da"
+    }
+  },
+  "source_restored": true,
+  "receipts": [
+    {
+      "id": "accept-another-archive",
+      "original_snippet": "if \"sha256:\" + hashlib.sha256(archive_bytes).hexdigest() != digest:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "8d95cabf3539a988e5a1cea2b380bb7398bb7b9581d68e10ee3c87c6b9baf02a",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_digest_rejects_different_bytes_before_zip_parsing",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.949,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n________ test_archive_digest_rejects_different_bytes_before_zip_parsing ________\ntests/scripts/test_reconcile_issue_4426_coverage.py:148: in test_archive_digest_rejects_different_bytes_before_zip_parsing\n    reconcile.read_coverage_archive(path, \"sha256:\" + \"0\" * 64)\nscripts/reconcile_issue_4426_coverage.py:45: in read_coverage_archive\n    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/zipfile/__init__.py:1505: in __init__\n    self._RealGetContents()\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/zipfile/__init__.py:1572: in _RealGetContents\n    raise BadZipFile(\"File is not a zip file\")\nE   zipfile.BadZipFile: File is not a zip file\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_archive_digest_rejects_different_bytes_before_zip_parsing - zipfile.BadZipFile: File is not a zip file\n1 failed, 20 deselected in 0.65s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_digest_rejects_different_bytes_before_zip_parsing",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.739,
+        "output": ".                                                                        [100%]\n1 passed, 20 deselected in 0.51s\n"
+      }
+    },
+    {
+      "id": "accept-substituted-head-record",
+      "original_snippet": "if hashlib.sha256(inputs_bytes).hexdigest() != REPORT_INPUTS_SHA256:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "8a4ebb94c44b2317022f1e99d7a97084743ff4f321effe7b0d7f57d038c2f977",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_rejects_unpinned_identity_metadata",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.908,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______________ test_reconcile_rejects_unpinned_identity_metadata _______________\ntests/scripts/test_reconcile_issue_4426_coverage.py:116: in test_reconcile_rejects_unpinned_identity_metadata\n    with pytest.raises(ValueError, match=\"metadata digest mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_rejects_unpinned_identity_metadata - Failed: DID NOT RAISE ValueError\n1 failed, 20 deselected in 0.61s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_rejects_unpinned_identity_metadata",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.813,
+        "output": ".                                                                        [100%]\n1 passed, 20 deselected in 0.54s\n"
+      }
+    },
+    {
+      "id": "select-any-runtime",
+      "original_snippet": "member.filename == COVERAGE_MEMBER",
+      "mutant_snippet": "member.filename.endswith(\"coverage.json\")",
+      "mutant_sha256": "85604cd49104fb63a5af2b66f73dfbef2ee46ae90498c633179c1e4ca3042cf2",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_selects_recorded_runtime_among_other_coverage_files",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.885,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_archive_selects_recorded_runtime_among_other_coverage_files _______\ntests/scripts/test_reconcile_issue_4426_coverage.py:169: in test_archive_selects_recorded_runtime_among_other_coverage_files\n    coverage, _digest = reconcile.read_coverage_archive(path, digest)\n                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nscripts/reconcile_issue_4426_coverage.py:48: in read_coverage_archive\n    raise ValueError(f\"archive must contain exactly one {COVERAGE_MEMBER}\")\nE   ValueError: archive must contain exactly one runtimes/3.14/coverage.json\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_archive_selects_recorded_runtime_among_other_coverage_files - ValueError: archive must contain exactly one runtimes/3.14/coverage.json\n1 failed, 20 deselected in 0.59s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_selects_recorded_runtime_among_other_coverage_files",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.773,
+        "output": ".                                                                        [100%]\n1 passed, 20 deselected in 0.51s\n"
+      }
+    },
+    {
+      "id": "accept-duplicate-runtime-entry",
+      "original_snippet": "if len(members) != 1:",
+      "mutant_snippet": "if not members:",
+      "mutant_sha256": "52fa424b6a18bb5027853794a5c65cbe4f715161c3f04e9dee40eb6c796b7bac",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_requires_one_recorded_runtime_coverage_file",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.78,
+        "output": "...F                                                                     [100%]\n=================================== FAILURES ===================================\n_______ test_archive_requires_one_recorded_runtime_coverage_file[names3] _______\ntests/scripts/test_reconcile_issue_4426_coverage.py:158: in test_archive_requires_one_recorded_runtime_coverage_file\n    reconcile.read_coverage_archive(path, digest)\nscripts/reconcile_issue_4426_coverage.py:56: in read_coverage_archive\n    if coverage[\"meta\"][\"branch_coverage\"] is not True:\n       ^^^^^^^^^^^^^^^^\nE   KeyError: 'meta'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_archive_requires_one_recorded_runtime_coverage_file[names3] - KeyError: 'meta'\n1 failed, 3 passed, 17 deselected in 0.56s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_requires_one_recorded_runtime_coverage_file",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.803,
+        "output": "....                                                                     [100%]\n4 passed, 17 deselected in 0.55s\n"
+      }
+    },
+    {
+      "id": "accept-statement-only-coverage",
+      "original_snippet": "if coverage[\"meta\"][\"branch_coverage\"] is not True:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "34bd3f9dcc57782ce43a6eb242c4e0baca38e910b0687a1a2625828472a15780",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_checks_branch_mode",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.777,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______________________ test_archive_checks_branch_mode ________________________\ntests/scripts/test_reconcile_issue_4426_coverage.py:190: in test_archive_checks_branch_mode\n    with pytest.raises(ValueError, match=\"branch coverage is required\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_archive_checks_branch_mode - Failed: DID NOT RAISE ValueError\n1 failed, 20 deselected in 0.54s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_checks_branch_mode",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.765,
+        "output": ".                                                                        [100%]\n1 passed, 20 deselected in 0.52s\n"
+      }
+    },
+    {
+      "id": "ignore-archive-byte-bound",
+      "original_snippet": "if len(archive_bytes) > MAX_BYTES:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "69ef96a91d29416a7a72cd145fd96ee01e62e4005a1bf50b6b831375a6412aa5",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_limits_compressed_and_expanded_input",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.816,
+        "output": "F.                                                                       [100%]\n=================================== FAILURES ===================================\n__________ test_archive_limits_compressed_and_expanded_input[archive] __________\ntests/scripts/test_reconcile_issue_4426_coverage.py:200: in test_archive_limits_compressed_and_expanded_input\n    with pytest.raises(ValueError, match=expected + \" exceeds byte limit\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'archive exceeds byte limit'\nE     Actual message: 'coverage.json exceeds byte limit'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_archive_limits_compressed_and_expanded_input[archive] - AssertionError: Regex pattern did not match.\n  Expected regex: 'archive exceeds byte limit'\n  Actual message: 'coverage.json exceeds byte limit'\n1 failed, 1 passed, 19 deselected in 0.55s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_limits_compressed_and_expanded_input",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.759,
+        "output": "..                                                                       [100%]\n2 passed, 19 deselected in 0.52s\n"
+      }
+    },
+    {
+      "id": "read-unbounded-expanded-coverage",
+      "original_snippet": "        if members[0].file_size > MAX_BYTES:\n            raise ValueError(\"coverage.json exceeds byte limit\")\n        with archive.open(members[0]) as stream:\n            data = stream.read(MAX_BYTES + 1)\n    if len(data) > MAX_BYTES:\n        raise ValueError(\"coverage.json exceeds byte limit\")",
+      "mutant_snippet": "        data = archive.read(members[0])",
+      "mutant_sha256": "e3040daafa13a6bec3aa452c8447286ad699e7ad9ac5430f2c6d7fbd7698e8a9",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_limits_compressed_and_expanded_input",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.776,
+        "output": ".F                                                                       [100%]\n=================================== FAILURES ===================================\n_________ test_archive_limits_compressed_and_expanded_input[coverage] __________\ntests/scripts/test_reconcile_issue_4426_coverage.py:200: in test_archive_limits_compressed_and_expanded_input\n    with pytest.raises(ValueError, match=expected + \" exceeds byte limit\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_archive_limits_compressed_and_expanded_input[coverage] - Failed: DID NOT RAISE ValueError\n1 failed, 1 passed, 19 deselected in 0.54s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_archive_limits_compressed_and_expanded_input",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.74,
+        "output": "..                                                                       [100%]\n2 passed, 19 deselected in 0.51s\n"
+      }
+    },
+    {
+      "id": "accept-wrong-log-counters",
+      "original_snippet": "if any(summary[key] != int(value) for key, value in zip(keys, values[:4], strict=True)):",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "80caecf5e1569923da83917cd7f7700a452b41afeea5586df7960786597f9d33",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_rejects_counters_or_percentage_disagreeing_with_log and missing_lines",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.74,
+        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_ test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[missing_lines-target] _\ntests/scripts/test_reconcile_issue_4426_coverage.py:132: in test_reconcile_rejects_counters_or_percentage_disagreeing_with_log\n    with pytest.raises(ValueError, match=\"disagree.*Gate log\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'disagree.*Gate log'\nE     Actual message: 'missing-unit inventory disagrees with summary: scripts/sync_test_dependencies.py'\n_ test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[missing_lines-TOTAL] _\ntests/scripts/test_reconcile_issue_4426_coverage.py:132: in test_reconcile_rejects_counters_or_percentage_disagreeing_with_log\n    with pytest.raises(ValueError, match=\"disagree.*Gate log\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[missing_lines-target] - AssertionError: Regex pattern did not match.\n  Expected regex: 'disagree.*Gate log'\n  Actual message: 'missing-unit inventory disagrees with summary: scripts/sync_test_dependencies.py'\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[missing_lines-TOTAL] - Failed: DID NOT RAISE ValueError\n2 failed, 19 deselected in 0.54s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_rejects_counters_or_percentage_disagreeing_with_log and missing_lines",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.712,
+        "output": "..                                                                       [100%]\n2 passed, 19 deselected in 0.51s\n"
+      }
+    },
+    {
+      "id": "accept-wrong-log-percentage",
+      "original_snippet": "if summary[\"percent_covered_display\"] != values[4]:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "955672b028aa794bb975bd18d1104a85a885370172471d3a7353c2668960bfe3",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_rejects_counters_or_percentage_disagreeing_with_log and percent_covered_display",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.745,
+        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_ test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[percent_covered_display-target] _\ntests/scripts/test_reconcile_issue_4426_coverage.py:132: in test_reconcile_rejects_counters_or_percentage_disagreeing_with_log\n    with pytest.raises(ValueError, match=\"disagree.*Gate log\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_ test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[percent_covered_display-TOTAL] _\ntests/scripts/test_reconcile_issue_4426_coverage.py:132: in test_reconcile_rejects_counters_or_percentage_disagreeing_with_log\n    with pytest.raises(ValueError, match=\"disagree.*Gate log\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[percent_covered_display-target] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[percent_covered_display-TOTAL] - Failed: DID NOT RAISE ValueError\n2 failed, 19 deselected in 0.54s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_rejects_counters_or_percentage_disagreeing_with_log and percent_covered_display",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.775,
+        "output": "..                                                                       [100%]\n2 passed, 19 deselected in 0.58s\n"
+      }
+    },
+    {
+      "id": "accept-missing-or-duplicate-log-row",
+      "original_snippet": "if len(matches) != 1:",
+      "mutant_snippet": "if False:",
+      "mutant_sha256": "725b8ba9f56ce03194aa73d772e0a01da53c62de776f34d73baf6f2460625768",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_match_requires_exactly_one_row",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.87,
+        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n______________ test_report_match_requires_exactly_one_row[lines0] ______________\ntests/scripts/test_reconcile_issue_4426_coverage.py:176: in test_report_match_requires_exactly_one_row\n    reconcile._match_report({}, lines, \"TOTAL\")\nscripts/reconcile_issue_4426_coverage.py:69: in _match_report\n    values = matches[0].groups()\n             ^^^^^^^^^^\nE   IndexError: list index out of range\n______________ test_report_match_requires_exactly_one_row[lines1] ______________\ntests/scripts/test_reconcile_issue_4426_coverage.py:176: in test_report_match_requires_exactly_one_row\n    reconcile._match_report({}, lines, \"TOTAL\")\nscripts/reconcile_issue_4426_coverage.py:71: in _match_report\n    if any(summary[key] != int(value) for key, value in zip(keys, values[:4], strict=True)):\n       ^^^\nscripts/reconcile_issue_4426_coverage.py:71: in <genexpr>\n    if any(summary[key] != int(value) for key, value in zip(keys, values[:4], strict=True)):\n           ^^^^^^^^^^^^\nE   KeyError: 'num_statements'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_match_requires_exactly_one_row[lines0] - IndexError: list index out of range\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_match_requires_exactly_one_row[lines1] - KeyError: 'num_statements'\n2 failed, 19 deselected in 0.59s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_match_requires_exactly_one_row",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.681,
+        "output": "..                                                                       [100%]\n2 passed, 19 deselected in 0.50s\n"
+      }
+    },
+    {
+      "id": "accept-incomplete-inventory",
+      "original_snippet": "len(missing_lines) != summary[\"missing_lines\"]\n            or len(missing_branches) != summary[\"missing_branches\"]",
+      "mutant_snippet": "False",
+      "mutant_sha256": "b4deef2abb5ba2e9359911d75e14dc8a70385d361c9d394275ef2755bc1d6fbd",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_rejects_incomplete_unit_inventory",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.745,
+        "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_______ test_reconcile_rejects_incomplete_unit_inventory[missing_lines] ________\ntests/scripts/test_reconcile_issue_4426_coverage.py:140: in test_reconcile_rejects_incomplete_unit_inventory\n    with pytest.raises(ValueError, match=\"inventory disagrees\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n______ test_reconcile_rejects_incomplete_unit_inventory[missing_branches] ______\ntests/scripts/test_reconcile_issue_4426_coverage.py:140: in test_reconcile_rejects_incomplete_unit_inventory\n    with pytest.raises(ValueError, match=\"inventory disagrees\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_rejects_incomplete_unit_inventory[missing_lines] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_rejects_incomplete_unit_inventory[missing_branches] - Failed: DID NOT RAISE ValueError\n2 failed, 19 deselected in 0.54s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_rejects_incomplete_unit_inventory",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.732,
+        "output": "..                                                                       [100%]\n2 passed, 19 deselected in 0.51s\n"
+      }
+    },
+    {
+      "id": "drop-unit-inventories",
+      "original_snippet": "\"missing_lines\": missing_lines,",
+      "mutant_snippet": "\"missing_lines\": [],",
+      "mutant_sha256": "c1e482ca76fd2b4651059d163a47098e3d78859839cf9874a1fb91e5ee96b716",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_exports_exact_inventories_and_merge_identity_without_credit",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.766,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_reconcile_exports_exact_inventories_and_merge_identity_without_credit __\ntests/scripts/test_reconcile_issue_4426_coverage.py:96: in test_reconcile_exports_exact_inventories_and_merge_identity_without_credit\n    assert target[\"missing_lines\"] == coverage[\"files\"][path][\"missing_lines\"]\nE   assert [] == [1]\nE     \nE     Right contains one more item: 1\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE     + []\nE     - [\nE     -     1,\nE     - ]\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_exports_exact_inventories_and_merge_identity_without_credit - assert [] == [1]\n  \n  Right contains one more item: 1\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n  + []\n  - [\n  -     1,\n  - ]\n1 failed, 20 deselected in 0.55s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_exports_exact_inventories_and_merge_identity_without_credit",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.743,
+        "output": ".                                                                        [100%]\n1 passed, 20 deselected in 0.53s\n"
+      }
+    },
+    {
+      "id": "credit-unknown-as-zero",
+      "original_snippet": "\"attributable_round_reduction\": None,",
+      "mutant_snippet": "\"attributable_round_reduction\": 0,",
+      "mutant_sha256": "f64cae306f944ff7d22478658ab0644e99bff12dd137b9fea3058d9d2c09f1ff",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_exports_exact_inventories_and_merge_identity_without_credit",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.776,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_reconcile_exports_exact_inventories_and_merge_identity_without_credit __\ntests/scripts/test_reconcile_issue_4426_coverage.py:104: in test_reconcile_exports_exact_inventories_and_merge_identity_without_credit\n    assert report[\"attributable_round_reduction\"] is None\nE   assert 0 is None\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_reconcile_exports_exact_inventories_and_merge_identity_without_credit - assert 0 is None\n1 failed, 20 deselected in 0.55s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_reconcile_exports_exact_inventories_and_merge_identity_without_credit",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.747,
+        "output": ".                                                                        [100%]\n1 passed, 20 deselected in 0.51s\n"
+      }
+    },
+    {
+      "id": "change-historical-total",
+      "original_snippet": "FINAL_TOTAL_LINE = \"TOTAL 49564",
+      "mutant_snippet": "FINAL_TOTAL_LINE = \"TOTAL 49565",
+      "mutant_sha256": "4ce76da332e053e8c62fcf9e1be269272dfede362ab6cd6ee4abef7affa00743",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_total_report_is_preserved_in_final_head_evidence",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.771,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________ test_total_report_is_preserved_in_final_head_evidence _____________\ntests/scripts/test_reconcile_issue_4426_coverage.py:182: in test_total_report_is_preserved_in_final_head_evidence\n    assert any(\nE   assert False\nE    +  where False = any(<generator object test_total_report_is_preserved_in_final_head_evidence.<locals>.<genexpr> at 0x7515e0bf1700>)\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_total_report_is_preserved_in_final_head_evidence - assert False\n +  where False = any(<generator object test_total_report_is_preserved_in_final_head_evidence.<locals>.<genexpr> at 0x7515e0bf1700>)\n1 failed, 20 deselected in 0.54s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_total_report_is_preserved_in_final_head_evidence",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.769,
+        "output": ".                                                                        [100%]\n1 passed, 20 deselected in 0.51s\n"
+      }
+    },
+    {
+      "id": "report-success-on-error",
+      "original_snippet": "        return 1",
+      "mutant_snippet": "        return 0",
+      "mutant_sha256": "2e66c679a45cc4ed7ed7b42ab7ab630b3893a4dfff8dc94e945b6aeb5855e49f",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_cli_prints_report_and_returns_failure_without_partial_json",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.764,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_cli_prints_report_and_returns_failure_without_partial_json ________\ntests/scripts/test_reconcile_issue_4426_coverage.py:217: in test_cli_prints_report_and_returns_failure_without_partial_json\n    assert reconcile.main([str(archive)]) == 1\nE   AssertionError: assert 0 == 1\nE    +  where 0 = <function main at 0x79f641c9bb60>(['/tmp/pytest-of-runner/pytest-53/test_cli_prints_report_and_ret0/synthetic.zip'])\nE    +    where <function main at 0x79f641c9bb60> = reconcile.main\n----------------------------- Captured stderr call -----------------------------\nCannot reconcile final Gate artifact: archive digest mismatch\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_cli_prints_report_and_returns_failure_without_partial_json - AssertionError: assert 0 == 1\n +  where 0 = <function main at 0x79f641c9bb60>(['/tmp/pytest-of-runner/pytest-53/test_cli_prints_report_and_ret0/synthetic.zip'])\n +    where <function main at 0x79f641c9bb60> = reconcile.main\n1 failed, 20 deselected in 0.54s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_cli_prints_report_and_returns_failure_without_partial_json",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.753,
+        "output": ".                                                                        [100%]\n1 passed, 20 deselected in 0.52s\n"
+      }
+    }
+  ]
+}

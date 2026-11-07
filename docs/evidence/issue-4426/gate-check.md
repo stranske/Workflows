@@ -402,3 +402,55 @@ adapter preserves formatter safety checks and source discovery. An earlier
 serial attempt was interrupted while deliberate mutants were active and is
 not the final formatting result. Mutation execution finished and restored
 production source before the successful complete check.
+
+
+## Offline archive reconciliation, 2026-11-07
+
+Before source edits, the repository-selected Python ran
+`python -m pytest -q tests/docs/test_issue_4426_contract_record.py tests/docs/test_issue_4426_pr_inventory.py -m 'not slow' --tb=line`:
+`6 passed in 0.71s`, exit 0. The existing finite stop rule applies.
+Selected symbols: `read_coverage_archive` and `reconcile_archive` in
+`scripts/reconcile_issue_4426_coverage.py`. This chunk implements offline
+artifact ingestion rather than another log-only counter reconstruction.
+
+The connector again returned run 42287174423 as successful for the recorded
+head and artifact 13537639987 with its unchanged digest. Downloading the
+returned archive reference using Python failed with `URLError: Temporary
+failure in name resolution`. No final artifact bytes are available locally.
+The first task and both remaining acceptance criteria stay unchecked.
+
+Final validation for this chunk is retained in
+`archive-reconciliation-validation.json` and
+`archive-reconciliation-shallow-validation.json`:
+
+- Reconciler selection with targeted coverage: `21 passed in 0.59s`, exit 0;
+  the Cover column for `scripts/reconcile_issue_4426_coverage.py` is 98.02%.
+  This covers the ingestion utility, not the six-target reduction contract.
+- Required focused acceptance: `165 passed in 2.50s`, exit 0.
+- All six evidence modules in a fresh depth-one checkout with networking
+  blocked and no credential copying: `68 passed`, exit 0.
+- `python docs/evidence/issue-4426/archive-reconciliation-mutation-driver.txt`
+  records 15 named mutation failures (exit 1) with restored passes (exit 0).
+  Immutable source/test snapshots and complete outputs are retained in
+  `archive-reconciliation-mutations.json`; no mutation remains. Mutation
+  development exposed an assertion that accepted the wrong byte-limit error;
+  the final test distinguishes compressed and expanded input limits.
+- Ruff and `git diff --check` pass. The required full-tree Black command
+  fails at process-pool startup with sandbox `PermissionError`. Running the
+  installed CLI with serial scheduling from `black-serial-driver.txt` via
+  temporary `sitecustomize` passes the same full-tree check and safety checks:
+  `957 files would be left unchanged`, exit 0.
+
+Reproduce offline reconciliation when the real archive is accessible:
+
+```bash
+python scripts/reconcile_issue_4426_coverage.py /tmp/issue-4426-final-gate.zip > /tmp/issue-4426-final-gate-reconciled.json
+```
+
+The implementation validates the recorded runtime layout
+`runtimes/3.14/coverage.json`; fixtures are explicitly synthetic. It cannot
+establish artifact availability or comparable original-round execution.
+Historical snapshots and ranking counters remain intact, and no task checkbox
+is advanced. No exact-head Gate run for this follow-up is claimed.
+Active-checkout staging is still blocked by read-only `.git/index.lock`;
+an isolated local clone carries the tested commit and exported patch.
