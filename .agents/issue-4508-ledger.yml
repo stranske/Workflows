@@ -53,7 +53,7 @@ tasks:
     status: done
     started_at: '2026-11-07T02:21:06Z'
     finished_at: '2026-11-07T03:55:00Z'
-    commit: ''
+    commit: '37e23000'
     notes:
       - 'Named gate test_ci_history_type_checks_under_consumer_mypy plus consumer-layout matrix.'
   - id: task-07
@@ -64,7 +64,7 @@ tasks:
     status: done
     started_at: '2026-11-07T03:39:58Z'
     finished_at: '2026-11-07T03:55:00Z'
-    commit: ''
+    commit: '336d1f80'
     notes:
       - 'gh run view 42327976097: conclusion=success; Python CI / typecheck-mypy job 128267659502 success on head 948406465cf7.'
       - 'Focused local suite tests/scripts/test_ci_history.py + tests/workflows/test_ci_history.py: 26 passed.'
@@ -74,14 +74,14 @@ tasks:
     status: done
     started_at: '2026-11-07T03:50:00Z'
     finished_at: '2026-11-07T03:55:00Z'
-    commit: ''
+    commit: '336d1f80'
     notes:
       - 'Actual source reintroduction failed fixed-source gate with original no-redef; restore passed both parametrized cases.'
   - id: task-09
     title: The next sync-core round classifies stranske/trip-planner#1957 without
       this finding.
     status: deferred
-    started_at: '2026-11-07T04:08:00Z'
+    started_at: null
     finished_at: null
     commit: ''
     notes:
@@ -90,6 +90,7 @@ tasks:
       - 'Fixed accidental F811 duplicate of the clearance proxy that broke lint-ruff on PR #4510.'
       - 'Added test_sync_core_no_redef_finding_classifier for agent-verifiable fingerprint clearance (original evidence vs clean success vs unrelated no-redef).'
       - 'Commit 8a52e844: removed F811 duplicate; classifier + clearance proxy green (31 focused tests).'
+      - 'Pinned trip-planner#1957 red/green typecheck-mypy excerpts under evidence/issue-4508/sync-core-clearance and assert classifier clearance on the regenerated green head.'
   - id: task-10
     title: 'Fix the failure named in the title (`Shipment-caused: Python CI / typecheck-mypy
       fails on synced scripts/ci`) at its source; the failing check''s log is linked
@@ -106,7 +107,7 @@ tasks:
     status: done
     started_at: '2026-11-07T02:21:06Z'
     finished_at: '2026-11-07T03:55:00Z'
-    commit: ''
+    commit: '37e23000'
     notes:
       - 'Duplicate of task-06.'
   - id: task-12
@@ -115,7 +116,7 @@ tasks:
     status: done
     started_at: '2026-11-07T03:39:58Z'
     finished_at: '2026-11-07T03:55:00Z'
-    commit: ''
+    commit: '336d1f80'
     notes:
       - 'Verified via gh run view 42327976097; local mypy + focused pytest also pass. Protected maint-68 must not be modified.'
   - id: task-13
@@ -127,10 +128,11 @@ tasks:
     commit: ''
     notes:
       - 'Outside agent completion criteria; requires a later sync-core round.'
+      - 'Agent-verifiable half covered by pinned red/green evidence classifier; live round still deferred.'
   - id: task-14
     title: Fix the source and let `.github/workflows/maint-68-sync-consumer-repos.yml`
       regenerate the sync PR.
-    status: note
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''

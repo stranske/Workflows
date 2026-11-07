@@ -317,3 +317,30 @@ black --line-length 100 tests/scripts/test_ci_history.py
 
 Live sync-core classification of trip-planner#1957 remains deferred/external;
 do not modify or trigger `maint-68-sync-consumer-repos.yml`.
+
+## Pinned trip-planner red/green classifier (this round)
+
+Added `evidence/issue-4508/sync-core-clearance/` with sanitized excerpts from:
+
+- Red: job `128260180158` on head `041bd22f043a` (verbatim sync-core fingerprint).
+- Green: job `128267659502` on regenerated head `948406465cf7`
+  (`Success: no issues found in 484 source files`; no `ci_history.py` / `[no-redef]`).
+
+`test_sync_core_classifier_on_pinned_trip_planner_logs` asserts the classifier
+reports the finding on red and clears it on green. Ledger schema repaired so
+`ledger validation` accepts done-task commits, deferred `started_at: null`, and
+replaces invalid `note` status on the maint-68 instruction with `deferred`.
+
+```text
+python scripts/ledger_validate.py .agents/issue-4508-ledger.yml
+Validated .agents/issue-4508-ledger.yml
+
+pytest tests/scripts/test_ci_history.py tests/workflows/test_ci_history.py -m 'not slow' -q
+33 passed
+
+BLACK_CACHE_DIR=/tmp/issue-4508-black-cache BLACK_NUM_WORKERS=1 \
+  black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+952 files would be left unchanged.
+```
+
+Live sync-core round still deferred; do not mark that checkbox complete.

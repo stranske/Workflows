@@ -303,6 +303,9 @@ def test_ci_history_type_checks_under_consumer_mypy(
 _SYNC_CORE_NO_REDEF_FINDING = (
     'scripts/ci_history.py:152: error: Name "record" already defined on line 119  [no-redef]'
 )
+_SYNC_CORE_EVIDENCE_DIR = (
+    Path(__file__).resolve().parents[2] / "evidence" / "issue-4508" / "sync-core-clearance"
+)
 
 
 def _sync_core_still_reports_no_redef(log_text: str) -> bool:
@@ -333,6 +336,36 @@ def _sync_core_still_reports_no_redef(log_text: str) -> bool:
 def test_sync_core_no_redef_finding_classifier(log_text: str, expect_reported: bool) -> None:
     """Agent-verifiable half of sync-core clearance: fingerprint match only."""
     assert _sync_core_still_reports_no_redef(log_text) is expect_reported
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "expect_reported"),
+    [
+        ("typecheck-mypy-red.log", True),
+        ("typecheck-mypy-green.log", False),
+    ],
+    ids=["pinned-red-evidence", "pinned-green-regenerated-head"],
+)
+def test_sync_core_classifier_on_pinned_trip_planner_logs(
+    fixture_name: str, expect_reported: bool
+) -> None:
+    """Classify real trip-planner#1957 typecheck-mypy excerpts for sync-core clearance.
+
+    Red: original Evidence job 128260180158 (head 041bd22f043a) still reports the
+    verbatim fingerprint. Green: regenerated head 948406465cf7 job 128267659502
+    succeeds without that finding — the agent-verifiable half of the remaining #4508
+    acceptance criterion before the live sync-core round.
+    """
+    log_path = _SYNC_CORE_EVIDENCE_DIR / fixture_name
+    log_text = log_path.read_text(encoding="utf-8")
+    assert log_text.strip(), f"empty evidence fixture: {log_path}"
+    assert _sync_core_still_reports_no_redef(log_text) is expect_reported
+    if expect_reported:
+        assert _SYNC_CORE_NO_REDEF_FINDING in log_text
+    else:
+        assert "ci_history.py" not in log_text
+        assert "[no-redef]" not in log_text
+        assert "Success: no issues found" in log_text
 
 
 @pytest.mark.parametrize(
