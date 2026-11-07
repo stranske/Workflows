@@ -1,15 +1,61 @@
 """Build JUnit growth receipts without presenting unknown durations as measurements.
 
-The reusable workflow's summary can call ``junit_report`` after parsing its
-collection receipt. XML/read errors propagate to its existing UNKNOWN handler.
+The reusable workflow embeds ``junit_report`` for consumer portability. XML/read
+errors propagate to its existing UNKNOWN handler. ``format_growth_summary`` is
+prepared for the matching workflow update; it renders unknown receipts explicitly.
 """
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 
 from defusedxml import ElementTree as SafeET
+
+
+def format_growth_summary(growth: dict[str, object]) -> str:
+    """Render validated growth receipts, retaining unknowns in text and JSON.
+
+    A default false review flag cannot establish that collection is within budget
+    when collection did not complete. JUnit case counts are independent of timing:
+    preserve them even when durations or timing rankings are unavailable.
+    """
+    collection = growth.get("collection")
+    total = collection.get("total") if isinstance(collection, dict) else None
+    collection_known = (
+        isinstance(collection, dict)
+        and collection.get("complete") is not False
+        and isinstance(total, int)
+        and not isinstance(total, bool)
+        and total >= 0
+        and not growth.get("collection_error")
+    )
+    review = growth.get("review_required") if collection_known else None
+    review = review if isinstance(review, bool) else None
+    reported = growth.get("reported")
+    cases = reported.get("cases") if isinstance(reported, dict) else None
+    cases_known = isinstance(cases, int) and not isinstance(cases, bool) and cases >= 0
+    timing_known = (
+        isinstance(reported, dict)
+        and reported.get("timing_status") == "KNOWN"
+        and not growth.get("junit_error")
+    )
+    timing = (
+        "KNOWN (summed worker time, not wall time)"
+        if timing_known
+        else "UNKNOWN (missing, unreadable or incomplete JUnit timing)"
+    )
+    rendered = {**growth, "review_required": review}
+    return (
+        "\n### Test collection and execution growth\n\n"
+        "Review signal only; existing test/coverage/merge gates are unchanged.\n\n"
+        f"- Selected collection cases: {total if collection_known else 'UNKNOWN'}\n"
+        f"- Collection budget review required: {str(review) if review is not None else 'UNKNOWN'}\n"
+        f"- JUnit reported cases: {cases if cases_known else 'UNKNOWN'}\n"
+        f"- JUnit timing: {timing}\n\n"
+        "```json\n" + json.dumps(rendered, indent=2) + "\n```\n"
+    )
 
 
 def junit_report(path: Path) -> dict[str, object]:
