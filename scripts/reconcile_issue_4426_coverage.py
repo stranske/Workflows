@@ -14,7 +14,9 @@ import hashlib
 import io
 import json
 import re
+import shlex
 import sys
+import tomllib
 import zipfile
 from pathlib import Path
 
@@ -22,6 +24,7 @@ from coverage.results import Numbers
 
 EVIDENCE = Path(__file__).resolve().parents[1] / "docs/evidence/issue-4426"
 REPORT_INPUTS_SHA256 = "edef0047a34517cdbd3543e0bc308e180865305bcc5f618ba3ea1619dc5e4a3c"
+EXECUTION_INPUTS_SHA256 = "67cb772aca252bac4e27b186b8c3b59d0f9b193ea3787f15524222656c380599"
 # Job 128131232558's TOTAL row is retained in final-head-gate.json, separately
 # from the bounded target excerpts pinned above. Never infer its branch count.
 FINAL_TOTAL_LINE = "TOTAL 49564 3657 19862 1833 91.21%"
@@ -194,6 +197,84 @@ def _recover_report_targets(lines: list[str]) -> dict:
     return targets
 
 
+def _execution_settings(project: dict, runtime: dict) -> dict:
+    """Read coverage/report policy and observed settings from immutable evidence."""
+    tools = tomllib.loads(project["content"])["tool"]
+    lines = runtime["log_excerpts"]
+
+    def one(pattern: str) -> str:
+        matches = [match[1] for line in lines if (match := re.search(pattern, line))]
+        if len(matches) != 1:
+            raise ValueError(f"expected one execution setting: {pattern}")
+        return matches[0]
+
+    return {
+        "python": one(r"platform linux -- Python ([\d.]+),"),
+        "pytest": one(r"platform linux -- Python [\d.]+, pytest-([\d.]+),"),
+        "coverage_version": one(r" \+ coverage==([\d.]+)$"),
+        "plugins": sorted(one(r" plugins: (.+)$").split(", ")),
+        "marker": one(r" PYTEST_MARKERS: (.+)$"),
+        "extra_args": shlex.split(one(r" PYTEST_ARGS: (.*)$")),
+        "entrypoint": one(r'(pytest(?: -p ci_test_growth)?) "\$\{args\[@\]\}"'),
+        "workers_observed": int(one(r" created: (\d+)/\d+ workers$")),
+        "coverage": tools["coverage"],
+        "pytest_ini": tools["pytest"]["ini_options"],
+    }
+
+
+def _configuration_differences(before: dict, after: dict, prefix: str = "") -> dict:
+    """Retain concrete differences, including report exclusions and pytest selection."""
+    differences = {}
+    for key in sorted(before.keys() | after.keys()):
+        name = f"{prefix}.{key}" if prefix else key
+        old, new = before.get(key), after.get(key)
+        if isinstance(old, dict) and isinstance(new, dict):
+            differences.update(_configuration_differences(old, new, name))
+        elif old != new:
+            differences[name] = {"baseline": old, "final": new}
+    return differences
+
+
+def reconcile_execution_configurations(evidence: Path = EVIDENCE) -> dict:
+    """Explain why historical Gate counts cannot serve as a comparable baseline.
+
+    Even equal runner settings would not prove an attributable reduction: source
+    and test changes still need controlled executions with accessible artifacts.
+    """
+    with (evidence / "gate-execution-inputs.json").open("rb") as stream:
+        data = stream.read(60_001)
+    if hashlib.sha256(data).hexdigest() != EXECUTION_INPUTS_SHA256:
+        raise ValueError("pinned Gate execution digest mismatch")
+    inputs = json.loads(data)
+    identities = _read_inputs(evidence)
+    for name in ("pre_round", "final_head"):
+        if inputs[name]["checkout_sha"] != identities[name]["run"]["checkout_sha"]:
+            raise ValueError("execution checkout identity mismatch")
+    baseline, final = inputs["pre_round"], inputs["final_head"]
+    final_settings = _execution_settings(final["pyproject"], final["runtime"])
+    baselines = {}
+    for version, runtime in baseline["runtimes"].items():
+        settings = _execution_settings(baseline["pyproject"], runtime)
+        differences = _configuration_differences(settings, final_settings)
+        baselines[version] = {
+            "settings": settings,
+            "differences_from_final": differences,
+            "settings_equal": not differences,
+        }
+    return {
+        "schema": "workflows.issue-4426-execution-comparison/v1",
+        "source": "gate-execution-inputs.json",
+        "source_sha256": EXECUTION_INPUTS_SHA256,
+        "baseline_checkout": baseline["checkout_sha"],
+        "final_checkout": final["checkout_sha"],
+        "final_settings": final_settings,
+        "baselines_by_runtime": baselines,
+        "comparable_execution_configuration": False,
+        "source_and_test_equivalence_verified": False,
+        "attributable_round_reduction": None,
+    }
+
+
 def reconcile_reports(evidence: Path = EVIDENCE) -> dict:
     """Reproduce historical per-target accounting without granting round-wide credit."""
     inputs = _read_inputs(evidence)
@@ -249,6 +330,7 @@ def reconcile_reports(evidence: Path = EVIDENCE) -> dict:
         "comparable_execution_configuration": False,
         "branch_arcs_recovered": False,
         "archive_bytes_verified": False,
+        "execution_configuration_comparison": reconcile_execution_configurations(evidence),
     }
 
 

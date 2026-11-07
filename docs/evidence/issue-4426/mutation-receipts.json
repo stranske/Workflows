@@ -2328,5 +2328,15 @@
     "production_restored": true,
     "local_missing_unit_reduction": 9,
     "attributable_original_round_reduction": null
+  },
+  "execution_configuration_reconciliation": {
+    "checked_on": "2026-11-07",
+    "receipt_record": "execution-configuration-mutations.json",
+    "validation_record": "execution-configuration-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/execution-configuration-mutation-driver.txt",
+    "named_mutants": 5,
+    "named_failing_parameter_cases": 6,
+    "source_restored": true,
+    "attributable_round_reduction": null
   }
 }

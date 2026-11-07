@@ -11,6 +11,7 @@ import json
 import re
 import warnings
 import zipfile
+from copy import deepcopy
 
 import pytest
 from scripts import reconcile_issue_4426_coverage as reconcile
@@ -401,3 +402,99 @@ def test_cli_reports_real_counters_without_opening_archive(monkeypatch, capsys):
     output = capsys.readouterr()
     assert output.out == ""
     assert "pinned Gate metadata digest mismatch" in output.err
+
+
+def test_execution_reconciliation_records_policy_drift_without_rewriting_history():
+    inputs = json.loads((reconcile.EVIDENCE / "gate-execution-inputs.json").read_bytes())
+    for name, blob_sha in (
+        ("pre_round", "be00769e20f7366d2ff16ce51507fbbdc2d28d50"),
+        ("final_head", "df271c04ded9fcadf41873b5f1d08fa78729d3de"),
+    ):
+        project = inputs[name]["pyproject"]
+        content = project["content"].encode()
+        git_object = b"blob " + str(len(content)).encode() + b"\0" + content
+        assert hashlib.sha1(git_object).hexdigest() == project["git_blob_sha"] == blob_sha
+    report = reconcile.reconcile_reports()
+    comparison = report["execution_configuration_comparison"]
+    recorded = json.loads(
+        (reconcile.EVIDENCE / "execution-configuration-comparison.json").read_bytes()
+    )
+    assert comparison == recorded
+    assert comparison["baseline_checkout"] == "682c12c02f24e2b8ee8d69da0d54dae28a87977d"
+    assert comparison["final_checkout"] == report["tested_checkout"]["sha"]
+    final = comparison["final_settings"]
+    assert final["python"] == "3.14.10"
+    assert final["entrypoint"] == "pytest -p ci_test_growth"
+    assert final["extra_args"] == ["-n", "auto", "--dist", "load"]
+    for version, python in (("3.12", "3.12.15"), ("3.13", "3.13.16")):
+        baseline = comparison["baselines_by_runtime"][version]
+        assert baseline["settings"]["coverage"]["run"] == final["coverage"]["run"]
+        assert baseline["settings"]["workers_observed"] == final["workers_observed"] == 4
+        assert baseline["settings"]["marker"] == final["marker"] == "not quarantine and not slow"
+        assert baseline["differences_from_final"]["python"] == {
+            "baseline": python,
+            "final": "3.14.10",
+        }
+        assert baseline["differences_from_final"]["coverage.report.exclude_also"] == {
+            "baseline": None,
+            "final": ["if __name__ == .__main__.:"],
+        }
+        assert baseline["differences_from_final"]["coverage_version"] == {
+            "baseline": "7.16.2",
+            "final": "7.17.2",
+        }
+        assert baseline["settings_equal"] is False
+    assert comparison["attributable_round_reduction"] is None
+    assert report["targets"][0]["unattributed_difference_by_runtime"] == {"3.12": 0, "3.13": 0}
+    for name in ("coverage-measurement.json", "ranking.json"):
+        record = json.loads((reconcile.EVIDENCE / name).read_bytes())
+        assert record["final_head_reconciliation"]["execution_configuration_record"] == (
+            "execution-configuration-comparison.json"
+        )
+
+
+def test_execution_difference_keeps_removed_exclusions_and_changed_source_selection():
+    before = {"coverage": {"run": {"source": ["scripts"]}, "report": {"exclude_also": ["guard"]}}}
+    after = {"coverage": {"run": {"source": ["tools"]}, "report": {}}}
+    assert reconcile._configuration_differences(before, after) == {
+        "coverage.run.source": {"baseline": ["scripts"], "final": ["tools"]},
+        "coverage.report.exclude_also": {"baseline": ["guard"], "final": None},
+    }
+
+
+def test_matching_execution_settings_do_not_establish_attribution(monkeypatch):
+    settings = reconcile.reconcile_execution_configurations()["final_settings"]
+    monkeypatch.setattr(reconcile, "_execution_settings", lambda *args: deepcopy(settings))
+    comparison = reconcile.reconcile_execution_configurations()
+    for baseline in comparison["baselines_by_runtime"].values():
+        assert baseline["settings_equal"] is True
+        assert baseline["differences_from_final"] == {}
+    assert comparison["comparable_execution_configuration"] is False
+    assert comparison["source_and_test_equivalence_verified"] is False
+    assert comparison["attributable_round_reduction"] is None
+
+
+def test_execution_reconciliation_rejects_substituted_record(tmp_path):
+    original = (reconcile.EVIDENCE / "gate-execution-inputs.json").read_bytes()
+    replaced = original.replace(b"not quarantine and not slow", b"not slow")
+    assert replaced != original
+    (tmp_path / "gate-execution-inputs.json").write_bytes(replaced)
+    (tmp_path / "gate-report-inputs.json").write_bytes(
+        (reconcile.EVIDENCE / "gate-report-inputs.json").read_bytes()
+    )
+    with pytest.raises(ValueError, match="pinned Gate execution digest mismatch"):
+        reconcile.reconcile_execution_configurations(tmp_path)
+
+
+@pytest.mark.parametrize("missing", [False, True], ids=["duplicate", "missing"])
+def test_execution_settings_require_unambiguous_observed_runtime(missing):
+    inputs = json.loads((reconcile.EVIDENCE / "gate-execution-inputs.json").read_bytes())
+    final = inputs["final_head"]
+    lines = final["runtime"]["log_excerpts"]
+    platform = next(line for line in lines if "platform linux -- Python" in line)
+    if missing:
+        lines.remove(platform)
+    else:
+        lines.append(platform)
+    with pytest.raises(ValueError, match="expected one execution setting"):
+        reconcile._execution_settings(final["pyproject"], final["runtime"])

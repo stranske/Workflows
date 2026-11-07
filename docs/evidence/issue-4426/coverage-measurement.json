@@ -269,7 +269,9 @@
       "archive_bytes_verified": false,
       "comparable_execution_configuration": false,
       "attributable_round_reduction": null
-    }
+    },
+    "execution_configuration_record": "execution-configuration-comparison.json",
+    "configuration_comparison_status": "Run settings agree; report exclusions, runtime and test execution settings differ. No comparable original-round replay is available."
   },
   "term_report_reconciliation": {
     "source": "gate-report-inputs.json",

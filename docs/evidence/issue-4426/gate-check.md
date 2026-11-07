@@ -1,5 +1,65 @@
 # Issue #4426 Gate check and stop rule
 
+## Execution configuration reconciliation, 2026-11-07
+
+Before source edits, `python -m pytest -q
+tests/scripts/test_reconcile_issue_4426_coverage.py
+tests/docs/test_issue_4426_coverage_measurement.py
+tests/docs/test_issue_4426_ranking.py -m 'not slow' --tb=short` passes
+109 tests in 1.13s, exit 0. Selected symbols for this chunk:
+`reconcile_execution_configurations`, `_execution_settings`, and
+`_configuration_differences` in `scripts/reconcile_issue_4426_coverage.py`.
+The existing two-failure, 10-minute command, 20-minute step, and under-two-minute
+focused stop rules apply. No verifier behavioral test duplicates paths already
+covered by the existing chunk/evidence suites.
+
+The GitHub connector reverified artifact 13537639987's run 42287174423 and head
+97fa3cdd6b198623db4adc86f16f0b3788320794. One local archive-reference retrieval
+fails with `URLError`; archive bytes remain inaccessible. Exact merge-checkout
+`pyproject.toml` contents and bounded execution log excerpts are newly retained
+in `gate-execution-inputs.json`. The final checkout adds
+`tool.coverage.report.exclude_also` for `__main__` guards; the original checkout
+has no such setting. Matching coverage.run sections alone cannot establish
+comparable missing units. Runtime, pytest, coverage versions and the pytest
+entrypoint also changed. Task 1 and the two unchecked acceptance criteria remain
+incomplete; the historical 164-unit snapshot difference remains unattributed.
+
+Reproduce the new comparison offline with:
+
+```bash
+python scripts/reconcile_issue_4426_coverage.py --reports-only
+python docs/evidence/issue-4426/execution-configuration-mutation-driver.txt
+```
+
+The `execution_configuration_comparison` output is retained separately as
+`execution-configuration-comparison.json`, and both measurement/ranking records
+link it. The original snapshots and per-target counters remain unchanged.
+Matching runner settings would still require controlled source/test executions
+and accessible coverage artifacts before any attributable reduction is claimed.
+
+Final validation is retained in `execution-configuration-validation.json`:
+
+- The reconciler/measurement/ranking selection passes 115 tests in 1.25s,
+  exit 0. Targeted coverage reports 98.31% for the reconciler utility only.
+- The required four-module behavioral selection passes 180 tests in 3.55s,
+  exit 0. All six documentation modules pass 68 tests in 3.79s from a fresh
+  depth-one checkout with networking blocked and no credential copying.
+  The final isolated delivery checkout also passes all 130 reconciler and
+  documentation tests in 3.96s with the same offline guard, exit 0.
+- Five named mutants produce six named failing parameter cases, exit 1;
+  every restored selection passes, exit 0. Complete outputs and immutable
+  source/test fragments are in `execution-configuration-mutations.json`.
+  Source and test hashes match the restored receipt bytes.
+- Ruff and `git diff --check` pass. The default full-tree Black command fails
+  at sandbox process-pool startup with `PermissionError`; its serial scheduling
+  adaptation uses the same installed formatter and safety checks. The required
+  full-tree command with that adaptation passes: `957 files would be left
+  unchanged`, exit 0. The validation record retains the command and outputs.
+- Active-checkout staging fails creating `.git/index.lock` on the read-only
+  metadata mount. Delivery uses an isolated local commit and exported patch;
+  no push or follow-up exact-head Gate execution is claimed. PR #4520 was
+  verified open with `draft=false`.
+
 ## Bounded review follow-up, 2026-11-07
 
 Final results for this chunk:
