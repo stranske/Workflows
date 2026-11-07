@@ -71,3 +71,22 @@ The connected GitHub tool rejected the PR checklist update, blocker comment,
 and `needs-human` label: those writes require approval, while this run's approval
 policy is `never`. Remote checkboxes remain unchanged; the completed checklist
 above records verified local progress.
+
+Follow-up observation at 2026-11-07T06:39:33Z verifies the remaining task's
+ancestry requirement. The
+[comparison](https://github.com/stranske/Workflows/compare/81e575a008db219b8b63761014025d182d095128...ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9)
+reports main's run head as 38 commits ahead and zero behind the fix, with
+the fix's merge commit itself as merge base. The new
+[ancestry receipt](../../tests/fixtures/issue_4455/main_ancestry_evidence.json)
+retains that response projection and three post-merge maint-71 starts. A new
+test binds both the earlier successful run and these newer starts to that exact
+comparison, so a timestamp alone cannot establish that a run contains the fix.
+All ten targeted evidence tests and Ruff pass.
+
+The latest-three observation in this follow-up contains one in-progress run
+and two cancelled runs; it does not establish a new successful latest-three
+observation or supersede the successful observation above. A fresh read of all
+39 issue comments still finds no later sync-core handoff. Updating PR #4519's
+remaining checkbox was attempted after verification, but the connected tool
+again required approval unavailable under this run's `never` policy. Its
+remote checkbox therefore remains unchecked.

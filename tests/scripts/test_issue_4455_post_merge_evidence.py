@@ -10,6 +10,7 @@ import pytest
 
 EVIDENCE = Path(__file__).resolve().parents[1] / "fixtures/issue_4455/post_merge_evidence.json"
 LATEST_EVIDENCE = EVIDENCE.with_name("latest_runs_evidence.json")
+ANCESTRY_EVIDENCE = EVIDENCE.with_name("main_ancestry_evidence.json")
 WORKFLOW = ".github/workflows/maint-71-merge-sync-prs.yml"
 
 
@@ -141,6 +142,36 @@ def test_latest_three_contains_completed_success_after_merge(
     assert utc(verified["created_at"]) <= utc(verified["run_started_at"])
     assert utc(verified["run_started_at"]) <= utc(verified["updated_at"])
     assert utc(verified["updated_at"]) < utc(latest_receipt["observed_at"])
+
+
+def test_main_run_heads_contain_the_merged_fix(receipt: dict, latest_receipt: dict) -> None:
+    ancestry = json.loads(ANCESTRY_EVIDENCE.read_text(encoding="utf-8"))
+    fix = ancestry["fix_pr"]
+    assert fix == {key: receipt["fix_pr"][key] for key in fix}
+    assert fix["merged"] is True
+    assert fix["base"] == {"ref": "main", "repo": "stranske/Workflows"}
+    comparison = ancestry["comparison"]
+    merge_sha = fix["merge_commit_sha"]
+    head_sha = latest_receipt["verified_success"]["head_sha"]
+    assert comparison["url"] == (
+        f"https://api.github.com/repos/stranske/Workflows/compare/{merge_sha}...{head_sha}"
+    )
+    # A later timestamp and a main branch name alone do not prove that a run
+    # includes the fix. The requested base must also be the merge base.
+    assert comparison["base_commit"]["sha"] == merge_sha
+    assert comparison["merge_base_commit"]["sha"] == merge_sha
+    assert comparison["status"] == "ahead"
+    assert comparison["behind_by"] == 0
+    assert comparison["ahead_by"] == comparison["total_commits"] > 0
+    runs = ancestry["workflow_runs"]
+    assert len(runs) == len({run["id"] for run in runs}) == 3
+    for run in runs:
+        assert run["path"] == WORKFLOW
+        assert run["head_branch"] == "main"
+        assert run["head_sha"] == head_sha
+        assert utc(fix["merged_at"]) < utc(run["created_at"])
+        assert utc(run["created_at"]) <= utc(run["run_started_at"])
+        assert utc(run["run_started_at"]) < utc(ancestry["observed_at"])
 
 
 def test_fresh_comments_have_no_sync_core_handoff_after_latest_success(
