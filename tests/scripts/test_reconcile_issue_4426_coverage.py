@@ -1,7 +1,7 @@
 """Exercise offline artifact ingestion with explicitly synthetic ZIP bytes.
 
-The real artifact remains inaccessible. These fixtures test the reconciler;
-they must never be recorded as downloaded Gate evidence or attribution.
+The real archive remains inaccessible. ZIP fixtures must never be recorded as
+downloaded evidence. Report-mode tests use the actual pinned historical logs.
 """
 
 from __future__ import annotations
@@ -297,3 +297,107 @@ def test_cli_prints_report_and_returns_failure_without_partial_json(
     output = capsys.readouterr()
     assert output.out == ""
     assert "archive digest mismatch" in output.err
+
+
+def test_report_mode_reproduces_real_target_accounting_without_artifact_credit():
+    report = reconcile.reconcile_reports()
+    assert report["head_sha"] == "97fa3cdd6b198623db4adc86f16f0b3788320794"
+    assert report["tested_checkout"]["sha"] == "e4e584ea61852751c55749ab9ed6539fa10c9a31"
+    assert report["tested_checkout"]["parents"][-1] == report["head_sha"]
+    assert report["baseline_run_id"] == 38980711116
+    assert report["final_run_id"] == 42287174423
+    assert report["final_artifact_id"] == 13537639987
+    assert report["source_sha256"] == reconcile.REPORT_INPUTS_SHA256
+    assert [row["path"] for row in report["targets"]] == list(reconcile.TARGETS)
+    for filename in ("coverage-measurement.json", "ranking.json"):
+        evidence = json.loads((reconcile.EVIDENCE / filename).read_bytes())
+        assert report["targets"] == evidence["target_snapshot_comparison"]["targets"]
+    assert sum(row["final_missing_units"] for row in report["targets"]) == 238
+    for version in ("3.12", "3.13"):
+        assert (
+            sum(row["baseline_missing_units_by_runtime"][version] for row in report["targets"])
+            == 402
+        )
+        assert (
+            sum(row["unattributed_difference_by_runtime"][version] for row in report["targets"])
+            == 164
+        )
+    for row in report["targets"]:
+        assert row["attributable_round_reduction"] is None
+        assert row["target_exclusion"] is None
+        assert row["disposition"] == "requires_comparable_execution"
+    # A zero snapshot difference is still unknown improvement, not measured zero.
+    assert report["targets"][0]["unattributed_difference_by_runtime"] == {"3.12": 0, "3.13": 0}
+    assert report["attributable_round_reduction"] is None
+    assert report["comparable_execution_configuration"] is False
+    assert report["branch_arcs_recovered"] is False
+    assert report["archive_bytes_verified"] is False
+
+
+def test_report_mode_rejects_changed_pinned_baseline(tmp_path):
+    inputs = json.loads((reconcile.EVIDENCE / "gate-report-inputs.json").read_bytes())
+    inputs["pre_round"]["run"]["head_sha"] = "0" * 40
+    (tmp_path / "gate-report-inputs.json").write_text(json.dumps(inputs))
+    with pytest.raises(ValueError, match="metadata digest mismatch"):
+        reconcile.reconcile_reports(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "100000 0 100000 0 99.99%",  # Multiple missing counts render identically.
+        "1 0 2 0 50.00%",  # No integer missing count can render this percentage.
+        "1 2 2 0 50.00%",  # Missing statements exceed the denominator.
+        "100001 0 2 0 100.00%",  # Bound the work spent on branch recovery.
+        "1 0 2 3 100.00%",  # Partial branches exceed total branches.
+    ],
+)
+def test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters(row):
+    with pytest.raises(ValueError, match="not unique|invalid or unbounded"):
+        reconcile._recover_report_targets([reconcile.TARGETS[0] + " " + row])
+
+
+@pytest.mark.parametrize("mutation", ["missing", "duplicate", "too_many", "too_long"])
+def test_report_mode_rejects_incomplete_duplicate_or_oversized_logs(mutation):
+    inputs = json.loads((reconcile.EVIDENCE / "gate-report-inputs.json").read_bytes())
+    lines = inputs["final_head"]["runtime"]["lines"]
+    if mutation == "missing":
+        lines = [line for line in lines if reconcile.TARGETS[0] not in line]
+    elif mutation == "duplicate":
+        lines.append(next(line for line in lines if reconcile.TARGETS[0] in line))
+    elif mutation == "too_many":
+        lines += ["unrelated"] * 17
+    else:
+        lines.append("x" * 5001)
+    with pytest.raises(ValueError, match="expected one|exceed the bound"):
+        reconcile._recover_report_targets(lines)
+
+
+@pytest.mark.parametrize("argv", [[], ["unread.zip", "--reports-only"]])
+def test_cli_requires_exactly_one_reconciliation_mode(argv, capsys):
+    with pytest.raises(SystemExit) as error:
+        reconcile.main(argv)
+    assert error.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "provide either an archive or --reports-only" in output.err
+
+
+def test_cli_reports_real_counters_without_opening_archive(monkeypatch, capsys):
+    def unexpected_archive(*args):
+        pytest.fail("report mode attempted to open an archive")
+
+    monkeypatch.setattr(reconcile, "read_coverage_archive", unexpected_archive)
+    assert reconcile.main(["--reports-only"]) == 0
+    output = capsys.readouterr()
+    assert json.loads(output.out) == reconcile.reconcile_reports()
+    assert output.err == ""
+
+    def unavailable():
+        raise ValueError("pinned Gate metadata digest mismatch")
+
+    monkeypatch.setattr(reconcile, "reconcile_reports", unavailable)
+    assert reconcile.main(["--reports-only"]) == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "pinned Gate metadata digest mismatch" in output.err

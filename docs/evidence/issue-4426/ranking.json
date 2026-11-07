@@ -294,7 +294,15 @@
     "term_report_record": "term_report_reconciliation",
     "log_derived_target_missing_units": 238,
     "unattributed_original_round_snapshot_difference": 164,
-    "identity_validation_record": "identity-validation-mutations.json"
+    "identity_validation_record": "identity-validation-mutations.json",
+    "runnable_log_reconciliation": {
+      "command": "python scripts/reconcile_issue_4426_coverage.py --reports-only",
+      "record": "term-report-reconciled.json",
+      "counter_source": "uniquely_recovered_term_reports",
+      "archive_bytes_verified": false,
+      "comparable_execution_configuration": false,
+      "attributable_round_reduction": null
+    }
   },
   "target_snapshot_comparison": {
     "source": "gate-report-inputs.json",

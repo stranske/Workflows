@@ -1,0 +1,139 @@
+"""Validate real pinned log reconciliation and record named restored mutations."""
+
+import ast
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / 'docs/evidence/issue-4426'
+source_path = root / 'scripts/reconcile_issue_4426_coverage.py'
+test_path = root / 'tests/scripts/test_reconcile_issue_4426_coverage.py'
+original = source_path.read_bytes()
+source = original.decode()
+
+
+def run(command):
+    start = time.monotonic()
+    result = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=110)
+    return {'command': command, 'exit_code': result.returncode,
+            'elapsed_seconds': round(time.monotonic() - start, 3),
+            'output': result.stdout + result.stderr}
+
+
+def symbol(text, name):
+    node = next(node for node in ast.parse(text).body
+                if isinstance(node, ast.FunctionDef) and node.name == name)
+    first = min([node.lineno] + [decorator.lineno for decorator in node.decorator_list])
+    return "".join(text.splitlines(keepends=True)[first - 1:node.end_lineno]).rstrip("\n")
+
+
+def selected(name):
+    return [sys.executable, '-m', 'pytest', '-q', str(test_path.relative_to(root)),
+            '-k', name, '-m', 'not slow', '--tb=short']
+
+
+cases = [
+    ('unknown-target-credit', 'reconcile_reports',
+     '"attributable_round_reduction": None,\n                "disposition"',
+     '"attributable_round_reduction": 0,\n                "disposition"',
+     'test_report_mode_reproduces_real_target_accounting_without_artifact_credit'),
+    ('claim-verified-archive-from-logs', 'reconcile_reports',
+     '"archive_bytes_verified": False', '"archive_bytes_verified": True',
+     'test_report_mode_reproduces_real_target_accounting_without_artifact_credit'),
+    ('accept-replaced-baseline', '_read_inputs',
+     'if hashlib.sha256(inputs_bytes).hexdigest() != REPORT_INPUTS_SHA256:', 'if False:',
+     'test_report_mode_rejects_changed_pinned_baseline'),
+    ('choose-an-ambiguous-rounded-count', '_recover_report_targets',
+     'if len(candidates) != 1:', 'if not candidates:',
+     'test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters'),
+    ('accept-unbounded-counters', '_recover_report_targets',
+     'if not 0 <= missed <= statements <= 100_000 or not 0 <= partial <= branches <= 100_000:',
+     'if False:', 'test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters'),
+    ('accept-duplicate-log-targets', '_recover_report_targets',
+     'if len(matches) != 1:', 'if not matches:',
+     'test_report_mode_rejects_incomplete_duplicate_or_oversized_logs'),
+    ('ignore-log-excerpt-bound', '_recover_report_targets',
+     'if len(lines) > 16 or any(len(line) > 5000 for line in lines):', 'if False:',
+     'test_report_mode_rejects_incomplete_duplicate_or_oversized_logs'),
+    ('accept-both-cli-modes', 'main',
+     'if (args.archive is None) == (not args.reports_only):',
+     'if args.archive is None and not args.reports_only:',
+     'test_cli_requires_exactly_one_reconciliation_mode'),
+    ('open-archive-in-log-mode', 'main',
+     'result = reconcile_reports() if args.reports_only else reconcile_archive(args.archive)',
+     'result = reconcile_archive(args.archive)',
+     'test_cli_reports_real_counters_without_opening_archive'),
+]
+receipts = []
+try:
+    for name, function, before, after, test in cases:
+        fixed_symbol = symbol(source, function)
+        assert fixed_symbol.count(before) == 1, name
+        mutated_symbol = fixed_symbol.replace(before, after)
+        mutant = source.replace(fixed_symbol, mutated_symbol)
+        try:
+            source_path.write_text(mutant)
+            red = run(selected(test))
+        finally:
+            source_path.write_bytes(original)
+        green = run(selected(test))
+        assert red['exit_code'] == 1 and ('FAILED ' + str(test_path.relative_to(root)) + '::' + test) in red['output'], red
+        assert green['exit_code'] == 0, green
+        receipts.append({'id': name, 'source_symbol': function, 'test': test,
+                         'original_snippet': before, 'mutant_snippet': after,
+                         'mutant_source_sha256': hashlib.sha256(mutant.encode()).hexdigest(),
+                         'red': red, 'green': green})
+        print(name, 'red:', red['exit_code'], 'restored:', green['exit_code'], flush=True)
+finally:
+    source_path.write_bytes(original)
+
+record = {
+    'checked_on': '2026-11-07',
+    'scope': 'real pinned term reports; no archive bytes or comparable execution',
+    'source_sha256': hashlib.sha256(original).hexdigest(),
+    'test_sha256': hashlib.sha256(test_path.read_bytes()).hexdigest(),
+    'recorded_source_symbols': {name: symbol(source, name) for name in sorted({case[1] for case in cases})},
+    'recorded_test_symbols': {name: symbol(test_path.read_text(), name) for name in sorted({case[4] for case in cases})},
+    'receipts': receipts,
+    'source_restored': source_path.read_bytes() == original,
+}
+(evidence / 'term-report-mutations.json').write_text(json.dumps(record, indent=2) + '\n')
+
+commands = [
+    [sys.executable, 'scripts/reconcile_issue_4426_coverage.py', '--reports-only'],
+    [sys.executable, '-m', 'pytest', '-q', str(test_path.relative_to(root)),
+     '--cov=scripts.reconcile_issue_4426_coverage', '--cov-branch', '--cov-report=term-missing', '-m', 'not slow'],
+    [sys.executable, '-m', 'pytest', '-q',
+     'tests/scripts/test_pr_verifier_ranked_remainder.py',
+     'tests/scripts/test_pr_verifier_expanded_comparison_verdict.py',
+     'tests/scripts/test_pr_verifier_evidence_cache_miss.py',
+     'tests/tools/test_langchain_client.py', '-m', 'not slow'],
+    [sys.executable, '-m', 'pytest', '-q',
+     'tests/docs/test_issue_4426_coverage_measurement.py',
+     'tests/docs/test_issue_4426_ranking.py', '-m', 'not slow'],
+    ['ruff', 'check', str(source_path.relative_to(root)), str(test_path.relative_to(root))],
+    ['git', 'diff', '--check'],
+]
+results = []
+for command in commands:
+    result = run(command)
+    results.append(result)
+    print(command, 'exit:', result['exit_code'], flush=True)
+    assert result['exit_code'] == 0, result
+assert json.loads(results[0]['output']) == json.loads((evidence / 'term-report-reconciled.json').read_bytes())
+paths = [source_path, test_path, root / 'pyproject.toml', evidence / 'gate-report-inputs.json',
+         evidence / 'coverage-measurement.json', evidence / 'ranking.json', evidence / 'term-report-reconciled.json']
+validation = {
+    'checked_on': '2026-11-07',
+    'checkout_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+    'python': sys.version,
+    'sha256': {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths},
+    'results': results,
+    'real_archive_available': False,
+    'attributable_round_reduction': None,
+}
+(evidence / 'term-report-validation.json').write_text(json.dumps(validation, indent=2) + '\n')

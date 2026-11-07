@@ -4,6 +4,7 @@
 The pinned log/metadata record binds the archive digest to the PR head and actual
 merge checkout. A report from this tool establishes final artifact counters and
 missing-unit inventories only; comparable original-round execution is still owed.
+Use --reports-only to recover bounded log counters when archive bytes are unavailable.
 """
 
 from __future__ import annotations
@@ -138,13 +139,122 @@ def _match_report(summary: dict, lines: list[str], name: str) -> None:
     _validate_summary(summary, name)
 
 
-def reconcile_archive(archive: Path, evidence: Path = EVIDENCE) -> dict:
-    """Return final counters and exact gaps while retaining unknown attribution."""
+def _read_inputs(evidence: Path) -> dict:
+    """Pin run/head/checkout identities and log bytes for either reconciliation mode."""
     with (evidence / "gate-report-inputs.json").open("rb") as stream:
         inputs_bytes = stream.read(30_001)
     if hashlib.sha256(inputs_bytes).hexdigest() != REPORT_INPUTS_SHA256:
         raise ValueError("pinned Gate metadata digest mismatch")
-    final = json.loads(inputs_bytes)["final_head"]
+    return json.loads(inputs_bytes)
+
+
+def _recover_report_targets(lines: list[str]) -> dict:
+    """Recover missing branch counts only when one integer fits the rounded display.
+
+    BrPart counts partial branches, not all missing outcomes. A rounded display
+    can admit multiple missing counts; such a report must not supply a baseline.
+    No branch positions can be recovered from the counters.
+    """
+    if len(lines) > 16 or any(len(line) > 5000 for line in lines):
+        raise ValueError("report excerpts exceed the bound")
+    targets = {}
+    for path in TARGETS:
+        pattern = re.compile(
+            r"(?:^|\s)" + re.escape(path) + r"\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+\.\d+)%"
+        )
+        matches = [match for line in lines if (match := pattern.search(line)) is not None]
+        if len(matches) != 1:
+            raise ValueError(f"expected one pinned term report for {path}")
+        statements, missed, branches, partial = map(int, matches[0].groups()[:4])
+        if not 0 <= missed <= statements <= 100_000 or not 0 <= partial <= branches <= 100_000:
+            raise ValueError(f"invalid or unbounded coverage counters: {path}")
+        display = matches[0].group(5)
+        candidates = [
+            missing
+            for missing in range(partial, branches + 1)
+            if Numbers(
+                precision=2,
+                n_statements=statements,
+                n_missing=missed,
+                n_branches=branches,
+                n_missing_branches=missing,
+            ).pc_covered_str
+            == display
+        ]
+        if len(candidates) != 1:
+            raise ValueError(f"missing branch count is not unique: {path}")
+        targets[path] = {
+            "num_statements": statements,
+            "missing_lines": missed,
+            "num_branches": branches,
+            "num_partial_branches": partial,
+            "percent_covered_display": display,
+            "missing_branches": candidates[0],
+        }
+    return targets
+
+
+def reconcile_reports(evidence: Path = EVIDENCE) -> dict:
+    """Reproduce historical per-target accounting without granting round-wide credit."""
+    inputs = _read_inputs(evidence)
+    final = inputs["final_head"]
+    baselines = {
+        version: _recover_report_targets(runtime["lines"])
+        for version, runtime in inputs["pre_round"]["runtimes"].items()
+    }
+    final_targets = _recover_report_targets(final["runtime"]["lines"])
+    targets = []
+    for path in TARGETS:
+        current = final_targets[path]
+        original = {version: rows[path] for version, rows in baselines.items()}
+        final_units = current["missing_lines"] + current["missing_branches"]
+        original_units = {
+            version: row["missing_lines"] + row["missing_branches"]
+            for version, row in original.items()
+        }
+        targets.append(
+            {
+                "path": path,
+                "baseline_counters_by_runtime": original,
+                "final_counters": current,
+                "baseline_missing_units_by_runtime": original_units,
+                "final_missing_units": final_units,
+                "unattributed_difference_by_runtime": {
+                    version: units - final_units for version, units in original_units.items()
+                },
+                "denominator_change_by_runtime": {
+                    version: current["num_statements"]
+                    + current["num_branches"]
+                    - row["num_statements"]
+                    - row["num_branches"]
+                    for version, row in original.items()
+                },
+                "attributable_round_reduction": None,
+                "disposition": "requires_comparable_execution",
+                "target_exclusion": None,
+            }
+        )
+    return {
+        "schema": "workflows.issue-4426-report-reconciliation/v1",
+        "source": "gate-report-inputs.json",
+        "source_sha256": REPORT_INPUTS_SHA256,
+        "baseline_run_id": inputs["pre_round"]["run"]["id"],
+        "final_run_id": final["run"]["id"],
+        "final_artifact_id": final["artifact"]["id"],
+        "head_sha": final["run"]["head_sha"],
+        "tested_checkout": final["checkout"],
+        "counter_source": "uniquely_recovered_term_reports",
+        "targets": targets,
+        "attributable_round_reduction": None,
+        "comparable_execution_configuration": False,
+        "branch_arcs_recovered": False,
+        "archive_bytes_verified": False,
+    }
+
+
+def reconcile_archive(archive: Path, evidence: Path = EVIDENCE) -> dict:
+    """Return final counters and exact gaps while retaining unknown attribution."""
+    final = _read_inputs(evidence)["final_head"]
     coverage, coverage_digest = read_coverage_archive(archive, final["artifact"]["digest"])
     lines = final["runtime"]["lines"]
     _match_report(coverage["totals"], [FINAL_TOTAL_LINE], "TOTAL")
@@ -189,10 +299,13 @@ def reconcile_archive(archive: Path, evidence: Path = EVIDENCE) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("archive", type=Path, help="local artifact 13537639987 ZIP")
+    parser.add_argument("archive", type=Path, nargs="?", help="local artifact 13537639987 ZIP")
+    parser.add_argument("--reports-only", action="store_true", help="recover pinned log counters")
     args = parser.parse_args(argv)
+    if (args.archive is None) == (not args.reports_only):
+        parser.error("provide either an archive or --reports-only")
     try:
-        result = reconcile_archive(args.archive)
+        result = reconcile_reports() if args.reports_only else reconcile_archive(args.archive)
     except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile) as exc:
         print(f"Cannot reconcile final Gate artifact: {exc}", file=sys.stderr)
         return 1

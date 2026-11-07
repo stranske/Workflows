@@ -1,0 +1,401 @@
+{
+  "checked_on": "2026-11-07",
+  "scope": "real pinned term reports; no archive bytes or comparable execution",
+  "source_sha256": "a58a0acac4e877c18ec18939209f4fe5986f5a8781428a8d2067a584ca5ba30e",
+  "test_sha256": "13fcacc9a4540a55c39c6c1a8a6bac492e21872c5d83966e01f28ff7084a7b8e",
+  "recorded_source_symbols": {
+    "_read_inputs": "def _read_inputs(evidence: Path) -> dict:\n    \"\"\"Pin run/head/checkout identities and log bytes for either reconciliation mode.\"\"\"\n    with (evidence / \"gate-report-inputs.json\").open(\"rb\") as stream:\n        inputs_bytes = stream.read(30_001)\n    if hashlib.sha256(inputs_bytes).hexdigest() != REPORT_INPUTS_SHA256:\n        raise ValueError(\"pinned Gate metadata digest mismatch\")\n    return json.loads(inputs_bytes)",
+    "_recover_report_targets": "def _recover_report_targets(lines: list[str]) -> dict:\n    \"\"\"Recover missing branch counts only when one integer fits the rounded display.\n\n    BrPart counts partial branches, not all missing outcomes. A rounded display\n    can admit multiple missing counts; such a report must not supply a baseline.\n    No branch positions can be recovered from the counters.\n    \"\"\"\n    if len(lines) > 16 or any(len(line) > 5000 for line in lines):\n        raise ValueError(\"report excerpts exceed the bound\")\n    targets = {}\n    for path in TARGETS:\n        pattern = re.compile(\n            r\"(?:^|\\s)\" + re.escape(path) + r\"\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+\\.\\d+)%\"\n        )\n        matches = [match for line in lines if (match := pattern.search(line)) is not None]\n        if len(matches) != 1:\n            raise ValueError(f\"expected one pinned term report for {path}\")\n        statements, missed, branches, partial = map(int, matches[0].groups()[:4])\n        if not 0 <= missed <= statements <= 100_000 or not 0 <= partial <= branches <= 100_000:\n            raise ValueError(f\"invalid or unbounded coverage counters: {path}\")\n        display = matches[0].group(5)\n        candidates = [\n            missing\n            for missing in range(partial, branches + 1)\n            if Numbers(\n                precision=2,\n                n_statements=statements,\n                n_missing=missed,\n                n_branches=branches,\n                n_missing_branches=missing,\n            ).pc_covered_str\n            == display\n        ]\n        if len(candidates) != 1:\n            raise ValueError(f\"missing branch count is not unique: {path}\")\n        targets[path] = {\n            \"num_statements\": statements,\n            \"missing_lines\": missed,\n            \"num_branches\": branches,\n            \"num_partial_branches\": partial,\n            \"percent_covered_display\": display,\n            \"missing_branches\": candidates[0],\n        }\n    return targets",
+    "main": "def main(argv: list[str] | None = None) -> int:\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"archive\", type=Path, nargs=\"?\", help=\"local artifact 13537639987 ZIP\")\n    parser.add_argument(\"--reports-only\", action=\"store_true\", help=\"recover pinned log counters\")\n    args = parser.parse_args(argv)\n    if (args.archive is None) == (not args.reports_only):\n        parser.error(\"provide either an archive or --reports-only\")\n    try:\n        result = reconcile_reports() if args.reports_only else reconcile_archive(args.archive)\n    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile) as exc:\n        print(f\"Cannot reconcile final Gate artifact: {exc}\", file=sys.stderr)\n        return 1\n    print(json.dumps(result, indent=2))\n    return 0",
+    "reconcile_reports": "def reconcile_reports(evidence: Path = EVIDENCE) -> dict:\n    \"\"\"Reproduce historical per-target accounting without granting round-wide credit.\"\"\"\n    inputs = _read_inputs(evidence)\n    final = inputs[\"final_head\"]\n    baselines = {\n        version: _recover_report_targets(runtime[\"lines\"])\n        for version, runtime in inputs[\"pre_round\"][\"runtimes\"].items()\n    }\n    final_targets = _recover_report_targets(final[\"runtime\"][\"lines\"])\n    targets = []\n    for path in TARGETS:\n        current = final_targets[path]\n        original = {version: rows[path] for version, rows in baselines.items()}\n        final_units = current[\"missing_lines\"] + current[\"missing_branches\"]\n        original_units = {\n            version: row[\"missing_lines\"] + row[\"missing_branches\"]\n            for version, row in original.items()\n        }\n        targets.append(\n            {\n                \"path\": path,\n                \"baseline_counters_by_runtime\": original,\n                \"final_counters\": current,\n                \"baseline_missing_units_by_runtime\": original_units,\n                \"final_missing_units\": final_units,\n                \"unattributed_difference_by_runtime\": {\n                    version: units - final_units for version, units in original_units.items()\n                },\n                \"denominator_change_by_runtime\": {\n                    version: current[\"num_statements\"]\n                    + current[\"num_branches\"]\n                    - row[\"num_statements\"]\n                    - row[\"num_branches\"]\n                    for version, row in original.items()\n                },\n                \"attributable_round_reduction\": None,\n                \"disposition\": \"requires_comparable_execution\",\n                \"target_exclusion\": None,\n            }\n        )\n    return {\n        \"schema\": \"workflows.issue-4426-report-reconciliation/v1\",\n        \"source\": \"gate-report-inputs.json\",\n        \"source_sha256\": REPORT_INPUTS_SHA256,\n        \"baseline_run_id\": inputs[\"pre_round\"][\"run\"][\"id\"],\n        \"final_run_id\": final[\"run\"][\"id\"],\n        \"final_artifact_id\": final[\"artifact\"][\"id\"],\n        \"head_sha\": final[\"run\"][\"head_sha\"],\n        \"tested_checkout\": final[\"checkout\"],\n        \"counter_source\": \"uniquely_recovered_term_reports\",\n        \"targets\": targets,\n        \"attributable_round_reduction\": None,\n        \"comparable_execution_configuration\": False,\n        \"branch_arcs_recovered\": False,\n        \"archive_bytes_verified\": False,\n    }"
+  },
+  "recorded_test_symbols": {
+    "test_cli_reports_real_counters_without_opening_archive": "def test_cli_reports_real_counters_without_opening_archive(monkeypatch, capsys):\n    def unexpected_archive(*args):\n        pytest.fail(\"report mode attempted to open an archive\")\n\n    monkeypatch.setattr(reconcile, \"read_coverage_archive\", unexpected_archive)\n    assert reconcile.main([\"--reports-only\"]) == 0\n    output = capsys.readouterr()\n    assert json.loads(output.out) == reconcile.reconcile_reports()\n    assert output.err == \"\"\n\n    def unavailable():\n        raise ValueError(\"pinned Gate metadata digest mismatch\")\n\n    monkeypatch.setattr(reconcile, \"reconcile_reports\", unavailable)\n    assert reconcile.main([\"--reports-only\"]) == 1\n    output = capsys.readouterr()\n    assert output.out == \"\"\n    assert \"pinned Gate metadata digest mismatch\" in output.err",
+    "test_cli_requires_exactly_one_reconciliation_mode": "@pytest.mark.parametrize(\"argv\", [[], [\"unread.zip\", \"--reports-only\"]])\ndef test_cli_requires_exactly_one_reconciliation_mode(argv, capsys):\n    with pytest.raises(SystemExit) as error:\n        reconcile.main(argv)\n    assert error.value.code == 2\n    output = capsys.readouterr()\n    assert output.out == \"\"\n    assert \"provide either an archive or --reports-only\" in output.err",
+    "test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters": "@pytest.mark.parametrize(\n    \"row\",\n    [\n        \"100000 0 100000 0 99.99%\",  # Multiple missing counts render identically.\n        \"1 0 2 0 50.00%\",  # No integer missing count can render this percentage.\n        \"1 2 2 0 50.00%\",  # Missing statements exceed the denominator.\n        \"100001 0 2 0 100.00%\",  # Bound the work spent on branch recovery.\n        \"1 0 2 3 100.00%\",  # Partial branches exceed total branches.\n    ],\n)\ndef test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters(row):\n    with pytest.raises(ValueError, match=\"not unique|invalid or unbounded\"):\n        reconcile._recover_report_targets([reconcile.TARGETS[0] + \" \" + row])",
+    "test_report_mode_rejects_changed_pinned_baseline": "def test_report_mode_rejects_changed_pinned_baseline(tmp_path):\n    inputs = json.loads((reconcile.EVIDENCE / \"gate-report-inputs.json\").read_bytes())\n    inputs[\"pre_round\"][\"run\"][\"head_sha\"] = \"0\" * 40\n    (tmp_path / \"gate-report-inputs.json\").write_text(json.dumps(inputs))\n    with pytest.raises(ValueError, match=\"metadata digest mismatch\"):\n        reconcile.reconcile_reports(tmp_path)",
+    "test_report_mode_rejects_incomplete_duplicate_or_oversized_logs": "@pytest.mark.parametrize(\"mutation\", [\"missing\", \"duplicate\", \"too_many\", \"too_long\"])\ndef test_report_mode_rejects_incomplete_duplicate_or_oversized_logs(mutation):\n    inputs = json.loads((reconcile.EVIDENCE / \"gate-report-inputs.json\").read_bytes())\n    lines = inputs[\"final_head\"][\"runtime\"][\"lines\"]\n    if mutation == \"missing\":\n        lines = [line for line in lines if reconcile.TARGETS[0] not in line]\n    elif mutation == \"duplicate\":\n        lines.append(next(line for line in lines if reconcile.TARGETS[0] in line))\n    elif mutation == \"too_many\":\n        lines += [\"unrelated\"] * 17\n    else:\n        lines.append(\"x\" * 5001)\n    with pytest.raises(ValueError, match=\"expected one|exceed the bound\"):\n        reconcile._recover_report_targets(lines)",
+    "test_report_mode_reproduces_real_target_accounting_without_artifact_credit": "def test_report_mode_reproduces_real_target_accounting_without_artifact_credit():\n    report = reconcile.reconcile_reports()\n    assert report[\"head_sha\"] == \"97fa3cdd6b198623db4adc86f16f0b3788320794\"\n    assert report[\"tested_checkout\"][\"sha\"] == \"e4e584ea61852751c55749ab9ed6539fa10c9a31\"\n    assert report[\"tested_checkout\"][\"parents\"][-1] == report[\"head_sha\"]\n    assert report[\"baseline_run_id\"] == 38980711116\n    assert report[\"final_run_id\"] == 42287174423\n    assert report[\"final_artifact_id\"] == 13537639987\n    assert report[\"source_sha256\"] == reconcile.REPORT_INPUTS_SHA256\n    assert [row[\"path\"] for row in report[\"targets\"]] == list(reconcile.TARGETS)\n    for filename in (\"coverage-measurement.json\", \"ranking.json\"):\n        evidence = json.loads((reconcile.EVIDENCE / filename).read_bytes())\n        assert report[\"targets\"] == evidence[\"target_snapshot_comparison\"][\"targets\"]\n    assert sum(row[\"final_missing_units\"] for row in report[\"targets\"]) == 238\n    for version in (\"3.12\", \"3.13\"):\n        assert (\n            sum(row[\"baseline_missing_units_by_runtime\"][version] for row in report[\"targets\"])\n            == 402\n        )\n        assert (\n            sum(row[\"unattributed_difference_by_runtime\"][version] for row in report[\"targets\"])\n            == 164\n        )\n    for row in report[\"targets\"]:\n        assert row[\"attributable_round_reduction\"] is None\n        assert row[\"target_exclusion\"] is None\n        assert row[\"disposition\"] == \"requires_comparable_execution\"\n    # A zero snapshot difference is still unknown improvement, not measured zero.\n    assert report[\"targets\"][0][\"unattributed_difference_by_runtime\"] == {\"3.12\": 0, \"3.13\": 0}\n    assert report[\"attributable_round_reduction\"] is None\n    assert report[\"comparable_execution_configuration\"] is False\n    assert report[\"branch_arcs_recovered\"] is False\n    assert report[\"archive_bytes_verified\"] is False"
+  },
+  "receipts": [
+    {
+      "id": "unknown-target-credit",
+      "source_symbol": "reconcile_reports",
+      "test": "test_report_mode_reproduces_real_target_accounting_without_artifact_credit",
+      "original_snippet": "\"attributable_round_reduction\": None,\n                \"disposition\"",
+      "mutant_snippet": "\"attributable_round_reduction\": 0,\n                \"disposition\"",
+      "mutant_source_sha256": "318f57d260f9eca7bd16248620568e40dc6258ffc951322e17dbe28b202c6c7c",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_reproduces_real_target_accounting_without_artifact_credit",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.062,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_report_mode_reproduces_real_target_accounting_without_artifact_credit __\ntests/scripts/test_reconcile_issue_4426_coverage.py:314: in test_report_mode_reproduces_real_target_accounting_without_artifact_credit\n    assert report[\"targets\"] == evidence[\"target_snapshot_comparison\"][\"targets\"]\nE   AssertionError: assert [{'path': 'sc...': 283}, ...}] == [{'path': 'sc...': 283}, ...}]\nE     \nE     At index 0 diff: {'path': 'scripts/sync_test_dependencies.py', 'baseline_counters_by_runtime': {'3.12': {'num_statements': 300, 'missing_lines': 1, 'num_branches': 146, 'num_partial_branches': 5, 'percent_covered_display': '98.65', 'missing_branches': 5}, '3.13': {'num_statements': 300, 'missing_lines': 1, 'num_branches': 146, 'num_partial_branches': 5, 'percent_covered_display': '98.65', 'missing_branches': 5}}, 'final_counters': {'num_statements': 339, 'missing_lines': 1, 'num_branches': 158, 'num_partial_branches': 5, 'percent_covered_display': '98.79', 'missing_branches': 5}, 'baseline_missing_units_by_runtime': {'3.12': 6, '3.13': 6}, 'final_missing_units': 6, 'unattributed_difference_by_runtime': {'3.12': 0, '3.13': 0}, 'denominator_change_by_runtime': {'3.12': 51, '3.13': 51}, 'attributable_round_reduction': 0, 'disposition': 'requires_comparable_execution', 'target_exclusion': None} != {'path': 'scripts/sync_test_dependencies.py', 'baseline_counters_by_runtime': {'3.12': {'num_statements': 300, 'missing_lines': 1, 'num_branches': 146, 'num_partial_branches': 5, 'percent_covered_display': '98.65', 'missing_branches': 5}, '3.13': {'num_statements': 300, 'missing_lines': 1, 'num_branches': 146, 'num_partial_branches': 5, 'percent_covered_display': '98.65', 'missing_branches': 5}}, 'final_counters': {'num_statements': 339, 'missing_lines': 1, 'num_branches': 158, 'num_partial_branches': 5, 'percent_covered_display': '98.79', 'missing_branches': 5}, 'baseline_missing_units_by_runtime': {'3.12': 6, '3.13': 6}, 'final_missing_units': 6, 'unattributed_difference_by_runtime': {'3.12': 0, '3.13': 0}, 'denominator_change_by_runtime': {'3.12': 51, '3.13': 51}, 'attributable_round_reduction': None, 'disposition': 'requires_comparable_execution', 'target_exclusion': None}\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           {\nE               'path': 'scripts/sync_test_dependencies.py',\nE               'baseline_counters_by_runtime': {\nE                   '3.12': {\nE                       'num_statements': 300,\nE                       'missing_lines': 1,\nE                       'num_branches': 146,\nE                       'num_partial_branches': 5,\nE                       'percent_covered_display': '98.65',\nE                       'missing_branches': 5,\nE                   },\nE                   '3.13': {\nE                       'num_statements': 300,\nE                       'missing_lines': 1,\nE                       'num_branches': 146,\nE                       'num_partial_branches': 5,\nE                       'percent_covered_display': '98.65',\nE                       'missing_branches': 5,\nE                   },\nE               },\nE               'final_counters': {\nE                   'num_statements': 339,\nE                   'missing_lines': 1,\nE                   'num_branches': 158,\nE                   'num_partial_branches': 5,\nE                   'percent_covered_display': '98.79',\nE                   'missing_branches': 5,\nE               },\nE               'baseline_missing_units_by_runtime': {\nE                   '3.12': 6,\nE                   '3.13': 6,\nE               },\nE               'final_missing_units': 6,\nE               'unattributed_difference_by_runtime': {\nE                   '3.12': 0,\nE                   '3.13': 0,\nE               },\nE               'denominator_change_by_runtime': {\nE                   '3.12': 51,\nE                   '3.13': 51,\nE               },\nE     -         'attributable_round_reduction': None,\nE     ?                                         ^^^^\nE     +         'attributable_round_reduction': 0,\nE     ?                                         ^\nE               'disposition': 'requires_comparable_execution',\nE               'target_exclusion': None,\nE           },\nE           {\nE               'path': 'scripts/langchain/issue_pr_context.py',\nE               'baseline_counters_by_runtime': {\nE                   '3.12': {\nE                       'num_statements': 339,\nE                       'missing_lines': 17,\nE                       'num_branches': 142,\nE                       'num_partial_branches': 9,\nE                       'percent_covered_display': '93.76',\nE                       'missing_branches': 13,\nE                   },\nE                   '3.13': {\nE                       'num_statements': 339,\nE                       'missing_lines': 17,\nE                       'num_branches': 142,\nE                       'num_partial_branches': 9,\nE                       'percent_covered_display': '93.76',\nE                       'missing_branches': 13,\nE                   },\nE               },\nE               'final_counters': {\nE                   'num_statements': 359,\nE                   'missing_lines': 13,\nE                   'num_branches': 150,\nE                   'num_partial_branches': 2,\nE                   'percent_covered_display': '96.27',\nE                   'missing_branches': 6,\nE               },\nE               'baseline_missing_units_by_runtime': {\nE                   '3.12': 30,\nE                   '3.13': 30,\nE               },\nE               'final_missing_units': 19,\nE               'unattributed_difference_by_runtime': {\nE                   '3.12': 11,\nE                   '3.13': 11,\nE               },\nE               'denominator_change_by_runtime': {\nE                   '3.12': 28,\nE                   '3.13': 28,\nE               },\nE     -         'attributable_round_reduction': None,\nE     ?                                         ^^^^\nE     +         'attributable_round_reduction': 0,\nE     ?                                         ^\nE               'disposition': 'requires_comparable_execution',\nE               'target_exclusion': None,\nE           },\nE           {\nE               'path': 'scripts/langchain/verifier_config.py',\nE               'baseline_counters_by_runtime': {\nE                   '3.12': {\nE                       'num_statements': 135,\nE                       'missing_lines': 7,\nE                       'num_branches': 62,\nE                       'num_partial_branches': 9,\nE                       'percent_covered_display': '91.88',\nE                       'missing_branches': 9,\nE                   },\nE                   '3.13': {\nE                       'num_statements': 135,\nE                       'missing_lines': 7,\nE                       'num_branches': 62,\nE                       'num_partial_branches': 9,\nE                       'percent_covered_display': '91.88',\nE                       'missing_branches': 9,\nE                   },\nE               },\nE               'final_counters': {\nE                   'num_statements': 144,\nE                   'missing_lines': 1,\nE                   'num_branches': 70,\nE                   'num_partial_branches': 1,\nE                   'percent_covered_display': '99.07',\nE                   'missing_branches': 1,\nE               },\nE               'baseline_missing_units_by_runtime': {\nE                   '3.12': 16,\nE                   '3.13': 16,\nE               },\nE               'final_missing_units': 2,\nE               'unattributed_difference_by_runtime': {\nE                   '3.12': 14,\nE                   '3.13': 14,\nE               },\nE               'denominator_change_by_runtime': {\nE                   '3.12': 17,\nE                   '3.13': 17,\nE               },\nE     -         'attributable_round_reduction': None,\nE     ?                                         ^^^^\nE     +         'attributable_round_reduction': 0,\nE     ?                                         ^\nE               'disposition': 'requires_comparable_execution',\nE               'target_exclusion': None,\nE           },\nE           {\nE               'path': 'tools/langchain_client.py',\nE               'baseline_counters_by_runtime': {\nE                   '3.12': {\nE                       'num_statements': 278,\nE                       'missing_lines': 21,\nE                       'num_branches': 104,\nE                       'num_partial_branches': 8,\nE                       'percent_covered_display': '92.41',\nE                       'missing_branches': 8,\nE                   },\nE                   '3.13': {\nE                       'num_statements': 278,\nE                       'missing_lines': 21,\nE                       'num_branches': 104,\nE                       'num_partial_branches': 8,\nE                       'percent_covered_display': '92.41',\nE                       'missing_branches': 8,\nE                   },\nE               },\nE               'final_counters': {\nE                   'num_statements': 287,\nE                   'missing_lines': 3,\nE                   'num_branches': 112,\nE                   'num_partial_branches': 2,\nE                   'percent_covered_display': '98.75',\nE                   'missing_branches': 2,\nE               },\nE               'baseline_missing_units_by_runtime': {\nE                   '3.12': 29,\nE                   '3.13': 29,\nE               },\nE               'final_missing_units': 5,\nE               'unattributed_difference_by_runtime': {\nE                   '3.12': 24,\nE                   '3.13': 24,\nE               },\nE               'denominator_change_by_runtime': {\nE                   '3.12': 17,\nE                   '3.13': 17,\nE               },\nE     -         'attributable_round_reduction': None,\nE     ?                                         ^^^^\nE     +         'attributable_round_reduction': 0,\nE     ?                                         ^\nE               'disposition': 'requires_comparable_execution',\nE               'target_exclusion': None,\nE           },\nE           {\nE               'path': 'scripts/langchain/task_validator.py',\nE               'baseline_counters_by_runtime': {\nE                   '3.12': {\nE                       'num_statements': 250,\nE                       'missing_lines': 25,\nE                       'num_branches': 72,\nE                       'num_partial_branches': 3,\nE                       'percent_covered_display': '88.20',\nE                       'missing_branches': 13,\nE                   },\nE                   '3.13': {\nE                       'num_statements': 250,\nE                       'missing_lines': 25,\nE                       'num_branches': 72,\nE                       'num_partial_branches': 3,\nE                       'percent_covered_display': '88.20',\nE                       'missing_branches': 13,\nE                   },\nE               },\nE               'final_counters': {\nE                   'num_statements': 248,\nE                   'missing_lines': 3,\nE                   'num_branches': 70,\nE                   'num_partial_branches': 3,\nE                   'percent_covered_display': '98.11',\nE                   'missing_branches': 3,\nE               },\nE               'baseline_missing_units_by_runtime': {\nE                   '3.12': 38,\nE                   '3.13': 38,\nE               },\nE               'final_missing_units': 6,\nE               'unattributed_difference_by_runtime': {\nE                   '3.12': 32,\nE                   '3.13': 32,\nE               },\nE               'denominator_change_by_runtime': {\nE                   '3.12': -4,\nE                   '3.13': -4,\nE               },\nE     -         'attributable_round_reduction': None,\nE     ?                                         ^^^^\nE     +         'attributable_round_reduction': 0,\nE     ?                                         ^\nE               'disposition': 'requires_comparable_execution',\nE               'target_exclusion': None,\nE           },\nE           {\nE               'path': 'scripts/langchain/pr_verifier.py',\nE               'baseline_counters_by_runtime': {\nE                   '3.12': {\nE                       'num_statements': 2586,\nE                       'missing_lines': 169,\nE                       'num_branches': 1016,\nE                       'num_partial_branches': 76,\nE                       'percent_covered_display': '92.14',\nE                       'missing_branches': 114,\nE                   },\nE                   '3.13': {\nE                       'num_statements': 2586,\nE                       'missing_lines': 169,\nE                       'num_branches': 1016,\nE                       'num_partial_branches': 76,\nE                       'percent_covered_display': '92.14',\nE                       'missing_branches': 114,\nE                   },\nE               },\nE               'final_counters': {\nE                   'num_statements': 3188,\nE                   'missing_lines': 107,\nE                   'num_branches': 1288,\nE                   'num_partial_branches': 79,\nE                   'percent_covered_display': '95.53',\nE                   'missing_branches': 93,\nE               },\nE               'baseline_missing_units_by_runtime': {\nE                   '3.12': 283,\nE                   '3.13': 283,\nE               },\nE               'final_missing_units': 200,\nE               'unattributed_difference_by_runtime': {\nE                   '3.12': 83,\nE                   '3.13': 83,\nE               },\nE               'denominator_change_by_runtime': {\nE                   '3.12': 874,\nE                   '3.13': 874,\nE               },\nE     -         'attributable_round_reduction': None,\nE     ?                                         ^^^^\nE     +         'attributable_round_reduction': 0,\nE     ?                                         ^\nE               'disposition': 'requires_comparable_execution',\nE               'target_exclusion': None,\nE           },\nE       ]\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_mode_reproduces_real_target_accounting_without_artifact_credit - AssertionError: assert [{'path': 'sc...': 283}, ...}] == [{'path': 'sc...': 283}, ...}]\n  \n  At index 0 diff: {'path': 'scripts/sync_test_dependencies.py', 'baseline_counters_by_runtime': {'3.12': {'num_statements': 300, 'missing_lines': 1, 'num_branches': 146, 'num_partial_branches': 5, 'percent_covered_display': '98.65', 'missing_branches': 5}, '3.13': {'num_statements': 300, 'missing_lines': 1, 'num_branches': 146, 'num_partial_branches': 5, 'percent_covered_display': '98.65', 'missing_branches': 5}}, 'final_counters': {'num_statements': 339, 'missing_lines': 1, 'num_branches': 158, 'num_partial_branches': 5, 'percent_covered_display': '98.79', 'missing_branches': 5}, 'baseline_missing_units_by_runtime': {'3.12': 6, '3.13': 6}, 'final_missing_units': 6, 'unattributed_difference_by_runtime': {'3.12': 0, '3.13': 0}, 'denominator_change_by_runtime': {'3.12': 51, '3.13': 51}, 'attributable_round_reduction': 0, 'disposition': 'requires_comparable_execution', 'target_exclusion': None} != {'path': 'scripts/sync_test_dependencies.py', 'baseline_counters_by_runtime': {'3.12': {'num_statements': 300, 'missing_lines': 1, 'num_branches': 146, 'num_partial_branches': 5, 'percent_covered_display': '98.65', 'missing_branches': 5}, '3.13': {'num_statements': 300, 'missing_lines': 1, 'num_branches': 146, 'num_partial_branches': 5, 'percent_covered_display': '98.65', 'missing_branches': 5}}, 'final_counters': {'num_statements': 339, 'missing_lines': 1, 'num_branches': 158, 'num_partial_branches': 5, 'percent_covered_display': '98.79', 'missing_branches': 5}, 'baseline_missing_units_by_runtime': {'3.12': 6, '3.13': 6}, 'final_missing_units': 6, 'unattributed_difference_by_runtime': {'3.12': 0, '3.13': 0}, 'denominator_change_by_runtime': {'3.12': 51, '3.13': 51}, 'attributable_round_reduction': None, 'disposition': 'requires_comparable_execution', 'target_exclusion': None}\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        {\n            'path': 'scripts/sync_test_dependencies.py',\n            'baseline_counters_by_runtime': {\n                '3.12': {\n                    'num_statements': 300,\n                    'missing_lines': 1,\n                    'num_branches': 146,\n                    'num_partial_branches': 5,\n                    'percent_covered_display': '98.65',\n                    'missing_branches': 5,\n                },\n                '3.13': {\n                    'num_statements': 300,\n                    'missing_lines': 1,\n                    'num_branches': 146,\n                    'num_partial_branches': 5,\n                    'percent_covered_display': '98.65',\n                    'missing_branches': 5,\n                },\n            },\n            'final_counters': {\n                'num_statements': 339,\n                'missing_lines': 1,\n                'num_branches': 158,\n                'num_partial_branches': 5,\n                'percent_covered_display': '98.79',\n                'missing_branches': 5,\n            },\n            'baseline_missing_units_by_runtime': {\n                '3.12': 6,\n                '3.13': 6,\n            },\n            'final_missing_units': 6,\n            'unattributed_difference_by_runtime': {\n                '3.12': 0,\n                '3.13': 0,\n            },\n            'denominator_change_by_runtime': {\n                '3.12': 51,\n                '3.13': 51,\n            },\n  -         'attributable_round_reduction': None,\n  ?                                         ^^^^\n  +         'attributable_round_reduction': 0,\n  ?                                         ^\n            'disposition': 'requires_comparable_execution',\n            'target_exclusion': None,\n        },\n        {\n            'path': 'scripts/langchain/issue_pr_context.py',\n            'baseline_counters_by_runtime': {\n                '3.12': {\n                    'num_statements': 339,\n                    'missing_lines': 17,\n                    'num_branches': 142,\n                    'num_partial_branches': 9,\n                    'percent_covered_display': '93.76',\n                    'missing_branches': 13,\n                },\n                '3.13': {\n                    'num_statements': 339,\n                    'missing_lines': 17,\n                    'num_branches': 142,\n                    'num_partial_branches': 9,\n                    'percent_covered_display': '93.76',\n                    'missing_branches': 13,\n                },\n            },\n            'final_counters': {\n                'num_statements': 359,\n                'missing_lines': 13,\n                'num_branches': 150,\n                'num_partial_branches': 2,\n                'percent_covered_display': '96.27',\n                'missing_branches': 6,\n            },\n            'baseline_missing_units_by_runtime': {\n                '3.12': 30,\n                '3.13': 30,\n            },\n            'final_missing_units': 19,\n            'unattributed_difference_by_runtime': {\n                '3.12': 11,\n                '3.13': 11,\n            },\n            'denominator_change_by_runtime': {\n                '3.12': 28,\n                '3.13': 28,\n            },\n  -         'attributable_round_reduction': None,\n  ?                                         ^^^^\n  +         'attributable_round_reduction': 0,\n  ?                                         ^\n            'disposition': 'requires_comparable_execution',\n            'target_exclusion': None,\n        },\n        {\n            'path': 'scripts/langchain/verifier_config.py',\n            'baseline_counters_by_runtime': {\n                '3.12': {\n                    'num_statements': 135,\n                    'missing_lines': 7,\n                    'num_branches': 62,\n                    'num_partial_branches': 9,\n                    'percent_covered_display': '91.88',\n                    'missing_branches': 9,\n                },\n                '3.13': {\n                    'num_statements': 135,\n                    'missing_lines': 7,\n                    'num_branches': 62,\n                    'num_partial_branches': 9,\n                    'percent_covered_display': '91.88',\n                    'missing_branches': 9,\n                },\n            },\n            'final_counters': {\n                'num_statements': 144,\n                'missing_lines': 1,\n                'num_branches': 70,\n                'num_partial_branches': 1,\n                'percent_covered_display': '99.07',\n                'missing_branches': 1,\n            },\n            'baseline_missing_units_by_runtime': {\n                '3.12': 16,\n                '3.13': 16,\n            },\n            'final_missing_units': 2,\n            'unattributed_difference_by_runtime': {\n                '3.12': 14,\n                '3.13': 14,\n            },\n            'denominator_change_by_runtime': {\n                '3.12': 17,\n                '3.13': 17,\n            },\n  -         'attributable_round_reduction': None,\n  ?                                         ^^^^\n  +         'attributable_round_reduction': 0,\n  ?                                         ^\n            'disposition': 'requires_comparable_execution',\n            'target_exclusion': None,\n        },\n        {\n            'path': 'tools/langchain_client.py',\n            'baseline_counters_by_runtime': {\n                '3.12': {\n                    'num_statements': 278,\n                    'missing_lines': 21,\n                    'num_branches': 104,\n                    'num_partial_branches': 8,\n                    'percent_covered_display': '92.41',\n                    'missing_branches': 8,\n                },\n                '3.13': {\n                    'num_statements': 278,\n                    'missing_lines': 21,\n                    'num_branches': 104,\n                    'num_partial_branches': 8,\n                    'percent_covered_display': '92.41',\n                    'missing_branches': 8,\n                },\n            },\n            'final_counters': {\n                'num_statements': 287,\n                'missing_lines': 3,\n                'num_branches': 112,\n                'num_partial_branches': 2,\n                'percent_covered_display': '98.75',\n                'missing_branches': 2,\n            },\n            'baseline_missing_units_by_runtime': {\n                '3.12': 29,\n                '3.13': 29,\n            },\n            'final_missing_units': 5,\n            'unattributed_difference_by_runtime': {\n                '3.12': 24,\n                '3.13': 24,\n            },\n            'denominator_change_by_runtime': {\n                '3.12': 17,\n                '3.13': 17,\n            },\n  -         'attributable_round_reduction': None,\n  ?                                         ^^^^\n  +         'attributable_round_reduction': 0,\n  ?                                         ^\n            'disposition': 'requires_comparable_execution',\n            'target_exclusion': None,\n        },\n        {\n            'path': 'scripts/langchain/task_validator.py',\n            'baseline_counters_by_runtime': {\n                '3.12': {\n                    'num_statements': 250,\n                    'missing_lines': 25,\n                    'num_branches': 72,\n                    'num_partial_branches': 3,\n                    'percent_covered_display': '88.20',\n                    'missing_branches': 13,\n                },\n                '3.13': {\n                    'num_statements': 250,\n                    'missing_lines': 25,\n                    'num_branches': 72,\n                    'num_partial_branches': 3,\n                    'percent_covered_display': '88.20',\n                    'missing_branches': 13,\n                },\n            },\n            'final_counters': {\n                'num_statements': 248,\n                'missing_lines': 3,\n                'num_branches': 70,\n                'num_partial_branches': 3,\n                'percent_covered_display': '98.11',\n                'missing_branches': 3,\n            },\n            'baseline_missing_units_by_runtime': {\n                '3.12': 38,\n                '3.13': 38,\n            },\n            'final_missing_units': 6,\n            'unattributed_difference_by_runtime': {\n                '3.12': 32,\n                '3.13': 32,\n            },\n            'denominator_change_by_runtime': {\n                '3.12': -4,\n                '3.13': -4,\n            },\n  -         'attributable_round_reduction': None,\n  ?                                         ^^^^\n  +         'attributable_round_reduction': 0,\n  ?                                         ^\n            'disposition': 'requires_comparable_execution',\n            'target_exclusion': None,\n        },\n        {\n            'path': 'scripts/langchain/pr_verifier.py',\n            'baseline_counters_by_runtime': {\n                '3.12': {\n                    'num_statements': 2586,\n                    'missing_lines': 169,\n                    'num_branches': 1016,\n                    'num_partial_branches': 76,\n                    'percent_covered_display': '92.14',\n                    'missing_branches': 114,\n                },\n                '3.13': {\n                    'num_statements': 2586,\n                    'missing_lines': 169,\n                    'num_branches': 1016,\n                    'num_partial_branches': 76,\n                    'percent_covered_display': '92.14',\n                    'missing_branches': 114,\n                },\n            },\n            'final_counters': {\n                'num_statements': 3188,\n                'missing_lines': 107,\n                'num_branches': 1288,\n                'num_partial_branches': 79,\n                'percent_covered_display': '95.53',\n                'missing_branches': 93,\n            },\n            'baseline_missing_units_by_runtime': {\n                '3.12': 283,\n                '3.13': 283,\n            },\n            'final_missing_units': 200,\n            'unattributed_difference_by_runtime': {\n                '3.12': 83,\n                '3.13': 83,\n            },\n            'denominator_change_by_runtime': {\n                '3.12': 874,\n                '3.13': 874,\n            },\n  -         'attributable_round_reduction': None,\n  ?                                         ^^^^\n  +         'attributable_round_reduction': 0,\n  ?                                         ^\n            'disposition': 'requires_comparable_execution',\n            'target_exclusion': None,\n        },\n    ]\n1 failed, 55 deselected in 0.68s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_reproduces_real_target_accounting_without_artifact_credit",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.02,
+        "output": ".                                                                        [100%]\n1 passed, 55 deselected in 0.64s\n"
+      }
+    },
+    {
+      "id": "claim-verified-archive-from-logs",
+      "source_symbol": "reconcile_reports",
+      "test": "test_report_mode_reproduces_real_target_accounting_without_artifact_credit",
+      "original_snippet": "\"archive_bytes_verified\": False",
+      "mutant_snippet": "\"archive_bytes_verified\": True",
+      "mutant_source_sha256": "f9c680d7bf6442f80f373d9931c0379ebc6a243bd263dfff3bccebe8e575ebbb",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_reproduces_real_target_accounting_without_artifact_credit",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.055,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_report_mode_reproduces_real_target_accounting_without_artifact_credit __\ntests/scripts/test_reconcile_issue_4426_coverage.py:334: in test_report_mode_reproduces_real_target_accounting_without_artifact_credit\n    assert report[\"archive_bytes_verified\"] is False\nE   assert True is False\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_mode_reproduces_real_target_accounting_without_artifact_credit - assert True is False\n1 failed, 55 deselected in 0.68s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_reproduces_real_target_accounting_without_artifact_credit",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.001,
+        "output": ".                                                                        [100%]\n1 passed, 55 deselected in 0.64s\n"
+      }
+    },
+    {
+      "id": "accept-replaced-baseline",
+      "source_symbol": "_read_inputs",
+      "test": "test_report_mode_rejects_changed_pinned_baseline",
+      "original_snippet": "if hashlib.sha256(inputs_bytes).hexdigest() != REPORT_INPUTS_SHA256:",
+      "mutant_snippet": "if False:",
+      "mutant_source_sha256": "d3d519934971ac59119b9a5c67ba5788ab858b32e6b45a130931e87bd2bc4f02",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_changed_pinned_baseline",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.052,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______________ test_report_mode_rejects_changed_pinned_baseline _______________\ntests/scripts/test_reconcile_issue_4426_coverage.py:341: in test_report_mode_rejects_changed_pinned_baseline\n    with pytest.raises(ValueError, match=\"metadata digest mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_mode_rejects_changed_pinned_baseline - Failed: DID NOT RAISE ValueError\n1 failed, 55 deselected in 0.68s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_changed_pinned_baseline",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.034,
+        "output": ".                                                                        [100%]\n1 passed, 55 deselected in 0.65s\n"
+      }
+    },
+    {
+      "id": "choose-an-ambiguous-rounded-count",
+      "source_symbol": "_recover_report_targets",
+      "test": "test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters",
+      "original_snippet": "if len(candidates) != 1:",
+      "mutant_snippet": "if not candidates:",
+      "mutant_source_sha256": "f60a52ebab8b9aa9496afad215d3ddd796332c6ecb4e613d9d0ff9f2485b9c95",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.193,
+        "output": "F....                                                                    [100%]\n=================================== FAILURES ===================================\n_ test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters[100000 0 100000 0 99.99%] _\ntests/scripts/test_reconcile_issue_4426_coverage.py:356: in test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters\n    with pytest.raises(ValueError, match=\"not unique|invalid or unbounded\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'not unique|invalid or unbounded'\nE     Actual message: 'expected one pinned term report for scripts/langchain/issue_pr_context.py'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters[100000 0 100000 0 99.99%] - AssertionError: Regex pattern did not match.\n  Expected regex: 'not unique|invalid or unbounded'\n  Actual message: 'expected one pinned term report for scripts/langchain/issue_pr_context.py'\n1 failed, 4 passed, 51 deselected in 0.83s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.165,
+        "output": ".....                                                                    [100%]\n5 passed, 51 deselected in 0.79s\n"
+      }
+    },
+    {
+      "id": "accept-unbounded-counters",
+      "source_symbol": "_recover_report_targets",
+      "test": "test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters",
+      "original_snippet": "if not 0 <= missed <= statements <= 100_000 or not 0 <= partial <= branches <= 100_000:",
+      "mutant_snippet": "if False:",
+      "mutant_source_sha256": "b1adef3172734ab2e88fbac71fbc221c88db93f2c02cd42826a4527d5b8e8aef",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.187,
+        "output": "...F.                                                                    [100%]\n=================================== FAILURES ===================================\n_ test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters[100001 0 2 0 100.00%] _\ntests/scripts/test_reconcile_issue_4426_coverage.py:356: in test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters\n    with pytest.raises(ValueError, match=\"not unique|invalid or unbounded\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'not unique|invalid or unbounded'\nE     Actual message: 'expected one pinned term report for scripts/langchain/issue_pr_context.py'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters[100001 0 2 0 100.00%] - AssertionError: Regex pattern did not match.\n  Expected regex: 'not unique|invalid or unbounded'\n  Actual message: 'expected one pinned term report for scripts/langchain/issue_pr_context.py'\n1 failed, 4 passed, 51 deselected in 0.83s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_ambiguous_impossible_or_unbounded_counters",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.154,
+        "output": ".....                                                                    [100%]\n5 passed, 51 deselected in 0.79s\n"
+      }
+    },
+    {
+      "id": "accept-duplicate-log-targets",
+      "source_symbol": "_recover_report_targets",
+      "test": "test_report_mode_rejects_incomplete_duplicate_or_oversized_logs",
+      "original_snippet": "if len(matches) != 1:",
+      "mutant_snippet": "if not matches:",
+      "mutant_source_sha256": "f1e5de7e5fba31fd700dd133278f7abf8c8138a5709c5ff99299358cf99621bd",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_incomplete_duplicate_or_oversized_logs",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.088,
+        "output": ".F..                                                                     [100%]\n=================================== FAILURES ===================================\n__ test_report_mode_rejects_incomplete_duplicate_or_oversized_logs[duplicate] __\ntests/scripts/test_reconcile_issue_4426_coverage.py:372: in test_report_mode_rejects_incomplete_duplicate_or_oversized_logs\n    with pytest.raises(ValueError, match=\"expected one|exceed the bound\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_mode_rejects_incomplete_duplicate_or_oversized_logs[duplicate] - Failed: DID NOT RAISE ValueError\n1 failed, 3 passed, 52 deselected in 0.67s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_incomplete_duplicate_or_oversized_logs",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.999,
+        "output": "....                                                                     [100%]\n4 passed, 52 deselected in 0.63s\n"
+      }
+    },
+    {
+      "id": "ignore-log-excerpt-bound",
+      "source_symbol": "_recover_report_targets",
+      "test": "test_report_mode_rejects_incomplete_duplicate_or_oversized_logs",
+      "original_snippet": "if len(lines) > 16 or any(len(line) > 5000 for line in lines):",
+      "mutant_snippet": "if False:",
+      "mutant_source_sha256": "13d2b75447700f3e08b54b3a8e0c5ff7fb85d0bd5dac7b67404959801cb40393",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_incomplete_duplicate_or_oversized_logs",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.052,
+        "output": "..FF                                                                     [100%]\n=================================== FAILURES ===================================\n__ test_report_mode_rejects_incomplete_duplicate_or_oversized_logs[too_many] ___\ntests/scripts/test_reconcile_issue_4426_coverage.py:372: in test_report_mode_rejects_incomplete_duplicate_or_oversized_logs\n    with pytest.raises(ValueError, match=\"expected one|exceed the bound\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n__ test_report_mode_rejects_incomplete_duplicate_or_oversized_logs[too_long] ___\ntests/scripts/test_reconcile_issue_4426_coverage.py:372: in test_report_mode_rejects_incomplete_duplicate_or_oversized_logs\n    with pytest.raises(ValueError, match=\"expected one|exceed the bound\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_mode_rejects_incomplete_duplicate_or_oversized_logs[too_many] - Failed: DID NOT RAISE ValueError\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_report_mode_rejects_incomplete_duplicate_or_oversized_logs[too_long] - Failed: DID NOT RAISE ValueError\n2 failed, 2 passed, 52 deselected in 0.68s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_report_mode_rejects_incomplete_duplicate_or_oversized_logs",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.008,
+        "output": "....                                                                     [100%]\n4 passed, 52 deselected in 0.64s\n"
+      }
+    },
+    {
+      "id": "accept-both-cli-modes",
+      "source_symbol": "main",
+      "test": "test_cli_requires_exactly_one_reconciliation_mode",
+      "original_snippet": "if (args.archive is None) == (not args.reports_only):",
+      "mutant_snippet": "if args.archive is None and not args.reports_only:",
+      "mutant_source_sha256": "ea6a2205f25f2f2be4e63273974c7317225573aade91edeeb0cb32b63899292e",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_cli_requires_exactly_one_reconciliation_mode",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.048,
+        "output": ".F                                                                       [100%]\n=================================== FAILURES ===================================\n___________ test_cli_requires_exactly_one_reconciliation_mode[argv1] ___________\ntests/scripts/test_reconcile_issue_4426_coverage.py:378: in test_cli_requires_exactly_one_reconciliation_mode\n    with pytest.raises(SystemExit) as error:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE SystemExit\n----------------------------- Captured stdout call -----------------------------\n{\n  \"schema\": \"workflows.issue-4426-report-reconciliation/v1\",\n  \"source\": \"gate-report-inputs.json\",\n  \"source_sha256\": \"edef0047a34517cdbd3543e0bc308e180865305bcc5f618ba3ea1619dc5e4a3c\",\n  \"baseline_run_id\": 38980711116,\n  \"final_run_id\": 42287174423,\n  \"final_artifact_id\": 13537639987,\n  \"head_sha\": \"97fa3cdd6b198623db4adc86f16f0b3788320794\",\n  \"tested_checkout\": {\n    \"sha\": \"e4e584ea61852751c55749ab9ed6539fa10c9a31\",\n    \"tree_sha\": \"c9e0d5158f0dd4bc8166c3667439219b7e943fd9\",\n    \"parents\": [\n      \"d216eaafb02c97ed5f1da16a10d46d9a967c616f\",\n      \"97fa3cdd6b198623db4adc86f16f0b3788320794\"\n    ]\n  },\n  \"counter_source\": \"uniquely_recovered_term_reports\",\n  \"targets\": [\n    {\n      \"path\": \"scripts/sync_test_dependencies.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 300,\n          \"missing_lines\": 1,\n          \"num_branches\": 146,\n          \"num_partial_branches\": 5,\n          \"percent_covered_display\": \"98.65\",\n          \"missing_branches\": 5\n        },\n        \"3.13\": {\n          \"num_statements\": 300,\n          \"missing_lines\": 1,\n          \"num_branches\": 146,\n          \"num_partial_branches\": 5,\n          \"percent_covered_display\": \"98.65\",\n          \"missing_branches\": 5\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 339,\n        \"missing_lines\": 1,\n        \"num_branches\": 158,\n        \"num_partial_branches\": 5,\n        \"percent_covered_display\": \"98.79\",\n        \"missing_branches\": 5\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 6,\n        \"3.13\": 6\n      },\n      \"final_missing_units\": 6,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 0,\n        \"3.13\": 0\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 51,\n        \"3.13\": 51\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"scripts/langchain/issue_pr_context.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 339,\n          \"missing_lines\": 17,\n          \"num_branches\": 142,\n          \"num_partial_branches\": 9,\n          \"percent_covered_display\": \"93.76\",\n          \"missing_branches\": 13\n        },\n        \"3.13\": {\n          \"num_statements\": 339,\n          \"missing_lines\": 17,\n          \"num_branches\": 142,\n          \"num_partial_branches\": 9,\n          \"percent_covered_display\": \"93.76\",\n          \"missing_branches\": 13\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 359,\n        \"missing_lines\": 13,\n        \"num_branches\": 150,\n        \"num_partial_branches\": 2,\n        \"percent_covered_display\": \"96.27\",\n        \"missing_branches\": 6\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 30,\n        \"3.13\": 30\n      },\n      \"final_missing_units\": 19,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 11,\n        \"3.13\": 11\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 28,\n        \"3.13\": 28\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"scripts/langchain/verifier_config.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 135,\n          \"missing_lines\": 7,\n          \"num_branches\": 62,\n          \"num_partial_branches\": 9,\n          \"percent_covered_display\": \"91.88\",\n          \"missing_branches\": 9\n        },\n        \"3.13\": {\n          \"num_statements\": 135,\n          \"missing_lines\": 7,\n          \"num_branches\": 62,\n          \"num_partial_branches\": 9,\n          \"percent_covered_display\": \"91.88\",\n          \"missing_branches\": 9\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 144,\n        \"missing_lines\": 1,\n        \"num_branches\": 70,\n        \"num_partial_branches\": 1,\n        \"percent_covered_display\": \"99.07\",\n        \"missing_branches\": 1\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 16,\n        \"3.13\": 16\n      },\n      \"final_missing_units\": 2,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 14,\n        \"3.13\": 14\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 17,\n        \"3.13\": 17\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"tools/langchain_client.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 278,\n          \"missing_lines\": 21,\n          \"num_branches\": 104,\n          \"num_partial_branches\": 8,\n          \"percent_covered_display\": \"92.41\",\n          \"missing_branches\": 8\n        },\n        \"3.13\": {\n          \"num_statements\": 278,\n          \"missing_lines\": 21,\n          \"num_branches\": 104,\n          \"num_partial_branches\": 8,\n          \"percent_covered_display\": \"92.41\",\n          \"missing_branches\": 8\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 287,\n        \"missing_lines\": 3,\n        \"num_branches\": 112,\n        \"num_partial_branches\": 2,\n        \"percent_covered_display\": \"98.75\",\n        \"missing_branches\": 2\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 29,\n        \"3.13\": 29\n      },\n      \"final_missing_units\": 5,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 24,\n        \"3.13\": 24\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 17,\n        \"3.13\": 17\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"scripts/langchain/task_validator.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 250,\n          \"missing_lines\": 25,\n          \"num_branches\": 72,\n          \"num_partial_branches\": 3,\n          \"percent_covered_display\": \"88.20\",\n          \"missing_branches\": 13\n        },\n        \"3.13\": {\n          \"num_statements\": 250,\n          \"missing_lines\": 25,\n          \"num_branches\": 72,\n          \"num_partial_branches\": 3,\n          \"percent_covered_display\": \"88.20\",\n          \"missing_branches\": 13\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 248,\n        \"missing_lines\": 3,\n        \"num_branches\": 70,\n        \"num_partial_branches\": 3,\n        \"percent_covered_display\": \"98.11\",\n        \"missing_branches\": 3\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 38,\n        \"3.13\": 38\n      },\n      \"final_missing_units\": 6,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 32,\n        \"3.13\": 32\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": -4,\n        \"3.13\": -4\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"scripts/langchain/pr_verifier.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 2586,\n          \"missing_lines\": 169,\n          \"num_branches\": 1016,\n          \"num_partial_branches\": 76,\n          \"percent_covered_display\": \"92.14\",\n          \"missing_branches\": 114\n        },\n        \"3.13\": {\n          \"num_statements\": 2586,\n          \"missing_lines\": 169,\n          \"num_branches\": 1016,\n          \"num_partial_branches\": 76,\n          \"percent_covered_display\": \"92.14\",\n          \"missing_branches\": 114\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 3188,\n        \"missing_lines\": 107,\n        \"num_branches\": 1288,\n        \"num_partial_branches\": 79,\n        \"percent_covered_display\": \"95.53\",\n        \"missing_branches\": 93\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 283,\n        \"3.13\": 283\n      },\n      \"final_missing_units\": 200,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 83,\n        \"3.13\": 83\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 874,\n        \"3.13\": 874\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    }\n  ],\n  \"attributable_round_reduction\": null,\n  \"comparable_execution_configuration\": false,\n  \"branch_arcs_recovered\": false,\n  \"archive_bytes_verified\": false\n}\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_cli_requires_exactly_one_reconciliation_mode[argv1] - Failed: DID NOT RAISE SystemExit\n1 failed, 1 passed, 54 deselected in 0.68s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_cli_requires_exactly_one_reconciliation_mode",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.006,
+        "output": "..                                                                       [100%]\n2 passed, 54 deselected in 0.63s\n"
+      }
+    },
+    {
+      "id": "open-archive-in-log-mode",
+      "source_symbol": "main",
+      "test": "test_cli_reports_real_counters_without_opening_archive",
+      "original_snippet": "result = reconcile_reports() if args.reports_only else reconcile_archive(args.archive)",
+      "mutant_snippet": "result = reconcile_archive(args.archive)",
+      "mutant_source_sha256": "7a7f89a4bdd2041cbc4715bc4aeaf012c0ffaed94bc9d42684a7a3f412262dc6",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_cli_reports_real_counters_without_opening_archive",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.286,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________ test_cli_reports_real_counters_without_opening_archive ____________\ntests/scripts/test_reconcile_issue_4426_coverage.py:391: in test_cli_reports_real_counters_without_opening_archive\n    assert reconcile.main([\"--reports-only\"]) == 0\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nscripts/reconcile_issue_4426_coverage.py:308: in main\n    result = reconcile_archive(args.archive)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nscripts/reconcile_issue_4426_coverage.py:258: in reconcile_archive\n    coverage, coverage_digest = read_coverage_archive(archive, final[\"artifact\"][\"digest\"])\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntests/scripts/test_reconcile_issue_4426_coverage.py:388: in unexpected_archive\n    pytest.fail(\"report mode attempted to open an archive\")\nE   Failed: report mode attempted to open an archive\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reconcile_issue_4426_coverage.py::test_cli_reports_real_counters_without_opening_archive - Failed: report mode attempted to open an archive\n1 failed, 55 deselected in 0.69s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_reconcile_issue_4426_coverage.py",
+          "-k",
+          "test_cli_reports_real_counters_without_opening_archive",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.047,
+        "output": ".                                                                        [100%]\n1 passed, 55 deselected in 0.66s\n"
+      }
+    }
+  ],
+  "source_restored": true
+}

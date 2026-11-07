@@ -599,3 +599,68 @@ all incomplete task checkboxes remain unchecked.
 The final full-tree Black check passes: `957 files would be left unchanged`,
 exit 0. The isolated commit contains the same source/test bytes as the
 validated active checkout; the exported patch includes the complete receipts.
+
+## Runnable term-report reconciliation, 2026-11-07
+
+Pre-edit real-input outcome: the connector reverified artifact 13537639987,
+run 42287174423, head `97fa3cdd6b198623db4adc86f16f0b3788320794`
+and digest `sha256:c754151adf08a07da718d76b40da09c814ef2ae09e69b982c0635cd9e608c839`.
+The one bounded local download attempt failed with URLError; no archive bytes
+were recovered. The existing reconciler and coverage/ranking selection passes
+95 tests, exit 0. The PR is open with draft=false. PR-body corrections were
+rejected because connector writes require approval under the never policy.
+
+Selected symbols before editing: `reconcile_archive`, `main`, and new
+`_read_inputs`, `_recover_report_targets`, `reconcile_reports` in
+`scripts/reconcile_issue_4426_coverage.py`. Add a runnable offline log-only
+mode so the real pinned original and final counters can be regenerated without
+archive access or importing test helpers. Keep attribution null, expose changed
+denominators, reject ambiguous rounded branch counts, and preserve historical
+snapshots. No task is complete merely because this mode succeeds.
+
+Command after implementation:
+
+```bash
+python scripts/reconcile_issue_4426_coverage.py --reports-only
+```
+
+Stop rule: no more archive retrieval attempts in this chunk; no remote fetches
+or credential copying in validation; each focused command has a 110-second
+limit. The existing full Gate command remains unexecuted locally. Finish after
+focused coverage, required behavioral and shallow evidence checks, named
+mutation failures/restoration passes, and the required Black gate. Leave the
+artifact/comparable-execution acceptance criteria unchecked.
+
+Final results for this chunk:
+
+- The real-input `--reports-only` command passes, exit 0, and reproduces
+  `term-report-reconciled.json` and both retained per-target records. It
+  preserves unknown attribution and reports archive verification false.
+- Targeted reconciler coverage passes 56 tests in 0.91s, exit 0. Its Cover
+  column is 98.90%; this is utility coverage, not original-round credit.
+- The required four-module behavioral selection passes 177 tests in 3.09s,
+  exit 0. The coverage/ranking evidence selection passes 53 tests in 0.73s.
+- All six evidence modules pass 68 tests in 2.96s, exit 0, in a fresh
+  depth-one offline checkout with no credential copying.
+- Nine named mutants fail with exit 1 and pass after restoration with
+  exit 0. `term-report-mutations.json` retains immutable source/test symbols
+  (including test decorators), hashes and complete outputs. No mutation
+  remains. Historical receipts are retained separately.
+- Ruff and `git diff --check` pass. The full-tree Black check passes, exit 0,
+  with 957 files unchanged. The ordinary process-pool launch fails with
+  sandbox PermissionError; the existing serial scheduler preserves Black's
+  formatter and safety checks:
+  `PYTHONPATH=/tmp/issue4426-log-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`.
+
+Reproduce the named mutations and focused validations with
+`python docs/evidence/issue-4426/term-report-validation-driver.txt`.
+Reproduce the shallow documentation check with
+`python docs/evidence/issue-4426/follow-up-shallow-driver.txt docs/evidence/issue-4426/term-report-shallow-validation.json`.
+
+The active-checkout `git add` fails creating `.git/index.lock` because the
+Git metadata mount is read-only. An isolated local commit and
+`/tmp/issue4426-term-report.patch` preserve the payload without advancing the
+active branch or remote head. PR-body corrections were rejected because the
+connector requires approval under the never policy. No task is newly checked;
+full archive reconciliation, comparable original execution, the approximately
+180 attributable units and exact-head follow-up Gate results remain incomplete.

@@ -209,3 +209,19 @@ Tests use explicitly synthetic archives and cannot establish real artifact
 availability. A fresh download attempt on 2026-11-07 still failed DNS resolution.
 This implementation advances artifact ingestion; it does not complete task 1
 or either remaining acceptance criterion.
+
+## Reproduce the real term-report accounting offline
+
+`python scripts/reconcile_issue_4426_coverage.py --reports-only` regenerates
+`term-report-reconciled.json` from the digest-pinned Gate log record. It emits
+both original runtimes separately, the final counters for all six targets,
+and each target's denominator changes. It agrees with the retained
+`target_snapshot_comparison` records in coverage-measurement.json and
+ranking.json. This mode requires no artifact ZIP, Git history or network.
+
+The original total is 402 missing units on each runtime; the final total is
+238. The 164-unit snapshot difference remains unattributed. A zero difference
+for one target remains distinct from measured zero improvement. The command
+rejects ambiguous rounded branch counts and marks archive verification,
+comparable execution and branch-arc recovery false. It grants no exclusions.
+The archive-based command still requires the exact digest-matching bytes.

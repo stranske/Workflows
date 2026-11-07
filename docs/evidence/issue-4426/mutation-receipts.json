@@ -2308,5 +2308,17 @@
     "local_incremental_missing_unit_reduction": 34,
     "attributable_original_round_reduction": null,
     "scope": "native slot admission and reviewed package prompts; no original-round credit"
+  },
+  "term_report_reconciliation": {
+    "checked_on": "2026-11-07",
+    "receipt_record": "term-report-mutations.json",
+    "validation_record": "term-report-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/term-report-validation-driver.txt",
+    "named_mutations": 9,
+    "restored_passes": 9,
+    "source_restored": true,
+    "real_final_artifact_available": false,
+    "attributable_original_round_reduction": null,
+    "scope": "regeneration from pinned real term reports; no original-round credit"
   }
 }

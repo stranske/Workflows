@@ -77,7 +77,7 @@ The full Gate/artifact attribution acceptance criteria remain unchecked.
 - [x] Task 3: historical mutation receipts use immutable recorded source and test bytes; inventory assertions no longer require #4405 tests to stay absent in later checkouts. Verified by the six documentation modules in a shallow offline checkout.
 - [x] Task 4: removed history fetching and extraheader copying from ranking tests; bounded pinned local ranking inputs regenerate both historical windows. Verified with a subprocess prohibition test and the shallow offline run.
 - [x] Task 5: constructor-miss test injects resolved provider slots and proves the failing constructor ran. Blocked override fallback/consumption, shared model1 and explicit model2 run against both implementations. Final-version named mutations fail and restore, and actual pre-#4481 implementations both fail the blocked-override regression while fixed copies pass.
-- [x] Task 6: pre-edit real-input command, date and finite stop rule recorded in gate-check.md; final-version mutation and original-code regression results retained with runnable driver. Exact-head full Gate artifact reconciliation remains incomplete.
+- [ ] Task 6: pre-edit real-input command, date and finite stop rule recorded in gate-check.md; final-version mutation and original-code regression results retained with runnable driver. Exact-head full Gate artifact reconciliation remains incomplete.
 
 `focused-validation.json` records the required four-module acceptance run.
 `shallow-validation.json` records all six documentation modules from a local
@@ -106,8 +106,19 @@ restored passes are retained in `native-slot-mutations.json`; production source
 is restored. The matched local two-module run gains 34 units (24 lines and ten
 branches); this is not attributable original-round credit.
 
-Task reconciliation: Task 6 is now complete for command/date/stop-rule recording.
-Tasks 1 and 2 remain unchecked for their unverified artifact and full-contract portions.
+Task reconciliation: Task 6 has verified command/date/stop-rule recording, but
+its exact-head artifact reconciliation remains incomplete. Tasks 1, 2 and 6
+remain unchecked locally for their unverified artifact and full-contract portions.
 The connector rejected the requested PR-body correction because approval is required under
 a never-approve run policy. The remote body remains unchanged. All local test suites
 pass and all follow-up mutations are verified.
+
+Runnable term-report reconciliation, 2026-11-07: `python
+scripts/reconcile_issue_4426_coverage.py --reports-only` regenerates all six
+original/final per-target counters and changed denominators from pinned real
+logs. `term-report-reconciled.json` retains the result; coverage-measurement.json
+and ranking.json link it without replacing historical snapshots. Archive
+retrieval still fails with URLError, so attribution remains null and Tasks 1,
+2 and 6 retain their incomplete artifact/full-contract portions. The attempted
+PR-body correction was rejected because approval is unavailable in this run;
+remote checkboxes still overstate completion. No new task is marked complete.
