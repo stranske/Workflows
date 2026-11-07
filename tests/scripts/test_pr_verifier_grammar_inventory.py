@@ -37,9 +37,7 @@ def test_inventory_accounts_for_every_named_regression_and_case():
     assert len({entry["function"] for entry in entries}) == len(entries)
     assert set(functions) == {entry["function"] for entry in entries}
     assert sum(entry["original_count"] for entry in entries) == 90550
-    assert (
-        sum(entry["retained_count"] for entry in entries) == 30461
-    )  # Current main corpus minus 909 repeated body-clause floor cases.
+    assert sum(entry["retained_count"] for entry in entries) == 29777
     matrices = json.loads(MATRICES.read_text(encoding="utf-8"))
     bounded = {row["function"]: row for row in matrices}
     assert len(bounded) == len(matrices) == 24
@@ -52,9 +50,16 @@ def test_inventory_accounts_for_every_named_regression_and_case():
             assert matrix["source_base"] == inventory["source_base"], name
             assert matrix["original_count"] == entry["original_count"], name
             assert matrix["retained_count"] == entry["retained_count"], name
-            assert prod(len(values) for values in matrix["dimensions"].values()) == (
+            original_dimensions = {
+                **matrix["dimensions"],
+                **matrix.get("floor_only_dimensions", {}),
+            }
+            assert prod(len(values) for values in original_dimensions.values()) == (
                 entry["original_count"]
             ), name
+            assert {axis: len(values) for axis, values in original_dimensions.items()} == {
+                ",".join(dim["names"]): dim["size"] for dim in entry["original_dimensions"]
+            }, name
         elif entry.get("integration_floor_split"):
             assert entry["retained_count"] < entry["original_count"], name
             assert prod(dim["size"] for dim in entry["original_dimensions"]) == (
@@ -173,3 +178,58 @@ def test_emitted_cases_preserve_every_declared_semantic_and_lexical_projection()
                     for value in (item if "," in axis else [item])
                 )
                 assert witness in cases, (name, axes, selected)
+
+
+def _argument_rows(function):
+    marks = _parametrizations(function)
+    for selected in product(*(mark.args[1] for mark in marks)):
+        arguments = {}
+        for mark, case in zip(marks, selected, strict=True):
+            names = _parameter_names(mark)
+            values = (
+                case.values if hasattr(case, "values") else (case if len(names) > 1 else [case])
+            )
+            arguments.update(zip(names, values, strict=True))
+        yield arguments
+
+
+def test_classifier_floor_splits_preserve_all_options_and_missing_states(monkeypatch):
+    matrices = json.loads(MATRICES.read_text(encoding="utf-8"))
+    splits = [matrix for matrix in matrices if matrix.get("classifier_only")]
+    assert {matrix["floor_test"] for matrix in splits} == {
+        "test_passive_aliases_real_floor",
+        "test_component_availability_real_floor",
+    }
+
+    def options_key(options):
+        return frozenset(frozenset(option) for option in options)
+
+    for matrix in splits:
+        name = matrix["function"]
+        assert matrix["floor_only_dimensions"] == {"missing": ["absent", "unavailable"]}
+        assert "missing" not in matrix["dimensions"]
+        builder = getattr(delivery, matrix["case_builder"])
+        classifier_options = set()
+        for arguments in _argument_rows(getattr(delivery, name)):
+            _, expected = builder(**arguments)
+            if isinstance(expected, set):
+                expected = [expected]
+            classifier_options.add(options_key(expected))
+
+        observed = set()
+
+        def capture(criterion, expected, missing):
+            # Observe the floor's actual dispatch, rather than a copied criterion.
+            assert delivery.verifier._required_evidence_channels(criterion) == set().union(
+                *expected
+            )
+            assert options_key(delivery.verifier._required_evidence_options(criterion)) == (
+                options_key(expected)
+            )
+            observed.add((options_key(expected), missing))
+
+        monkeypatch.setattr(delivery, "_assert_review_evidence_floor", capture)
+        floor = getattr(delivery, matrix["floor_test"])
+        for arguments in _argument_rows(floor):
+            floor(**arguments)
+        assert observed == set(product(classifier_options, ["absent", "unavailable"])), name

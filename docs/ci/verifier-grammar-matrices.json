@@ -470,10 +470,6 @@
     "function": "test_passive_aliases_preserve_actor_options_and_actual_floor",
     "original_count": 3240,
     "dimensions": {
-      "missing": [
-        "absent",
-        "unavailable"
-      ],
       "independent": [
         false,
         true
@@ -527,7 +523,6 @@
       ]
     },
     "semantic": [
-      "missing",
       "independent",
       "governor",
       "shape",
@@ -541,17 +536,22 @@
         "position"
       ]
     },
-    "retained_count": 600,
-    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+    "retained_count": 420,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35",
+    "floor_only_dimensions": {
+      "missing": [
+        "absent",
+        "unavailable"
+      ]
+    },
+    "classifier_only": true,
+    "floor_test": "test_passive_aliases_real_floor",
+    "case_builder": "_passive_alias_case"
   },
   {
     "function": "test_component_availability_preserves_bare_sibling_and_passive_actor",
     "original_count": 3888,
     "dimensions": {
-      "missing": [
-        "absent",
-        "unavailable"
-      ],
       "independent": [
         false,
         true
@@ -606,7 +606,6 @@
       ]
     },
     "semantic": [
-      "missing",
       "independent",
       "governor",
       "availability",
@@ -622,8 +621,17 @@
         "availability"
       ]
     },
-    "retained_count": 1350,
-    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+    "retained_count": 702,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35",
+    "floor_only_dimensions": {
+      "missing": [
+        "absent",
+        "unavailable"
+      ]
+    },
+    "classifier_only": true,
+    "floor_test": "test_component_availability_real_floor",
+    "case_builder": "_component_availability_case"
   },
   {
     "function": "test_relative_checklist_delivery_reuses_negative_optional_governor",

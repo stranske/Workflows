@@ -3,6 +3,37 @@
 Issue #3904 changes test design, not production verifier behavior or delivery gates.
 The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 
+## Follow-up: passive aliases and component availability
+
+The retained inventory now has 29,777 destination cases. The passive-alias
+classifier retains 420 cases (formerly 600), and component availability retains
+702 (formerly 1,350). Both still assert required channels and required options.
+Their classifier inputs omit `missing`, which affects retrieval state only.
+The JSON records that historical axis under `floor_only_dimensions` so original
+counts remain auditable without emitting duplicate classifier rows.
+
+Shared criterion builders feed `test_passive_aliases_real_floor` (120 cases) and
+`test_component_availability_real_floor` (24 cases). They retain both channel
+directions, mandatory/optional/prohibited governors, independent artifact duties,
+and absent/unavailable retrieval. The passive matrix also retains human AND/OR
+and product AND/OR options. Each case checks all four body/comment presence sets
+with artifacts present. The audit compares every emitted classifier outcome with
+the actual floor dispatch for both missing states. Alias spelling, agent placement,
+availability wording, destination aliases, order and coordination remain crossed
+in the classifier matrices; the floor witnesses use canonical wording.
+
+These families run 576 full prompt/floor checks instead of 7,800. Comma-attachment
+and relative-presence regressions still use the complete shared assertion helper,
+including every original classifier assertion and all four floor presence sets.
+Other per-row floor exceptions remain unchanged. These are execution counts,
+not measured hosted timings; the broader task and runtime evidence remain open.
+
+Validate these changes with:
+
+```sh
+pytest tests/scripts/test_pr_verifier_grammar_inventory.py tests/scripts/test_pr_verifier_relative_presence_groups.py tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_body_overall_integration.py -q -m "not slow"
+```
+
 ## PR #4456: body-clause classifier/floor split
 
 Against main `7b92760527da7c9a7a5282005009b75f7d01cd2e`, this PR changes
