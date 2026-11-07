@@ -1,8 +1,39 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
+from mypy import api as mypy_api
 from scripts import ci_history
+
+
+def test_ci_history_typechecks_in_consumer_layout(tmp_path: Path) -> None:
+    """Check the shipped source without Workflows' scripts.* error suppression."""
+    package = tmp_path / "scripts"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    source_dir = Path(ci_history.__file__).parent
+    for name in ("ci_history.py", "ci_metrics.py"):
+        shutil.copyfile(source_dir / name, package / name)
+
+    config = tmp_path / "pyproject.toml"
+    config.write_text(
+        "[tool.mypy]\nexplicit_package_bases = true\nnamespace_packages = true\n",
+        encoding="utf-8",
+    )
+    stdout, stderr, status = mypy_api.run(
+        [
+            "--config-file",
+            str(config),
+            "--cache-dir",
+            str(tmp_path / "mypy-cache"),
+            "--no-incremental",
+            str(package),
+        ]
+    )
+
+    assert status == 0, stdout + stderr
+    assert "Success: no issues found" in stdout
 
 
 def test_truthy_accepts_common_values() -> None:

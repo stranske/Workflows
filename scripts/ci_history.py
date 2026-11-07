@@ -149,7 +149,7 @@ def main() -> int:
         timestamp = (
             _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         )
-        record: dict[str, Any] = {
+        record = {
             "timestamp": timestamp,
             "status": "observed-failure",
             "reason": "file-not-found",
