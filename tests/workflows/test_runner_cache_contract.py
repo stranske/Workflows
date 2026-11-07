@@ -59,7 +59,13 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
         inputs = (workflow.get("on") or workflow[True])["workflow_call"]["inputs"]
         default = inputs[f"{agent}_cli_version"]["default"]
         assert default and default not in ("latest", "stable"), filename
-        assert default in job["env"][version_var], filename
+        if agent in ("codex", "claude", "gemini"):
+            assert re.fullmatch(
+                r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", default
+            ), f"{filename}: CLI default must pin an exact npm release"
+        assert job["env"][version_var] == (
+            f"${{{{ inputs.{agent}_cli_version || '{default}' }}}}"
+        ), f"{filename}: CLI cache fallback differs from input default"
         prefix = f"${{{{ runner.temp }}}}/agent-cli/{agent}"
         assert cache["with"]["path"] == prefix, filename
         assert prefix in expose, filename
@@ -123,6 +129,46 @@ def test_cli_cache_contract_rejects_regressions(
         "late-path": "CLI path exposed after installation",
     }
     with pytest.raises(AssertionError, match=re.escape(f"{filename}: {messages[regression]}")):
+        test_cli_cache_tracks_installed_version_and_path(agent)
+
+
+@pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
+@pytest.mark.parametrize("version", ("next", "^1.0.0", "~1.0.0", "*"))
+def test_cli_cache_contract_rejects_floating_npm_defaults(
+    agent: str, version: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stable cache key cannot describe a moving npm release selection."""
+    workflow, job = _runner(agent)
+    inputs = (workflow.get("on") or workflow[True])["workflow_call"]["inputs"]
+    inputs[f"{agent}_cli_version"]["default"] = version
+    version_var = f"{agent.upper()}_CLI_VERSION"
+    job["env"][version_var] = f"${{{{ inputs.{agent}_cli_version || '{version}' }}}}"
+    if agent == "codex":
+        _step(job, "Install Codex CLI")["env"][version_var] = job["env"][version_var]
+    monkeypatch.setattr(f"{__name__}._runner", lambda requested: (workflow, job))
+    filename = f".github/workflows/reusable-{agent}-run.yml"
+    with pytest.raises(
+        AssertionError, match=re.escape(f"{filename}: CLI default must pin an exact npm release")
+    ):
+        test_cli_cache_tracks_installed_version_and_path(agent)
+
+
+@pytest.mark.parametrize("agent", ("codex", "claude", "cursor", "gemini"))
+def test_cli_cache_contract_rejects_different_version_fallback(
+    agent: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workflow, job = _runner(agent)
+    version_var = f"{agent.upper()}_CLI_VERSION"
+    # Retain the input default as a substring to exercise the former weak check.
+    job["env"][version_var] = job["env"][version_var].replace("|| '", "|| '1")
+    if agent == "codex":
+        _step(job, "Install Codex CLI")["env"][version_var] = job["env"][version_var]
+    monkeypatch.setattr(f"{__name__}._runner", lambda requested: (workflow, job))
+    filename = f".github/workflows/reusable-{agent}-run.yml"
+    with pytest.raises(
+        AssertionError,
+        match=re.escape(f"{filename}: CLI cache fallback differs from input default"),
+    ):
         test_cli_cache_tracks_installed_version_and_path(agent)
 
 
