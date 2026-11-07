@@ -81,12 +81,14 @@ tasks:
     title: The next sync-core round classifies stranske/trip-planner#1957 without
       this finding.
     status: deferred
-    started_at: null
+    started_at: '2026-11-07T04:08:00Z'
     finished_at: null
     commit: ''
     notes:
       - 'Live sync-core round remains external; agent cannot trigger or observe it.'
       - 'Local proxy: test_ci_history_clears_sync_core_no_redef_finding asserts the verbatim sync-core fingerprint is absent under reusable-10 consumer gate settings and present when the duplicate annotation is reintroduced (commit f9416207).'
+      - 'Fixed accidental F811 duplicate of the clearance proxy that broke lint-ruff on PR #4510.'
+      - 'Added test_sync_core_no_redef_finding_classifier for agent-verifiable fingerprint clearance (original evidence vs clean success vs unrelated no-redef).'
   - id: task-10
     title: 'Fix the failure named in the title (`Shipment-caused: Python CI / typecheck-mypy
       fails on synced scripts/ci`) at its source; the failing check''s log is linked

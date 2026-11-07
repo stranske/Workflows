@@ -305,6 +305,36 @@ _SYNC_CORE_NO_REDEF_FINDING = (
 )
 
 
+def _sync_core_still_reports_no_redef(log_text: str) -> bool:
+    """Return True when a consumer mypy log still carries the #4508 fingerprint.
+
+    Sync-core classifies shipment-caused findings from check logs. A later round
+    clears this issue only when the verbatim no-redef line is absent.
+    """
+    return _SYNC_CORE_NO_REDEF_FINDING in log_text
+
+
+@pytest.mark.parametrize(
+    ("log_text", "expect_reported"),
+    [
+        (
+            'scripts/ci_history.py:152: error: Name "record" already defined on line 119  '
+            "[no-redef]\n##[error]Process completed with exit code 1.\n",
+            True,
+        ),
+        ("Success: no issues found in 1 source file\n", False),
+        (
+            'scripts/other.py:10: error: Name "record" already defined on line 1  [no-redef]\n',
+            False,
+        ),
+    ],
+    ids=["original-evidence", "clean-success", "unrelated-no-redef"],
+)
+def test_sync_core_no_redef_finding_classifier(log_text: str, expect_reported: bool) -> None:
+    """Agent-verifiable half of sync-core clearance: fingerprint match only."""
+    assert _sync_core_still_reports_no_redef(log_text) is expect_reported
+
+
 @pytest.mark.parametrize(
     "reintroduce_redefinition",
     [False, True],
@@ -355,79 +385,13 @@ def test_ci_history_clears_sync_core_no_redef_finding(
         text=True,
         timeout=120,
     )
+    combined = result.stdout + result.stderr
 
     if reintroduce_redefinition:
-        assert result.returncode != 0, result.stdout + result.stderr
-        assert _SYNC_CORE_NO_REDEF_FINDING in result.stdout, result.stdout + result.stderr
+        assert result.returncode != 0, combined
+        assert _sync_core_still_reports_no_redef(combined), combined
     else:
-        assert result.returncode == 0, result.stdout + result.stderr
-        assert _SYNC_CORE_NO_REDEF_FINDING not in result.stdout
-        assert "[no-redef]" not in result.stdout
-        assert 'Name "record" already defined' not in result.stdout
-
-
-# Verbatim finding sync-core quoted on trip-planner#1957 (round 20261107T014654Z).
-_SYNC_CORE_NO_REDEF_FINDING = (
-    'scripts/ci_history.py:152: error: Name "record" already defined on line 119  [no-redef]'
-)
-
-
-@pytest.mark.parametrize(
-    "reintroduce_redefinition",
-    [False, True],
-    ids=["cleared-for-sync-core", "emits-sync-core-finding"],
-)
-def test_ci_history_clears_sync_core_no_redef_finding(
-    tmp_path: Path, reintroduce_redefinition: bool
-) -> None:
-    """Local proxy for the live sync-core clearance acceptance criterion (#4508).
-
-    Mirror reusable-10-ci-python's consumer gate (trip-planner mypy knobs + ``.``
-    target with ``--exclude .workflows-lib``). Fixed source must not emit the
-    verbatim sync-core fingerprint; reintroducing the duplicate annotation must.
-    """
-    package = tmp_path / "scripts"
-    package.mkdir()
-    source_dir = Path(ci_history.__file__).parent
-    for name in ("ci_history.py", "ci_metrics.py"):
-        shutil.copyfile(source_dir / name, package / name)
-
-    if reintroduce_redefinition:
-        script = package / "ci_history.py"
-        source = script.read_text(encoding="utf-8")
-        assert "failure_record: dict[str, Any]" in source
-        script.write_text(source.replace("failure_record", "record"), encoding="utf-8")
-
-    (tmp_path / "pyproject.toml").write_text(
-        "[tool.mypy]\nexplicit_package_bases = true\nnamespace_packages = true\n",
-        encoding="utf-8",
-    )
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "mypy",
-            "--config-file",
-            "pyproject.toml",
-            "--exclude",
-            ".workflows-lib",
-            "--cache-dir",
-            str(tmp_path / "mypy-cache"),
-            "--no-incremental",
-            ".",
-        ],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-
-    if reintroduce_redefinition:
-        assert result.returncode != 0, result.stdout + result.stderr
-        assert _SYNC_CORE_NO_REDEF_FINDING in result.stdout, result.stdout + result.stderr
-    else:
-        assert result.returncode == 0, result.stdout + result.stderr
-        assert _SYNC_CORE_NO_REDEF_FINDING not in result.stdout
-        assert "[no-redef]" not in result.stdout
-        assert 'Name "record" already defined' not in result.stdout
+        assert result.returncode == 0, combined
+        assert not _sync_core_still_reports_no_redef(combined), combined
+        assert "[no-redef]" not in combined
+        assert 'Name "record" already defined' not in combined

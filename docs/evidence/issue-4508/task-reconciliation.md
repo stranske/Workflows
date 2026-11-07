@@ -288,3 +288,32 @@ BLACK_CACHE_DIR=/tmp/issue-4508-black-cache BLACK_NUM_WORKERS=1 \
 
 The live sync-core round remains unchecked external verification; this proxy
 advances that acceptance criterion without claiming the live classification.
+
+## Sync-core clearance proxy dedupe + classifier (this round)
+
+The previous clearance-proxy commit accidentally duplicated
+`test_ci_history_clears_sync_core_no_redef_finding` and `_SYNC_CORE_NO_REDEF_FINDING`,
+which Ruff flagged as `F811` and failed `python ci / lint-ruff` /
+`Lint, Format & YAML Validation` on PR #4510.
+
+This round:
+
+- Removed the duplicate definition (single clearance proxy remains).
+- Added `_sync_core_still_reports_no_redef` plus
+  `test_sync_core_no_redef_finding_classifier` covering the original evidence
+  log, a clean success log, and an unrelated `[no-redef]` line.
+- Wired the mypy clearance proxy through that classifier.
+
+```text
+ruff check tests/scripts/test_ci_history.py
+All checks passed!
+
+pytest tests/scripts/test_ci_history.py tests/workflows/test_ci_history.py -m 'not slow' -q
+31 passed
+
+black --line-length 100 tests/scripts/test_ci_history.py
+1 file reformatted / left unchanged after format.
+```
+
+Live sync-core classification of trip-planner#1957 remains deferred/external;
+do not modify or trigger `maint-68-sync-consumer-repos.yml`.
