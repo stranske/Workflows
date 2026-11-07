@@ -6,6 +6,8 @@ has none of this repo's `src/` or mypy settings, so check the files alone with o
 marker next to them.
 """
 
+import hashlib
+import json
 import shutil
 import subprocess
 import sys
@@ -19,6 +21,15 @@ DELIVERED = ("scripts/ledger_validate.py", "scripts/belt_ledger_completion.py")
 mypy_available = (
     subprocess.run([sys.executable, "-m", "mypy", "--version"], capture_output=True).returncode == 0
 )
+
+
+def test_retained_consumer_registry_matches_observed_github_blob():
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+    source = (fixture / observation["file"]["snapshot"]).read_bytes()
+    # Git's blob ID binds the exact bytes fetched at the recorded immutable head.
+    git_blob = b"blob " + str(len(source)).encode("ascii") + b"\0" + source
+    assert hashlib.sha1(git_blob).hexdigest() == observation["file"]["git_blob_sha"]
 
 
 @pytest.mark.skipif(not mypy_available, reason="mypy is not installed")
@@ -49,10 +60,20 @@ def test_delivered_ledger_scripts_type_check_in_a_consumer_layout(tmp_path):
 
 
 @pytest.mark.skipif(not mypy_available, reason="mypy is not installed")
-@pytest.mark.parametrize("source_tree", [".", "templates/consumer-repo"])
+@pytest.mark.parametrize(
+    "source_path",
+    [
+        "tools/llm_registry.py",
+        "templates/consumer-repo/tools/llm_registry.py",
+        pytest.param(
+            "tests/fixtures/issue_4506/llm_registry.py.txt",
+            id="trip-planner-1957-head-7ca6deb8",
+        ),
+    ],
+)
 @pytest.mark.parametrize("restore_bug", [False, True], ids=["fixed", "pre-fix"])
 def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
-    tmp_path, source_tree, restore_bug
+    tmp_path, source_path, restore_bug
 ):
     """Consumer settings must catch optional providers passed to SlotDefinition (#4485).
 
@@ -65,7 +86,9 @@ def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
     package.mkdir()
     (package / "__init__.py").write_text("")
     delivered = package / "llm_registry.py"
-    shutil.copy(ROOT / source_tree / "tools/llm_registry.py", delivered)
+    # Include the immutable consumer-head capture: checking source/template alone
+    # cannot establish that regeneration delivered the provider guard (#4506).
+    shutil.copy(ROOT / source_path, delivered)
     if restore_bug:
         # Break only the isolated consumer copy: prove mypy really checks this call,
         # rather than passing because an ignore_errors setting hid the defect.
