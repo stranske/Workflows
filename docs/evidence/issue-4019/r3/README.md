@@ -46,7 +46,7 @@ and the codex_session_analyzer dispatch. Changing `if` to `elif` makes the logge
 
 ## Break-and-revert
 
-`mutate.py` runs 27 mutations over all 21 new test functions (3 in aggregate, 18 in provider); some tests
+`mutate.py` runs 27 mutations over 24 test functions (3 in aggregate, 21 in provider); some tests
 get several mutations. Each mutation applies the exact replacement, runs the one node (exit 1, named
 FAILED), restores the original bytes (sha256 checked), and reruns it (exit 0). Results are in
 `mutations/mutation-receipts.json`, and the full output is in `mutations/NN-red.txt` and `NN-green.txt`.
@@ -84,3 +84,21 @@ Python 3.13/3.14 and raw coverage are PENDING, as are merge/main ancestry and
 delivered-revision focused pytest. New receipts use `integration-rerun/`;
 original `mutations/` receipts are preserved. No summary percentage substitutes
 for separately identified raw runtime coverage or explicit residual lists.
+
+
+The actual mutation-table function count is 24 (3 aggregate, 21 provider);
+this corrects the historical 21/18 wording without altering any original
+receipt. Review dispositions and bounded follow-ups are recorded in
+`integration-rerun/review-dispositions.md`. The final immutable head, hosted
+runs/raw artifact identities, merge SHA, and main ancestry are maintained in
+the acceptance section of [integration PR #4516](https://github.com/stranske/Workflows/pull/4516).
+
+
+The integrated-tree hosted checkpoint now measures TARGET_MISSING=3 on
+`c4c91e4c91e3860c3519eb8bc61c7943b7cd8c5b` (Gate 42335283865): both Python
+runtimes passed; 3.14 raw TOTAL=63868/70054, summary=92.60%, residual provider
+lines [265,270,292], branches []; 3.13 has no coverage JSON. See the final
+section of `acceptance-integration.md` and the distinct raw-artifact manifests.
+That is a checkpoint before this documentation reconciliation. Final-head
+confirmation and delivered-main acceptance are recorded in
+[PR #4516](https://github.com/stranske/Workflows/pull/4516), not inferred here.

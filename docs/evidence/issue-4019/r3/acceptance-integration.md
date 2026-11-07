@@ -573,3 +573,56 @@ source digest restored, no collection-error substitutes. Retention verification
 confirms 55 original mutation files unchanged and both provider production
 copies plus the sync-drift tests identical to current main. See
 `integration-rerun/retention.json` and separate raw outputs.
+
+
+## Integrated-tree hosted checkpoint (2026-11-06 CST)
+
+Outcome 1: `TARGET_MISSING 3` at integration head
+`c4c91e4c91e3860c3519eb8bc61c7943b7cd8c5b`, base
+`0fb506e6ab16f1b4105a587021d28d60c0f6eb8b`.
+[Gate 42335283865](https://github.com/stranske/Workflows/actions/runs/42335283865)
+tested synthetic merge `5acad2470870e89618f92f7e58fe7c39d15dda21`; its
+parents are that base and head, and `git diff HEAD 5acad247` was empty.
+This whole-tree comparison is stronger than selected-blob identity alone.
+Python 3.13 job 128291070061: 50292 passed, 27 skipped, 3 xfailed, 504.50s.
+Python 3.14 job 128291069864: 50292 passed, 27 skipped, 3 xfailed, 552.87s.
+
+Downloaded raw artifacts are separately identified and digest-verified in
+`integration-rerun/green-3.13-manifest.json` and `green-3.14-manifest.json`.
+3.14 artifact 13559676412 prints:
+
+```text
+TOTAL 63868 70054 91.169669112399
+scripts/aggregate_agent_metrics.py 0 + 0 = 0 [] []
+scripts/check_consumer_sync_drift.py 0 + 0 = 0 [] []
+tools/llm_provider.py 3 + 0 = 3 [265, 270, 292] []
+TARGET_MISSING 3
+```
+
+All residuals: provider lines 265, 270, 292 are abstract-method `pass` bodies
+(`name`, `is_available`, `analyze_completion`); zero residual branches and no
+other target residuals. We retain these in coverage rather than adding padding.
+The 3.14 summary percentage is 92.60, distinct from raw blended 91.169669112399;
+raw counters above are authoritative for this criterion.
+3.13 artifact 13558944592 contains JUnit but no coverage.json or coverage.xml;
+its summary marks coverage minimum skipped. No 3.13 uncovered count is claimed.
+
+The freshly downloaded historical baseline 41668857273 has distinct artifacts
+13248466557 (3.14) and 13248291385 (3.13), identified by the baseline manifests.
+`target_missing.py` prints raw TOTAL 63040/69241 (91.04432344997906), target
+missing 73 (aggregate 0+3, sync 0+0, provider 54+16). Its summary reports 92.47.
+Its 3.13 artifact also lacks coverage JSON. Repository denominators changed
+69241 -> 70054 between historical baseline and this current-main integration;
+no causal repository-percentage gain is attributed to this test-only change.
+The historical round's whole target list contained only 107 units, so 180 was
+not reachable within scope; the three behaviorless residual lines explain
+the remaining target shortfall.
+
+This documentation reconciliation changes the PR head. The resulting final-head
+Gate and raw-artifact confirmation, merge commit, main ancestry, and delivered
+focused rerun must be recorded in the final acceptance section of
+[integration PR #4516](https://github.com/stranske/Workflows/pull/4516).
+They remain pending at this checkpoint; no parent-head result is relabeled.
+The README function count is corrected to 24 (3 aggregate, 21 provider);
+original receipts remain unchanged. Four optional review items are recorded
+in `integration-rerun/review-dispositions.md`, per the owner's narrow scope.

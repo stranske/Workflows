@@ -1,0 +1,24 @@
+{
+  "run": 42335283865,
+  "head": "c4c91e4c91e3860c3519eb8bc61c7943b7cd8c5b",
+  "base": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+  "tested_merge": "5acad2470870e89618f92f7e58fe7c39d15dda21",
+  "artifact": 13558944592,
+  "runtime": "3.13",
+  "zip_sha256": "1cb20309de58be198fbec293ae3826ff871c81d45cbd972f088d0dbbab080a9c",
+  "files": [
+    "index.ndjson",
+    "runtimes/3.13/pytest-junit.xml",
+    "runtimes/3.13/pytest-collection.json",
+    "runtimes/3.13/pytest-resources.json",
+    "runtimes/3.13/summary.json"
+  ],
+  "summary_artifacts": {
+    "coverage_json": false,
+    "coverage_xml": false,
+    "pytest_junit": true
+  },
+  "summary_coverage": null,
+  "raw_coverage_sha256": null,
+  "worker_tested_sha": "5acad2470870e89618f92f7e58fe7c39d15dda21"
+}

@@ -1,0 +1,29 @@
+{
+  "run": 42335283865,
+  "head": "c4c91e4c91e3860c3519eb8bc61c7943b7cd8c5b",
+  "base": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+  "tested_merge": "5acad2470870e89618f92f7e58fe7c39d15dda21",
+  "artifact": 13559676412,
+  "runtime": "3.14",
+  "zip_sha256": "bd5d4e017146d8be28ae6e7612c768f2540e64afd4abf88e42895610adcf924b",
+  "files": [
+    "index.ndjson",
+    "runtimes/3.14/coverage.json",
+    "runtimes/3.14/coverage.xml",
+    "runtimes/3.14/pytest-collection.json",
+    "runtimes/3.14/pytest-junit.xml",
+    "runtimes/3.14/pytest-resources.json",
+    "runtimes/3.14/summary.json"
+  ],
+  "summary_artifacts": {
+    "coverage_json": true,
+    "coverage_xml": true,
+    "pytest_junit": true
+  },
+  "summary_coverage": {
+    "percent": 92.6,
+    "source": "coverage.json"
+  },
+  "raw_coverage_sha256": "6b57b030a82f177a310381ada1e88a091fe695b5c1a19d9dfa0d5b2945b6182d",
+  "worker_tested_sha": "5acad2470870e89618f92f7e58fe7c39d15dda21"
+}

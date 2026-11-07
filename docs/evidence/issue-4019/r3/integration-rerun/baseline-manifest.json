@@ -1,0 +1,17 @@
+{
+  "run": 41668857273,
+  "head": "79c84f753656a5fcf594aa0cae30e23ab3b76119",
+  "artifact": 13248466557,
+  "name": "gate-coverage-3.14-1",
+  "zip_sha256": "c79c3b82dbc1d594f539523eaf9aaa33478161bdab2ab6f5076348f8919424e5",
+  "coverage_sha256": "95bc7e9c2e78ce94f0fd0e5957336baf3ce86d7e231e8d010f8f3a25a7c42aa7",
+  "files": [
+    "index.ndjson",
+    "runtimes/3.14/coverage.json",
+    "runtimes/3.14/coverage.xml",
+    "runtimes/3.14/pytest-collection.json",
+    "runtimes/3.14/pytest-junit.xml",
+    "runtimes/3.14/pytest-resources.json",
+    "runtimes/3.14/summary.json"
+  ]
+}
