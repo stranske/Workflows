@@ -344,3 +344,23 @@ BLACK_CACHE_DIR=/tmp/issue-4508-black-cache BLACK_NUM_WORKERS=1 \
 ```
 
 Live sync-core round still deferred; do not mark that checkbox complete.
+
+## Production classifier + GHA-prefixed fixtures (this round)
+
+Promoted the fingerprint helper out of the test module into
+`scripts/sync_core_shipment_finding.py` (not sync-manifest delivered) so agents
+can classify a consumer typecheck-mypy log offline:
+
+```text
+python scripts/sync_core_shipment_finding.py evidence/issue-4508/sync-core-clearance/typecheck-mypy-green.log
+# cleared → exit 0
+python scripts/sync_core_shipment_finding.py evidence/issue-4508/sync-core-clearance/typecheck-mypy-red.log
+# still-reported → exit 1
+```
+
+Pinned red/green excerpts now retain GitHub Actions timestamp prefixes from the
+live jobs (128260180158 / 128267659502). Classifier tests cover sanitized and
+GHA-prefixed logs; focused suite **36 passed**.
+
+Live sync-core classification of trip-planner#1957 remains deferred/external;
+do not modify or trigger `maint-68-sync-consumer-repos.yml`.

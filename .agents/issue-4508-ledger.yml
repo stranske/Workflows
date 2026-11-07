@@ -91,6 +91,7 @@ tasks:
       - 'Added test_sync_core_no_redef_finding_classifier for agent-verifiable fingerprint clearance (original evidence vs clean success vs unrelated no-redef).'
       - 'Commit 8a52e844: removed F811 duplicate; classifier + clearance proxy green (31 focused tests).'
       - 'Pinned trip-planner#1957 red/green typecheck-mypy excerpts under evidence/issue-4508/sync-core-clearance and assert classifier clearance on the regenerated green head.'
+      - 'Promoted classifier to scripts/sync_core_shipment_finding.py; fixtures retain GHA timestamp prefixes from live jobs 128260180158 / 128267659502; CLI exit codes mirror clearance.'
   - id: task-10
     title: 'Fix the failure named in the title (`Shipment-caused: Python CI / typecheck-mypy
       fails on synced scripts/ci`) at its source; the failing check''s log is linked
@@ -129,6 +130,7 @@ tasks:
     notes:
       - 'Outside agent completion criteria; requires a later sync-core round.'
       - 'Agent-verifiable half covered by pinned red/green evidence classifier; live round still deferred.'
+      - 'Production classifier scripts/sync_core_shipment_finding.py classifies GHA-prefixed job logs; live round still deferred.'
   - id: task-14
     title: Fix the source and let `.github/workflows/maint-68-sync-consumer-repos.yml`
       regenerate the sync PR.

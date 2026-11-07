@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from scripts import ci_history
+from scripts import ci_history, sync_core_shipment_finding
 
 
 @pytest.mark.parametrize(
@@ -299,22 +299,9 @@ def test_ci_history_type_checks_under_consumer_mypy(
         assert result.returncode == 0, result.stdout + result.stderr
 
 
-# Verbatim finding sync-core quoted on trip-planner#1957 (round 20261107T014654Z).
-_SYNC_CORE_NO_REDEF_FINDING = (
-    'scripts/ci_history.py:152: error: Name "record" already defined on line 119  [no-redef]'
-)
 _SYNC_CORE_EVIDENCE_DIR = (
     Path(__file__).resolve().parents[2] / "evidence" / "issue-4508" / "sync-core-clearance"
 )
-
-
-def _sync_core_still_reports_no_redef(log_text: str) -> bool:
-    """Return True when a consumer mypy log still carries the #4508 fingerprint.
-
-    Sync-core classifies shipment-caused findings from check logs. A later round
-    clears this issue only when the verbatim no-redef line is absent.
-    """
-    return _SYNC_CORE_NO_REDEF_FINDING in log_text
 
 
 @pytest.mark.parametrize(
@@ -325,17 +312,34 @@ def _sync_core_still_reports_no_redef(log_text: str) -> bool:
             "[no-redef]\n##[error]Process completed with exit code 1.\n",
             True,
         ),
+        (
+            "2026-11-07T01:44:32.3461098Z scripts/ci_history.py:152: error: "
+            'Name "record" already defined on line 119  [no-redef]\n',
+            True,
+        ),
         ("Success: no issues found in 1 source file\n", False),
+        (
+            "2026-11-07T02:12:31.5934134Z Success: no issues found in 484 source files\n",
+            False,
+        ),
         (
             'scripts/other.py:10: error: Name "record" already defined on line 1  [no-redef]\n',
             False,
         ),
     ],
-    ids=["original-evidence", "clean-success", "unrelated-no-redef"],
+    ids=[
+        "sanitized-original-evidence",
+        "gha-timestamp-prefixed-red",
+        "clean-success",
+        "gha-timestamp-prefixed-green",
+        "unrelated-no-redef",
+    ],
 )
 def test_sync_core_no_redef_finding_classifier(log_text: str, expect_reported: bool) -> None:
-    """Agent-verifiable half of sync-core clearance: fingerprint match only."""
-    assert _sync_core_still_reports_no_redef(log_text) is expect_reported
+    """Agent-verifiable half of sync-core clearance via production classifier."""
+    assert (
+        sync_core_shipment_finding.reports_ci_history_record_no_redef(log_text) is expect_reported
+    )
 
 
 @pytest.mark.parametrize(
@@ -352,20 +356,33 @@ def test_sync_core_classifier_on_pinned_trip_planner_logs(
     """Classify real trip-planner#1957 typecheck-mypy excerpts for sync-core clearance.
 
     Red: original Evidence job 128260180158 (head 041bd22f043a) still reports the
-    verbatim fingerprint. Green: regenerated head 948406465cf7 job 128267659502
-    succeeds without that finding — the agent-verifiable half of the remaining #4508
-    acceptance criterion before the live sync-core round.
+    verbatim fingerprint under a GHA timestamp prefix. Green: regenerated head
+    948406465cf7 job 128267659502 succeeds without that finding — the
+    agent-verifiable half of the remaining #4508 acceptance criterion before the
+    live sync-core round.
     """
     log_path = _SYNC_CORE_EVIDENCE_DIR / fixture_name
     log_text = log_path.read_text(encoding="utf-8")
     assert log_text.strip(), f"empty evidence fixture: {log_path}"
-    assert _sync_core_still_reports_no_redef(log_text) is expect_reported
+    assert (
+        sync_core_shipment_finding.reports_ci_history_record_no_redef(log_text) is expect_reported
+    )
     if expect_reported:
-        assert _SYNC_CORE_NO_REDEF_FINDING in log_text
+        assert sync_core_shipment_finding.CI_HISTORY_RECORD_NO_REDEF_FINDING in log_text
+        # Raw job logs retain the GHA timestamp prefix ahead of the fingerprint.
+        assert "Z scripts/ci_history.py:152:" in log_text
     else:
         assert "ci_history.py" not in log_text
         assert "[no-redef]" not in log_text
         assert "Success: no issues found" in log_text
+
+
+def test_sync_core_shipment_finding_cli_on_pinned_logs() -> None:
+    """CLI mirrors classifier exits: red still-reported, green cleared."""
+    red = _SYNC_CORE_EVIDENCE_DIR / "typecheck-mypy-red.log"
+    green = _SYNC_CORE_EVIDENCE_DIR / "typecheck-mypy-green.log"
+    assert sync_core_shipment_finding.main([str(red)]) == 1
+    assert sync_core_shipment_finding.main([str(green)]) == 0
 
 
 @pytest.mark.parametrize(
@@ -422,9 +439,9 @@ def test_ci_history_clears_sync_core_no_redef_finding(
 
     if reintroduce_redefinition:
         assert result.returncode != 0, combined
-        assert _sync_core_still_reports_no_redef(combined), combined
+        assert sync_core_shipment_finding.reports_ci_history_record_no_redef(combined), combined
     else:
         assert result.returncode == 0, combined
-        assert not _sync_core_still_reports_no_redef(combined), combined
+        assert not sync_core_shipment_finding.reports_ci_history_record_no_redef(combined), combined
         assert "[no-redef]" not in combined
         assert 'Name "record" already defined' not in combined
