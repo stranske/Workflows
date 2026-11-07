@@ -43,6 +43,81 @@ const mockRegistryAgents = {
   },
 };
 
+for (const [copy, policy] of [
+  ['source', require('../../.github/scripts/agent_delegation_policy.js')],
+  ['template', require('../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js')],
+]) {
+  for (const schema of ['orchestrator.route-weights/v1', 'orchestrator.route-weights/v2']) {
+    for (const [capacityName, capacity] of [
+      ['absent', undefined],
+      ['empty', {}],
+      ['partial', { codex: { state: 'shed' } }],
+    ]) {
+      test(`${copy}: ${schema} ${capacityName} capacity still picks by posterior`, async () => {
+        const document = {
+          schema,
+          generated_at: now,
+          ...(capacity === undefined ? {} : { capacity }),
+          task_types: {
+            implement: {
+              evidence_ok: true,
+              // Deliberately unsorted: the static default and first row both lose.
+              ranking: [
+                { agent: 'codex', posterior: 0.61 },
+                { agent: 'cursor', posterior: 0.72 },
+                { agent: 'claude', posterior: 0.84 },
+              ],
+            },
+          },
+        };
+        const fetched = await policy.fetchRouteWeights({
+          now,
+          fetchImpl: async () => ({ status: 200, json: async () => document }),
+        });
+        assert.deepEqual(fetched, document);
+        const decision = policy.chooseAgentForIntake('implement', fetched, mockRegistryAgents, { now });
+        assert.equal(decision.agent, 'claude');
+        assert.equal(decision.posterior, 0.84);
+        assert.equal(decision.poolState, 'ok');
+        assert.equal(decision.delegationSource, 'route_weights');
+      });
+    }
+
+    for (const state of ['shed', 'exhausted', 'unknown']) {
+      test(`${copy}: ${schema} published ${state} capacity overrides ranking ok hints`, async () => {
+        const document = {
+          schema,
+          generated_at: now,
+          capacity_schema: 'orchestrator.route-weights-capacity/v1',
+          capacity: {
+            claude: { state, window: '5h+weekly', observed_at: 1792152000 },
+            cursor: { state: 'ok', window: 'monthly', observed_at: 1792152000 },
+          },
+          task_types: {
+            implement: {
+              evidence_ok: true,
+              ranking: [
+                { agent: 'claude', posterior: 0.88, pool_state: 'ok' },
+                { agent: 'cursor', posterior: 0.76 },
+              ],
+            },
+          },
+        };
+        const fetched = await policy.fetchRouteWeights({
+          now,
+          fetchImpl: async () => ({ status: 200, json: async () => document }),
+        });
+        assert.deepEqual(fetched, document);
+        const decision = policy.chooseAgentForIntake('implement', fetched, mockRegistryAgents, { now });
+        assert.equal(decision.agent, 'cursor');
+        assert.equal(decision.posterior, 0.76);
+        assert.equal(decision.poolState, 'ok');
+        assert.equal(decision.delegationSource, 'route_weights');
+      });
+    }
+  }
+}
+
 for (const [copy, chooseIntake] of [
   ['source', chooseAgentForIntake],
   ['template', require('../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js').chooseAgentForIntake],
