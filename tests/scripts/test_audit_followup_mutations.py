@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 from scripts import audit_followup_mutations as auditor
@@ -9,8 +10,8 @@ from scripts import audit_followup_mutations as auditor
 
 @pytest.fixture
 def receipts(tmp_path):
-    source = "first = 1\nsecond = 2\n"
-    tests = "def test_before(): pass\ndef test_added(): pass\n"
+    source = "# Résumé of the inspected source\nfirst = 1\nsecond = 2\n"
+    tests = "# Retained résumé cases\ndef test_before(): pass\ndef test_added(): pass\n"
     cases = {f"{auditor.PYTHON_TEST}::test_added[{case}]" for case in ("a", "b")}
 
     def digest(text):
@@ -64,7 +65,7 @@ def receipts(tmp_path):
     for name, text in files.items():
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text)
+        path.write_text(text, encoding="utf-8")
 
     def run():
         directory = tmp_path / auditor.EVIDENCE
@@ -91,6 +92,28 @@ def test_missing_parameter_is_not_hidden_by_other_receipts(receipts):
     assert result["complete"] is False
     assert "missing=" in " ".join(result["problems"])
     assert "test_added[b]" in " ".join(result["problems"])
+
+
+def test_utf8_inputs_preserve_hashes_with_a_legacy_default_encoding(receipts, monkeypatch):
+    """Locale decoding must not change the bytes identified by source hashes."""
+    read_text = Path.read_text
+
+    def legacy_read_text(path, encoding=None, errors=None):
+        return read_text(path, encoding=encoding or "cp1252", errors=errors)
+
+    monkeypatch.setattr(Path, "read_text", legacy_read_text)
+    result = receipts[-1]()
+    assert result["complete"] is True, result["problems"]
+
+
+@pytest.mark.parametrize("failure", ["", f"FAILED {auditor.PYTHON_TEST}::test_other\n"])
+def test_python_assertion_red_must_identify_the_selected_case(receipts, failure):
+    """An assertion from an absent or different case cannot validate the mutation."""
+    python, _, _, run = receipts
+    python["proofs"][0]["red_output"] = f"E AssertionError: assert 0 == 1\n{failure}1 failed"
+    result = run()
+    assert result["complete"] is False
+    assert result["receipts"][0]["issues"] == ["RED/GREEN does not identify a single selected case"]
 
 
 @pytest.mark.parametrize("language", ["python", "node"])

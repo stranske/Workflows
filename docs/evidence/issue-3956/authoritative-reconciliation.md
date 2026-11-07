@@ -261,7 +261,7 @@ Reproduction (from the repository root):
 
 ```sh
 git show 94d9f952dad19f4f8048ae82bb8301bc6baf6ef5:tests/test_followup_issue_generator.py > /tmp/issue-3956-baseline-tests.py
-python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py --collect-only -q -m 'not slow' > /tmp/issue-3956-collected-tests.txt
+PYTHONIOENCODING=utf-8 python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py --collect-only -q -m 'not slow' > /tmp/issue-3956-collected-tests.txt
 python scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-3956-baseline-tests.py --collected-tests /tmp/issue-3956-collected-tests.txt
 ```
 
@@ -646,3 +646,97 @@ and new proof failed with exit 128: `.git/index.lock` cannot be created on the
 read-only filesystem. Changes remain uncommitted for the runner; no push occurred.
 No Python files changed, so the Python pre-commit formatting gate does not apply
 to this round's edits. #4518 and #4401 were both read as open, `draft=false`.
+
+## Historical-proof inspection and auditor portability (2026-11-07 UTC)
+
+Before code edits at checkout `e0e027e6ae37683d2889a43b112fc5a7e453f7f8`,
+the requested `gh pr view 4401` read again failed to connect to `api.github.com`.
+Connected GitHub metadata independently returned OPEN, `draft=false`,
+`merged=false`, head `9eaf43313c0e57ef964e4171f645985dca5742b8`. All three
+reviews remain COMMENTED; thread `PRRT_kwDOQprj9M6zZ4AB` remains unresolved
+and non-outdated, and the other two threads remain outdated. No merge or new
+hosted success is established by this read. #4518 is also open and ready.
+
+Re-read the historical round, OSError fallback, review correction, coverage,
+edge-coverage, contract-edge, remaining-branch, empty-label, helper, nonempty-label
+and numbered-state receipts. Read the larger reconciliation's coverage fields,
+function list and all 29 mutation descriptors separately from its long output
+strings; this is a claim inspection, not a new full-output mutation audit.
+The bounded retained audit and its unabridged replacements remain authoritative
+for assertion-failing RED and restored GREEN.
+
+The historical reconciliation's `coverage` describes **94.98% → 95.47%** at
+846 statements and 390 branches: missing lines/arcs change from 30/32 to 27/29,
+or six local units. Its `verified_test_functions` contains 15 functions, despite
+29 mutation descriptors. The separate edge receipt's `coverage_after=99.11%`
+is another historical local stage. Neither value establishes hosted coverage,
+the final repair measurement or delivery. The historical round's 29 units and
+this six-unit change must not be added to overlapping replacement snapshots.
+
+The OSError receipt's `contract.3_no_production_bug_found=true` conflicts with
+its own `contract.classification_note` and production fallback. Its empty
+`remaining` list and 100% claim do not establish completion. Likewise, numbered
+state's `ranking.primary_coverage` calls the target exhausted while documenting
+a real production fix. All such completion and test-only claims remain
+superseded here. `contract.1_ranked_target=true` and repeated 21/27/225 ranking
+figures establish only the supplied target: canonical ranking inputs and the
+original execution are **unrecoverable, owner-visible limitations**, not verified
+ranking evidence. Historical receipt bytes remain unchanged.
+
+Two active #4518 review findings were checked against the current auditor:
+implicit default-encoding reads can invalidate UTF-8 source hashes on a cp1252
+host, and the negative receipt tests did not independently cover an assertion
+failure without the selected case identity. The scoped follow-up addresses
+these evidence-validation gaps; it does not change the generator, its retained
+test set, Node production files or the consumer payload.
+
+### Verified result and remaining blockers
+
+- [x] Inspect the historical proof claims, supersede conflicting completion and
+  test-only claims, preserve receipts and expose unrecoverable ranking provenance.
+- [ ] Merge #4401 through review and exact-head checks and verify main delivery.
+
+The auditor now explicitly reads repository evidence, source/tests, supplements,
+baseline and collected cases as UTF-8. The collection command above fixes stdout
+encoding to match. New regressions simulate cp1252 decoding and independently
+reject assertion failures without a case identity or from another case.
+[auditor-portability-proof.json](auditor-portability-proof.json) binds the code/test
+overlay to base `e0e027e6…`: the original auditor fails the encoding regression;
+removing the case-identity guard fails both negative cases; restored source passes
+all three. These isolated temporary-package outputs were read in two bounded
+portions, without truncation. They supplement, rather than replace, the original
+retained mutation evidence.
+
+Validation used `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python`:
+
+```sh
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py tests/scripts/test_audit_followup_mutations.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-portability-coverage.json
+# exit 0; 225 passed (199 generator + 26 auditor); generator Cover 99.92%
+# 851 statements, 0 missing; 386 branches, 1 missing arc (124->126)
+python scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-3956-final-baseline.py --collected-tests /tmp/issue-3956-final-collected.txt
+# exit 0; 35 added functions / 45 cases; 50 Python + 2 Node receipts;
+# complete=true, problems=[]; baseline and collection prepared as above
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one aggregated passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 passed, 0 failed/skipped
+ruff check scripts/audit_followup_mutations.py tests/scripts/test_audit_followup_mutations.py
+# exit 0
+git diff --check
+# exit 0
+```
+
+The unmodified Python invocation (with `-m 'not slow'`) still exits 3 during
+LangSmith plugin startup; the isolated result does not satisfy that acceptance
+gap. Each changed Python file was formatted and passes its individual Black
+check at line length 100. The required repository-wide Black command exits 1
+with a forkserver socket `PermissionError`; a single-worker retry was interrupted
+(exit 130) without a completed result. The formatting gate therefore remains
+unsatisfied. Staging the scoped changes exits 128 because `.git/index.lock` is on
+a read-only filesystem, so no commit or push occurred.
+
+Attempting to check the verified inspection task and uncheck the undelivered
+merge task in #4518 was denied: `MCP tool call requires approval, but approval
+policy is never`. The remote body remains unchanged. The checked merge task is
+still false; #4401 remains open and ready at the readback head. Hosted baseline
+comparison, main delivery and canonical ranking provenance remain incomplete.

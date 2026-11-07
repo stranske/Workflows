@@ -43,12 +43,16 @@ def _matches_mutation(source: str, before: str, mutant: str, expected: str) -> b
 
 def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
     """Compare independently collected added cases with the retained evidence."""
-    original_receipt = (root / EVIDENCE / "retained-mutation-reconciliation.json").read_text()
+    original_receipt = (root / EVIDENCE / "retained-mutation-reconciliation.json").read_text(
+        encoding="utf-8"
+    )
     python = json.loads(original_receipt)
-    node = json.loads((root / EVIDENCE / "numbered-checklist-repair-proof.json").read_text())
-    source = (root / PYTHON_SOURCE).read_text()
-    tests = (root / PYTHON_TEST).read_text()
-    node_source = (root / NODE_SOURCE).read_text()
+    node = json.loads(
+        (root / EVIDENCE / "numbered-checklist-repair-proof.json").read_text(encoding="utf-8")
+    )
+    source = (root / PYTHON_SOURCE).read_text(encoding="utf-8")
+    tests = (root / PYTHON_TEST).read_text(encoding="utf-8")
+    node_source = (root / NODE_SOURCE).read_text(encoding="utf-8")
     added = _functions(tests) - _functions(baseline_tests)
     expected = {
         case
@@ -61,7 +65,7 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
     reruns = root / EVIDENCE / "retained-mutation-unabridged-reruns.json"
     rerun_revision = None
     if reruns.exists():
-        supplement = json.loads(reruns.read_text())
+        supplement = json.loads(reruns.read_text(encoding="utf-8"))
         if (
             supplement["historical_sha256"] != _sha(original_receipt)
             or supplement["source_sha256"] != _sha(source)
@@ -164,7 +168,9 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
                     "issues": issues,
                 }
             )
-    expected_node = set(re.findall(r"test\('([^']+)'", (root / NODE_TEST).read_text()))
+    expected_node = set(
+        re.findall(r"test\('([^']+)'", (root / NODE_TEST).read_text(encoding="utf-8"))
+    )
     mapped_node = {proof["test"] for proof in node["proofs"]}
     if mapped_node != NODE_CASES or not mapped_node <= expected_node:
         problems.append("The two retained Node cases are missing or do not exist in the test file")
@@ -184,13 +190,14 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
 
 
 def main() -> int:
+    """Audit independently collected cases against UTF-8 repository evidence."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--baseline-tests", type=Path, required=True)
     parser.add_argument("--collected-tests", type=Path, required=True)
     args = parser.parse_args()
-    collected = set(args.collected_tests.read_text().splitlines())
-    result = audit(args.root, args.baseline_tests.read_text(), collected)
+    collected = set(args.collected_tests.read_text(encoding="utf-8").splitlines())
+    result = audit(args.root, args.baseline_tests.read_text(encoding="utf-8"), collected)
     print(json.dumps(result, indent=2))
     return 0 if result["complete"] else 1
 
