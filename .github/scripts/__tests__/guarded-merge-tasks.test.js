@@ -435,6 +435,8 @@ function mergeScanHarness({ body = complete.body, finalBody = body, boundaryBody
   let pullReads = 0;
   const summary = {
     addHeading() {},
+    addRaw() { return this; },
+    addEOL() { return this; },
     addTable: (rows) => actions.push(['summary', rows]),
     write: async () => actions.push(['summary-written']),
   };
@@ -1373,9 +1375,21 @@ test('PAT permission failure reaches the exact-head merge through the real retry
   assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[42]']]);
 });
 
-for (const blocker of ['none', 'failed check', 'active review thread']) {
-  test(`credential fallback preserves shipped check/thread guards: ${blocker}`, async () => {
+const mergeWakeups = [
+  { name: 'pull request', payload: { pull_request: { number: 42 } } },
+  { name: 'workflow dispatch', payload: { inputs: { pr_number: '42' } } },
+];
+for (const { wakeup, blocker } of mergeWakeups.flatMap((wakeup) =>
+  ['none', 'failed check', 'active review thread'].map((blocker) => ({ wakeup, blocker })))) {
+  test(`${wakeup.name} credential fallback preserves shipped check/thread guards: ${blocker}`, async () => {
     const { c, actions } = mergeScanHarness();
+    c.context = { payload: wakeup.payload };
+    const loadPullRequest = c.loadPullRequest;
+    c.loadPullRequest = async (number) => {
+      actions.push(['selected-pr-read', number]);
+      assert.equal(number, 42, 'only the PR selected by the wakeup may be inspected');
+      return loadPullRequest(number);
+    };
     installJobTokenFallback(c, actions, async (args) => {
       actions.push(['merge-fallback', args]);
       return { status: 200, data: { merged: true } };
@@ -1392,6 +1406,10 @@ for (const blocker of ['none', 'failed check', 'active review thread']) {
     const paginate = c.paginateWithRetry;
     let checkReads = 0;
     c.paginateWithRetry = async (method, args) => {
+      if (method === c.github.rest.issues.listForRepo) {
+        // Other labelled PRs must never inherit this dispatch's merge authority.
+        return [41, 42, 43].map((number) => ({ number, pull_request: {} }));
+      }
       if (method !== c.github.rest.checks.listForRef) return paginate(method, args);
       actions.push(['check-read', args.ref]);
       checkReads += 1;
@@ -1418,6 +1436,8 @@ for (const blocker of ['none', 'failed check', 'active review thread']) {
 
     await c.runScan();
 
+    assert.deepEqual([...new Set(actions.filter(([kind]) => kind === 'selected-pr-read')
+      .map(([, number]) => number))], [42]);
     const expectedReads = blocker === 'none' ? 3 : 2;
     assert.deepEqual(actions.filter(([kind]) => kind === 'check-read'),
       Array.from({ length: expectedReads }, () => ['check-read', 'current-head']));
@@ -1441,6 +1461,21 @@ for (const blocker of ['none', 'failed check', 'active review thread']) {
     assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
       ['output', 'merged', blocker === 'none' ? '[42]' : '[]'],
     ]);
+  });
+}
+
+for (const prNumber of [undefined, '', 'invalid', '99']) {
+  test(`workflow dispatch without a matching PR refuses merge (${String(prNumber)})`, async () => {
+    const { c, actions } = mergeScanHarness();
+    c.context = { payload: { inputs: { pr_number: prNumber } } };
+    c.loadPullRequest = async () => assert.fail('no PR is authorized by this dispatch');
+    c.getOctokit = () => assert.fail('no fallback client is needed without an eligible PR');
+
+    await c.runScan();
+
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+    assert.equal(actions.some(([kind]) => ['merge', 'checks', 'threads', 'remove-label']
+      .includes(kind)), false);
   });
 }
 
