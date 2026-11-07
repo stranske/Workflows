@@ -634,11 +634,22 @@ def build_report(
                 "-n auto --dist load -n 4 --dist=loadgroup -p ci_test_growth"
             ),
             "effective_scheduler": "The later -n 4 --dist=loadgroup wins over pytest_args.",
-            "coverage_python": "3.14",
-            "python_versions": ["3.13", "3.14"],
+            "coverage_python_versions": {
+                arm: sorted(
+                    version
+                    for version, row in runtimes.items()
+                    if execution_split(row.get("resources"), row.get("collection"))["coverage"].get(
+                        "status"
+                    )
+                    == "ACTIVE"
+                )
+                for arm, runtimes in (("before", before), ("after", after))
+            },
+            "python_versions": sorted(set(before) | set(after)),
             "note": (
-                "Required Gate no longer schedules Python 3.12. "
-                "Run 38938420079 used 3.12/3.13 and failed, so it is not this pair."
+                "Python versions describe the uploaded runtime receipts; coverage lists "
+                "require an explicit ACTIVE probe in each arm. These lists do not prove "
+                "that all requested or required Gate jobs were supplied."
             ),
         },
         "runs": {"before": before_run, "after": after_run},
@@ -693,7 +704,11 @@ def render_markdown(report: dict) -> str:
         "",
         f"- Runner class: `{report['command']['runner']}`",
         f"- Python versions: {', '.join(report['command']['python_versions'])}",
-        f"- Coverage Python: `{report['command']['coverage_python']}`",
+        *(
+            f"- Coverage Python ({arm}, ACTIVE probe): "
+            + (", ".join(report["command"]["coverage_python_versions"][arm]) or "UNKNOWN")
+            for arm in ("before", "after")
+        ),
         f"- Marker: `{report['command']['marker']}`",
         f"- Workers input: `{report['command']['pytest_workers']}`",
         f"- Effective argv: `{report['command']['pytest_args_then_effective']}`",

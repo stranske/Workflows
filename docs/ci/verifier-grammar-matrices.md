@@ -267,6 +267,10 @@ Only full lowercase hexadecimal 40- or 64-character object IDs reach Git.
 The CLI's omitted, matching and mismatched repository identity paths are tested.
 This reader validation does not establish hosted timing or Python 3.12/3.13
 acceptance; retain those execution receipts separately.
+Report metadata lists the actual uploaded runtime versions and separately lists
+explicit ACTIVE coverage probes for each arm. Missing coverage probes render
+as UNKNOWN; a listed runtime does not establish that the requested matrix is
+complete. Python 3.12/3.13 receipts are never labeled as the current Gate matrix.
 
 ```bash
 python -m pytest tests/scripts/test_gate_runtime_evidence.py --cov=scripts.gate_runtime_evidence --cov-report=term-missing -q -m 'not slow'

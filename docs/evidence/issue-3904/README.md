@@ -1,5 +1,57 @@
 # Issue3904 current evidence
 
+## Follow-up #4462 observed-runtime reporting (2026-11-07)
+
+The runtime reader previously accepted Python 3.12/3.13 receipts but hard-coded
+3.13/3.14 and coverage Python 3.14 in its report metadata. It now lists the
+uploaded runtime versions and each arm's explicitly ACTIVE coverage probes.
+Absent coverage stays UNKNOWN. Tests cover both requested runtimes with both,
+one or no active probes, the current Gate matrix, and an unmatched runtime;
+existing source-identity, branch-loss and timing checks remain required. These
+fixtures are synthetic reporting controls, not successful interpreter runs.
+
+Task reconciliation found all other verified tasks already checked in PR #4527.
+The final evidence task remains unchecked. Python 3.12.16 and 3.13.18 still lack
+pytest. A fresh 3.12 installation attempt into `/tmp` returned
+`No matching distribution found for pytest` from the available package source.
+The [latest inspected Gate](https://github.com/stranske/Workflows/actions/runs/42384099448)
+for head `0d6ff502b34dddd5a43fddbcce13ac0020fec07f` completed successfully,
+including Python 3.13 job `128437871617` and Python 3.14 job `128437871614`.
+This is not a successful scoped 3.12/3.13 comparison or controlled phase evidence;
+the connector job response omits wall and step timestamps.
+
+An authorized workflow editor must align the protected manual comparison's
+Python matrix and immutable source pair, preserve the common dependency lock
+and existing checks, and retain the required successful scoped coverage,
+branch/outcome comparison and hosted phase receipts. No protected workflow was
+edited. Attempts to label PR #4527 `needs-human` and post this blocker were
+rejected with `MCP tool call requires approval, but approval policy is never`.
+
+Validation on Python 3.14.10:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_gate_runtime_evidence.py --cov=scripts.gate_runtime_evidence --cov-report=term-missing -q -m 'not slow'
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+```
+
+Results: **153 passed in 0.91s**, reader coverage **94.20%**; **2,054 passed in
+9.48s** for the verifier integration regressions. The unmodified measurement
+harness baseline also passed **134 tests in 13.94s** before editing the reader.
+No percentage target is specified for this reporting change. Existing evidence
+archives and manifests are unchanged.
+
+Ruff and `git diff --check` pass. Black formatted the touched Python files at
+line length 100; a serial check populated the writable cache, then the exact
+required command passed with **959 files unchanged**, exit **0**:
+
+```bash
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-4462-runtime-labels-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+The requested source commit was attempted after validation, but staging failed
+with `Unable to create '.git/index.lock': Read-only file system`. The four
+source/test/documentation files remain uncommitted in the workspace.
+
 The archive retains two real production-mutant assertion RED/restored GREEN pairs,
 raw one-node JUnit and console, original/mutated source bytes, and the exhaustive
 projection map audit. Its adjacent manifest binds each archive member by bytes

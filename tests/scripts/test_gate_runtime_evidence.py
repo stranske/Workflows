@@ -66,13 +66,21 @@ def _collection(destination: int, prompt: int, body: int) -> dict:
 
 
 def _write_runtime(
-    root: Path, version: str, sha: str, *, cases: tuple[int, int, int], lost: bool
+    root: Path,
+    version: str,
+    sha: str,
+    *,
+    cases: tuple[int, int, int],
+    lost: bool,
+    coverage_active: bool | None = None,
 ) -> None:
+    if coverage_active is None:
+        coverage_active = version == "3.14"
     directory = root / "runtimes" / version
     directory.mkdir(parents=True)
     collection = _collection(*cases)
     resources = _resources(sha, cpu="AMD EPYC 9V45" if version == "3.14" else "AMD EPYC 7763")
-    if version != "3.14":
+    if not coverage_active:
         for row in (resources["controller"], *resources["workers"]):
             row["coverage"] = {"status": "UNKNOWN", "core": None, "branch": None}
     summary = {
@@ -96,7 +104,7 @@ def _write_runtime(
     (directory / "pytest-collection.json").write_text(json.dumps(collection), encoding="utf-8")
     (directory / "pytest-resources.json").write_text(json.dumps(resources), encoding="utf-8")
     branches = [[1, 2], [1, 3]] if not lost else [[1, 2]]
-    if version == "3.14":
+    if coverage_active:
         coverage = {
             "files": {
                 VERIFIER: {
@@ -307,6 +315,62 @@ def test_gates_require_explicit_success(runtime_pair, arm, conclusion):
 
 def test_complete_successful_gates_are_green(runtime_pair):
     assert build_report(**runtime_pair)["gates_green"] is True
+
+
+@pytest.mark.parametrize(
+    "versions,active",
+    [
+        (("3.12", "3.13"), ("3.12", "3.13")),
+        (("3.12", "3.13"), ("3.13",)),
+        (("3.12", "3.13"), ()),
+        (("3.13", "3.14"), ("3.14",)),
+    ],
+)
+def test_report_labels_observed_runtimes_and_coverage(tmp_path, versions, active):
+    # Synthetic receipts exercise reporting; they are not interpreter execution evidence.
+    before, after = tmp_path / "before", tmp_path / "after"
+    for root, sha in ((before, "a" * 40), (after, "b" * 40)):
+        for version in versions:
+            _write_runtime(
+                root,
+                version,
+                sha,
+                cases=(2, 1, 1),
+                lost=False,
+                coverage_active=version in active,
+            )
+    jobs = [_jobs(version, "2026-11-05T00:00:00Z", "2026-11-05T00:08:00Z") for version in versions]
+    report = build_report(before, after, jobs, jobs, before_run={}, after_run={})
+    assert report["command"]["python_versions"] == list(versions)
+    assert report["command"]["coverage_python_versions"] == {
+        "before": list(active),
+        "after": list(active),
+    }
+    text = render_markdown(report)
+    assert f"- Python versions: {', '.join(versions)}" in text
+    for arm in ("before", "after"):
+        assert f"Coverage Python ({arm}, ACTIVE probe): {', '.join(active) or 'UNKNOWN'}" in text
+    if "3.14" not in versions:
+        assert "3.14" not in text
+    assert report["verifier_branch_loss"] is (False if active else None)
+    assert report["gates_green"] is True
+    assert report["timing_controlled"] is False  # No verified source identity supplied.
+
+
+def test_report_retains_unmatched_runtime_and_arm_specific_coverage(runtime_pair):
+    import shutil
+
+    shutil.rmtree(runtime_pair["before_root"] / "runtimes/3.14")
+    report = build_report(**runtime_pair)
+    assert report["command"]["python_versions"] == ["3.13", "3.14"]
+    assert report["command"]["coverage_python_versions"] == {"before": [], "after": ["3.14"]}
+    text = render_markdown(report)
+    assert "Coverage Python (before, ACTIVE probe): UNKNOWN" in text
+    assert "Coverage Python (after, ACTIVE probe): 3.14" in text
+    assert any("python versions differ" in gap for gap in report["configuration_gaps"])
+    assert report["gates_green"] is False
+    assert report["timing_controlled"] is False
+    assert report["ten_minute_target_status"] == "UNKNOWN"
 
 
 @pytest.mark.parametrize("missing", ["started_at", "completed_at"])
