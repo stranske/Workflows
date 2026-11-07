@@ -478,6 +478,61 @@ test('delivery refresh shares active-writer scan, exact-plan debounce and fails 
   }
 });
 
+test('delivery refresh reads every native writer state before considering another plan', async () => {
+  const statuses = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
+  for (const status of statuses) {
+    const api = harness();
+    const writer = promotionRun({
+      status, conclusion: null, head_sha: 'e'.repeat(40),
+      display_title: `Maint 68 promote auto sha256:${'f'.repeat(64)} ${'e'.repeat(40)}`,
+      created_at: new Date(now - CANARY_REFRESH_DEBOUNCE_MS - 1).toISOString(),
+    });
+    const original = structuredClone(writer);
+    api.client.rest.repos.getCommit = async () => ({ data: { sha: sourceCommit } });
+    api.client.rest.repos.getContent = async () => ({ data: {
+      content: Buffer.from(JSON.stringify({
+        canaries: expectedCanaries.map((repo) => ({ repo })),
+      })).toString('base64'),
+    } });
+    api.client.rest.actions.listWorkflowRuns = async (params) => {
+      api.reads.push(params);
+      assert.ok(statuses.includes(params.status), 'must hold before reading promotion history');
+      assert.equal(params.workflow_id, 'maint-68-sync-consumer-repos.yml');
+      assert.equal(params.head_sha, undefined, 'old-source writers must remain visible');
+      return { data: { workflow_runs: params.status === status ? [writer] : [] } };
+    };
+
+    const result = await dispatchDeliveryRefresh({
+      ...api, expectedCanaries, now, decision: { plan_id: planId, evidence: fixture().evidence },
+    });
+    assert.equal(result.dispatched, false, status);
+    assert.equal(api.dispatched.length, 0, status);
+    assert.deepEqual(api.reads.map((row) => row.status), statuses);
+    assert.deepEqual(writer, original, 'native observation cannot release or cancel the writer');
+  }
+});
+
+test('unreadable or saturated native writer inventory prevents delivery refresh', async () => {
+  for (const inventory of [undefined, null, {}, Array(100).fill(promotionRun())]) {
+    const api = harness();
+    api.client.rest.repos.getCommit = async () => ({ data: { sha: sourceCommit } });
+    api.client.rest.repos.getContent = async () => ({ data: {
+      content: Buffer.from(JSON.stringify({
+        canaries: expectedCanaries.map((repo) => ({ repo })),
+      })).toString('base64'),
+    } });
+    api.client.rest.actions.listWorkflowRuns = async (params) => {
+      api.reads.push(params);
+      return { data: { workflow_runs: inventory } };
+    };
+    await assert.rejects(dispatchDeliveryRefresh({
+      ...api, expectedCanaries, now, decision: { plan_id: planId, evidence: fixture().evidence },
+    }), /canary_refresh_active_history_unreadable/);
+    assert.equal(api.dispatched.length, 0);
+    assert.equal(api.reads.length, 1, 'stop when live writer ownership cannot be established');
+  }
+});
+
 for (const phase of ['canary', 'promote']) {
   for (const status of ['queued', 'in_progress', 'waiting', 'pending', 'requested']) {
     test(`canary regeneration preserves an old-plan ${phase} writer in ${status}`, async () => {

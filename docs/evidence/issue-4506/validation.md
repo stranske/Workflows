@@ -338,3 +338,39 @@ blocker comment were each rejected with `MCP tool call requires approval, but
 approval policy is never`. Neither remote mutation succeeded. Final connected
 reads verified Workflows PR #4530 and consumer PR #1957 are open and ready
 (`draft=false`). The tested JavaScript change and this record remain local.
+
+## Native writer inventory verification continuation
+
+Reviewed commits `42d89fd5`, `73d3b51d`, and `667a2312`. They do not establish
+a fresh controller regeneration or next-head sync-core classification. A fresh
+`gh run view 42350906876 --repo stranske/trip-planner --log` attempt still
+exits 1 with `error connecting to api.github.com`. The remote PR nevertheless
+checks that literal-command task and acceptance criterion. Attempting to
+uncheck them was rejected: `MCP tool call requires approval, but approval policy
+is never`. No checklist change succeeded; no additional task is complete.
+
+Added two tests to `tests/scripts/test_maint71_promote_dispatch.js` exercising
+the actual delivery refresh helper's native writer inventory collection.
+Every active state must be queried without a source-SHA filter, and an
+old-source, old-plan promotion must prevent dispatch even beyond the debounce
+window. Missing, malformed, and saturated inventories must fail closed before
+promotion history or dispatch. These extend the earlier pure-decision cases;
+all remote writes in the tests use inert recorders.
+
+Validation: `node tests/scripts/test_maint71_promote_dispatch.js` passed
+**48 tests**; `node .github/scripts/__tests__/scoped-canary-refresh.test.js`
+passed **86 tests**. The selected Python 3.14.10 interpreter ran the named
+two-file pytest command with `-m 'not slow'`: **351 passed in 10.81s**, no
+skips, with mypy 2.4.1 installed. `git diff --check` passed. No Python changed.
+
+Fresh connected reads show PR #4530 and consumer PR #1957 open and ready;
+the consumer head remains `7ca6deb8d219fe9137fcb220de745e063f42c51c`.
+Available source #4485/#4506 and consumer comments contain no next-head
+sync-core classification receipt. No controller dispatch or live writer
+mutation occurred. Regeneration and sync-core acceptance remain incomplete.
+
+Staging the JavaScript test failed with `.git/index.lock: Read-only file system`;
+no commit or push was possible. The `needs-human` label and blocker comment
+were also rejected with the same MCP approval-policy error. A writer-capable
+continuation must commit the verified change; the controller owner must retain
+the remaining operational receipts and correct the remote checklist.
