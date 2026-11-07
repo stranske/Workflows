@@ -1,0 +1,878 @@
+{
+  "checked_at": "2026-11-07 03:15:52 UTC",
+  "transport": "Connected GitHub metadata and patch reads; runner gh unavailable",
+  "campaign": [
+    {
+      "repo": "stranske/Counter_Risk",
+      "pr": 1178,
+      "head": "ef4eab34fd00991721e105da3fa709f9c2eaf5be",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:16Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 5a164b719..2fe53c582 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "pr": 101,
+      "head": "9b0f192802ba6f0cd9bdac152fd03377b472d2a1",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:21Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex f1a3d9ca..017dd2dc 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "pr": 138,
+      "head": "e270e1b586fcb82db93e28891bf29a57f558b4a8",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:24Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 6053c4b4..24e66c38 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 832,
+      "head": "594688593acb8f31a36f68695c9864d55c02b63e",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:29Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex b20cef03..fc0fe565 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 1037,
+      "head": "ffeaf3afb2928c0ffe3e03c1e16b2aa2bc39cbd9",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:34Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 568d97ae6..e883d20ce 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "pr": 116,
+      "head": "338e00b835e007fee9a68de8c7ce0fcf2d66ddb6",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:39Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 2b3d4eab..70c80af7 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "pr": 732,
+      "head": "57efe3a51cce3d6412ca9a69464b5614113370dd",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:43Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex e8bc326ff..a1d98e5e1 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   # ALSO ON PUSH TO MAIN, and the reason is an incident rather than a preference.\n   #\n   # This workflow used to run on `pull_request` only. On 2026-08-24 its PR run was held at\n"
+    },
+    {
+      "repo": "stranske/Pension-Data",
+      "pr": 979,
+      "head": "85562e99d80956514cfdc2e836478a9f24726e98",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:48Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 71ff7f462..9e8a5d1dd 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2390,
+      "head": "09298cf6b2e719b90ad661ea62553f4504d5dd96",
+      "state": "open",
+      "merged_at": null,
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 962e91f5..5f6ef896 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -16,7 +16,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Ready",
+      "pr": 633,
+      "head": "5e341751ff4b79186f5c32e288711a060ae04e18",
+      "state": "closed",
+      "merged_at": "2026-10-18T14:51:47Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 74ab1e996..87cbd377e 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "pr": 1682,
+      "head": "0532bbda4779cef5902005bb45b8607401fb5f16",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:55:57Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 74839b5f..04eb53d7 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 6112,
+      "head": "d9bb77745d0d7edd5da4b23d37e0f330d7859576",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:56:04Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 6dc7e93ed0..a22871fb6a 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "pr": 775,
+      "head": "677a6ca74735cbefce61f9fbd7447c1ee65f9f6b",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:56:09Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 1239859c..3533cbae 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "pr": 1921,
+      "head": "a784569e22ebd401af22a6739e25bdb85e3e621e",
+      "state": "closed",
+      "merged_at": "2026-10-18T07:56:14Z",
+      "isDraft": false,
+      "one_line_removes_only_labeled": true,
+      "patch": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 07ca8cbe7..eb80911d7 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -29,7 +29,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+    }
+  ],
+  "workflows_4084": {
+    "url": "https://github.com/stranske/Workflows/pull/4084",
+    "number": 4084,
+    "state": "closed",
+    "merged": true,
+    "head_sha": "9be36f8556928608485acdd7d1cec6fef1bc69a6",
+    "merged_at": "2026-10-18T06:29:45Z"
+  },
+  "paem_review": {
+    "review_threads": [
+      {
+        "id": "PRRT_kwDOO15QxM6tn26R",
+        "is_resolved": false,
+        "is_outdated": false,
+        "path": ".github/workflows/pr-00-gate.yml",
+        "line": 19,
+        "diff_side": "RIGHT",
+        "start_line": 19,
+        "start_diff_side": null,
+        "original_line": 19,
+        "original_start_line": null,
+        "resolved_by": null,
+        "comments": [
+          {
+            "id": "PRRC_kwDOO15QxM8AAAABAKeCJw",
+            "database_id": 4305945127,
+            "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Preserve the verify:full label wakeup**\n\nWhen `verify:full` is applied to an already-open PR, removing `labeled` means this workflow no longer starts, while the repository-wide search shows its only Gate integration is the `force-full` expression below. Consequently, a docs-only or otherwise narrowly classified PR retains its prior reduced Gate result and does not run the full Python/integration jobs until an unrelated synchronize, reopen, or manual-dispatch event occurs; retain a targeted wakeup for this label while suppressing restarts from unrelated labels.\n\nUseful? React with \ud83d\udc4d\u00a0/ \ud83d\udc4e.\n\n<!-- codex-code-review-finding:v1 -->",
+            "created_at": "2026-10-18T06:01:08Z",
+            "updated_at": "2026-10-18T06:01:08Z",
+            "author": {
+              "login": "chatgpt-codex-connector",
+              "name": "chatgpt-codex-connector",
+              "email": null,
+              "avatar_url": "https://avatars.githubusercontent.com/in/1144995?v=4",
+              "id": null
+            },
+            "viewer_did_author": false
+          }
+        ]
+      }
+    ]
+  },
+  "health_68": {
+    "check_date": "2026-11-07T03:14:22.373559+00:00",
+    "stop_rule": "One attempt; timeout after 110 seconds; do not repair unavailable network/authentication as a scanner defect.",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "command": [
+      "timeout",
+      "110s",
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+      "scripts/check_consumer_sync_drift.py",
+      "--repos",
+      "stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic",
+      "--summary",
+      "/tmp/issue-4082-round11/summary.md",
+      "--report-json",
+      "/tmp/issue-4082-round11/drift.json"
+    ],
+    "repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/Template",
+      "stranske/Counter_Risk",
+      "stranske/Pension-Data",
+      "stranske/Inv-Man-Intake",
+      "stranske/Ready",
+      "stranske/trip-planner",
+      "stranske/Manager-Database",
+      "stranske/Portable-Alpha-Extension-Model",
+      "stranske/Trend_Model_Project",
+      "stranske/learning-management-system",
+      "stranske/Fine-Art-Archive",
+      "stranske/Orchestrator",
+      "stranske/Doc-Lineage",
+      "stranske/Deliverable-Render",
+      "stranske/Manager-Mosaic"
+    ],
+    "returncode": 1,
+    "elapsed_seconds": 0.4266742610000165,
+    "stdout": "::error::No usable GitHub token available for consumer repo contents reads\ngate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)\ngate triggers: stranske/Template unknown (Gate/tree unavailable)\ngate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)\ngate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)\ngate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)\ngate triggers: stranske/Ready unknown (Gate/tree unavailable)\ngate triggers: stranske/trip-planner unknown (Gate/tree unavailable)\ngate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)\ngate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)\ngate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)\ngate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)\ngate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)\ngate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)\ngate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)\ngate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)\ngate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)\n",
+    "stderr": ""
+  },
+  "authenticated_gate_reads": {
+    "check_date": "2026-11-07T03:14:36.479472+00:00",
+    "reads": [
+      {
+        "repo": "stranske/Travel-Plan-Permission",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Travel-Plan-Permission/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Template",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Template/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Counter_Risk",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Counter_Risk/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Pension-Data",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Pension-Data/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Inv-Man-Intake",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Inv-Man-Intake/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Ready",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Ready/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/trip-planner",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/trip-planner/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Manager-Database",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Manager-Database/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Portable-Alpha-Extension-Model",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Portable-Alpha-Extension-Model/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Trend_Model_Project",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Trend_Model_Project/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/learning-management-system",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/learning-management-system/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Fine-Art-Archive",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Fine-Art-Archive/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Orchestrator",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Orchestrator/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Doc-Lineage",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Doc-Lineage/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Deliverable-Render",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Deliverable-Render/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "repo": "stranske/Manager-Mosaic",
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Manager-Mosaic/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      }
+    ]
+  },
+  "gh_pr_attempts": [
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "1178",
+        "--repo",
+        "stranske/Counter_Risk",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "1178",
+        "--repo",
+        "stranske/Counter_Risk"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "101",
+        "--repo",
+        "stranske/Deliverable-Render",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "101",
+        "--repo",
+        "stranske/Deliverable-Render"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "138",
+        "--repo",
+        "stranske/Doc-Lineage",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "138",
+        "--repo",
+        "stranske/Doc-Lineage"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "832",
+        "--repo",
+        "stranske/Fine-Art-Archive",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "832",
+        "--repo",
+        "stranske/Fine-Art-Archive"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "1037",
+        "--repo",
+        "stranske/Inv-Man-Intake",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "1037",
+        "--repo",
+        "stranske/Inv-Man-Intake"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "116",
+        "--repo",
+        "stranske/Manager-Mosaic",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "116",
+        "--repo",
+        "stranske/Manager-Mosaic"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "732",
+        "--repo",
+        "stranske/Orchestrator",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "732",
+        "--repo",
+        "stranske/Orchestrator"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "979",
+        "--repo",
+        "stranske/Pension-Data",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "979",
+        "--repo",
+        "stranske/Pension-Data"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "2390",
+        "--repo",
+        "stranske/Portable-Alpha-Extension-Model",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "2390",
+        "--repo",
+        "stranske/Portable-Alpha-Extension-Model"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "633",
+        "--repo",
+        "stranske/Ready",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "633",
+        "--repo",
+        "stranske/Ready"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "1682",
+        "--repo",
+        "stranske/Travel-Plan-Permission",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "1682",
+        "--repo",
+        "stranske/Travel-Plan-Permission"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "6112",
+        "--repo",
+        "stranske/Trend_Model_Project",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "6112",
+        "--repo",
+        "stranske/Trend_Model_Project"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "775",
+        "--repo",
+        "stranske/learning-management-system",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "775",
+        "--repo",
+        "stranske/learning-management-system"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "1921",
+        "--repo",
+        "stranske/trip-planner",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "1921",
+        "--repo",
+        "stranske/trip-planner"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "view",
+        "4084",
+        "--repo",
+        "stranske/Workflows",
+        "--json",
+        "number,state,isDraft,headRefOid,mergedAt,files"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "diff",
+        "4084",
+        "--repo",
+        "stranske/Workflows"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    }
+  ],
+  "publication": {
+    "pr_body": "rejected",
+    "needs_human_label": "rejected",
+    "wf4082_comment": "rejected",
+    "reason": "MCP tool call requires approval, but approval policy is never",
+    "prepared_wf4082_comment": "WF#4082 verification 2026-11-07: all 14 current campaign patches change exactly one line in the sole Gate file, removing only labeled. Thirteen PRs are merged. Portable-Alpha-Extension-Model#2390 remains open and ready at 09298cf6b2e719b90ad661ea62553f4504d5dd96, with unresolved current review thread 4305945127 concerning verify:full wakeup. This agent-standard run cannot edit workflow files; privileged source-contract work is required to address that review while retaining the campaign's one-line scope. No duplicate PR was created.\n\nRoot/template trigger lists and manifest create-only/overwrite/skip policy are verified; Workflows#4084 is merged and its implementation/tests inspected. Focused tests: 190 passed in 21.93s. At 2026-11-07T03:14:22Z the bounded Health 68 scan exited 1 with all 16 consumers unknown. All 16 authenticated gh API reads and all 30 gh view/diff attempts fail to connect. Connected metadata/patch reads are retained as supplemental reconciliation, not successful Health 68 live readback. The handoff roster file is absent.\n\nFinal campaign mergedAt and its ensuing 48-hour interval remain undetermined while PAEM#2390 is open. Numerator, denominator and percentage remain unknown. Reconciled task body and source/test changes are prepared locally for the authorized parent; campaign completion is not claimed."
+  },
+  "observation": {
+    "status": "not_started",
+    "reason": "PAEM#2390 remains open; final campaign merge timestamp unknown",
+    "interval_start": null,
+    "interval_end": null,
+    "numerator": null,
+    "denominator": null,
+    "percentage": null
+  }
+}

@@ -1,4 +1,5 @@
 import json
+import sys
 import time
 from datetime import timedelta
 from types import SimpleNamespace
@@ -179,6 +180,7 @@ def test_percentage_threshold_and_empty_result(monkeypatch, size, expected):
     assert report["numerator"] == (1 if size else 0)
     assert report["passed"] is expected
     if not size:
+        assert report["status"] == "no_runs"
         assert report["percentage"] is None
 
 
@@ -248,3 +250,59 @@ def test_late_consumer_failure_cannot_publish_partial_counts(monkeypatch):
     assert report["errors"] == {"unreadable": "gh run list failed"}
     assert report["status"] == "incomplete"
     assert report["numerator"] is report["denominator"] is report["percentage"] is None
+
+
+@pytest.mark.parametrize(
+    "page,message",
+    [
+        ({"workflow_runs": []}, "gh run list returned an invalid run list"),
+        ([run(1), run(1, conclusion="cancelled")], "run changed during paginated collection"),
+        ([dict(run(1), event=None)], "run timestamp or event is invalid"),
+        ([dict(run(1), databaseId="1")], "run identity or head is missing"),
+        ([dict(run(1), databaseId=True)], "run identity or head is missing"),
+    ],
+)
+def test_invalid_run_data_keeps_observation_incomplete(monkeypatch, page, message):
+    """Malformed or conflicting API data cannot establish campaign acceptance."""
+    commands = []
+
+    def execute(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=0, stdout=json.dumps(page))
+
+    monkeypatch.setattr(measure.subprocess, "run", execute)
+    report = measure.observe(["owner/repo"], START, END, time.monotonic() + 110)
+
+    assert report["status"] == "incomplete"
+    assert message in report["errors"]["owner/repo"]
+    assert report["commands"] == {"owner/repo": commands}
+    assert report["runs"] == {}
+    assert report["numerator"] is report["denominator"] is report["percentage"] is None
+    assert not report["passed"]
+
+
+@pytest.mark.parametrize(
+    "value,diagnostic",
+    [
+        ("not-a-date", "invalid --merge"),
+        ("2026-10-18T08:00:00", "timestamps must include a timezone"),
+        ("2026-10-18T08:00:00.123Z", "mergedAt must have whole-second precision"),
+    ],
+)
+def test_invalid_merge_reports_usage_without_collecting(
+    monkeypatch, capsys, tmp_path, value, diagnostic
+):
+    """Reject unusable merge evidence as a CLI error before any remote reads."""
+    output = tmp_path / "observation.json"
+    monkeypatch.setattr(sys, "argv", ["measure", "--merge", value, "--output", str(output)])
+    monkeypatch.setattr(measure, "extract_repos", lambda *a: pytest.fail("invalid merge accepted"))
+
+    with pytest.raises(SystemExit) as exc:
+        measure.main()
+
+    assert exc.value.code == 2
+    stderr = capsys.readouterr().err
+    assert "usage:" in stderr
+    assert diagnostic in stderr
+    assert "Traceback" not in stderr
+    assert not output.exists()

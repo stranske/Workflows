@@ -195,7 +195,10 @@ def main() -> int:
     parser.add_argument("--merge", required=True, help="Verified final campaign mergedAt (UTC)")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    merge = timestamp(args.merge)
+    try:
+        merge = timestamp(args.merge)
+    except ValueError as exc:
+        parser.error(f"invalid --merge: {exc}")
     if merge.microsecond:
         parser.error("mergedAt must have whole-second precision")
     repos = extract_repos(ROOT / ".github/workflows/maint-68-sync-consumer-repos.yml")
