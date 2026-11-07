@@ -921,7 +921,7 @@ jobs:
       - name: Mint KEEPALIVE_APP running token
         id: running_keepalive_app_token
         if: ${{ env.KEEPALIVE_APP_ID != '' && env.KEEPALIVE_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         continue-on-error: true
         env:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
@@ -942,7 +942,7 @@ jobs:
           steps.running_keepalive_app_token.outputs.token == '' &&
           env.WORKFLOWS_APP_ID != '' &&
           env.WORKFLOWS_APP_PRIVATE_KEY != ''
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         env:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
@@ -1304,9 +1304,9 @@ jobs:
 
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           cache: pip
           # These requirements define the progress-review dependency family.
           cache-dependency-path: tools/requirements-subscription-analysis.txt
@@ -1315,7 +1315,7 @@ jobs:
         run: pip install -r tools/requirements-subscription-analysis.txt
 
       - name: Setup Node for subscription analysis
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
 
@@ -1785,7 +1785,7 @@ jobs:
       - name: Mint KEEPALIVE_APP summary token
         id: summary_keepalive_app_token
         if: ${{ env.KEEPALIVE_APP_ID != '' && env.KEEPALIVE_APP_PRIVATE_KEY != '' }}
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         continue-on-error: true
         env:
           KEEPALIVE_APP_ID: ${{ secrets.KEEPALIVE_APP_ID || '' }}
@@ -1806,7 +1806,7 @@ jobs:
           steps.summary_keepalive_app_token.outputs.token == '' &&
           env.WORKFLOWS_APP_ID != '' &&
           env.WORKFLOWS_APP_PRIVATE_KEY != ''
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         env:
           WORKFLOWS_APP_ID: ${{ secrets.WORKFLOWS_APP_ID || '' }}
           WORKFLOWS_APP_PRIVATE_KEY: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || '' }}
