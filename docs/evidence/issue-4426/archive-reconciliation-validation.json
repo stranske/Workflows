@@ -1,0 +1,91 @@
+{
+  "checked_on": "2026-11-07",
+  "parent_checkout_sha": "1be95c10303586d4332bbc8872030773a0dcae5f",
+  "results": {
+    "reconciler_coverage": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py",
+        "-m",
+        "not slow",
+        "--cov=scripts.reconcile_issue_4426_coverage",
+        "--cov-report=term-missing",
+        "--cov-report=json:/tmp/issue-4426-reconciler-coverage.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.919,
+      "output": ".....................                                                    [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                                       Stmts   Miss Branch BrPart   Cover   Missing\n---------------------------------------------------------------------------------------\nscripts/reconcile_issue_4426_coverage.py      77      1     24      1  98.02%   54\n---------------------------------------------------------------------------------------\nTOTAL                                         77      1     24      1  98.02%\nCoverage JSON written to file /tmp/issue-4426-reconciler-coverage.json\n21 passed in 0.59s\n"
+    },
+    "focused_acceptance": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+        "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+        "tests/tools/test_langchain_client.py",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 4.074,
+      "output": "........................................................................ [ 43%]\n........................................................................ [ 87%]\n.....................                                                    [100%]\n165 passed in 2.50s\n"
+    },
+    "offline_evidence": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "docs/evidence/issue-4426/follow-up-shallow-driver.txt",
+        "docs/evidence/issue-4426/archive-reconciliation-shallow-validation.json"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 5.172,
+      "output": "....................................................................     [100%]\n68 passed in 2.74s\n\nShallow: true exit: 0 seconds: 3.974\n"
+    },
+    "lint": {
+      "command": [
+        "ruff",
+        "check",
+        "scripts/reconcile_issue_4426_coverage.py",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.008,
+      "output": "All checks passed!\n"
+    }
+  },
+  "real_final_artifact_available": false,
+  "attributable_round_reduction": null,
+  "reconciler_coverage_summary": {
+    "covered_lines": 76,
+    "num_statements": 77,
+    "percent_covered": 98.01980198019803,
+    "percent_covered_display": "98.02",
+    "missing_lines": 1,
+    "excluded_lines": 2,
+    "percent_statements_covered": 98.7012987012987,
+    "percent_statements_covered_display": "98.70",
+    "num_branches": 24,
+    "num_partial_branches": 1,
+    "covered_branches": 23,
+    "missing_branches": 1,
+    "percent_branches_covered": 95.83333333333333,
+    "percent_branches_covered_display": "95.83"
+  },
+  "source_sha256": {
+    "scripts/reconcile_issue_4426_coverage.py": "4138b6fbd2ebe9c56ed3c3ce559c9a4511bf9237bc8190f13737ed8334755f8b",
+    "tests/scripts/test_reconcile_issue_4426_coverage.py": "170a2848417c141ba2b58ece4c92691d3e17cce70e0c6bc87c34762dc8ee87da",
+    "docs/evidence/issue-4426/coverage-measurement.json": "065043e53187ee16442fb4d1f4fae2d0b1201b1d7b4f217f9235ed8946db1523"
+  },
+  "formatting": {
+    "command": "PYTHONPATH=/tmp/issue-4426-black-serial black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "execution": "installed Black CLI with serial scheduling from black-serial-driver.txt via temporary sitecustomize; formatter and safety checks unchanged",
+    "exit_code": 0,
+    "output": "All done! 957 files would be left unchanged.",
+    "default_dispatcher": "PermissionError: Operation not permitted at process-pool socket startup"
+  }
+}

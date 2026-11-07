@@ -1,0 +1,175 @@
+{
+  "checked_on": "2026-11-07",
+  "scope": "pinned Gate identity evidence validator; no production changes",
+  "source": "tests/docs/test_issue_4426_coverage_measurement.py",
+  "source_evidence": {
+    "path": "identity-validation-source.py.txt",
+    "sha256": "7e9d605b8a57200aefb359210277e480c3bfbb19dea539c90161f16d1a202c38"
+  },
+  "source_restored": true,
+  "receipts": [
+    {
+      "id": "ignore-pinned-baseline",
+      "symbol": "reconcile_gate_reports",
+      "original_snippets": [
+        "raise ValueError(\"pre-round Gate identity mismatch\")"
+      ],
+      "replacement": "pass",
+      "source_sha256": "7e9d605b8a57200aefb359210277e480c3bfbb19dea539c90161f16d1a202c38",
+      "mutant_sha256": "f412e77f700d9185f95d900acb3ac84fb2e3f3e19bd0ec47e006a52f0a78ad44",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-v",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_requires_both_baseline_runtime_jobs",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.688,
+        "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 7 items\n\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[id] FAILED [ 14%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[head_sha] FAILED [ 28%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[conclusion] FAILED [ 42%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[checkout_sha] FAILED [ 57%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[job_id] FAILED [ 71%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_requires_both_baseline_runtime_jobs[3.12] FAILED [ 85%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_requires_both_baseline_runtime_jobs[3.13] FAILED [100%]\n\n=================================== FAILURES ===================================\n_____________ test_reconciliation_rejects_substituted_baseline[id] _____________\ntests/docs/test_issue_4426_coverage_measurement.py:424: in test_reconciliation_rejects_substituted_baseline\n    with pytest.raises(ValueError, match=\"pre-round Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n__________ test_reconciliation_rejects_substituted_baseline[head_sha] __________\ntests/docs/test_issue_4426_coverage_measurement.py:424: in test_reconciliation_rejects_substituted_baseline\n    with pytest.raises(ValueError, match=\"pre-round Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'pre-round Gate identity mismatch'\nE     Actual message: 'log checkout identity mismatch'\n_________ test_reconciliation_rejects_substituted_baseline[conclusion] _________\ntests/docs/test_issue_4426_coverage_measurement.py:424: in test_reconciliation_rejects_substituted_baseline\n    with pytest.raises(ValueError, match=\"pre-round Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n________ test_reconciliation_rejects_substituted_baseline[checkout_sha] ________\ntests/docs/test_issue_4426_coverage_measurement.py:424: in test_reconciliation_rejects_substituted_baseline\n    with pytest.raises(ValueError, match=\"pre-round Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'pre-round Gate identity mismatch'\nE     Actual message: 'log checkout identity mismatch'\n___________ test_reconciliation_rejects_substituted_baseline[job_id] ___________\ntests/docs/test_issue_4426_coverage_measurement.py:424: in test_reconciliation_rejects_substituted_baseline\n    with pytest.raises(ValueError, match=\"pre-round Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n________ test_reconciliation_requires_both_baseline_runtime_jobs[3.12] _________\ntests/docs/test_issue_4426_coverage_measurement.py:432: in test_reconciliation_requires_both_baseline_runtime_jobs\n    with pytest.raises(ValueError, match=\"pre-round Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n________ test_reconciliation_requires_both_baseline_runtime_jobs[3.13] _________\ntests/docs/test_issue_4426_coverage_measurement.py:432: in test_reconciliation_requires_both_baseline_runtime_jobs\n    with pytest.raises(ValueError, match=\"pre-round Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[id] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[head_sha] - AssertionError: Regex pattern did not match.\n  Expected regex: 'pre-round Gate identity mismatch'\n  Actual message: 'log checkout identity mismatch'\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[conclusion] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[checkout_sha] - AssertionError: Regex pattern did not match.\n  Expected regex: 'pre-round Gate identity mismatch'\n  Actual message: 'log checkout identity mismatch'\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[job_id] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_requires_both_baseline_runtime_jobs[3.12] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_requires_both_baseline_runtime_jobs[3.13] - Failed: DID NOT RAISE ValueError\n============================== 7 failed in 0.61s ===============================\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-v",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_requires_both_baseline_runtime_jobs",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.549,
+        "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 7 items\n\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[id] PASSED [ 14%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[head_sha] PASSED [ 28%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[conclusion] PASSED [ 42%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[checkout_sha] PASSED [ 57%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_baseline[job_id] PASSED [ 71%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_requires_both_baseline_runtime_jobs[3.12] PASSED [ 85%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_requires_both_baseline_runtime_jobs[3.13] PASSED [100%]\n\n============================== 7 passed in 0.48s ===============================\n"
+      }
+    },
+    {
+      "id": "ignore-final-provenance",
+      "symbol": "reconcile_gate_reports",
+      "original_snippets": [
+        "raise ValueError(\"final Gate identity mismatch\")"
+      ],
+      "replacement": "pass",
+      "source_sha256": "7e9d605b8a57200aefb359210277e480c3bfbb19dea539c90161f16d1a202c38",
+      "mutant_sha256": "aba6d00257e29385d7e1a5fc5a2757ff5222108af201bb8bddf266485f5f11f1",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-v",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.685,
+        "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 7 items\n\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[pr-number-4477] FAILED [ 14%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[artifact-name-gate-coverage-3.13-1] FAILED [ 28%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[artifact-digest-sha256:0000000000000000000000000000000000000000000000000000000000000000] FAILED [ 42%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[checkout-tree_sha-0000000000000000000000000000000000000000] FAILED [ 57%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[checkout-parents-value4] FAILED [ 71%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[runtime-python-3.13] FAILED [ 85%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[runtime-job_id-128005600052] FAILED [100%]\n\n=================================== FAILURES ===================================\n___ test_reconciliation_rejects_substituted_final_provenance[pr-number-4477] ___\ntests/docs/test_issue_4426_coverage_measurement.py:451: in test_reconciliation_rejects_substituted_final_provenance\n    with pytest.raises(ValueError, match=\"final Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_ test_reconciliation_rejects_substituted_final_provenance[artifact-name-gate-coverage-3.13-1] _\ntests/docs/test_issue_4426_coverage_measurement.py:451: in test_reconciliation_rejects_substituted_final_provenance\n    with pytest.raises(ValueError, match=\"final Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_ test_reconciliation_rejects_substituted_final_provenance[artifact-digest-sha256:0000000000000000000000000000000000000000000000000000000000000000] _\ntests/docs/test_issue_4426_coverage_measurement.py:451: in test_reconciliation_rejects_substituted_final_provenance\n    with pytest.raises(ValueError, match=\"final Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_ test_reconciliation_rejects_substituted_final_provenance[checkout-tree_sha-0000000000000000000000000000000000000000] _\ntests/docs/test_issue_4426_coverage_measurement.py:451: in test_reconciliation_rejects_substituted_final_provenance\n    with pytest.raises(ValueError, match=\"final Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_ test_reconciliation_rejects_substituted_final_provenance[checkout-parents-value4] _\ntests/docs/test_issue_4426_coverage_measurement.py:451: in test_reconciliation_rejects_substituted_final_provenance\n    with pytest.raises(ValueError, match=\"final Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   AssertionError: Regex pattern did not match.\nE     Expected regex: 'final Gate identity mismatch'\nE     Actual message: 'log checkout identity mismatch'\n_ test_reconciliation_rejects_substituted_final_provenance[runtime-python-3.13] _\ntests/docs/test_issue_4426_coverage_measurement.py:451: in test_reconciliation_rejects_substituted_final_provenance\n    with pytest.raises(ValueError, match=\"final Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_ test_reconciliation_rejects_substituted_final_provenance[runtime-job_id-128005600052] _\ntests/docs/test_issue_4426_coverage_measurement.py:451: in test_reconciliation_rejects_substituted_final_provenance\n    with pytest.raises(ValueError, match=\"final Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[pr-number-4477] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[artifact-name-gate-coverage-3.13-1] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[artifact-digest-sha256:0000000000000000000000000000000000000000000000000000000000000000] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[checkout-tree_sha-0000000000000000000000000000000000000000] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[checkout-parents-value4] - AssertionError: Regex pattern did not match.\n  Expected regex: 'final Gate identity mismatch'\n  Actual message: 'log checkout identity mismatch'\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[runtime-python-3.13] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[runtime-job_id-128005600052] - Failed: DID NOT RAISE ValueError\n============================== 7 failed in 0.62s ===============================\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-v",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.556,
+        "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 7 items\n\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[pr-number-4477] PASSED [ 14%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[artifact-name-gate-coverage-3.13-1] PASSED [ 28%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[artifact-digest-sha256:0000000000000000000000000000000000000000000000000000000000000000] PASSED [ 42%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[checkout-tree_sha-0000000000000000000000000000000000000000] PASSED [ 57%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[checkout-parents-value4] PASSED [ 71%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[runtime-python-3.13] PASSED [ 85%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_substituted_final_provenance[runtime-job_id-128005600052] PASSED [100%]\n\n============================== 7 passed in 0.49s ===============================\n"
+      }
+    },
+    {
+      "id": "trust-coordinated-substitution",
+      "symbol": "reconcile_gate_reports",
+      "original_snippets": [
+        "raise ValueError(\"pre-round Gate identity mismatch\")",
+        "raise ValueError(\"final Gate identity mismatch\")"
+      ],
+      "replacement": "pass",
+      "source_sha256": "7e9d605b8a57200aefb359210277e480c3bfbb19dea539c90161f16d1a202c38",
+      "mutant_sha256": "6dff9e5263346d4bb8522a923353b26765acf191bcb7726bb8dbf8be5ce8a92b",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-v",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_coordinated_head_and_log_substitution",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.617,
+        "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 2 items\n\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_coordinated_head_and_log_substitution[pre_round] FAILED [ 50%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_coordinated_head_and_log_substitution[final_head] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_reconciliation_rejects_coordinated_head_and_log_substitution[pre_round] _\ntests/docs/test_issue_4426_coverage_measurement.py:473: in test_reconciliation_rejects_coordinated_head_and_log_substitution\n    with pytest.raises(ValueError, match=\"Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_ test_reconciliation_rejects_coordinated_head_and_log_substitution[final_head] _\ntests/docs/test_issue_4426_coverage_measurement.py:473: in test_reconciliation_rejects_coordinated_head_and_log_substitution\n    with pytest.raises(ValueError, match=\"Gate identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_coordinated_head_and_log_substitution[pre_round] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_coordinated_head_and_log_substitution[final_head] - Failed: DID NOT RAISE ValueError\n============================== 2 failed in 0.55s ===============================\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-v",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_coordinated_head_and_log_substitution",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.539,
+        "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 2 items\n\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_coordinated_head_and_log_substitution[pre_round] PASSED [ 50%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_rejects_coordinated_head_and_log_substitution[final_head] PASSED [100%]\n\n============================== 2 passed in 0.48s ===============================\n"
+      }
+    },
+    {
+      "id": "ignore-log-merge-identity",
+      "symbol": "reconcile_gate_reports",
+      "original_snippets": [
+        "raise ValueError(\"log checkout identity mismatch\")"
+      ],
+      "replacement": "pass",
+      "source_sha256": "7e9d605b8a57200aefb359210277e480c3bfbb19dea539c90161f16d1a202c38",
+      "mutant_sha256": "e820148753bb7f96f8645386d715ecccd44a125f286b8c80a3f09a6bf74cbbdb",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-v",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 1.694,
+        "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 8 items\n\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[replace-pre_round] FAILED [ 12%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[replace-final_head] FAILED [ 25%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[append-pre_round] FAILED [ 37%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[append-final_head] FAILED [ 50%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[remove-pre_round] FAILED [ 62%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[remove-final_head] FAILED [ 75%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[suffix-pre_round] FAILED [ 87%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[suffix-final_head] FAILED [100%]\n\n=================================== FAILURES ===================================\n_____ test_reconciliation_checks_every_log_merge_parent[replace-pre_round] _____\ntests/docs/test_issue_4426_coverage_measurement.py:493: in test_reconciliation_checks_every_log_merge_parent\n    with pytest.raises(ValueError, match=\"log checkout identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n____ test_reconciliation_checks_every_log_merge_parent[replace-final_head] _____\ntests/docs/test_issue_4426_coverage_measurement.py:493: in test_reconciliation_checks_every_log_merge_parent\n    with pytest.raises(ValueError, match=\"log checkout identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_____ test_reconciliation_checks_every_log_merge_parent[append-pre_round] ______\ntests/docs/test_issue_4426_coverage_measurement.py:493: in test_reconciliation_checks_every_log_merge_parent\n    with pytest.raises(ValueError, match=\"log checkout identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_____ test_reconciliation_checks_every_log_merge_parent[append-final_head] _____\ntests/docs/test_issue_4426_coverage_measurement.py:493: in test_reconciliation_checks_every_log_merge_parent\n    with pytest.raises(ValueError, match=\"log checkout identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_____ test_reconciliation_checks_every_log_merge_parent[remove-pre_round] ______\ntests/docs/test_issue_4426_coverage_measurement.py:493: in test_reconciliation_checks_every_log_merge_parent\n    with pytest.raises(ValueError, match=\"log checkout identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_____ test_reconciliation_checks_every_log_merge_parent[remove-final_head] _____\ntests/docs/test_issue_4426_coverage_measurement.py:493: in test_reconciliation_checks_every_log_merge_parent\n    with pytest.raises(ValueError, match=\"log checkout identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_____ test_reconciliation_checks_every_log_merge_parent[suffix-pre_round] ______\ntests/docs/test_issue_4426_coverage_measurement.py:493: in test_reconciliation_checks_every_log_merge_parent\n    with pytest.raises(ValueError, match=\"log checkout identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n_____ test_reconciliation_checks_every_log_merge_parent[suffix-final_head] _____\ntests/docs/test_issue_4426_coverage_measurement.py:493: in test_reconciliation_checks_every_log_merge_parent\n    with pytest.raises(ValueError, match=\"log checkout identity mismatch\"):\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE   Failed: DID NOT RAISE ValueError\n=========================== short test summary info ============================\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[replace-pre_round] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[replace-final_head] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[append-pre_round] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[append-final_head] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[remove-pre_round] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[remove-final_head] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[suffix-pre_round] - Failed: DID NOT RAISE ValueError\nFAILED tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[suffix-final_head] - Failed: DID NOT RAISE ValueError\n============================== 8 failed in 0.64s ===============================\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-v",
+          "tests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 1.548,
+        "output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 8 items\n\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[replace-pre_round] PASSED [ 12%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[replace-final_head] PASSED [ 25%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[append-pre_round] PASSED [ 37%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[append-final_head] PASSED [ 50%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[remove-pre_round] PASSED [ 62%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[remove-final_head] PASSED [ 75%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[suffix-pre_round] PASSED [ 87%]\ntests/docs/test_issue_4426_coverage_measurement.py::test_reconciliation_checks_every_log_merge_parent[suffix-final_head] PASSED [100%]\n\n============================== 8 passed in 0.48s ===============================\n"
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import sys
@@ -11,6 +12,21 @@ from unittest.mock import Mock
 
 import pytest
 from tools import langchain_client, llm_registry
+
+
+@pytest.fixture(params=["root", "consumer-template"])
+def client_implementation(request, monkeypatch: pytest.MonkeyPatch):
+    """Exercise the same provider-selection contract in both distributed copies."""
+    if request.param == "root":
+        return langchain_client
+    path = Path(__file__).resolve().parents[2] / "templates/consumer-repo/tools/langchain_client.py"
+    name = "_issue_4426_consumer_langchain_client"
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, name, module)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _reviewed_model(provider: str) -> str:
@@ -1520,9 +1536,11 @@ def test_blank_slot_model_override_does_not_become_a_paired_client(
 
 def test_paired_auto_select_does_not_retry_a_blocked_override(
     monkeypatch: pytest.MonkeyPatch,
+    client_implementation,
     tmp_path: Path,
 ) -> None:
     """A blocked model1 is consumed, not rebuilt on the next provider."""
+    langchain_client = client_implementation
     fake_openai = _install_fake_langchain_openai(monkeypatch)
     fake_anthropic = _install_fake_langchain_anthropic(monkeypatch)
     _clear_client_environment(monkeypatch)
@@ -1546,8 +1564,10 @@ def test_paired_auto_select_does_not_retry_a_blocked_override(
 
 def test_unblocked_model1_still_fills_both_auto_selected_slots(
     monkeypatch: pytest.MonkeyPatch,
+    client_implementation,
 ) -> None:
     """Omitting model2 still shares an unblocked model1 across the selected slots."""
+    langchain_client = client_implementation
     _install_fake_langchain_openai(monkeypatch)
     _install_fake_langchain_anthropic(monkeypatch)
     _clear_client_environment(monkeypatch)
@@ -1564,8 +1584,10 @@ def test_unblocked_model1_still_fills_both_auto_selected_slots(
 
 def test_explicit_model2_stays_on_the_second_auto_selected_slot(
     monkeypatch: pytest.MonkeyPatch,
+    client_implementation,
 ) -> None:
     """An explicit model2 is the second slot's request, not a copy of model1."""
+    langchain_client = client_implementation
     _install_fake_langchain_openai(monkeypatch)
     _install_fake_langchain_anthropic(monkeypatch)
     _clear_client_environment(monkeypatch)
@@ -1648,12 +1670,17 @@ def test_paired_slot_provider_override_selects_the_github_builder(
 
 def test_github_slot_constructor_miss_selects_the_next_slot(
     monkeypatch: pytest.MonkeyPatch,
+    client_implementation,
 ) -> None:
     """A GitHub constructor failure is a miss for that slot and leaves the next slot."""
+    langchain_client = client_implementation
     fake_openai = types.ModuleType("langchain_openai")
+
+    calls = []
 
     class FailingChatOpenAI:
         def __init__(self, **kwargs):
+            calls.append(kwargs)
             raise RuntimeError("github constructor failed")
 
     fake_openai.ChatOpenAI = FailingChatOpenAI
@@ -1662,10 +1689,21 @@ def test_github_slot_constructor_miss_selects_the_next_slot(
     _clear_client_environment(monkeypatch)
     monkeypatch.setenv("GITHUB_TOKEN", "gh-token")
     monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "claude-token")
-    monkeypatch.setenv(f"{langchain_client.ENV_SLOT_PREFIX}1_PROVIDER", "github-models")
+    monkeypatch.setattr(
+        langchain_client,
+        "_resolve_slots",
+        lambda: [
+            llm_registry.SlotDefinition("slot1", langchain_client.PROVIDER_GITHUB, "gpt-reviewed"),
+            llm_registry.SlotDefinition(
+                "slot2", langchain_client.PROVIDER_ANTHROPIC, "claude-safe"
+            ),
+        ],
+    )
 
     resolved = langchain_client.build_chat_client()
 
+    assert len(calls) == 1
+    assert calls[0]["base_url"] == langchain_client.GITHUB_MODELS_BASE_URL
     assert resolved is not None
     assert resolved.provider == langchain_client.PROVIDER_ANTHROPIC
     assert isinstance(resolved.client, fake_anthropic)
@@ -1737,3 +1775,29 @@ def test_slot_wrappers_keep_configured_miss_distinct_from_defaults(
     assert [(slot.provider, slot.model) for slot in updated] == [
         (langchain_client.PROVIDER_OPENAI, "gpt-safe")
     ]
+
+
+def test_single_blocked_override_is_consumed_before_next_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, client_implementation
+) -> None:
+    """A constructor miss must not retry an already refused override on Claude."""
+    client = client_implementation
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    _clear_client_environment(monkeypatch)
+    monkeypatch.setenv(client.ENV_MODEL_REGISTRY_CONFIG, str(_blocked_override_registry(tmp_path)))
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-token")
+    monkeypatch.setenv(client.ENV_ANTHROPIC_KEY, "claude-token")
+    attempts = []
+
+    def unavailable_constructor(*args, **kwargs):
+        attempts.append(kwargs["model"])
+        raise RuntimeError("first provider unavailable")
+
+    monkeypatch.setattr(client, "_build_openai_client", unavailable_constructor)
+    resolved = client.build_chat_client(model="gpt-blocked")
+
+    assert attempts == ["gpt-safe"]
+    assert resolved is not None
+    assert (resolved.provider, resolved.model) == (client.PROVIDER_ANTHROPIC, "claude-safe")
+    assert resolved.client.kwargs["model"] == "claude-safe"

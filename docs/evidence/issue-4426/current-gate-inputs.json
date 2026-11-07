@@ -1,0 +1,50 @@
+{
+  "artifact": {
+    "id": 13575534246,
+    "node_id": "MDg6QXJ0aWZhY3QxMzU3NTUzNDI0Ng==",
+    "name": "gate-coverage-3.14-1",
+    "size_in_bytes": 1016258,
+    "url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13575534246",
+    "archive_download_url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13575534246/zip",
+    "expired": false,
+    "digest": "sha256:452f3bdb6ff19f6db02ec10363a6662608d8fbc6708ad08151d03dac95b752f0",
+    "created_at": "2026-11-07T13:34:01Z",
+    "updated_at": "2026-11-07T13:34:01Z",
+    "expires_at": "2026-11-14T13:33:59Z",
+    "workflow_run": {
+      "id": 42376857143,
+      "repository_id": 1117447156,
+      "head_repository_id": 1117447156,
+      "head_branch": "codex/issue-4500",
+      "head_sha": "02130e674dc2c69e8976edc51771c8a2038bfbf1"
+    }
+  },
+  "run": {
+    "id": 42376857143,
+    "head_sha": "02130e674dc2c69e8976edc51771c8a2038bfbf1",
+    "event": "pull_request",
+    "conclusion": "success",
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42376857143"
+  },
+  "tested_checkout": "c8e25743a017cc6ca41c8589b058b3fb36712ec0",
+  "checkout_lines": [
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:25:55.9980683Z   workflows_ref: c8e25743a017cc6ca41c8589b058b3fb36712ec0",
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:25:58.1146520Z HEAD is now at c8e2574 Merge 02130e674dc2c69e8976edc51771c8a2038bfbf1 into 2516f27c00180fc8dbe21058ff5a9a4565066de9",
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:25:58.1208665Z c8e25743a017cc6ca41c8589b058b3fb36712ec0",
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:26:01.6265004Z   ref: c8e25743a017cc6ca41c8589b058b3fb36712ec0",
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:26:01.7930636Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --filter=blob:none --depth=1 origin c8e25743a017cc6ca41c8589b058b3fb36712ec0",
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:26:02.1507661Z c8e25743a017cc6ca41c8589b058b3fb36712ec0",
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:26:02.1576910Z [command]/usr/bin/git checkout --progress --force c8e25743a017cc6ca41c8589b058b3fb36712ec0",
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:26:02.6694207Z HEAD is now at c8e2574 Merge 02130e674dc2c69e8976edc51771c8a2038bfbf1 into 2516f27c00180fc8dbe21058ff5a9a4565066de9",
+    "python ci / python 3.14\tUNKNOWN STEP\t2026-11-07T13:26:02.6752142Z c8e25743a017cc6ca41c8589b058b3fb36712ec0"
+  ],
+  "report_lines": [
+    "scripts/langchain/issue_pr_context.py                        359     13    150      2  96.27%   407->409, 413-431",
+    "scripts/langchain/pr_verifier.py                            3188     89   1288     68  96.27%   378, 452->449, 458->449, 655, 751->753, 761, 787, 792, 799-803, 812, 845, 868, 874, 875->852, 897, 980->982, 1256->1263, 2692, 3590, 3593, 3636-3637, 3917->3926, 3922->3926, 3945-3946, 4066, 4231-4239, 4764->4779, 4804->4806, 4818-4819, 4833->4845, 5055->5057, 5541->5545, 5641-5642, 5674-5675, 5952->5954, 6155, 6177, 6211, 6218, 6416-6417, 6456, 6543-6544, 6801->6824, 6957->6959, 7019, 7088-7089, 7125, 7131, 7281, 7321-7322, 7325-7326, 7493, 7507, 7859->7861, 7964-7967, 7994->7996, 8002->8001, 8008-8010, 8014->8017, 8038-8063, 8358, 8530, 8611, 8617, 8690, 8742, 9021, 9037, 9270, 9277, 9291",
+    "scripts/langchain/task_validator.py                          248      3     70      3  98.11%   26-28, 398->408, 745->exit, 749->747",
+    "scripts/langchain/verifier_config.py                         144      1     70      1  99.07%   184",
+    "scripts/sync_test_dependencies.py                            339      1    158      5  98.79%   24->28, 224->203, 316->309, 423, 532->527",
+    "tools/langchain_client.py                                    287      3    112      2  98.75%   358, 592-593",
+    "TOTAL                                                      50348   3739  20174   1866  91.17%"
+  ]
+}

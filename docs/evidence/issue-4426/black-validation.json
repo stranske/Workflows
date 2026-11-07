@@ -1,0 +1,9 @@
+{
+  "command": "black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+  "black_version": "26.10.1",
+  "execution": "installed Black CLI with serial reformat_one dispatcher; see black-serial-driver.txt",
+  "source_discovery": "unchanged Black CLI discovery",
+  "exit_code": 0,
+  "output": "955 files would be left unchanged.",
+  "default_process_pool": "PermissionError: Operation not permitted"
+}

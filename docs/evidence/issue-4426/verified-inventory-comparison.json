@@ -1,0 +1,1324 @@
+{
+  "schema": "workflows.issue-4426-verified-inventory-comparison/v1",
+  "historical_checkout": "e4e584ea61852751c55749ab9ed6539fa10c9a31",
+  "current_checkout": "c8e25743a017cc6ca41c8589b058b3fb36712ec0",
+  "pytest_settings_equal": true,
+  "reusable_test_step_equal": true,
+  "coverage_settings_equal": true,
+  "coverage_settings": {
+    "run": {
+      "branch": true,
+      "parallel": true,
+      "source": [
+        "scripts",
+        "tools",
+        "src"
+      ],
+      "omit": [
+        "*/tests/*",
+        "*/test_*.py",
+        "*/.venv/*",
+        "archive/*",
+        ".extraction/*",
+        "src/trend_analysis/*"
+      ]
+    },
+    "report": {
+      "precision": 2,
+      "show_missing": true,
+      "skip_covered": false,
+      "exclude_also": [
+        "if __name__ == .__main__.:"
+      ]
+    }
+  },
+  "coverage_version": "7.17.2",
+  "targets": {
+    "scripts/sync_test_dependencies.py": {
+      "source_ast_sha256_by_checkout": {
+        "e4e584ea61852751c55749ab9ed6539fa10c9a31": "0abb808e3994de32ce64cd45dc5f3c87449396fe1baee29812a8f26e9dc8306a",
+        "c8e25743a017cc6ca41c8589b058b3fb36712ec0": "0abb808e3994de32ce64cd45dc5f3c87449396fe1baee29812a8f26e9dc8306a"
+      },
+      "same_target_source_ast": true,
+      "same_executable_units_and_exclusions": true,
+      "comparable_target_inventories": true,
+      "historical_missing_lines": [
+        423
+      ],
+      "current_missing_lines": [
+        423
+      ],
+      "historical_missing_branches": [
+        [
+          24,
+          28
+        ],
+        [
+          224,
+          203
+        ],
+        [
+          316,
+          309
+        ],
+        [
+          422,
+          423
+        ],
+        [
+          532,
+          527
+        ]
+      ],
+      "current_missing_branches": [
+        [
+          24,
+          28
+        ],
+        [
+          224,
+          203
+        ],
+        [
+          316,
+          309
+        ],
+        [
+          422,
+          423
+        ],
+        [
+          532,
+          527
+        ]
+      ],
+      "removed_lines": [],
+      "removed_branches": [],
+      "new_missing_lines": [],
+      "new_missing_branches": [],
+      "unique_observed_units_removed": 0,
+      "unique_new_missing_units": 0,
+      "attributable_round_reduction": null
+    },
+    "scripts/langchain/issue_pr_context.py": {
+      "source_ast_sha256_by_checkout": {
+        "e4e584ea61852751c55749ab9ed6539fa10c9a31": "87bb3faf6f625418000f6df20efe833998114993fa6b4777321f77a45b14d143",
+        "c8e25743a017cc6ca41c8589b058b3fb36712ec0": "87bb3faf6f625418000f6df20efe833998114993fa6b4777321f77a45b14d143"
+      },
+      "same_target_source_ast": true,
+      "same_executable_units_and_exclusions": true,
+      "comparable_target_inventories": true,
+      "historical_missing_lines": [
+        413,
+        414,
+        415,
+        416,
+        417,
+        418,
+        419,
+        426,
+        427,
+        428,
+        429,
+        430,
+        431
+      ],
+      "current_missing_lines": [
+        413,
+        414,
+        415,
+        416,
+        417,
+        418,
+        419,
+        426,
+        427,
+        428,
+        429,
+        430,
+        431
+      ],
+      "historical_missing_branches": [
+        [
+          407,
+          409
+        ],
+        [
+          412,
+          413
+        ],
+        [
+          426,
+          427
+        ],
+        [
+          426,
+          428
+        ],
+        [
+          429,
+          412
+        ],
+        [
+          429,
+          430
+        ]
+      ],
+      "current_missing_branches": [
+        [
+          407,
+          409
+        ],
+        [
+          412,
+          413
+        ],
+        [
+          426,
+          427
+        ],
+        [
+          426,
+          428
+        ],
+        [
+          429,
+          412
+        ],
+        [
+          429,
+          430
+        ]
+      ],
+      "removed_lines": [],
+      "removed_branches": [],
+      "new_missing_lines": [],
+      "new_missing_branches": [],
+      "unique_observed_units_removed": 0,
+      "unique_new_missing_units": 0,
+      "attributable_round_reduction": null
+    },
+    "scripts/langchain/verifier_config.py": {
+      "source_ast_sha256_by_checkout": {
+        "e4e584ea61852751c55749ab9ed6539fa10c9a31": "f4b76cc09b23387bcfe812a65159af436baf723fb0a9534fad1c7b3a59354384",
+        "c8e25743a017cc6ca41c8589b058b3fb36712ec0": "f4b76cc09b23387bcfe812a65159af436baf723fb0a9534fad1c7b3a59354384"
+      },
+      "same_target_source_ast": true,
+      "same_executable_units_and_exclusions": true,
+      "comparable_target_inventories": true,
+      "historical_missing_lines": [
+        184
+      ],
+      "current_missing_lines": [
+        184
+      ],
+      "historical_missing_branches": [
+        [
+          183,
+          184
+        ]
+      ],
+      "current_missing_branches": [
+        [
+          183,
+          184
+        ]
+      ],
+      "removed_lines": [],
+      "removed_branches": [],
+      "new_missing_lines": [],
+      "new_missing_branches": [],
+      "unique_observed_units_removed": 0,
+      "unique_new_missing_units": 0,
+      "attributable_round_reduction": null
+    },
+    "tools/langchain_client.py": {
+      "source_ast_sha256_by_checkout": {
+        "e4e584ea61852751c55749ab9ed6539fa10c9a31": "762660d8388e7643c43387d4f42ba6c6db65c3d9009e6534e94e083c853e3f9e",
+        "c8e25743a017cc6ca41c8589b058b3fb36712ec0": "762660d8388e7643c43387d4f42ba6c6db65c3d9009e6534e94e083c853e3f9e"
+      },
+      "same_target_source_ast": true,
+      "same_executable_units_and_exclusions": true,
+      "comparable_target_inventories": true,
+      "historical_missing_lines": [
+        358,
+        592,
+        593
+      ],
+      "current_missing_lines": [
+        358,
+        592,
+        593
+      ],
+      "historical_missing_branches": [
+        [
+          357,
+          358
+        ],
+        [
+          591,
+          592
+        ]
+      ],
+      "current_missing_branches": [
+        [
+          357,
+          358
+        ],
+        [
+          591,
+          592
+        ]
+      ],
+      "removed_lines": [],
+      "removed_branches": [],
+      "new_missing_lines": [],
+      "new_missing_branches": [],
+      "unique_observed_units_removed": 0,
+      "unique_new_missing_units": 0,
+      "attributable_round_reduction": null
+    },
+    "scripts/langchain/task_validator.py": {
+      "source_ast_sha256_by_checkout": {
+        "e4e584ea61852751c55749ab9ed6539fa10c9a31": "80bf366ac24aa756aef9fccc9943bf4a6a5566cf93a571ed70b1a976df14bfde",
+        "c8e25743a017cc6ca41c8589b058b3fb36712ec0": "80bf366ac24aa756aef9fccc9943bf4a6a5566cf93a571ed70b1a976df14bfde"
+      },
+      "same_target_source_ast": true,
+      "same_executable_units_and_exclusions": true,
+      "comparable_target_inventories": true,
+      "historical_missing_lines": [
+        26,
+        27,
+        28
+      ],
+      "current_missing_lines": [
+        26,
+        27,
+        28
+      ],
+      "historical_missing_branches": [
+        [
+          398,
+          408
+        ],
+        [
+          745,
+          -727
+        ],
+        [
+          749,
+          747
+        ]
+      ],
+      "current_missing_branches": [
+        [
+          398,
+          408
+        ],
+        [
+          745,
+          -727
+        ],
+        [
+          749,
+          747
+        ]
+      ],
+      "removed_lines": [],
+      "removed_branches": [],
+      "new_missing_lines": [],
+      "new_missing_branches": [],
+      "unique_observed_units_removed": 0,
+      "unique_new_missing_units": 0,
+      "attributable_round_reduction": null
+    },
+    "scripts/langchain/pr_verifier.py": {
+      "source_ast_sha256_by_checkout": {
+        "e4e584ea61852751c55749ab9ed6539fa10c9a31": "814748b136949f869701e8db6ad9b41a20e4257e63aee1738f9d4084677d1d29",
+        "c8e25743a017cc6ca41c8589b058b3fb36712ec0": "814748b136949f869701e8db6ad9b41a20e4257e63aee1738f9d4084677d1d29"
+      },
+      "same_target_source_ast": true,
+      "same_executable_units_and_exclusions": true,
+      "comparable_target_inventories": true,
+      "historical_missing_lines": [
+        378,
+        655,
+        761,
+        787,
+        792,
+        799,
+        800,
+        801,
+        802,
+        803,
+        812,
+        845,
+        868,
+        874,
+        897,
+        2692,
+        3590,
+        3593,
+        3636,
+        3637,
+        3945,
+        3946,
+        4066,
+        4231,
+        4238,
+        4239,
+        4818,
+        4819,
+        5641,
+        5642,
+        5674,
+        5675,
+        6155,
+        6177,
+        6211,
+        6218,
+        6416,
+        6417,
+        6456,
+        6543,
+        6544,
+        6688,
+        6833,
+        6843,
+        6960,
+        6961,
+        7019,
+        7088,
+        7089,
+        7125,
+        7131,
+        7281,
+        7321,
+        7322,
+        7325,
+        7326,
+        7493,
+        7507,
+        7836,
+        7964,
+        7965,
+        7966,
+        7967,
+        8008,
+        8009,
+        8010,
+        8038,
+        8039,
+        8040,
+        8041,
+        8043,
+        8044,
+        8050,
+        8051,
+        8052,
+        8054,
+        8055,
+        8056,
+        8057,
+        8058,
+        8060,
+        8061,
+        8062,
+        8063,
+        8112,
+        8216,
+        8217,
+        8218,
+        8219,
+        8358,
+        8454,
+        8463,
+        8515,
+        8530,
+        8611,
+        8617,
+        8690,
+        8742,
+        9021,
+        9037,
+        9190,
+        9191,
+        9192,
+        9193,
+        9270,
+        9277,
+        9291
+      ],
+      "current_missing_lines": [
+        378,
+        655,
+        761,
+        787,
+        792,
+        799,
+        800,
+        801,
+        802,
+        803,
+        812,
+        845,
+        868,
+        874,
+        897,
+        2692,
+        3590,
+        3593,
+        3636,
+        3637,
+        3945,
+        3946,
+        4066,
+        4231,
+        4238,
+        4239,
+        4818,
+        4819,
+        5641,
+        5642,
+        5674,
+        5675,
+        6155,
+        6177,
+        6211,
+        6218,
+        6416,
+        6417,
+        6456,
+        6543,
+        6544,
+        7019,
+        7088,
+        7089,
+        7125,
+        7131,
+        7281,
+        7321,
+        7322,
+        7325,
+        7326,
+        7493,
+        7507,
+        7964,
+        7965,
+        7966,
+        7967,
+        8008,
+        8009,
+        8010,
+        8038,
+        8039,
+        8040,
+        8041,
+        8043,
+        8044,
+        8050,
+        8051,
+        8052,
+        8054,
+        8055,
+        8056,
+        8057,
+        8058,
+        8060,
+        8061,
+        8062,
+        8063,
+        8358,
+        8530,
+        8611,
+        8617,
+        8690,
+        8742,
+        9021,
+        9037,
+        9270,
+        9277,
+        9291
+      ],
+      "historical_missing_branches": [
+        [
+          375,
+          378
+        ],
+        [
+          452,
+          449
+        ],
+        [
+          458,
+          449
+        ],
+        [
+          654,
+          655
+        ],
+        [
+          751,
+          753
+        ],
+        [
+          760,
+          761
+        ],
+        [
+          775,
+          803
+        ],
+        [
+          786,
+          787
+        ],
+        [
+          789,
+          799
+        ],
+        [
+          791,
+          792
+        ],
+        [
+          799,
+          800
+        ],
+        [
+          799,
+          801
+        ],
+        [
+          811,
+          812
+        ],
+        [
+          844,
+          845
+        ],
+        [
+          867,
+          868
+        ],
+        [
+          873,
+          874
+        ],
+        [
+          875,
+          852
+        ],
+        [
+          896,
+          897
+        ],
+        [
+          980,
+          982
+        ],
+        [
+          1256,
+          1263
+        ],
+        [
+          2691,
+          2692
+        ],
+        [
+          3589,
+          3590
+        ],
+        [
+          3592,
+          3593
+        ],
+        [
+          3633,
+          3636
+        ],
+        [
+          3917,
+          3926
+        ],
+        [
+          3922,
+          3926
+        ],
+        [
+          3944,
+          3945
+        ],
+        [
+          4065,
+          4066
+        ],
+        [
+          4230,
+          4231
+        ],
+        [
+          4231,
+          4230
+        ],
+        [
+          4231,
+          4238
+        ],
+        [
+          4764,
+          4779
+        ],
+        [
+          4804,
+          4806
+        ],
+        [
+          4806,
+          4818
+        ],
+        [
+          4833,
+          4845
+        ],
+        [
+          5055,
+          5057
+        ],
+        [
+          5541,
+          5545
+        ],
+        [
+          5639,
+          5641
+        ],
+        [
+          5672,
+          5674
+        ],
+        [
+          5952,
+          5954
+        ],
+        [
+          6154,
+          6155
+        ],
+        [
+          6172,
+          6177
+        ],
+        [
+          6210,
+          6211
+        ],
+        [
+          6217,
+          6218
+        ],
+        [
+          6415,
+          6416
+        ],
+        [
+          6455,
+          6456
+        ],
+        [
+          6687,
+          6688
+        ],
+        [
+          6742,
+          6733
+        ],
+        [
+          6801,
+          6824
+        ],
+        [
+          6832,
+          6833
+        ],
+        [
+          6901,
+          6913
+        ],
+        [
+          6957,
+          6959
+        ],
+        [
+          7018,
+          7019
+        ],
+        [
+          7081,
+          7088
+        ],
+        [
+          7124,
+          7125
+        ],
+        [
+          7130,
+          7131
+        ],
+        [
+          7277,
+          7281
+        ],
+        [
+          7492,
+          7493
+        ],
+        [
+          7506,
+          7507
+        ],
+        [
+          7835,
+          7836
+        ],
+        [
+          7859,
+          7861
+        ],
+        [
+          7994,
+          7996
+        ],
+        [
+          8002,
+          8001
+        ],
+        [
+          8007,
+          8008
+        ],
+        [
+          8014,
+          8017
+        ],
+        [
+          8035,
+          8038
+        ],
+        [
+          8040,
+          8041
+        ],
+        [
+          8040,
+          8043
+        ],
+        [
+          8051,
+          8052
+        ],
+        [
+          8051,
+          8054
+        ],
+        [
+          8061,
+          8062
+        ],
+        [
+          8061,
+          8063
+        ],
+        [
+          8210,
+          8216
+        ],
+        [
+          8217,
+          8218
+        ],
+        [
+          8217,
+          8219
+        ],
+        [
+          8357,
+          8358
+        ],
+        [
+          8453,
+          8454
+        ],
+        [
+          8462,
+          8463
+        ],
+        [
+          8464,
+          8466
+        ],
+        [
+          8514,
+          8515
+        ],
+        [
+          8529,
+          8530
+        ],
+        [
+          8610,
+          8611
+        ],
+        [
+          8614,
+          8617
+        ],
+        [
+          8689,
+          8690
+        ],
+        [
+          8741,
+          8742
+        ],
+        [
+          9020,
+          9021
+        ],
+        [
+          9036,
+          9037
+        ],
+        [
+          9189,
+          9190
+        ],
+        [
+          9191,
+          9192
+        ],
+        [
+          9191,
+          9193
+        ],
+        [
+          9269,
+          9270
+        ],
+        [
+          9276,
+          9277
+        ],
+        [
+          9290,
+          9291
+        ]
+      ],
+      "current_missing_branches": [
+        [
+          375,
+          378
+        ],
+        [
+          452,
+          449
+        ],
+        [
+          458,
+          449
+        ],
+        [
+          654,
+          655
+        ],
+        [
+          751,
+          753
+        ],
+        [
+          760,
+          761
+        ],
+        [
+          775,
+          803
+        ],
+        [
+          786,
+          787
+        ],
+        [
+          789,
+          799
+        ],
+        [
+          791,
+          792
+        ],
+        [
+          799,
+          800
+        ],
+        [
+          799,
+          801
+        ],
+        [
+          811,
+          812
+        ],
+        [
+          844,
+          845
+        ],
+        [
+          867,
+          868
+        ],
+        [
+          873,
+          874
+        ],
+        [
+          875,
+          852
+        ],
+        [
+          896,
+          897
+        ],
+        [
+          980,
+          982
+        ],
+        [
+          1256,
+          1263
+        ],
+        [
+          2691,
+          2692
+        ],
+        [
+          3589,
+          3590
+        ],
+        [
+          3592,
+          3593
+        ],
+        [
+          3633,
+          3636
+        ],
+        [
+          3917,
+          3926
+        ],
+        [
+          3922,
+          3926
+        ],
+        [
+          3944,
+          3945
+        ],
+        [
+          4065,
+          4066
+        ],
+        [
+          4230,
+          4231
+        ],
+        [
+          4231,
+          4230
+        ],
+        [
+          4231,
+          4238
+        ],
+        [
+          4764,
+          4779
+        ],
+        [
+          4804,
+          4806
+        ],
+        [
+          4806,
+          4818
+        ],
+        [
+          4833,
+          4845
+        ],
+        [
+          5055,
+          5057
+        ],
+        [
+          5541,
+          5545
+        ],
+        [
+          5639,
+          5641
+        ],
+        [
+          5672,
+          5674
+        ],
+        [
+          5952,
+          5954
+        ],
+        [
+          6154,
+          6155
+        ],
+        [
+          6172,
+          6177
+        ],
+        [
+          6210,
+          6211
+        ],
+        [
+          6217,
+          6218
+        ],
+        [
+          6415,
+          6416
+        ],
+        [
+          6455,
+          6456
+        ],
+        [
+          6801,
+          6824
+        ],
+        [
+          6957,
+          6959
+        ],
+        [
+          7018,
+          7019
+        ],
+        [
+          7081,
+          7088
+        ],
+        [
+          7124,
+          7125
+        ],
+        [
+          7130,
+          7131
+        ],
+        [
+          7277,
+          7281
+        ],
+        [
+          7492,
+          7493
+        ],
+        [
+          7506,
+          7507
+        ],
+        [
+          7859,
+          7861
+        ],
+        [
+          7994,
+          7996
+        ],
+        [
+          8002,
+          8001
+        ],
+        [
+          8007,
+          8008
+        ],
+        [
+          8014,
+          8017
+        ],
+        [
+          8035,
+          8038
+        ],
+        [
+          8040,
+          8041
+        ],
+        [
+          8040,
+          8043
+        ],
+        [
+          8051,
+          8052
+        ],
+        [
+          8051,
+          8054
+        ],
+        [
+          8061,
+          8062
+        ],
+        [
+          8061,
+          8063
+        ],
+        [
+          8357,
+          8358
+        ],
+        [
+          8529,
+          8530
+        ],
+        [
+          8610,
+          8611
+        ],
+        [
+          8614,
+          8617
+        ],
+        [
+          8689,
+          8690
+        ],
+        [
+          8741,
+          8742
+        ],
+        [
+          9020,
+          9021
+        ],
+        [
+          9036,
+          9037
+        ],
+        [
+          9269,
+          9270
+        ],
+        [
+          9276,
+          9277
+        ],
+        [
+          9290,
+          9291
+        ]
+      ],
+      "removed_lines": [
+        6688,
+        6833,
+        6843,
+        6960,
+        6961,
+        7836,
+        8112,
+        8216,
+        8217,
+        8218,
+        8219,
+        8454,
+        8463,
+        8515,
+        9190,
+        9191,
+        9192,
+        9193
+      ],
+      "removed_branches": [
+        [
+          6687,
+          6688
+        ],
+        [
+          6742,
+          6733
+        ],
+        [
+          6832,
+          6833
+        ],
+        [
+          6901,
+          6913
+        ],
+        [
+          7835,
+          7836
+        ],
+        [
+          8210,
+          8216
+        ],
+        [
+          8217,
+          8218
+        ],
+        [
+          8217,
+          8219
+        ],
+        [
+          8453,
+          8454
+        ],
+        [
+          8462,
+          8463
+        ],
+        [
+          8464,
+          8466
+        ],
+        [
+          8514,
+          8515
+        ],
+        [
+          9189,
+          9190
+        ],
+        [
+          9191,
+          9192
+        ],
+        [
+          9191,
+          9193
+        ]
+      ],
+      "new_missing_lines": [],
+      "new_missing_branches": [],
+      "unique_observed_units_removed": 33,
+      "unique_new_missing_units": 0,
+      "attributable_round_reduction": null
+    }
+  },
+  "unique_observed_units_removed": 33,
+  "attributable_round_reduction": null,
+  "original_round_comparable_inventory": null,
+  "attribution_limit": "Matched target AST, executable inventory and coverage exclusions permit a historical-to-current set comparison. These two Gate runs are both after the original round. Tests and repository changed between runs; neither causal credit nor the original 164-unit difference is established. Local incremental gains are not summed."
+}

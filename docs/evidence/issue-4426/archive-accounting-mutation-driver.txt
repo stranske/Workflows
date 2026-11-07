@@ -1,0 +1,114 @@
+"""Verify counter/inventory regressions with synthetic archives; restore every source."""
+
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+source_path = root / "scripts/reconcile_issue_4426_coverage.py"
+test_path = root / "tests/scripts/test_reconcile_issue_4426_coverage.py"
+original = source_path.read_bytes()
+source = original.decode()
+prefix = str(test_path.relative_to(root)) + "::"
+cases = [
+    (
+        "trust-branch-counts-with-wrong-percentage",
+        'if display != summary["percent_covered_display"]:',
+        'if False:',
+        "test_reconcile_rejects_branch_counts_that_contradict_percentage",
+    ),
+    (
+        "trust-inconsistent-covered-counters",
+        'if type(summary[field]) is not int or summary[field] != expected:',
+        'if False:',
+        "test_reconcile_rejects_inconsistent_covered_counters",
+    ),
+    (
+        "accept-boolean-or-float-branch-counts",
+        'type(value) is not int',
+        'False',
+        "test_reconcile_rejects_invalid_missing_branch_counters",
+    ),
+    (
+        "count-repeated-missing-lines",
+        'or len(set(missing_lines)) != len(missing_lines)',
+        'or False',
+        "test_reconcile_rejects_duplicate_missing_units[missing_lines]",
+    ),
+    (
+        "count-repeated-missing-arcs",
+        'or len({tuple(arc) for arc in missing_branches}) != len(missing_branches)',
+        'or False',
+        "test_reconcile_rejects_duplicate_missing_units[missing_branches]",
+    ),
+    (
+        "accept-malformed-missing-unit-positions",
+        '        _validate_inventory(missing_lines, missing_branches, path)',
+        '        pass',
+        "test_reconcile_rejects_malformed_missing_unit_positions",
+    ),
+]
+
+
+def run(selector):
+    command = [
+        sys.executable, "-m", "pytest", "-q", prefix + selector,
+        "-m", "not slow", "--tb=short",
+    ]
+    start = time.monotonic()
+    result = subprocess.run(command, text=True, capture_output=True, timeout=110, cwd=root)
+    return {
+        "command": command,
+        "exit_code": result.returncode,
+        "elapsed_seconds": round(time.monotonic() - start, 3),
+        "output": result.stdout + result.stderr,
+    }
+
+
+receipts = []
+try:
+    for name, old, new, selector in cases:
+        assert source.count(old) == 1, name
+        mutant = source.replace(old, new)
+        try:
+            source_path.write_text(mutant)
+            red = run(selector)
+        finally:
+            source_path.write_bytes(original)
+        green = run(selector)
+        assert red["exit_code"] == 1 and selector in red["output"], red
+        assert "DID NOT RAISE" in red["output"], red
+        assert green["exit_code"] == 0, green
+        receipts.append({
+            "id": name,
+            "test": selector,
+            "original_snippet": old,
+            "mutant_snippet": new,
+            "mutant_sha256": hashlib.sha256(mutant.encode()).hexdigest(),
+            "red": red,
+            "green": green,
+        })
+        print(name, "mutant:", red["exit_code"], "restored:", green["exit_code"], flush=True)
+finally:
+    source_path.write_bytes(original)
+
+snapshots = {}
+for path in (source_path, test_path):
+    data = path.read_bytes()
+    snapshots[str(path.relative_to(root))] = {
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "text": data.decode(),
+    }
+record = {
+    "checked_on": "2026-11-07",
+    "scope": "synthetic archive accounting regressions; no real artifact or attribution claimed",
+    "recorded_source": snapshots,
+    "source_restored": source_path.read_bytes() == original,
+    "receipts": receipts,
+}
+(root / "docs/evidence/issue-4426/archive-accounting-mutations.json").write_text(
+    json.dumps(record, indent=2) + "\n"
+)

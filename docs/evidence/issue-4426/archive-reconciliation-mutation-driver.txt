@@ -1,0 +1,66 @@
+"""Record named regressions for offline reconciliation; restore source after every run."""
+
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / "docs/evidence/issue-4426"
+source_path = root / "scripts/reconcile_issue_4426_coverage.py"
+test_path = root / "tests/scripts/test_reconcile_issue_4426_coverage.py"
+original = source_path.read_bytes()
+source = original.decode()
+cases = [
+    ("accept-another-archive", 'if "sha256:" + hashlib.sha256(archive_bytes).hexdigest() != digest:', 'if False:', ["test_archive_digest_rejects_different_bytes_before_zip_parsing"]),
+    ("accept-substituted-head-record", 'if hashlib.sha256(inputs_bytes).hexdigest() != REPORT_INPUTS_SHA256:', 'if False:', ["test_reconcile_rejects_unpinned_identity_metadata"]),
+    ("select-any-runtime", 'member.filename == COVERAGE_MEMBER', 'member.filename.endswith("coverage.json")', ["test_archive_selects_recorded_runtime_among_other_coverage_files"]),
+    ("accept-duplicate-runtime-entry", 'if len(members) != 1:', 'if not members:', ["test_archive_requires_one_recorded_runtime_coverage_file"]),
+    ("accept-statement-only-coverage", 'if coverage["meta"]["branch_coverage"] is not True:', 'if False:', ["test_archive_checks_branch_mode"]),
+    ("ignore-archive-byte-bound", 'if len(archive_bytes) > MAX_BYTES:', 'if False:', ["test_archive_limits_compressed_and_expanded_input"]),
+    ("read-unbounded-expanded-coverage", '        if members[0].file_size > MAX_BYTES:\n            raise ValueError("coverage.json exceeds byte limit")\n        with archive.open(members[0]) as stream:\n            data = stream.read(MAX_BYTES + 1)\n    if len(data) > MAX_BYTES:\n        raise ValueError("coverage.json exceeds byte limit")', '        data = archive.read(members[0])', ["test_archive_limits_compressed_and_expanded_input"]),
+    ("accept-wrong-log-counters", 'if any(summary[key] != int(value) for key, value in zip(keys, values[:4], strict=True)):', 'if False:', ["test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[missing_lines"]),
+    ("accept-wrong-log-percentage", 'if summary["percent_covered_display"] != values[4]:', 'if False:', ["test_reconcile_rejects_counters_or_percentage_disagreeing_with_log[percent_covered_display"]),
+    ("accept-missing-or-duplicate-log-row", 'if len(matches) != 1:', 'if False:', ["test_report_match_requires_exactly_one_row"]),
+    ("accept-incomplete-inventory", 'len(missing_lines) != summary["missing_lines"]\n            or len(missing_branches) != summary["missing_branches"]', 'False', ["test_reconcile_rejects_incomplete_unit_inventory"]),
+    ("drop-unit-inventories", '"missing_lines": missing_lines,', '"missing_lines": [],', ["test_reconcile_exports_exact_inventories_and_merge_identity_without_credit"]),
+    ("credit-unknown-as-zero", '"attributable_round_reduction": None,', '"attributable_round_reduction": 0,', ["test_reconcile_exports_exact_inventories_and_merge_identity_without_credit"]),
+    ("change-historical-total", 'FINAL_TOTAL_LINE = "TOTAL 49564', 'FINAL_TOTAL_LINE = "TOTAL 49565', ["test_total_report_is_preserved_in_final_head_evidence"]),
+    ("report-success-on-error", '        return 1', '        return 0', ["test_cli_prints_report_and_returns_failure_without_partial_json"]),
+]
+
+def run(selectors):
+    # -k can select a parameter prefix without shell interpolation or node-ID guessing.
+    selection = " or ".join(selector.replace("[", " and ") for selector in selectors)
+    command = [sys.executable, "-m", "pytest", "-q", str(test_path.relative_to(root)), "-k", selection, "-m", "not slow", "--tb=short"]
+    start = time.monotonic()
+    result = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=110)
+    return {"command": command, "exit_code": result.returncode, "elapsed_seconds": round(time.monotonic()-start, 3), "output": result.stdout+result.stderr}
+
+receipts = []
+try:
+    for name, old, new, selectors in cases:
+        assert source.count(old) == 1, (name, source.count(old))
+        mutant = source.replace(old, new)
+        try:
+            source_path.write_text(mutant)
+            red = run(selectors)
+        finally:
+            source_path.write_bytes(original)
+        green = run(selectors)
+        assert red["exit_code"] == 1 and all(selector in red["output"] for selector in selectors), red
+        assert green["exit_code"] == 0, green
+        receipts.append({"id": name, "original_snippet": old, "mutant_snippet": new, "mutant_sha256": hashlib.sha256(mutant.encode()).hexdigest(), "red": red, "green": green})
+        print(name, "mutant:", red["exit_code"], "restored:", green["exit_code"], flush=True)
+finally:
+    source_path.write_bytes(original)
+
+snapshots = {}
+for path, filename in [(source_path, "archive-reconciliation-source.py.txt"), (test_path, "archive-reconciliation-tests.py.txt")]:
+    data = path.read_bytes()
+    (evidence / filename).write_bytes(data)
+    snapshots[str(path.relative_to(root))] = {"path": filename, "sha256": hashlib.sha256(data).hexdigest()}
+record = {"checked_on": "2026-11-07", "scope": "offline archive reconciler with synthetic fixtures; no real artifact or attribution claimed", "recorded_source": snapshots, "source_restored": source_path.read_bytes() == original, "receipts": receipts}
+(evidence / "archive-reconciliation-mutations.json").write_text(json.dumps(record, indent=2)+"\n")

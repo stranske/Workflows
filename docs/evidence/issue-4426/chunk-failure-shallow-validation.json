@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/docs/test_issue_4426_contract_record.py",
+    "tests/docs/test_issue_4426_coverage_measurement.py",
+    "tests/docs/test_issue_4426_gate_check.py",
+    "tests/docs/test_issue_4426_mutation_receipts.py",
+    "tests/docs/test_issue_4426_pr_inventory.py",
+    "tests/docs/test_issue_4426_ranking.py",
+    "-m",
+    "not slow",
+    "-p",
+    "issue4426_offline",
+    "--tb=short"
+  ],
+  "is_shallow": true,
+  "network_guard": true,
+  "credential_copying": false,
+  "checkout": "/tmp/issue-4426-offline-dnr5_tju/checkout",
+  "exit_code": 0,
+  "elapsed_seconds": 6.424,
+  "output": "....................................................................     [100%]\n68 passed in 4.45s\n"
+}

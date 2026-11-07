@@ -1,0 +1,105 @@
+"""Run from the repository root; retain local evidence without original-round credit."""
+import gzip
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / "docs/evidence/issue-4426"
+source = root / "scripts/langchain/pr_verifier.py"
+tests = root / "tests/scripts/test_pr_verifier_ranked_remainder.py"
+original_source, final_tests = source.read_bytes(), tests.read_bytes()
+baseline_tests = final_tests.split(b"\n\n@pytest.fixture\ndef diagnostic_review", 1)[0] + b"\n"
+assert baseline_tests != final_tests
+assert original_source == (evidence / "recorded-source/scripts/langchain/pr_verifier.py.txt").read_bytes()
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+def run(command, expected=0):
+    start = time.monotonic()
+    completed = subprocess.run(command, capture_output=True, text=True, timeout=110)
+    record = {"command": command, "exit_code": completed.returncode,
+              "elapsed_seconds": round(time.monotonic() - start, 3),
+              "output": completed.stdout + completed.stderr}
+    assert completed.returncode == expected, record
+    return record
+
+suite = ["tests/scripts/test_pr_verifier_partition_recovery.py",
+         "tests/scripts/test_pr_verifier_compare.py",
+         "tests/scripts/test_pr_verifier_comparison_report.py",
+         "tests/scripts/test_pr_verifier_config_and_report.py", str(tests.relative_to(root))]
+record = {"checked_on": "2026-11-07", "scope": "five-module local increment only",
+          "source_sha256": sha(original_source),
+          "pyproject_sha256": sha((root / "pyproject.toml").read_bytes()),
+          "python": sys.version, "baseline_test_sha256": sha(baseline_tests),
+          "final_test_sha256": sha(final_tests),
+          "new_test_source": final_tests[len(baseline_tests):].decode(),
+          "unchanged_suite_sha256": {name: sha((root / name).read_bytes()) for name in suite[:-1]},
+          "runs": {}, "mutations": [], "attributable_original_round_reduction": None}
+reports = {}
+try:
+    for phase, test_bytes in [("before", baseline_tests), ("after", final_tests)]:
+        tests.write_bytes(test_bytes)
+        output = Path("/tmp/issue4426-diagnostic-trace-" + phase + ".json")
+        command = [sys.executable, "-m", "pytest", "-q", *suite,
+                   "--cov=scripts.langchain.pr_verifier", "--cov-branch",
+                   "--cov-report=json:" + str(output), "--cov-report=term", "-m", "not slow"]
+        record["runs"][phase] = run(command)
+        raw = output.read_bytes()
+        packed = gzip.compress(raw, mtime=0)
+        artifact = "diagnostic-trace-" + phase + ".coverage.json.gz"
+        (evidence / artifact).write_bytes(packed)
+        reports[phase] = json.loads(raw)["files"][str(source.relative_to(root))]
+        record["runs"][phase].update(artifact=artifact, archive_sha256=sha(packed),
+                                     coverage_json_sha256=sha(raw),
+                                     summary=reports[phase]["summary"])
+    mutants = [
+        ("test_diagnostic_changed_request_blocks_generation_and_retains_capacity",
+         'if capacity["request_sha256"] != plan["ranges"][index]["capacity"]["request_sha256"]:',
+         'if capacity["request_sha256"] == plan["ranges"][index]["capacity"]["request_sha256"]:'),
+        ("test_diagnostic_sparse_failure_survives_multiple_malformed_responses",
+         'result.error = part.error if not result.error else result.error + "; " + part.error',
+         'result.error = part.error'),
+        ("test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent",
+         '(labels[i], result.langsmith_trace_url)',
+         '(labels[0], result.langsmith_trace_url)'),
+    ]
+    for test_name, old, new in mutants:
+        assert original_source.count(old.encode()) == 1
+        mutated = original_source.replace(old.encode(), new.encode())
+        command = [sys.executable, "-m", "pytest", "-q",
+                   str(tests.relative_to(root)) + "::" + test_name, "-m", "not slow", "--tb=short"]
+        try:
+            source.write_bytes(mutated)
+            failure = run(command, expected=1)
+            assert test_name in failure["output"] and "AssertionError" in failure["output"]
+        finally:
+            source.write_bytes(original_source)
+        restored = run(command)
+        record["mutations"].append({"test": test_name, "old": old, "new": new,
+                                    "mutated_source_sha256": sha(mutated),
+                                    "failure": failure, "restored": restored})
+finally:
+    source.write_bytes(original_source)
+    tests.write_bytes(final_tests)
+
+before, after = reports["before"], reports["after"]
+record["newly_covered_lines"] = sorted(set(before["missing_lines"]) - set(after["missing_lines"]))
+record["newly_covered_branches"] = sorted(set(map(tuple, before["missing_branches"])) - set(map(tuple, after["missing_branches"])))
+assert not set(after["missing_lines"]) - set(before["missing_lines"])
+assert not set(map(tuple, after["missing_branches"])) - set(map(tuple, before["missing_branches"]))
+for field in ("num_statements", "num_branches"):
+    assert before["summary"][field] == after["summary"][field]
+record["local_missing_unit_reduction"] = len(record["newly_covered_lines"]) + len(record["newly_covered_branches"])
+record["source_restored"] = source.read_bytes() == original_source
+record["final_tests_restored"] = tests.read_bytes() == final_tests
+record["lost_covered_units"] = 0
+(evidence / "diagnostic-trace-validation.json").write_text(json.dumps(record, indent=2) + "\n")
+print("Local increment:", record["local_missing_unit_reduction"])
+for name, result in record["runs"].items():
+    print(name, "exit:", result["exit_code"], "seconds:", result["elapsed_seconds"])
+print("Named mutation failures and restored passes:", len(record["mutations"]))

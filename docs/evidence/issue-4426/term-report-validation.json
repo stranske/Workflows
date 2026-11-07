@@ -1,0 +1,104 @@
+{
+  "checked_on": "2026-11-07",
+  "checkout_sha": "de6ce5af12b7e96a20d6ccbbfbee0523adf80660",
+  "python": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "sha256": {
+    "scripts/reconcile_issue_4426_coverage.py": "a58a0acac4e877c18ec18939209f4fe5986f5a8781428a8d2067a584ca5ba30e",
+    "tests/scripts/test_reconcile_issue_4426_coverage.py": "13fcacc9a4540a55c39c6c1a8a6bac492e21872c5d83966e01f28ff7084a7b8e",
+    "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+    "docs/evidence/issue-4426/gate-report-inputs.json": "edef0047a34517cdbd3543e0bc308e180865305bcc5f618ba3ea1619dc5e4a3c",
+    "docs/evidence/issue-4426/coverage-measurement.json": "929a755be177cee4e000338e578234ec9cc709b2e1b70cf6749ec56b13717f5d",
+    "docs/evidence/issue-4426/ranking.json": "a1548d2028f51712d20a100b8c365baa6bf734b8021061f9644d7568f79ef181",
+    "docs/evidence/issue-4426/term-report-reconciled.json": "8e067a2115a77b20ab066e65a91a4ddc62a1d41431b92d118c22c495eb81c15e"
+  },
+  "results": [
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "scripts/reconcile_issue_4426_coverage.py",
+        "--reports-only"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.134,
+      "output": "{\n  \"schema\": \"workflows.issue-4426-report-reconciliation/v1\",\n  \"source\": \"gate-report-inputs.json\",\n  \"source_sha256\": \"edef0047a34517cdbd3543e0bc308e180865305bcc5f618ba3ea1619dc5e4a3c\",\n  \"baseline_run_id\": 38980711116,\n  \"final_run_id\": 42287174423,\n  \"final_artifact_id\": 13537639987,\n  \"head_sha\": \"97fa3cdd6b198623db4adc86f16f0b3788320794\",\n  \"tested_checkout\": {\n    \"sha\": \"e4e584ea61852751c55749ab9ed6539fa10c9a31\",\n    \"tree_sha\": \"c9e0d5158f0dd4bc8166c3667439219b7e943fd9\",\n    \"parents\": [\n      \"d216eaafb02c97ed5f1da16a10d46d9a967c616f\",\n      \"97fa3cdd6b198623db4adc86f16f0b3788320794\"\n    ]\n  },\n  \"counter_source\": \"uniquely_recovered_term_reports\",\n  \"targets\": [\n    {\n      \"path\": \"scripts/sync_test_dependencies.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 300,\n          \"missing_lines\": 1,\n          \"num_branches\": 146,\n          \"num_partial_branches\": 5,\n          \"percent_covered_display\": \"98.65\",\n          \"missing_branches\": 5\n        },\n        \"3.13\": {\n          \"num_statements\": 300,\n          \"missing_lines\": 1,\n          \"num_branches\": 146,\n          \"num_partial_branches\": 5,\n          \"percent_covered_display\": \"98.65\",\n          \"missing_branches\": 5\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 339,\n        \"missing_lines\": 1,\n        \"num_branches\": 158,\n        \"num_partial_branches\": 5,\n        \"percent_covered_display\": \"98.79\",\n        \"missing_branches\": 5\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 6,\n        \"3.13\": 6\n      },\n      \"final_missing_units\": 6,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 0,\n        \"3.13\": 0\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 51,\n        \"3.13\": 51\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"scripts/langchain/issue_pr_context.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 339,\n          \"missing_lines\": 17,\n          \"num_branches\": 142,\n          \"num_partial_branches\": 9,\n          \"percent_covered_display\": \"93.76\",\n          \"missing_branches\": 13\n        },\n        \"3.13\": {\n          \"num_statements\": 339,\n          \"missing_lines\": 17,\n          \"num_branches\": 142,\n          \"num_partial_branches\": 9,\n          \"percent_covered_display\": \"93.76\",\n          \"missing_branches\": 13\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 359,\n        \"missing_lines\": 13,\n        \"num_branches\": 150,\n        \"num_partial_branches\": 2,\n        \"percent_covered_display\": \"96.27\",\n        \"missing_branches\": 6\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 30,\n        \"3.13\": 30\n      },\n      \"final_missing_units\": 19,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 11,\n        \"3.13\": 11\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 28,\n        \"3.13\": 28\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"scripts/langchain/verifier_config.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 135,\n          \"missing_lines\": 7,\n          \"num_branches\": 62,\n          \"num_partial_branches\": 9,\n          \"percent_covered_display\": \"91.88\",\n          \"missing_branches\": 9\n        },\n        \"3.13\": {\n          \"num_statements\": 135,\n          \"missing_lines\": 7,\n          \"num_branches\": 62,\n          \"num_partial_branches\": 9,\n          \"percent_covered_display\": \"91.88\",\n          \"missing_branches\": 9\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 144,\n        \"missing_lines\": 1,\n        \"num_branches\": 70,\n        \"num_partial_branches\": 1,\n        \"percent_covered_display\": \"99.07\",\n        \"missing_branches\": 1\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 16,\n        \"3.13\": 16\n      },\n      \"final_missing_units\": 2,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 14,\n        \"3.13\": 14\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 17,\n        \"3.13\": 17\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"tools/langchain_client.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 278,\n          \"missing_lines\": 21,\n          \"num_branches\": 104,\n          \"num_partial_branches\": 8,\n          \"percent_covered_display\": \"92.41\",\n          \"missing_branches\": 8\n        },\n        \"3.13\": {\n          \"num_statements\": 278,\n          \"missing_lines\": 21,\n          \"num_branches\": 104,\n          \"num_partial_branches\": 8,\n          \"percent_covered_display\": \"92.41\",\n          \"missing_branches\": 8\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 287,\n        \"missing_lines\": 3,\n        \"num_branches\": 112,\n        \"num_partial_branches\": 2,\n        \"percent_covered_display\": \"98.75\",\n        \"missing_branches\": 2\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 29,\n        \"3.13\": 29\n      },\n      \"final_missing_units\": 5,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 24,\n        \"3.13\": 24\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 17,\n        \"3.13\": 17\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"scripts/langchain/task_validator.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 250,\n          \"missing_lines\": 25,\n          \"num_branches\": 72,\n          \"num_partial_branches\": 3,\n          \"percent_covered_display\": \"88.20\",\n          \"missing_branches\": 13\n        },\n        \"3.13\": {\n          \"num_statements\": 250,\n          \"missing_lines\": 25,\n          \"num_branches\": 72,\n          \"num_partial_branches\": 3,\n          \"percent_covered_display\": \"88.20\",\n          \"missing_branches\": 13\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 248,\n        \"missing_lines\": 3,\n        \"num_branches\": 70,\n        \"num_partial_branches\": 3,\n        \"percent_covered_display\": \"98.11\",\n        \"missing_branches\": 3\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 38,\n        \"3.13\": 38\n      },\n      \"final_missing_units\": 6,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 32,\n        \"3.13\": 32\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": -4,\n        \"3.13\": -4\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    },\n    {\n      \"path\": \"scripts/langchain/pr_verifier.py\",\n      \"baseline_counters_by_runtime\": {\n        \"3.12\": {\n          \"num_statements\": 2586,\n          \"missing_lines\": 169,\n          \"num_branches\": 1016,\n          \"num_partial_branches\": 76,\n          \"percent_covered_display\": \"92.14\",\n          \"missing_branches\": 114\n        },\n        \"3.13\": {\n          \"num_statements\": 2586,\n          \"missing_lines\": 169,\n          \"num_branches\": 1016,\n          \"num_partial_branches\": 76,\n          \"percent_covered_display\": \"92.14\",\n          \"missing_branches\": 114\n        }\n      },\n      \"final_counters\": {\n        \"num_statements\": 3188,\n        \"missing_lines\": 107,\n        \"num_branches\": 1288,\n        \"num_partial_branches\": 79,\n        \"percent_covered_display\": \"95.53\",\n        \"missing_branches\": 93\n      },\n      \"baseline_missing_units_by_runtime\": {\n        \"3.12\": 283,\n        \"3.13\": 283\n      },\n      \"final_missing_units\": 200,\n      \"unattributed_difference_by_runtime\": {\n        \"3.12\": 83,\n        \"3.13\": 83\n      },\n      \"denominator_change_by_runtime\": {\n        \"3.12\": 874,\n        \"3.13\": 874\n      },\n      \"attributable_round_reduction\": null,\n      \"disposition\": \"requires_comparable_execution\",\n      \"target_exclusion\": null\n    }\n  ],\n  \"attributable_round_reduction\": null,\n  \"comparable_execution_configuration\": false,\n  \"branch_arcs_recovered\": false,\n  \"archive_bytes_verified\": false\n}\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py",
+        "--cov=scripts.reconcile_issue_4426_coverage",
+        "--cov-branch",
+        "--cov-report=term-missing",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.382,
+      "output": "........................................................                 [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                                       Stmts   Miss Branch BrPart   Cover   Missing\n---------------------------------------------------------------------------------------\nscripts/reconcile_issue_4426_coverage.py     131      1     50      1  98.90%   57\n---------------------------------------------------------------------------------------\nTOTAL                                        131      1     50      1  98.90%\n56 passed in 0.91s\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+        "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+        "tests/tools/test_langchain_client.py",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 4.659,
+      "output": "........................................................................ [ 40%]\n........................................................................ [ 81%]\n.................................                                        [100%]\n177 passed in 3.09s\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/docs/test_issue_4426_coverage_measurement.py",
+        "tests/docs/test_issue_4426_ranking.py",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.071,
+      "output": ".....................................................                    [100%]\n53 passed in 0.73s\n"
+    },
+    {
+      "command": [
+        "ruff",
+        "check",
+        "scripts/reconcile_issue_4426_coverage.py",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.008,
+      "output": "All checks passed!\n"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.009,
+      "output": ""
+    }
+  ],
+  "real_archive_available": false,
+  "attributable_round_reduction": null,
+  "formatting": {
+    "command": "PYTHONPATH=/tmp/issue4426-log-black black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "exit_code": 0,
+    "output": "957 files would be left unchanged.",
+    "execution": "installed Black with serial reformat_one scheduler; normal process-pool launch fails with sandbox PermissionError"
+  }
+}
