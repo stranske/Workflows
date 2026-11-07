@@ -235,6 +235,52 @@ def test_consumer_slot_for_a_retired_selection_is_advisory_not_blocking():
     assert len(advisory) == 2
 
 
+@pytest.mark.parametrize("config_dir", ["config", "templates/consumer-repo/config"])
+@pytest.mark.parametrize(
+    "stale_selection",
+    [
+        {"profile": "verifier-balanced"},
+        {"model": "openai/gpt-5"},
+        {"profile": "verifier-balanced", "model": "openai/gpt-5"},
+    ],
+    ids=["profile", "legacy-pin", "profile-and-pin"],
+)
+def test_real_registry_accepts_stale_consumer_slots_in_cli(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], config_dir: str, stale_selection: dict
+):
+    """Registry sync must stay nonblocking when create-only slots keep the retired judge."""
+    config_root = Path(__file__).resolve().parents[1] / config_dir
+    slots = json.loads((config_root / "llm_slots.json").read_text(encoding="utf-8"))
+    slots["slots"].append({"name": "slot3", "provider": "github-models", **stale_selection})
+    # Old consumers need not have received the capacity-backup block either.
+    slots.pop("capacity_backup")
+    slots_path = tmp_path / "llm_slots.json"
+    slots_path.write_text(json.dumps(slots), encoding="utf-8")
+
+    result = gate.main(
+        [
+            "--registry",
+            str(config_root / "model_registry.json"),
+            "--slots",
+            str(slots_path),
+            "--policy",
+            str(config_root / "model_selection_policy.json"),
+            "--today",
+            "2026-11-07",
+            "--json",
+        ]
+    )
+
+    assert result == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["ok"] is True
+    assert report["blocking"] == []
+    retired = [finding for finding in report["advisory"] if finding["kind"] == "retired_slot"]
+    assert len(retired) == 1
+    assert "slot3" in retired[0]["detail"]
+    assert "missing_selection" not in _kinds(report["findings"])
+
+
 def test_current_unblocked_legacy_pin_is_compatible_with_default_selection():
     registry = _registry()
     registry["models"].append(
