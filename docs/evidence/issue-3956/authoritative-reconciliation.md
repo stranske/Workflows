@@ -3,7 +3,7 @@
 ## Current delivery readback (2026-11-07 UTC)
 
 The required generator pytest command passes with LangSmith's plugin enabled
-(199 retained tests); two supplemental guard-source cases also pass. Focused
+(199 retained tests); three supplemental guard-contract cases also pass. Focused
 local coverage remains 99.92%. See the final sections and their supplemental
 receipts for the source revision, overlay hashes and commands. This supersedes
 prior local plugin-startup failures, not the unresolved main-delivery criterion.
@@ -15,9 +15,10 @@ state,headRefOid,mergeCommit,statusCheckRollup` again exited 1 connecting to
 `merged=false`, unchanged head `9eaf43313c0e57ef964e4171f645985dca5742b8`,
 and `merged_at=null`. All three submitted reviews remain COMMENTED. The same
 non-outdated unresolved thread `PRRT_kwDOQprj9M6zZ4AB` concerns the revision
-table; the other two unresolved threads are outdated. Main now resolves to
-`00f43f81e51c4f8b9a057ac51f7e3c2d870d7769`; an immutable read of generator
-lines 100–145 returns blob `c3a19cbf41a476954b8afcde6d214b3cf8c82a00`,
+table; the other two unresolved threads are outdated. Latest #4401 metadata
+reports main base `4928870982db3bc3b85c701b4cca2492128739b2`; an immutable
+read of generator lines 100–145 at that revision returns blob
+`c3a19cbf41a476954b8afcde6d214b3cf8c82a00`,
 still defining and calling the helper. Neither main delivery criterion is met.
 This supersedes earlier main pointers while preserving their historical readbacks.
 
@@ -1067,3 +1068,76 @@ The blocker comment and `needs-human` label on #4518 were also rejected by
 automatic approval review with the same approval-policy message. Neither was
 written. Final #4401 readback remains OPEN, `draft=false`, unmerged at the same
 head; no merge was attempted.
+
+## Delivery-contract regression (2026-11-07 UTC)
+
+Recent commits through `866772b3da731216fa67ee9fdf1823dd96a9ef3a` were
+reviewed before continuing. The checked #4401 merge task in #4518 is still
+incorrect: connected metadata confirms #4401 OPEN, `draft=false`, unmerged
+at `9eaf43313c0e57ef964e4171f645985dca5742b8`. The revision-table thread
+`PRRT_kwDOQprj9M6zZ4AB` remains unresolved and non-outdated; all three reviews
+are COMMENTED. The requested CLI read exited 1 connecting to `api.github.com`.
+An immutable connected read at the PR-reported main base
+`4928870982db3bc3b85c701b4cca2492128739b2` confirms generator blob
+`c3a19cbf41a476954b8afcde6d214b3cf8c82a00` still defines/calls the helper.
+This is not a newly resolved main pointer or evidence of delivery.
+
+The new supplemental case
+`test_guard_repair_does_not_restore_the_coverage_only_helper` directly rejects
+the helper-assisted implementation required to be removed by the first
+acceptance criterion. It fails by assertion against that immutable main-base
+source and passes against the existing repair, without changing production
+source or the retained test file. Full isolated RED/GREEN outputs, both source
+revisions/hashes, unchanged configuration hash, and the new test-overlay hash
+are in [guard-delivery-contract-proof.json](guard-delivery-contract-proof.json).
+The output was inspected in full. This new receipt supplements the earlier
+two payload-source receipts, which retain their original test-overlay hash;
+none is relabeled as current hosted or delivered-main evidence.
+The pinned #4401 source is byte-identical to the restored source. Comparing
+the retained test AST with original delivery `314895ec5d0b1e102fc80aff8001eae2545ed7fa`
+is identical after removing only
+`test_blocked_reason_with_source_omits_blank_annotation_for_empty_label`.
+Both comparisons and the retained test hash are recorded in the new receipt.
+
+Validation uses `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python`, with
+production source at `866772b3da731216fa67ee9fdf1823dd96a9ef3a` plus the
+identified uncommitted test overlay:
+
+```sh
+PYTEST_ADDOPTS="-m 'not slow'" python -m pytest tests/test_followup_issue_generator.py -q
+# exit 0; 199 passed; plugins enabled
+python -m pytest tests/test_followup_issue_generator.py tests/test_followup_guard_contract.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-delivery-coverage.json
+# exit 0; 202 passed; generator Cover 99.92%
+# 851 statements, zero missing; 386 branches, one missing arc (124->126)
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one aggregated passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 passed, zero failures/skips
+ruff check tests/test_followup_guard_contract.py
+# exit 0
+black --check --line-length 100 tests/test_followup_guard_contract.py
+# exit 0; formatted at line length 100 before validation
+git diff --check
+# exit 0
+```
+
+Fresh collection and the baseline extracted from `94d9f952` were supplied to
+`scripts/audit_followup_mutations.py`. It exits 0: 35 added functions / 45 cases,
+50 Python and two Node receipts, `complete=true`, `problems=[]`, no row issues.
+That retained mapping and all historical receipts are unchanged.
+
+The mandatory repository-wide Black command failed with `PermissionError` at
+the forkserver socket. Its `BLACK_NUM_WORKERS=1` retry timed out after 60 seconds
+(exit 124), reporting 574 unchanged files, so the global gate remains
+unsatisfied. Staging exited 128 creating `.git/index.lock` on the read-only
+filesystem. No commit or push occurred.
+
+Correcting #4518's checked merge task, posting the concrete blocker comment and
+adding `needs-human` were each rejected by automatic approval review:
+`MCP tool call requires approval, but approval policy is never`. The prepared
+body at `/tmp/issue-3956-reconciled-pr-body.md` unchecks the merge task; it has
+not been applied remotely. Final readback confirms #4518 and #4401 are OPEN
+and `draft=false`; #4401 remains unmerged at the same head. No acceptance box
+is completed. Existing review/gates still need settlement before merge and
+main verification; the comparable hosted-baseline gap and unrecoverable ranking
+provenance remain owner-visible limitations.

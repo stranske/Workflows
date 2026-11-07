@@ -1,7 +1,15 @@
-"""Exercise the repaired guard's triage contract beyond verification comments."""
+"""Preserve the accepted inline repair and the guard's payload-source contract."""
 
 import pytest
 from scripts.langchain import followup_issue_generator as generator
+
+
+def test_guard_repair_does_not_restore_the_coverage_only_helper():
+    """Helper-assisted coverage must not silently replace the accepted inline repair."""
+    assert not hasattr(generator, "_blocked_reason_with_source"), (
+        "Issue #3956 requires inline source annotation; merge the existing repair "
+        "instead of accepting the historical helper-assisted implementation"
+    )
 
 
 @pytest.mark.parametrize("blocked_source", ["original_issue", "codex_log"])
