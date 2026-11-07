@@ -170,26 +170,35 @@ def test_cli_cache_contract_rejects_regressions(
 def test_cli_cache_deletion_fails_pytest_and_recovers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inherited_addopts: str
 ) -> None:
-    """Check pytest's exit status and diagnostic without editing protected workflows."""
+    """Remove the cache from YAML input and check pytest failure and recovery."""
     monkeypatch.setenv("PYTEST_ADDOPTS", inherited_addopts)
+    codex_path = WORKFLOWS / "reusable-codex-run.yml"
+    original_source = codex_path.read_bytes()
     plugin = tmp_path / "runner_cache_break.py"
     plugin.write_text(textwrap.dedent("""\
+            import re
+            from pathlib import Path
+
             import pytest
 
             @pytest.fixture(autouse=True)
             def remove_codex_cache(request, monkeypatch):
-                original = request.module._runner
+                original = Path.read_text
+                target = request.module.WORKFLOWS / "reusable-codex-run.yml"
 
-                def without_cache(agent):
-                    workflow, job = original(agent)
-                    if agent == "codex":
-                        job["steps"] = [
-                            step for step in job["steps"]
-                            if step.get("id") != "codex_cli_cache"
-                        ]
-                    return workflow, job
+                def without_cache(path, *args, **kwargs):
+                    source = original(path, *args, **kwargs)
+                    if path == target:
+                        # Delete the whole YAML step before the real loader parses it.
+                        source, removed = re.subn(
+                            r"(?ms)^      - name: Cache Codex CLI\\n.*?(?=^      - |\\Z)",
+                            "",
+                            source,
+                        )
+                        assert removed == 1, "Expected exactly one Codex cache step"
+                    return source
 
-                monkeypatch.setattr(request.module, "_runner", without_cache)
+                monkeypatch.setattr(Path, "read_text", without_cache)
             """))
     command = [
         sys.executable,
@@ -230,6 +239,7 @@ def test_cli_cache_deletion_fails_pytest_and_recovers(
     )
     assert recovered.returncode == pytest.ExitCode.OK, recovered.stdout + recovered.stderr
     assert "5 passed" in recovered.stdout
+    assert codex_path.read_bytes() == original_source, "Protected workflow source was modified"
 
 
 @pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
