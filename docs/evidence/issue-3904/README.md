@@ -1,5 +1,66 @@
 # Issue3904 current evidence
 
+## Follow-up #4462 prepared-source execution checks (2026-11-07)
+
+The comparison harness now rehashes its six manifest inputs in each prepared
+arm before execution and after both arms finish: the three scoped test files,
+production verifier, `pyproject.toml` and `requirements.lock`. A changed or
+missing input, missing hash or missing arm fails before package inspection or
+pytest execution and retains a diagnostic `result.json`. Changes detected after
+execution fail the measurement and withhold `verifier_coverage`; raw artifacts,
+independently observed outcomes and worker timings remain available. The
+`source_integrity` receipt records the observed hashes and gaps. This verifies
+the selected manifest inputs at those boundaries, not every imported file or
+the entire checkout. Existing exit, package, outcome, timing and branch-loss
+checks remain required.
+
+The unchanged harness baseline passed **134 tests**. Seventeen new regression
+cases failed against the old implementation, including two cases where changed
+source still produced exit zero. After the repair, Python **3.14.10** validation
+reports **151 passed in 22.39s**, with harness coverage **94.19%**:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_measure_verifier_runtime.py --cov=scripts.measure_verifier_runtime --cov-report=term-missing -q -m 'not slow'
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+ruff check scripts/measure_verifier_runtime.py tests/scripts/test_measure_verifier_runtime.py
+```
+
+The second command reports **2,207 passed in 16.00s**. Ruff and
+`git diff --check` pass. No harness coverage percentage target is specified.
+The real two-arm fixture verifies matching before/after input hashes and passing
+outcomes/coverage; it does not establish production-verifier 3.12/3.13 evidence.
+Existing archives and manifests remain unchanged.
+
+Both installed Python **3.12.16** and **3.13.18** still return
+`No module named pytest`. Cached compiled dependencies, including
+`pydantic_core`, target CPython 3.14 and cannot supply those environments.
+The successful current-head [Gate run 42385879330](https://github.com/stranske/Workflows/actions/runs/42385879330)
+for `641baebfa2a3b947c24f8d91192d73cb67f7d4c7` has successful Python 3.13 and
+3.14 jobs (`128443234951`, `128443234937`). The connector omits job/step clocks;
+this run supplies neither a Python 3.12 job nor the requested matched scoped
+coverage and controlled hosted phase comparison.
+
+The remaining evidence task stays unchecked. An authorized workflow editor must
+align the protected manual comparison's Python matrix and immutable source pair,
+retain the common lock and existing checks, and collect the requested successful
+3.12/3.13 scoped coverage, branch/outcome and hosted phase receipts. No protected
+workflow was changed. Adding `needs-human` and posting the blocker comment to
+PR #4527 were both rejected with
+`MCP tool call requires approval, but approval policy is never`.
+
+Black formatted both touched Python files at line length 100. After a serial
+cache warmup honoring the configured exclusions, the required check passed,
+exit **0**, with **959 files unchanged**:
+
+```bash
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-4462-integrity-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+The requested source commit was then attempted, but `git add` failed with
+`Unable to create '.git/index.lock': Read-only file system`. All four changed
+source, test and documentation files remain uncommitted. PR #4527 was verified
+open with `draft=false`; no task checkbox was changed.
+
 ## Follow-up #4462 observed-runtime reporting (2026-11-07)
 
 The runtime reader previously accepted Python 3.12/3.13 receipts but hard-coded

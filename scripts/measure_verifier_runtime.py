@@ -27,6 +27,7 @@ SUITES = (
     "tests/scripts/test_pr_verifier_body_overall_integration.py",
 )
 VERIFIER = "scripts/langchain/pr_verifier.py"
+SOURCE_INPUTS = (*SUITES, VERIFIER, "pyproject.toml", "requirements.lock")
 
 
 def sha(path: Path) -> str:
@@ -84,10 +85,7 @@ def prepare(
         arms[arm] = {
             "commit": git(repo, "rev-parse", ref).decode().strip(),
             "tree": git(repo, "rev-parse", f"{ref}^{{tree}}").decode().strip(),
-            "sha256": {
-                name: sha(target / name)
-                for name in (*SUITES, VERIFIER, "pyproject.toml", "requirements.lock")
-            },
+            "sha256": {name: sha(target / name) for name in SOURCE_INPUTS},
         }
     baseline, candidate = output / "baseline", output / "candidate"
     if (baseline / VERIFIER).read_bytes() != (candidate / VERIFIER).read_bytes():
@@ -282,10 +280,49 @@ def packages() -> list[dict]:
     )
 
 
+def source_integrity(output: Path, manifest: dict) -> dict:
+    """Recheck the prepared inputs; neither stale hashes nor missing inputs prove identity."""
+    gaps, observed = [], {}
+    arms = manifest.get("arms")
+    arms = arms if isinstance(arms, dict) else {}
+    for arm in ("baseline", "candidate"):
+        record = arms.get(arm)
+        expected = record.get("sha256") if isinstance(record, dict) else None
+        expected = expected if isinstance(expected, dict) else {}
+        observed[arm] = {}
+        for name in SOURCE_INPUTS:
+            try:
+                digest = sha(output / arm / name)
+            except OSError:
+                digest = None
+            observed[arm][name] = digest
+            if digest is None:
+                gaps.append(f"{arm} {name} source bytes UNKNOWN")
+            elif name not in expected:
+                gaps.append(f"{arm} {name} prepared hash UNKNOWN")
+            elif digest != expected[name]:
+                gaps.append(f"{arm} {name} differs from prepared source")
+    return {"verified": not gaps, "gaps": gaps, "sha256": observed}
+
+
 def run(output: Path) -> int:
     from defusedxml.common import DefusedXmlException
 
     manifest = json.loads((output / "manifest.json").read_text())
+    integrity = {"before": source_integrity(output, manifest)}
+    integrity["verified"] = integrity["before"]["verified"]
+    if not integrity["verified"]:
+        result = {
+            "manifest": manifest,
+            "source_integrity": integrity,
+            "arms": {},
+            "verifier_coverage": None,
+            "outcome_comparison": {"successful": False, "gaps": ["source integrity not verified"]},
+            "timing_comparison": {"available": False, "gaps": ["source integrity not verified"]},
+        }
+        (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+        print(json.dumps({"result": str(output / "result.json"), "source_integrity": integrity}))
+        return 1
     initial_packages = packages()
     order = ["baseline", "candidate"] if sys.version_info.minor == 12 else ["candidate", "baseline"]
     result = {
@@ -295,6 +332,7 @@ def run(output: Path) -> int:
         "packages": initial_packages,
         "order": order,
         "arms": {},
+        "source_integrity": integrity,
     }
     for name in order:
         arm = output / name
@@ -327,17 +365,23 @@ def run(output: Path) -> int:
                 row["junit_error"] = f"JUnit outcomes UNKNOWN: {type(exc).__name__}"
         result["arms"][name] = row
         (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    integrity["after"] = source_integrity(output, manifest)
+    integrity["verified"] = integrity["before"]["verified"] and integrity["after"]["verified"]
     result["packages_unchanged"] = initial_packages == packages()
     result["outcome_comparison"] = outcome_comparison(result["arms"])
     result["timing_comparison"] = timing_comparison(result["arms"])
     coverage_files = [output / name / "coverage.json" for name in ("baseline", "candidate")]
     result["verifier_coverage"] = None
     try:
+        if not integrity["verified"]:
+            raise ValueError("prepared source integrity changed")
         result["verifier_coverage"] = coverage_comparison(
             *(json.loads(p.read_text()) for p in coverage_files)
         )
     except (OSError, ValueError) as exc:
         result["coverage_error"] = f"Verifier coverage UNKNOWN: {type(exc).__name__}"
+        if not integrity["verified"]:
+            result["coverage_error"] += "; prepared source integrity changed"
     result["artifact_sha256"] = {
         str(p.relative_to(output)): sha(p)
         for p in output.rglob("*")
@@ -354,6 +398,7 @@ def run(output: Path) -> int:
                 "coverage": result.get("verifier_coverage"),
                 "outcomes": result["outcome_comparison"],
                 "timing": result["timing_comparison"],
+                "source_integrity_verified": integrity["verified"],
             },
             indent=2,
         )
@@ -364,6 +409,7 @@ def run(output: Path) -> int:
         or not result["outcome_comparison"]["successful"]
         or not result["timing_comparison"]["available"]
         or not result["packages_unchanged"]
+        or not integrity["verified"]
         or coverage is None
         or bool(coverage["lost_lines"] or coverage["lost_branches"])
     )

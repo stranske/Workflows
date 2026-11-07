@@ -302,6 +302,16 @@ the historical defaults above. Selection is recorded in the existing manifest;
 verifier/configuration identity checks and common candidate lock remain required.
 These arguments do not update the protected workflow's fetches or runtime matrix.
 
+Before either arm executes, `run` rehashes the three scoped test files, production
+verifier, pytest/coverage configuration and dependency lock in both prepared arms.
+Missing files, missing manifest hashes or changed bytes produce a failed
+`result.json` receipt without running pytest. The same six inputs are checked
+again after both arms finish. `source_integrity` retains the observed hashes and
+gaps at each boundary; changed inputs fail the measurement and leave
+`verifier_coverage: null` with an UNKNOWN diagnostic, while preserving raw JUnit,
+coverage and console artifacts. These checks cover the six manifest inputs;
+they do not assert that every imported file or the entire checkout is unchanged.
+
 No artifact or dependency cache restore runs. Each arm starts in a fresh source
 archive with pytest cache disabled, bytecode writes disabled, and its own temporary
 directory. OS page-cache effects are not controlled. The harness runs baseline first

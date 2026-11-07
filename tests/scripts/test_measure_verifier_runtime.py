@@ -190,6 +190,101 @@ def test_real_arms_keep_one_environment_and_preserve_coverage(tmp_path, monkeypa
     assert result["verifier_coverage"]["candidate_branches"] > 0
     assert not result["verifier_coverage"]["lost_lines"]
     assert len(result["artifact_sha256"]) == 6
+    assert result["source_integrity"]["verified"] is True
+    for phase in ("before", "after"):
+        receipt = result["source_integrity"][phase]
+        assert receipt["verified"] is True
+        assert receipt["gaps"] == []
+        for arm in ("baseline", "candidate"):
+            assert receipt["sha256"][arm] == result["manifest"]["arms"][arm]["sha256"]
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize(
+    "path", [*measure.SUITES, measure.VERIFIER, "pyproject.toml", "requirements.lock"]
+)
+def test_run_refuses_source_drift_before_executing_either_arm(tmp_path, monkeypatch, arm, path):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+    source = output / arm / path
+    source.write_bytes(source.read_bytes() + b"\n# changed after preparation\n")
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Changed source must be refused before package inspection or pytest execution")
+
+    monkeypatch.setattr(measure, "packages", unexpected)
+    monkeypatch.setattr(measure.subprocess, "run", unexpected)
+    assert measure.run(output) == 1
+    result = json.loads((output / "result.json").read_text())
+    assert result["arms"] == {}
+    assert result["source_integrity"]["verified"] is False
+    assert any(arm in gap and path in gap for gap in result["source_integrity"]["before"]["gaps"])
+    assert result["verifier_coverage"] is None
+    assert result["outcome_comparison"]["successful"] is False
+    assert result["timing_comparison"]["available"] is False
+
+
+@pytest.mark.parametrize("defect", ["missing-file", "missing-hash", "missing-arm"])
+def test_run_refuses_incomplete_source_identity_with_a_receipt(tmp_path, monkeypatch, defect):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if defect == "missing-file":
+        (output / "candidate" / measure.VERIFIER).unlink()
+    elif defect == "missing-hash":
+        del manifest["arms"]["candidate"]["sha256"][measure.VERIFIER]
+    else:
+        del manifest["arms"]["candidate"]
+    manifest_path.write_text(json.dumps(manifest))
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Incomplete source identity must be refused before execution")
+
+    monkeypatch.setattr(measure, "packages", unexpected)
+    monkeypatch.setattr(measure.subprocess, "run", unexpected)
+    assert measure.run(output) == 1
+    result = json.loads((output / "result.json").read_text())
+    assert result["source_integrity"]["verified"] is False
+    assert result["source_integrity"]["before"]["gaps"]
+    assert result["arms"] == {}
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_run_withholds_comparison_when_source_changes_during_execution(tmp_path, monkeypatch, arm):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        _junit_receipt(cwd, name="pytest-junit.xml")
+        coverage = {
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
+        }
+        (cwd / "coverage.json").write_text(json.dumps(coverage))
+        # Change the other arm too: both snapshots must be checked at the end,
+        # regardless of which arm ran first on this interpreter.
+        if cwd.name == "baseline":
+            source = output / arm / measure.VERIFIER
+            source.write_bytes(source.read_bytes() + b"\n# changed during execution\n")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.platform, "platform", lambda: "fixture-platform")
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    assert measure.run(output) == 1
+    result = json.loads((output / "result.json").read_text())
+    assert result["source_integrity"]["before"]["verified"] is True
+    assert result["source_integrity"]["after"]["verified"] is False
+    assert result["source_integrity"]["verified"] is False
+    assert any(arm in gap for gap in result["source_integrity"]["after"]["gaps"])
+    assert result["outcome_comparison"]["successful"] is True
+    assert result["timing_comparison"]["available"] is True
+    assert result["verifier_coverage"] is None
+    assert "source integrity" in result["coverage_error"]
+    assert len(result["artifact_sha256"]) == 6
 
 
 def test_coverage_loss_is_not_reported_as_equivalence():
