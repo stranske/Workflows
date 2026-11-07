@@ -1,0 +1,4 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_client_targets_github_models_endpoint -q -p no:cacheprovider
+.                                                                        [100%]
+1 passed in 0.14s
+exit=0

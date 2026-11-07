@@ -1,0 +1,4 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_anthropic_does_not_retry_unrelated_type_error -q -p no:cacheprovider
+.                                                                        [100%]
+1 passed in 0.15s
+exit=0

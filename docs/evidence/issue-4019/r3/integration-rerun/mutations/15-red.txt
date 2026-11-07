@@ -1,0 +1,24 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_analyze_reraises_api_error -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ TestRemainingProviderPaths.test_github_analyze_reraises_api_error _______
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x112e8d7f0>
+
+    def test_github_analyze_reraises_api_error(self):
+        provider = GitHubModelsProvider()
+        client = MagicMock()
+        client.invoke.side_effect = ConnectionError("down")
+>       with (
+            patch.object(provider, "_get_client", return_value=client),
+            pytest.raises(ConnectionError, match="down"),
+        ):
+E       Failed: DID NOT RAISE ConnectionError
+
+tests/tools/test_llm_provider.py:2282: Failed
+------------------------------ Captured log call -------------------------------
+ERROR    tools.llm_provider:llm_provider.py:386 GitHub Models API error: down
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_analyze_reraises_api_error
+1 failed in 0.20s
+exit=1

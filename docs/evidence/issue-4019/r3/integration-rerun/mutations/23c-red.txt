@@ -1,0 +1,27 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_subscription_provider_unavailable_paths -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ TestRemainingProviderPaths.test_subscription_provider_unavailable_paths ____
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x10b732930>
+
+    def test_subscription_provider_unavailable_paths(self):
+        from tools.llm_provider import SubscriptionCLIProvider
+    
+        with patch("tools.subscription_llm.build_subscription_client", return_value=None):
+            provider = SubscriptionCLIProvider()
+            assert provider.name == "subscription-unavailable"
+            assert provider.is_available() is False
+            with pytest.raises(RuntimeError, match="Subscription analysis CLI unavailable"):
+                provider.analyze_completion("output", ["task1"])
+>           with (
+                patch.dict(os.environ, {"WORKFLOWS_ANALYSIS_CLI": "codex"}, clear=True),
+                pytest.raises(RuntimeError, match="no API fallback"),
+            ):
+E           Failed: DID NOT RAISE RuntimeError
+
+tests/tools/test_llm_provider.py:2365: Failed
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_subscription_provider_unavailable_paths
+1 failed in 0.23s
+exit=1
