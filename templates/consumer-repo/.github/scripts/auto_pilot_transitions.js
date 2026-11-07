@@ -106,7 +106,9 @@ function hasCurrentVerifyHandoff(event) {
   // Closure event IDs change even when the same PR closes a reopened issue.
   const closure = event.closure;
   const handoff = event.verifyHandoff;
-  return normalizeBoolean(event.verifyHandoffBound) &&
+  const bound = event.verifyHandoffBound;
+  // Workflow environment strings are supported; coerced arrays/objects are not proof.
+  return (bound === true || (typeof bound === 'string' && normalizeBoolean(bound))) &&
     isPositiveId(closure?.id) &&
     isPositiveId(closure?.sourcePr) &&
     isPositiveId(handoff?.closureId) &&

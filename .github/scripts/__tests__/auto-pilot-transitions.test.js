@@ -388,6 +388,24 @@ for (const [surface, transitions] of surfaces) {
     }
   });
 
+  test(`${surface}: coercible non-boolean handoff flags cannot authorize completion`, () => {
+    const issue = {
+      issueState: 'closed',
+      closure: { id: 3001, sourcePr: 2454 },
+      verifyHandoff: { closureId: 3001, sourcePr: 2454 },
+    };
+    for (const verifyHandoffBound of [
+      ['true'], [' TRUE '], { toString: () => 'true' }, Object(true),
+      1, '1', {}, [],
+    ]) {
+      const event = { ...issue, verifyHandoffBound };
+      const message = `flag type: ${typeof verifyHandoffBound}`;
+      assert.equal(transitions.hasCurrentVerifyHandoff(event), false, message);
+      assert.equal(transitions.resolveCurrentState(event), STATES.CLOSED_NEEDS_VERIFY, message);
+      assert.equal(transitions.determineNextStep(event).nextStep, NEXT_STEPS.VERIFY, message);
+    }
+  });
+
   test(`${surface}: matching invalid handoff identities cannot authorize completion`, () => {
     const issue = {
       issueState: 'closed',
