@@ -1378,6 +1378,54 @@ def test_mixed_consumer_slots_skip_retired_client_and_preserve_available_judges(
     github_builder.assert_not_called()
 
 
+@pytest.mark.parametrize("failed_providers", [("openai",), ("anthropic",), ("openai", "anthropic")])
+@pytest.mark.parametrize("legacy_pin", [False, True], ids=["profile", "legacy-pin"])
+def test_failed_production_clients_never_fall_back_to_retired_consumer_slot(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failed_providers: tuple[str, ...],
+    legacy_pin: bool,
+) -> None:
+    """Even failed production constructors cannot revive a credentialed retired slot."""
+    _clear_client_environment(monkeypatch)
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-test-value")
+    monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "anthropic-test-value")
+    monkeypatch.setenv("GITHUB_TOKEN", "github-test-value")
+    github_builder = Mock()
+    monkeypatch.setattr(langchain_client, "_build_github_client", github_builder)
+    for provider in failed_providers:
+        monkeypatch.setattr(
+            langchain_client,
+            f"_build_{provider}_client",
+            Mock(side_effect=RuntimeError("provider unavailable")),
+        )
+    stale_selection = {"model": "openai/gpt-5"} if legacy_pin else {"profile": "verifier-balanced"}
+    slots_path = tmp_path / "llm_slots.json"
+    slots_path.write_text(
+        json.dumps(
+            {
+                "slots": [
+                    {"name": "slot1", "provider": "openai", "profile": "verifier-balanced"},
+                    {"name": "slot2", "provider": "anthropic", "profile": "verifier-balanced"},
+                    {"name": "slot3", "provider": "github-models", **stale_selection},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_SLOT_CONFIG, str(slots_path))
+    surviving = [
+        provider for provider in ("openai", "anthropic") if provider not in failed_providers
+    ]
+
+    single = langchain_client.build_chat_client()
+    assert (single.provider if single else None) == (surviving[0] if surviving else None)
+    assert [client.provider for client in langchain_client.build_chat_clients()] == surviving
+    github_builder.assert_not_called()
+
+
 def _blocked_override_registry(tmp_path: Path) -> Path:
     registry = tmp_path / "blocked-override-registry.json"
     registry.write_text(

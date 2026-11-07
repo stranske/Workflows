@@ -235,6 +235,32 @@ def test_consumer_slot_for_a_retired_selection_is_advisory_not_blocking():
     assert len(advisory) == 2
 
 
+def test_retired_slot_does_not_hide_missing_selection_for_another_profile():
+    registry = _registry()
+    registry["selection_history"] = [
+        {
+            "profile": "verifier-balanced",
+            "provider": "github-models",
+            "superseded_by": "retired",
+        }
+    ]
+    slots = {
+        "slots": [
+            {"name": "slot3", "provider": "github-models", "profile": "verifier-balanced"},
+            {"name": "slot4", "provider": "github-models", "profile": "other-profile"},
+        ]
+    }
+
+    blocking, advisory = gate.partition_findings(
+        gate.evaluate(registry, slots, today=TODAY, policy=_policy())
+    )
+
+    assert _kinds(blocking) == ["missing_selection"]
+    assert "slot4" in blocking[0]["detail"]
+    assert _kinds(advisory) == ["retired_slot"]
+    assert "slot3" in advisory[0]["detail"]
+
+
 @pytest.mark.parametrize("config_dir", ["config", "templates/consumer-repo/config"])
 @pytest.mark.parametrize(
     "stale_selection",
