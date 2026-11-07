@@ -909,8 +909,13 @@ def test_main_keeps_unreadable_blob_cache_scoped_to_each_repo(
 
 
 @pytest.mark.parametrize("template_drift", [False, True])
+@pytest.mark.parametrize("missing_trigger", [False, True])
 def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, template_drift: bool
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+    template_drift: bool,
+    missing_trigger: bool,
 ) -> None:
     """Fleet trigger reporting must not make consumer-owned Gate policy actionable."""
     root = Path(__file__).resolve().parents[2]
@@ -935,6 +940,10 @@ def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
         "    types: [opened, synchronize, reopened, ready_for_review, labeled]\n"
         "jobs:\n  consumer-policy:\n    runs-on: ubuntu-latest\n    steps: []\n"
     )
+    if missing_trigger:
+        # Replacing synchronize with labeled preserves the number of triggers;
+        # equality still requires reporting both differences for every consumer.
+        custom_gate = custom_gate.replace("synchronize, ", "", 1)
     contents = dict.fromkeys(registered, custom_gate)
     if not template_drift:
         contents["stranske/Template"] = source
@@ -985,6 +994,7 @@ def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
         f"gate triggers: {repo}"
         + (" (custom gate, never overwritten)" if repo == "stranske/Manager-Database" else "")
         + " extra=['labeled']"
+        + (" missing=['synchronize']" if missing_trigger else "")
         for repo in registered
         if repo != "stranske/Template" or template_drift
     ]
@@ -996,7 +1006,7 @@ def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
     summary = Path(args.summary).read_text(encoding="utf-8")
     for line in expected_lines:
         assert line in output and line in summary
-    assert "gate triggers: all match" not in output + summary
+    assert "gate triggers: all match" not in output + summary + Path(args.report_json).read_text()
 
 
 def test_manifest_skip_reason_honors_include_repos() -> None:
