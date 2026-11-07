@@ -74,3 +74,63 @@ was updated. PR #4510 was verified open and ready for review (`draft=false`).
 The local commit is also blocked: `git add` cannot create `.git/index.lock`
 because `.git` is mounted read-only. The source test change and this evidence
 remain in the working tree for the automation runner to commit.
+
+## Consumer-isolated mypy regression follow-up
+
+Reviewed commits `ad3aa5b0` through `7dbd3397` before making further changes.
+The source already uses `failure_record` in the exception branch, and the six
+implementation tasks duplicated in the quoted source issue are verified complete.
+The managed Automated Status Summary already records those implementation results;
+the unchecked duplicates in the quoted issue do not represent missing code.
+
+The consumer-layout regression now launches mypy as a bounded subprocess with
+the temporary consumer checkout as its working directory. Both namespace and
+regular packages resolve the copied `scripts` modules independently of Workflows'
+checkout, configuration and in-process mypy state. The existing mutant cases
+still restore the duplicate annotation in disposable copies and require the
+original `Name "record" already defined` / `[no-redef]` diagnostic.
+
+Verified in this follow-up:
+
+```text
+pytest tests/scripts/test_ci_history.py tests/workflows/test_ci_history.py tests/scripts/test_ci_metrics.py tests/workflows/test_ci_metrics.py -m 'not slow' -q
+43 passed in 5.72s
+
+python -m mypy --config-file <temporary-empty-mypy.ini> --no-incremental \
+  --ignore-missing-imports --follow-imports=silent \
+  --cache-dir <temporary-cache> scripts/ci_history.py
+Success: no issues found in 1 source file
+
+ruff check tests/scripts/test_ci_history.py
+All checks passed!
+
+black --check --line-length 100 tests/scripts/test_ci_history.py
+1 file would be left unchanged.
+
+git diff --check
+Exit 0
+```
+
+Reconciliation of the quoted implementation checkboxes and deliberate-break
+criterion was again attempted with `github_update_pull_request`. The connector
+rejected the update: `MCP tool call requires approval, but approval policy is never`.
+The prepared replacement body is at `/tmp/issue-4508-reconciled-pr-body.md` for
+the runner; no remote checkbox update is claimed. PR #4510 was confirmed open
+with `draft=false` before the attempted edit.
+
+`gh run view 42325493922 --repo stranske/trip-planner --json conclusion,headSha,jobs`
+again failed to connect to `api.github.com`. Regenerated consumer CI and the next
+sync-core classification remain unchecked external verification. The protected
+sync workflow must not be edited or triggered by this agent.
+
+The broader `timeout 180 pytest tests/ -m 'not slow' -q -x` run exited 124 after
+180 seconds, with progress at 2% and no final test result. The repository-wide
+Black command was run with `BLACK_NUM_WORKERS=1` to avoid the earlier forkserver
+restriction, but did not complete and was interrupted. Bounded verbose retries
+also timed out; their partial file counts do not establish a full formatting pass.
+The mandatory pre-commit formatting gate therefore remains unverified and no
+commit was attempted in this follow-up. The workspace also mounts `.git`
+read-only. The automation runner must finish that gate and commit the test change.
+
+Final read-only verification confirmed PR #4510 is still open and ready for review
+(`draft=false`).

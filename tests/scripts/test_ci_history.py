@@ -1,9 +1,10 @@
 import json
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
-from mypy import api as mypy_api
 from scripts import ci_history
 
 
@@ -35,24 +36,33 @@ def test_ci_history_typechecks_in_consumer_layout(
         "[tool.mypy]\nexplicit_package_bases = true\nnamespace_packages = true\n",
         encoding="utf-8",
     )
-    stdout, stderr, status = mypy_api.run(
+    # Resolve scripts.* from the consumer checkout, not the Workflows checkout.
+    # A subprocess also keeps mypy's global state out of the rest of the test suite.
+    result = subprocess.run(
         [
+            sys.executable,
+            "-m",
+            "mypy",
             "--config-file",
             str(config),
             "--cache-dir",
             str(tmp_path / "mypy-cache"),
             "--no-incremental",
-            str(package),
-        ]
+            "scripts",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
 
     if reintroduce_redefinition:
-        assert status == 1, stdout + stderr
-        assert 'Name "record" already defined' in stdout
-        assert "[no-redef]" in stdout
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert 'Name "record" already defined' in result.stdout
+        assert "[no-redef]" in result.stdout
     else:
-        assert status == 0, stdout + stderr
-        assert "Success: no issues found" in stdout
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Success: no issues found" in result.stdout
 
 
 def test_truthy_accepts_common_values() -> None:
