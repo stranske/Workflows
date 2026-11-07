@@ -10,6 +10,7 @@ import json
 import math
 import os
 import platform
+import re
 import subprocess
 import sys
 import tarfile
@@ -58,11 +59,24 @@ def extract_source(archive: bytes, target: Path) -> None:
                 raise ValueError("Archive source links and special files are unsupported")
 
 
-def prepare(repo: Path, output: Path) -> None:
+def prepare(
+    repo: Path, output: Path, *, baseline: str | None = None, candidate: str | None = None
+) -> None:
+    refs = (
+        ("baseline", BASELINE if baseline is None else baseline),
+        ("candidate", CANDIDATE if candidate is None else candidate),
+    )
+    # Validate both inputs before Git or output creation. A branch, abbreviation,
+    # tag object or revision expression cannot identify an immutable source arm.
+    if any(re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", ref) is None for _, ref in refs):
+        raise ValueError("Source selection requires full lowercase hexadecimal commit IDs")
+    for _, ref in refs:
+        if git(repo, "cat-file", "-t", ref).strip() != b"commit":
+            raise ValueError("Source object must be a commit")
     # Refuse reuse: neither pytest caches nor outputs from a prior run are admissible.
     output.mkdir(parents=True, exist_ok=False)
     arms = {}
-    for arm, ref in (("baseline", BASELINE), ("candidate", CANDIDATE)):
+    for arm, ref in refs:
         target = output / arm
         target.mkdir()
         archive = git(repo, "archive", ref)
@@ -359,10 +373,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=["prepare", "run"])
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--baseline", help="Full immutable baseline commit ID (prepare only)")
+    parser.add_argument("--candidate", help="Full immutable candidate commit ID (prepare only)")
     args = parser.parse_args()
+    if (args.baseline is not None or args.candidate is not None) and (
+        args.mode != "prepare" or args.baseline is None or args.candidate is None
+    ):
+        parser.error("source selection requires prepare and both --baseline and --candidate")
     output = args.output.resolve()
     if args.mode == "prepare":
-        prepare(Path.cwd(), output)
+        prepare(Path.cwd(), output, baseline=args.baseline, candidate=args.candidate)
         return 0
     return run(output)
 

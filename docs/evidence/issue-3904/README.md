@@ -400,3 +400,56 @@ Staging the four source/test/documentation changes failed with
 requested commit. Automatic approval review rejected both the `needs-human`
 label and concrete workflow-blocker comment with `MCP tool call requires
 approval, but approval policy is never`. Neither remote mutation succeeded.
+
+## Follow-up #4462 explicit immutable source preparation (2026-11-07)
+
+Recent commits and PR #4527's live body were reconciled: the verified tasks are
+already checked, and scoped Python 3.12/3.13 coverage plus controlled hosted
+timings remain unchecked. The harness now accepts paired `prepare --baseline`
+and `--candidate` arguments, allowing a reviewed current source pair without
+changing historical defaults. Both IDs must name full lowercase 40/64-character
+commit objects. Mutable/partial inputs, non-commit objects and selection during
+`run` are refused. Existing verifier/configuration identity and measurement
+failure checks remain required.
+
+The [preparation receipt](selected-source-preparation.json) retains a successful
+real extraction of PR base `00f43f81e51c4f8b9a057ac51f7e3c2d870d7769` and then-head
+`c3403284867e5091594cebed68cddafd3da78517`, including tree IDs and file hashes.
+Verifier, configuration and lock hashes match. This is preparation only:
+`runtime_evidence` remains **UNKNOWN**, and neither source arm was measured.
+
+Validation on Python **3.14.10**:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_measure_verifier_runtime.py --cov=scripts.measure_verifier_runtime --cov-report=term-missing -q -m 'not slow'
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+ruff check scripts/measure_verifier_runtime.py tests/scripts/test_measure_verifier_runtime.py
+```
+
+Results: **134 passed in 19.31s**, harness coverage **93.09%**; **2,202 passed
+in 14.62s** for integration/reader regressions; Ruff passes. Tests include real
+SHA-1/SHA-256 CLI preparation and refusal of source/configuration differences.
+The initial 20 source-selection controls failed against the prior implementation.
+No harness coverage percentage target is specified; these fixture checks do not
+establish production-verifier coverage or hosted timing.
+
+An authorized workflow editor must still align the protected manual workflow's
+Python matrix, fetches and preparation arguments with the reviewed source pair,
+then retain the requested successful coverage, branch/outcome and hosted phase
+receipts. No protected workflow was edited. Automatic approval review rejected
+both the requested `needs-human` label and blocker comment with
+`MCP tool call requires approval, but approval policy is never`.
+
+Both touched Python files were Black-formatted at line length 100. After a
+serial check populated a writable cache, the required repository-wide command
+passed, exit **0**, with **959 files unchanged**:
+
+```bash
+BLACK_CACHE_DIR=/tmp/issue-4462-source-pair-black-cache BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+`git diff --check` passes. Staging the five changed/new files failed with
+`Unable to create '.git/index.lock': Read-only file system`, preventing the
+requested commit. Automatic approval review also rejected the PR-body validation
+update with the same approval-policy error. No remote metadata changed; PR #4527
+was verified open with `draft=false`. The remaining task stays unchecked.

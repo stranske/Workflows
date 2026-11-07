@@ -288,6 +288,16 @@ measured source. The harness refuses unequal production verifier bytes or unequa
 pytest/coverage configuration. This isolates the original test-design change under
 a common candidate environment; it does not compare each historical installation.
 
+To prepare a different reviewed source pair, pass both `--baseline FULL_COMMIT_ID`
+and `--candidate FULL_COMMIT_ID` to the harness's `prepare` command. Each must be
+a full lowercase 40- or 64-character hexadecimal ID naming a commit already
+available in the checkout. Branches, abbreviated IDs, revision expressions and
+non-commit objects are rejected before extraction. Omitting both arguments retains
+the historical defaults above. Selection is recorded in the existing manifest;
+`run` consumes that manifest and refuses source-selection arguments. The same
+verifier/configuration identity checks and common candidate lock remain required.
+These arguments do not update the protected workflow's fetches or runtime matrix.
+
 No artifact or dependency cache restore runs. Each arm starts in a fresh source
 archive with pytest cache disabled, bytecode writes disabled, and its own temporary
 directory. OS page-cache effects are not controlled. The harness runs baseline first

@@ -11,10 +11,10 @@ import pytest
 from scripts import measure_verifier_runtime as measure
 
 
-def fixture_repo(tmp_path, monkeypatch, *, change_source=False):
+def fixture_repo(tmp_path, monkeypatch, *, change_source=False, object_format="sha1"):
     repo = tmp_path / "repo"
     repo.mkdir()
-    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "init", "-q", f"--object-format={object_format}", str(repo)], check=True)
     for key, value in [("user.name", "Measurement Test"), ("user.email", "test@example.invalid")]:
         subprocess.run(["git", "-C", str(repo), "config", key, value], check=True)
     (repo / "scripts/langchain").mkdir(parents=True)
@@ -59,6 +59,121 @@ def test_prepare_refuses_changed_production_and_reused_output(tmp_path, monkeypa
         measure.prepare(repo, tmp_path / "out")
     with pytest.raises(FileExistsError):
         measure.prepare(repo, tmp_path / "out")
+
+
+@pytest.mark.parametrize("object_format", ["sha1", "sha256"])
+def test_prepare_cli_selects_explicit_immutable_source_pair(tmp_path, monkeypatch, object_format):
+    repo = fixture_repo(tmp_path, monkeypatch, object_format=object_format)
+    output = tmp_path / "selected"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(Path(measure.__file__).resolve()),
+            "prepare",
+            "--output",
+            str(output),
+            "--baseline",
+            measure.BASELINE,
+            "--candidate",
+            measure.CANDIDATE,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    manifest = json.loads((output / "manifest.json").read_text())
+    for name, ref in (("baseline", measure.BASELINE), ("candidate", measure.CANDIDATE)):
+        assert manifest["arms"][name]["commit"] == ref
+        assert (
+            manifest["arms"][name]["tree"]
+            == measure.git(repo, "rev-parse", f"{ref}^{{tree}}").decode().strip()
+        )
+        assert manifest["arms"][name]["sha256"][measure.SUITES[0]] == measure.sha(
+            output / name / measure.SUITES[0]
+        )
+    assert manifest["dependency_lock"] == "candidate/requirements.lock"
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("ref", ["", "main", "HEAD", "a" * 39, "a" * 41, "A" * 40, "--all"])
+def test_prepare_refuses_mutable_or_malformed_refs_before_git(tmp_path, monkeypatch, arm, ref):
+    refs = {"baseline": "a" * 40, "candidate": "b" * 40}
+    refs[arm] = ref
+
+    def unexpected_git(*args):
+        pytest.fail("Invalid source selection must be rejected before Git is called")
+
+    monkeypatch.setattr(measure, "git", unexpected_git)
+    with pytest.raises(ValueError, match="full lowercase.*commit"):
+        measure.prepare(tmp_path, tmp_path / "out", **refs)
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("object_kind", ["tree", "blob", "tag"])
+def test_prepare_requires_commit_objects(tmp_path, monkeypatch, arm, object_kind):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    refs = {"baseline": measure.BASELINE, "candidate": measure.CANDIDATE}
+    if object_kind == "tag":
+        subprocess.run(["git", "-C", str(repo), "tag", "-am", "fixture", "source"], check=True)
+    spec = {"tree": "HEAD^{tree}", "blob": "HEAD:requirements.lock", "tag": "refs/tags/source"}[
+        object_kind
+    ]
+    refs[arm] = measure.git(repo, "rev-parse", spec).decode().strip()
+    with pytest.raises(ValueError, match="Source object must be a commit"):
+        measure.prepare(repo, tmp_path / "out", **refs)
+    assert not (tmp_path / "out").exists()
+
+
+def test_explicit_source_pair_preserves_production_identity_check(tmp_path, monkeypatch):
+    repo = fixture_repo(tmp_path, monkeypatch, change_source=True)
+    with pytest.raises(ValueError, match="Production verifier bytes differ"):
+        measure.prepare(
+            repo, tmp_path / "out", baseline=measure.BASELINE, candidate=measure.CANDIDATE
+        )
+
+
+@pytest.mark.parametrize("section", ["coverage", "pytest"])
+def test_explicit_source_pair_preserves_configuration_checks(tmp_path, monkeypatch, section):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    config = repo / "pyproject.toml"
+    text = config.read_text()
+    if section == "coverage":
+        text = text.replace("branch=true", "branch=false")
+    else:
+        text = text.replace("[tool.pytest.ini_options]", '[tool.pytest.ini_options]\naddopts="-q"')
+    config.write_text(text)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qam", "changed config"], check=True)
+    candidate = measure.git(repo, "rev-parse", "HEAD").decode().strip()
+    with pytest.raises(ValueError, match=section + " configurations differ"):
+        measure.prepare(repo, tmp_path / "out", baseline=measure.BASELINE, candidate=candidate)
+
+
+@pytest.mark.parametrize(
+    "mode,flags",
+    [
+        ("run", ["--baseline", "a" * 40, "--candidate", "b" * 40]),
+        ("prepare", ["--candidate", "a" * 40]),
+    ],
+)
+def test_cli_refuses_inapplicable_or_partial_source_selection(tmp_path, mode, flags):
+    output = tmp_path / "out"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(Path(measure.__file__).resolve()),
+            mode,
+            "--output",
+            str(output),
+            *flags,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 2
+    assert "source selection requires prepare and both --baseline and --candidate" in proc.stderr
+    assert not output.exists()
 
 
 def test_real_arms_keep_one_environment_and_preserve_coverage(tmp_path, monkeypatch):
