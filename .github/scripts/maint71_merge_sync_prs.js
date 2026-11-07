@@ -990,19 +990,30 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
     const origin = thread.comments?.nodes?.[0]?.url;
     if (!origin || !thread.id) throw new Error('canary_review_thread_link_missing');
     const location = { owner: context.repo.owner, repo: context.repo.repo };
-    const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
-      ...location, sha: context.payload.repository?.default_branch || 'main',
-      path: source.sourcePath, per_page: 1,
-    }));
-    if (!commits[0]?.sha) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
-    const commit = commits[0].sha;
-    const prs = await withRetry((client) => client.paginate(
-      client.rest.repos.listPullRequestsAssociatedWithCommit,
-      { ...location, commit_sha: commit, per_page: 100 },
-    ));
-    const latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
-      `${location.owner}/${location.repo}`)
-      .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+    let commit;
+    let latest;
+    // Direct source commits have no PR association. Walk this path's history
+    // until its latest merged PR is found, retaining the newest commit only
+    // as a fallback when the entire path history has no merged source PR.
+    for (let page = 1; ; page++) {
+      const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
+        ...location, sha: context.payload.repository?.default_branch || 'main',
+        path: source.sourcePath, per_page: 100, page,
+      }));
+      commit ||= commits[0]?.sha;
+      for (const entry of commits) {
+        const prs = await withRetry((client) => client.paginate(
+          client.rest.repos.listPullRequestsAssociatedWithCommit,
+          { ...location, commit_sha: entry.sha, per_page: 100 },
+        ));
+        latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
+          `${location.owner}/${location.repo}`)
+          .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+        if (latest) break;
+      }
+      if (latest || commits.length < 100) break;
+    }
+    if (!commit) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
     const marker = `<!-- maint71-canary-upstream:${canary.owner}/${canary.repo}:${thread.id} -->`;
     const comments = await withRetry((client) => client.paginate(
       latest ? client.rest.issues.listComments : client.rest.repos.listCommentsForCommit,

@@ -708,15 +708,18 @@ workflows:
       getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
         canaries: ['stranske/Ready', 'stranske/Template'].map((repo) => ({ repo })),
       })).toString('base64') } }),
-      listCommits: async (params) => { reads.push(params); return { data: [{ sha: 'a'.repeat(40) }] }; },
+      listCommits: async (params) => {
+        reads.push(params);
+        return { data: overrides.commitPages?.[(params.page || 1) - 1] ?? [{ sha: 'a'.repeat(40) }] };
+      },
       listPullRequestsAssociatedWithCommit: () => {},
       listCommentsForCommit: () => {},
       createCommitComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }),
     },
     issues: { listComments: () => {}, createComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }) },
-  }, paginate: async (method) => {
+  }, paginate: async (method, params) => {
     if (method === github.rest.repos.listPullRequestsAssociatedWithCommit) {
-      return overrides.prs ?? [{ number: 4020, merged_at: '2026-10-16T10:00:00Z',
+      return overrides.prsByCommit?.[params.commit_sha] ?? overrides.prs ?? [{ number: 4020, merged_at: '2026-10-16T10:00:00Z',
         base: { repo: { full_name: 'stranske/Workflows' } } }];
     }
     return [...comments, ...(overrides.existing || [])];
@@ -1144,6 +1147,49 @@ test('an existing upstream comment is reused and direct commits use commit comme
     assert.equal(api.comments.length, existing ? 0 : 1);
     if (!existing) assert.equal(api.comments[0].commit_sha, 'a'.repeat(40));
   }
+});
+
+test('review routing finds the latest source PR behind direct commits across history pages', async () => {
+  const previous = 'b'.repeat(40);
+  const older = 'c'.repeat(40);
+  const directCommits = Array.from({ length: 100 }, (_, index) => ({
+    sha: (index + 1).toString(16).padStart(40, '0'),
+  }));
+  const merged = (number, date, repository = 'stranske/Workflows') => ({
+    number, merged_at: date, base: { repo: { full_name: repository } },
+  });
+  const api = refreshHarness({
+    commitPages: [directCommits, [{ sha: previous }, { sha: older }]],
+    prs: [],
+    prsByCommit: {
+      [previous]: [
+        merged(4021, null),
+        merged(4022, '2026-10-17T10:00:00Z', 'stranske/Other'),
+        merged(4019, '2026-10-15T10:00:00Z'),
+        merged(4020, '2026-10-16T10:00:00Z'),
+      ],
+      [older]: [merged(4018, '2026-10-14T10:00:00Z')],
+    },
+  });
+  const canary = refreshCanary({ active_review_thread_count: 1, threads: [{
+    id: 'PRRT_history', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+    comments: { nodes: [{ url: 'https://github.com/stranske/Ready/pull/12#discussion_history' }] },
+  }] });
+
+  const result = await refreshStableCanaries({ ...api, canaries: [canary] });
+  assert.deepEqual(result.errors, []);
+  assert.equal(api.comments.length, 1);
+  assert.equal(api.comments[0].issue_number, 4020,
+    'a direct source commit must not hide the latest merged Workflows PR');
+  assert.equal(api.comments[0].commit_sha, undefined);
+  assert.match(api.comments[0].body, /discussion_history/);
+  assert.deepEqual(api.reads.map(({ path, sha, page }) => ({ path, sha, page })), [
+    { path: '.github/scripts/shared.js', sha: 'main', page: 1 },
+    { path: '.github/scripts/shared.js', sha: 'main', page: 2 },
+  ]);
+
+  await refreshStableCanaries({ ...api, canaries: [canary] });
+  assert.equal(api.comments.length, 1, 'the PR comment must still be deduplicated on retry');
 });
 
 async function assertExecutorCanaryRefresh(t, state) {

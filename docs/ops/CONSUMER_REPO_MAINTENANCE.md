@@ -3587,6 +3587,13 @@ Coordinated negative subjects use shared descriptor-aware URL tokens and a bound
 
 ### Stable canary refresh clock
 
+Review-blocked canaries route each active synced-file finding to the latest
+merged Workflows PR in that manifest source path's history, including when newer
+changes were direct commits. The lookup paginates past direct commits; only a
+path with no merged source PR falls back to a comment on its newest commit.
+Existing authenticated-writer markers suppress duplicate comments on retries.
+Each comment links the consumer thread; the original finding remains blocking.
+
 Maint 71 counts stale producer observations independently of overlapping check
 and review blockers. A bound review snapshot does not suppress the stale count:
 an old review-blocked canary contributes to both `review_blocked` and `stale`.
