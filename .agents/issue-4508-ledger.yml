@@ -1,0 +1,130 @@
+version: 1
+issue: 4508
+base: main
+branch: codex/issue-4508
+tasks:
+  - id: task-01
+    title: Fix the `record` redefinition in the source of synced `scripts/ci_history.py`.
+    status: doing
+    started_at: '2026-11-07T01:55:13Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Locate the source template of scripts/ci_history.py in the sync source
+      repository (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'identify the two conflicting definitions of `record` near lines 119 (verify:
+      confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: '152 (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Fix the mypy no-redef error by renaming or consolidating the duplicate
+      `record` definitions in the source file without changing runtime behavior (verify:
+      typecheck passes)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add or extend a regression test reproducing the failure that passes after
+      the fix, using `pytest` or `node --test`, whichever the source uses.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: '`Shipment-caused: Python CI / typecheck-mypy fails on synced scripts/ci`
+      passes on regenerated sync PR stranske/trip-planner#1957; verify with `gh run
+      view <run-id>` using the Evidence run. The repository''s test command passes
+      locally.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      restores its passing result.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: The next sync-core round classifies stranske/trip-planner#1957 without
+      this finding.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Fix the failure named in the title (`Shipment-caused: Python CI / typecheck-mypy
+      fails on synced scripts/ci`) at its source; the failing check''s log is linked
+      under Evidence and the sync PR is stranske/trip-planner#1957.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add or extend a test that reproduces the failure and passes after the fix
+      (`pytest` or `node --test`, whichever the source uses).
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: 'Acceptance: `Python CI / typecheck-mypy` passes on regenerated sync PR
+      stranske/trip-planner#1957; verify with `gh run view <run-id>` (The agent cannot
+      retry CI pipelines. Regeneration of the sync PR depends on .github/workflows/maint-68-sync-consumer-repos.yml,
+      which is protected and cannot be modified or re-run by the agent. The consumer
+      repo PR is also outside the source repo. | Have the agent verify locally by
+      running `mypy` on the fixed source file and the repo test command. A human or
+      the scheduled sync workflow then triggers regeneration and confirms the CI result
+      on PR #1957.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: 'Acceptance: The next sync-core round classifies stranske/trip-planner#1957
+      without this finding. (This depends on an external sync-core round and a workflow
+      run that the agent cannot trigger or observe. | Mark it as a human or post-merge
+      verification step, outside the agent''s completion criteria.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: Fix the source and let `.github/workflows/maint-68-sync-consumer-repos.yml`
+      regenerate the sync PR. (This is a note and not a task. It is fine as written,
+      as long as the agent does not try to edit or trigger the protected workflow.
+      | Keep it as an implementation note and state explicitly that the workflow file
+      must not be modified.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
