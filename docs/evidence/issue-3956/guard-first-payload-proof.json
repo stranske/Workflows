@@ -1,0 +1,31 @@
+{
+  "scope": "Supplemental local regression only; no hosted or main-delivery claim.",
+  "source_revision": "123ae1f130aba042716bec79e1d2559bc9664652",
+  "source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+  "test_sha256": "5f601bbf0671ed2a3f54117ccefe718e938a20a553728dc01e384da56ee5a125",
+  "config_sha256": "3147eeb9bc2853fdad215c0c010c373abcdd33db1093588f459ae560b57d6b5c",
+  "test": "tests/test_followup_guard_contract.py::test_guard_stops_after_blocked_verification",
+  "before": "            return {\"blocked\": True, \"reason\": reason}\n",
+  "mutant": "            check_prompt_injection(original_issue_text)\n            return {\"blocked\": True, \"reason\": reason}\n",
+  "mutant_source_sha256": "5d19765ced57d48a64d591fe6c6b7f30b914bf522ab41ecfd854a8550b7e0bdf",
+  "restored_source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+  "test_overlay": "The test changes are uncommitted on source_revision; test_sha256 identifies their bytes.",
+  "isolation": "A temporary scripts package prepends the isolated generator and falls back to the unchanged checkout for support imports. Only the temporary source is mutated.",
+  "command": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "-m",
+    "pytest",
+    "-c",
+    "/home/runner/work/Workflows/Workflows/pyproject.toml",
+    "--import-mode=importlib",
+    "/home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_stops_after_blocked_verification",
+    "-vv",
+    "--tb=long",
+    "-m",
+    "not slow"
+  ],
+  "red_exit": 1,
+  "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\n../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_stops_after_blocked_verification FAILED [100%]\n\n=================================== FAILURES ===================================\n_________________ test_guard_stops_after_blocked_verification __________________\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x75b08ec24770>\n\n    def test_guard_stops_after_blocked_verification(monkeypatch):\n        \"\"\"A blocked verification comment must stop inspection of issue and log text.\"\"\"\n        scanned = []\n    \n        def check(text):\n            scanned.append(text)\n            return {\"blocked\": True, \"reason\": \"policy violation\"}\n    \n        monkeypatch.setattr(generator, \"check_prompt_injection\", check)\n    \n        result = generator._guard_payloads(\n            verification_text=\"verification_comment\",\n            original_issue_text=\"original_issue\",\n            codex_log=\"codex_log\",\n        )\n    \n        assert result == {\n            \"blocked\": True,\n            \"reason\": \"policy violation (source: verification_comment)\",\n        }\n>       assert scanned == [\"verification_comment\"]\nE       AssertionError: assert ['verification_comment', 'original_issue'] == ['verification_comment']\nE         \nE         Left contains one more item: 'original_issue'\nE         \nE         Full diff: (-: missing in left side, +: extra in left side)\nE           [\nE               'verification_comment',\nE         +     'original_issue',\nE           ]\n\n/home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py:35: AssertionError\n=========================== short test summary info ============================\nFAILED ../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_stops_after_blocked_verification - AssertionError: assert ['verification_comment', 'original_issue'] == ['verification_comment']\n  \n  Left contains one more item: 'original_issue'\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        'verification_comment',\n  +     'original_issue',\n    ]\n============================== 1 failed in 0.85s ===============================\n",
+  "green_exit": 0,
+  "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\n../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_stops_after_blocked_verification PASSED [100%]\n\n============================== 1 passed in 0.81s ===============================\n"
+}

@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": "",
+  "stderr": "All done! \u2728 \ud83c\udf70 \u2728\n928 files would be left unchanged.\n",
+  "duration_seconds": 0.836,
+  "env_overrides": {
+    "BLACK_CACHE_DIR": "/tmp/shebang-inventory-black-cache",
+    "BLACK_NUM_WORKERS": "1"
+  }
+}

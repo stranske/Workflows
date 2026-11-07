@@ -113,6 +113,7 @@ An expired prepared receipt is non-authorizing and may be released either by the
 2. **Agent Agnostic**: The keepalive prompt is agent-agnostic. Routing is determined by the `agent:*` label, not hardcoded agent names.
    - Manual runs still use `agent:<name>` labels to trigger the bridge. When you’re using auto-pilot, add `agents:auto-pilot` plus an optional `runner:<name>` label (for example `runner:claude`). Auto-pilot records the override, applies the matching `agent:<name>` label when the capability check completes, and keeps keepalive/autofix/verifier flows aligned without kicking off the issue intake workflow.
    - **Capacity-aware intake**: When the `bridge_agent` input is empty, `agents-63-issue-intake.yml` and the consumer `agents-issue-intake.yml` use `fetchRouteWeights()` and `chooseAgentForIntake('implement', routeWeights, registry.agents)` to resolve the default. The chooser selects the highest-posterior runner-backed agent whose registry preflight is not disabled (`preflight.enabled: false` excludes intake) and whose pool state is `ok` (exports without capacity data treat pools as `ok`) and logs the decision to the step summary. Weighted intake requires affirmative boolean `evidence_ok === true` for the task; missing or malformed evidence retains the static default with reason `route-weights-evidence-not-affirmed`. Explicit boolean `evidence_ok: false` retains the static default with the existing reason `route-weights-insufficient-evidence`. Registry/module loading or export failures log a warning and retain the static default (`codex`). Existing label requirements, `agent:auto` handling, and bridge-input precedence still apply; root preflight requires exactly one agent label when an issue number is present.
+     Orchestrator's additive `capacity_schema: orchestrator.route-weights-capacity/v1` block is supported with routing schema `orchestrator.route-weights/v1`; a schema bump is not required. Its `capacity.<agent>.state` takes precedence over legacy ranking-row state hints, so a row marked `ok` cannot override a published `shed`, `exhausted`, or `unknown` pool. An absent capacity block, empty block, or missing agent entry retains the legacy `ok` assumption and posterior ordering.
 
 3. **No `@codex` in Prompts**: Do not use `@codex` or other agent mentions in automated prompts—this can trigger the UI version of agents. Let the routing handle which agent runs.
 
@@ -197,12 +198,25 @@ Claude runner). `tools/subscription_llm.py` resolves the cheap-tier model from
 passes only account-auth environment values to the read-only CLI. Codex analysis
 disables shell/unified_exec and related tools, runs ephemeral with an empty cwd,
 and never relies on sandbox read-only alone to protect `CODEX_HOME/auth.json`.
-Claude analysis uses `--tools ""`. API-provider, GitHub, and tracing keys are
+Claude analysis uses `--tools ""`. Its availability check looks for `.credentials.json`
+under `CLAUDE_CONFIG_DIR` when set, otherwise under `~/.claude`, matching the
+configuration directory passed to the child CLI. API-provider, GitHub, and tracing keys are
 excluded from the child environment. Missing CLI, account auth, timeout, or
 invalid CLI output never falls back to an API. Optional Cursor/Gemini/Muse
 analysis skips with `llm-analysis-run=false` without an already
 installed/authenticated Codex CLI. Progress review prepares Codex from the existing
 subscription secret and uses the same transport, without LangChain dependencies.
+
+The shared `scripts/langchain/_llm_client.py` factory keeps ordinary chat callers
+on the standard client factory, including when `WORKFLOWS_ANALYSIS_CLI` is set.
+Provider/model selections (including `force_openai` and the
+`LANGCHAIN_PROVIDER`/`LANGCHAIN_MODEL` environment overrides) retain their standard
+routing. Auxiliary progress review explicitly calls `build_auxiliary_client()`
+in subscription mode to request the registry analysis profile, independently of
+chat defaults. That entrypoint wraps subscription clients in a callable adapter
+accepted by LangChain's `template | client` composition and renders prompt values
+with `to_string()` before invoking the CLI. Subscription failures propagate
+without an API retry, and auxiliary analysis requires no LangChain dependency.
 
 The summary prints `llm-ticked-tasks: N`: checkboxes actually changed by LLM
 analysis, excluding boxes the agent had already checked and commit-only matches.

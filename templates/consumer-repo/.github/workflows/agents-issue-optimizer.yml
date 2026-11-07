@@ -590,6 +590,7 @@ jobs:
         if: steps.check.outputs.should_run == 'true' && steps.check.outputs.phase == 'format'
         id: format
         env:
+          MARKER_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
           GH_TOKEN: ${{ steps.token.outputs.token }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -604,27 +605,65 @@ jobs:
             --input-file /tmp/issue_body.md \
             --json > /tmp/format_result.json
 
+          # A rewrite that completed but never validated is a real, unsuccessful
+          # attempt — not a crash. Record it with the marker the format guard
+          # counts (posted as github-actions[bot] via the workflow token, which is
+          # the only author the guard trusts) and finish green, so a crash and a
+          # give-up never share the same budget. Real crashes still reach
+          # "Report workflow failure".
+          post_rewrite_failed() {
+            {
+              echo '<!-- issue-optimizer:rewrite-failed -->'
+              echo "The issue optimizer could not produce an agent-processable body: $1"
+              echo
+              echo '**Format validation report:**'
+              echo '```text'
+              sed -n '1,160p' /tmp/format_validation_report.md
+              echo '```'
+            } | GH_TOKEN="$MARKER_TOKEN" gh issue comment "${ISSUE_NUMBER}" --body-file -
+            echo "rewrite_failed=true" >> "$GITHUB_OUTPUT"
+          }
+
           # Extract formatted body
+          extract_rc=0
           python -c "
           import json
+          import sys
           with open('/tmp/format_result.json') as f:
               result = json.load(f)
+          if result.get('rewrite_failed'):
+              with open('/tmp/format_validation_report.md', 'w') as f:
+                  f.write(result.get('rewrite_report') or result.get('error') or '')
+              print('REWRITE FAILED: ' + (result.get('error') or ''))
+              sys.exit(3)
           formatted = result.get('formatted_body', '')
           if not formatted:
               print('ERROR: ' + (result.get('error') or 'No formatted body returned'))
-              import sys
               sys.exit(1)
           with open('/tmp/formatted_body.md', 'w') as f:
               f.write(formatted)
           print('Issue formatted successfully')
-          " || exit 1
+          " || extract_rc=$?
+          if [[ "$extract_rc" -eq 3 ]]; then
+            post_rewrite_failed "the rewrite loop ended without a valid body."
+            exit 0
+          elif [[ "$extract_rc" -ne 0 ]]; then
+            exit 1
+          fi
 
           # Keep the format-result label truthful: the generated issue must
           # pass the canonical Workflows validator before it can be marked
           # agents:formatted below.
-          if ! python workflows-scripts/.github/scripts/issue_format.py /tmp/formatted_body.md \
-              > /tmp/format_validation_report.md 2>&1; then
+          validate_rc=0
+          python workflows-scripts/.github/scripts/issue_format.py /tmp/formatted_body.md \
+              > /tmp/format_validation_report.md 2> /tmp/format_validation_error.txt \
+              || validate_rc=$?
+          if [[ "$validate_rc" -eq 1 && ! -s /tmp/format_validation_error.txt ]]; then
             cat /tmp/format_validation_report.md
+            post_rewrite_failed "the formatted body failed the fleet validator."
+            exit 0
+          elif [[ "$validate_rc" -ne 0 ]]; then
+            cat /tmp/format_validation_report.md /tmp/format_validation_error.txt
             exit 1
           fi
 
@@ -634,7 +673,8 @@ jobs:
           echo "Issue body updated with formatted structure"
 
       - name: Manage labels
-        if: steps.check.outputs.should_run == 'true'
+        # A recorded rewrite failure must not be advertised as agents:formatted.
+        if: steps.check.outputs.should_run == 'true' && steps.format.outputs.rewrite_failed != 'true'
         env:
           GH_TOKEN: ${{ steps.token.outputs.token || github.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number }}
@@ -678,11 +718,13 @@ jobs:
           fi
 
       - name: Release failed format lease
+        # Also after a recorded rewrite failure: the guard must re-run to count it.
         if: >-
-          (failure() || cancelled()) &&
+          steps.format.outputs.rewrite_failed == 'true' ||
+          ((failure() || cancelled()) &&
           (steps.check.outputs.phase == 'format' ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.phase == 'format') ||
-          (github.event_name == 'issues' && github.event.label.name == 'agents:format'))
+          (github.event_name == 'issues' && github.event.label.name == 'agents:format')))
         env:
           GH_TOKEN: ${{ steps.token.outputs.token || github.token }}
           ISSUE_NUMBER: ${{ steps.check.outputs.issue_number || github.event.inputs.issue_number || github.event.issue.number }}

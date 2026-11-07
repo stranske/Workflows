@@ -1,0 +1,223 @@
+{
+  "schema": "workflows.issue-4426-coverage-measurement/v1",
+  "checked_on": "2026-11-06",
+  "accounting": {
+    "name": "coverage.py branch totals.percent_covered",
+    "formula": "(covered_lines + covered_branches) / (num_statements + num_branches)",
+    "branch": true,
+    "source": ["scripts", "tools", "src"],
+    "pyproject_coverage_run_identical": true,
+    "compared_commits": [
+      "21c87da23935bb2466cb55361d3296d225a92b7e",
+      "d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4"
+    ],
+    "xml_line_rate_role": "coverage.xml line-rate is the statement ratio. It is a different figure from the blended percent_covered used here."
+  },
+  "issue_snapshot": {
+    "blended_line_branch_percent": 82.29,
+    "statements_plus_branches_to_reach_90_percent": 4488,
+    "source": "Issue #3998 opening sentence. Preserved in contract-3998.json. This snapshot is the issue text, and the recovered Gate totals below are the CI figures."
+  },
+  "threshold_percent": 90,
+  "numerical_rule_about_units": 180,
+  "numerical_rule_status": "The original numerical rule remains about 180 uncovered statements and branches. This measurement does not replace that rule.",
+  "pre_round": {
+    "role": "Repository state when issue #3998 opened, and the last whole-suite Gate run recovered before that opening.",
+    "issue_opened_at": "2026-10-17T01:44:12Z",
+    "main_oid": "21c87da23935bb2466cb55361d3296d225a92b7e",
+    "main_tree": "f0d2a1c1adfc78cc86eebf4c30bf70efc418851a",
+    "main_subject": "test: cover ranked automation boundary cases (#3965)",
+    "selftest_run_id": 38990686823,
+    "selftest_conclusion": "success",
+    "selftest_event": "push",
+    "selftest_head_sha": "21c87da23935bb2466cb55361d3296d225a92b7e",
+    "selftest_artifact_total_count": 0,
+    "selftest_unavailable_reason": "Selftest CI run 38990686823 on the opening main commit reports artifact total_count 0. At that commit selftest-ci.yml ran a subset pytest, and it did not call reusable-10-ci-python.yml.",
+    "gate": {
+      "run_id": 38980711116,
+      "url": "https://github.com/stranske/Workflows/actions/runs/38980711116",
+      "event": "pull_request",
+      "conclusion": "success",
+      "created_at": "2026-10-16T23:18:23Z",
+      "pr_number": 3965,
+      "head_oid": "8abd5ec784c97572b2f8baf99e0157bf64728fbb",
+      "head_tree": "670c55bff2b326eaa74fdf147ee3cf62715632d6",
+      "artifact_total_count": 0,
+      "coverage_json_available": false,
+      "unavailable_reason": "Gate run 38980711116 reports artifact total_count 0, so coverage.json cannot be downloaded. The term-report TOTAL lines were recovered from the job logs. Those lines expose statements, missed statements, branches, and partial branches. They do not expose missing branch outcomes, so covered branch arcs cannot be reconstructed.",
+      "primary_python_version": "3.12",
+      "python_versions": ["3.12", "3.13"],
+      "coverage_python_version": "",
+      "marker": "not quarantine and not slow",
+      "coverage_min": "",
+      "pytest_invocation": "pytest \"${args[@]}\"",
+      "pytest_args_added": ["--cov", "--cov-config=pyproject.toml", "--cov-report=xml:coverage.xml", "--cov-report=term-missing", "--cov-report=json:coverage.json", "-m", "not quarantine and not slow", "-n", "auto", "--dist=loadgroup"],
+      "runtimes": {
+        "3.12": {
+          "job_id": 117244209085,
+          "python": "3.12.15",
+          "num_statements": 41734,
+          "missing_lines": 6689,
+          "num_branches": 16944,
+          "num_partial_branches": 2477,
+          "missing_branches": null,
+          "percent_covered_display": "81.83",
+          "pytest_summary": "106043 passed, 25 skipped, 3 xfailed in 2568.53s"
+        },
+        "3.13": {
+          "job_id": 117244209133,
+          "python": "3.13.16",
+          "num_statements": 41734,
+          "missing_lines": 6687,
+          "num_branches": 16944,
+          "num_partial_branches": 2474,
+          "missing_branches": null,
+          "percent_covered_display": "81.84",
+          "pytest_summary": "106043 passed, 25 skipped, 3 xfailed in 1981.79s"
+        }
+      }
+    }
+  },
+  "current": {
+    "role": "Current origin/main and the Gate run for the pull request that squash-merged to that commit.",
+    "origin_main": "d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4",
+    "origin_main_tree": "d35e41d87be75f95d898b01de0b4d0d9591db73f",
+    "branch_main_ancestor": "7b92760527da7c9a7a5282005009b75f7d01cd2e",
+    "gate": {
+      "run_id": 42250720123,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42250720123",
+      "pr_number": 4477,
+      "event": "pull_request",
+      "conclusion": "success",
+      "head_oid": "21453e987b903855574e6655ace2c63fde0d9eda",
+      "head_tree": "a9e3c8a3bcec85f4c1cecad69b6c40d9a759720b",
+      "checkout_oid": "53351df5b25d34abd6dcb91852fafcb3b53430bd",
+      "checkout_tree": "58c0a65adc6a760be54bf2508cb61da798f97076",
+      "checkout_subject": "Merge 21453e987b903855574e6655ace2c63fde0d9eda into 5af534766f3706b109eac5b163b74ff968eef74a",
+      "checkout_parents": [
+        "5af534766f3706b109eac5b163b74ff968eef74a",
+        "21453e987b903855574e6655ace2c63fde0d9eda"
+      ],
+      "tested_sha": "53351df5b25d34abd6dcb91852fafcb3b53430bd",
+      "job_id": 128005600052,
+      "primary_python_version": "3.14",
+      "coverage_python_version": "3.14",
+      "python_versions": ["3.13", "3.14"],
+      "marker": "not quarantine and not slow",
+      "pytest_workers": "4",
+      "coverage_min": "70",
+      "pytest_invocation": "pytest -p ci_test_growth \"${args[@]}\"",
+      "artifact_name": "gate-coverage-3.14-1",
+      "python_3_13_coverage_json": false,
+      "coverage_json_sha256": "4bbdc0b3e9754e079962008e9678a4fc287d65dfe9bd8023c0435575ba49c78e",
+      "coverage_json_bytes": 3927058,
+      "coverage_py_version": "7.17.2",
+      "branch_coverage": true,
+      "pytest_summary": "49813 passed, 27 skipped, 3 xfailed in 696.42s",
+      "term_total": "TOTAL 49555 3718 19854 1841 91.08%",
+      "totals": {
+        "covered_lines": 45837,
+        "missing_lines": 3718,
+        "num_statements": 49555,
+        "covered_branches": 17379,
+        "missing_branches": 2475,
+        "num_branches": 19854,
+        "num_partial_branches": 1841,
+        "percent_covered": 91.07752596925471,
+        "percent_covered_display": "91.08",
+        "percent_statements_covered": 92.49722530521643
+      },
+      "xml_line_rate": "0.925",
+      "xml_branch_rate": "0.8753"
+    },
+    "selftest": {
+      "run_id": 42256644648,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42256644648",
+      "event": "push",
+      "conclusion": "success",
+      "head_oid": "d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4",
+      "tested_sha": "d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4",
+      "job_id": 128025899481,
+      "artifact_name": "selftest-coverage-3.14-1",
+      "primary_python_version": "3.13",
+      "coverage_python_version": "",
+      "python_versions": ["3.13", "3.14"],
+      "marker": "not quarantine and not slow",
+      "pytest_workers": "4",
+      "coverage_min": "70",
+      "pytest_invocation": "pytest -p ci_test_growth \"${args[@]}\"",
+      "coverage_json_sha256": "705ef640054658362278b7edb407418c2b72bd91392d9b9f8336d694f12e1e9f",
+      "coverage_json_bytes": 3927058,
+      "pytest_summary": "49813 passed, 27 skipped, 3 xfailed in 672.62s",
+      "totals_equal_gate": true
+    },
+    "targets_from_gate_coverage_json": {
+      "note": "Same-artifact counters for the #3998 paths. These are observations from the current Gate file. They are not a round-wide reduction and they do not replace the about-180 rule.",
+      "scripts/sync_test_dependencies.py": {
+        "num_statements": 339,
+        "missing_lines": 1,
+        "num_branches": 158,
+        "missing_branches": 5,
+        "num_partial_branches": 5
+      },
+      "scripts/langchain/issue_pr_context.py": {
+        "num_statements": 359,
+        "missing_lines": 13,
+        "num_branches": 150,
+        "missing_branches": 6,
+        "num_partial_branches": 2
+      },
+      "scripts/langchain/verifier_config.py": {
+        "num_statements": 144,
+        "missing_lines": 1,
+        "num_branches": 70,
+        "missing_branches": 1,
+        "num_partial_branches": 1
+      },
+      "tools/langchain_client.py": {
+        "num_statements": 278,
+        "missing_lines": 15,
+        "num_branches": 104,
+        "missing_branches": 6,
+        "num_partial_branches": 6
+      },
+      "scripts/langchain/task_validator.py": {
+        "num_statements": 248,
+        "missing_lines": 3,
+        "num_branches": 70,
+        "missing_branches": 3,
+        "num_partial_branches": 3
+      },
+      "scripts/langchain/pr_verifier.py": {
+        "num_statements": 3188,
+        "missing_lines": 155,
+        "num_branches": 1288,
+        "missing_branches": 118,
+        "num_partial_branches": 82
+      }
+    }
+  },
+  "contract_decision": {
+    "pre_round_displays": ["81.83", "81.84"],
+    "issue_snapshot_percent": 82.29,
+    "current_percent_covered": 91.07752596925471,
+    "pre_round_at_least_90": false,
+    "issue_snapshot_at_least_90": false,
+    "current_at_least_90": true,
+    "exception_applies": false,
+    "numerical_remainder_cancelled": false,
+    "decision": "Recovered pre-round Gate coverage is 81.83% on Python 3.12 and 81.84% on Python 3.13. The issue snapshot is 82.29%. Each of those figures is below 90%, so the #3998 exception (comment and close without a PR when coverage is already at least 90% before the round starts) does not apply. Current coverage is 91.08% blended. That current figure is after the round opened, so it leaves the about-180 uncovered-statement-and-branch rule in force."
+  },
+  "commands": [
+    "gh run view 38980711116 --repo stranske/Workflows",
+    "gh api repos/stranske/Workflows/actions/runs/38980711116/artifacts",
+    "gh api --allow-escape-sequences repos/stranske/Workflows/actions/jobs/117244209085/logs",
+    "gh api --allow-escape-sequences repos/stranske/Workflows/actions/jobs/117244209133/logs",
+    "gh api repos/stranske/Workflows/actions/runs/38990686823/artifacts",
+    "gh run view 42250720123 --repo stranske/Workflows",
+    "gh run download 42250720123 --repo stranske/Workflows --name gate-coverage-3.14-1",
+    "gh api --allow-escape-sequences repos/stranske/Workflows/actions/jobs/128005600052/logs",
+    "gh run view 42256644648 --repo stranske/Workflows",
+    "gh run download 42256644648 --repo stranske/Workflows --name selftest-coverage-3.14-1"
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "base_revision": "e0e027e6ae37683d2889a43b112fc5a7e453f7f8",
+  "source_path": "scripts/audit_followup_mutations.py",
+  "test_path": "tests/scripts/test_audit_followup_mutations.py",
+  "source_sha256": "e605ae7dc18fa661957f3403dbbc54d6a30c3a9a8a9a4f3fb2c3cff0c0ffea20",
+  "test_sha256": "19fe9ec3e5d3c1029d0f192255c974a691e986740060943c87dee25008d7b716",
+  "scope": "Auditor regressions only; does not replace retained generator/Node evidence or establish hosted/main acceptance.",
+  "runs": [
+    {
+      "variant": "legacy-decoding",
+      "source_sha256": "1c14a5116cb8296ac4953064208055189adeeef4f40ee128db8e5816cc60e021",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "/tmp/issue-3956-auditor-4g3hka_q/test_audit_followup_mutations.py",
+        "-c",
+        "/tmp/issue-3956-auditor-4g3hka_q/pytest.ini",
+        "-k",
+        "test_utf8_inputs_preserve_hashes_with_a_legacy_default_encoding",
+        "-m",
+        "not slow",
+        "-q",
+        "--tb=long"
+      ],
+      "exit": 1,
+      "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_utf8_inputs_preserve_hashes_with_a_legacy_default_encoding ________\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x70cf12699f30>)\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70cf12973230>\n\n    def test_utf8_inputs_preserve_hashes_with_a_legacy_default_encoding(receipts, monkeypatch):\n        \"\"\"Locale decoding must not change the bytes identified by source hashes.\"\"\"\n        read_text = Path.read_text\n    \n        def legacy_read_text(path, encoding=None, errors=None):\n            return read_text(path, encoding=encoding or \"cp1252\", errors=errors)\n    \n        monkeypatch.setattr(Path, \"read_text\", legacy_read_text)\n        result = receipts[-1]()\n>       assert result[\"complete\"] is True, result[\"problems\"]\nE       AssertionError: ['Python source/test hashes do not match the inspected checkout']\nE       assert False is True\n\ntest_audit_followup_mutations.py:106: AssertionError\n=========================== short test summary info ============================\nFAILED test_audit_followup_mutations.py::test_utf8_inputs_preserve_hashes_with_a_legacy_default_encoding - AssertionError: ['Python source/test hashes do not match the inspected checkout']\nassert False is True\n1 failed, 25 deselected in 0.68s\n"
+    },
+    {
+      "variant": "selected-case-check-removed",
+      "source_sha256": "efcd7cdadd34761b97394aa4fea6565b624ec4894a4ac91cd51d3c690f57cf7d",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "/tmp/issue-3956-auditor-4g3hka_q/test_audit_followup_mutations.py",
+        "-c",
+        "/tmp/issue-3956-auditor-4g3hka_q/pytest.ini",
+        "-k",
+        "test_python_assertion_red_must_identify_the_selected_case",
+        "-m",
+        "not slow",
+        "-q",
+        "--tb=long"
+      ],
+      "exit": 1,
+      "output": "FF                                                                       [100%]\n=================================== FAILURES ===================================\n_________ test_python_assertion_red_must_identify_the_selected_case[] __________\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7d3723b09bc0>)\nfailure = ''\n\n    @pytest.mark.parametrize(\"failure\", [\"\", f\"FAILED {auditor.PYTHON_TEST}::test_other\\n\"])\n    def test_python_assertion_red_must_identify_the_selected_case(receipts, failure):\n        \"\"\"An assertion from an absent or different case cannot validate the mutation.\"\"\"\n        python, _, _, run = receipts\n        python[\"proofs\"][0][\"red_output\"] = f\"E AssertionError: assert 0 == 1\\n{failure}1 failed\"\n        result = run()\n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntest_audit_followup_mutations.py:115: AssertionError\n_ test_python_assertion_red_must_identify_the_selected_case[FAILED tests/test_followup_issue_generator.py::test_other\\n] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7d3723d2f530>)\nfailure = 'FAILED tests/test_followup_issue_generator.py::test_other\\n'\n\n    @pytest.mark.parametrize(\"failure\", [\"\", f\"FAILED {auditor.PYTHON_TEST}::test_other\\n\"])\n    def test_python_assertion_red_must_identify_the_selected_case(receipts, failure):\n        \"\"\"An assertion from an absent or different case cannot validate the mutation.\"\"\"\n        python, _, _, run = receipts\n        python[\"proofs\"][0][\"red_output\"] = f\"E AssertionError: assert 0 == 1\\n{failure}1 failed\"\n        result = run()\n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntest_audit_followup_mutations.py:115: AssertionError\n=========================== short test summary info ============================\nFAILED test_audit_followup_mutations.py::test_python_assertion_red_must_identify_the_selected_case[] - assert True is False\nFAILED test_audit_followup_mutations.py::test_python_assertion_red_must_identify_the_selected_case[FAILED tests/test_followup_issue_generator.py::test_other\\n] - assert True is False\n2 failed, 24 deselected in 0.66s\n"
+    },
+    {
+      "variant": "restored",
+      "source_sha256": "e605ae7dc18fa661957f3403dbbc54d6a30c3a9a8a9a4f3fb2c3cff0c0ffea20",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "/tmp/issue-3956-auditor-4g3hka_q/test_audit_followup_mutations.py",
+        "-c",
+        "/tmp/issue-3956-auditor-4g3hka_q/pytest.ini",
+        "-k",
+        "utf8_inputs or python_assertion_red",
+        "-m",
+        "not slow",
+        "-q",
+        "--tb=long"
+      ],
+      "exit": 0,
+      "output": "...                                                                      [100%]\n3 passed, 23 deselected in 0.65s\n"
+    }
+  ],
+  "mutations": {
+    "legacy-decoding": "Original auditor at base_revision, before explicit UTF-8 reads",
+    "selected-case-check-removed": {
+      "before": "if not selected_failure or not re.search(r\"\\b1 passed\\b\", green):",
+      "after": "if not re.search(r\"\\b1 passed\\b\", green):"
+    }
+  }
+}

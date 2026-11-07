@@ -1,0 +1,40 @@
+{
+  "collectedAt": "2026-11-06T23:33:18.704Z",
+  "source": "Authenticated connected GitHub get_pr_info/get_pr_diff; gh networking unavailable",
+  "records": [
+    {
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2390",
+      "state": "open",
+      "draft": false,
+      "head_sha": "09298cf6b2e719b90ad661ea62553f4504d5dd96",
+      "merged": false,
+      "merged_at": null,
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1
+    },
+    {
+      "url": "https://github.com/stranske/Workflows/pull/4084",
+      "state": "closed",
+      "draft": false,
+      "head_sha": "9be36f8556928608485acdd7d1cec6fef1bc69a6",
+      "merged": true,
+      "merged_at": "2026-10-18T06:29:45Z",
+      "changed_files": 5,
+      "additions": 276,
+      "deletions": 3
+    },
+    {
+      "url": "https://github.com/stranske/Workflows/pull/4503",
+      "state": "open",
+      "draft": false,
+      "head_sha": "8832567807448bd2607b17be8c87f8a3d0f23749",
+      "merged": false,
+      "merged_at": null,
+      "changed_files": 13,
+      "additions": 1469,
+      "deletions": 24
+    }
+  ],
+  "portableAlphaDiff": "diff --git a/.github/workflows/pr-00-gate.yml b/.github/workflows/pr-00-gate.yml\nindex 962e91f5..5f6ef896 100644\n--- a/.github/workflows/pr-00-gate.yml\n+++ b/.github/workflows/pr-00-gate.yml\n@@ -16,7 +16,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:\n"
+}

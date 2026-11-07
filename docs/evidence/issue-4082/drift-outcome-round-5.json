@@ -1,0 +1,108 @@
+{
+  "checked_at": "2026-11-07T00:44:03.788398+00:00",
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+  "command": [
+    "timeout",
+    "110s",
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "scripts/check_consumer_sync_drift.py",
+    "--repos",
+    "stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic",
+    "--summary",
+    "/tmp/issue-4082-round5/summary.md",
+    "--report-json",
+    "/tmp/issue-4082-round5/drift.json"
+  ],
+  "stop_rule": "One baseline and one post-test scan, each capped at 110 seconds; no networking retries or speculative runtime repairs.",
+  "exit_code": 1,
+  "elapsed_seconds": 0.53,
+  "readback": {
+    "repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/Template",
+      "stranske/Counter_Risk",
+      "stranske/Pension-Data",
+      "stranske/Inv-Man-Intake",
+      "stranske/Ready",
+      "stranske/trip-planner",
+      "stranske/Manager-Database",
+      "stranske/Portable-Alpha-Extension-Model",
+      "stranske/Trend_Model_Project",
+      "stranske/learning-management-system",
+      "stranske/Fine-Art-Archive",
+      "stranske/Orchestrator",
+      "stranske/Doc-Lineage",
+      "stranske/Deliverable-Render",
+      "stranske/Manager-Mosaic"
+    ],
+    "repo_count": 16,
+    "status": "drift",
+    "errors": [
+      "No usable GitHub token available for consumer repo contents reads"
+    ],
+    "gate_triggers": [
+      "gate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Template unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Ready unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/trip-planner unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)"
+    ]
+  },
+  "post_test_checked_at": "2026-11-07T00:45:34.287981+00:00",
+  "post_test_exit_code": 1,
+  "post_test_elapsed_seconds": 0.316,
+  "post_test_readback": {
+    "repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/Template",
+      "stranske/Counter_Risk",
+      "stranske/Pension-Data",
+      "stranske/Inv-Man-Intake",
+      "stranske/Ready",
+      "stranske/trip-planner",
+      "stranske/Manager-Database",
+      "stranske/Portable-Alpha-Extension-Model",
+      "stranske/Trend_Model_Project",
+      "stranske/learning-management-system",
+      "stranske/Fine-Art-Archive",
+      "stranske/Orchestrator",
+      "stranske/Doc-Lineage",
+      "stranske/Deliverable-Render",
+      "stranske/Manager-Mosaic"
+    ],
+    "repo_count": 16,
+    "status": "drift",
+    "errors": [
+      "No usable GitHub token available for consumer repo contents reads"
+    ],
+    "gate_triggers": [
+      "gate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Template unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Ready unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/trip-planner unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)"
+    ]
+  }
+}

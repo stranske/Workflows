@@ -1,0 +1,143 @@
+version: 1
+issue: 4369
+base: main
+branch: codex/issue-4369
+tasks:
+  - id: task-01
+    title: Fix `available()` in `stranske/Workflows:tools/subscription_llm.py` to
+      resolve credentials relative to `CLAUDE_CONFIG_DIR` when set.
+    status: doing
+    started_at: '2026-11-04T13:34:57Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: Add or extend a test beside `tools/subscription_llm.py` that fails for
+      the reported behavior and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory
+      containing only a credentials file (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'asserts available() returns True (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR
+      is set to a directory without credentials (verify: config validated)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Verify the new test fails against the unfixed available() logic
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'passes after the fix is applied (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: 'Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js`
+      for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      that deliberate break makes it pass.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates
+      the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml`
+      run reports stranske/Portable-Alpha-Extension-Model#2454 without this review
+      thread, and sync-core stops bumping this issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: 'Fix the finding at its source in `stranske/Workflows`: `tools/subscription_llm.py`
+      (the consumer PR stranske/Portable-Alpha-Extension-Model#2454 is generated from
+      it by `.github/workflows/maint-68-sync-consumer-repos.yml` and must not be edited
+      by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Add or extend a test beside `tools/subscription_llm.py` that fails on the
+      behaviour the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2454
+      is resolved.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml`
+      regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml`
+      run reports stranske/Portable-Alpha-Extension-Model#2454 without this review
+      thread, and sync-core stops bumping this issue. (This depends on workflow runs
+      the agent cannot trigger, retry or modify (the workflows are protected, and
+      agents cannot retry CI pipelines). It also depends on the external sync-core
+      system and on a review thread in another repository being resolved. It is a
+      post-merge live verification, not an agent-completable task. | Move this to
+      a separate ''Post-merge verification (human/maintainer)'' checklist outside
+      the agent''s scope. Keep only the source fix and the test in the agent-owned
+      tasks.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: "Deliberate-break \u2192 revert: Reintroducing the reported behavior makes\
+      \ the regression test fail; reverting that deliberate break makes it pass. (The\
+      \ agent can do this locally, but it is a process step and not a deliverable.\
+      \ It leaves no artifact in the PR and cannot be verified from the final diff.\
+      \ It is also a mutation-testing step that may be awkward to run inside a CI-driven\
+      \ agent loop. | Rephrase it as an objective check. For example, the regression\
+      \ test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation.\
+      \ Optionally have the agent record the before/after pytest output in the PR\
+      \ description.)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []

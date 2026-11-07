@@ -1,0 +1,14 @@
+import json
+from pathlib import Path
+import black
+from click.testing import CliRunner
+runner = CliRunner()
+rows = []
+for config in [Path('packages/stranske_pdf_extract/pyproject.toml'), Path('packages/app-baseline-kit/pyproject.toml'), Path('tests/fixtures/reusable_ci_consumer/pyproject.toml'), Path('templates/integration-repo/pyproject.toml')]:
+    for path in config.parent.rglob('*.py'):
+        result = runner.invoke(black.main, ['--config', 'pyproject.toml', '--check', '--line-length', '100', str(path)])
+        rows.append({'path': str(path), 'exit': result.exit_code, 'output': result.output})
+        if result.exit_code:
+            print(json.dumps(rows))
+            raise SystemExit(result.exit_code)
+print(json.dumps(rows, indent=2))

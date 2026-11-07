@@ -1,0 +1,805 @@
+{
+  "base_commit": "304aeb5a1d5f23dfb486bab5f55df7fbef184ba1",
+  "files": {
+    "docs/evidence/issue-3743/shebang-rejection/README.md": {
+      "sha256": "8db08c1b204bfa908f2292f352b300c366bdd47f53a28c737a7f30ab33f4f52e",
+      "bytes": 3688
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/focused-junit.json": {
+      "sha256": "135d7fa0f2f9f2aa1c90fe51e15dfb1cffe43ff738b0884373aeae506e63aa08",
+      "bytes": 592
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/focused-junit.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/focused-junit.stdout": {
+      "sha256": "7d033b6114e3b7e226dd134ddf87559ce2573e4749f27f5567211d071d888ecc",
+      "bytes": 98
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/focused.xml": {
+      "sha256": "c240a5f640c94218f8b00bc292f80a03bc2434811b6cb8b5134ef5c6d917eaea",
+      "bytes": 1455
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/literal-pytest.json": {
+      "sha256": "451f761edc661e69ed567f82254bba60c5c26be674e3a91fee95853201bcdd35",
+      "bytes": 466
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/literal-pytest.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/literal-pytest.stdout": {
+      "sha256": "7d033b6114e3b7e226dd134ddf87559ce2573e4749f27f5567211d071d888ecc",
+      "bytes": 98
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/literal-replay.json": {
+      "sha256": "3b09d4f490560b0f752b5de18d212b23e73e47cf09db3c011ace379b6553bf14",
+      "bytes": 428
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/literal-replay.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/literal-replay.stdout": {
+      "sha256": "c4ff1db686384e65dd8f0c0ef5be1760eeae0feadada9c0b16eead252e6132df",
+      "bytes": 66
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/inputs/replay.py": {
+      "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "bytes": 6406
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/inputs/scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/inputs/templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/inputs/tests/scripts/test_check_deliberate_break_shebang_rejection.py": {
+      "sha256": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+      "bytes": 2093
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/green.json": {
+      "sha256": "1cfa17a809bc61e80b71439620fa3284bc2c898367a44aae1cd3a8580eadb93a",
+      "bytes": 550
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/green.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/green.stdout": {
+      "sha256": "6f04a58b7dce6887f6d180695a3b594ea7891b5c79362f27552065ea1ad9a8b8",
+      "bytes": 695
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/green.xml": {
+      "sha256": "b6e49c1c249d4f27d1098ae20b716cc84f96b6df45baf94605c2c650aa17bc7f",
+      "bytes": 399
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/mutant.py": {
+      "sha256": "b69da4b065691770f2dade5d35d75f2d2ddcd60027580488caaaf4dc9198e2c6",
+      "bytes": 46018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/original.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/red.json": {
+      "sha256": "c060301b82f081d716242d69379b90bee4057f8569afc109617da7e9d81dc886",
+      "bytes": 548
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/red.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/red.stdout": {
+      "sha256": "4f3c579f6f903b693ce8a6c978aea3b73241adf8aea7d7fab0e309b7ace63876",
+      "bytes": 3685
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/red.xml": {
+      "sha256": "fc35135d0087b01c9a70eb9e4a95ef3b11618d8992c312c9c2dcd13108ffce3f",
+      "bytes": 2997
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/restored.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/green.json": {
+      "sha256": "e6865a79d463ecbbc5ddaee5eb3f36953525216aad55de8e9c682716b9373a68",
+      "bytes": 532
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/green.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/green.stdout": {
+      "sha256": "cc78a0b0df2d80f7872a3c1e0773b34846a303f8f0f2c5b6d2c33627cd648b89",
+      "bytes": 695
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/green.xml": {
+      "sha256": "80c7d7e4799954cd6a867003606bf4e838a8b66fcd5dcacfec5b364c2e4e57a1",
+      "bytes": 393
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/mutant.py": {
+      "sha256": "f5e6dfcae13c281a7a439c74c9bbb4bba2e5f0828f85305b40b349d527d89d51",
+      "bytes": 46018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/original.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/red.json": {
+      "sha256": "f32349fb02f57411d4d521c6b10497b8aa7701d08da6c2cf1cd0b3afd854f5bb",
+      "bytes": 530
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/red.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/red.stdout": {
+      "sha256": "85c33dd6263b763cc6d7688a9db656e924cdab3f8f9ce0c1e0b4b408acf1e328",
+      "bytes": 3706
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/red.xml": {
+      "sha256": "4f879fc2cb00a3b35ff82aaaafeeafb7fcac9ac8db5c7a02e3c68ad9cacf0c39",
+      "bytes": 3018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/restored.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/green.json": {
+      "sha256": "c542869cea737d39846c97a5eaebdc5e3431e0f061184555d1ea677f10488201",
+      "bytes": 553
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/green.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/green.stdout": {
+      "sha256": "af40223f05bcc4f38e21167bc07dd3dccb6be0b20d41e86ff2c251c339a82088",
+      "bytes": 695
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/green.xml": {
+      "sha256": "a3bf409a5bea7f8370b0e1ec3c99c683cf9e5ea2dea2e65b6c6b989113b39296",
+      "bytes": 400
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/mutant.py": {
+      "sha256": "e8dfc578d93a7a730764d21200ed7bf83b6b32c23aa635dc7df8501b0201253c",
+      "bytes": 46018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/original.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/red.json": {
+      "sha256": "e514fc35bb674ba439fd6113a2c1c27243f94de6005978697c47168794411ffd",
+      "bytes": 551
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/red.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/red.stdout": {
+      "sha256": "e372216201416bda2b403eb2837567ae1a2f0fac14bd6fe30045c8438e9c6524",
+      "bytes": 3703
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/red.xml": {
+      "sha256": "5c4f0bcc883a32a4a6298fa1994fb3e8cb15edb6415e64f669a847181ac1b55d",
+      "bytes": 3015
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/restored.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/green.json": {
+      "sha256": "516f634663fcbb9f6a86494e3792506b93777321e0d13ccadd6519e23e61adf8",
+      "bytes": 550
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/green.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/green.stdout": {
+      "sha256": "cc78a0b0df2d80f7872a3c1e0773b34846a303f8f0f2c5b6d2c33627cd648b89",
+      "bytes": 695
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/green.xml": {
+      "sha256": "4f2d97f91567c10da5fe6c950c24b802fad579ba9642900e9eb57ca5331ff185",
+      "bytes": 399
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/mutant.py": {
+      "sha256": "bd58dddc9550b44c4f10fdf555610c6d0c28ae792123ca2e7593f53a6dc0f798",
+      "bytes": 46018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/original.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/red.json": {
+      "sha256": "a57e71ab36b33c28083bc4b77c39e32b61eb81067ccc5c6e52fdcb4414b2dbfb",
+      "bytes": 548
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/red.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/red.stdout": {
+      "sha256": "fe5e196ca457091790106f16280d69efacfa5c4ab4ec9e5e68d0bfeec47ea82b",
+      "bytes": 3707
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/red.xml": {
+      "sha256": "5f5ce9bfe7a6662d89fcbe15646f468ae534a9114bb5bb77714483afaf8224ba",
+      "bytes": 3019
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/restored.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/summary.json": {
+      "sha256": "7444672e2b11a6a7cfeacaa47ed7e0f9276b160f4ed5a94d4d232391f932ea76",
+      "bytes": 14489
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/green.json": {
+      "sha256": "845417a56d74699f255e9c7db8429b274454bf3aad1c4c367dfb8c2746dafa0c",
+      "bytes": 562
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/green.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/green.stdout": {
+      "sha256": "cc78a0b0df2d80f7872a3c1e0773b34846a303f8f0f2c5b6d2c33627cd648b89",
+      "bytes": 695
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/green.xml": {
+      "sha256": "6e28e6c9d3d740a63876b0d392d6d6a4ded2ed8619cbeccb6df60db8eaf3444e",
+      "bytes": 403
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/mutant.py": {
+      "sha256": "b69da4b065691770f2dade5d35d75f2d2ddcd60027580488caaaf4dc9198e2c6",
+      "bytes": 46018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/original.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/red.json": {
+      "sha256": "c4dc28373be5ec1c1767e43d9dc535c9c0a8223fd8764f4dbaad76ab405fc94f",
+      "bytes": 560
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/red.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/red.stdout": {
+      "sha256": "48c47250baaf77f0e8693c0a269b70d1f2c2b6f98b8b6829e5ffa87392362857",
+      "bytes": 3697
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/red.xml": {
+      "sha256": "86da4be2cd4f0988d32cc3f2336990b380ba96f3a94fd8b2f8a37703b8d0e153",
+      "bytes": 3007
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/restored.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/green.json": {
+      "sha256": "6d3389e2e3be1e3a94d6ec8a85cfcc988d73c92ac1fae2826e14085119fe079f",
+      "bytes": 544
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/green.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/green.stdout": {
+      "sha256": "cc78a0b0df2d80f7872a3c1e0773b34846a303f8f0f2c5b6d2c33627cd648b89",
+      "bytes": 695
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/green.xml": {
+      "sha256": "259da193864899cdc4026a699bb648695afcfa87814f277e1ef4fa3343c6f682",
+      "bytes": 397
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/mutant.py": {
+      "sha256": "f5e6dfcae13c281a7a439c74c9bbb4bba2e5f0828f85305b40b349d527d89d51",
+      "bytes": 46018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/original.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/red.json": {
+      "sha256": "ad68f7011e5483c178a0211d7d71035dcfa1b431321fac7308d15bbc2dbbdb2a",
+      "bytes": 542
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/red.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/red.stdout": {
+      "sha256": "c1f19695784e28bba2bd40208b658b190433f3ef38203ed67b44b4cdcb132d6b",
+      "bytes": 3718
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/red.xml": {
+      "sha256": "310781415261dce4c1a02c5ecab0fe929921577c116dbe7782a355c95496ffdc",
+      "bytes": 3028
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/restored.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/green.json": {
+      "sha256": "92cc028d9493b0873a9b31b200774c7d3884d55ba6b8ef710fded3f370ab504d",
+      "bytes": 565
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/green.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/green.stdout": {
+      "sha256": "55b28ed4306bfe60fa25db8c7152e1bf40e964f727b914cc26166433558b13dd",
+      "bytes": 695
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/green.xml": {
+      "sha256": "54aaf714e6cce70bafa03d58aa3998b5e24424b9830a23d95b9d613ec3c89731",
+      "bytes": 404
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/mutant.py": {
+      "sha256": "e8dfc578d93a7a730764d21200ed7bf83b6b32c23aa635dc7df8501b0201253c",
+      "bytes": 46018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/original.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/red.json": {
+      "sha256": "9a2d2a358248b89183d7ff056985e7310ed857b015c698e6d1ed6427aca1ba94",
+      "bytes": 563
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/red.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/red.stdout": {
+      "sha256": "74178428810e34fc3dfd8a8bf44405925232b7556158ed15b3a403daa9dcf4b3",
+      "bytes": 3715
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/red.xml": {
+      "sha256": "5ab86d0ae55f65dda649e1640eaa78d7410b62d26c6e1890adea0c70c102e5d4",
+      "bytes": 3025
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/restored.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/green.json": {
+      "sha256": "b910db6f72fe40603ab08b932a9498b3c520bb7c299378841013b1c1805dc31b",
+      "bytes": 562
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/green.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/green.stdout": {
+      "sha256": "af40223f05bcc4f38e21167bc07dd3dccb6be0b20d41e86ff2c251c339a82088",
+      "bytes": 695
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/green.xml": {
+      "sha256": "06bcdfee220437feede4595c25dc2c5990d9d47da649156d3ac9732fc6db55b0",
+      "bytes": 403
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/mutant.py": {
+      "sha256": "bd58dddc9550b44c4f10fdf555610c6d0c28ae792123ca2e7593f53a6dc0f798",
+      "bytes": 46018
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/original.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/red.json": {
+      "sha256": "415cb041f7d2ce92377024d122c6f3102ce1213ec92de541a93d6afe22431911",
+      "bytes": 560
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/red.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/red.stdout": {
+      "sha256": "440a3951cca5194ae40487037f56adf50ccabe225143b0afc4744eddedb847dc",
+      "bytes": 3719
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/red.xml": {
+      "sha256": "245157992a71d570685818d81e03f7a0ae23f2d236c14e84532930606b39dc50",
+      "bytes": 3029
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/restored.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/operational-pytest.json": {
+      "sha256": "0ba7317c3da4c4c2f45b14302c02f501634942c2df72f528000ec6cc861df483",
+      "bytes": 466
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/operational-pytest.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/operational-pytest.stdout": {
+      "sha256": "7d033b6114e3b7e226dd134ddf87559ce2573e4749f27f5567211d071d888ecc",
+      "bytes": 98
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/reuse-audit.json": {
+      "sha256": "44d76dd9986544ff395a46c20f96307e8e59c22bb8954d5f00e22c2201dec98c",
+      "bytes": 17553
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/reuse.stderr": {
+      "sha256": "fbd133b10f289b842fb6669adbb8d797ab2c50d0649faef5865b8db9d31f8f09",
+      "bytes": 806
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/reuse.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/specified-destination.json": {
+      "sha256": "ae67a8b7c32fc659fec5c7141d50f55313b9bb5475eafa0c6adcf7f445cf2f65",
+      "bytes": 325
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run/summary.json": {
+      "sha256": "1f13ae55058c93e24c3afbe0e39d4819275ca7535054b1a6a66984309f871f8c",
+      "bytes": 3102
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/README.md": {
+      "sha256": "66d5b417962f4155b98898ce5e22b57edf0e194c4ce7462a722cc2dbb49ff3ee",
+      "bytes": 2160
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/archive-report.json": {
+      "sha256": "8f271216bd1f59dab723aa0e2cb4f958f1d0ab90b76ccf49bc469ab12a3b893e",
+      "bytes": 2886
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/black-initial.json": {
+      "sha256": "c885a281a83bf842dd738c21687eeb7d932c2f2e72ae2ecd87e621b6c68e702a",
+      "bytes": 425
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/black-initial.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/black-initial.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/black.json": {
+      "sha256": "9f1f29a1ba8ae90a2d0efad37f63628ed0389ddd3c318170e15fbaa01daf71df",
+      "bytes": 606
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/black.stderr": {
+      "sha256": "10ab19a24951d26e2a8c74ba0301a73510a8c6531830e809190ad226bd761496",
+      "bytes": 58
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/black.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/companions.json": {
+      "sha256": "5a46529252893fa2c1bc0b22b798c0f98491ba1ffc53ae55dad680261a43f9bb",
+      "bytes": 959
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/companions.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/companions.stdout": {
+      "sha256": "9b65c7531c4bb4a3e64ce099b3ade87f60799eef292ff16a06dfa9b240248946",
+      "bytes": 100
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/companions.xml": {
+      "sha256": "c70f7afd45163f782ddcd1dfd883328299a80200faebe30ca6e6ff71a060ce88",
+      "bytes": 8646
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/diffcheck.json": {
+      "sha256": "daecc2deedc380beec9006f8f658fb13eef6750eed424265a31f4c343e426969",
+      "bytes": 230
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/diffcheck.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/diffcheck.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/focused.json": {
+      "sha256": "1306e61dc465554e4374e114419f9735c58270f3aae345859027a840d84d02fa",
+      "bytes": 645
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/focused.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/focused.stdout": {
+      "sha256": "aaf1f7dd01f8c8eaaef96520fbc3ef24cd2d841ee98b3dcc41b9a4964714848f",
+      "bytes": 98
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/focused.xml": {
+      "sha256": "a5498e8dc24fc9af49d33357f3c029d89068ebaff5852d6d5497464a132f3e74",
+      "bytes": 1455
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/literal-pytest.json": {
+      "sha256": "84149ed5783f1203ae3f510a2486fe32d48fa09d2d56bb536fae82b49612eb28",
+      "bytes": 413
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/literal-pytest.stderr": {
+      "sha256": "6a199f54a94115ffc6c3304dbe7eb9ecbf3f135bc5bff83769deaeeef2fdb1fa",
+      "bytes": 54
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/literal-pytest.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/literal-replay.json": {
+      "sha256": "283a79dfe372aaef6589e62e35c3d777d141ea416ff0b99bee0c6ba73dc1cbbe",
+      "bytes": 399
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/literal-replay.stderr": {
+      "sha256": "6a199f54a94115ffc6c3304dbe7eb9ecbf3f135bc5bff83769deaeeef2fdb1fa",
+      "bytes": 54
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/literal-replay.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/manifest.json": {
+      "sha256": "05555bff377873ccfeb9b27f5847fd12679cb7478dcd5c246d9e8dd0d5a19c41",
+      "bytes": 4183
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/ruff.json": {
+      "sha256": "f4e4af3386809ecdd87d3f52f273b3c06020003a779fe92114975e16a81c019d",
+      "bytes": 1217
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/ruff.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/ruff.stdout": {
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/summary.json": {
+      "sha256": "c1e065fb6154fb75b92f2a67b125043fa24b8a37413f849841e6ebb5c645792e",
+      "bytes": 5322
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/template-summary.md": {
+      "sha256": "74631eb1d6ec6a67ade1746fe1854f5b2170f029ca05819bb2d5400710452645",
+      "bytes": 69
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/template.json": {
+      "sha256": "77f3ec6b741973e094a00fc3c55467374ed36d1bd366e217822af183fcbeedcd",
+      "bytes": 753
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/template.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/template.stdout": {
+      "sha256": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+      "bytes": 65
+    },
+    "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py": {
+      "sha256": "56008683da422160fcb1fcc89badff636d130938f3e556b93c1c35a498f50c96",
+      "bytes": 20345
+    },
+    "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py": {
+      "sha256": "ec2b2db63c1d7b9009f36b556fc583a7f1badfc120ac2d02aee9ca7121fb3512",
+      "bytes": 22099
+    },
+    "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
+      "sha256": "b1d6cab5e7f825edf78cb9d6e3cef1802098084c04441ec64543ce21c9b79226",
+      "bytes": 27363
+    },
+    "docs/evidence/issue-3743/shebang-rejection/coverage.ini": {
+      "sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "bytes": 94
+    },
+    "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": {
+      "sha256": "9b2d20412949c106cb2f5a7ea789f8e5bb0f760b3999550a6b10ccec58b27a85",
+      "bytes": 30684
+    },
+    "docs/evidence/issue-3743/shebang-rejection/main-acceptance-map.json": {
+      "sha256": "074da0915ae48f483eb059c32ba94c6fb1f0f22b3f9cc55a9df94a34610879e4",
+      "bytes": 46893
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/README.md": {
+      "sha256": "7807ab240b8de7afceee152ffb3b183eefe63d1e757b8e27c3a18417af167dd1",
+      "bytes": 1244
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-command.json": {
+      "sha256": "165c1016cfc71803963da6e9466666db2f99ddff60ce0bb3444134ae9cc40a58",
+      "bytes": 1465
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-command.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-command.stdout": {
+      "sha256": "79d619902f893c7577b2e7202ae73de878d34c3ee72a90df26b5621f56b4ea77",
+      "bytes": 432
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-json-command.json": {
+      "sha256": "932c0e4c50b25ebca95a0f3df3db1c45c4a21858469e743a76c618043de9c593",
+      "bytes": 569
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-json-command.stderr": {
+      "sha256": "d64d79cb6ff4650b71879b7df4297ab91c303ae254ba63ed580962965209c32a",
+      "bytes": 135
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-json-command.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline.json": {
+      "sha256": "63eb227060b2bbdb1ec592b2e601ac636b10dd09f790056a5a76eb0f94c8ec25",
+      "bytes": 95457
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline.xml": {
+      "sha256": "4b8527d4fadba66dd2d184b94252a7983163cdd117b9d0169d8f8510cdf0103a",
+      "bytes": 53909
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate-command.json": {
+      "sha256": "bd23ff342506ce42fda3bc3be02c519163281a8d78239eacf82e15ff32e18f02",
+      "bytes": 1537
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate-command.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate-command.stdout": {
+      "sha256": "e59f1400c8464599dd225343cf51f7e0d45f077a1ba1e030837209b9a40c730a",
+      "bytes": 432
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate-json-command.json": {
+      "sha256": "1a64b5920f8db62aa75bbc9d9a4e053e83eb5e0b3f677c11fb5803bd2056c04a",
+      "bytes": 571
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate-json-command.stderr": {
+      "sha256": "fe81e9ae633412cb8fc0b7ceb81f2150e47ed6d87a5bbc99d794f86aa18e9464",
+      "bytes": 136
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate-json-command.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate.json": {
+      "sha256": "0221ebd7db29b235478eba96d1b3e86ab3d65bf2fa7923021af1f516ca199969",
+      "bytes": 95434
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate.xml": {
+      "sha256": "34bc18f33f872463b3dd0388a100d4102c516da593b42225bc2f838e2a82849c",
+      "bytes": 55115
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/comparison.json": {
+      "sha256": "d3befbc8b4b5a665b5cfa684f6b35e674035dfb453035c06ee88d8959692566d",
+      "bytes": 122121
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/input-bindings.json": {
+      "sha256": "a7fad9a08fd6f8d0653b366c36f1a9a61f14488ed54654227f056d50fad68f93",
+      "bytes": 2898
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/manifest.json": {
+      "sha256": "be90f93724e6a262bd825fb5e8f8f7ccd6e085ec20f0f9eac7bde920c316083f",
+      "bytes": 2537
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/proof.tar.gz": {
+      "sha256": "e8d07353d03584cb1f8a2cf76887bc0b5d66f86f71610f35f6db6b1cca0bb7a8",
+      "bytes": 43302
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/summary.json": {
+      "sha256": "e9133fb74248c02478b334851e454315a3d87cbe168d52109ad5198399d43459",
+      "bytes": 136015
+    },
+    "docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz": {
+      "sha256": "f432fadc3959ac92e548b37b949f4070c4c9e00ad2ea19f8d1b5a9645c2fd254",
+      "bytes": 473676
+    },
+    "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json": {
+      "sha256": "dd7f81c8a2cbae55083ebb1ad690ffc78c8e9862a296ee0c14850eabe09452c9",
+      "bytes": 8373
+    },
+    "docs/evidence/issue-3743/shebang-rejection/pre-change-record.json": {
+      "sha256": "987d35ea935db2ecc8cd0339c8619c50763ce18600b42a98340a9524c5c05dc7",
+      "bytes": 2880
+    },
+    "docs/evidence/issue-3743/shebang-rejection/proof.tar.gz": {
+      "sha256": "83bf8bec764c0630a08c661876eaf7a24b5a7b27e1ee2875f6f96565ff281fae",
+      "bytes": 381289
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz": {
+      "sha256": "0a1974ad9d253eba6d78fca5b36a870aa9eac20b11db9b3bf0ac8be3c38abf8a",
+      "bytes": 854770
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json": {
+      "sha256": "841ef4290cb8183320fa90b1241113d55736e74ab2f7c2827e21bd4dcc689e66",
+      "bytes": 8473
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/task-reconciliation.md": {
+      "sha256": "00ca3121382545c09272638b5ca68be50b98a5d6d27bd2bbba01b7102b4373c5",
+      "bytes": 2652
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay.py": {
+      "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "bytes": 6406
+    },
+    "docs/evidence/issue-3743/shebang-rejection/summary.json": {
+      "sha256": "c4f78b1edef8812eba7f3cf8ce205aab744b3a6498efdbf661c3e3c4463e3e3f",
+      "bytes": 4382
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/README.md": {
+      "sha256": "0b22e14b5a6cf52c71fdb877c021c131b4d125ed5264e9fae839e63d9755c311",
+      "bytes": 2702
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/black.json": {
+      "sha256": "f11f03e72b76d0d3a44504593dd44c654355e6974fa6868debf39489b27a8f12",
+      "bytes": 573
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/black.stderr": {
+      "sha256": "10ab19a24951d26e2a8c74ba0301a73510a8c6531830e809190ad226bd761496",
+      "bytes": 58
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/black.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/diffcheck.json": {
+      "sha256": "5fd910574ed6218c798a91ed4e4eaf0c34d8436048cfd6f42961fd05f2ebb2c2",
+      "bytes": 263
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/diffcheck.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/diffcheck.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/ruff.json": {
+      "sha256": "cf707d78649d13d358a204d63e2a5f9d38b01331d7a21e58dfccb27e520d5fcb",
+      "bytes": 1315
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/ruff.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/ruff.stdout": {
+      "sha256": "5b196eb3a6acb50d3fa398d04ca284985cc1ffec870e940264b00780bfd2c971",
+      "bytes": 30
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/summary.json": {
+      "sha256": "b47df7d30bc8e91e4ed22560b85da2935e973e9188254c63a435056bb62891aa",
+      "bytes": 9513
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/template-summary.md": {
+      "sha256": "1881134dbab25f29d08fae2aed723af0639f3703c8f26e97f9357ff333d4698f",
+      "bytes": 68
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/template.json": {
+      "sha256": "050d481988acd1d09f986d0cf41bba06cc55074342ec42fb309edff407a9e535",
+      "bytes": 711
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/template.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/evidence/issue-3743/shebang-rejection/validation-run/template.stdout": {
+      "sha256": "571919c147488c55064046a0c64cf3a5919172b39a3d890dbad258b6d65c1018",
+      "bytes": 65
+    },
+    "scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    }
+  }
+}

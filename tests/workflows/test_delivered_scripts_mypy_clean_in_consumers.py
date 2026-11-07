@@ -46,3 +46,77 @@ def test_delivered_ledger_scripts_type_check_in_a_consumer_layout(tmp_path):
     )
     assert result.returncode == 0, result.stdout
     assert "Success: no issues found in 3 source files" in result.stdout
+
+
+@pytest.mark.skipif(not mypy_available, reason="mypy is not installed")
+@pytest.mark.parametrize("source_tree", [".", "templates/consumer-repo"])
+@pytest.mark.parametrize("restore_bug", [False, True], ids=["fixed", "pre-fix"])
+def test_delivered_llm_registry_type_checks_in_a_consumer_layout(
+    tmp_path, source_tree, restore_bug
+):
+    """Consumer settings must catch optional providers passed to SlotDefinition (#4485).
+
+    Mirror trip-planner's mypy gate rather than Workflows' pyproject, which sets
+    ignore_errors for tools.* and would hide the shipped arg-type failure that
+    sync-core reported on tools/llm_registry.py:580. Match reusable-10-ci-python:
+    ``--config-file pyproject.toml --exclude .workflows-lib`` with target ``.``.
+    """
+    package = tmp_path / "tools"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    delivered = package / "llm_registry.py"
+    shutil.copy(ROOT / source_tree / "tools/llm_registry.py", delivered)
+    if restore_bug:
+        # Break only the isolated consumer copy: prove mypy really checks this call,
+        # rather than passing because an ignore_errors setting hid the defect.
+        # Reintroduce the pre-#4485 path that fed optional providers into the
+        # retired SlotDefinition call (no early None rejection).
+        source = delivered.read_text(encoding="utf-8")
+        early_reject = (
+            "        # Missing/unknown providers cannot form a slot identity (including a\n"
+            "        # retired placeholder). Reject early so every SlotDefinition call below\n"
+            "        # receives a str — consumer mypy rejects str | None (Workflows#4485).\n"
+            "        if provider is None:\n"
+            "            continue\n"
+        )
+        assert source.count(early_reject) == 1, source
+        delivered.write_text(source.replace(early_reject, ""), encoding="utf-8")
+
+    # trip-planner pyproject knobs that surfaced the shipment-caused failure.
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.mypy]\n" "explicit_package_bases = true\n" "namespace_packages = true\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--config-file",
+            "pyproject.toml",
+            "--exclude",
+            ".workflows-lib",
+            "--cache-dir",
+            str(tmp_path / "mypy-cache"),
+            "--no-incremental",
+            ".",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+
+    if restore_bug:
+        assert result.returncode == 1, result.stdout + result.stderr
+        errors = [line for line in result.stdout.splitlines() if ": error:" in line]
+        assert len(errors) == 1, result.stdout + result.stderr
+        assert (
+            'Argument "provider" to "SlotDefinition" has incompatible type "str | None"; '
+            'expected "str"  [arg-type]'
+        ) in errors[0]
+    else:
+        # Zero exit code is the shipment gate; keep it explicit like other consumer
+        # typecheck regressions (tests/scripts/test_consumer_script_typecheck.py).
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Success: no issues found" in result.stdout

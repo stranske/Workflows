@@ -12,6 +12,9 @@ const {
 const {
   run: templateRun,
   stripPrTemplateContent: templateStripPrTemplateContent,
+  parseCheckboxStates: templateParseCheckboxStates,
+  mergeCheckboxStates: templateMergeCheckboxStates,
+  buildStatusBlock: templateBuildStatusBlock,
 } = require('../../../templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js');
 
 const {
@@ -453,6 +456,60 @@ test('mergeCheckboxStates restores numbered contract checklist items across refr
   assert.ok(merged.includes('5. [x] One PR per logical chunk of work.'));
   // Already-checked dash parent stays checked and is not rewritten as a dash mismatch
   assert.ok(merged.includes('- [x] Same contract as every round in this initiative:'));
+});
+
+test('numbered checklist parsing accepts tabs and multiple spaces in source and template', () => {
+  for (const [name, parse] of [
+    ['source', parseCheckboxStates],
+    ['template', templateParseCheckboxStates],
+  ]) {
+    for (const bullet of ['1.', '12)']) {
+      for (const spacing of [' ', '  ', '\t']) {
+        const block = [
+          `  ${bullet}${spacing}[X] Completed task`,
+          `${bullet}${spacing}[ ] Pending task`,
+          '```markdown',
+          `${bullet}${spacing}[x] Example only`,
+          '```',
+        ].join('\n');
+        assert.deepEqual(
+          parse(block),
+          new Map([['completed task', true]]),
+          `${name}: ${JSON.stringify(bullet + spacing)}`,
+        );
+      }
+    }
+  }
+});
+
+test('numbered checklist merging retains its single-space boundary in source and template', () => {
+  const states = new Map([['completed task', true], ['example only', true]]);
+  for (const [name, merge] of [
+    ['source', mergeCheckboxStates],
+    ['template', templateMergeCheckboxStates],
+  ]) {
+    for (const bullet of ['1.', '12)']) {
+      for (const spacing of [' ', '  ', '\t']) {
+        const lines = [
+          `  ${bullet}${spacing}[ ] Completed task`,
+          `${bullet}${spacing}[ ] Pending task`,
+          `${bullet}${spacing}[x] Already complete`,
+          '```markdown',
+          `${bullet}${spacing}[ ] Example only`,
+          '```',
+        ];
+        const content = lines.join('\n');
+        // Characterize the existing regex boundary; widening it is a separate repair.
+        const expected = [...lines];
+        if (spacing === ' ') {
+          expected[0] = `  ${bullet} [x] Completed task`;
+        }
+        const merged = merge(content, states);
+        assert.equal(merged, expected.join('\n'), `${name}: ${JSON.stringify(bullet + spacing)}`);
+        assert.equal(merge(merged, states), merged, `${name}: repeated refresh preserves state`);
+      }
+    }
+  }
 });
 
 test('ensureChecklist adds checkbox prefix to plain text lines', () => {
@@ -1719,6 +1776,52 @@ test('resolveAgentType returns empty string when no agent source is available', 
   });
 
   assert.strictEqual(agentType, '');
+});
+
+test('buildStatusBlock preserves numbered completion through normalization and repeated refresh', () => {
+  for (const [name, build] of [
+    ['source', buildStatusBlock],
+    ['template', templateBuildStatusBlock],
+  ]) {
+    let existingBody = [
+      '1. [x] Pending task',
+      '<!-- auto-status-summary:start -->',
+      '#### Tasks',
+      '7)\t[X] Finished task',
+      '8) [ ] Pending task',
+      '```markdown',
+      '9) [x] Pending task',
+      '```',
+      '#### Acceptance criteria',
+      '3.  [x] Validated outcome',
+      '4. [ ] Pending outcome',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n');
+
+    for (const number of [12, 20]) {
+      const output = build({
+        scope: 'Preserve numbered checklist state',
+        tasks: `${number})  [ ] Finished task\n${number + 1}) [ ] Pending task`,
+        acceptance: '2.\t[ ] Validated outcome\n3. [ ] Pending outcome',
+        existingBody,
+        connectorStates: new Map(),
+        workflowRuns: new Map(),
+        requiredChecks: [],
+        agentType: 'codex',
+      });
+      assert.ok(output.includes([
+        '#### Tasks',
+        `${number}) [x] Finished task`,
+        `${number + 1}) [ ] Pending task`,
+      ].join('\n')), `${name}: renumbered tasks retain only actual completion`);
+      assert.ok(output.includes([
+        '#### Acceptance criteria',
+        '2. [x] Validated outcome',
+        '3. [ ] Pending outcome',
+      ].join('\n')), `${name}: acceptance state survives whitespace normalization`);
+      existingBody = output;
+    }
+  }
 });
 
 test('buildStatusBlock hides workflow details for CLI agents', () => {

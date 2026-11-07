@@ -464,6 +464,30 @@ class TestLLMProviderInterface:
         provider = KwargsProvider()
         assert supports_quality_context(provider) is True
 
+    def test_supports_quality_context_raising_helper_without_param_is_false(self):
+        """A raising helper must reach signature detection, not count as True."""
+
+        class RaisingNoParamProvider(LLMProvider):
+            @property
+            def name(self) -> str:
+                return "raising-no-param"
+
+            def is_available(self) -> bool:
+                return True
+
+            def supports_quality_context(self) -> bool:
+                raise RuntimeError("boom")
+
+            def analyze_completion(
+                self,
+                session_output: str,
+                tasks: list[str],
+                context: str | None = None,
+            ) -> CompletionAnalysis:
+                raise NotImplementedError
+
+        assert supports_quality_context(RaisingNoParamProvider()) is False
+
     def test_supports_quality_context_falls_back_on_supports_error(self):
         """supports_quality_context falls back to signature when helper errors."""
 

@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "scripts/validate_template_completeness.py",
+    "--workflows-dir",
+    ".github/workflows",
+    "--template-dir",
+    "templates/consumer-repo/.github/workflows",
+    "--manifest",
+    ".github/sync-manifest.yml",
+    "--source",
+    "sync-manifest",
+    "--strict"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "env_overrides": {
+    "GITHUB_STEP_SUMMARY": "/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/template-summary.md"
+  },
+  "exit": 0,
+  "stdout": "\u2705 All consumer workflows are properly templated and manifested\n",
+  "stderr": "",
+  "timeout_seconds": 120,
+  "duration_seconds": 0.127
+}

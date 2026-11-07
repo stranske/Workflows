@@ -27,7 +27,7 @@ const {
   devToolBaseRefreshResult, ensureExactHeadReviewRequest, hasCompleteReviewThreadEvidence,
   parseReviewReassessmentRequest, runReviewReassessment, run, acceptanceCommentLocation,
   canaryNeedsRefresh, refreshStableCanaries, STALE_CANARY_HOURS,
-  CANARY_REFRESH_DEBOUNCE_MS, CANARY_SEALED_REFRESH_WAIT_MS, deferSealedCanaryRefresh, canaryRefreshDecision, readCanaryRefreshState,
+  CANARY_REFRESH_DEBOUNCE_MS, CANARY_SEALED_REFRESH_WAIT_MS, deferSealedCanaryRefresh, canaryRefreshDecision, canaryRefreshDiagnostics, readCanaryRefreshState, reportCanaryRefreshDiagnostics,
   dispatchCanaryRefresh, dispatchCanaryPromotion,
   isExpectedPresealGateFailure, legacyStatusAsCheck, requestSealedGate, CANCELLED_GATE_MAX_ATTEMPT,
   missingCanaryDrains,
@@ -683,7 +683,7 @@ function refreshCanary(overrides = {}) {
 }
 
 function refreshHarness(overrides = {}) {
-  const dispatches = [], comments = [], summaries = [], failures = [], reads = [];
+  const dispatches = [], comments = [], summaries = [], failures = [], reads = [], notices = [];
   const manifestEntries = require('../sync_pr_merge_contract').parseManifestSyncedSourceEntries(`
 scripts:
   - source: .github/scripts/shared.js
@@ -708,22 +708,25 @@ workflows:
       getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
         canaries: ['stranske/Ready', 'stranske/Template'].map((repo) => ({ repo })),
       })).toString('base64') } }),
-      listCommits: async (params) => { reads.push(params); return { data: [{ sha: 'a'.repeat(40) }] }; },
+      listCommits: async (params) => {
+        reads.push(params);
+        return { data: overrides.commitPages?.[(params.page || 1) - 1] ?? [{ sha: 'a'.repeat(40) }] };
+      },
       listPullRequestsAssociatedWithCommit: () => {},
       listCommentsForCommit: () => {},
       createCommitComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }),
     },
     issues: { listComments: () => {}, createComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }) },
-  }, paginate: async (method) => {
+  }, paginate: async (method, params) => {
     if (method === github.rest.repos.listPullRequestsAssociatedWithCommit) {
-      return overrides.prs ?? [{ number: 4020, merged_at: '2026-10-16T10:00:00Z',
+      return overrides.prsByCommit?.[params.commit_sha] ?? overrides.prs ?? [{ number: 4020, merged_at: '2026-10-16T10:00:00Z',
         base: { repo: { full_name: 'stranske/Workflows' } } }];
     }
     return [...comments, ...(overrides.existing || [])];
   } };
-  const core = { notice() {}, setFailed: (message) => failures.push(message),
+  const core = { notice: (message) => notices.push(message), setFailed: (message) => failures.push(message),
     summary: { addRaw(text) { summaries.push(text); return this; }, async write() {} } };
-  return { dispatches, comments, summaries, failures, reads, manifestEntries, core,
+  return { dispatches, comments, summaries, failures, reads, notices, manifestEntries, core,
     withRetry: async (fn) => fn(github), enabled: true, now: refreshNow,
     expectedCanaries: ['stranske/Ready', 'stranske/Template'],
     context: { repo: { owner: 'stranske', repo: 'Workflows' },
@@ -767,6 +770,100 @@ test('all current green canaries and an empty run emit zero counts without dispa
       'canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0\n'));
   }
 });
+
+for (const outcome of ['dispatched', 'active writer', 'failed dispatch']) {
+  test(`mixed canary counts reach logs and job summary after ${outcome}`, async (t) => {
+    const logs = [];
+    t.mock.method(console, 'log', (message) => logs.push(message));
+    let dispatchAttempts = 0;
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: outcome === 'active writer' ? [
+        { status: 'in_progress', display_title: 'Maint 68 promote auto plan source' },
+      ] : [] } }),
+      createWorkflowDispatch: async () => {
+        dispatchAttempts++;
+        if (outcome === 'failed dispatch') throw new Error('dispatch denied');
+      },
+    } });
+    const result = await refreshStableCanaries({ ...api, canaries: [
+      refreshCanary({ check_status: 'checks_failed', head_observed_at: '2026-10-17T05:00:00Z' }),
+      refreshCanary({ repo: 'Template', pr: 13, active_review_thread_count: 1,
+        head_observed_at: '2026-10-17T04:00:00Z' }),
+    ] });
+
+    // Both old heads count as stale even though their refresh reasons differ.
+    // A request that failed or was held by another writer is not a dispatch.
+    const expected = 'canaries: red=1 review_blocked=1 stale=2 '
+      + `refresh_dispatched=${Number(outcome === 'dispatched')} held_plan=plan-4026 drainable=0`;
+    assert.deepEqual(logs.filter(line => line.startsWith('canaries:')), [expected]);
+    assert.deepEqual(api.summaries.filter(line => line.startsWith('canaries:')), [`${expected}\n`]);
+    assert.deepEqual([result.red, result.review_blocked, result.stale], [1, 1, 2]);
+    assert.equal(result.refresh_dispatched, Number(outcome === 'dispatched'));
+    assert.equal(dispatchAttempts, Number(outcome !== 'active writer'));
+    assert.deepEqual(api.failures, outcome === 'failed dispatch'
+      ? ['canary_refresh_failed:dispatch denied'] : []);
+  });
+}
+
+for (const [state, change] of [
+  ['behind', { mergeable_state: 'behind' }],
+  ['checks_failed', { check_status: 'checks_failed' }],
+  ['review_blocked', { active_review_thread_count: 1 }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
+]) {
+  test(`one ${state} canary among green siblings dispatches once and waits for its writer`, async () => {
+    for (const blockedFirst of [true, false]) {
+      const runs = [];
+      const api = refreshHarness({ actions: {
+        listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+      } });
+      const green = refreshCanary();
+      const blocked = refreshCanary({ ...change, repo: 'Template', pr: 13,
+        threads: state === 'review_blocked' ? [{
+          id: 'PRRT_single', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+          comments: { nodes: [{ url: 'https://github.com/stranske/Template/pull/13#discussion_r4026' }] },
+        }] : [],
+      });
+      const canaries = blockedFirst ? [blocked, green] : [green, blocked];
+      const result = await refreshStableCanaries({ ...api, canaries });
+
+      assert.equal(result.refresh_dispatched, 1, `missing refresh dispatch: ${state}`);
+      assert.equal(api.dispatches.length, 1, state);
+      assert.equal(blocked.refresh_reason, state);
+      assert.equal(green.refresh_reason, null, 'a green sibling must retain its merge path');
+      assert.deepEqual(result.held_plans, [blocked.plan_id]);
+      assert.equal(api.dispatches[0].inputs.phase, 'canary');
+      assert.equal(api.dispatches[0].inputs.repos, api.expectedCanaries.join(','),
+        'recovery must refresh the configured canaries without narrowing to the blocked repo');
+      assert.ok(api.notices.includes(`dispatch-maint-68-phase-canary-no-filter: ${blocked.plan_id}; `
+        + `reasons=stranske/Template:${state}; completion awaits a successful Maint 68 run`));
+      const counts = `canaries: red=${Number(state === 'checks_failed')} `
+        + `review_blocked=${Number(state === 'review_blocked')} stale=${Number(state === 'stale')}`;
+      assert.ok(api.summaries.includes(`${counts} refresh_dispatched=1 held_plan=${blocked.plan_id} drainable=0\n`));
+
+      // A later Maint 71 invocation must observe the queued producer and avoid
+      // another write wave, even though the consumer remains blocked.
+      runs.push({ id: 4028, status: 'queued', conclusion: null, head_branch: 'main',
+        head_sha: 'a'.repeat(40), created_at: new Date(refreshNow).toISOString(),
+        display_title: 'Maint 68 canary full source=' + 'a'.repeat(40)
+          + ` candidates=${api.expectedCanaries.join(',')} dry=false`,
+      });
+      const retry = await refreshStableCanaries({ ...api, canaries });
+      assert.equal(retry.refresh_dispatched, 0, `duplicate refresh dispatch: ${state}`);
+      assert.equal(api.dispatches.length, 1, state);
+      assert.ok(api.summaries.includes(`${counts} refresh_dispatched=0 held_plan=${blocked.plan_id} drainable=0\n`));
+      assert.equal(api.comments.length, Number(state === 'review_blocked'),
+        'a queued refresh must preserve upstream routing without duplicate comments');
+      if (state === 'review_blocked') {
+        assert.equal(api.reads[0].path, '.github/scripts/shared.js');
+        assert.equal(api.comments[0].issue_number, 4020);
+        assert.match(api.comments[0].body, /https:\/\/github.com\/stranske\/Template\/pull\/13#discussion_r4026/);
+      }
+      assert.equal(blocked.head_sha, 'c'.repeat(40), 'Maint 71 must preserve the producer head');
+      assert.deepEqual(api.failures, []);
+    }
+  });
+}
 
 test('staleness uses producer head age, with a strict six-hour boundary', () => {
   assert.equal(STALE_CANARY_HOURS, 6);
@@ -1006,6 +1103,34 @@ test('overlapping blockers are counted independently and dry-run cannot mutate',
   assert.equal(api.comments.length, 0);
 });
 
+for (const disposition of ['shared-source', 'unrelated']) {
+  test(`stale canary accounting preserves the ${disposition} review snapshot`, async () => {
+    const api = refreshHarness();
+    const packet = findingPacket(disposition);
+    const { binding } = packet;
+    const canary = refreshCanary({ pr: binding.pr, plan_id: binding.plan_id,
+      source_commit: binding.source_commit, head_sha: binding.head_sha,
+      delivery_generation: binding.delivery_generation, review_disposition: packet,
+      active_review_thread_count: packet.activeReviewThreadCount,
+      threads: packet.reviewThreads, mergeable_state: 'dirty',
+      head_observed_at: '2026-10-17T05:00:00Z' });
+    const snapshot = structuredClone(canary);
+    const reason = disposition === 'shared-source' ? 'review_blocked' : 'stale';
+    assert.equal(canaryNeedsRefresh(canary, refreshNow), reason);
+    const result = await refreshStableCanaries({ ...api, enabled: false, canaries: [canary] });
+    assert.equal(result.stale, 1, 'producer age must be counted with a bound review snapshot');
+    assert.equal(result.review_blocked, disposition === 'shared-source' ? 1 : 0);
+    assert.equal(result.canaries[0].refresh_reason, reason);
+    assert.ok(api.summaries.includes(`canaries: red=0 review_blocked=${result.review_blocked} `
+      + `stale=1 refresh_dispatched=0 held_plan=${binding.plan_id} drainable=0\n`));
+    assert.deepEqual(canary.review_disposition, snapshot.review_disposition);
+    assert.equal(canary.active_review_thread_count, snapshot.active_review_thread_count);
+    assert.equal(api.dispatches.length, 0);
+    assert.equal(api.comments.length, 0);
+    assert.deepEqual(api.failures, []);
+  });
+}
+
 test('active Maint 68 writer defers refresh; a failed dispatch emits zero and fails visibly', async () => {
   for (const active of [true, false]) {
     const api = refreshHarness({ actions: active ? {
@@ -1058,14 +1183,58 @@ test('an existing upstream comment is reused and direct commits use commit comme
   }
 });
 
-async function assertExecutorCanaryRefresh(t, state) {
+test('review routing finds the latest source PR behind direct commits across history pages', async () => {
+  const previous = 'b'.repeat(40);
+  const older = 'c'.repeat(40);
+  const directCommits = Array.from({ length: 100 }, (_, index) => ({
+    sha: (index + 1).toString(16).padStart(40, '0'),
+  }));
+  const merged = (number, date, repository = 'stranske/Workflows') => ({
+    number, merged_at: date, base: { repo: { full_name: repository } },
+  });
+  const api = refreshHarness({
+    commitPages: [directCommits, [{ sha: previous }, { sha: older }]],
+    prs: [],
+    prsByCommit: {
+      [previous]: [
+        merged(4021, null),
+        merged(4022, '2026-10-17T10:00:00Z', 'stranske/Other'),
+        merged(4019, '2026-10-15T10:00:00Z'),
+        merged(4020, '2026-10-16T10:00:00Z'),
+      ],
+      [older]: [merged(4018, '2026-10-14T10:00:00Z')],
+    },
+  });
+  const canary = refreshCanary({ active_review_thread_count: 1, threads: [{
+    id: 'PRRT_history', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+    comments: { nodes: [{ url: 'https://github.com/stranske/Ready/pull/12#discussion_history' }] },
+  }] });
+
+  const result = await refreshStableCanaries({ ...api, canaries: [canary] });
+  assert.deepEqual(result.errors, []);
+  assert.equal(api.comments.length, 1);
+  assert.equal(api.comments[0].issue_number, 4020,
+    'a direct source commit must not hide the latest merged Workflows PR');
+  assert.equal(api.comments[0].commit_sha, undefined);
+  assert.match(api.comments[0].body, /discussion_history/);
+  assert.deepEqual(api.reads.map(({ path, sha, page }) => ({ path, sha, page })), [
+    { path: '.github/scripts/shared.js', sha: 'main', page: 1 },
+    { path: '.github/scripts/shared.js', sha: 'main', page: 2 },
+  ]);
+
+  await refreshStableCanaries({ ...api, canaries: [canary] });
+  assert.equal(api.comments.length, 1, 'the PR comment must still be deduplicated on retry');
+});
+
+async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, overlappingBlockers = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `maint71-${state}-canary-`));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const repository = require('../../../config/consumer_sync_canaries.json').canaries[0].repo;
   const [owner, repo] = repository.split('/');
   const head = 'd'.repeat(40), source = 'c'.repeat(40), plan = `sha256:${'a'.repeat(64)}`;
   t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
-  const ageMinutes = ['stale', 'aged_green'].includes(state) ? (STALE_CANARY_HOURS + 1) * 60 : 20;
+  const ageMinutes = overlappingBlockers || ['stale', 'aged_green'].includes(state)
+    ? (STALE_CANARY_HOURS + 1) * 60 : 20;
   const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
   const reviewStarted = state === 'seal_review_wait' ? new Date(refreshNow - 60000).toISOString() : observed;
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
@@ -1191,6 +1360,9 @@ async function assertExecutorCanaryRefresh(t, state) {
       },
       createWorkflowDispatch: async (params) => {
         dispatches.push(params);
+        if (params.workflow_id === 'maint-68-sync-consumer-repos.yml' && refreshDispatchStatus) {
+          throw Object.assign(new Error('candidate refresh unavailable'), { status: refreshDispatchStatus });
+        }
         if (params.workflow_id === 'pr-00-gate.yml' && dispatchError) {
           throw Object.assign(new Error('consumer Gate unavailable'), { status: dispatchError });
         }
@@ -1239,7 +1411,7 @@ async function assertExecutorCanaryRefresh(t, state) {
     createdAt: observed, updatedAt: observed,
     comments: { pageInfo: { hasNextPage: false }, nodes: [] },
     reviews: { pageInfo: { hasNextPage: false }, nodes: [] },
-    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: ['review_blocked', 'seal_review_threads'].includes(state) ? [
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: overlappingBlockers || ['review_blocked', 'seal_review_threads'].includes(state) ? [
       { id: 'PRRT_executor', path: 'consumer-owned.js', isResolved: false, isOutdated: false,
         comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
     ] : [] },
@@ -1300,9 +1472,36 @@ async function assertExecutorCanaryRefresh(t, state) {
     assert.equal(dispatches[0].inputs.refresh_key, require('crypto').createHash('sha256')
       .update(`${repository}:${'e'.repeat(40)}:${head}`).digest('hex'));
   }
-  assert.deepEqual(failures, [], JSON.stringify(report.results));
+  assert.deepEqual(failures, refreshDispatchStatus
+    ? ['canary_refresh_failed:candidate refresh unavailable'] : [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
     && (!['aged_green', 'seal_drained'].includes(state) || row.status === 'merged'));
+  if (['behind', 'checks_failed', 'review_blocked', 'stale'].includes(state)) {
+    const red = Number(state === 'checks_failed');
+    const reviewBlocked = Number(overlappingBlockers || state === 'review_blocked');
+    const stale = Number(overlappingBlockers || state === 'stale');
+    const dispatched = Number(!refreshDispatchStatus);
+    const expected = `canaries: red=${red} review_blocked=${reviewBlocked} `
+      + `stale=${stale} refresh_dispatched=${dispatched} held_plan=${plan} drainable=0`;
+    assert.deepEqual(logs.filter(line => line.startsWith('canaries:')), [expected]);
+    assert.deepEqual(summaries.filter(line => line.startsWith('canaries:')), [`${expected}\n`]);
+    assert.deepEqual([report.canary_refresh.red, report.canary_refresh.review_blocked,
+      report.canary_refresh.stale, report.canary_refresh.refresh_dispatched],
+    [red, reviewBlocked, stale, dispatched]);
+    assert.deepEqual(report.canary_refresh.held_plans, [plan]);
+    assert.deepEqual(report.canary_refresh.errors, failures);
+  }
+  if (refreshDispatchStatus) {
+    assert.equal(dispatches.length, 1, 'a refused refresh must not trigger a second writer');
+    assert.equal(dispatches[0].workflow_id, 'maint-68-sync-consumer-repos.yml');
+    assert.equal(row.status, state === 'checks_failed' ? 'checks_failed' : 'stable_base_refresh_required');
+    if (state !== 'checks_failed') {
+      assert.equal(row.next_command, 'dispatch-maint-68-phase-canary-no-filter');
+    }
+    assert.equal(candidate.head.sha, head);
+    assert.equal(merges.length, 0, 'dispatch refusal must preserve the consumer merge hold');
+    return;
+  }
   if (state.startsWith('no_change')) {
     assert.equal(row.status, 'evidence_recovered');
     if (state === 'no_change_merged') {
@@ -1436,9 +1635,10 @@ async function assertExecutorCanaryRefresh(t, state) {
   }
   if (state === 'checks_failed') {
     assert.equal(row.status, 'checks_failed');
-    assert.equal(row.delivery_disposition, 'repo-local-failure');
+    assert.equal(row.delivery_disposition, overlappingBlockers ? 'review-blocked' : 'repo-local-failure');
     assert.equal(updates.length, 0);
     assert.equal(dispatches.length, 1);
+    assert.equal(merges.length, 0, 'a refresh must not bypass overlapping consumer blockers');
     return;
   }
   assert.equal(row.status, 'stable_base_refresh_required', JSON.stringify(report.results));
@@ -1459,6 +1659,15 @@ async function assertExecutorCanaryRefresh(t, state) {
 for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
   test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
     async (t) => assertExecutorCanaryRefresh(t, state));
+  test(`executor retains ${state} canary counts in logs, summary and report after refresh refusal`,
+    async (t) => assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus: 403 }));
+}
+
+for (const refreshDispatchStatus of [undefined, 403]) {
+  test(`executor reports overlapping red, review and stale blockers after refresh ${refreshDispatchStatus ? 'refusal' : 'dispatch'}`,
+    async (t) => assertExecutorCanaryRefresh(t, 'checks_failed', {
+      overlappingBlockers: true, refreshDispatchStatus,
+    }));
 }
 
 for (const state of ['seal_never_staging', 'seal_never_real_failure', 'seal_never_rerun_refused', 'seal_already_rerun_refused', 'seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_already_delivery', 'seal_already_behind', 'seal_already_green', 'seal_already_422', 'seal_already_404', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {
@@ -2091,17 +2300,17 @@ test('review GraphQL reads rotate separately while mutations remain owner-pinned
   assert.match(source, /sha: pr\.head\.sha/);
 });
 
-async function reportSelection(t, { syncHash, withRecord }) {
+async function reportSelection(t, { syncHash, withRecord,
+  repository = 'stranske/Travel-Plan-Permission', sourceCommit = 'c'.repeat(40),
+  expectedSourceCommit = '', planId = `sha256:${'a'.repeat(64)}`,
+  expectedPlanId = planId, headSha = 'd'.repeat(40), refreshRuns = null }) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-selection-'));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const reportPath = path.join(tempDir, 'report.json');
-  const repository = 'stranske/Travel-Plan-Permission';
-  const headSha = 'd'.repeat(40);
-  const sourceCommit = 'c'.repeat(40);
   const observedAt = new Date().toISOString();
   const metadata = {
     schema: 'workflows-consumer-sync-pr/v1', consumer_repo: repository,
-    plan_id: `sha256:${'a'.repeat(64)}`, plan_scope: 'full',
+    plan_id: planId, plan_scope: 'full',
     source_commit: sourceCommit, source_sha: sourceCommit,
     template_hash: 'candidate-generation', sync_phase: 'canary',
   };
@@ -2123,10 +2332,12 @@ async function reportSelection(t, { syncHash, withRecord }) {
   };
   // Expose read methods only: an unexpected mutation fails the test.
   const github = {
-    paginate: async (_method, params) => params.state === 'open' ? [candidate] : [],
+    paginate: async (_method, params) => params.state === 'open'
+      && `${params.owner}/${params.repo}` === repository ? [candidate] : [],
     rest: {
       pulls: { list: async () => ({ data: [candidate] }), get: async () => ({ data: candidate }) },
       git: { getCommit: async () => ({ data: { tree: { sha: 'tree-abc' } } }) },
+      ...(refreshRuns ? { actions: { listWorkflowRuns: async () => ({ data: { workflow_runs: refreshRuns } }) } } : {}),
     },
   };
   const logs = [];
@@ -2144,8 +2355,9 @@ async function reportSelection(t, { syncHash, withRecord }) {
     REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
     CLEANUP_BRANCHES_INPUT: 'false', DRY_RUN_INPUT: 'true', AUTO_MERGE_INPUT: 'false',
     ACTIVE_SYNC_HASH_INPUT: syncHash, SYNC_HASH_INPUT: '',
-    EXPECTED_PLAN_ID_INPUT: '', EXPECTED_PLAN_SCOPE_INPUT: '',
-    EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: '',
+    EXPECTED_PLAN_ID_INPUT: expectedSourceCommit ? expectedPlanId : '',
+    EXPECTED_PLAN_SCOPE_INPUT: expectedSourceCommit ? 'full' : '',
+    EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: expectedSourceCommit,
     OWNER_PR_PAT: 'test-owner-token', TRUSTED_SYNC_ACTORS: 'stranske',
     SYNC_PR_MERGE_REPORT_JSON: reportPath,
   };
@@ -2163,7 +2375,7 @@ async function reportSelection(t, { syncHash, withRecord }) {
     });
     assert.deepEqual(failures, []);
     assert.deepEqual(warnings, []);
-    return { report: JSON.parse(fs.readFileSync(reportPath, 'utf8')), logs: logs.join('\n') };
+    return { report: JSON.parse(fs.readFileSync(reportPath, 'utf8')), logs: logs.join('\n'), candidate };
   } finally {
     process.chdir(originalCwd);
     for (const [key, value] of Object.entries(originalEnv)) {
@@ -2205,6 +2417,105 @@ test('Maint 71 empty-hash dispatch still selects a candidate with a valid delive
   assert.equal(report.results[0].pr, 1480);
   assert.doesNotMatch(JSON.stringify(report), /no_active_sync_pr|missing_delivery_record/);
   assert.doesNotMatch(logs, /no_active_sync_pr|missing_delivery_record/);
+});
+
+test('Maint 71 admits all three campaign-bound canaries to review after exact-plan source recovery', async t => {
+  const campaignSource = 'e'.repeat(40);
+  const { canaries } = require('../../../config/consumer_sync_canaries.json');
+  assert.equal(canaries.length, 3);
+  const blockedResults = [], nativeCandidates = new Map();
+  for (const { repo: repository } of canaries) {
+    const options = { syncHash: 'candidate', withRecord: true, repository,
+      expectedSourceCommit: campaignSource };
+    const blocked = await reportSelection(t, options);
+    const row = blocked.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(row.status, 'delivery_contract_blocked', repository);
+    assert.equal(row.delivery_reason, 'candidate_immutable_identity_mismatch');
+    assert.equal(row.next_command, 'refresh-candidate-from-exact-plan');
+    assert.deepEqual(row.refresh_plan, { plan_id: `sha256:${'a'.repeat(64)}`,
+      plan_scope: 'full', scope_base_sha: '', source_commit: campaignSource });
+    blockedResults.push(row);
+    const candidate = blocked.candidate;
+    candidate.draft = false;
+    candidate.head.repo = { full_name: repository };
+    candidate.base.repo = { full_name: repository, default_branch: 'main' };
+    nativeCandidates.set(repository, candidate);
+  }
+
+  const expectedCanaries = canaries.map(({ repo }) => repo);
+  const dispatches = [];
+  const github = { rest: {
+    pulls: {
+      get: async ({ owner, repo }) => ({ data: nativeCandidates.get(`${owner}/${repo}`) }),
+      list: async ({ owner, repo }) => ({ data: [nativeCandidates.get(`${owner}/${repo}`)] }),
+    },
+    repos: {
+      getContent: async () => ({ data: {
+        content: Buffer.from(JSON.stringify({ canaries })).toString('base64'),
+      } }),
+      getCommit: async ({ owner, repo, ref }) => {
+        if (repo === 'Workflows') {
+          return { data: { sha: ref === 'main' ? 'f'.repeat(40) : ref } };
+        }
+        const candidate = nativeCandidates.get(`${owner}/${repo}`);
+        return { data: { sha: ref === 'main' ? 'c'.repeat(40) : candidate.head.sha,
+          commit: { verification: { verified: true, reason: 'valid' },
+            message: `Consumer-sync plan ID: ${blockedResults[0].refresh_plan.plan_id}\n`
+              + 'Plan scope: full\nScope base SHA: full\nSource commit: ' + 'c'.repeat(40) } } };
+      },
+    },
+    actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: [] } }),
+      createWorkflowDispatch: async args => { dispatches.push(args); return { status: 204 }; },
+    },
+  } };
+  const report = { inputs: { sync_hash: 'candidate', cleanup_branches: false }, results: blockedResults };
+  assert.equal(require('../sync_pr_merge_contract').candidateRefreshDecision({ report }).eligible, true);
+  const { dispatchCandidateRefreshFromReport } = require('../maint71_merge_sync_prs');
+  await dispatchCandidateRefreshFromReport({ report, withRetry: fn => fn(github), expectedCanaries,
+    trustedActors: ['stranske'], context: { repo: { owner: 'stranske', repo: 'Workflows' },
+      payload: { repository: { default_branch: 'main' } } },
+    core: { notice() {}, summary: { addRaw() { return this; }, async write() {} } } });
+  assert.equal(dispatches.length, 1);
+  const { inputs } = dispatches[0];
+  assert.equal(inputs.scope_head_sha, campaignSource);
+  assert.equal(inputs.expected_plan_id, blockedResults[0].refresh_plan.plan_id);
+  assert.equal(inputs.delivery_scope, 'full');
+  assert.deepEqual(inputs.repos.split(',').sort(), [...expectedCanaries].sort());
+  assert.match(inputs.refresh_key, /^[a-f0-9]{64}$/);
+  assert.deepEqual(report.canary_refresh, { refresh_dispatched: 1, drainable: 3,
+    held_plans: [inputs.expected_plan_id] });
+
+  // Replacing the source alone must not admit a delivery from a different plan.
+  // Model a new native head for each refreshed canary, independent of its source.
+  for (const repository of inputs.repos.split(',')) {
+    const row = blockedResults.find(result => `${result.owner}/${result.repo}` === repository);
+    const refreshedHead = String(expectedCanaries.indexOf(repository) + 1).repeat(40);
+    const options = { syncHash: 'candidate', withRecord: true, repository,
+      expectedSourceCommit: campaignSource, sourceCommit: inputs.scope_head_sha,
+      expectedPlanId: inputs.expected_plan_id, headSha: refreshedHead };
+    const wrongPlan = await reportSelection(t, { ...options, planId: `sha256:${'b'.repeat(64)}` });
+    const refused = wrongPlan.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(refused.status, 'delivery_plan_handoff', repository);
+    assert.equal(refused.delivery_reason, 'plan_mismatch');
+    assert.equal(refused.next_command, 'resume-owning-plan');
+    assert.equal(refused.expected_plan_id, inputs.expected_plan_id);
+    assert.equal(refused.observed_plan_id, `sha256:${'b'.repeat(64)}`);
+    assert.equal(refused.source_commit, campaignSource);
+    assert.equal(refused.review_state, 'not-applicable');
+    assert.equal(refused.head_sha, refreshedHead);
+
+    const recovered = await reportSelection(t, { ...options, planId: inputs.expected_plan_id });
+    const reviewed = recovered.report.results.find(result => `${result.owner}/${result.repo}` === repository);
+    assert.equal(reviewed.status, 'review_window_pending', repository);
+    assert.equal(`${reviewed.owner}/${reviewed.repo}`, repository);
+    assert.equal(reviewed.source_commit, row.refresh_plan.source_commit);
+    assert.equal(reviewed.plan_id, inputs.expected_plan_id);
+    assert.equal(reviewed.plan_scope, 'full');
+    assert.equal(reviewed.head_sha, refreshedHead);
+    assert.notEqual(reviewed.head_sha, row.head_sha);
+    assert.doesNotMatch(JSON.stringify(recovered.report), /candidate_immutable_identity_mismatch/);
+  }
 });
 
 
@@ -2383,6 +2694,45 @@ for (const [reason, change] of [
   });
 }
 
+for (const [reason, change] of [
+  ['behind', { mergeable_state: 'behind' }],
+  ['checks_failed', { check_status: 'checks_failed' }],
+  ['review_blocked', { active_review_thread_count: 1 }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
+]) {
+  test(`consumed sibling recovery does not hide a new ${reason} canary in the same plan`, async () => {
+    let runs = [producerRun()];
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+    } });
+    const consumed = refreshCanary(change);
+    const sibling = refreshCanary({ ...change, repo: 'Template', pr: 13, head_sha: 'd'.repeat(40) });
+    const refresh = (canaries) => refreshStableCanaries({ ...api, canaries });
+    assert.equal((await refresh([consumed])).refresh_dispatched, 1);
+    runs.unshift(producerRun({ id: 4069,
+      display_title: `${producerRun().display_title} drift=${api.dispatches[0].inputs.refresh_key}` }));
+    assert.equal((await refresh([consumed])).refresh_dispatched, 0);
+
+    const result = await refresh([consumed, sibling]);
+    assert.equal(result.refresh_dispatched, 1, `missing sibling refresh dispatch: ${reason}`);
+    assert.equal(api.dispatches.length, 2, 'one additional dispatch for the plan');
+    const key = api.dispatches[1].inputs.refresh_key;
+    assert.notEqual(key, api.dispatches[0].inputs.refresh_key);
+    assert.deepEqual(result.held_plans, [consumed.plan_id]);
+    assert.match(api.notices.at(-1), new RegExp(`stranske/Template:${reason}`));
+
+    runs.unshift(producerRun({ id: 4070, status: 'queued', conclusion: null,
+      display_title: `${producerRun().display_title} drift=${key}` }));
+    assert.equal((await refresh([consumed, sibling])).refresh_dispatched, 0,
+      'an active writer still holds both recovery keys');
+    runs[0] = { ...runs[0], status: 'completed', conclusion: 'success' };
+    assert.equal((await refresh([consumed, sibling])).refresh_dispatched, 0,
+      'both successful recovery keys remain consumed');
+    assert.equal(api.dispatches.length, 2);
+    assert.deepEqual(api.failures, []);
+  });
+}
+
 test('new main SHA dispatches exactly once across held plans and subsequent observations', async () => {
   let runs = [producerRun({ head_sha: 'b'.repeat(40),
     display_title: producerRun().display_title.replace('a'.repeat(40), 'b'.repeat(40)) })];
@@ -2422,6 +2772,326 @@ test('refresh identity includes the sorted candidate set, scope, source, branch 
   assert.equal(decide([failure]).eligible, true);
   failure.created_at = new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS + 1).toISOString();
   assert.equal(decide([failure]).eligible, false);
+});
+
+function refreshFailureJobs(jobs) {
+  return producerRun({ conclusion: 'failure', jobs });
+}
+
+test('an infrastructure-failed canary refresh does not debounce the next attempt', () => {
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const prepareOnly = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+  ]);
+  const state = decide([prepareOnly]);
+  assert.equal(state.eligible, true);
+  assert.equal(state.state, 'unseen');
+  const diagnostic = canaryRefreshDiagnostics(state);
+  assert.equal(diagnostic.inventory.infrastructure_failures, 1);
+  assert.deepEqual(diagnostic.failure_classification, [{ classification: 'infrastructure', run_id: prepareOnly.id }]);
+  const skippedSync = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+    { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'skipped' },
+    { name: 'Sync stranske/Template', status: 'completed', conclusion: 'skipped' },
+  ]);
+  assert.equal(decide([skippedSync]).eligible, true, 'a Sync job that never started is not a consumer failure');
+  // Maint 68 leaves the matrix unexpanded when Prepare fails, so the skipped
+  // consumer job keeps the literal workflow name. That shape is the live
+  // rate-limit failure: the follow-up guard must print refresh: allowed.
+  const livePrepare = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+    { name: 'Generate summary', status: 'completed', conclusion: 'success' },
+    { name: 'Create failure issue', status: 'completed', conclusion: 'success' },
+    { name: 'Validate sync files', status: 'completed', conclusion: 'skipped' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+    { name: 'Start generated delivery reconciliation', status: 'completed', conclusion: 'skipped' },
+  ]);
+  const live = decide([livePrepare]);
+  assert.equal(live.eligible, true);
+  assert.equal(live.state, 'unseen');
+  assert.equal(canaryRefreshDiagnostics(live).failure_classification[0].classification, 'infrastructure');
+  assert.equal(`refresh: ${live.eligible ? 'allowed' : 'skipped'} (${live.state})`, 'refresh: allowed (unseen)');
+});
+
+test('a consumer-failed canary refresh still debounces for six hours', () => {
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const consumer = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+    { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'failure' },
+  ]);
+  const state = decide([consumer]);
+  assert.equal(state.eligible, false);
+  assert.equal(state.state, 'failure');
+  assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'consumer');
+  const atBoundary = { ...consumer, created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS).toISOString() };
+  assert.equal(decide([atBoundary]).eligible, true);
+  const insideWindow = { ...consumer, created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS + 1).toISOString() };
+  assert.equal(decide([insideWindow]).eligible, false);
+});
+
+test('a second consecutive infrastructure failure debounces for the same plan, source and candidates', () => {
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const infra = (id, minutesAgo) => producerRun({ id, conclusion: 'failure',
+    created_at: new Date(refreshNow - minutesAgo * 60000).toISOString(),
+    jobs: [{ name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' }] });
+  assert.equal(decide([infra(1, 30), infra(2, 5)]).eligible, false);
+  const otherSource = producerRun({ id: 9, conclusion: 'failure', head_sha: 'b'.repeat(40),
+    display_title: producerRun().display_title.replaceAll('a'.repeat(40), 'b'.repeat(40)),
+    jobs: [{ name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' }] });
+  assert.equal(decide([infra(1, 5), otherSource]).eligible, true,
+    'an infrastructure failure for a different source does not consume this key');
+  const consumer = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+    { name: 'Sync stranske/Template', status: 'completed', conclusion: 'failure' },
+  ]);
+  assert.equal(decide([infra(1, 20), consumer]).eligible, false, 'a consumer failure still holds beside one infrastructure failure');
+});
+
+test('the guard reads listJobsForWorkflowRunAttempt and exempts one prepare failure', async () => {
+  const failed = producerRun({ conclusion: 'failure', run_attempt: 2 });
+  const calls = [];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+    listJobsForWorkflowRunAttempt: async params => {
+      calls.push(params);
+      assert.equal(params.run_id, failed.id);
+      assert.equal(params.attempt_number, 2);
+      return { data: { total_count: 1, jobs: [
+        { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+      ] } };
+    },
+  } });
+  const state = await readCanaryRefreshState(api);
+  assert.equal(calls.length, 1);
+  assert.equal(state.eligible, true);
+  assert.equal(state.state, 'unseen');
+  assert.deepEqual(canaryRefreshDiagnostics(state).failure_classification, [
+    { classification: 'infrastructure', run_id: failed.id, run_attempt: 2 },
+  ]);
+  const aged = producerRun({ conclusion: 'failure', created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS).toISOString() });
+  const quiet = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [aged] } }),
+    listJobsForWorkflowRunAttempt: async () => { throw new Error('must not read jobs outside the debounce window'); },
+  } });
+  assert.equal((await readCanaryRefreshState(quiet)).eligible, true, 'an expired failure no longer holds');
+});
+
+test('paged job evidence cannot hide a started Sync behind a failed Prepare', async (t) => {
+  for (const totalCount of [undefined, 200]) await t.test(`total_count=${totalCount}`, async () => {
+    const pages = [];
+    const failed = producerRun({ conclusion: 'failure', run_attempt: 2 });
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+      listJobsForWorkflowRunAttempt: async ({ page, per_page, run_id, attempt_number }) => {
+        pages.push(page);
+        assert.equal(per_page, 100);
+        assert.equal(run_id, failed.id);
+        assert.equal(attempt_number, 2);
+        const jobs = Array.from({ length: page <= 2 ? 100 : 0 }, (_, i) => ({
+          name: `Summary ${page}-${i}`, status: 'completed', conclusion: 'success',
+        }));
+        if (page === 1) jobs[0] = { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' };
+        if (page === 2) jobs[99] = { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'failure' };
+        return { data: { total_count: totalCount, jobs } };
+      },
+    } });
+    const state = await readCanaryRefreshState(api);
+    assert.deepEqual(pages, totalCount === undefined ? [1, 2, 3] : [1, 2]);
+    assert.equal(state.eligible, false);
+    assert.equal(state.state, 'failure');
+    assert.equal(canaryRefreshDiagnostics(state).inventory.consumer_failures, 1);
+    assert.equal(canaryRefreshDiagnostics(state).inventory.infrastructure_failures, 0);
+  });
+});
+
+test('incomplete job evidence retains debounce after a failed Prepare', async (t) => {
+  for (const shape of ['ten full pages', 'missing jobs', 'null jobs', 'object jobs', 'malformed later page']) {
+    await t.test(shape, async () => {
+      const pages = [];
+      const failed = producerRun({ conclusion: 'failure' });
+      const api = refreshHarness({ actions: {
+        listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+        listJobsForWorkflowRunAttempt: async ({ page }) => {
+          pages.push(page);
+          if (shape === 'missing jobs') return { data: {} };
+          if (shape === 'null jobs') return { data: { jobs: null } };
+          if (shape === 'object jobs' || (shape === 'malformed later page' && page === 2)) {
+            return { data: { jobs: {} } };
+          }
+          return { data: { jobs: [
+            { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+            ...Array.from({ length: 99 }, (_, i) => ({ name: `Summary ${page}-${i}`, conclusion: 'success' })),
+          ] } };
+        },
+      } });
+      const state = await readCanaryRefreshState(api);
+      assert.deepEqual(pages, shape === 'ten full pages' ? Array.from({ length: 10 }, (_, i) => i + 1)
+        : shape === 'malformed later page' ? [1, 2] : [1]);
+      assert.equal(state.eligible, false);
+      assert.equal(state.state, 'failure');
+      assert.equal(canaryRefreshDiagnostics(state).inventory.infrastructure_failures, 0);
+    });
+  }
+});
+
+test('cancelled Sync evidence distinguishes started consumers from an unstarted matrix', async (t) => {
+  for (const [name, evidence, started] of [
+    ['executed step', { steps: [{ conclusion: 'success' }] }, true],
+    ['runner name', { runner_name: 'runner-1' }, true],
+    ['runner id', { runner_id: 42 }, true],
+    ['neither', { steps: [{ conclusion: 'skipped' }], runner_name: '', runner_id: 0 }, false],
+  ]) await t.test(name, async () => {
+    const failed = producerRun({ conclusion: 'failure' });
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+      listJobsForWorkflowRunAttempt: async () => ({ data: { total_count: 2, jobs: [
+        { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+        { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'cancelled', ...evidence },
+      ] } }),
+    } });
+    const state = await readCanaryRefreshState(api);
+    assert.equal(state.eligible, !started);
+    assert.equal(state.state, started ? 'failure' : 'unseen');
+    assert.equal(canaryRefreshDiagnostics(state).inventory.consumer_failures, started ? 1 : 0);
+    assert.equal(canaryRefreshDiagnostics(state).inventory.infrastructure_failures, started ? 0 : 1);
+  });
+});
+
+// Runs 42239701776 and 42249799768: the rate-limited prepare and the next
+// refresh used different source SHAs and one delivery digest. The follow-up
+// guard must print refresh: allowed. A second prepare failure of that digest
+// still prints refresh: skipped (failure).
+test('Maint 68 guard allows the next refresh after one same-digest infrastructure failure', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
+  const digest = `sha256:${'ab'.repeat(32)}`;
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async (_sha, repos) => ({
+    digest,
+    files: Object.fromEntries(repos.map(repo => [repo, { 'scripts/shared.js': { content: 'same' } }])),
+  }));
+  const repos = 'stranske/Ready,stranske/Template';
+  const failedSource = 'd'.repeat(40);
+  const incidentJobs = [
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+    { name: 'Generate summary', status: 'completed', conclusion: 'success' },
+    { name: 'Create failure issue', status: 'completed', conclusion: 'success' },
+    { name: 'Validate sync files', status: 'completed', conclusion: 'skipped' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+    { name: 'Start generated delivery reconciliation', status: 'completed', conclusion: 'skipped' },
+  ];
+  const failedRun = (id, minutesAgo) => producerRun({
+    id, conclusion: 'failure', head_sha: failedSource,
+    display_title: `Maint 68 canary full  source=${failedSource} candidates=${repos} dry=false  guard=delivery-v1`,
+    created_at: new Date(refreshNow - minutesAgo * 60 * 1000).toISOString(),
+    updated_at: new Date(refreshNow - minutesAgo * 60 * 1000).toISOString(),
+  });
+  const runs = [failedRun(42239701776, 65)];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : runs } }),
+    listJobsForWorkflowRunAttempt: async () => ({ data: { total_count: incidentJobs.length, jobs: incidentJobs } }),
+  } });
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const block = workflow.split('      - name: Check content refresh guard')[1]
+    .split('      - name: Authorize canary payload mutation')[0];
+  const script = block.split('          script: |\n')[1].split('\n')
+    .map(line => line.replace(/^ {12}/, '')).join('\n');
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const execute = new AsyncFunction('require', 'github', 'context', 'core', 'process', script);
+  const noticed = [];
+  const outputs = {};
+  const core = {
+    notice: line => noticed.push(line),
+    setOutput: (key, value) => { outputs[key] = value; },
+    summary: { addRaw() { return this; }, async write() {} },
+  };
+  const invoke = async () => execute(
+    name => name === 'fs' ? { readFileSync: () => JSON.stringify({ plan_id: '', entries: [], removals: [] }) }
+      : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics }
+      : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: api.withRetry }) }
+      : { canaries: api.expectedCanaries.map(repo => ({ repo })) },
+    await api.withRetry(client => client),
+    { ...api.context, runId: 42249799768 },
+    core,
+    { env: { SOURCE_COMMIT: 'a'.repeat(40), PLAN_ID: '', PLAN_SCOPE: 'full', SCOPE_BASE_SHA: '', REFRESH_KEY: '', FORCE: 'false', GITHUB_RUN_ATTEMPT: '1' } },
+  );
+  await invoke();
+  assert.equal(noticed.at(-1), 'refresh: allowed (unseen)');
+  assert.match(noticed[0], /^canary-refresh-diagnostics:/);
+  assert.match(noticed[0], /"classification":"infrastructure"/);
+  assert.equal(outputs.allowed, 'true');
+  const state = await readCanaryRefreshState({ ...api, sourceSha: 'a'.repeat(40), ignoreRunId: 42249799768 });
+  assert.equal(state.eligible, true);
+  assert.equal(state.delivery_digest, digest);
+  assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'infrastructure');
+  runs.unshift(failedRun(42239701777, 20));
+  noticed.length = 0;
+  await invoke();
+  assert.equal(noticed.at(-1), 'refresh: skipped (failure)');
+  assert.match(noticed[0], /^canary-refresh-diagnostics:/);
+  assert.equal(outputs.allowed, 'false');
+});
+
+test('full-scope refresh diagnostics print classified infrastructure failures for Maint 68 live logs', async () => {
+  const failed = refreshFailureJobs([
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'failure' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+  ]);
+  const state = canaryRefreshDecision({
+    runs: [failed], sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow,
+    refreshPlan: { plan_scope: 'full' },
+  });
+  assert.equal(state.eligible, true);
+  const notices = [];
+  await reportCanaryRefreshDiagnostics({
+    state,
+    core: {
+      notice: line => notices.push(line),
+      summary: { addRaw() { return this; }, async write() {} },
+    },
+  });
+  assert.equal(notices.length, 1);
+  assert.match(notices[0], /^canary-refresh-diagnostics:/);
+  assert.match(notices[0], /"infrastructure_failures":1/);
+  assert.match(notices[0], /"classification":"infrastructure"/);
+  const quiet = [];
+  await reportCanaryRefreshDiagnostics({
+    state: canaryRefreshDecision({
+      runs: [], sha: 'a'.repeat(40),
+      candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow,
+      refreshPlan: { plan_scope: 'full' },
+    }),
+    core: {
+      notice: line => quiet.push(line),
+      summary: { addRaw() { return this; }, async write() {} },
+    },
+  });
+  assert.deepEqual(quiet, []);
+});
+
+test('unreadable refresh jobs and a failed Sync job keep the six-hour debounce', async () => {
+  const failed = producerRun({ conclusion: 'failure' });
+  const unreadable = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+    listJobsForWorkflowRunAttempt: async () => { throw new Error('API rate limit exceeded token=SECRET'); },
+  } });
+  const held = await readCanaryRefreshState(unreadable);
+  assert.equal(held.eligible, false);
+  assert.equal(held.state, 'failure');
+  assert.deepEqual(canaryRefreshDiagnostics(held).failure_classification, []);
+  const consumer = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [failed] } }),
+    listJobsForWorkflowRunAttempt: async () => ({ data: { total_count: 2, jobs: [
+      { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+      { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'failure' },
+    ] } }),
+  } });
+  const state = await readCanaryRefreshState(consumer);
+  assert.equal(state.eligible, false);
+  assert.equal(state.state, 'failure');
+  assert.equal(canaryRefreshDiagnostics(state).failure_classification[0].classification, 'consumer');
 });
 
 test('unreadable or truncated history and changed main configuration fail closed', async () => {
@@ -2619,6 +3289,40 @@ for (const failure of ['unreadable', 'invalid']) {
     assert.equal(result.errors.length, 2);
     assert.ok(result.errors.every((error) => error.startsWith('canary_refresh_tip_unreadable:')));
     assert.equal(api.failures.length, 2);
+  });
+}
+
+for (const [state, change, expectedCounts] of [
+  ['behind', {}, [0, 0, 0]],
+  ['checks_failed', { check_status: 'checks_failed' }, [1, 0, 0]],
+  ['review_blocked', { active_review_thread_count: 1 }, [0, 1, 0]],
+  ['stale', { head_observed_at: '2026-10-17T05:00:00Z' }, [0, 0, 1]],
+  ['overlapping blockers', { check_status: 'checks_failed', active_review_thread_count: 1,
+    head_observed_at: '2026-10-17T05:00:00Z' }, [1, 1, 1]],
+]) {
+  test(`unreadable behind-canary tip preserves ${state} summary and holds its plan`, async () => {
+    for (const blockedFirst of [true, false]) {
+      const api = refreshHarness({ repos: { getBranch: async ({ repo }) => {
+        if (repo === 'Ready') throw new Error('branch unavailable');
+        return { data: { commit: { sha: 'b'.repeat(40) } } };
+      } } });
+      const blocked = refreshCanary({ ...change, mergeable_state: 'behind' });
+      // A sibling needing refresh must not bypass this plan's unreadable tip.
+      const sibling = refreshCanary({ repo: 'Template', mergeable_state: 'behind' });
+      const result = await refreshStableCanaries({ ...api,
+        canaries: blockedFirst ? [blocked, sibling] : [sibling, blocked] });
+      const [red, reviewBlocked, stale] = expectedCounts;
+      assert.deepEqual([result.red, result.review_blocked, result.stale], expectedCounts);
+      assert.equal(blocked.refresh_reason, 'behind');
+      assert.deepEqual(result.held_plans, [blocked.plan_id]);
+      assert.equal(result.refresh_dispatched, 0);
+      assert.equal(api.dispatches.length, 0, 'unreadable plan must retain the refresh safety hold');
+      assert.deepEqual(result.errors, ['canary_refresh_tip_unreadable:stranske/Ready:branch unavailable']);
+      assert.deepEqual(api.failures, result.errors);
+      assert.ok(api.summaries.includes(`canaries: red=${red} review_blocked=${reviewBlocked} `
+        + `stale=${stale} refresh_dispatched=0 held_plan=${blocked.plan_id} drainable=0\n`));
+      assert.ok(api.summaries.some(line => line.startsWith('seal: stranske/Ready#')));
+    }
   });
 }
 
@@ -3467,4 +4171,168 @@ test('in-run stable canary recovery explicitly retains a false cleanup policy', 
   assert.equal(result.refresh_dispatched, 1);
   assert.equal(api.dispatches.length, 1);
   assert.equal(api.dispatches[0].inputs.cleanup_branches, 'false');
+});
+
+
+test('accepted canary refresh records a delivery handoff for the refreshed source', async (t) => {
+  // Workflows#4466: the handoff follows the refresh. The candidate consistently names source c…, the
+  // campaign handoff still says e…, and a successful Maint 68 canary run produced c… for this consumer.
+  const refreshed = 'c'.repeat(40);
+  const { report, logs } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, sourceCommit: refreshed, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 41992460488, status: 'completed', conclusion: 'success', head_branch: 'main',
+      head_sha: refreshed, display_title: `Maint 68 canary full source=${refreshed} candidates=* dry=false` }],
+  });
+  const row = report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission');
+  assert.ok(row, JSON.stringify(report.results));
+  assert.equal(row.status, 'delivery_handoff_repin');
+  assert.equal(row.delivery_disposition, 'source-repinned');
+  assert.equal(row.blocker_owner, 'maint-82');
+  assert.equal(row.next_command, 'rerun-with-repinned-handoff');
+  assert.equal(row.source_commit, refreshed);
+  assert.equal(row.repinned_from, 'e'.repeat(40));
+  assert.equal(row.refresh_run_id, 41992460488);
+  assert.equal(row.plan_id, `sha256:${'a'.repeat(64)}`);
+  assert.equal(report.summary.delivery_handoff_repin, 1);
+  assert.equal(report.summary.delivery_contract_blocked, 0);
+  assert.equal(report.handoff_records.length, 1);
+  const record = report.handoff_records[0];
+  assert.equal(record.source_commit, refreshed);
+  assert.equal(record.plan_id, `sha256:${'a'.repeat(64)}`);
+  assert.equal(record.continuation.class, 'transient');
+  assert.equal(record.continuation.lane, 'candidate');
+  assert.equal(record.continuation.resume_after, record.observed_at);
+  assert.match(logs, /re-pinning the campaign handoff eeeeeeeeeeee -> cccccccccccc/);
+  assert.doesNotMatch(logs, /Candidate immutable identity mismatch/);
+});
+
+test('a consistent other source with no producing Maint 68 run stays a contract block', async (t) => {
+  const { report } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 1, status: 'completed', conclusion: 'success', head_branch: 'main',
+      head_sha: 'f'.repeat(40), display_title: `Maint 68 canary full source=${'f'.repeat(40)} candidates=* dry=false` }],
+  });
+  const row = report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission');
+  assert.equal(row.status, 'delivery_contract_blocked');
+  assert.equal(row.delivery_reason, 'candidate_immutable_identity_mismatch');
+  assert.deepEqual(report.handoff_records, []);
+});
+
+test('a producing run for another consumer does not re-pin this one', async (t) => {
+  const refreshed = 'c'.repeat(40);
+  const { report } = await reportSelection(t, {
+    syncHash: 'candidate', withRecord: true, sourceCommit: refreshed, expectedSourceCommit: 'e'.repeat(40),
+    refreshRuns: [{ id: 2, status: 'completed', conclusion: 'success', head_branch: 'main', head_sha: refreshed,
+      display_title: `Maint 68 canary full source=${refreshed} candidates=stranske/trip-planner dry=false` }],
+  });
+  assert.equal(report.results.find((result) => `${result.owner}/${result.repo}` === 'stranske/Travel-Plan-Permission').status,
+    'delivery_contract_blocked');
+});
+
+test('Maint 68 verified no-op keeps the existing head source identity in the body', () => {
+  // 2026-11-06: a refresh from a newer main with an unchanged plan kept the signed head (trailer
+  // `Source commit: 298200cb…`) but relabelled the body with the new source, so Maint 71 failed every
+  // canary with canary_refresh_native_scope_mismatch. The body must carry the head's own source.
+  const { spawnSync } = require('node:child_process');
+  const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
+  const start = workflow.indexOf('          body_source_commit="$PLAN_SOURCE_COMMIT"');
+  const end = workflow.indexOf('          if [ -n "$existing_pr" ] \\\n            && { [ "$matching_existing" != "true" ]', start);
+  assert.ok(start >= 0 && end > start, 'no-op source block present');
+  const block = workflow.slice(start, end);
+  const plan = `sha256:${'a'.repeat(64)}`;
+  const run = (message, matching) => spawnSync('bash', ['-c',
+    `git() { printf '%s\\n' "$MSG"; }\nmatching_existing=${matching}\nmigrating_legacy_lifecycle=false\n${block}\n`
+    + 'printf "%s|%s" "$body_source_commit" "$matching_existing"'], {
+    encoding: 'utf8', env: { ...process.env, MSG: message, PLAN_ID: plan, PLAN_SCOPE: 'full',
+      PLAN_SOURCE_COMMIT: 'f'.repeat(40), existing_pr: '1716', existing_head: 'h'.repeat(40), SCOPE_BASE_SHA: '' } });
+  const trailers = (planId, scope, source, base = 'full') => ['chore: sync workflow templates from Workflows repo', '',
+    `Consumer-sync plan ID: ${planId}`, `Plan scope: ${scope}`, `Scope base SHA: ${base}`, `Source commit: ${source}`].join('\n');
+  // same plan, head produced from an older source: keep the head's source, keep the head
+  let result = run(trailers(plan, 'full', 'c'.repeat(40)), 'true');
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim().split('\n').pop(), `${'c'.repeat(40)}|true`);
+  // trailers name another plan: regenerate a signed delivery under this run's source
+  result = run(trailers(`sha256:${'b'.repeat(64)}`, 'full', 'c'.repeat(40)), 'true');
+  assert.equal(result.stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope base (source-delta plans can share a plan id across bases): regenerate
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40), 'b'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // another scope, or a malformed source trailer: regenerate
+  assert.equal(run(trailers(plan, 'source-delta', 'c'.repeat(40)), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  assert.equal(run(trailers(plan, 'full', 'not-a-sha'), 'true').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // not a no-op: the new commit carries this run's source, so the body does too
+  assert.equal(run(trailers(plan, 'full', 'c'.repeat(40)), 'false').stdout.trim().split('\n').pop(), `${'f'.repeat(40)}|false`);
+  // every body field that names the source uses the reconciled value; the new commit's trailer does not
+  const body = workflow.slice(workflow.indexOf('          sync_marker=$(jq -nc'), workflow.indexOf('**Template hash:**'));
+  assert.match(body, /--arg source_sha "\$body_source_commit"/);
+  assert.equal((body.match(/--arg source_commit "\$body_source_commit"/g) || []).length, 2);
+  assert.match(body, /\*\*Source SHA:\*\* \\`\$body_source_commit\\`/);
+  assert.doesNotMatch(body, /PLAN_SOURCE_COMMIT/);
+  assert.match(workflow, /\n {10}Source commit: \$PLAN_SOURCE_COMMIT\n/);
+});
+
+test('Copilot reassessment posts the in-thread request and a best-effort review request', async () => {
+  // Owner decision 2026-11-06: Copilot only re-reviews on request and is often out of capacity.
+  // The review request is attempted once with the in-thread request; its failure is reported,
+  // never fatal, because the thread drains through the unanswered-reassessment window.
+  for (const reviewOutcome of ['ok', 'fails']) {
+    const request = {
+      schema: 'maint71-review-reassessment/v1', repository: 'stranske/Ready', pr: 593,
+      head_sha: 'c'.repeat(40), thread_id: 'PRRT_copilot', plan_id: 'plan-1',
+      generation: 'gen-1', source_commit: 'd'.repeat(40), originating_reviewer: 'copilot',
+    };
+    const record = {
+      schema: 'sync-pr-delivery-record/v1', repository: request.repository,
+      durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
+      plan_id: request.plan_id, generation: request.generation, desired_tree_hash: 'tree-1',
+      source_commit: request.source_commit, head_observed_sha: request.head_sha,
+      head_observed_at: '2026-09-24T22:00:00Z', lease_expires_at: '2099-01-01T00:00:00Z',
+    };
+    const pr = { state: 'open', draft: false, auto_merge: null, user: { login: 'stranske-automation-bot' },
+      head: { ref: 'deps/sync-dev-versions-test', sha: request.head_sha },
+      body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->` };
+    const thread = { id: request.thread_id, isResolved: false, isOutdated: false,
+      comments: { pageInfo: { hasNextPage: false }, nodes: [
+        { fullDatabaseId: '4294967298', author: { login: 'copilot-pull-request-reviewer[bot]' }, body: 'Shifted overrides' },
+      ] } };
+    const comments = [];
+    const reviewRequests = [];
+    const github = {
+      paginate: async () => [],
+      rest: {
+        pulls: {
+          get: async () => ({ data: pr }),
+          requestReviewers: async (params) => {
+            reviewRequests.push(params.reviewers);
+            if (reviewOutcome === 'fails') throw Object.assign(new Error('Reviews may only be requested from collaborators'), { status: 422 });
+            return { data: {} };
+          },
+          createReplyForReviewComment: async ({ body }) => {
+            const comment = { id: comments.length + 1, body, created_at: '2026-09-24T22:00:00Z',
+              html_url: `https://github.com/stranske/Ready/pull/593#discussion_r${comments.length + 1}`,
+              user: { login: 'stranske' } };
+            comments.push(comment);
+            return { data: comment };
+          },
+        },
+        users: { getAuthenticated: async () => ({ data: { login: 'stranske' } }) },
+        issues: { listComments: async () => [], createComment: async () => { throw new Error('no task transport for copilot'); } },
+      },
+      graphql: async () => ({ repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{
+        ...thread, comments: { ...thread.comments, nodes: [...thread.comments.nodes, ...comments.map((comment) => ({
+          fullDatabaseId: String(comment.id), body: comment.body, author: comment.user,
+          createdAt: comment.created_at, url: comment.html_url }))] } }] } } } }),
+    };
+    const args = { context: { eventName: 'repository_dispatch', ref: 'refs/heads/main',
+      payload: { action: 'maint71-review-reassessment' }, actor: 'stranske' },
+      withRetry: (fn) => fn(github), rawRequest: JSON.stringify(request), registeredRepos: [request.repository],
+      policyPath: path.join(__dirname, '..', '..', '..', 'config', 'consumer_sync_review_policy.json') };
+    const first = await runReviewReassessment(args);
+    assert.equal(first.status, 'review_blocked_reassessment_requested', reviewOutcome);
+    assert.equal(first.review_requested, reviewOutcome === 'ok');
+    assert.deepEqual(reviewRequests, [['copilot-pull-request-reviewer[bot]']]);
+    assert.match(comments[0].body, /@copilot please reassess this specific finding/);
+    const second = await runReviewReassessment(args);
+    assert.equal(second.status, 'review_blocked_reassessment_reused');
+    assert.equal(reviewRequests.length, 1, 'a reused request never re-requests review');
+  }
 });

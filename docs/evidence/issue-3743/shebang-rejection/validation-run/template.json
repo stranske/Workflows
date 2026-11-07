@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "/opt/anaconda3/bin/python3",
+    "scripts/validate_template_completeness.py",
+    "--workflows-dir",
+    ".github/workflows",
+    "--template-dir",
+    "templates/consumer-repo/.github/workflows",
+    "--manifest",
+    ".github/sync-manifest.yml",
+    "--source",
+    "sync-manifest",
+    "--strict"
+  ],
+  "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
+  "attempt": 1,
+  "limit_seconds": 180,
+  "env_overrides": {
+    "GITHUB_STEP_SUMMARY": "/tmp/shebang-rejection-validation/template-summary.md"
+  },
+  "exit": 0,
+  "stdout": "\u2705 All consumer workflows are properly templated and manifested\n",
+  "stderr": "",
+  "stopped": null,
+  "duration_seconds": 0.127
+}
