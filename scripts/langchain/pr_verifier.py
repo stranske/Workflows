@@ -8732,7 +8732,7 @@ class CapacityBackupClient:
             timeout,
         )
 
-    def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:
+    def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:  # noqa: ARG002
         import urllib.error
         import urllib.request
         from types import SimpleNamespace
