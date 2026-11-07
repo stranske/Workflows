@@ -1,0 +1,395 @@
+{
+  "schema": "issue-4455-latest-runs-evidence/v1",
+  "observed_at": "2026-11-07T06:18:12Z",
+  "collection": {
+    "transport": "Connected GitHub API; requested local gh commands failed to connect to api.github.com",
+    "runs_url": "https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100",
+    "runs_returned": 100,
+    "runs_projection": "Unfiltered API-order prefix through the third maint-71 match; selected fields retained",
+    "comments_url": "https://api.github.com/repos/stranske/Workflows/issues/4364/comments?per_page=100",
+    "comments_returned": 39,
+    "comments_page_capacity": 100,
+    "comments_projection": "id, html_url, created_at, and body prefix through the sync-core handoff marker for every returned comment",
+    "successful_run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42346256308"
+  },
+  "run_inventory_prefix": [
+    {
+      "id": 42346303152,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346303152",
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:59Z",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 42346302694,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346302694",
+      "path": ".github/workflows/agents-auto-label.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:59Z",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 42346302660,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346302660",
+      "path": ".github/workflows/agents-issue-format-guard.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:59Z",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 42346298923,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346298923",
+      "path": ".github/workflows/health-68-consumer-sync-drift.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:55Z",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 42346293138,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346293138",
+      "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:50Z",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 42346256308,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346256308",
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:18Z",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 42346255100,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346255100",
+      "path": ".github/workflows/agents-auto-label.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:17Z",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 42346255080,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346255080",
+      "path": ".github/workflows/agents-issue-format-guard.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:17Z",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 42346254647,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346254647",
+      "path": ".github/workflows/health-68-consumer-sync-drift.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:17Z",
+      "status": "completed",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 42346248996,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346248996",
+      "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:16:12Z",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 42346206896,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346206896",
+      "path": ".github/workflows/health-68-consumer-sync-drift.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:15:39Z",
+      "status": "completed",
+      "conclusion": "cancelled"
+    },
+    {
+      "id": 42346199358,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346199358",
+      "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:15:34Z",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 42346191321,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42346191321",
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T06:15:28Z",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "verified_success": {
+    "id": 42346256308,
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42346256308",
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+    "head_branch": "main",
+    "created_at": "2026-11-07T06:16:18Z",
+    "status": "completed",
+    "conclusion": "success",
+    "run_started_at": "2026-11-07T06:16:18Z",
+    "updated_at": "2026-11-07T06:16:53Z"
+  },
+  "issue_comments": [
+    {
+      "id": 6568616429,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6568616429",
+      "created_at": "2026-11-02T03:51:39Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6568616683,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6568616683",
+      "created_at": "2026-11-02T03:51:40Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6583449903,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6583449903",
+      "created_at": "2026-11-02T17:14:52Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6583453416,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6583453416",
+      "created_at": "2026-11-02T17:15:02Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6587415143,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6587415143",
+      "created_at": "2026-11-02T20:15:00Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6588614159,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6588614159",
+      "created_at": "2026-11-02T21:13:58Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6597298888,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6597298888",
+      "created_at": "2026-11-03T06:46:24Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6597302063,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6597302063",
+      "created_at": "2026-11-03T06:46:37Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6604745749,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6604745749",
+      "created_at": "2026-11-03T13:12:16Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6623203427,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623203427",
+      "created_at": "2026-11-04T05:15:30Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6623205564,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623205564",
+      "created_at": "2026-11-04T05:15:39Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6623206655,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623206655",
+      "created_at": "2026-11-04T05:15:44Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6623827321,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623827321",
+      "created_at": "2026-11-04T06:00:22Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6623829810,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623829810",
+      "created_at": "2026-11-04T06:00:32Z",
+      "body_prefix": "<!-- sync-core/v1 handoff "
+    },
+    {
+      "id": 6624182362,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624182362",
+      "created_at": "2026-11-04T06:23:37Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6624190714,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624190714",
+      "created_at": "2026-11-04T06:24:08Z",
+      "body_prefix": "⚠️ **Auto-pilot paused dur"
+    },
+    {
+      "id": 6624656486,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624656486",
+      "created_at": "2026-11-04T06:54:35Z",
+      "body_prefix": "🤖 **Auto-pilot format ret"
+    },
+    {
+      "id": 6624669577,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624669577",
+      "created_at": "2026-11-04T06:55:28Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6624700064,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624700064",
+      "created_at": "2026-11-04T06:57:14Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6624710302,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624710302",
+      "created_at": "2026-11-04T06:57:48Z",
+      "body_prefix": "## Issue Optimization Sugg"
+    },
+    {
+      "id": 6624738456,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624738456",
+      "created_at": "2026-11-04T06:59:18Z",
+      "body_prefix": "⚠️ **Workflow failed**\n\nTh"
+    },
+    {
+      "id": 6624738707,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624738707",
+      "created_at": "2026-11-04T06:59:19Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6624791648,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624791648",
+      "created_at": "2026-11-04T07:02:29Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6624806774,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624806774",
+      "created_at": "2026-11-04T07:03:28Z",
+      "body_prefix": "Belt dispatcher queued thi"
+    },
+    {
+      "id": 6624807819,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624807819",
+      "created_at": "2026-11-04T07:03:32Z",
+      "body_prefix": "### ⚠️ Capability Check: S"
+    },
+    {
+      "id": 6624825962,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624825962",
+      "created_at": "2026-11-04T07:04:41Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6624837807,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624837807",
+      "created_at": "2026-11-04T07:05:25Z",
+      "body_prefix": "Opened PR #4443 via belt w"
+    },
+    {
+      "id": 6624872852,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624872852",
+      "created_at": "2026-11-04T07:07:36Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6624937710,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624937710",
+      "created_at": "2026-11-04T07:11:31Z",
+      "body_prefix": "🤖 **Auto-pilot**: Backoff"
+    },
+    {
+      "id": 6624975526,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624975526",
+      "created_at": "2026-11-04T07:13:32Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6625030538,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625030538",
+      "created_at": "2026-11-04T07:16:36Z",
+      "body_prefix": "🤖 **Auto-pilot**: Backoff"
+    },
+    {
+      "id": 6625096526,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625096526",
+      "created_at": "2026-11-04T07:20:37Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6625150289,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625150289",
+      "created_at": "2026-11-04T07:23:56Z",
+      "body_prefix": "🤖 **Auto-pilot**: Backoff"
+    },
+    {
+      "id": 6625289380,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625289380",
+      "created_at": "2026-11-04T07:31:57Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6625345214,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625345214",
+      "created_at": "2026-11-04T07:35:25Z",
+      "body_prefix": "🤖 **Auto-pilot**: Backoff"
+    },
+    {
+      "id": 6625608454,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625608454",
+      "created_at": "2026-11-04T07:51:26Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6625669889,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625669889",
+      "created_at": "2026-11-04T07:55:10Z",
+      "body_prefix": "🤖 **Auto-pilot step 1**: "
+    },
+    {
+      "id": 6648353643,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6648353643",
+      "created_at": "2026-11-05T02:51:14Z",
+      "body_prefix": "<!-- closer-core/v1 action"
+    },
+    {
+      "id": 6648421213,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6648421213",
+      "created_at": "2026-11-05T02:55:59Z",
+      "body_prefix": "🤖 **Auto-pilot**: Issue #"
+    }
+  ]
+}
