@@ -25,6 +25,15 @@ MINIMUM_ALLOWLIST = {
         "3.12",
     ),
 }
+# Owner-requested #4462 historical measurement only, not a supported CI runtime.
+# Exact line/path/version matching keeps ordinary first-party checks unchanged.
+EXPERIMENT_ALLOWLIST = {
+    (
+        ".github/workflows/maint-88-verifier-runtime-comparison.yml",
+        "python: ['3.12', '3.13']",
+        "3.12",
+    ),
+}
 
 
 def _runtime_literals(text: str) -> list[tuple[int, str]]:
@@ -108,7 +117,9 @@ def test_python_runtime_literals_follow_shared_env() -> None:
             relative = path.relative_to(ROOT).as_posix()
             lines = text.splitlines()
             for line, version in _runtime_literals(text):
-                if (relative, lines[line - 1].strip(), version) in MINIMUM_ALLOWLIST:
+                if (relative, lines[line - 1].strip(), version) in (
+                    MINIMUM_ALLOWLIST | EXPERIMENT_ALLOWLIST
+                ):
                     continue
                 if version not in allowed:
                     failures.append(
@@ -144,3 +155,16 @@ def test_python_runtime_literals_follow_shared_env() -> None:
 )
 def test_runtime_literal_extraction(source: str, expected: list[tuple[int, str]]) -> None:
     assert _runtime_literals(source) == expected
+
+
+def test_historical_runtime_experiment_is_manual_and_read_only() -> None:
+    workflow = yaml.load(
+        (ROOT / ".github/workflows/maint-88-verifier-runtime-comparison.yml").read_text(),
+        Loader=yaml.BaseLoader,
+    )
+    assert set(workflow["on"]) == {"workflow_dispatch"}
+    assert workflow["permissions"] == {"contents": "read"}
+    job = workflow["jobs"]["compare"]
+    assert "permissions" not in job
+    assert "continue-on-error" not in job
+    assert job["strategy"]["matrix"]["python"] == ["3.12", "3.13"]
