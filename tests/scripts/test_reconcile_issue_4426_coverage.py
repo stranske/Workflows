@@ -52,6 +52,8 @@ def synthetic_gate(tmp_path, monkeypatch):
     # Counts match the term reports; inventory positions are deliberately synthetic.
     for path, missing_branches in zip(reconcile.TARGETS, (5, 6, 1, 2, 3, 93), strict=True):
         counters = summary(path) | {"missing_branches": missing_branches}
+        counters["covered_lines"] = counters["num_statements"] - counters["missing_lines"]
+        counters["covered_branches"] = counters["num_branches"] - missing_branches
         files[path] = {
             "summary": counters,
             "missing_lines": list(range(1, counters["missing_lines"] + 1)),
@@ -62,6 +64,9 @@ def synthetic_gate(tmp_path, monkeypatch):
         "totals": summary("TOTAL") | {"missing_branches": 2445},
         "files": files,
     }
+    totals = coverage["totals"]
+    totals["covered_lines"] = totals["num_statements"] - totals["missing_lines"]
+    totals["covered_branches"] = totals["num_branches"] - totals["missing_branches"]
     evidence = tmp_path / "evidence"
     evidence.mkdir()
 
@@ -138,6 +143,80 @@ def test_reconcile_rejects_incomplete_unit_inventory(synthetic_gate, field):
     coverage, evidence, write = synthetic_gate
     coverage["files"][reconcile.TARGETS[0]][field].pop()
     with pytest.raises(ValueError, match="inventory disagrees"):
+        reconcile.reconcile_archive(write(), evidence)
+
+
+@pytest.mark.parametrize("scope", ["target", "TOTAL"])
+def test_reconcile_rejects_branch_counts_that_contradict_percentage(synthetic_gate, scope):
+    coverage, evidence, write = synthetic_gate
+    row = coverage["files"][reconcile.TARGETS[0]]
+    summary = coverage["totals"] if scope == "TOTAL" else row["summary"]
+    # Preserve covered+missing identities and target inventory lengths. Only the
+    # recomputed precision-two percentage exposes this otherwise plausible input.
+    change = 20 if scope == "TOTAL" else 1
+    summary["missing_branches"] += change
+    summary["covered_branches"] -= change
+    if scope == "target":
+        row["missing_branches"].append([9000, -1])
+    with pytest.raises(ValueError, match="branch counters disagree with coverage percentage"):
+        reconcile.reconcile_archive(write(), evidence)
+
+
+@pytest.mark.parametrize("scope", ["target", "TOTAL"])
+@pytest.mark.parametrize("field", ["covered_lines", "covered_branches"])
+def test_reconcile_rejects_inconsistent_covered_counters(synthetic_gate, scope, field):
+    coverage, evidence, write = synthetic_gate
+    summary = (
+        coverage["totals"]
+        if scope == "TOTAL"
+        else coverage["files"][reconcile.TARGETS[0]]["summary"]
+    )
+    summary[field] += 1
+    with pytest.raises(ValueError, match="inconsistent covered counters"):
+        reconcile.reconcile_archive(write(), evidence)
+
+
+@pytest.mark.parametrize(("target", "value"), [(2, True), (0, 5.0)])
+def test_reconcile_rejects_invalid_missing_branch_counters(synthetic_gate, target, value):
+    coverage, evidence, write = synthetic_gate
+    # Both values compare equal to the real count; arithmetic, percentage and
+    # inventory length checks alone cannot expose the invalid JSON counter type.
+    coverage["files"][reconcile.TARGETS[target]]["summary"]["missing_branches"] = value
+    with pytest.raises(ValueError, match="invalid coverage counters"):
+        reconcile.reconcile_archive(write(), evidence)
+
+
+@pytest.mark.parametrize("field", ["missing_lines", "missing_branches"])
+def test_reconcile_rejects_duplicate_missing_units(synthetic_gate, field):
+    coverage, evidence, write = synthetic_gate
+    inventory = coverage["files"][reconcile.TARGETS[-1]][field]
+    inventory[-1] = inventory[0]
+    expected = "missing-line" if field == "missing_lines" else "missing-branch"
+    with pytest.raises(ValueError, match=f"invalid {expected} inventory"):
+        reconcile.reconcile_archive(write(), evidence)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("missing_lines", 0),
+        ("missing_lines", -1),
+        ("missing_lines", True),
+        ("missing_lines", "1"),
+        ("missing_branches", [0, 1]),
+        ("missing_branches", [-1, 1]),
+        ("missing_branches", [1, 0]),
+        ("missing_branches", [1, False]),
+        ("missing_branches", [1]),
+        ("missing_branches", [1, 2, 3]),
+        ("missing_branches", "1->2"),
+    ],
+)
+def test_reconcile_rejects_malformed_missing_unit_positions(synthetic_gate, field, value):
+    coverage, evidence, write = synthetic_gate
+    coverage["files"][reconcile.TARGETS[-1]][field][0] = value
+    expected = "missing-line" if field == "missing_lines" else "missing-branch"
+    with pytest.raises(ValueError, match=f"invalid {expected} inventory"):
         reconcile.reconcile_archive(write(), evidence)
 
 

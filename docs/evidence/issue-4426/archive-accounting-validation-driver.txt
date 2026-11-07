@@ -1,0 +1,56 @@
+"""Retain complete focused validation output without claiming original-round attribution."""
+
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+commands = [
+    [sys.executable, "-m", "pytest", "-q",
+     "tests/scripts/test_reconcile_issue_4426_coverage.py",
+     "--cov=scripts.reconcile_issue_4426_coverage", "--cov-branch",
+     "--cov-report=term-missing", "-m", "not slow", "--tb=short"],
+    [sys.executable, "-m", "pytest", "-q",
+     "tests/scripts/test_pr_verifier_ranked_remainder.py",
+     "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+     "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+     "tests/tools/test_langchain_client.py", "-m", "not slow", "--tb=short"],
+    [sys.executable, "-m", "pytest", "-q",
+     "tests/docs/test_issue_4426_coverage_measurement.py",
+     "tests/docs/test_issue_4426_ranking.py", "-m", "not slow", "--tb=short"],
+    ["ruff", "check", "scripts/reconcile_issue_4426_coverage.py",
+     "tests/scripts/test_reconcile_issue_4426_coverage.py"],
+    ["git", "diff", "--check"],
+]
+results = []
+for command in commands:
+    start = time.monotonic()
+    result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=110)
+    results.append({
+        "command": command,
+        "exit_code": result.returncode,
+        "elapsed_seconds": round(time.monotonic() - start, 3),
+        "output": result.stdout + result.stderr,
+    })
+    print(results[-1]["output"], flush=True)
+    assert result.returncode == 0, results[-1]
+paths = ["scripts/reconcile_issue_4426_coverage.py",
+         "tests/scripts/test_reconcile_issue_4426_coverage.py", "pyproject.toml",
+         "docs/evidence/issue-4426/gate-report-inputs.json",
+         "docs/evidence/issue-4426/coverage-measurement.json",
+         "docs/evidence/issue-4426/ranking.json"]
+record = {
+    "checked_on": "2026-11-07",
+    "scope": "offline archive accounting, synthetic fixtures; not final-head Gate execution",
+    "python": sys.version,
+    "sha256": {path: hashlib.sha256((root / path).read_bytes()).hexdigest() for path in paths},
+    "results": results,
+    "real_archive_available": False,
+    "attributable_round_reduction": None,
+}
+(root / "docs/evidence/issue-4426/archive-accounting-validation.json").write_text(
+    json.dumps(record, indent=2) + "\n"
+)

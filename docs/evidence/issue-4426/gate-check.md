@@ -529,3 +529,73 @@ The changed Python file also passes the ordinary formatter. PR #4520 was
 reverified open with draft=false. A temporary local clone is used for the
 source/test commit and `/tmp/issue4426-native-slot.patch`; this cannot advance
 the active checkout's read-only Git metadata or produce remote Gate results.
+
+## Archive counter consistency follow-up, 2026-11-07
+
+Before edits, the reconciler and coverage/ranking evidence selection passed
+74 tests in 1.18s, exit 0. The connector reverified Gate run 42287174423,
+head `97fa3cdd6b198623db4adc86f16f0b3788320794`, and artifact 13537639987
+with its pinned digest. One bounded archive-reference download failed with
+URLError (DNS resolution); no archive bytes were recovered or substituted.
+Selected symbols before editing: `_match_report`, new `_validate_summary`,
+and new `_validate_inventory` in `scripts/reconcile_issue_4426_coverage.py`.
+The reconciler currently accepts contradictory branch counters and duplicate
+missing-unit positions. This chunk will reject those inputs before reporting
+artifact accounting. Historical evidence remains intact; attribution stays
+unknown. No task checkbox is advanced.
+
+Real-input reproduction when the archive is available:
+
+```bash
+python scripts/reconcile_issue_4426_coverage.py /tmp/issue4426-final-gate.zip
+```
+
+The existing two-failure, 10-minute command, 20-minute step and under-two-minute
+focused limits remain in force. No further archive retrieval retries will be
+made in this chunk. Fixtures remain explicitly synthetic.
+
+Final results are retained in `archive-accounting-validation.json`,
+`archive-accounting-shallow-validation.json`, and
+`archive-accounting-mutations.json`:
+
+- The targeted reconciler selection passes 42 tests in 0.94s, exit 0; its
+  Cover column is 98.47%. This measures the ingestion utility, not the
+  six-target approximately 180-unit contract.
+- The required four-module behavioral selection passes 177 tests in 4.07s,
+  exit 0. The coverage/ranking evidence selection passes 53 tests in 0.99s.
+- All six evidence modules pass 68 tests in 4.24s in a fresh depth-one
+  checkout with network access blocked and no credential copying, exit 0.
+- Six named mutants produce named test failures with DID NOT RAISE, exit 1,
+  and restored passes, exit 0. The receipts retain immutable source and test
+  bytes, SHA-256 hashes, complete commands and outputs. The type tests use
+  boolean/float values numerically equal to valid integer counters; ordinary
+  arithmetic and inventory lengths would otherwise accept them. Duplicate
+  tests preserve list lengths so completeness checks cannot mask the defect.
+  No mutation remains. Prior mutation receipts are unchanged.
+- Ruff and `git diff --check` pass. The normal multi-file Black formatter
+  fails at process-pool startup with sandbox PermissionError. Both changed
+  files pass the ordinary single-file formatter. The full-tree check uses
+  the existing serial scheduler through temporary sitecustomize, preserving
+  the installed formatter and safety checks:
+  `PYTHONPATH=/tmp/issue4426-accounting-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`.
+
+Reproduce the recorded checks with:
+
+```bash
+python docs/evidence/issue-4426/archive-accounting-validation-driver.txt
+python docs/evidence/issue-4426/archive-accounting-mutation-driver.txt
+python docs/evidence/issue-4426/follow-up-shallow-driver.txt docs/evidence/issue-4426/archive-accounting-shallow-validation.json
+```
+
+Active-checkout staging fails because `.git/index.lock` is read-only. The
+verified source/test payload is delivered in an isolated local commit and
+`/tmp/issue4426-archive-accounting.patch`; the active branch and remote PR
+head are unchanged. PR #4520 was reverified open with draft=false. Artifact
+bytes, comparable original-round execution, exact-head follow-up Gate results,
+and attributable round-wide reduction remain unavailable. Historical
+coverage-measurement.json and ranking.json snapshots remain unchanged, and
+all incomplete task checkboxes remain unchecked.
+
+The final full-tree Black check passes: `957 files would be left unchanged`,
+exit 0. The isolated commit contains the same source/test bytes as the
+validated active checkout; the exported patch includes the complete receipts.
