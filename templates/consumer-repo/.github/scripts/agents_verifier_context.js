@@ -560,6 +560,28 @@ function extractReferencedRunIds(texts) {
   return ids;
 }
 
+// Extract run references with repository context from URLs.
+// Returns array of {runId, repository, headSha} tuples when available.
+const WORKFLOW_RUN_URL_WITH_REPO_RE = /https:\/\/github\.com\/([^/]+\/[^/]+)\/actions\/runs\/(\d+)(?:\/|\?|#|[\s)\[\]{}<>"'`]|$)/g;
+function extractReferencedRunProvenance(texts) {
+  const provenance = [];
+  const seen = new Set();
+  for (const text of texts || []) {
+    const value = String(text || '');
+    WORKFLOW_RUN_URL_WITH_REPO_RE.lastIndex = 0;
+    let match;
+    while ((match = WORKFLOW_RUN_URL_WITH_REPO_RE.exec(value)) !== null) {
+      const runId = Number(match[2]);
+      const repository = match[1];
+      if (Number.isFinite(runId) && runId > 0 && repository && !seen.has(`${repository}:${runId}`)) {
+        seen.add(`${repository}:${runId}`);
+        provenance.push({ runId, repository, headSha: null });
+      }
+    }
+  }
+  return provenance;
+}
+
 // Evidence selection and incidental fallback share semantic boundaries. A
 // comma-conjoined URL is a subject member, not an independent clause. Only
 // contrast governors or independent non-URL clauses split that coordination.
@@ -1420,6 +1442,8 @@ async function fetchVerifierEvidence({
     return filtered.join('\n');
   });
   const allReferencedRunIds = extractReferencedRunIds([...typedEvidenceTexts, ...fallbackReferenceTexts]);
+  // Extract provenance information including repository context for downstream runs
+  const allReferencedRunProvenance = extractReferencedRunProvenance([...typedEvidenceTexts, ...fallbackReferenceTexts]);
   // A status-table "View run" or bare incidental body/comment URL is not an
   // explicit evidence selection. Typed evidence inputs and locally labelled
   // evidence lines select their union before budgeting; incidental links retain
@@ -1448,6 +1472,8 @@ async function fetchVerifierEvidence({
   const runIds = [];
   const runHeads = new Map();
   const runPaths = new Map();
+  const runRepositories = new Map();
+  const downstreamRunProvenance = new Map();
   const runMetadata = new Map();
   const pendingManualBindings = new Map();
   const historicalBaselineBindings = new Map();
@@ -1477,14 +1503,24 @@ async function fetchVerifierEvidence({
       if (!github?.rest?.actions?.getWorkflowRun) {
         throw new Error('workflow run provenance API is unavailable');
       }
+      // Determine the repository for this run: use explicit provenance if available, otherwise current repo
+      const runProvenance = allReferencedRunProvenance.find(p => p.runId === runId);
+      const targetRepo = runProvenance?.repository ? runProvenance.repository.split('/') : null;
+      const targetOwner = targetRepo?.[0];
+      const targetRepoName = targetRepo?.[1];
+      const isDownstreamRun = targetOwner && targetRepoName && 
+        (`${targetOwner}/${targetRepoName}`).toLowerCase() !== `${owner}/${repo}`.toLowerCase();
+      
       const response = await github.rest.actions.getWorkflowRun({
-        owner,
-        repo,
+        owner: isDownstreamRun ? targetOwner : owner,
+        repo: isDownstreamRun ? targetRepoName : repo,
         run_id: runId,
       });
       const workflowRun = response?.data;
       const returnedRunId = Number(workflowRun?.id);
       const runHeadSha = String(workflowRun?.head_sha || '').toLowerCase();
+      const runRepository = workflowRun?.repository?.full_name?.toLowerCase();
+      
       if (returnedRunId !== runId || !isValidSha(runHeadSha)) {
         artifactIncomplete = true;
         artifacts.reason = `referenced workflow run ${runId} returned invalid provenance`;
@@ -1492,12 +1528,26 @@ async function fetchVerifierEvidence({
         diagnostics.counters.provenance_failures += 1;
         continue;
       }
+      
+      // Track downstream run provenance
+      if (isDownstreamRun) {
+        if (!runRepository || runRepository !== `${targetOwner}/${targetRepoName}`.toLowerCase()) {
+          artifactIncomplete = true;
+          artifacts.reason = `downstream run ${runId} repository mismatch: expected ${targetOwner}/${targetRepoName}, got ${runRepository || 'unknown'}`;
+          fail('artifacts', 'downstream_provenance', artifacts.reason);
+          diagnostics.counters.provenance_failures += 1;
+          continue;
+        }
+        downstreamRunProvenance.set(runId, { repository: runRepository, head_sha: runHeadSha });
+        runRepositories.set(runId, runRepository);
+      }
+      
       if (!exactCommitShas.has(runHeadSha)) {
-        const binding=historicalManualVerifierBinding(workflowRun,{owner,repo,pullNumber,associatedCommitShas});
-        const comparisonBaseline = await comparisonBaselineBinding(github, workflowRun, {owner,repo,evaluatedSha,selectors:artifactSelectors});
+        const binding=historicalManualVerifierBinding(workflowRun,{owner:isDownstreamRun ? targetOwner : owner,repo:isDownstreamRun ? targetRepoName : repo,pullNumber,associatedCommitShas});
+        const comparisonBaseline = await comparisonBaselineBinding(github, workflowRun, {owner:isDownstreamRun ? targetOwner : owner,repo:isDownstreamRun ? targetRepoName : repo,evaluatedSha,selectors:artifactSelectors});
         const baseline = comparisonBaseline || (!binding && explicitEvidenceRunIds.has(runId)
           ? await historicalCiBaselineBinding(github, workflowRun,
-            {owner, repo, pullNumber, texts: proseReferenceTexts}) : null);
+            {owner: isDownstreamRun ? targetOwner : owner, repo: isDownstreamRun ? targetRepoName : repo, pullNumber, texts: proseReferenceTexts}) : null);
         if (binding) {
           pendingManualBindings.set(runId,binding);
         } else if (baseline) {
@@ -1642,13 +1692,19 @@ async function fetchVerifierEvidence({
       break;
     }
     try {
+      // Determine the repository for this run (may be downstream)
+      const runRepository = runRepositories.get(runId);
+      const artifactOwner = runRepository ? runRepository.split('/')[0] : owner;
+      const artifactRepo = runRepository ? runRepository.split('/')[1] : repo;
+      const isDownstream = !!runRepository;
+      
       if ((!github?.rest?.actions?.listWorkflowRunArtifacts && !selectedRunIds.has(runId)) || !github?.rest?.actions?.downloadArtifact) {
         throw new Error('workflow artifact API is unavailable');
       }
       const listing = inspectedArtifacts < artifactLimit && github?.rest?.actions?.listWorkflowRunArtifacts
         ? await boundedEvidencePages({
           method: github.rest.actions.listWorkflowRunArtifacts,
-          params: { owner, repo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
+          params: { owner: artifactOwner, repo: artifactRepo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
           pageLimit: positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_PAGES', Math.ceil(artifactLimit / 100)), kind: 'artifact', diagnostics,
         }) : {items:[],failure:inspectedArtifacts >= artifactLimit ? 'record' : 'transport',detail:'optional artifact listing bound or API unavailable'};
       const selectedArtifactIds = new Set(artifactSelectors.filter(row => row.run_id === runId).map(row => row.artifact_id));
@@ -1657,14 +1713,15 @@ async function fetchVerifierEvidence({
         if (listing.items.some(item => item.id === artifactId)) continue;
         try {
           if (!github?.rest?.actions?.getArtifact) throw new Error('Selected artifact metadata API unavailable');
-          const artifact = (await github.rest.actions.getArtifact({owner,repo,artifact_id:artifactId,request:{timeout:15000}})).data;
+          const artifact = (await github.rest.actions.getArtifact({owner: artifactOwner, repo: artifactRepo, artifact_id: artifactId, request: {timeout: 15000}})).data;
           const origin = runMetadata.get(runId);
           const binding = artifact?.workflow_run;
+          const expectedRepository = isDownstream ? runRepository : `${owner}/${repo}`.toLowerCase();
           if (artifact?.id !== artifactId || !binding || binding.id !== runId || binding.head_sha !== runHeads.get(runId)
               || !Number.isSafeInteger(origin?.repository?.id) || origin.repository.id < 1
-              || String(origin.repository.full_name).toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+              || String(origin.repository.full_name).toLowerCase() !== expectedRepository
               || origin.head_repository?.id !== origin.repository.id
-              || String(origin.head_repository?.full_name).toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+              || String(origin.head_repository?.full_name).toLowerCase() !== expectedRepository
               || binding.repository_id !== origin.repository.id || binding.head_repository_id !== origin.head_repository.id
               || typeof artifact.expired !== 'boolean' || !/^sha256:[a-f0-9]{64}$/.test(artifact.digest || '')) {
             throw Object.assign(new Error('Selected artifact run/repository/head/digest identity mismatch'),{code:'SELECTED_ARTIFACT_PROVENANCE'});
@@ -1672,7 +1729,8 @@ async function fetchVerifierEvidence({
           directArtifacts.push(artifact);
         } catch (error) {
           artifactIncomplete=true;
-          diagnostics.archive_inventory.push({repository:`${owner}/${repo}`,run_id:runId,head_sha:runHeads.get(runId),
+          const captureRepository = runRepositories.get(runId) || `${owner}/${repo}`;
+          diagnostics.archive_inventory.push({repository: captureRepository, run_id:runId,head_sha:runHeads.get(runId),
             artifact_id:artifactId,status:'unavailable',members:null,reason:'selected_metadata_lookup_failed'});
           fail('artifacts',error.code==='SELECTED_ARTIFACT_PROVENANCE'?'provenance':'artifact_transport',`selected artifact ${artifactId}: ${error.message}`);
           if(error.code==='SELECTED_ARTIFACT_PROVENANCE') diagnostics.counters.provenance_failures+=1;
@@ -1696,7 +1754,8 @@ async function fetchVerifierEvidence({
         if (!artifactSelectors.length || !isSelected) inspectedArtifacts += 1;
         // Preserve identities even when no payload can be admitted. This is a
         // capture ledger, never semantic proof or a completeness upgrade.
-        const capture = { repository: `${owner}/${repo}`, run_id: runId,
+        const captureRepository = runRepositories.get(runId) || `${owner}/${repo}`;
+        const capture = { repository: captureRepository, run_id: runId,
           head_sha: runHeads.get(runId), artifact_id: artifact.id,
           name: artifact.name || '', status: 'unavailable', members: null,
           ...(historicalBaselineBindings.has(runId) ? {
@@ -1752,9 +1811,11 @@ async function fetchVerifierEvidence({
           if (usedArtifactChars >= totalArtifactChars) fail('artifacts', 'global_character', `artifact ${artifact.id}`);
           continue;
         }
+        const downloadOwner = runRepositories.get(runId) ? runRepositories.get(runId).split('/')[0] : owner;
+        const downloadRepo = runRepositories.get(runId) ? runRepositories.get(runId).split('/')[1] : repo;
         const download = await github.rest.actions.downloadArtifact({
-          owner,
-          repo,
+          owner: downloadOwner,
+          repo: downloadRepo,
           artifact_id: artifact.id,
           archive_format: 'zip',
         });
@@ -3015,6 +3076,7 @@ module.exports = {
   comparisonBaselineBinding,
   historicalManualVerifierBinding,
   validateHistoricalManualArtifact,
+  extractReferencedRunProvenance,
   retainCaptureBytes,
   extractArtifactArchiveText,
   formatVerifierEvidence,
