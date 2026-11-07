@@ -287,3 +287,57 @@ Active-checkout staging is blocked: `git add` cannot create `.git/index.lock`
 because the Git metadata mount is read-only. The workspace edits are preserved;
 an isolated local commit/patch can carry the tested payload without changing
 this checkout's branch or representing a remote Gate run.
+
+
+## Chunk failure coverage selection, 2026-11-07
+
+Before editing, the required four-module selection with targeted verifier
+coverage passed 156 tests in 6.30s, exit 0 (Cover: 22.90%). The evidence and
+ranked remainder selection passed 57 tests in 1.39s, exit 0. The existing
+finite stop rule remains in force. Selected symbol: `_evaluate_chunked`,
+specifically failed cross-file synthesis and per-chunk coverage rejection.
+These are reachable failure paths; no feature
+switch is enabled to reach disabled code. Other selected symbols considered
+were `_coerce_response_content` and comparison rendering; existing tests already
+cover their observed gaps, so this chunk adds no duplicate tests there.
+
+Artifact 13537639987 still reports the recorded head and archive digest through
+the connector. Local `gh run download` exits 1 with a connection error. Task 1
+remains blocked on artifact bytes and comparable original-round execution.
+The PR task reconciliation attempted to uncheck task 2 and task 6, matching
+`follow-up-status.md`; the connector rejected that write because its approval
+policy is `never`. No PR-body update is claimed. The current PR is open and
+ready for review. No new checkbox is marked complete.
+
+
+Results for the chunk failure selection:
+
+- `python docs/evidence/issue-4426/chunk-failure-mutation-driver.txt`
+  records five named failures, exit 1, and five restored passes, exit 0.
+  The separate JSON receipt retains immutable symbol and test source evidence.
+- The required four-module selection with targeted
+  `--cov=scripts.langchain.pr_verifier --cov-branch --cov-report=term`
+  passes 161 tests in 10.53s, exit 0. The target Cover column is 40.21% for
+  this focused selection. No whole-suite coverage is claimed.
+- The three-module chunk selection passes 68 tests in 5.72s, exit 0. Its
+  identical baseline command passes 63 tests in 6.30s. The module counters
+  change from 1635 missing lines / 869 missing branch outcomes to 1631 / 868.
+  Both denominators stay 3188 statements / 1288 branch outcomes.
+  `chunk-failure-validation.json` records the exact newly covered units and
+  symbol-level inventories; this is a five-unit local incremental gain.
+- `python docs/evidence/issue-4426/follow-up-shallow-driver.txt
+  docs/evidence/issue-4426/chunk-failure-shallow-validation.json` passes all
+  68 evidence tests in 7.84s from a fresh depth-one checkout with network
+  calls blocked and no credential copying, exit 0.
+- Ruff and `git diff --check` pass. The active checkout still rejects staging
+  because `.git/index.lock` is on a read-only filesystem. No push or follow-up
+  Gate execution is claimed.
+
+
+The complete Black check with the retained serial adapter passes, exit 0:
+`955 files would be left unchanged`. The normal CLI also passes for the changed
+Python file alone. Process-pool startup is unavailable in this sandbox; the
+adapter preserves formatter safety checks and source discovery. An earlier
+serial attempt was interrupted while deliberate mutants were active and is
+not the final formatting result. Mutation execution finished and restored
+production source before the successful complete check.

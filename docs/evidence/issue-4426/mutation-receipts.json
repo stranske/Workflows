@@ -2283,5 +2283,7 @@
     "named_failures": 6,
     "restored_passes": 6,
     "source_restored": true
-  }
+  },
+  "chunk_failure_receipts_record": "chunk-failure-mutations.json",
+  "chunk_failure_production_restored": true
 }

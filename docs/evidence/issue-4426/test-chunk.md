@@ -57,3 +57,27 @@ pending, with no exclusion claimed. `_create_followup_issue` is not selected:
 its feature switch currently always returns false, so re-enabling that switch
 only in a test would not validate a production path. This is a symbol-level
 selection decision, not an exclusion of `pr_verifier.py`.
+
+
+## Chunk failure coverage, 2026-11-07
+
+Selected symbol: `_evaluate_chunked`, in the highest-ranked target
+`scripts/langchain/pr_verifier.py`. The added ranked remainder tests exercise
+failed cross-file synthesis after successful assigned-file inspections, and
+local prompt rejection for unavailable code or required evidence. They assert
+review credit, conservative verdicts, preserved concrete findings, and zero
+provider calls for rejected input. Provider invocation and local prompt
+measurement are the test seams; chunk construction and aggregation run as-is.
+
+Five parameter cases each have a named mutation failure and restored pass in
+`chunk-failure-mutations.json`; reproduce with
+`python docs/evidence/issue-4426/chunk-failure-mutation-driver.txt`.
+The prior receipts and their source snapshots remain unchanged.
+
+Against the same three-module chunk suite, the additions cover statements
+6833, 6843, 6960 and 6961 and branch outcome 6832->6833. All five units appear
+in the final-head Gate missing report. This is a local incremental gain of
+five units under unchanged source and configuration, not the attributable
+approximately 180-unit round-wide result. All six targets retain their
+recorded disposition; none is excluded. Task 1 remains blocked on comparable
+artifact recovery, and full task 2 acceptance remains unverified.

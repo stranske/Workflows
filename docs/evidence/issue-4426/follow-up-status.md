@@ -1,6 +1,21 @@
 # Issue #4500 follow-up status, 2026-11-07
 
-Latest per-target accounting chunk:
+Latest behavioral chunk:
+
+The ranked remainder file now includes five failure-path cases for
+`_evaluate_chunked`. The same chunk suite before and after shows a five-unit
+incremental gain: four statements and one branch outcome, all missing in the
+recorded final Gate log. `chunk-failure-validation.json` binds the configuration,
+source hashes, summaries and symbol-level missing inventories. This local gain
+does not establish original-round attribution or close the approximately
+180-unit contract. Five named mutants fail and pass after restoration in
+`chunk-failure-mutations.json`; no production mutation remains. The required
+behavioral selection passes 161 tests in 10.53s; all 68 evidence tests pass in
+a shallow offline checkout. PR-body reconciliation was attempted but rejected
+by the connector's approval policy, so the remote checked tasks 2 and 6 still
+overstate the incomplete acceptance described below.
+
+Prior per-target accounting chunk:
 
 `coverage-measurement.json` and `ranking.json` now retain every selected
 target's original-runtime and final counters, denominator changes and explicit
