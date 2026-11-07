@@ -1,5 +1,52 @@
 # Issue #4426 Gate check and stop rule
 
+## Identity validation follow-up, 2026-11-07
+
+Before this chunk's edits, `python -m pytest -q
+tests/docs/test_issue_4426_coverage_measurement.py
+tests/docs/test_issue_4426_ranking.py -m 'not slow' --tb=short` reports
+`26 passed in 0.70s`, exit 0. The existing two-failure, 10-minute command,
+20-minute step, and under-two-minute focused limits remain in force.
+Selected symbol: `reconcile_gate_reports`. This chunk pins the original and
+final run identities independently of their agreement with supplied log excerpts,
+including merge parents, runtime/job association, PR number, and archive digest.
+
+The connector reverified run `42287174423` and artifact `13537639987` against
+head `97fa3cdd6b198623db4adc86f16f0b3788320794`. The local retry
+`gh run download 42287174423 --repo stranske/Workflows --name gate-coverage-3.14-1
+--dir /tmp/issue-4426-gate-recheck` exits 1 with `error connecting to api.github.com`.
+No archive bytes, comparable original-round execution, or attributable reduction
+are claimed. Historical evidence and counters stay preserved.
+
+Final results for this identity chunk:
+
+- Required focused acceptance: `156 passed in 2.09s`, exit 0. The same selection
+  with targeted `--cov=scripts.langchain.pr_verifier --cov-branch` passes 156
+  tests in 3.78s; its coverage is 22.90%, not whole-suite coverage or attribution.
+- `python docs/evidence/issue-4426/identity-mutation-driver.txt` records four
+  named mutants: all 24 new parameter cases fail, exit 1, and pass after source
+  restoration, exit 0. Immutable source and complete outputs are retained in
+  `identity-validation-source.py.txt` and `identity-validation-mutations.json`.
+  The prior reconciliation receipts are retained unchanged.
+- `python docs/evidence/issue-4426/follow-up-shallow-driver.txt
+  docs/evidence/issue-4426/identity-shallow-validation.json` runs all six evidence
+  modules in a fresh depth-one checkout with network blocked and no credential
+  copying. It passes 65 tests; the separate output preserves the historical run.
+- Ruff passes on the changed Python module. Black formats it at line length 100.
+  Default full-tree Black fails at sandbox process-pool startup; the one-worker
+  retry stalls and is interrupted. The existing serial adapter, using the same
+  installed formatter and full check flags, reports `955 files would be left
+  unchanged`, exit 0:
+  `python docs/evidence/issue-4426/black-serial-driver.txt --check --line-length 100
+  --exclude '(\.workflows-lib|node_modules)' .`.
+- Active-checkout `git add` fails because `.git/index.lock` is on a read-only
+  filesystem. This chunk is packaged in an isolated local commit; no push or
+  exact-head Gate execution is claimed. PR #4520 is open and ready for review.
+
+The first task remains incomplete: pinned identities and defensible log counts
+do not supply comparable original-round artifact counters or the attributable
+approximately 180-unit reduction. No task checkbox is advanced by these guards.
+
 Latest local reconciliation results, 2026-11-07: the required focused selection
 passes 156 tests in 4.57s (exit 0); targeted verifier smoke coverage passes the
 same 156 tests in 6.14s, reporting 22.90% for this selection only. All six

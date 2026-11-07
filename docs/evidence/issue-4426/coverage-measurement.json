@@ -260,7 +260,8 @@
     "unknown_is_not_zero_improvement": true,
     "term_report_record": "term_report_reconciliation",
     "log_derived_target_missing_units": 238,
-    "unattributed_original_round_snapshot_difference": 164
+    "unattributed_original_round_snapshot_difference": 164,
+    "identity_validation_record": "identity-validation-mutations.json"
   },
   "term_report_reconciliation": {
     "source": "gate-report-inputs.json",

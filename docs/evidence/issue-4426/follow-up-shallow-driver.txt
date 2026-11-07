@@ -43,7 +43,8 @@ env['PYTHONPATH'] = str(work)+os.pathsep+str(checkout)
 start = time.monotonic()
 result = subprocess.run(command, cwd=checkout, env=env, text=True, capture_output=True, timeout=110)
 record = {'command': command, 'is_shallow': True, 'network_guard': True, 'credential_copying': False, 'checkout': str(checkout), 'exit_code': result.returncode, 'elapsed_seconds': round(time.monotonic()-start,3), 'output': result.stdout + result.stderr}
-(root/'docs/evidence/issue-4426/shallow-validation.json').write_text(json.dumps(record,indent=2)+'\n')
+output = Path(sys.argv[1]) if len(sys.argv) > 1 else root/'docs/evidence/issue-4426/shallow-validation.json'
+output.write_text(json.dumps(record,indent=2)+'\n')
 print(record['output'])
 print('Shallow:', shallow, 'exit:', result.returncode, 'seconds:', record['elapsed_seconds'])
 sys.exit(result.returncode)

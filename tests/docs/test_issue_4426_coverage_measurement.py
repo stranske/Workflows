@@ -95,29 +95,68 @@ def recover_report_targets(lines: list[str]) -> dict:
 
 def reconcile_gate_reports(inputs: dict) -> dict:
     """Bind log-derived counters to run, artifact, PR head, and merge identity."""
+    # Pin identities independently: agreement among supplied fields alone would
+    # accept another checkout if its metadata and log excerpts changed together.
+    pre_round = inputs["pre_round"]
+    if pre_round["run"] != {
+        "id": 38980711116,
+        "head_sha": "8abd5ec784c97572b2f8baf99e0157bf64728fbb",
+        "conclusion": "success",
+        "checkout_sha": "682c12c02f24e2b8ee8d69da0d54dae28a87977d",
+    } or {version: runtime["job_id"] for version, runtime in pre_round["runtimes"].items()} != {
+        "3.12": 117244209085,
+        "3.13": 117244209133,
+    }:
+        raise ValueError("pre-round Gate identity mismatch")
     final = inputs["final_head"]
     run, artifact, checkout = final["run"], final["artifact"], final["checkout"]
     if (
-        run["id"] != 42287174423
+        run
+        != {
+            "id": 42287174423,
+            "head_sha": "97fa3cdd6b198623db4adc86f16f0b3788320794",
+            "conclusion": "success",
+            "checkout_sha": "e4e584ea61852751c55749ab9ed6539fa10c9a31",
+        }
+        or final["pr"] != {"number": 4481, "head_sha": run["head_sha"]}
         or artifact["id"] != 13537639987
+        or artifact["name"] != "gate-coverage-3.14-1"
+        or artifact["digest"]
+        != "sha256:c754151adf08a07da718d76b40da09c814ef2ae09e69b982c0635cd9e608c839"
         or artifact["workflow_run"]["id"] != run["id"]
-        or run["head_sha"] != final["pr"]["head_sha"]
         or artifact["workflow_run"]["head_sha"] != run["head_sha"]
-        or checkout["sha"] != run["checkout_sha"]
-        or checkout["parents"][1:] != [run["head_sha"]]
-        or run["conclusion"] != "success"
+        or checkout
+        != {
+            "sha": run["checkout_sha"],
+            "tree_sha": "c9e0d5158f0dd4bc8166c3667439219b7e943fd9",
+            "parents": [
+                "d216eaafb02c97ed5f1da16a10d46d9a967c616f",
+                run["head_sha"],
+            ],
+        }
+        or final["runtime"]["python"] != "3.14"
+        or final["runtime"]["job_id"] != 128131232558
     ):
         raise ValueError("final Gate identity mismatch")
-    for snapshot, runtimes in (
-        (inputs["pre_round"], inputs["pre_round"]["runtimes"].values()),
-        (final, [final["runtime"]]),
+    for snapshot, runtimes, base_sha in (
+        (
+            pre_round,
+            pre_round["runtimes"].values(),
+            "e015a93aaa27bc613a979a0e10329a7d9f84b0ed",
+        ),
+        (final, [final["runtime"]], checkout["parents"][0]),
     ):
         for runtime in runtimes:
             expected = (
-                f"HEAD is now at {snapshot['run']['checkout_sha'][:7]} "
-                f"Merge {snapshot['run']['head_sha']} into "
+                f"{snapshot['run']['checkout_sha'][:7]} "
+                f"Merge {snapshot['run']['head_sha']} into {base_sha}"
             )
-            if not any(expected in line for line in runtime["lines"]):
+            observed = [
+                line.split(" HEAD is now at ", 1)[1]
+                for line in runtime["lines"]
+                if " HEAD is now at " in line
+            ]
+            if not observed or any(identity != expected for identity in observed):
                 raise ValueError("log checkout identity mismatch")
     baseline = {
         version: recover_report_targets(runtime["lines"])
@@ -372,6 +411,85 @@ def test_reconciliation_rejects_artifact_or_log_from_another_run() -> None:
             reconcile_gate_reports(inputs)
     inputs = copy.deepcopy(_report_inputs())
     inputs["final_head"]["runtime"]["lines"] = inputs["pre_round"]["runtimes"]["3.13"]["lines"]
+    with pytest.raises(ValueError, match="log checkout identity mismatch"):
+        reconcile_gate_reports(inputs)
+
+
+@pytest.mark.parametrize("field", ["id", "head_sha", "conclusion", "checkout_sha", "job_id"])
+def test_reconciliation_rejects_substituted_baseline(field) -> None:
+    inputs = copy.deepcopy(_report_inputs())
+    baseline = inputs["pre_round"]
+    record = baseline["runtimes"]["3.12"] if field == "job_id" else baseline["run"]
+    record[field] = 1 if field in {"id", "job_id"} else "0" * 40
+    with pytest.raises(ValueError, match="pre-round Gate identity mismatch"):
+        reconcile_gate_reports(inputs)
+
+
+@pytest.mark.parametrize("version", ["3.12", "3.13"])
+def test_reconciliation_requires_both_baseline_runtime_jobs(version) -> None:
+    inputs = copy.deepcopy(_report_inputs())
+    del inputs["pre_round"]["runtimes"][version]
+    with pytest.raises(ValueError, match="pre-round Gate identity mismatch"):
+        reconcile_gate_reports(inputs)
+
+
+@pytest.mark.parametrize(
+    "section,key,value",
+    [
+        ("pr", "number", 4477),
+        ("artifact", "name", "gate-coverage-3.13-1"),
+        ("artifact", "digest", "sha256:" + "0" * 64),
+        ("checkout", "tree_sha", "0" * 40),
+        ("checkout", "parents", ["0" * 40, "97fa3cdd6b198623db4adc86f16f0b3788320794"]),
+        ("runtime", "python", "3.13"),
+        ("runtime", "job_id", 128005600052),
+    ],
+)
+def test_reconciliation_rejects_substituted_final_provenance(section, key, value) -> None:
+    inputs = copy.deepcopy(_report_inputs())
+    inputs["final_head"][section][key] = value
+    with pytest.raises(ValueError, match="final Gate identity mismatch"):
+        reconcile_gate_reports(inputs)
+
+
+@pytest.mark.parametrize("snapshot", ["pre_round", "final_head"])
+def test_reconciliation_rejects_coordinated_head_and_log_substitution(snapshot) -> None:
+    inputs = copy.deepcopy(_report_inputs())
+    record = inputs[snapshot]
+    original_head = record["run"]["head_sha"]
+    replacement_head = "0" * 40
+    record["run"]["head_sha"] = replacement_head
+    if snapshot == "final_head":
+        record["pr"]["head_sha"] = replacement_head
+        record["artifact"]["workflow_run"]["head_sha"] = replacement_head
+        record["checkout"]["parents"][1] = replacement_head
+        runtimes = [record["runtime"]]
+    else:
+        runtimes = record["runtimes"].values()
+    for runtime in runtimes:
+        runtime["lines"] = [
+            line.replace(original_head, replacement_head) for line in runtime["lines"]
+        ]
+    with pytest.raises(ValueError, match="Gate identity mismatch"):
+        reconcile_gate_reports(inputs)
+
+
+@pytest.mark.parametrize("snapshot", ["pre_round", "final_head"])
+@pytest.mark.parametrize("mode", ["replace", "append", "remove", "suffix"])
+def test_reconciliation_checks_every_log_merge_parent(snapshot, mode) -> None:
+    inputs = copy.deepcopy(_report_inputs())
+    record = inputs[snapshot]
+    runtime = record["runtime"] if snapshot == "final_head" else record["runtimes"]["3.12"]
+    index = next(i for i, line in enumerate(runtime["lines"]) if " HEAD is now at " in line)
+    checkout_line = runtime["lines"][index]
+    if mode == "replace":
+        runtime["lines"][index] = checkout_line.rsplit(" into ", 1)[0] + " into " + "0" * 40
+    elif mode == "append":
+        runtime["lines"].append(checkout_line.rsplit(" into ", 1)[0] + " into " + "0" * 40)
+    elif mode == "suffix":
+        runtime["lines"][index] += " (different checkout)"
+    else:
+        runtime["lines"] = [line for line in runtime["lines"] if " HEAD is now at " not in line]
     with pytest.raises(ValueError, match="log checkout identity mismatch"):
         reconcile_gate_reports(inputs)
 
