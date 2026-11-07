@@ -1,5 +1,40 @@
 # Issue #4506 delivery verification — 2026-11-07
 
+## Dispatch rejection and ownership recovery
+
+Added one controller-path regression for the first unchecked task. After a
+native canary dispatch returns HTTP 403, the next invocation must collect
+writer state again. If an old-source promotion acquired ownership in between,
+the retry holds without attempting dispatch or mutating that writer. A later
+empty native inventory permits recovery with the same selected payload,
+`force=false`, and `cleanup_branches=false`. All remote operations in the test
+are inert doubles; this does not establish live regeneration.
+
+Validation: `node tests/scripts/test_maint71_promote_dispatch.js` passed
+**52 tests** (baseline: 51); the scoped-refresh suite passed **86 tests**.
+The named two-file pytest command with `-m 'not slow'` passed **351 tests in
+10.69s, no skips**, using Python 3.14.10 and installed mypy 2.4.1.
+`git diff --check` passed. No Python or workflow files changed.
+
+Fresh connected reads still show trip-planner #1957 open and ready at
+`7ca6deb8d219fe9137fcb220de745e063f42c51c`. Native mypy job `128338642025`
+still binds its successful 484-file typecheck to that head. The required
+literal `gh run view 42350906876 --repo stranske/trip-planner --log` again
+failed to connect. Source #4485/#4506 and consumer #1957 still provide no
+next-head sync-core classification; the latest source handoff remains round
+`20261107T011939Z` on older head prefix `7f96a095cbd6`. Neither documented
+controller-local receipt directory exists here. No live writer was changed
+or regeneration dispatched, and no additional task is complete.
+
+Attempts to correct the two unsupported checked literal-gh items, add
+`needs-human`, and publish the concrete blocker comment were each rejected:
+`MCP tool call requires approval, but approval policy is never`. No remote
+checklist, label, or comment update succeeded.
+
+The requested commit could not be created: `git add` failed with
+`.git/index.lock: Read-only file system`. The tested JavaScript and evidence
+remain in the working tree for the automation writer.
+
 ## Canary dispatch with lagging general history
 
 Reviewed recent commits through `f8be0d53`. No new operational checkbox is

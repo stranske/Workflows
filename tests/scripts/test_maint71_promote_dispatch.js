@@ -588,6 +588,65 @@ test('canary dispatch retains a native writer omitted from general run history',
   }
 });
 
+test('failed canary dispatch rechecks native ownership before retrying', async () => {
+  const api = harness();
+  const previousSource = 'e'.repeat(40);
+  const writer = promotionRun({
+    status: 'in_progress', conclusion: null, head_sha: previousSource,
+    display_title: `Maint 68 promote auto sha256:${'f'.repeat(64)} ${previousSource}`,
+  });
+  const original = structuredClone(writer);
+  let active = false;
+  api.client.rest.repos.getCommit = async () => ({ data: { sha: sourceCommit } });
+  api.client.rest.repos.getContent = async () => ({ data: {
+    content: Buffer.from(JSON.stringify({
+      canaries: expectedCanaries.map((repo) => ({ repo })),
+    })).toString('base64'),
+  } });
+  api.client.rest.actions.listWorkflowRuns = async (params) => {
+    api.reads.push(params);
+    assert.equal(params.head_sha, undefined, 'retry must observe writers on other sources');
+    return { data: { workflow_runs: active && params.status === writer.status ? [writer] : [] } };
+  };
+  const denied = Object.assign(new Error('canary dispatch denied'), { status: 403 });
+  api.client.rest.actions.createWorkflowDispatch = async (params) => {
+    api.dispatched.push(params);
+    throw denied;
+  };
+  const args = { ...api, expectedCanaries, now, cleanupBranches: false };
+
+  await assert.rejects(dispatchCanaryRefresh(args), (error) => error === denied);
+  assert.equal(api.dispatched.length, 1, 'a rejected request cannot return a success receipt');
+
+  // Another producer acquires ownership after the rejected request. A retry
+  // must collect native state again instead of reusing the earlier admission.
+  active = true;
+  api.reads.length = 0;
+  const held = await dispatchCanaryRefresh(args);
+  assert.equal(held.dispatched, false);
+  assert.equal(held.state, 'writer-active');
+  assert.equal(held.run_id, writer.id);
+  assert.equal(api.dispatched.length, 1, 'retry cannot attempt dispatch while a writer is live');
+  assert.deepEqual(api.reads.map((row) => row.status),
+    ['queued', 'in_progress', 'waiting', 'pending', 'requested', undefined]);
+  assert.deepEqual(writer, original, 'dispatch recovery must not mutate the live writer');
+
+  active = false;
+  api.client.rest.actions.createWorkflowDispatch = async (params) => {
+    api.dispatched.push(params);
+    return { status: 204 };
+  };
+  const recovered = await dispatchCanaryRefresh(args);
+  assert.equal(recovered.dispatched, true);
+  assert.equal(recovered.state, 'requested');
+  assert.equal(api.dispatched.length, 2);
+  assert.deepEqual(api.dispatched[1], api.dispatched[0], 'recovery must preserve the selected payload');
+  assert.equal(api.dispatched[1].workflow_id, 'maint-68-sync-consumer-repos.yml');
+  assert.equal(api.dispatched[1].inputs.scope_head_sha, sourceCommit);
+  assert.equal(api.dispatched[1].inputs.force, 'false');
+  assert.equal(api.dispatched[1].inputs.cleanup_branches, 'false');
+});
+
 test('delivery refresh waits for every writer when one producer finishes', async () => {
   const api = harness();
   const previousSource = 'e'.repeat(40);
