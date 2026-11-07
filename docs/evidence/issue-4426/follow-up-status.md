@@ -84,3 +84,17 @@ URL cannot resolve locally. `git add` in the working checkout fails creating
 `.git/index.lock` with `Read-only file system`. Repository source edits remain
 reviewable in the workspace; any isolated commit/patch is explicitly identified
 in the final handoff and does not advance this checkout's branch.
+
+
+Native slot follow-up, 2026-11-07: four behavioral tests add 12 parameter cases
+for frozen slot identities, zero native retries, paired SDK checks, synthetic
+provenance and reviewed package prompts. Six named mutation failures and
+restored passes are retained in `native-slot-mutations.json`; production source
+is restored. The matched local two-module run gains 34 units (24 lines and ten
+branches); this is not attributable original-round credit.
+
+Task reconciliation still requires tasks 2 and 6 to be unchecked for their
+unverified full-contract portions, as earlier records explain. The connector
+rejected the requested PR-body correction because approval is required under
+a never-approve run policy. The remote body remains unchanged. No new task
+is complete, and the three originally unchecked items remain incomplete.

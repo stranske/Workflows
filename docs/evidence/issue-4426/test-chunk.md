@@ -81,3 +81,29 @@ five units under unchanged source and configuration, not the attributable
 approximately 180-unit round-wide result. All six targets retain their
 recorded disposition; none is excluded. Task 1 remains blocked on comparable
 artifact recovery, and full task 2 acceptance remains unverified.
+
+
+## Native slot and package admission, 2026-11-07
+
+Selected before editing: `_semantic_slots_and_clients` and
+`_semantic_package_prompt` in the highest-ranked target, `pr_verifier.py`.
+Four added behavioral tests (12 parameter cases) check frozen native provider
+and model identities, both SDKs' zero-retry requirement, paired SDK validation,
+synthetic provenance, exact dependency bytes, assigned obligations and follow-up
+chain depth. Only SDK preparation/contract discovery and prompt loading are
+faked; the slot admission and package assembly execute unchanged.
+
+Six mutations each produce named assertion failures and restored passes in
+`native-slot-mutations.json`. Reproduce with
+`python docs/evidence/issue-4426/native-slot-mutation-driver.txt`.
+`native-slot-validation.json` and its two compressed coverage artifacts record
+the same two-module command before/after the additions: 61/73 tests pass,
+24 additional statements and ten branch outcomes are covered, and no previously
+covered unit is lost. Four of those units are explicitly missing in the final
+Gate log: statements 8454, 8463 and 8515, and arc 8464->8466.
+
+The 34-unit local increment is separate from original-round attribution.
+Source and coverage configuration are unchanged. The other five targets keep
+their previous dispositions; none is excluded. Final artifact recovery,
+comparable original-round execution and passing exact-head Gate results remain
+required before the numerical contract can be marked complete.

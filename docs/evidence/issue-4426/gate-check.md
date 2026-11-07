@@ -454,3 +454,78 @@ Historical snapshots and ranking counters remain intact, and no task checkbox
 is advanced. No exact-head Gate run for this follow-up is claimed.
 Active-checkout staging is still blocked by read-only `.git/index.lock`;
 an isolated local clone carries the tested commit and exported patch.
+
+
+## Native slot and package follow-up, 2026-11-07
+
+Before source edits, the real-input contract/inventory selection passed six
+tests in 0.93s, exit 0. The unchanged ranked-remainder and semantic-integration
+selection with targeted coverage passed 61 tests in 6.26s, exit 0.
+Selected symbols: `_semantic_slots_and_clients` and `_semantic_package_prompt`.
+The final Gate log names statement 8454 (slot mismatch), statements 8463
+and 8515 (native retry rejection and chain-depth handling), and arc
+8464->8466 (unpaired execution). Tests will exercise both paired and unpaired
+slot admission and prompt assembly without provider requests.
+The existing two-failure, 10-minute command, 20-minute step and under-two-minute
+focused limits apply.
+
+Artifact metadata was reverified for run 42287174423, artifact 13537639987
+and head 97fa3cdd6b198623db4adc86f16f0b3788320794. One local archive-reference
+download attempt failed with URLError; no archive bytes were recovered.
+The two historical merge checkout objects are absent from local Git, so
+comparable original-round replay is unavailable here. The 164-unit historical
+snapshot difference remains unattributed.
+
+Reviewing the recent commits found task 2 and task 6 overstate completion:
+their recorded follow-ups still lack the round-wide result and exact-head
+artifact reconciliation. A PR-body write to restore their unchecked state
+was rejected: the connector requires approval and the run policy is never.
+No remote checkbox update is claimed; all remaining criteria stay incomplete.
+
+Reproduce the local baseline with:
+
+```bash
+python -m pytest -q tests/scripts/test_pr_verifier_ranked_remainder.py tests/scripts/test_pr_verifier_semantic_integration.py --cov=scripts.langchain.pr_verifier --cov-branch --cov-report=json:/tmp/issue4426-semantic-before.json --cov-report=term -m 'not slow'
+```
+
+
+Results for the native slot/package chunk are retained in
+`native-slot-validation.json`, its complete before/after coverage JSON gzip
+artifacts, `native-slot-mutations.json`, and
+`native-slot-shallow-validation.json`:
+
+- The unchanged two-module selection passes 61 tests before and 73 after.
+  Both denominators remain 3188 statements and 1288 branches. Missing lines
+  fall from 1393 to 1369; missing branch outcomes fall from 766 to 756.
+  The target Cover column changes from 51.76% to 52.52%. This is a local
+  34-unit increment, with no lost coverage. It is not the required
+  original-round attributable reduction.
+- The required four-module behavioral selection passes 177 tests in 4.06s,
+  exit 0, within the two-minute focused limit.
+- Six deliberate mutations produce named failures, exit 1, and restored
+  passes, exit 0. Immutable selected symbol, test and fixture source is
+  retained with hashes, commands and outputs. No production mutation remains.
+- All six evidence modules pass 68 tests in 4.00s, exit 0, from a fresh
+  depth-one checkout with network calls blocked and no credential copying.
+- Ruff and `git diff --check` pass. Active-checkout staging fails because
+  `.git/index.lock` cannot be created on the read-only metadata mount.
+  No push, remote branch advancement or exact-head Gate execution is claimed.
+
+Reproduce the coverage comparison and focused acceptance run with:
+
+```bash
+python docs/evidence/issue-4426/native-slot-validation-driver.txt
+python docs/evidence/issue-4426/native-slot-mutation-driver.txt
+python docs/evidence/issue-4426/follow-up-shallow-driver.txt docs/evidence/issue-4426/native-slot-shallow-validation.json
+```
+
+
+Full-tree Black validation passes, exit 0: `957 files would be left unchanged`.
+The normal CLI's process-pool launch fails with sandbox PermissionError; a
+temporary sitecustomize uses the existing serial adapter's per-file scheduler
+and preserves all Black formatting and safety checks. The passing command is
+`PYTHONPATH=/tmp/issue4426-native-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`.
+The changed Python file also passes the ordinary formatter. PR #4520 was
+reverified open with draft=false. A temporary local clone is used for the
+source/test commit and `/tmp/issue4426-native-slot.patch`; this cannot advance
+the active checkout's read-only Git metadata or produce remote Gate results.

@@ -2296,5 +2296,17 @@
     "source_restored": true,
     "real_final_artifact_available": false,
     "scope": "offline ingestion only; synthetic fixtures do not establish comparable artifacts or attributable reduction"
+  },
+  "native_slot_follow_up": {
+    "checked_on": "2026-11-07",
+    "receipt_record": "native-slot-mutations.json",
+    "validation_record": "native-slot-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/native-slot-mutation-driver.txt",
+    "named_mutations": 6,
+    "restored_passes": 6,
+    "source_restored": true,
+    "local_incremental_missing_unit_reduction": 34,
+    "attributable_original_round_reduction": null,
+    "scope": "native slot admission and reviewed package prompts; no original-round credit"
   }
 }
