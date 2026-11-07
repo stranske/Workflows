@@ -1159,6 +1159,68 @@ test('HTTP merge failure publishes one warning and one marker receipt, then upda
   assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
 });
 
+for (const writer of ['SERVICE_BOT_PAT', 'github.token']) {
+  test(`${writer} reuses its persisted receipt across independent failed dispatches`, async () => {
+    const discussion = Array.from({ length: 101 }, (_, index) => ({
+      id: index + 1,
+      user: { id: 99, login: 'reviewer', type: 'User' },
+      body: `Review comment ${index + 1}`,
+    }));
+    let persistedComments = structuredClone(discussion);
+    let receiptId;
+
+    for (const [status, message] of [
+      [403, 'Resource not accessible by integration'],
+      [409, 'Head changed'],
+      [405, 'Branch policy prevents merge'],
+    ]) {
+      // A dispatch has no memory of the preceding job: only PR comments persist.
+      const { c, actions, comments } = mergeScanHarness();
+      c.context = { payload: { inputs: { pr_number: '42' } } };
+      c.actions = actions;
+      c.comments = comments;
+      comments.push(...structuredClone(persistedComments));
+      const actor = installMergeFailurePublisher(c);
+      c.guardedMergeCredentialSource = () => writer;
+      if (writer === 'github.token') {
+        Object.assign(actor, { id: 41898282, login: 'github-actions[bot]', type: 'Bot' });
+        c.github.rest.users.getAuthenticated = async () => {
+          throw Object.assign(new Error('Identity unavailable'), { status: 403 });
+        };
+      } else if (status !== 403) {
+        actor.login = 'renamed-automation-bot';
+      }
+      const { createTokenAwareRetry } = require('../github-api-with-retry');
+      const retry = await createTokenAwareRetry({ github: c.github, core: c.core, env: {} });
+      c.withRetry = retry.withRetry;
+      failMerge(c, { status, message });
+
+      await c.runScan();
+
+      const note = `Merge failed: HTTP ${status} ${message}`;
+      const receipts = comments.filter((comment) => comment.body.startsWith(mergeFailureMarker));
+      assert.equal(receipts.length, 1, 'new jobs must discover and reuse the persisted receipt');
+      assert.equal(receipts[0].body, `${mergeFailureMarker}\n${note}`);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+      assert.deepEqual(comments.slice(0, discussion.length), discussion);
+      if (receiptId === undefined) {
+        receiptId = receipts[0].id;
+        assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+      } else {
+        assert.equal(receipts[0].id, receiptId);
+        assert.equal(actions.some(([kind]) => kind === 'create'), false);
+        assert.deepEqual(actions.filter(([kind]) => kind === 'update').map(([, args]) =>
+          args.comment_id), [receiptId]);
+      }
+      assert.ok(actions.some(([kind, line]) => kind === 'info'
+        && line === `PUT /repos/o/r/pulls/42/merge - ${status}`));
+      assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+      assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+      persistedComments = structuredClone(comments);
+    }
+  });
+}
+
 test('merge failure receipt regression fails when the publisher is removed and passes when restored', async () => {
   const { c, actions, comments } = mergeScanHarness();
   c.actions = actions;
