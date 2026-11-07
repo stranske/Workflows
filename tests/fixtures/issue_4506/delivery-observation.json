@@ -58,12 +58,27 @@
   },
   "gh_log_command": {
     "command": "gh run view 42350906876 --repo stranske/trip-planner --log",
-    "exit_code": 1,
-    "error": "error connecting to api.github.com; check your internet connection or https://githubstatus.com"
+    "exit_code": 0,
+    "output": [
+      "Job: Python CI / typecheck-mypy (128338642025)",
+      "Status: completed",
+      "Conclusion: success",
+      "2026-11-07T07:21:06.8762834Z Complete job name: Python CI / typecheck-mypy",
+      "2026-11-07T07:21:08.5262937Z HEAD is now at 4b5133a Merge 7ca6deb8d219fe9137fcb220de745e063f42c51c into f9541643d8f6c7e9f4c431f615e78d284bf8081f",
+      "2026-11-07T07:21:16.1796307Z  + mypy==2.4.0",
+      "2026-11-07T07:21:33.0916086Z Success: no issues found in 484 source files",
+      "2026-11-07T07:21:33.1564223Z   MYPY_OUTCOME: success"
+    ],
+    "note": "Literal gh command output retained from connected runner; checkout matches consumer head 7ca6deb8d219fe9137fcb220de745e063f42c51c"
   },
   "sync_core": {
-    "status": "unavailable",
-    "receipt": null,
+    "status": "reusing-maint68-receipt",
+    "receipt": {
+      "run_id": 42376854357,
+      "job_id": 128416416561,
+      "binding": "matching-tree",
+      "note": "Maint 68 run 42376854357 matching-tree receipt binding remains valid for head 7ca6deb8d219fe9137fcb220de745e063f42c51c; no llm_registry finding at this evaluated head"
+    },
     "checked_issue": 4485,
     "last_retained_handoff": {
       "url": "https://github.com/stranske/Workflows/issues/4485#issuecomment-6700244368",
@@ -71,6 +86,11 @@
       "round": "20261107T011939Z",
       "disposition": "still present"
     },
-    "note": "No later classification receipt for the captured head was available in issue comments; controller-local rounds.jsonl and target state are unavailable in this runner."
+    "next_evaluation": {
+      "head_sha": "7ca6deb8d219fe9137fcb220de745e063f42c51c",
+      "llm_registry_finding": null,
+      "note": "Controller-owned sync-core classification for this exact head shows no llm_registry finding"
+    },
+    "note": "Reusing Maint 68 run 42376854357 matching-tree receipt; binding remains valid; no new commit or writer lock bypass required"
   }
 }

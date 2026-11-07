@@ -36,8 +36,26 @@ def test_retained_consumer_registry_matches_observed_github_blob():
 def _assert_consumer_mypy_receipt(observation):
     """Require native checkout and executed mypy evidence for the delivered head."""
     ci = observation["ci"]
+    # Assert required CI sections and step names exist before indexing
+    assert "name" in ci, "CI section missing 'name'"
+    assert "status" in ci, "CI section missing 'status'"
+    assert "conclusion" in ci, "CI section missing 'conclusion'"
+    assert "steps" in ci, "CI section missing 'steps'"
+    assert "log_excerpt" in ci, "CI section missing 'log_excerpt'"
+
     assert ci["name"] == "Python CI / typecheck-mypy"
     assert (ci["status"], ci["conclusion"]) == ("completed", "success")
+
+    # Validate steps structure before indexing
+    assert isinstance(ci["steps"], list), "steps must be a list"
+    assert len(ci["steps"]) >= 2, "At least 2 steps required: Mypy (type check) and Finalize mypy"
+
+    step_names = [step["name"] for step in ci["steps"]]
+    for required_name in ("Mypy (type check)", "Finalize mypy"):
+        assert (
+            required_name in step_names
+        ), f"Required step '{required_name}' not found in {step_names}"
+
     steps = {step["name"]: step for step in ci["steps"]}
     for name in ("Mypy (type check)", "Finalize mypy"):
         assert (steps[name]["status"], steps[name]["conclusion"]) == ("completed", "success")
@@ -88,6 +106,100 @@ def test_consumer_mypy_receipt_rejects_incomplete_or_stale_evidence(path, replac
 
     with pytest.raises(AssertionError):
         _assert_consumer_mypy_receipt(observation)
+
+
+@pytest.mark.parametrize(
+    "missing_section",
+    [
+        pytest.param("name", id="missing-ci-name"),
+        pytest.param("status", id="missing-ci-status"),
+        pytest.param("conclusion", id="missing-ci-conclusion"),
+        pytest.param("steps", id="missing-ci-steps"),
+        pytest.param("log_excerpt", id="missing-ci-log-excerpt"),
+    ],
+)
+def test_consumer_mypy_receipt_rejects_missing_ci_sections(missing_section):
+    """Add missing-step rejection coverage: CI sections must exist."""
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+    del observation["ci"][missing_section]
+
+    with pytest.raises(AssertionError) as exc_info:
+        _assert_consumer_mypy_receipt(observation)
+    assert missing_section in str(exc_info.value)
+
+
+def test_consumer_mypy_receipt_rejects_missing_required_steps():
+    """Reject when required step names are missing from the steps list."""
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+    # Keep only one step, remove the other
+    observation["ci"]["steps"] = [observation["ci"]["steps"][0]]
+
+    with pytest.raises(AssertionError) as exc_info:
+        _assert_consumer_mypy_receipt(observation)
+    assert "Finalize mypy" in str(exc_info.value)
+
+
+def test_consumer_mypy_receipt_validates_reordered_steps():
+    """Validate reordered steps/logs still exercise each named corruption."""
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+    # Reverse the order of steps
+    observation["ci"]["steps"] = list(reversed(observation["ci"]["steps"]))
+    # Reverse the order of log excerpts
+    observation["ci"]["log_excerpt"] = list(reversed(observation["ci"]["log_excerpt"]))
+
+    # This should still pass because we check for presence, not order
+    _assert_consumer_mypy_receipt(observation)
+
+
+def test_identify_mutation_targets_by_step_name():
+    """Identify mutation targets by step name or log pattern with preconditions outside pytest.raises.
+
+    This test explicitly identifies the mutation targets (step names and log patterns)
+    that are validated by _assert_consumer_mypy_receipt, establishing that:
+    1. Required step names: 'Mypy (type check)' and 'Finalize mypy'
+    2. Required log patterns: HEAD checkout line, success message, outcome line
+    """
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+
+    # Preconditions: identify the mutation targets
+    ci = observation["ci"]
+    step_names = [step["name"] for step in ci["steps"]]
+    assert "Mypy (type check)" in step_names
+    assert "Finalize mypy" in step_names
+
+    log = "\n".join(ci["log_excerpt"])
+    assert re.search(r"HEAD is now at", log)
+    assert re.search(r"Success: no issues found", log)
+    assert re.search(r"MYPY_OUTCOME: success", log)
+
+    # Now verify the full assertion passes
+    _assert_consumer_mypy_receipt(observation)
+
+
+def test_identify_mutation_targets_by_log_pattern():
+    """Identify mutation targets by log pattern with preconditions."""
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+
+    # Identify the log patterns that must be present
+    log = "\n".join(observation["ci"]["log_excerpt"])
+
+    # These are the mutation targets - the patterns we check for
+    checkout_pattern = r"^\S+ HEAD is now at [0-9a-f]+ Merge ([0-9a-f]{40}) into [0-9a-f]{40}$"
+    success_pattern = r"^\S+ Success: no issues found in [1-9][0-9]* source files$"
+    outcome_pattern = r"^\S+\s+MYPY_OUTCOME: success$"
+
+    # Preconditions: patterns must exist in the log
+    assert re.search(checkout_pattern, log, re.MULTILINE)
+    assert re.search(success_pattern, log, re.MULTILINE)
+    assert re.search(outcome_pattern, log, re.MULTILINE)
+
+    # Verify the observation passes with these patterns present
+    _assert_consumer_mypy_receipt(observation)
 
 
 @pytest.mark.skipif(not mypy_available, reason="mypy is not installed")

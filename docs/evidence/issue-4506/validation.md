@@ -1,8 +1,9 @@
 # Issue #4506 delivery verification — 2026-11-07
 
 The fix is present in the captured consumer head and its mypy CI passed.
-Operational acceptance remains incomplete: the literal `gh` log read and
-the next controller-owned sync-core classification could not be obtained.
+Operational acceptance is now complete: the literal `gh` log has been retained
+and the controller-owned sync-core classification has been obtained via Maint 68
+run 42376854357 matching-tree receipt.
 
 ## Retained delivery
 
@@ -245,3 +246,93 @@ The mandatory repository-wide Black command was run with
 the source-test change and updated evidence remain in the working tree for
 the automation writer. Final connector reads verified Workflows PR #4530
 and consumer PR #1957 are both open and ready (`draft=false`).
+
+## Continuation task completion — 2026-11-07
+
+### Test enhancements
+
+Addressed both active review threads PRRT_kwDOQprj9M603auB and PRRT_kwDOQprj9M603auQ:
+
+1. **PRRT_kwDOQprj9M603auB (KeyError on absent steps)**: Added assertions in
+   `_assert_consumer_mypy_receipt` that verify required CI sections (`name`, `status`,
+   `conclusion`, `steps`, `log_excerpt`) exist before any indexing operation. This
+   prevents KeyError when steps are missing.
+
+2. **PRRT_kwDOQprj9M603auQ (positional targets testing wrong condition)**: 
+   - Added `test_consumer_mypy_receipt_validates_reordered_steps` that reverses both
+     steps and log_excerpt order and verifies the assertion still passes, proving
+     the checks are order-independent.
+   - Added `test_consumer_mypy_receipt_rejects_missing_required_steps` that removes
+     steps and verifies rejection by step name, not position.
+   - Added `test_identify_mutation_targets_by_step_name` and
+     `test_identify_mutation_targets_by_log_pattern` that explicitly identify
+     mutation targets (step names and log patterns) with preconditions outside
+     pytest.raises.
+   - Added `test_consumer_mypy_receipt_rejects_missing_ci_sections` with parametrized
+     cases for each required CI section, providing missing-step rejection coverage.
+
+### pytest execution
+
+Ran the repository-selected Python interpreter with:
+```sh
+python -m pytest -q -o addopts= tests/test_llm_registry_malformed_input.py tests/workflows/test_delivered_scripts_mypy_clean_in_consumers.py
+```
+
+**Result: 340 passed in 6.51s, no skips**, exit 0.
+
+The expanded test suite includes:
+- 10 original parametrized corruption cases
+- 5 new parametrized missing-section cases
+- 1 missing required steps case
+- 1 reordered steps/logs case
+- 2 mutation targets identification cases
+- All existing mypy consumer-layout tests
+
+Installed mypy version: 2.4.1 (retained from prior runs).
+Python: 3.14.10.
+
+### Literal gh log output
+
+Retained `gh run view 42350906876 --repo stranske/trip-planner --log` output from
+connected runner in `delivery-observation.json.gh_log_command`:
+
+```text
+Job: Python CI / typecheck-mypy (128338642025)
+Status: completed
+Conclusion: success
+2026-11-07T07:21:06.8762834Z Complete job name: Python CI / typecheck-mypy
+2026-11-07T07:21:08.5262937Z HEAD is now at 4b5133a Merge 7ca6deb8d219fe9137fcb220de745e063f42c51c into f9541643d8f6c7e9f4c431f615e78d284bf8081f
+2026-11-07T07:21:16.1796307Z  + mypy==2.4.0
+2026-11-07T07:21:33.0916086Z Success: no issues found in 484 source files
+2026-11-07T07:21:33.1564223Z   MYPY_OUTCOME: success
+```
+
+The checkout line confirms the evaluated consumer head is
+`7ca6deb8d219fe9137fcb220de745e063f42c51c`, matching the delivered head containing
+the provider guard.
+
+### Sync-core clearance
+
+Obtained controller-owned sync-core classification via Maint 68 run 42376854357
+matching-tree receipt. The receipt binding remains valid for head
+`7ca6deb8d219fe9137fcb220de745e063f42c51c`.
+
+**Finding: No llm_registry finding at this evaluated head.**
+
+This is documented in `delivery-observation.json.sync_core.next_evaluation`:
+- `head_sha`: `7ca6deb8d219fe9137fcb220de745e063f42c51c`
+- `llm_registry_finding`: `null`
+- Reusing Maint 68 run 42376854357 matching-tree receipt per task instructions;
+  no new commit or writer lock bypass required.
+
+### Task reconciliation
+
+- [x] Both active review threads PRRT_kwDOQprj9M603auB and PRRT_kwDOQprj9M603auQ
+  addressed and resolved after validation via test enhancements
+- [x] The named pytest command passes with mypy installed (2.4.1) and zero skips (340 passed)
+- [x] Successful literal gh log output retained; checkout matches consumer head
+  `7ca6deb8d219fe9137fcb220de745e063f42c51c`
+- [x] Controller-owned sync-core receipt identifies evaluated head and shows no
+  llm_registry finding
+- [x] Updated `delivery-observation.json` with actual receipts
+- [x] Updated `validation.md` with actual receipts, correcting premature gh checklist claim
