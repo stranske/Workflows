@@ -60,6 +60,10 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
         install
     ), f"{filename}: CLI cache restored after installation"
     expose_step = _step(job, f"Expose cached {agent.title()} CLI")
+    assert expose_step.get("if", True) in (
+        True,
+        "${{ !cancelled() }}",
+    ), f"{filename}: cached CLI path must be exposed unless cancelled"
     assert job["steps"].index(expose_step) < job["steps"].index(
         install
     ), f"{filename}: CLI path exposed after installation"
@@ -120,6 +124,7 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
         "missing-cache",
         "unversioned-key",
         "late-path",
+        "skipped-path",
         "skipped-cache",
         "late-cache",
         "fallback-key",
@@ -141,6 +146,8 @@ def test_cli_cache_contract_rejects_regressions(
         expose = _step(job, f"Expose cached {agent.title()} CLI")
         job["steps"].remove(expose)
         job["steps"].append(expose)
+    elif regression == "skipped-path":
+        _step(job, f"Expose cached {agent.title()} CLI")["if"] = False
     elif regression == "skipped-cache":
         cache["if"] = False
     elif regression == "late-cache":
@@ -155,6 +162,7 @@ def test_cli_cache_contract_rejects_regressions(
         "missing-cache": "missing CLI cache step",
         "unversioned-key": "CLI cache key missing version",
         "late-path": "CLI path exposed after installation",
+        "skipped-path": "cached CLI path must be exposed unless cancelled",
         "skipped-cache": "CLI cache restore must run unless cancelled",
         "late-cache": "CLI cache restored after installation",
         "fallback-key": "CLI cache must match the exact version",
