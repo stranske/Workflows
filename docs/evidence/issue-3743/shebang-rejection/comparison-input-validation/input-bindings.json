@@ -1,7 +1,7 @@
 {
   "tests/scripts/test_shebang_rejection_matched_comparison.py": {
-    "sha256": "eb939113d6a0de280e0d7e9586f445094e808cc41f7f4cb3c38be7e22c5a2107",
-    "bytes": 12039
+    "sha256": "fda4a767ca7f3134914633564929026d118f06d5b064da0fda804360e03ae154",
+    "bytes": 16089
   },
   "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
     "sha256": "840ba69d31ef5d86ec0ecc98dbf075e9dbc3093a9f30985a54e5fd78c6a7f968",

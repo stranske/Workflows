@@ -116,7 +116,7 @@
     "bytes": 1455
   },
   "input-bindings.json": {
-    "sha256": "1b3663a9040f060380dabee4961c6a1586f5774ac92e0c126bc7150d1be7fcdb",
+    "sha256": "85db2e2a713523cf7bbc9c085d5a914636ea151106253f7101cf3782ae92b816",
     "bytes": 2879
   },
   "literal-pytest.json": {
@@ -150,6 +150,10 @@
   "preserved-inputs.json": {
     "sha256": "b90f484dd9e1c84fe4d59494f504d013fd9d03a7c5713dc6b0c539d14f7b6b00",
     "bytes": 50557
+  },
+  "previous-input-bindings.json": {
+    "sha256": "1b3663a9040f060380dabee4961c6a1586f5774ac92e0c126bc7150d1be7fcdb",
+    "bytes": 2879
   },
   "prior-archive-verification.json": {
     "sha256": "6c42551fff2c8b420ec51d68e5e7327a115059ad93a79e6ef21f27ec3e0e4865",

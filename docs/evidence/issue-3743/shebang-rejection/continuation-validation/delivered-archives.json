@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_shebang_rejection_delivered_archives.py",
+    "-q",
+    "-o",
+    "addopts="
+  ],
+  "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
+  "attempt": 1,
+  "limit_seconds": 120,
+  "exit": 0,
+  "stdout": ".......                                                                  [100%]\n7 passed in 0.40s\n",
+  "stderr": "",
+  "stopped": null,
+  "duration_seconds": 2.644
+}

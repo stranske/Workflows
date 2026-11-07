@@ -34,7 +34,7 @@ recorded validation commands exited 0.
 `continuation-validation/` retains the exact focused command and console,
 plus outputs from `verify_archives.py:validate`,
 `capture_acceptance_run.py:validate_retained`, and
-`compare_matched.py:validate_retained` (all exit 0). All five delivered archives
+`compare_matched.py:validate_retained` (all exit 0). All five verifier-listed archives
 verify, with eight added passing nodes and zero removals, changed old outcomes,
 exclusions, or covered-line/branch regressions.
 
@@ -55,3 +55,14 @@ acceptance command/JUnit receipts, and 93-file mutation proof were retained.
 The earlier raw-comparison validation commands remain historical; its previous
 bindings are retained as `previous-input-bindings.json`, and its refreshed
 bindings identify this continuation's source and tests.
+
+
+CI inventory follow-up (2026-11-07): Python 3.14 found one stale current binding
+in the supplementary `comparison-input-validation/proof.tar.gz`, which the
+curated five-archive verifier does not enumerate. Refreshed only its current
+input binding and archive manifest with the existing packer, retaining prior
+bindings separately. The dedicated delivered-archive test independently scans
+all seven archives. No historical proof archive or implementation was changed.
+
+The delivered-archive command printed `7 passed in 0.40s`. Both CI Python
+versions reported only the same supplementary binding failure before this fix.
