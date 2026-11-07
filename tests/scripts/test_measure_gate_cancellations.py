@@ -70,6 +70,24 @@ def test_collection_excludes_interval_end(monkeypatch):
     assert runs == [run(1)]
 
 
+@pytest.mark.parametrize("seconds", [-1, 172800, 172801])
+def test_unfinished_runs_outside_interval_do_not_block_observation(monkeypatch, seconds):
+    outside = run(2, seconds, conclusion="")
+    page = [run(1), outside]
+    monkeypatch.setattr(
+        measure.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=json.dumps(page)),
+    )
+
+    report = measure.observe(["owner/repo"], START, END, time.monotonic() + 110)
+
+    assert report["status"] == "complete"
+    assert report["runs"] == {"owner/repo": [run(1)]}
+    assert (report["numerator"], report["denominator"], report["percentage"]) == (0, 1, 0)
+    assert report["passed"]
+
+
 @pytest.mark.parametrize(
     "failure", ["command", "invalid_json", "missing_fields", "timeout", "unavailable"]
 )
@@ -171,10 +189,11 @@ def test_saturated_one_second_window_refuses_completion(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "field,value", [("conclusion", None), ("createdAt", None), ("headSha", "")]
+    "field,value", [("conclusion", None), ("conclusion", ""), ("createdAt", None), ("headSha", "")]
 )
-def test_incomplete_run_never_establishes_acceptance(monkeypatch, field, value):
-    record = run(1)
+@pytest.mark.parametrize("seconds", [0, 172799])
+def test_incomplete_run_never_establishes_acceptance(monkeypatch, field, value, seconds):
+    record = run(1, seconds)
     record[field] = value
     monkeypatch.setattr(
         measure.subprocess,

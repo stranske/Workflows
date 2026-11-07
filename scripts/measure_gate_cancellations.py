@@ -110,13 +110,15 @@ def _collect_runs(
                 raise ValueError("run identity or head is missing")
             if not isinstance(run["createdAt"], str) or not isinstance(run["event"], str):
                 raise ValueError("run timestamp or event is invalid")
+            created = timestamp(run["createdAt"])
+            # gh's date range includes the upper endpoint; the observation does not.
+            if not start <= created < end:
+                continue
             if not isinstance(run["conclusion"], str) or not run["conclusion"]:
                 raise ValueError("run has no final conclusion; observation incomplete")
-            created = timestamp(run["createdAt"])
-            if start <= created < end:
-                previous = runs.setdefault(run["databaseId"], run)
-                if previous != run:
-                    raise ValueError("run changed during paginated collection; collect again")
+            previous = runs.setdefault(run["databaseId"], run)
+            if previous != run:
+                raise ValueError("run changed during paginated collection; collect again")
     return list(runs.values())
 
 

@@ -3354,7 +3354,8 @@ closes any open alert so a recovered incident cannot remain as a stale red issue
   each cancelled `pull_request` run with a distinct same-repository, same-head
   sibling within five seconds, and divides by all Gate runs in the half-open
   interval `[mergedAt, mergedAt + 48 hours)`. Its total read budget is 110 seconds.
-  Pending intervals report their exact end time. Failed reads, incomplete runs,
+  Runs outside that interval are excluded before checking their final conclusion.
+  Pending intervals report their exact end time. Failed reads, incomplete in-interval runs,
   saturated one-second windows, and an empty denominator cannot pass. This
   diagnostic does not establish the final merge timestamp or replace live drift
   readback; its caller must verify campaign disposition first.
