@@ -54,5 +54,100 @@
   "run_id": 41567623097,
   "status": "historical exact-head hosted success; publication head pending",
   "source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
-  "test_sha256": "ff4395d0b4803c16dea2caed573f548dda1137d38a2b68bca9050b4b9fce791c"
+  "test_sha256": "ff4395d0b4803c16dea2caed573f548dda1137d38a2b68bca9050b4b9fce791c",
+  "historical_receipt_note": "Original top-level fields are preserved as historical evidence for f77be1eee; they do not describe the current delivered main.",
+  "current_delivery": {
+    "checked_date": "2026-11-07",
+    "tested_revision": "5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44",
+    "delivered_by_pr": 4518,
+    "workflow": "Selftest CI",
+    "workflow_path": ".github/workflows/selftest-ci.yml",
+    "workflow_revision": "5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44",
+    "run_id": 42381426360,
+    "job_id": 128429746865,
+    "run_url": "https://github.com/stranske/Workflows/actions/runs/42381426360",
+    "job_url": "https://github.com/stranske/Workflows/actions/runs/42381426360/job/128429746865",
+    "artifact_id": 13578515594,
+    "artifact_name": "selftest-coverage-3.14-1",
+    "artifact_url": "https://github.com/stranske/Workflows/actions/runs/42381426360/artifacts/13578515594",
+    "artifact_expires_at": "2026-11-14T14:37:29Z",
+    "zip_sha256": "fedd97c894cb8466ca28afe22ffef76d184f5bd79dd00ed538f84f3792528312",
+    "entry": "runtimes/3.14/coverage.json",
+    "entry_sha256": "5a60f705500f9d751dca49a3944d6cb00d6efeb0d490f16e39f4c9efcd812e3b",
+    "artifact_bytes_inspected": true,
+    "meta": {
+      "format": 3,
+      "version": "7.17.2",
+      "timestamp": "2026-11-07T14:37:10.075338",
+      "branch_coverage": true,
+      "show_contexts": false
+    },
+    "python_version": "3.14.10",
+    "pytest_version": "9.2.0",
+    "coverage_version": "7.17.2",
+    "command": "pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-junit.xml --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -n 4 --dist=loadgroup",
+    "command_provenance": "Argument builder and PYTEST_MARKERS/PYTEST_ARGS/PYTEST_WORKERS environment inspected in the exact job log; no additional pytest args; all selected canonical tests, not one file.",
+    "pytest_result": {
+      "passed": 50508,
+      "skipped": 27,
+      "xfailed": 3,
+      "seconds": 740.01
+    },
+    "configuration_revision": "5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44",
+    "configuration_sha256": "3147eeb9bc2853fdad215c0c010c373abcdd33db1093588f459ae560b57d6b5c",
+    "source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+    "test_sha256": "ff4395d0b4803c16dea2caed573f548dda1137d38a2b68bca9050b4b9fce791c",
+    "target": {
+      "summary": {
+        "covered_lines": 851,
+        "num_statements": 851,
+        "percent_covered": 99.91915925626516,
+        "percent_covered_display": "99.92",
+        "missing_lines": 0,
+        "excluded_lines": 9,
+        "percent_statements_covered": 100.0,
+        "percent_statements_covered_display": "100.00",
+        "num_branches": 386,
+        "num_partial_branches": 1,
+        "covered_branches": 385,
+        "missing_branches": 1,
+        "percent_branches_covered": 99.74093264248705,
+        "percent_branches_covered_display": "99.74"
+      },
+      "missing_lines": [],
+      "missing_branches": [
+        [
+          124,
+          126
+        ]
+      ]
+    },
+    "reduction_unit": "one missing statement or one missing branch destination (coverage.json missing_lines plus missing_branches array lengths)",
+    "missing_units": 1,
+    "resource_tested_sha": "5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44",
+    "resource_status": "COMPLETE",
+    "baseline": {
+      "requested_revision": "94d9f952dad19f4f8048ae82bb8301bc6baf6ef5",
+      "comparable": false,
+      "inspected_run_id": 38995688471,
+      "inspected_job_id": 117287656854,
+      "artifact_list": [],
+      "observation": "The inspected baseline Selftest uses Python 3.14.8, an explicit workflow/verifier subset, no generator test file and no coverage flags. It is not comparable to the accepted canonical suite.",
+      "discovery_limit": "Connected commit-run wrapper filters pull-request runs; it returned none for both merge commits. GraphQL first/last check-suite pages are partial. Exact-name filter for python ci / python 3.14 returns zero suites at baseline. This is not an exhaustive claim that no recoverable baseline exists.",
+      "missing_statements": null,
+      "missing_branch_destinations": null,
+      "missing_units": null
+    },
+    "measured_reduction_units": null,
+    "comparison_complete": false,
+    "remaining_work": "Obtain a hosted run of the exact baseline and accepted source using identical test scope, runtime and coverage configuration. Neither the historical local 222 units nor an approximately-60 target is substituted.",
+    "cli_actions_discovery": {
+      "status": "rate_limited",
+      "http_status": 403,
+      "core_remaining": 0,
+      "reset_epoch": 1794064437,
+      "reset_utc": "2026-11-07T15:13:57Z",
+      "pending_command": "gh api 'repos/stranske/Workflows/actions/runs?head_sha=94d9f952dad19f4f8048ae82bb8301bc6baf6ef5&per_page=100'"
+    }
+  }
 }

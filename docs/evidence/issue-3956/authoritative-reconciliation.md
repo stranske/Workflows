@@ -1,6 +1,133 @@
 # Authoritative coverage and mutation reconciliation — issue #3956
 
-## Current delivery readback (2026-11-07 UTC)
+## Current acceptance repair readback (2026-11-07 UTC)
+
+**Outcome 1: PARTIAL.** PR #4518 merged as
+`5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44`, confirmed by a fresh main fetch.
+That delivered revision restores the inline guards, removes only the helper-only
+test, and retains the production OSError/checklist fixes, tests and evidence.
+Every older statement below that main still contains the helper, #4518 remains
+open, or inline restoration awaits #4401 is superseded historical readback.
+Historical receipts and the independent-ranking limitation remain intact.
+
+The real-input acceptance command is the fresh baseline extraction, current test
+collection and retained-receipt audit below. Required commands were run first on
+delivered main `5dd01ec8…`, before preparing this evidence-only repair. No local
+virtual environment is selected; the owner-selected interpreter is
+`/opt/anaconda3/bin/python3` (Python 3.12.2), with Node v24.3.0. This differs from
+the separately identified hosted Python 3.14.10 runtime.
+
+```sh
+/opt/anaconda3/bin/python3 -m pytest tests/test_followup_issue_generator.py -q
+# exit 0; 199 passed in 0.68s
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 tests passed; zero failures, cancellations or skips
+git show 94d9f952dad19f4f8048ae82bb8301bc6baf6ef5:tests/test_followup_issue_generator.py > /tmp/issue4437-baseline-tests.py
+/opt/anaconda3/bin/python3 -m pytest tests/test_followup_issue_generator.py --collect-only -q > /tmp/issue4437-collected-tests.txt
+/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue4437-baseline-tests.py --collected-tests /tmp/issue4437-collected-tests.txt > docs/evidence/issue-3956/retained-mutation-audit.json
+# exit 0; complete=true; problems=[]; 35 added functions; 45 added collected cases;
+# 50 Python receipts and two original Node receipts
+/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_audit_followup_mutations.py -q
+# exit 0; 66 passed in 0.41s
+```
+
+The regenerated [retained audit](retained-mutation-audit.json) is byte-identical
+to the delivered audit (SHA256
+`508d4eb29d4a37a1a6934d51c5b2b44993784ede1621d7dfc574fd324168cc78`).
+All retained full RED/GREEN receipts were independently read in bounded groups:
+Python indices 0–3, 4–9, 10–16, 17–22, 23–24, 25–29, 30–37, 38–43, 44–49,
+then Node indices 0–1. Effective Python receipts 2 and 24 come from
+`retained-mutation-unabridged-reruns.json`, as mapped by the auditor; their
+historical abbreviated records remain preserved. Each effective receipt names
+the selected case, exit-1 assertion failure and exit-0 restored single-case pass.
+The mutation replacements reproduce their source hashes against accepted bytes;
+Python source/test and Node source hashes match delivered main. Python indices
+48 and 49 repeat the same case/mutation and are not counted as distinct cases.
+These are independently inspected historical executions, not new mutation runs
+or proof that every assertion in a multi-assertion case was independently killed.
+The supplemental regression receipts elsewhere in this record remain separate
+from this 45-case retained-test audit.
+
+### Hosted accepted-source evidence and comparison gap
+
+The actual bytes of [Selftest run 42381426360, artifact 13578515594](https://github.com/stranske/Workflows/actions/runs/42381426360/artifacts/13578515594)
+were downloaded and inspected. Artifact metadata and `pytest-resources.json`
+both bind the tested revision to delivered main `5dd01ec8…`; Python 3.14.10,
+pytest 9.2.0 and coverage 7.17.2 were used. The exact job
+`128429746865` passed 50,508 tests, with 27 skips and three xfails. The
+argument builder and environment in that job reconstruct this command:
+
+```sh
+pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-junit.xml --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -n 4 --dist=loadgroup
+```
+
+`runtimes/3.14/coverage.json` reports 851 statements, **0 missing statements**,
+386 branch destinations and **1 missing destination** (`124 -> 126`), or
+**1 missing unit** and 99.92% combined coverage. A unit is one entry in
+`missing_lines` plus one entry in `missing_branches`; partial branch sites are
+never substituted for missing destinations. ZIP SHA256 is
+`fedd97c894cb8466ca28afe22ffef76d184f5bd79dd00ed538f84f3792528312`.
+Exact revisions, configuration/source/test hashes, job/artifact identifiers,
+command and counts are appended to [hosted-coverage-receipt.json](hosted-coverage-receipt.json),
+preserving its older `f77be1eee…` receipt fields as history.
+
+The inspected baseline `94d9f952dad19f4f8048ae82bb8301bc6baf6ef5` Selftest run
+`38995688471`, job `117287656854`, uses Python 3.14.8, an explicit
+workflow/verifier subset, no generator test file and no coverage flags. Its
+artifact list is empty. It cannot be compared with the accepted canonical suite.
+The connected commit-run wrapper filters PR runs and returned none for these
+merge commits. GraphQL first/last check-suite pages are partial; an exact
+`python ci / python 3.14` name filter returns zero baseline suites. This bounded
+inspection does not establish that every possible baseline is unrecoverable.
+CLI Actions discovery returned HTTP 403, core remaining 0, reset
+2026-11-07 15:13:57 UTC. The exact pending discovery command is retained in the
+JSON receipt. No replacement hosted run was launched. The comparable baseline
+counts and measured difference remain **UNKNOWN**, not zero or approximately 60;
+the focused local 222-unit measurement is not substituted.
+
+### Existing #4401 branch reconciliation and remaining delivery
+
+The existing `closer/issue-3956` branch was updated, without creating another PR,
+from `9eaf43313c0e57ef964e4171f645985dca5742b8` to
+`008ee6bd29004ed26a81d77a4a9dff318af1db34` at 14:54:26 UTC. Both add/add
+conflicts preserve current main's newer authoritative record and local coverage
+JSON. Its revision table now declares Role / Revision / Notes, addressing the
+defect in `PRRT_kwDOQprj9M6zZ4AB`. Production, target tests and #4518's additional
+evidence are preserved. Two existing SUPERSEDED annotations on historical helper
+receipts are kept. Only obsolete conflicting document versions were discarded.
+No other local `closer*/issue-4437` branch existed to integrate.
+
+The 15:01:42 UTC post-push readback, after the seven-minute review floor,
+reports #4401 OPEN, `isDraft=false`, unchanged head `008ee6bd…`, CLEAN, with
+no pending or failing reported checks. The Gate comment identifies a docs-only
+fast-pass; heavy checks were skipped. The three unresolved historical threads,
+including the corrected revision-table thread, are now outdated; outdated status
+does not establish requested settlement. This is not a complete expected-check
+receipt or merge authorization. The existing reporter was attempted separately:
+
+```sh
+/opt/anaconda3/bin/python3 scripts/check_checks_reported.py --repo stranske/Workflows --pr 4401 --head 008ee6bd29004ed26a81d77a4a9dff318af1db34 --event pull_request --action synchronize --transport native-gh --output /tmp/issue4437-pr4401-checks.json
+# exit 2; verdict=UNKNOWN; native-gh pulls/4401 discovery HTTP 403 (core rate limit)
+```
+
+Automatic approval review rejected both its prepared description update and resolution of the
+corrected revision-table thread: `MCP tool call requires approval, but approval
+policy is never`. Neither action succeeded; no merge was attempted. Existing
+PR-body checked claims remain superseded by this record.
+
+Blocking/drainable pair: the unresolved thread, pending/unaudited exact-head
+gates and unavailable comparable baseline block final delivery; source-bound
+receipt inspection and accepted-source artifact recovery proceeded while those
+gates stayed closed. Stop rule: three failed attempts at the same step or
+75 minutes from 14:48 UTC; no timed permit or lock was created.
+
+- [x] Required Python/Node commands pass on identified delivered main.
+- [x] Independently inspect all 50 Python/two original Node full receipts and regenerate the retained audit from fresh collection.
+- [ ] Obtain comparable hosted baseline and accepted-source measurements with actual difference.
+- [ ] Settle #4401's review, complete fresh existing gates, merge and verify delivered main.
+- [ ] Record actual final delivery; ranking provenance remains explicitly limited.
+
+## Superseded pre-#4518 delivery readback (2026-11-07 UTC)
 
 Before the CLI fallback regression changes, checkout
 `407b236b5d4c84f4f345c15872d60e186d2ba4bc` was inspected. The required
