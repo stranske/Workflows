@@ -1340,6 +1340,65 @@ test('github.token HTTP 403 after the PAT still publishes one receipt', async ()
   assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
 });
 
+test('a later dispatch recovers a denied merge only after the API confirms merged', async () => {
+  const { c, actions, comments } = mergeScanHarness();
+  c.actions = actions;
+  c.comments = comments;
+  c.context = { payload: { inputs: { pr_number: '42' } } };
+  let result = { status: 403, data: { merged: false, message: 'Permission denied' } };
+  installJobTokenFallback(c, actions, async (args) => {
+    actions.push(['merge-fallback', args]);
+    return result;
+  });
+  installMergeFailurePublisher(c);
+  const { createTokenAwareRetry } = require('../github-api-with-retry');
+  const retry = await createTokenAwareRetry({ github: c.github, core: c.core, env: {} });
+  c.withRetry = retry.withRetry;
+
+  for (const response of [
+    result,
+    { status: 200, data: { merged: false, message: 'Merge not completed' } },
+    { status: 200, data: { merged: true } },
+  ]) {
+    result = response;
+    actions.length = 0;
+
+    await c.runScan();
+
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', result.data.merged ? '[42]' : '[]'],
+    ]);
+    assert.deepEqual({ ...actions.find(([kind]) => kind === 'merge-fallback')[1] }, {
+      owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+    });
+    assert.deepEqual(actions.filter(([kind, line]) => kind === 'info'
+      && line.startsWith('PUT /repos/')), [
+      ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+      ['info', `PUT /repos/o/r/pulls/42/merge - ${result.status}`],
+    ]);
+    assert.equal(comments.length, 1, 'dispatch retries must preserve a single failure receipt');
+    const rows = actions.find(([kind]) => kind === 'summary')[1];
+    if (result.data.merged) {
+      assert.deepEqual([...rows[1]], ['#42', 'merged', 'Merged via squash.']);
+      assert.equal(actions.some(([kind, message]) => kind === 'warning'
+        && message.startsWith('Merge failed:')), false);
+      assert.equal(actions.some(([kind]) => ['create', 'update'].includes(kind)), false);
+      assert.deepEqual({ ...actions.find(([kind]) => kind === 'remove-label')[1] }, {
+        owner: 'o', repo: 'r', issue_number: 1061, name: 'status:in-progress',
+      });
+    } else {
+      const note = `Merge failed: HTTP ${result.status} ${result.data.message}`;
+      assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+      assert.deepEqual(actions.filter(([kind, message]) => kind === 'warning'
+        && message.startsWith('Merge failed:')), [['warning', note]]);
+      assert.deepEqual([...rows[1]], ['#42', 'error', note]);
+      assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+      assert.equal(actions.filter(([kind]) => kind === (result.status === 403
+        ? 'create' : 'update')).length, 1);
+    }
+  }
+});
+
 test('PAT permission failure reaches the exact-head merge through the real retry helper', async () => {
   const { c, actions } = mergeScanHarness();
   installJobTokenFallback(c, actions, async (args) => {
