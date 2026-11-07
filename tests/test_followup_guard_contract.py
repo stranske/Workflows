@@ -12,6 +12,29 @@ def test_guard_repair_does_not_restore_the_coverage_only_helper():
     )
 
 
+def test_guard_stops_after_blocked_verification(monkeypatch):
+    """A blocked verification comment must stop inspection of issue and log text."""
+    scanned = []
+
+    def check(text):
+        scanned.append(text)
+        return {"blocked": True, "reason": "policy violation"}
+
+    monkeypatch.setattr(generator, "check_prompt_injection", check)
+
+    result = generator._guard_payloads(
+        verification_text="verification_comment",
+        original_issue_text="original_issue",
+        codex_log="codex_log",
+    )
+
+    assert result == {
+        "blocked": True,
+        "reason": "policy violation (source: verification_comment)",
+    }
+    assert scanned == ["verification_comment"]
+
+
 @pytest.mark.parametrize("blocked_source", ["original_issue", "codex_log"])
 def test_guard_reports_later_payload_source_and_stops_scanning(monkeypatch, blocked_source):
     scanned = []

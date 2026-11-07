@@ -3,7 +3,7 @@
 ## Current delivery readback (2026-11-07 UTC)
 
 The required generator pytest command passes with LangSmith's plugin enabled
-(199 retained tests); three supplemental guard-contract cases also pass. Focused
+(199 retained tests); four supplemental guard-contract cases also pass. Focused
 local coverage remains 99.92%. See the final sections and their supplemental
 receipts for the source revision, overlay hashes and commands. This supersedes
 prior local plugin-startup failures, not the unresolved main-delivery criterion.
@@ -1141,3 +1141,69 @@ and `draft=false`; #4401 remains unmerged at the same head. No acceptance box
 is completed. Existing review/gates still need settlement before merge and
 main verification; the comparable hosted-baseline gap and unrecoverable ranking
 provenance remain owner-visible limitations.
+
+## First-payload stop regression (2026-11-07 UTC)
+
+Reviewed recent commits through `123ae1f130aba042716bec79e1d2559bc9664652`
+before changing tests. The required CLI metadata read again failed to connect.
+Connected readback still reports #4401 OPEN, `draft=false`, unmerged, at
+`9eaf43313c0e57ef964e4171f645985dca5742b8`, with active unresolved thread
+`PRRT_kwDOQprj9M6zZ4AB`. All three reviews are COMMENTED. The reported main
+base is `4928870982db3bc3b85c701b4cca2492128739b2`; an immutable read there
+still defines/calls the helper (blob `c3a19cbf41a476954b8afcde6d214b3cf8c82a00`).
+First-page workflow discovery again reports successful Gate `41752024615` and
+Selftest CI `41752024817`; it is not a complete expected/required-check receipt.
+The first unchecked main-delivery criterion therefore remains blocked.
+
+The new supplemental test `test_guard_stops_after_blocked_verification` verifies
+that a blocked first payload returns its source and prevents scanning the issue
+or log. The original three supplemental cases retain their names and bodies;
+the retained generator test set and production implementation are unchanged.
+[guard-first-payload-proof.json](guard-first-payload-proof.json) identifies the
+source revision above and test-overlay/configuration hashes. Its isolated mutation
+adds an extra issue scan before the blocked return: the new test fails specifically
+at the scan-list assertion (exit 1), then passes after restoration (exit 0).
+Both outputs were inspected in full. This is supplemental local evidence.
+
+Validation with `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python`:
+
+```sh
+PYTEST_ADDOPTS="-m 'not slow'" python -m pytest tests/test_followup_issue_generator.py -q
+# exit 0; 199 passed; plugins enabled
+python -m pytest tests/test_followup_issue_generator.py tests/test_followup_guard_contract.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-first-payload-coverage.json
+# exit 0; 203 passed; generator Cover 99.92%
+# 851 statements, zero missing; 386 branches, one missing arc (124->126)
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one aggregated passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 passed, zero failures/skips
+ruff check tests/test_followup_guard_contract.py
+# exit 0
+black --line-length 100 tests/test_followup_guard_contract.py
+# exit 0
+```
+
+Fresh baseline extraction from `94d9f952` and collection were passed to the
+retained auditor, which exits 0: 35 added functions / 45 cases, 50 Python and two
+Node receipts, `complete=true`, `problems=[]`. Historical receipts remain intact.
+
+The task-status correction would uncheck #4518's merge task and check only the
+verified historical-percentage attribution criterion. The prepared body is
+`/tmp/issue3956-pr4518-body.md`. The #4401 review fix adds the missing Notes
+header/delimiter and fills the first two notes cells. Automatic approval review
+rejected both writes: `MCP tool call requires approval, but approval policy is
+never`. Neither correction was applied remotely. The blocker comment and
+`needs-human` label were rejected for the same reason. No review thread was
+resolved and no merge was attempted. The comparable hosted-baseline gap,
+unrecoverable independent ranking provenance, and main delivery remain open.
+
+The required repository-wide `black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` exited 1 at the multiprocessing forkserver
+socket with `PermissionError: [Errno 1] Operation not permitted`. A
+`BLACK_NUM_WORKERS=1` attempt did not complete and was interrupted (exit 130);
+it cannot establish a passing global formatting gate. The changed-file Black
+check and `git diff --check` pass. Staging the test and evidence files failed
+with exit 128 because `.git/index.lock` cannot be created on the read-only
+filesystem. No commit or push occurred. Final connected readback confirms
+#4518 and #4401 remain OPEN and `draft=false`; #4401 remains unmerged at the
+same full head. No main-delivery acceptance criterion is checked.
