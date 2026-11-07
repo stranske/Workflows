@@ -12,10 +12,13 @@ from scripts import ci_history
     "reintroduce_redefinition", [False, True], ids=["shipped-source", "duplicate-record"]
 )
 @pytest.mark.parametrize("regular_package", [False, True], ids=["namespace", "regular"])
+@pytest.mark.parametrize(
+    "mypy_target", ["scripts", "scripts/ci_history.py"], ids=["package-target", "file-target"]
+)
 def test_ci_history_typechecks_in_consumer_layout(
-    tmp_path: Path, reintroduce_redefinition: bool, regular_package: bool
+    tmp_path: Path, reintroduce_redefinition: bool, regular_package: bool, mypy_target: str
 ) -> None:
-    """Both consumer package layouts accept the fix and reject the duplicate annotation."""
+    """Package and file targets accept the fix and reject the duplicate annotation."""
     package = tmp_path / "scripts"
     package.mkdir()
     # Sync ships these modules without __init__.py; consumers may supply their own.
@@ -48,7 +51,7 @@ def test_ci_history_typechecks_in_consumer_layout(
             "--cache-dir",
             str(tmp_path / "mypy-cache"),
             "--no-incremental",
-            "scripts",
+            mypy_target,
         ],
         cwd=tmp_path,
         capture_output=True,

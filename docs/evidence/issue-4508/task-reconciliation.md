@@ -134,3 +134,44 @@ read-only. The automation runner must finish that gate and commit the test chang
 
 Final read-only verification confirmed PR #4510 is still open and ready for review
 (`draft=false`).
+
+
+## Package and file target regression verification
+
+- [x] Extend the isolated consumer mypy regression to check both `scripts` and
+  `scripts/ci_history.py` targets, for namespace and regular packages.
+- [x] For each target/layout, confirm the fixed source passes and a disposable
+  copy with the duplicate `record` annotation produces the original `[no-redef]`
+  diagnostic.
+
+Validation: the focused CI history and metrics command above now reports
+**47 passed**. An independent empty-config mypy check of `scripts/ci_history.py`
+reports **Success: no issues found in 1 source file**. Black (line length 100)
+and Ruff both pass for the edited test; `git diff --check` passes.
+
+The repository-wide Black command was attempted again with
+`BLACK_NUM_WORKERS=1` and interrupted after stalling. A bounded two-file retry
+also stalled; a traceback shows Black waiting in its asynchronous multi-file
+runner with an idle thread worker. Individual-file Black succeeds. The global
+formatting gate remains unverified; no commit was attempted. Staging the test
+with `git add` separately confirms `.git/index.lock` cannot be created because
+`.git` is read-only. The automation runner must finish the gate and commit.
+
+`gh run view 42325493922 --repo stranske/trip-planner` cannot connect to
+`api.github.com`; the read-only GitHub connector confirms the historical mypy
+job failed and PR #4510 is open with `draft=false`. Regenerated consumer CI and
+next-round sync-core classification remain unchecked post-merge verification.
+The protected sync workflow must not be modified or triggered by this agent.
+
+Reconciliation of the verified implementation checkboxes in PR #4510 was
+attempted again and rejected: `MCP tool call requires approval, but approval
+policy is never`. The remote PR body was not changed.
+
+The broader `timeout 180 pytest tests/ -m 'not slow' -q -x` command exited 124
+after 180 seconds at approximately 2% progress, without a final test result.
+No full-suite success is claimed.
+
+The new `file-target-namespace-shipped-source` regression was also run against
+the actual source with `failure_record` temporarily renamed back to `record`:
+it failed with the original `[no-redef]` diagnostic. The source was restored
+byte-for-byte in `finally`, and the same test then passed (1 passed in 1.45s).
