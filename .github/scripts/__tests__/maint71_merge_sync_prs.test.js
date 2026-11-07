@@ -683,7 +683,7 @@ function refreshCanary(overrides = {}) {
 }
 
 function refreshHarness(overrides = {}) {
-  const dispatches = [], comments = [], summaries = [], failures = [], reads = [];
+  const dispatches = [], comments = [], summaries = [], failures = [], reads = [], notices = [];
   const manifestEntries = require('../sync_pr_merge_contract').parseManifestSyncedSourceEntries(`
 scripts:
   - source: .github/scripts/shared.js
@@ -721,9 +721,9 @@ workflows:
     }
     return [...comments, ...(overrides.existing || [])];
   } };
-  const core = { notice() {}, setFailed: (message) => failures.push(message),
+  const core = { notice: (message) => notices.push(message), setFailed: (message) => failures.push(message),
     summary: { addRaw(text) { summaries.push(text); return this; }, async write() {} } };
-  return { dispatches, comments, summaries, failures, reads, manifestEntries, core,
+  return { dispatches, comments, summaries, failures, reads, notices, manifestEntries, core,
     withRetry: async (fn) => fn(github), enabled: true, now: refreshNow,
     expectedCanaries: ['stranske/Ready', 'stranske/Template'],
     context: { repo: { owner: 'stranske', repo: 'Workflows' },
@@ -767,6 +767,66 @@ test('all current green canaries and an empty run emit zero counts without dispa
       'canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0\n'));
   }
 });
+
+for (const [state, change] of [
+  ['behind', { mergeable_state: 'behind' }],
+  ['checks_failed', { check_status: 'checks_failed' }],
+  ['review_blocked', { active_review_thread_count: 1 }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
+]) {
+  test(`one ${state} canary among green siblings dispatches once and waits for its writer`, async () => {
+    for (const blockedFirst of [true, false]) {
+      const runs = [];
+      const api = refreshHarness({ actions: {
+        listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+      } });
+      const green = refreshCanary();
+      const blocked = refreshCanary({ ...change, repo: 'Template', pr: 13,
+        threads: state === 'review_blocked' ? [{
+          id: 'PRRT_single', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+          comments: { nodes: [{ url: 'https://github.com/stranske/Template/pull/13#discussion_r4026' }] },
+        }] : [],
+      });
+      const canaries = blockedFirst ? [blocked, green] : [green, blocked];
+      const result = await refreshStableCanaries({ ...api, canaries });
+
+      assert.equal(result.refresh_dispatched, 1, `missing refresh dispatch: ${state}`);
+      assert.equal(api.dispatches.length, 1, state);
+      assert.equal(blocked.refresh_reason, state);
+      assert.equal(green.refresh_reason, null, 'a green sibling must retain its merge path');
+      assert.deepEqual(result.held_plans, [blocked.plan_id]);
+      assert.equal(api.dispatches[0].inputs.phase, 'canary');
+      assert.equal(api.dispatches[0].inputs.repos, api.expectedCanaries.join(','),
+        'recovery must refresh the configured canaries without narrowing to the blocked repo');
+      assert.ok(api.notices.includes(`dispatch-maint-68-phase-canary-no-filter: ${blocked.plan_id}; `
+        + `reasons=stranske/Template:${state}; completion awaits a successful Maint 68 run`));
+      const counts = `canaries: red=${Number(state === 'checks_failed')} `
+        + `review_blocked=${Number(state === 'review_blocked')} stale=${Number(state === 'stale')}`;
+      assert.ok(api.summaries.includes(`${counts} refresh_dispatched=1 held_plan=${blocked.plan_id} drainable=0\n`));
+
+      // A later Maint 71 invocation must observe the queued producer and avoid
+      // another write wave, even though the consumer remains blocked.
+      runs.push({ id: 4028, status: 'queued', conclusion: null, head_branch: 'main',
+        head_sha: 'a'.repeat(40), created_at: new Date(refreshNow).toISOString(),
+        display_title: 'Maint 68 canary full source=' + 'a'.repeat(40)
+          + ` candidates=${api.expectedCanaries.join(',')} dry=false`,
+      });
+      const retry = await refreshStableCanaries({ ...api, canaries });
+      assert.equal(retry.refresh_dispatched, 0, `duplicate refresh dispatch: ${state}`);
+      assert.equal(api.dispatches.length, 1, state);
+      assert.ok(api.summaries.includes(`${counts} refresh_dispatched=0 held_plan=${blocked.plan_id} drainable=0\n`));
+      assert.equal(api.comments.length, Number(state === 'review_blocked'),
+        'a queued refresh must preserve upstream routing without duplicate comments');
+      if (state === 'review_blocked') {
+        assert.equal(api.reads[0].path, '.github/scripts/shared.js');
+        assert.equal(api.comments[0].issue_number, 4020);
+        assert.match(api.comments[0].body, /https:\/\/github.com\/stranske\/Template\/pull\/13#discussion_r4026/);
+      }
+      assert.equal(blocked.head_sha, 'c'.repeat(40), 'Maint 71 must preserve the producer head');
+      assert.deepEqual(api.failures, []);
+    }
+  });
+}
 
 test('staleness uses producer head age, with a strict six-hour boundary', () => {
   assert.equal(STALE_CANARY_HOURS, 6);
