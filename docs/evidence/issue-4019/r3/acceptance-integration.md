@@ -463,3 +463,33 @@ correcting the earlier stage's lack of current-head artifact evidence. It is
 not acceptance for future owner repairs, the final integrated tree, or #4495's
 current tree. The restoration and environment-isolation fixes still require
 owner application and new final-reviewed-tree evidence before delivery.
+
+## Fresh mutation reproduction (2026-11-07)
+
+Readback 2026-11-07: #4431 is still OPEN, head
+`69e5b6d6cd3fb154be29890f2ae212772de8ce45`, `mergeCommit: null`, `isDraft=false`.
+
+Reproduced all 27 break-and-revert operators from `mutate.py` in a disposable
+`git worktree` of that exact head (removed afterwards; no tracked file changed,
+original receipts in #4431 untouched). Only `PY` was rewritten to the local
+`python3` (3.14.10), output went to a separate directory, and
+`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` was needed because the installed `langsmith`
+pytest plugin fails to import on this runner's Python 3.14.10 (without it every
+run exits 3 with a plugin load error — an environment failure, discarded, not
+mutation evidence).
+
+- Result: 27/27 `proof_ok`: red exit 1 with `FAILED`, green exit 0 after
+  restoration, `sha256_before == sha256_restored`.
+- Nodes and hashes match the original receipts one-for-one (same 27 ids, same
+  node ids, same pre-mutation source hashes).
+- No red run is a collection error. Red failures are assertion/behavior
+  failures (e.g. 09: `assert True is False`; 15/18: `DID NOT RAISE`; 19/22a/22b:
+  call_count `2 == 1`; 13: expected call not found) except 14, where the mutated
+  code raises `AttributeError: 'NoneType' object has no attribute 'invoke'` at
+  runtime inside the exercised function.
+- `required-tests.txt` records the 268-test focused command at the candidate;
+  not re-run against #4431's head here.
+
+The mutation-receipt task is satisfied for the candidate head. Integration
+(merge commit, final focused pytest, ancestry check) remains UNMET until #4431
+merges.
