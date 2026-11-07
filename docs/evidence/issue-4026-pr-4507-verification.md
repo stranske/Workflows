@@ -141,3 +141,23 @@ The GitHub PR-body update was denied again: the connector requires approval
 and this run's approval policy is `never`. The existing checked items already
 match the verified implementation. No additional checkbox is marked complete.
 The prepared replacement body is retained at `/tmp/issue-4026-pr-body.md`.
+
+## Overlapping blocker summary continuation
+
+Reviewed recent commits through `924de3c9` and the live PR body. Its implementation
+and local verification checkboxes already match the committed work. PR 4507 is
+open and non-draft; both post-merge acceptance criteria remain unchecked.
+
+Added executor cases for one canary with failed checks, an active review finding
+and a seven-hour producer observation, with both successful and refused refresh
+dispatches. Each case verifies independent `red=1 review_blocked=1 stale=1`
+counts in the logs, job summary and saved report, one dispatch attempt, and no
+consumer merge. The existing single-blocker executor cases now verify the same
+three output surfaces after successful dispatch as well as refusal.
+
+Validation: `node --test --test-isolation=none --test-reporter=tap .github/scripts/__tests__/maint71_merge_sync_prs.test.js tests/scripts/test_maint71_promote_dispatch.js`
+exited 0 with 261 tests passing, zero failures and zero skips. `git diff --check`
+also passed. These local tests do not establish either operational criterion.
+
+The PR-body reconciliation update was rejected because the connector requires
+approval while this run's approval policy is `never`. No checkbox was changed.

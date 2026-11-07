@@ -1226,14 +1226,15 @@ test('review routing finds the latest source PR behind direct commits across his
   assert.equal(api.comments.length, 1, 'the PR comment must still be deduplicated on retry');
 });
 
-async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus } = {}) {
+async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, overlappingBlockers = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `maint71-${state}-canary-`));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const repository = require('../../../config/consumer_sync_canaries.json').canaries[0].repo;
   const [owner, repo] = repository.split('/');
   const head = 'd'.repeat(40), source = 'c'.repeat(40), plan = `sha256:${'a'.repeat(64)}`;
   t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
-  const ageMinutes = ['stale', 'aged_green'].includes(state) ? (STALE_CANARY_HOURS + 1) * 60 : 20;
+  const ageMinutes = overlappingBlockers || ['stale', 'aged_green'].includes(state)
+    ? (STALE_CANARY_HOURS + 1) * 60 : 20;
   const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
   const reviewStarted = state === 'seal_review_wait' ? new Date(refreshNow - 60000).toISOString() : observed;
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
@@ -1410,7 +1411,7 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus } =
     createdAt: observed, updatedAt: observed,
     comments: { pageInfo: { hasNextPage: false }, nodes: [] },
     reviews: { pageInfo: { hasNextPage: false }, nodes: [] },
-    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: ['review_blocked', 'seal_review_threads'].includes(state) ? [
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: overlappingBlockers || ['review_blocked', 'seal_review_threads'].includes(state) ? [
       { id: 'PRRT_executor', path: 'consumer-owned.js', isResolved: false, isOutdated: false,
         comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
     ] : [] },
@@ -1475,17 +1476,22 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus } =
     ? ['canary_refresh_failed:candidate refresh unavailable'] : [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
     && (!['aged_green', 'seal_drained'].includes(state) || row.status === 'merged'));
-  if (refreshDispatchStatus) {
-    const expected = `canaries: red=${Number(state === 'checks_failed')} `
-      + `review_blocked=${Number(state === 'review_blocked')} `
-      + `stale=${Number(state === 'stale')} refresh_dispatched=0 held_plan=${plan} drainable=0`;
+  if (['behind', 'checks_failed', 'review_blocked', 'stale'].includes(state)) {
+    const red = Number(state === 'checks_failed');
+    const reviewBlocked = Number(overlappingBlockers || state === 'review_blocked');
+    const stale = Number(overlappingBlockers || state === 'stale');
+    const dispatched = Number(!refreshDispatchStatus);
+    const expected = `canaries: red=${red} review_blocked=${reviewBlocked} `
+      + `stale=${stale} refresh_dispatched=${dispatched} held_plan=${plan} drainable=0`;
     assert.deepEqual(logs.filter(line => line.startsWith('canaries:')), [expected]);
     assert.deepEqual(summaries.filter(line => line.startsWith('canaries:')), [`${expected}\n`]);
     assert.deepEqual([report.canary_refresh.red, report.canary_refresh.review_blocked,
       report.canary_refresh.stale, report.canary_refresh.refresh_dispatched],
-    [Number(state === 'checks_failed'), Number(state === 'review_blocked'), Number(state === 'stale'), 0]);
+    [red, reviewBlocked, stale, dispatched]);
     assert.deepEqual(report.canary_refresh.held_plans, [plan]);
     assert.deepEqual(report.canary_refresh.errors, failures);
+  }
+  if (refreshDispatchStatus) {
     assert.equal(dispatches.length, 1, 'a refused refresh must not trigger a second writer');
     assert.equal(dispatches[0].workflow_id, 'maint-68-sync-consumer-repos.yml');
     assert.equal(row.status, state === 'checks_failed' ? 'checks_failed' : 'stable_base_refresh_required');
@@ -1629,9 +1635,10 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus } =
   }
   if (state === 'checks_failed') {
     assert.equal(row.status, 'checks_failed');
-    assert.equal(row.delivery_disposition, 'repo-local-failure');
+    assert.equal(row.delivery_disposition, overlappingBlockers ? 'review-blocked' : 'repo-local-failure');
     assert.equal(updates.length, 0);
     assert.equal(dispatches.length, 1);
+    assert.equal(merges.length, 0, 'a refresh must not bypass overlapping consumer blockers');
     return;
   }
   assert.equal(row.status, 'stable_base_refresh_required', JSON.stringify(report.results));
@@ -1654,6 +1661,13 @@ for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
     async (t) => assertExecutorCanaryRefresh(t, state));
   test(`executor retains ${state} canary counts in logs, summary and report after refresh refusal`,
     async (t) => assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus: 403 }));
+}
+
+for (const refreshDispatchStatus of [undefined, 403]) {
+  test(`executor reports overlapping red, review and stale blockers after refresh ${refreshDispatchStatus ? 'refusal' : 'dispatch'}`,
+    async (t) => assertExecutorCanaryRefresh(t, 'checks_failed', {
+      overlappingBlockers: true, refreshDispatchStatus,
+    }));
 }
 
 for (const state of ['seal_never_staging', 'seal_never_real_failure', 'seal_never_rerun_refused', 'seal_already_rerun_refused', 'seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_already_delivery', 'seal_already_behind', 'seal_already_green', 'seal_already_422', 'seal_already_404', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {
