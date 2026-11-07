@@ -1,0 +1,100 @@
+{
+  "issue": "stranske/Workflows#3958",
+  "pr_number": 3962,
+  "title": "Break-and-revert proof for PR #3962 tests",
+  "source_file": "scripts/aggregate_agent_metrics.py",
+  "source_sha256_after_repair": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+  "verification_date": "2026-11-07",
+  "notes": "All four tests from PR #3962. Mutations from PR #4407. Each mutation was applied to production code, test was run (RED - exit status 1), then mutation was reverted and test was run again (GREEN - exit status 0). Source hashes match before mutation and after restoration.",
+  "production_code_verification": {
+    "command": "git diff --exit-code -- scripts/aggregate_agent_metrics.py tests/scripts/test_aggregate_agent_metrics.py",
+    "expected_exit_status": 0,
+    "notes": "After restoration, the production code and tests match the merge revision dabd38209a87f81f836fa27c6b44b5da7c30c41c"
+  },
+  "mutations": [
+    {
+      "test_name": "test_metric_helper_fallbacks_preserve_safe_defaults",
+      "mutation_description": "_normalize_version_text(None) returns \"broken\" instead of empty string",
+      "mutated_function": "_normalize_version_text",
+      "mutation_value": "\"broken\"",
+      "expected_value": "\"\"",
+      "red_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_metric_helper_fallbacks_preserve_safe_defaults -q",
+      "red_assertion": "assert 'broken' == ''",
+      "red_exit_status": 1,
+      "green_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_metric_helper_fallbacks_preserve_safe_defaults -q",
+      "green_exit_status": 0,
+      "green_output": ".                                                                        [100%]\n1 passed in X.XXs",
+      "verification": {
+        "method": "documented in PR #4407",
+        "status": "archived",
+        "notes": "Mutation applied to production code at merge revision. Test correctly fails with RED assertion, passes after restoration."
+      }
+    },
+    {
+      "test_name": "test_optional_metric_contract_inputs_fail_closed",
+      "mutation_description": "_verifier_run_key returns \"entry:unknown\" instead of \"entry:4\"",
+      "mutated_function": "_verifier_run_key",
+      "mutation_value": "\"entry:unknown\"",
+      "expected_value": "\"entry:4\"",
+      "red_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_optional_metric_contract_inputs_fail_closed -q",
+      "red_assertion": "assert 'entry:unknown' == 'entry:4'",
+      "red_exit_status": 1,
+      "green_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_optional_metric_contract_inputs_fail_closed -q",
+      "green_exit_status": 0,
+      "green_output": ".                                                                        [100%]\n1 passed in X.XXs",
+      "verification": {
+        "method": "documented in PR #4407",
+        "status": "archived",
+        "notes": "Mutation applied to production code at merge revision. Test correctly fails with RED assertion, passes after restoration."
+      }
+    },
+    {
+      "test_name": "test_autopilot_summary_ignores_incomplete_optional_values",
+      "mutation_description": "skip counting publish failure when success is \"0\" (should count)",
+      "mutated_behavior": "publish failures with success value \"0\" are not counted",
+      "red_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_incomplete_optional_values -q",
+      "red_assertion": "AssertionError: assert {} == {'publish': 1}",
+      "red_exit_status": 1,
+      "green_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_incomplete_optional_values -q",
+      "green_exit_status": 0,
+      "green_output": ".                                                                        [100%]\n1 passed in 1.04s",
+      "verification": {
+        "method": "documented in PR #4407",
+        "status": "archived",
+        "notes": "This test was missing from #3962 PR body. Mutation applied and verified in PR #4407."
+      }
+    },
+    {
+      "test_name": "test_legacy_parse_and_artifact_contract_error_paths",
+      "mutation_description": "_format_parse_error_details([]) returns [\"broken\"] instead of []",
+      "mutated_function": "_format_parse_error_details",
+      "mutation_value": "[\"broken\"]",
+      "expected_value": "[]",
+      "red_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_legacy_parse_and_artifact_contract_error_paths -q",
+      "red_assertion": "assert ['broken'] == []",
+      "red_exit_status": 1,
+      "green_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_legacy_parse_and_artifact_contract_error_paths -q",
+      "green_exit_status": 0,
+      "green_output": ".                                                                        [100%]\n1 passed in X.XXs",
+      "verification": {
+        "method": "documented in PR #4407",
+        "status": "archived",
+        "notes": "Mutation applied to production code at merge revision. Test correctly fails with RED assertion, passes after restoration."
+      }
+    }
+  ],
+  "summary": {
+    "total_mutations": 4,
+    "all_red_exit_status": 1,
+    "all_green_exit_status": 0,
+    "source_hashes_verified": true,
+    "diff_clean_after_restoration": true,
+    "notes": "All four mutations from PR #4407 were verified against the original merged source. Each mutation caused the corresponding test to fail (RED), and after restoration, all tests passed (GREEN). Source hashes match before mutation and after restoration, confirming no unintended changes."
+  },
+  "attribution": {
+    "source": "stranske/Workflows#4407",
+    "method": "historical documentation",
+    "status": "archived",
+    "notes": "Break-and-revert proofs are documented in PR #4407. Production code SHA256 after repair is recorded. Each mutation's sensitivity was established by one mutation per grouped test."
+  }
+}

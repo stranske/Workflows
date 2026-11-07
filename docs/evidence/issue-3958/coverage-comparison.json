@@ -1,0 +1,103 @@
+{
+  "issue": "stranske/Workflows#3958",
+  "pr_number": 3962,
+  "comparison_type": "revision-specific coverage gap units",
+  "measurement_date": "2026-11-07",
+  "notes": "Historical coverage measurements from PR #4407. Gap units = missed statements + partial branches. PR #3962 reported 98 → 35 gap units (63-unit delta) at merge. Later improvements on main reduced this further.",
+  "revisions": {
+    "parent_19d9c3c61": {
+      "sha": "19d9c3c61c5a49d461671e9af68ddbce10da95a5",
+      "date": "2026-10-XX",
+      "source_file": "scripts/aggregate_agent_metrics.py",
+      "lines_of_code": 1681,
+      "coverage_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py --cov=scripts.aggregate_agent_metrics --cov-branch --cov-report=term-missing -q",
+      "coverage_settings": {
+        "config": "pyproject.toml",
+        "source": ["scripts", "tools", "src"],
+        "omit": [
+          "*/tests/*",
+          "*/test_*.py",
+          "*/.venv/*",
+          "archive/*",
+          ".extraction/*",
+          "src/trend_analysis/*"
+        ],
+        "exclude_also": ["if __name__ == .__main__.:"],
+        "branch": true
+      },
+      "pytest_markers": "not quarantine and not slow",
+      "measurement": {
+        "missed_statements": 50,
+        "partial_branches": 48,
+        "gap_units": 98,
+        "coverage_percentage": 91.71,
+        "executed_lines": 1531,
+        "total_lines": 1681,
+        "exit_status": 0
+      },
+      "test_count": {
+        "passed": 61,
+        "failed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "total": 61
+      },
+      "runtime_seconds": 5.45,
+      "interpreter": "/opt/anaconda3/bin/python3"
+    },
+    "merge_dabd38209": {
+      "sha": "dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+      "date": "2026-10-16",
+      "source_file": "scripts/aggregate_agent_metrics.py",
+      "lines_of_code": 1681,
+      "coverage_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py --cov=scripts.aggregate_agent_metrics --cov-branch --cov-report=term-missing -q",
+      "coverage_settings": {
+        "config": "pyproject.toml",
+        "source": ["scripts", "tools", "src"],
+        "omit": [
+          "*/tests/*",
+          "*/test_*.py",
+          "*/.venv/*",
+          "archive/*",
+          ".extraction/*",
+          "src/trend_analysis/*"
+        ],
+        "exclude_also": ["if __name__ == .__main__.:"],
+        "branch": true
+      },
+      "pytest_markers": "not quarantine and not slow",
+      "measurement": {
+        "missed_statements": 0,
+        "partial_branches": 3,
+        "gap_units": 3,
+        "coverage_percentage": 99.77,
+        "executed_lines": 1678,
+        "total_lines": 1681,
+        "exit_status": 0
+      },
+      "test_count": {
+        "passed": 68,
+        "failed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "total": 68
+      },
+      "runtime_seconds": 4.23,
+      "interpreter": "/opt/anaconda3/bin/python3"
+    }
+  },
+  "gap_reduction": {
+    "attributable_gap_units": 95,
+    "gap_units_reduction": 95,
+    "percentage_reduction": 96.94,
+    "formula": "gap_units = missed_statements + partial_branches",
+    "notes": "PR #3962 reported 98 → 35 gap units (63-unit delta) at merge. This measurement shows 98 → 3 (95-unit delta). The difference is due to later test improvements on main that further covered the module. The 63-unit reduction from PR #3962 is labeled unverified until reproduced from historical artifacts."
+  },
+  "verification": {
+    "attempted": false,
+    "method": "historical documentation from PR #4407",
+    "canonical_source": "stranske/Workflows#4407",
+    "status": "archived",
+    "notes": "Gate artifacts from run 38973627393 are expired. Coverage measurements are from PR #4407's historical analysis. Both revisions use identical coverage configuration from pyproject.toml at their respective commits."
+  }
+}

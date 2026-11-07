@@ -1,0 +1,79 @@
+{
+  "run_id": 38973627393,
+  "headSha": "2a6586bec25b03535adcd218ebe0810a0f59ba9d",
+  "mergeSha": "dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+  "parentSha": "19d9c3c61c5a49d461671e9af68ddbce10da95a5",
+  "conclusion": "success",
+  "url": "https://github.com/stranske/Workflows/actions/runs/38973627393",
+  "pr_number": 3962,
+  "workflow": "Gate",
+  "jobs": [
+    {
+      "name": "detect changed files",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "issue consistency",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "privilege environment gate",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "test-quality",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "docs guard",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "ledger validation",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "stranske-pdf-extract package tests",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "github scripts tests",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "python ci / Validate inputs",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "docker smoke",
+      "conclusion": "skipped",
+      "status": "completed"
+    },
+    {
+      "name": "python ci / python 3.14 / test (ubuntu-latest)",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "python ci / python 3.13 / test (ubuntu-latest)",
+      "conclusion": "success",
+      "status": "completed"
+    },
+    {
+      "name": "generated delivery seal",
+      "conclusion": "success",
+      "status": "completed"
+    }
+  ],
+  "archived_at": "2026-11-07T00:00:00Z",
+  "notes": "GitHub Actions artifacts for this run are expired and no longer available. This metadata was recovered from the GitHub API. Suite success is confirmed by the conclusion field and individual job statuses."
+}
