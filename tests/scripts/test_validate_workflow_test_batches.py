@@ -127,3 +127,32 @@ def test_duplicate_phase_reports_cannot_prove_terminal_execution():
     result = batches.compare_receipts(batch["nodes"], [batch])
     assert result["missing_results"] == {"a.py::test_one": 1}
     assert not result["success"]
+
+
+@pytest.mark.parametrize("transfer", ["swap", "move"])
+def test_reports_cannot_be_borrowed_from_another_batch(transfer):
+    original = ["a.py::test_one", "b.py::test_two"]
+    first, second = [receipt([node]) for node in original]
+    if transfer == "swap":
+        first["reports"], second["reports"] = second["reports"], first["reports"]
+    else:
+        first["reports"].extend(second["reports"])
+        second["reports"] = []
+
+    result = batches.compare_receipts(original, [first, second])
+
+    # The global node multisets still match, but neither batch proves its own run.
+    assert result["expected"] == result["collected"] == result["terminal"] == 2
+    assert result["missing"] == result["extra"] == {}
+    assert result["missing_results"] == result["extra_results"] == {}
+    assert not result["success"]
+    assert result["batch_result_mismatches"][0] == {
+        "batch": 1,
+        "missing": {original[0]: 1} if transfer == "swap" else {},
+        "extra": {original[1]: 1},
+    }
+    assert result["batch_result_mismatches"][1] == {
+        "batch": 2,
+        "missing": {original[1]: 1},
+        "extra": {original[0]: 1} if transfer == "swap" else {},
+    }

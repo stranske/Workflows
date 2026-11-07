@@ -90,8 +90,10 @@ def compare_receipts(original: list[str], batches: list[dict]) -> dict:
     collected: Counter[str] = Counter()
     terminal: Counter[str] = Counter()
     outcomes: Counter[str] = Counter()
-    for batch in batches:
+    batch_result_mismatches = []
+    for number, batch in enumerate(batches, 1):
         collected.update(batch.get("nodes", []))
+        batch_terminal: Counter[str] = Counter()
         by_node: dict[str, list[dict]] = {}
         for report in batch.get("reports", []):
             by_node.setdefault(report["nodeid"], []).append(report)
@@ -108,7 +110,17 @@ def compare_receipts(original: list[str], batches: list[dict]) -> dict:
                 phases["call"] == 1 or (phases["call"] == 0 and outcome != "passed")
             ):
                 terminal[node] += 1
+                batch_terminal[node] += 1
                 outcomes[outcome] += 1
+        # Results must belong to the collection from the same pytest child.
+        # Global equality alone allows swapped or borrowed batch results to pass.
+        batch_expected = Counter(batch.get("nodes", []))
+        batch_missing = batch_expected - batch_terminal
+        batch_extra = batch_terminal - batch_expected
+        if batch_missing or batch_extra:
+            batch_result_mismatches.append(
+                {"batch": number, "missing": dict(batch_missing), "extra": dict(batch_extra)}
+            )
     missing = expected - collected
     extra = collected - expected
     missing_results = expected - terminal
@@ -121,6 +133,7 @@ def compare_receipts(original: list[str], batches: list[dict]) -> dict:
         "extra": dict(extra),
         "missing_results": dict(missing_results),
         "extra_results": dict(extra_results),
+        "batch_result_mismatches": batch_result_mismatches,
         "outcomes": dict(outcomes),
         "node_ids_sha256": hashlib.sha256(
             ("\n".join(sorted(original)) + "\n").encode()
@@ -128,6 +141,7 @@ def compare_receipts(original: list[str], batches: list[dict]) -> dict:
         "success": bool(original)
         and bool(batches)
         and not (missing or extra or missing_results or extra_results)
+        and not batch_result_mismatches
         and all(batch.get("exit_code") == 0 for batch in batches)
         and not outcomes["failed"],
     }

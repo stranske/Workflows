@@ -1,5 +1,10 @@
 # Issue 4484 focused validation
 
+Latest continuation: the ledger remains read-only and workflow acceptance remains
+incomplete. The batch-evidence integrity fix and fresh focused results are recorded
+in the final section. Successful consumer lint and classification remain distinct
+from consumer merge, which has not been established.
+
 Check date: 2026-11-06. Interpreter: /opt/anaconda3/bin/python3.
 
 The concrete SubscriptionClient.invoke(prompt, **_kwargs) accepts config; the real implementation is exercised with only availability and the subprocess boundary mocked. No subscription CLI is launched.
@@ -825,3 +830,90 @@ Attempted the requested blocker comment and additive `needs-human` label on
 #4531 through the GitHub connector. Both mutations returned
 `MCP tool call requires approval, but approval policy is never`. Neither mutation
 was applied. This local document is the available blocker handoff.
+
+## PR #4531 batch-receipt integrity continuation — 2026-11-07 UTC
+
+The first unchecked task remains blocked. The normal consolidation patch to
+`.agents/issue-4484-ledger.yml` was rejected by the current filesystem policy:
+`patch rejected: writing outside of the project; rejected by user approval settings`.
+No alternate writer was used. task-03/task-05 remain unconsolidated and task-09/
+task-11 still need the receipt reconciliation described above. Neither this
+continuation nor schema validation establishes that ledger edit as complete.
+
+With that task blocked, this continuation fixes a concrete false-PASS case in
+the existing bounded workflow-evidence runner. Global collection and execution
+multisets could match even when one batch contained another batch's results.
+`compare_receipts` now also requires terminal results to match each individual
+batch's own collection, returning numbered `batch_result_mismatches` diagnostics.
+Swapping two batches' reports or moving all results into one batch must fail,
+even with unchanged global totals and zero child exit codes.
+
+The two new parametrized regressions first failed at `assert not result["success"]`
+against the original implementation: **2 failed, 14 deselected**, exit 1. With the
+fix, on `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`:
+
+```text
+$ python3 -m pytest -q tests/scripts/test_validate_workflow_test_batches.py tests/langchain/test_arg002_regression.py tests/scripts/test_verifier_capacity_backup.py tests/scripts/test_pr_verifier_sync_manifest.py -m 'not slow'
+146 passed in 18.69s
+Exit: 0
+
+$ python3 -m ruff check scripts/validate_workflow_test_batches.py tests/scripts/test_validate_workflow_test_batches.py
+All checks passed!
+Exit: 0
+
+$ python3 -m ruff check --isolated --select ARG002 scripts/langchain/_llm_client.py scripts/langchain/pr_verifier.py templates/consumer-repo/scripts/langchain/pr_verifier.py
+All checks passed!
+Exit: 0
+```
+
+The runner tests include real child pytest execution, successful complete batches,
+ordinary skips, teardown failures, collection errors and timeouts. The required
+three regression files are included in the passing 146-test command. No production
+source/template fix or original regression was changed. The six-file comparison
+against #4487's merge, as listed in the previous section, again returned exit 0.
+The exhaustive workflow suite was not rerun for this comparison-only correction;
+its retained **3,534 passed, 3 skipped, 12 failed** result remains a failed receipt.
+The PR body's existing checked passing-workflow criterion is unsupported by that
+receipt and must not be interpreted as acceptance.
+
+Both exact `/opt/anaconda3/bin/python3` ledger and focused-regression commands
+returned **127**, because that interpreter is absent. The available-interpreter
+ledger command returned **1**, with unknown historical completion commits
+`555c4bd79ee812a6032f0d98531ddf33cb64d36a` and
+`ad56949f14f2746a7e6240adcc215adb967f5fb8`. No validation relaxation was enabled.
+
+A fresh `gh api graphql` inventory attempt returned **1**, `error connecting to
+api.github.com`. The read-only connector fallback returned empty review-thread
+arrays for #4511 and #4531. It confirmed #4531 is **open**, **draft=false**, head
+`4ff52f15f88939b175de2f0929572fb29632cc50`. Historical #4487 findings remain
+distinct; the applicable fragment-consolidation request is still blocked.
+Guarded merge remains held for incomplete ledger and workflow acceptance.
+No merge-boundary approval or consumer merge is claimed. The successful consumer
+lint run and classification receipts above are preserved unchanged.
+
+Black formatted each changed Python file separately; both were unchanged.
+The default multi-file invocation hit the sandbox's multiprocessing socket
+restriction. Single-worker multi-file checks stalled and were interrupted (exit
+130). Black's own `get_sources` and `reformat_one` APIs then checked the identical
+958-file selection sequentially, using the configured Python 3.13 target, line
+length 100, include/extend-exclude/force-exclude patterns and the command's explicit
+exclude. All 958 files were unchanged; this warmed the ordinary writable Black
+cache with verified results. The required full command then completed:
+
+```text
+$ BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-4513-followup-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+All done!
+958 files would be left unchanged.
+Exit: 0
+```
+
+`git diff --check` also passed. Staging the three changed files failed with
+`fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock':
+Read-only file system` (exit 128). No commit or push was made, and no alternate
+Git metadata writer was used. The meaningful source change and passing regression
+tests remain in the workspace for an authorized writer.
+
+Both the additive `needs-human` label and the blocker-comment attempts on #4531
+were denied: `MCP tool call requires approval, but approval policy is never`.
+Neither remote mutation was applied. This document retains the blocker handoff;
+no acceptance checkbox was newly marked complete.
