@@ -314,6 +314,12 @@ conflicting case outcomes cannot certify successful scoped execution, even when
 the process reports exit zero. Per-suite outcome counts are retained in the arm
 receipts and `outcome_comparison` records the decision and gaps. Unreadable JUnit
 leaves an UNKNOWN diagnostic while both arms and their raw artifacts are retained.
+Every declared `tests`, `failures`, `errors` and `skipped` total on a JUnit suite
+or enclosing suite group must match its descendant case rows. Invalid counters
+or mismatches leave outcomes and timing UNKNOWN and fail the measurement, even
+when all scoped suites have some passing rows and pytest reports exit zero.
+This detects inconsistent or truncated reports; matching declared totals alone
+do not prove that every intended test was collected.
 JUnit outcome accounting is independent of timing validity. Each suite retains
 `timed_cases`, `untimed_cases` and `timing_status`; absent, invalid, negative or
 nonfinite durations and overflowing sums produce `worker_seconds: null`, never

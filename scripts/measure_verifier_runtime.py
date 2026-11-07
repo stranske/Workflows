@@ -166,6 +166,28 @@ def junit(path: Path) -> dict:
         row["timing_status"] = "KNOWN" if complete else "UNKNOWN"
         if not complete:
             row["worker_seconds"] = None
+    # A well-formed but truncated XML document can still contain passing cases
+    # in all three scoped suites. Reconcile every declared container total with
+    # its descendant cases before accepting either outcomes or worker time.
+    for container in root.iter():
+        if container.tag not in ("testsuite", "testsuites"):
+            continue
+        cases = list(container.iter("testcase"))
+        observed = {"tests": len(cases)}
+        observed.update(
+            (attribute, sum(case.find(tag) is not None for case in cases))
+            for attribute, tag in (
+                ("failures", "failure"),
+                ("errors", "error"),
+                ("skipped", "skipped"),
+            )
+        )
+        for attribute, count in observed.items():
+            declared = container.get(attribute)
+            if declared is None:
+                continue
+            if not declared.isascii() or not declared.isdecimal() or int(declared) != count:
+                raise ValueError(f"JUnit {container.tag} {attribute} total disagrees with cases")
     return {"suites": [s.attrib for s in suites], "per_file": by_file}
 
 

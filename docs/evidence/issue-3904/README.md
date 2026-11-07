@@ -349,3 +349,54 @@ BLACK_CACHE_DIR=/tmp/issue-4462-junit-black-cache BLACK_NUM_WORKERS=1 black --ch
 `git add` failed with `Unable to create '.git/index.lock': Read-only file system`.
 The four source/test/documentation files remain uncommitted. PR #4527 was checked
 again as open with `draft=false`; no task checkbox was changed.
+
+## Follow-up #4462 JUnit total reconciliation (2026-11-07)
+
+The comparison harness now reconciles every declared `tests`, `failures`,
+`errors` and `skipped` counter on suite and enclosing suite-group elements with
+their actual descendant testcase rows. A truncated but well-formed report could
+previously pass when it retained at least one passing row in each scoped file.
+Malformed counters or mismatched totals now leave outcomes/timing UNKNOWN and
+fail the measurement. Both source arms, valid coverage comparisons and raw
+artifact hashes remain available. Matching XML totals alone do not establish
+complete intended collection or branch equivalence.
+
+Validation on Python **3.14.10**:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_measure_verifier_runtime.py --cov=scripts.measure_verifier_runtime --cov-report=term-missing -q -m 'not slow'
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+ruff check scripts/measure_verifier_runtime.py tests/scripts/test_measure_verifier_runtime.py
+```
+
+Results: **107 passed in 12.38s**, harness coverage **94.14%**; **2,202 passed
+in 9.93s** for the verifier integration/reader regressions; Ruff passes. The
+harness checks include the real two-arm pytest execution, nested suite-group
+totals, invalid counters and both-arm truncated-report controls. The existing
+overflow timing fixture now declares its actual four rows, preserving its
+independent passing-outcome/unknown-timing assertions. No coverage target is
+specified for the harness. Existing evidence archives/manifests are unchanged.
+
+The remaining evidence task stays unchecked. Both installed Python **3.12.16**
+and **3.13.18** still return `No module named pytest`; no successful requested
+interpreter coverage run is claimed. The protected manual workflow still
+schedules 3.13/3.14 and selects the historical candidate. An authorized workflow
+editor must align that matrix and the immutable harness source pair, preserve
+source/configuration identity and existing checks, and retain actual successful
+3.12/3.13 scoped coverage, branch/outcome comparisons and hosted phase receipts.
+No protected workflow was edited. PR #4527 was verified open with `draft=false`.
+
+Both touched Python files were formatted at line length 100. The serial Black
+checker honored the root configuration, including the frozen-evidence exclusion,
+and populated a writable cache; the required CLI then passed with **959 files
+unchanged**, exit **0**:
+
+```bash
+BLACK_CACHE_DIR=/tmp/issue-4462-totals-black-cache BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Staging the four source/test/documentation changes failed with
+`Unable to create '.git/index.lock': Read-only file system`, preventing the
+requested commit. Automatic approval review rejected both the `needs-human`
+label and concrete workflow-blocker comment with `MCP tool call requires
+approval, but approval policy is never`. Neither remote mutation succeeded.

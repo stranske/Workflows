@@ -227,6 +227,81 @@ def test_junit_retains_explicit_outcome_counts(tmp_path, status, outcome):
         assert sum(row[key] for key in ("passed", "failures", "errors", "skipped")) == 1
 
 
+@pytest.mark.parametrize("container", ["testsuite", "testsuites"])
+@pytest.mark.parametrize(
+    "attribute,value",
+    [
+        ("tests", "4"),
+        ("tests", "2"),
+        ("tests", "-1"),
+        ("tests", "3.0"),
+        ("tests", "unknown"),
+        ("tests", ""),
+        ("failures", "1"),
+        ("errors", "1"),
+        ("skipped", "1"),
+    ],
+)
+def test_junit_refuses_inconsistent_declared_totals(tmp_path, container, attribute, value):
+    path = _junit_receipt(tmp_path)
+    text = path.read_text().replace(' tests="3"', "")
+    path.write_text(text.replace(f"<{container}>", f'<{container} {attribute}="{value}">'))
+    with pytest.raises(ValueError, match="JUnit.*" + attribute):
+        measure.junit(path)
+
+
+def test_junit_reconciles_nested_totals_and_explicit_outcomes(tmp_path):
+    path = tmp_path / "nested.xml"
+    path.write_text(
+        '<testsuites tests="4" failures="1" errors="1" skipped="1">'
+        '<testsuite tests="2" failures="1" errors="0" skipped="0">'
+        '<testcase classname="first" time="0"/>'
+        '<testcase classname="first" time="0"><failure/></testcase></testsuite>'
+        '<testsuite tests="2" failures="0" errors="1" skipped="1">'
+        '<testcase classname="second" time="0"><error/></testcase>'
+        '<testcase classname="second" time="0"><skipped/></testcase></testsuite>'
+        "</testsuites>"
+    )
+    receipt = measure.junit(path)
+    assert receipt["per_file"]["first"]["cases"] == 2
+    assert receipt["per_file"]["first"]["passed"] == 1
+    assert receipt["per_file"]["first"]["failures"] == 1
+    assert receipt["per_file"]["second"]["errors"] == 1
+    assert receipt["per_file"]["second"]["skipped"] == 1
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_run_refuses_truncated_junit_even_when_every_scoped_suite_is_present(
+    tmp_path, monkeypatch, arm
+):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        receipt = _junit_receipt(cwd, name="pytest-junit.xml")
+        if cwd.name == arm:
+            receipt.write_text(receipt.read_text().replace('tests="3"', 'tests="4"'))
+        coverage = {
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
+        }
+        (cwd / "coverage.json").write_text(json.dumps(coverage))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.platform, "platform", lambda: "fixture-platform")
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    assert measure.run(output) == 1
+    result = json.loads((output / "result.json").read_text())
+    assert result["arms"][arm]["exit_code"] == 0
+    assert "UNKNOWN" in result["arms"][arm]["junit_error"]
+    assert result["outcome_comparison"]["successful"] is False
+    assert result["timing_comparison"]["available"] is False
+    assert result["verifier_coverage"]["lost_branches"] == []
+    assert len(result["arms"]) == 2
+    assert len(result["artifact_sha256"]) == 6
+
+
 @pytest.mark.parametrize("arm", ["baseline", "candidate"])
 @pytest.mark.parametrize(
     "defect",
@@ -382,7 +457,7 @@ def test_run_keeps_outcomes_but_refuses_unknown_scoped_timing(tmp_path, monkeypa
                 suite = measure.SUITES[0][:-3].replace("/", ".")
                 text = text.replace(
                     "</testsuite>", f'<testcase classname="{suite}" time="1e308"/></testsuite>'
-                )
+                ).replace('tests="3"', 'tests="4"')
             receipt.write_text(text.replace('time="0"', attribute))
         coverage = {
             "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
