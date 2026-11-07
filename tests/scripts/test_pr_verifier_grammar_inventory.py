@@ -218,7 +218,7 @@ def test_classifier_floor_splits_preserve_all_options_and_missing_states(monkeyp
 
         observed = set()
 
-        def capture(criterion, expected, missing):
+        def capture(criterion, expected, missing, observed=observed):
             # Observe the floor's actual dispatch, rather than a copied criterion.
             assert delivery.verifier._required_evidence_channels(criterion) == set().union(
                 *expected
