@@ -2,8 +2,21 @@
 
 ## Current delivery readback (2026-11-07 UTC)
 
+Before the clean-payload regression changes, checkout `95be0640` was inspected.
+The required `gh pr view 4401 --repo stranske/Workflows --json
+state,headRefOid,mergeCommit,isDraft,statusCheckRollup` exited 1 connecting to
+`api.github.com`. Connected metadata again reports OPEN, `draft=false`,
+`merged=false`, head `9eaf43313c0e57ef964e4171f645985dca5742b8`, with no merge
+date. All three reviews are COMMENTED. Thread `PRRT_kwDOQprj9M6zZ4AB` remains
+unresolved and non-outdated; two other unresolved threads are outdated.
+An immutable generator read at reported main base
+`4928870982db3bc3b85c701b4cca2492128739b2` still defines and calls the helper
+(blob `c3a19cbf41a476954b8afcde6d214b3cf8c82a00`). The main-delivery criterion
+and the checked merge task remain unsupported. This round's regression tests
+cannot resolve that remote review or deliver the repair to main.
+
 The required generator pytest command passes with LangSmith's plugin enabled
-(199 retained tests); four supplemental guard-contract cases also pass. Focused
+(199 retained tests); seven supplemental guard-contract cases also pass. Focused
 local coverage remains 99.92%. See the final sections and their supplemental
 receipts for the source revision, overlay hashes and commands. This supersedes
 prior local plugin-startup failures, not the unresolved main-delivery criterion.
@@ -1207,3 +1220,74 @@ with exit 128 because `.git/index.lock` cannot be created on the read-only
 filesystem. No commit or push occurred. Final connected readback confirms
 #4518 and #4401 remain OPEN and `draft=false`; #4401 remains unmerged at the
 same full head. No main-delivery acceptance criterion is checked.
+
+## Clean-payload guard regression (2026-11-07 UTC)
+
+Source revision: `95be06402bb4c546309d316b789f39afe1b546ac`. The added
+`test_guard_accepts_clean_payloads_and_skips_absent_log` has three cases:
+`absent`, `empty`, and `present`. It checks the scan sequence and unchanged
+payload text, skips absent/empty optional logs, and requires a clean result to
+have an empty reason even when the guard supplies a nonblocking diagnostic.
+Production source, the 199 retained generator tests, and the Node tests remain
+unchanged. These supplemental cases advance local regression verification;
+they do not deliver the existing repair to main.
+
+[guard-clean-payload-proof.json](guard-clean-payload-proof.json) records the
+full source revision, source/configuration hashes, test-overlay hash, individual
+commands, mutation replacements and complete RED/GREEN output. All six receipts
+were read in bounded pairs 0–1, 2–3 and 4–5. Receipts 0/2 add an unexpected
+None/empty-log scan; receipt 4 alters the nonempty log text. Each fails the scan
+assertion. Receipts 1/3/5 leak the nonblocking diagnostic into the clean result;
+each fails the result assertion. All RED exits are 1 with an assertion failure;
+all restored GREEN exits are 0 with one passing case. Mutations affect only a
+disposable package; checkout production bytes remain unchanged.
+
+Validation with `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python`
+(Python 3.14.10), plugins enabled, and Node v24.22.2:
+
+```sh
+PYTEST_ADDOPTS="-m 'not slow'" python -m pytest tests/test_followup_issue_generator.py -q
+# exit 0; 199 passed
+python -m pytest tests/test_followup_issue_generator.py tests/test_followup_guard_contract.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue3956-clean-coverage.json
+# exit 0; 206 passed; generator Cover 99.92%
+# 851 statements, zero missing; 386 branches, one missing arc (124->126)
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one aggregated passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 passed, zero failures/skips
+ruff check tests/test_followup_guard_contract.py
+# exit 0
+black --line-length 100 tests/test_followup_guard_contract.py
+black --check --line-length 100 tests/test_followup_guard_contract.py
+# both exit 0; file unchanged
+git diff --check
+# exit 0
+```
+
+Fresh baseline extraction from `94d9f952` and target-test collection were supplied
+to `scripts/audit_followup_mutations.py`: exit 0, 35 added functions / 45 cases,
+50 Python and two original Node receipts, `complete=true`, `problems=[]`.
+The new cases are mapped separately above; historical receipts are preserved.
+This is focused local evidence; it cannot fill the comparable hosted-baseline
+gap or recover the independent ranking provenance.
+
+Automatic approval review rejected the prepared three-column table correction
+on #4401, the correction of #4518's checked merge task, the blocker comment and
+`needs-human` label: `MCP tool call requires approval, but approval policy is
+never`. No remote write succeeded, no review thread was resolved and no merge
+was attempted. Prepared replacement documents are `/tmp/issue3956-review-fix.md`
+and `/tmp/issue3956-task-status-fix.md`. Both PRs were read as OPEN,
+`draft=false`; #4401 has no merge date. No acceptance checkbox is completed.
+
+Staging only the changed test, new proof and this reconciliation exited 128:
+`.git/index.lock` cannot be created on the read-only filesystem. No commit or
+push occurred. The mandatory global Black command also encountered a sandbox
+forkserver socket `PermissionError`; its single-worker retry is recorded below.
+
+The `BLACK_NUM_WORKERS=1` retry did not finish and was interrupted (exit 130);
+it is not a passing repository-wide formatting result. The changed-file Black
+check passes, but the global formatting gate remains incomplete and therefore
+also prohibits committing Python changes. Final CLI readback still failed to
+connect; final connected metadata confirms #4401 and #4518 remain OPEN,
+`draft=false`, at their recorded heads, with #4401 `merged=false` and
+`merged_at=null`. Main-delivery acceptance remains incomplete.

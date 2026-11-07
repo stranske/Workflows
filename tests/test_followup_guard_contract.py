@@ -59,3 +59,27 @@ def test_guard_reports_later_payload_source_and_stops_scanning(monkeypatch, bloc
     if blocked_source == "codex_log":
         expected_scans.append("codex_log")
     assert scanned == expected_scans
+
+
+@pytest.mark.parametrize("codex_log", [None, "", "clean log"], ids=["absent", "empty", "present"])
+def test_guard_accepts_clean_payloads_and_skips_absent_log(monkeypatch, codex_log):
+    """Clean payloads are scanned in order; absent logs never become guard inputs."""
+    scanned = []
+
+    def check(text):
+        scanned.append(text)
+        return {"blocked": False, "reason": "nonblocking diagnostic"}
+
+    monkeypatch.setattr(generator, "check_prompt_injection", check)
+
+    result = generator._guard_payloads(
+        verification_text="clean verification",
+        original_issue_text="clean issue",
+        codex_log=codex_log,
+    )
+
+    expected_scans = ["clean verification", "clean issue"]
+    if codex_log:
+        expected_scans.append(codex_log)
+    assert scanned == expected_scans
+    assert result == {"blocked": False, "reason": ""}
