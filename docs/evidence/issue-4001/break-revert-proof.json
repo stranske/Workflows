@@ -1,0 +1,64 @@
+{
+  "probes": [
+    {
+      "test_id": "tests/contracts/test_validate_run_contract.py::test_document_identity_cross_checks_reject_conflicting_or_noncanonical_values",
+      "source": "scripts/validate_run_contract.py",
+      "before": "def _check_document_page(document: Any, report: Report, prefix: str = \"\") -> None:",
+      "after": "def _check_document_page(document: Any, report: Report, prefix: str = \"\") -> None:\n    return",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_output_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_document_identity_cross_checks_reject_conflicting_or_noncanonical_values _\ntests/contracts/test_validate_run_contract.py:1174: in test_document_identity_cross_checks_reject_conflicting_or_noncanonical_values\n    assert [violation.path for violation in report.violations] == [\nE   AssertionError: assert [] == ['evidence:/d..._ref/doc_key']\nE     \nE     Right contains 3 more items, first extra item: 'evidence:/document_ref/supersedes'\nE     Use -v to get more diff\n=========================== short test summary info ============================\nFAILED tests/contracts/test_validate_run_contract.py::test_document_identity_cross_checks_reject_conflicting_or_noncanonical_values\n1 failed in 1.09s\n",
+      "green_output_tail": ".                                                                        [100%]\n1 passed in 0.79s\n"
+    },
+    {
+      "test_id": "tests/contracts/test_validate_run_contract.py::test_standalone_validators_and_evidence_paths_fail_closed_on_unreadable_inputs",
+      "source": "scripts/validate_run_contract.py",
+      "before": "        report.fail(\"evidence artifact path must not be absolute or traverse parents\", path_label)\n        return None",
+      "after": "        report.fail(\"evidence artifact path must not be absolute or traverse parents\", path_label)\n        return run_dir",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_output_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_standalone_validators_and_evidence_paths_fail_closed_on_unreadable_inputs _\ntests/contracts/test_validate_run_contract.py:1196: in test_standalone_validators_and_evidence_paths_fail_closed_on_unreadable_inputs\n    assert mod._safe_evidence_path(tmp_path, {\"path\": \"../outside.json\"}, report, 0) is None\nE   AssertionError: assert PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-300/test_standalone_validators_and0') is None\nE    +  where PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-300/test_standalone_validators_and0') = <function _safe_evidence_path at 0x108312200>(PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-300/test_standalone_validators_and0'), {'path': '../outside.json'}, Report(repo='evidence-path', role='', conformant=False, skipped=False, violations=[Violation(message='evidence artifact path must not be absolute or traverse parents', path='manifest.artifacts[0].path')]), 0)\nE    +    where <function _safe_evidence_path at 0x108312200> = <module 'validate_run_contract' from '/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4001__opener/scripts/validate_run_contract.py'>._safe_evidence_path\n=========================== short test summary info ============================\nFAILED tests/contracts/test_validate_run_contract.py::test_standalone_validators_and_evidence_paths_fail_closed_on_unreadable_inputs\n1 failed in 1.50s\n",
+      "green_output_tail": ".                                                                        [100%]\n1 passed in 1.03s\n"
+    },
+    {
+      "test_id": "tests/scripts/test_aggregate_agent_metrics.py::test_metrics_helpers_preserve_empty_and_malformed_input_boundaries",
+      "source": "scripts/aggregate_agent_metrics.py",
+      "before": "def _artifact_family(artifact: str) -> str:",
+      "after": "def _artifact_family(artifact: str) -> str:\n    return \"broken-family\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_output_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______ test_metrics_helpers_preserve_empty_and_malformed_input_boundaries ______\ntests/scripts/test_aggregate_agent_metrics.py:2057: in test_metrics_helpers_preserve_empty_and_malformed_input_boundaries\n    assert (\nE   AssertionError: assert 'broken-family' == 'bot-comment-...erage-wrapper'\nE     \nE     - bot-comment-auth-coverage-wrapper\nE     + broken-family\n=========================== short test summary info ============================\nFAILED tests/scripts/test_aggregate_agent_metrics.py::test_metrics_helpers_preserve_empty_and_malformed_input_boundaries\n1 failed in 1.41s\n",
+      "green_output_tail": ".                                                                        [100%]\n1 passed in 2.09s\n"
+    },
+    {
+      "test_id": "tests/scripts/test_check_consumer_sync_drift.py::test_drift_cli_and_remote_read_boundaries",
+      "source": "scripts/check_consumer_sync_drift.py",
+      "before": "return base64.b64decode(data.get(\"content\", \"\")).decode(\"utf-8\")",
+      "after": "return base64.b64decode(data.get(\"content\", \"\")).decode(\"utf-8\")[::-1]",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_output_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________________ test_drift_cli_and_remote_read_boundaries ___________________\ntests/scripts/test_check_consumer_sync_drift.py:1608: in test_drift_cli_and_remote_read_boundaries\n    assert (\nE   AssertionError: assert '\\nelpmaxE :eman' == 'name: Example\\n'\nE     \nE     - name: Example\nE     + \nE     + elpmaxE :eman\n=========================== short test summary info ============================\nFAILED tests/scripts/test_check_consumer_sync_drift.py::test_drift_cli_and_remote_read_boundaries\n1 failed in 1.21s\n",
+      "green_output_tail": ".                                                                        [100%]\n1 passed in 1.60s\n"
+    },
+    {
+      "test_id": "tests/scripts/test_check_consumer_sync_drift.py::test_drift_summary_renders_actionable_nested_report_data",
+      "source": "scripts/check_consumer_sync_drift.py",
+      "before": "handle.write(\"### Repo summary\\n\")",
+      "after": "handle.write(\"### Broken repo summary\\n\")",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_output_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________ test_drift_summary_renders_actionable_nested_report_data ___________\ntests/scripts/test_check_consumer_sync_drift.py:1661: in test_drift_summary_renders_actionable_nested_report_data\n    assert \"### Repo summary\" in rendered\nE   AssertionError: assert '### Repo summary' in '## Consumer Sync Drift Check\\nChecked repos: owner/a\\n\\n### Counts\\n- drift: 12\\n- missing: 0\\n- errors: 0\\n- obsolet...scripts/47.py\\n- owner/a: scripts/48.py\\n- owner/a: scripts/49.py\\n- ... 2 more in consumer-sync-drift-report.json\\n\\n'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_check_consumer_sync_drift.py::test_drift_summary_renders_actionable_nested_report_data\n1 failed in 1.11s\n",
+      "green_output_tail": ".                                                                        [100%]\n1 passed in 0.97s\n"
+    },
+    {
+      "test_id": "tests/scripts/test_check_consumer_sync_drift.py::test_drift_network_helpers_fail_closed_without_readable_probe_targets",
+      "source": "scripts/check_consumer_sync_drift.py",
+      "before": "if not candidates:\n        diagnostics[\"error\"] = \"no_token_candidates\"",
+      "after": "if not candidates:\n        diagnostics[\"error\"] = \"broken_no_token_candidates\"",
+      "red_exit": 1,
+      "green_exit": 0,
+      "red_output_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____ test_drift_network_helpers_fail_closed_without_readable_probe_targets _____\ntests/scripts/test_check_consumer_sync_drift.py:1683: in test_drift_network_helpers_fail_closed_without_readable_probe_targets\n    assert diagnostics[\"error\"] == \"no_token_candidates\"\nE   AssertionError: assert 'broken_no_token_candidates' == 'no_token_candidates'\nE     \nE     - no_token_candidates\nE     + broken_no_token_candidates\nE     ? +++++++\n=========================== short test summary info ============================\nFAILED tests/scripts/test_check_consumer_sync_drift.py::test_drift_network_helpers_fail_closed_without_readable_probe_targets\n1 failed in 1.37s\n",
+      "green_output_tail": ".                                                                        [100%]\n1 passed in 0.75s\n"
+    }
+  ]
+}

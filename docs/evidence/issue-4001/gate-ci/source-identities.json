@@ -1,0 +1,18 @@
+{
+  "f21f6e6111cbaf3201c5fd91239f365ae7600019": {
+    "scripts/aggregate_agent_metrics.py": "ff8693012c52ab0966d818557d396d83011ed4e5",
+    "scripts/check_consumer_sync_drift.py": "4b7c48e1f1ba24b5182a95f9d09edd89909d73e2",
+    "scripts/validate_run_contract.py": "505a9eb4d0877054ebc8ea70a8c451191c6238f6",
+    "pyproject.toml": "2ed3da798c1cc00f856cac3a830af8189cc64dc8",
+    ".github/workflows/pr-00-gate.yml": "71565b1907c8e6e64b8a8f8fd37b00b98f3b00f6",
+    ".github/workflows/reusable-10-ci-python.yml": "40f2d705d8ca63a4cda89561f1f8eb39737b3563"
+  },
+  "dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4": {
+    "scripts/aggregate_agent_metrics.py": "ff8693012c52ab0966d818557d396d83011ed4e5",
+    "scripts/check_consumer_sync_drift.py": "4b7c48e1f1ba24b5182a95f9d09edd89909d73e2",
+    "scripts/validate_run_contract.py": "505a9eb4d0877054ebc8ea70a8c451191c6238f6",
+    "pyproject.toml": "2ed3da798c1cc00f856cac3a830af8189cc64dc8",
+    ".github/workflows/pr-00-gate.yml": "71565b1907c8e6e64b8a8f8fd37b00b98f3b00f6",
+    ".github/workflows/reusable-10-ci-python.yml": "40f2d705d8ca63a4cda89561f1f8eb39737b3563"
+  }
+}

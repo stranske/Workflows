@@ -1,0 +1,56 @@
+{
+  "provenance": {
+    "kind": "target summary reconstruction from hosted Gate term-missing rows; not the expired coverage.json",
+    "run_id": 39009963668,
+    "job_id": 117330480545,
+    "tested_sha": "dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4",
+    "python": "3.12.15",
+    "pytest": "9.1.1",
+    "command": "pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-junit.xml --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -n auto --dist=loadgroup",
+    "method": "Enumerate integer missing_branches in [0,num_branches]; retain candidates whose blended coverage rounds to the printed 2-decimal percent. Exactly one candidate per target. BrPart is not missing_branches."
+  },
+  "files": {
+    "scripts/aggregate_agent_metrics.py": {
+      "summary": {
+        "num_statements": 899,
+        "num_branches": 380,
+        "missing_lines": 1,
+        "missing_branches": 5,
+        "num_partial_branches": 5,
+        "percent_covered": 99.53
+      },
+      "printed_missing": "492->481, 839, 844->829, 954->910, 1011->996",
+      "branch_count_candidates": [
+        5
+      ]
+    },
+    "scripts/check_consumer_sync_drift.py": {
+      "summary": {
+        "num_statements": 555,
+        "num_branches": 262,
+        "missing_lines": 37,
+        "missing_branches": 42,
+        "num_partial_branches": 32,
+        "percent_covered": 90.33
+      },
+      "printed_missing": "135->141, 155-156, 201, 236, 238-242, 247->231, 251, 296-297, 328, 391, 396, 473->471, 706->720, 740->749, 750->761, 753->761, 755->757, 762->780, 769, 776->778, 836, 848, 850->846, 979, 985-986, 988-989, 1001-1002, 1004-1005, 1013-1014, 1025->1020, 1031-1032, 1039-1043, 1048-1050",
+      "branch_count_candidates": [
+        42
+      ]
+    },
+    "scripts/validate_run_contract.py": {
+      "summary": {
+        "num_statements": 448,
+        "num_branches": 212,
+        "missing_lines": 41,
+        "missing_branches": 27,
+        "num_partial_branches": 27,
+        "percent_covered": 89.7
+      },
+      "printed_missing": "189->exit, 191->exit, 194, 238->227, 369-370, 377-378, 380-381, 402-403, 407-408, 425, 431-433, 439-441, 450->412, 462-463, 516, 522-523, 548, 563, 678, 681-685, 715, 731-732, 738-742, 751-753, 782, 798-800, 836->865, 839->849, 857->849, 887",
+      "branch_count_candidates": [
+        27
+      ]
+    }
+  }
+}

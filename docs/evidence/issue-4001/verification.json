@@ -1,0 +1,108 @@
+{
+  "issue": "stranske/Workflows#4001",
+  "check_date": "2026-11-03",
+  "merged_implementation_sha": "c59f58c692b4cee4c60ecd2d8d11ce4afbf5f65a",
+  "original_pr_head": "f7c27207cd2e7c06f3cc3c45e651957b0b4c8962",
+  "gate_before": {
+    "kind": "target summary reconstruction from hosted Gate term-missing rows; not the expired coverage.json",
+    "run_id": 39009966088,
+    "job_id": 117330369906,
+    "tested_sha": "f21f6e6111cbaf3201c5fd91239f365ae7600019",
+    "python": "3.12.15",
+    "pytest": "9.1.1",
+    "command": "pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-junit.xml --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -n auto --dist=loadgroup",
+    "method": "Enumerate integer missing_branches in [0,num_branches]; retain candidates whose blended coverage rounds to the printed 2-decimal percent. Exactly one candidate per target. BrPart is not missing_branches."
+  },
+  "gate_after": {
+    "kind": "target summary reconstruction from hosted Gate term-missing rows; not the expired coverage.json",
+    "run_id": 39009963668,
+    "job_id": 117330480545,
+    "tested_sha": "dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4",
+    "python": "3.12.15",
+    "pytest": "9.1.1",
+    "command": "pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-junit.xml --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -n auto --dist=loadgroup",
+    "method": "Enumerate integer missing_branches in [0,num_branches]; retain candidates whose blended coverage rounds to the printed 2-decimal percent. Exactly one candidate per target. BrPart is not missing_branches."
+  },
+  "targets": {
+    "scripts/aggregate_agent_metrics.py": {
+      "before": {
+        "num_statements": 899,
+        "num_branches": 380,
+        "missing_lines": 5,
+        "missing_branches": 17,
+        "num_partial_branches": 17,
+        "percent_covered": 98.28
+      },
+      "after": {
+        "num_statements": 899,
+        "num_branches": 380,
+        "missing_lines": 1,
+        "missing_branches": 5,
+        "num_partial_branches": 5,
+        "percent_covered": 99.53
+      },
+      "reduction": 16
+    },
+    "scripts/check_consumer_sync_drift.py": {
+      "before": {
+        "num_statements": 555,
+        "num_branches": 262,
+        "missing_lines": 73,
+        "missing_branches": 57,
+        "num_partial_branches": 39,
+        "percent_covered": 84.09
+      },
+      "after": {
+        "num_statements": 555,
+        "num_branches": 262,
+        "missing_lines": 37,
+        "missing_branches": 42,
+        "num_partial_branches": 32,
+        "percent_covered": 90.33
+      },
+      "reduction": 51
+    },
+    "scripts/validate_run_contract.py": {
+      "before": {
+        "num_statements": 448,
+        "num_branches": 212,
+        "missing_lines": 47,
+        "missing_branches": 27,
+        "num_partial_branches": 27,
+        "percent_covered": 88.79
+      },
+      "after": {
+        "num_statements": 448,
+        "num_branches": 212,
+        "missing_lines": 41,
+        "missing_branches": 27,
+        "num_partial_branches": 27,
+        "percent_covered": 89.7
+      },
+      "reduction": 6
+    }
+  },
+  "combined_before": 226,
+  "combined_after": 153,
+  "reduction": 73,
+  "threshold": 180,
+  "acceptance": "explanatory alternative; per-target limitations in repair-report.md",
+  "original_pytest_result": "50791 passed, 25 skipped, 3 xfailed",
+  "ranking_basis": "Recovered issue #4001: signals/churn/units (16/45/22, 6/14/130, 4/7/74); raw generator inputs not recovered",
+  "historical_local_comparison": {
+    "before_sha": "f8318e2a02676bd18d9577592250879e914b495c",
+    "after_sha": "3e513d30e1b11b30bd6a2fdc224adbca97d85930",
+    "runtime": "Python 3.12.2 reported by prior repair; coverage.json metadata 7.16.2",
+    "before": 226,
+    "after": 3,
+    "reduction": 223,
+    "limitation": "later tests, changed drift source/config, reported three failed tests; not original Gate delta; suite logs unavailable"
+  },
+  "break_revert_proof": "break-revert-proof.json unchanged",
+  "local_validation": "extractor-validation.txt; focused-validation.txt; coverage-extraction.txt",
+  "unknowns": [
+    "Original ZIP unavailable (404); summary counts reconstructed uniquely from logged rows",
+    "Control is same-base sibling CI, not pristine base",
+    "Raw historical ranking inputs and churn window unrecovered"
+  ]
+}

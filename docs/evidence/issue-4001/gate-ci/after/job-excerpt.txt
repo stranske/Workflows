@@ -1,0 +1,61 @@
+Source: https://github.com/stranske/Workflows/actions/runs/39009963668/job/117330480545
+Retrieved: 2026-11-03; selected original log lines (not a fresh run).
+2026-10-17T06:28:45.9535341Z Uses: stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@refs/pull/4012/merge (dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4)
+2026-10-17T06:28:45.9549380Z   coverage-min:
+2026-10-17T06:28:45.9557859Z   enable-coverage-delta: false
+2026-10-17T06:28:45.9559110Z   coverage-alert-drop: 1
+2026-10-17T06:28:45.9559779Z   fail-on-coverage-drop: false
+2026-10-17T06:28:45.9560430Z   coverage-drop-label: coverage-drop
+2026-10-17T06:28:48.3594647Z HEAD is now at dfbc012 Merge f7c27207cd2e7c06f3cc3c45e651957b0b4c8962 into 7b5b63e40fb5f47152290177c1e272fbb0d3efa5
+2026-10-17T06:28:48.3656520Z [command]/usr/bin/git log -1 --format=%H
+2026-10-17T06:28:48.3682736Z dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4
+2026-10-17T06:28:49.8661875Z HEAD is now at dfbc012 Merge f7c27207cd2e7c06f3cc3c45e651957b0b4c8962 into 7b5b63e40fb5f47152290177c1e272fbb0d3efa5
+2026-10-17T06:28:49.8697598Z [command]/usr/bin/git log -1 --format=%H
+2026-10-17T06:28:49.8724491Z dfbc0129a28929363d6ca9aa4dc4f17e29f52ae4
+2026-10-17T06:28:53.7268087Z  + coverage==7.16.2
+2026-10-17T06:28:53.7299833Z  + pytest-cov==7.1.0
+2026-10-17T06:29:01.6561203Z   artifact-name: gate-coverage-3.12-1
+2026-10-17T06:29:01.6723226Z   INPUT_ARTIFACT_NAME: gate-coverage-3.12-1
+2026-10-17T06:29:02.0449205Z pytest -p ci_test_growth "${args[@]}"
+2026-10-17T06:29:02.0520002Z   PYTEST_MARKERS: not quarantine and not slow
+2026-10-17T06:29:02.0520623Z   PYTEST_ARGS:
+2026-10-17T06:29:02.0520966Z   COVERAGE_ENABLED: true
+2026-10-17T06:30:25.7847980Z platform linux -- Python 3.12.15, pytest-9.1.1, pluggy-1.6.0
+2026-10-17T06:57:10.8568983Z scripts/aggregate_agent_metrics.py                           899      1    380      5  99.53%   492->481, 839, 844->829, 954->910, 1011->996
+2026-10-17T06:57:10.8611887Z scripts/check_consumer_sync_drift.py                         555     37    262     32  90.33%   135->141, 155-156, 201, 236, 238-242, 247->231, 251, 296-297, 328, 391, 396, 473->471, 706->720, 740->749, 750->761, 753->761, 755->757, 762->780, 769, 776->778, 836, 848, 850->846, 979, 985-986, 988-989, 1001-1002, 1004-1005, 1013-1014, 1025->1020, 1031-1032, 1039-1043, 1048-1050
+2026-10-17T06:57:10.8828977Z scripts/validate_run_contract.py                             448     41    212     27  89.70%   189->exit, 191->exit, 194, 238->227, 369-370, 377-378, 380-381, 402-403, 407-408, 425, 431-433, 439-441, 450->412, 462-463, 516, 522-523, 548, 563, 678, 681-685, 715, 731-732, 738-742, 751-753, 782, 798-800, 836->865, 839->849, 857->849, 887
+2026-10-17T06:57:12.0645681Z ========== 50791 passed, 25 skipped, 3 xfailed in 1687.11s (0:28:07) ===========
+2026-10-17T06:57:15.4246671Z   COVERAGE_ENABLED: true
+2026-10-17T06:57:15.4702722Z   COVERAGE_ENABLED: true
+2026-10-17T06:57:15.8568493Z   COVERAGE_ENABLED: true
+2026-10-17T06:57:15.9001392Z   name: gate-coverage-3.12-1
+2026-10-17T06:57:16.3124644Z Uploading artifact: gate-coverage-3.12-1.zip
+2026-10-17T06:57:16.8882917Z Artifact gate-coverage-3.12-1 successfully finalized. Artifact ID 12093386109
+2026-10-17T06:57:16.8884234Z Artifact gate-coverage-3.12-1 has been successfully uploaded! Final size is 932475 bytes. Artifact ID is 12093386109
+2026-10-17T06:57:16.9113122Z   COVERAGE_ENABLED: true
+2026-10-17T06:57:16.9850492Z BASELINE_PATH="${PROJECT_ROOT}/config/coverage-baseline.json"
+2026-10-17T06:57:16.9851575Z   BASELINE_PATH="${WORKSPACE_ROOT}/config/coverage-baseline.json"
+2026-10-17T06:57:16.9861961Z   --coverage-xml coverage.xml \
+2026-10-17T06:57:16.9862406Z   --coverage-json coverage.json \
+2026-10-17T06:57:16.9863682Z   --summary-path coverage-summary.md \
+2026-10-17T06:57:16.9864640Z   --artifact-path coverage-trend.json \
+2026-10-17T06:57:16.9865105Z   --github-output coverage-trend.env \
+2026-10-17T06:57:17.1565764Z record_path = Path("coverage-trend.json")
+2026-10-17T06:57:17.2227456Z   HISTORY_PATH: coverage-trend-history.ndjson
+2026-10-17T06:57:17.2228253Z   RECORD_PATH: coverage-trend.json
+2026-10-17T06:57:17.2646336Z [history] appended coverage record run_id=39009963668 -> coverage-trend-history.ndjson
+2026-10-17T06:57:17.2760227Z   name: gate-coverage-summary
+2026-10-17T06:57:17.2760725Z   path: /home/runner/work/Workflows/Workflows/coverage-summary.md
+2026-10-17T06:57:17.7092048Z Uploading artifact: gate-coverage-summary.zip
+2026-10-17T06:57:18.0379754Z Artifact gate-coverage-summary successfully finalized. Artifact ID 12093530731
+2026-10-17T06:57:18.0381396Z Artifact gate-coverage-summary has been successfully uploaded! Final size is 688 bytes. Artifact ID is 12093530731
+2026-10-17T06:57:18.0529821Z   name: gate-coverage-trend
+2026-10-17T06:57:18.0530313Z   path: /home/runner/work/Workflows/Workflows/coverage-trend.json
+2026-10-17T06:57:18.4850923Z Uploading artifact: gate-coverage-trend.zip
+2026-10-17T06:57:18.8289852Z Artifact gate-coverage-trend successfully finalized. Artifact ID 12093197471
+2026-10-17T06:57:18.8291832Z Artifact gate-coverage-trend has been successfully uploaded! Final size is 907 bytes. Artifact ID is 12093197471
+2026-10-17T06:57:18.8458140Z   name: gate-coverage-trend-history
+2026-10-17T06:57:18.8458726Z   path: /home/runner/work/Workflows/Workflows/coverage-trend-history.ndjson
+2026-10-17T06:57:19.2824623Z Uploading artifact: gate-coverage-trend-history.zip
+2026-10-17T06:57:19.6487574Z Artifact gate-coverage-trend-history successfully finalized. Artifact ID 12093227329
+2026-10-17T06:57:19.6489030Z Artifact gate-coverage-trend-history has been successfully uploaded! Final size is 891 bytes. Artifact ID is 12093227329
