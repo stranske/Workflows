@@ -3599,6 +3599,9 @@ and review blockers. A bound review snapshot does not suppress the stale count:
 an old review-blocked canary contributes to both `review_blocked` and `stale`.
 Healthy green canaries and expected pre-seal Gate holds retain their existing
 age exemptions.
+An unreadable live default-branch tip does not erase known blocker counts or
+the held plan from the summary. Refresh for that plan stays blocked, including
+requests from its siblings, and the live-tip read error still fails the run.
 
 Full-scope report refreshes retain the verified campaign source commit and pass
 its expected plan ID to Maint 68. The in-loop stable refresh does the same

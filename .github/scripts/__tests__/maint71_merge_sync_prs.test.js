@@ -3178,6 +3178,40 @@ for (const failure of ['unreadable', 'invalid']) {
   });
 }
 
+for (const [state, change, expectedCounts] of [
+  ['behind', {}, [0, 0, 0]],
+  ['checks_failed', { check_status: 'checks_failed' }, [1, 0, 0]],
+  ['review_blocked', { active_review_thread_count: 1 }, [0, 1, 0]],
+  ['stale', { head_observed_at: '2026-10-17T05:00:00Z' }, [0, 0, 1]],
+  ['overlapping blockers', { check_status: 'checks_failed', active_review_thread_count: 1,
+    head_observed_at: '2026-10-17T05:00:00Z' }, [1, 1, 1]],
+]) {
+  test(`unreadable behind-canary tip preserves ${state} summary and holds its plan`, async () => {
+    for (const blockedFirst of [true, false]) {
+      const api = refreshHarness({ repos: { getBranch: async ({ repo }) => {
+        if (repo === 'Ready') throw new Error('branch unavailable');
+        return { data: { commit: { sha: 'b'.repeat(40) } } };
+      } } });
+      const blocked = refreshCanary({ ...change, mergeable_state: 'behind' });
+      // A sibling needing refresh must not bypass this plan's unreadable tip.
+      const sibling = refreshCanary({ repo: 'Template', mergeable_state: 'behind' });
+      const result = await refreshStableCanaries({ ...api,
+        canaries: blockedFirst ? [blocked, sibling] : [sibling, blocked] });
+      const [red, reviewBlocked, stale] = expectedCounts;
+      assert.deepEqual([result.red, result.review_blocked, result.stale], expectedCounts);
+      assert.equal(blocked.refresh_reason, 'behind');
+      assert.deepEqual(result.held_plans, [blocked.plan_id]);
+      assert.equal(result.refresh_dispatched, 0);
+      assert.equal(api.dispatches.length, 0, 'unreadable plan must retain the refresh safety hold');
+      assert.deepEqual(result.errors, ['canary_refresh_tip_unreadable:stranske/Ready:branch unavailable']);
+      assert.deepEqual(api.failures, result.errors);
+      assert.ok(api.summaries.includes(`canaries: red=${red} review_blocked=${reviewBlocked} `
+        + `stale=${stale} refresh_dispatched=0 held_plan=${blocked.plan_id} drainable=0\n`));
+      assert.ok(api.summaries.some(line => line.startsWith('seal: stranske/Ready#')));
+    }
+  });
+}
+
 test('fallback receipt rejects old, wrong-head, wrong-branch and wrong-event runs', async t => {
   const api = sealedGateHarness(t);
   const client = { rest: { actions: {

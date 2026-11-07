@@ -1044,13 +1044,16 @@ async function refreshStableCanaries({
   const counts = { red: 0, drainable: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
   // Preserve every held plan's reasons, but refresh the full candidate set once.
   const plans = new Map();
+  const unreadableTipPlans = new Set();
   const errors = [];
   for (const canary of canaries) {
     try {
       await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
     } catch (error) {
       errors.push(`canary_refresh_tip_unreadable:${canary.owner}/${canary.repo}:${error.message}`);
-      continue;
+      // Keep known blockers visible even when branch drift cannot be read.
+      // A sibling must not dispatch this plan using an incomplete live-tip read.
+      unreadableTipPlans.add(canary.plan_id);
     }
     if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) counts.red++;
     if (canary.expected_preseal_gate_hold && !canaryHasBlockingReviewDebt(canary)) counts.drainable++;
@@ -1093,6 +1096,7 @@ async function refreshStableCanaries({
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
       for (const [plan, rows] of plans) {
+        if (unreadableTipPlans.has(plan)) continue;
         const recovery = rows.find(row => row.mergeable_state === 'behind') || rows[0];
         const request = campaignBoundRefreshPlan(recovery);
         if (rows.some(row => row.plan_scope === 'source-delta' || row.refresh_plan?.plan_scope === 'source-delta')
