@@ -131,13 +131,106 @@ def test_octokit_restore_precedes_both_install_surfaces(agent: str) -> None:
         ("Workflows", ".workflows-lib/.github/scripts", "Ensure Workflows script deps"),
     ):
         cache = _step(job, f"Cache {surface} Octokit dependencies")
-        assert cache["uses"] == CACHE_REF
-        assert cache["with"]["path"] == f"{path}/node_modules"
-        assert f"{path}/package-lock.json" in cache["with"]["key"]
-        assert "setup-api-client/action.yml" in cache["with"]["key"]
-        assert "${{ runner.os }}" in cache["with"]["key"]
-        assert "node24" in cache["with"]["key"]
-        assert steps.index(cache) < steps.index(_step(job, consumer))
+        filename = f".github/workflows/reusable-{agent}-run.yml"
+        key = cache["with"]["key"]
+        action_path = f"{Path(path).parent}/actions/setup-api-client/action.yml"
+        assert cache["uses"] == CACHE_REF, filename
+        assert cache["with"]["path"] == f"{path}/node_modules", filename
+        # The action contains the exact Octokit pins; both inputs must be hashed
+        # from the checkout whose installed modules are being restored.
+        assert f"hashFiles('{path}/package-lock.json', '{action_path}')" in key, filename
+        assert "${{ runner.os }}" in key, filename
+        assert "${{ runner.arch }}" in key, filename
+        assert "node24" in key, filename
+        assert "restore-keys" not in cache["with"], filename
+        assert steps.index(cache) < steps.index(_step(job, consumer)), filename
+
+
+@pytest.mark.parametrize("surface", ("workspace", "Workflows"))
+@pytest.mark.parametrize("missing_lru_cache", (False, True), ids=("complete", "needs-repair"))
+def test_octokit_restore_skips_install_and_repairs_incomplete_cache(
+    surface: str, missing_lru_cache: bool, tmp_path: Path
+) -> None:
+    """Exercise the shared installer with cached modules and an offline npm stub."""
+    _, job = _runner("codex")
+    cache = _step(job, f"Cache {surface} Octokit dependencies")
+    action_dir = ROOT / ".github/actions/setup-api-client"
+    action = yaml.safe_load((action_dir / "action.yml").read_text())
+    setup = {"steps": action["runs"]["steps"]}
+    install = _step(setup, "Install API client dependencies")["run"]
+    export_path = _step(setup, "Export NODE_PATH for shared deps")["run"]
+    fake_bin = tmp_path / "tools"
+    fake_bin.mkdir()
+    npm = fake_bin / "npm"
+    npm.write_text(
+        "#!/bin/bash\nset -euo pipefail\n"
+        'printf "%s\\n" "$*" >> "$INSTALL_LOG"\n'
+        'for spec in "$@"; do\n'
+        '  case "$spec" in\n'
+        "    @octokit/*@*|lru-cache@*)\n"
+        '      package="${spec%@*}"\n'
+        '      version="${spec##*@}"\n'
+        '      mkdir -p "node_modules/$package"\n'
+        '      printf \'module.exports = "%s";\\n\' "$version" '
+        '> "node_modules/$package/index.js"\n'
+        "      ;;\n  esac\ndone\n"
+    )
+    npm.chmod(0o755)
+    log = tmp_path / "installs"
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "INSTALL_LOG": str(log),
+        "GITHUB_ACTION_PATH": str(action_dir),
+    }
+    env.pop("NODE_PATH", None)
+
+    def run_setup(workspace: Path) -> None:
+        env["GITHUB_WORKSPACE"] = str(workspace)
+        env["GITHUB_ENV"] = str(workspace / "github-env")
+        # Workspace setup uses the action's default; Workflows setup supplies
+        # the explicit install_dir pointing into the shared scripts checkout.
+        install_dir = (
+            "" if surface == "workspace" else str((workspace / cache["with"]["path"]).parent)
+        )
+        for script in (install, export_path):
+            result = subprocess.run(
+                ["/bin/bash", "-c", script.replace("${{ inputs.install_dir }}", install_dir)],
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stdout + result.stderr
+
+    cold = tmp_path / "cold"
+    run_setup(cold)
+    archive = tmp_path / "archive"
+    shutil.copytree(cold / cache["with"]["path"], archive)
+    shutil.rmtree(cold)
+    restored = tmp_path / "restored"
+    modules = restored / cache["with"]["path"]
+    shutil.copytree(archive, modules)
+    if missing_lru_cache:
+        shutil.rmtree(modules / "lru-cache")
+    run_setup(restored)
+
+    expected_install = (
+        "install --no-save --location=project @octokit/rest@20.0.2 "
+        "@octokit/plugin-retry@6.0.1 @octokit/plugin-paginate-rest@9.1.5 "
+        "@octokit/auth-app@6.0.3 lru-cache@10.4.3"
+    )
+    assert log.read_text().splitlines() == [expected_install] * (2 if missing_lru_cache else 1)
+    assert (restored / "github-env").read_text() == f"NODE_PATH={modules}\n"
+    env["NODE_PATH"] = str(modules)
+    probe = subprocess.run(
+        ["node", "-p", "require('@octokit/rest') + ':' + require('lru-cache')"],
+        cwd=restored,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert probe.returncode == 0, probe.stderr
+    assert probe.stdout.strip() == "20.0.2:10.4.3"
 
 
 def test_progress_review_caches_pip_before_dependency_install() -> None:
