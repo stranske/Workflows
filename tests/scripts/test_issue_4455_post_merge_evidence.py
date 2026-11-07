@@ -9,12 +9,18 @@ from pathlib import Path
 import pytest
 
 EVIDENCE = Path(__file__).resolve().parents[1] / "fixtures/issue_4455/post_merge_evidence.json"
+LATEST_EVIDENCE = EVIDENCE.with_name("latest_runs_evidence.json")
 WORKFLOW = ".github/workflows/maint-71-merge-sync-prs.yml"
 
 
 @pytest.fixture(scope="module")
 def receipt() -> dict:
     return json.loads(EVIDENCE.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def latest_receipt() -> dict:
+    return json.loads(LATEST_EVIDENCE.read_text(encoding="utf-8"))
 
 
 def utc(value: str) -> datetime:
@@ -95,3 +101,66 @@ def test_historical_success_does_not_complete_the_latest_three_acceptance(receip
     assert receipt["verified_run"]["id"] not in {run["id"] for run in recent}
     assert all(run["status"] == "completed" and run["conclusion"] == "failure" for run in recent)
     assert not any(run["conclusion"] == "success" for run in recent)
+
+
+def test_latest_three_selection_retains_interleaved_workflows(latest_receipt: dict) -> None:
+    inventory = latest_receipt["run_inventory_prefix"]
+    assert len(inventory) <= latest_receipt["collection"]["runs_returned"] == 100
+    assert len({run["id"] for run in inventory}) == len(inventory)
+    assert [utc(run["created_at"]) for run in inventory] == sorted(
+        (utc(run["created_at"]) for run in inventory), reverse=True
+    )
+    positions = [index for index, run in enumerate(inventory) if run["path"] == WORKFLOW]
+    # Retain every row through match three so unrelated workflows cannot obscure
+    # the latest successes or justify selecting an older success instead.
+    assert positions == [0, 5, 12]
+    assert positions[-1] == len(inventory) - 1
+    assert [inventory[index]["id"] for index in positions] == [
+        42346303152,
+        42346256308,
+        42346191321,
+    ]
+
+
+def test_latest_three_contains_completed_success_after_merge(
+    receipt: dict, latest_receipt: dict
+) -> None:
+    recent = [run for run in latest_receipt["run_inventory_prefix"] if run["path"] == WORKFLOW]
+    assert len(recent) == 3
+    for run in recent:
+        assert run["head_branch"] == "main"
+        assert utc(receipt["fix_pr"]["merged_at"]) < utc(run["created_at"])
+        assert utc(run["created_at"]) < utc(latest_receipt["observed_at"])
+    successes = [
+        run for run in recent if run["status"] == "completed" and run["conclusion"] == "success"
+    ]
+    assert successes
+    verified = latest_receipt["verified_success"]
+    assert {key: verified[key] for key in successes[0]} == successes[0]
+    assert verified["id"] != receipt["verified_run"]["id"]
+    assert utc(verified["created_at"]) <= utc(verified["run_started_at"])
+    assert utc(verified["run_started_at"]) <= utc(verified["updated_at"])
+    assert utc(verified["updated_at"]) < utc(latest_receipt["observed_at"])
+
+
+def test_fresh_comments_have_no_sync_core_handoff_after_latest_success(
+    receipt: dict, latest_receipt: dict
+) -> None:
+    comments = latest_receipt["issue_comments"]
+    collection = latest_receipt["collection"]
+    assert len(comments) == collection["comments_returned"] < collection["comments_page_capacity"]
+    assert len({comment["id"] for comment in comments}) == len(comments)
+    # The fresh full page confirms that no comments were added since the first
+    # observation, rather than carrying the old absence claim forward unchecked.
+    assert {comment["id"] for comment in comments} == {
+        comment["id"] for comment in receipt["issue_comments"]
+    }
+    sync = [
+        comment for comment in comments if comment["body_prefix"] == "<!-- sync-core/v1 handoff "
+    ]
+    assert {comment["id"] for comment in sync} == {
+        comment["id"] for comment in receipt["issue_comments"] if comment["sync_core"]
+    }
+    assert sync
+    for comment in sync:
+        assert utc(comment["created_at"]) < utc(latest_receipt["verified_success"]["created_at"])

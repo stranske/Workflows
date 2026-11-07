@@ -1,69 +1,73 @@
 # Issue #4455 post-merge evidence
 
-Evidence collection completed 2026-11-07T05:55:11Z. The subscription findings
-cleared in a successful run on the merged fix. One acceptance criterion remains
-open: all three most recent maint-71 runs returned by the API concluded failure.
+Both acceptance criteria were verified at 2026-11-07T06:18:12Z. Successful
+maint-71 runs now appear among the latest three, and #4364 has no sync-core
+comment after those runs.
 
 The requested `gh run list --workflow maint-71-merge-sync-prs.yml --repo
 stranske/Workflows --limit 3` and `gh issue view 4364 --repo stranske/Workflows
---comments` commands were attempted, but both failed to connect to
-`api.github.com`. The connected GitHub API supplied the evidence instead.
-The [retained receipt](../../tests/fixtures/issue_4455/post_merge_evidence.json)
-records endpoints and field projections. Recent runs were selected from the
-first 100 repository runs, retaining API order and filtering the exact workflow
-path; the first three matching rows are recorded below. These are observations
-at collection time, not a continuing claim about current workflow health.
+--comments` commands were attempted but could not connect to `api.github.com`.
+The connected GitHub API supplied equivalent observations. The
+[latest receipt](../../tests/fixtures/issue_4455/latest_runs_evidence.json)
+retains the unfiltered API-order prefix through the third maint-71 match,
+a separate successful-run read, and projections of every issue comment.
+The workflow-specific runs endpoint was unavailable through this connector;
+filtering the repository runs response yielded three matches on its first page.
+These are observations at collection time, not a continuing workflow-health claim.
 
 - [x] Confirm maint-71 started after #4443 merged into main.
   [PR #4443](https://github.com/stranske/Workflows/pull/4443) merged at
   2026-11-05T02:46:26Z as `81e575a008db219b8b63761014025d182d095128`.
-  [Run 41958285569](https://github.com/stranske/Workflows/actions/runs/41958285569)
-  started at 2026-11-05T02:55:16Z on that exact commit, concluded success, and
-  was last updated at 03:00:45Z. The three recent runs also started after the merge.
+  The latest three maint-71 runs at collection were
+  [42346303152](https://github.com/stranske/Workflows/actions/runs/42346303152)
+  (2026-11-07T06:16:59Z, in progress),
+  [42346256308](https://github.com/stranske/Workflows/actions/runs/42346256308)
+  (06:16:18Z, success), and
+  [42346191321](https://github.com/stranske/Workflows/actions/runs/42346191321)
+  (06:15:28Z, success). All ran on main after the merge. A separate read of
+  run 42346256308 confirmed completion at 06:16:53Z with conclusion success.
 - [x] Confirm the consumer report excludes the original subscription findings.
-  The [merge job log](https://github.com/stranske/Workflows/actions/runs/41958285569/job/127018407721)
-  emits the final Portable-Alpha-Extension-Model#2454 report at 03:00:38Z.
-  It binds head `3512f549a602be0cf61b7873f39bf07acf2d6924` to source
+  The previously retained
+  [merge job log](https://github.com/stranske/Workflows/actions/runs/41958285569/job/127018407721)
+  emits the Portable-Alpha-Extension-Model#2454 report at
+  2026-11-05T03:00:38Z. It binds head
+  `3512f549a602be0cf61b7873f39bf07acf2d6924` to source
   `81e575a008db219b8b63761014025d182d095128`. All six active findings concern
   other paths; none concerns `scripts/langchain/_llm_client.py` or original
-  threads `r4434482074` and `r4434491654`. The consumer remains blocked by
-  those six other findings and requires a base refresh.
+  threads `r4434482074` and `r4434491654`. The
+  [original receipt](../../tests/fixtures/issue_4455/post_merge_evidence.json)
+  preserves that successful run and report. Its consumer blockers are historical
+  observations and were not re-evaluated during this follow-up.
 - [x] Confirm no sync-core comment on #4364 follows the verified run.
-  The API returned all 39 comments in one page of capacity 100. Thirteen have
-  the sync-core handoff marker. The latest is
+  A fresh API read returned all 39 comments in one page of capacity 100.
+  The comment IDs and 13 sync-core handoff markers match the original receipt.
+  The latest sync-core comment remains
   [2026-11-04T06:00:32Z](https://github.com/stranske/Workflows/issues/4364#issuecomment-6623829810),
-  before the run; the latest Portable-Alpha-specific handoff is
-  [2026-11-04T06:00:22Z](https://github.com/stranske/Workflows/issues/4364#issuecomment-6623827321).
+  before both the original and newly verified successful runs.
 
 Acceptance status:
 
-- [ ] A success appears among the latest three maint-71 runs after the fix merge.
-  The returned runs were
-  [42344355901](https://github.com/stranske/Workflows/actions/runs/42344355901)
-  (2026-11-07T05:49:47Z),
-  [42344354188](https://github.com/stranske/Workflows/actions/runs/42344354188)
-  (05:49:46Z), and
-  [42344311965](https://github.com/stranske/Workflows/actions/runs/42344311965)
-  (05:49:06Z). All concluded failure. The historical success establishes the
-  fix's post-merge behavior but cannot satisfy this literal latest-three check.
+- [x] A success appears among the latest three maint-71 runs after the fix merge.
 - [x] No sync-core comment on #4364 is dated after the verified successful run.
 
 Validation: `pytest -q tests/scripts/test_issue_4455_post_merge_evidence.py -m
-"not slow"` passed all six tests. They replay merge/run ordering, exact source
-and consumer-head bindings, findings, comment timestamps, and the distinction
-between historical success and the latest-three acceptance criterion. The tests
-validate the retained observation; fresh acceptance requires another live read.
-Ruff passed. Repository-wide Black validation passed for all 953 discovered
-files with the required line length and exclusions. The ordinary CLI first
-failed because Python 3.14's multiprocessing startup tried to bind a forbidden
-socket. The successful invocation used one worker and kept Black's event loop
-polling every 50 ms to accommodate restricted worker notifications; formatter
-rules and file discovery were unchanged.
+"not slow"` passed all nine tests; Ruff passed. The original six tests retain
+historical evidence, including the earlier failed latest-three check. Three new
+tests replay the fresh unfiltered selection, separately confirmed successful run,
+and complete comment page. They validate retained observations; future acceptance
+checks require fresh API reads.
 
-Handoff constraints: this workspace mounts `.git` read-only, so committing to
-the checked-out branch is blocked. A commit and apply-ready patch are prepared
-in an isolated checkout under `/tmp/issue-4455-review`. Connected GitHub tools rejected the PR-body
-update, `needs-human` label, and blocker comment because those writes require
-approval and this run's approval policy is `never`. The checklist above records
-verified local progress. PR #4519 was independently read back as open and ready
-for review (`draft=false`).
+Repository-wide Black validation passed for all 953 discovered Python files
+with line length 100 and the required exclusions. The ordinary CLI stalled
+awaiting restricted worker notifications. The successful invocation used one
+worker and a 50 ms event-loop heartbeat; formatting rules and discovery were
+unchanged.
+
+The checked-out workspace mounts `.git` read-only; staging failed with
+`Unable to create .git/index.lock: Read-only file system`. An isolated checkout
+under `/tmp/issue-4455-acceptance` is used to prepare the commit and patch.
+PR #4519 was read back as open and ready for review (`draft=false`).
+The connected GitHub tool rejected the PR checklist update, blocker comment,
+and `needs-human` label: those writes require approval, while this run's approval
+policy is `never`. Remote checkboxes remain unchanged; the completed checklist
+above records verified local progress.
