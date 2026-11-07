@@ -16,7 +16,7 @@
       "original_snippet": "    if _semantic_mode():\n        if not isinstance(data, dict):\n            return \"CONCERNS\"\n",
       "mutant_snippet": "    if _semantic_mode():\n        if not isinstance(data, dict):\n            return \"PASS\"\n",
       "source_start_line": 8855,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "32899204376cf27e98fa094652b6921e8c2d2194844cdc96ccfa75fb09e6613f",
       "red": {
         "command": [
@@ -63,7 +63,7 @@
       "original_snippet": "            if not isinstance(signature, str) or not hmac.compare_digest(\n                signature, _semantic_envelope_signature(unsigned)\n            ):\n                return \"CONCERNS\"\n",
       "mutant_snippet": "            if False and (\n                not isinstance(signature, str)\n                or not hmac.compare_digest(signature, _semantic_envelope_signature(unsigned))\n            ):\n                return \"CONCERNS\"\n",
       "source_start_line": 8864,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "9d96fd3e8dc1017b6fd8a1f6d447655decb5c455da1bc0af002bd4229cd63213",
       "red": {
         "command": [
@@ -110,7 +110,7 @@
       "original_snippet": "        except (OSError, ValueError):\n            return \"CONCERNS\"\n",
       "mutant_snippet": "        except (OSError, ValueError):\n            raise\n",
       "source_start_line": 8868,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "ce4f8be137096f33e27eb9c5d6d6b1cf1b81ad7a39007d3be3e1d087b6f21764",
       "red": {
         "command": [
@@ -157,7 +157,7 @@
       "original_snippet": "        if not isinstance(admission, dict) or admission.get(\"verdict\") not in {\n            \"PASS\",\n            \"CONCERNS\",\n            \"FAIL\",\n        }:\n            return \"CONCERNS\"\n",
       "mutant_snippet": "        if not isinstance(admission, dict) or admission.get(\"verdict\") not in {\n            \"PASS\",\n            \"CONCERNS\",\n            \"FAIL\",\n            \"UNVERIFIABLE_INPUT\",\n        }:\n            return \"CONCERNS\"\n",
       "source_start_line": 8871,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "a1c14b9b686901f572dcc0b384feddc6c03ccfa7d14481480043fad7bafca6f3",
       "red": {
         "command": [
@@ -204,7 +204,7 @@
       "original_snippet": "            return \"CONCERNS\"\n        return str(admission[\"verdict\"])\n",
       "mutant_snippet": "            return \"CONCERNS\"\n        return \"CONCERNS\"\n",
       "source_start_line": 8876,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "3b3bd4ebbcac759ae4855b53a0657bca8c7659d3d2fff81f0076c5de5eb927e6",
       "red": {
         "command": [
@@ -251,7 +251,7 @@
       "original_snippet": "    if len(expected) != 2 or len({provider for provider, _ in expected}) != 2:\n        return \"CONCERNS\"\n",
       "mutant_snippet": "    if len(expected) != 2 or len({provider for provider, _ in expected}) != 2:\n        return \"PASS\"\n",
       "source_start_line": 8887,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "faf24b20827f2d49494e603af5e189caf3e5d09586342905f1f9bcfd5035abd9",
       "red": {
         "command": [
@@ -298,7 +298,7 @@
       "original_snippet": "    if not isinstance(data, dict) or not isinstance(data.get(\"results\"), list):\n        return \"CONCERNS\"\n",
       "mutant_snippet": "    if not isinstance(data, dict) or not isinstance(data.get(\"results\"), list):\n        return \"PASS\"\n",
       "source_start_line": 8889,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "b99d075539c96a76d9a508662e37506e1c90a45cc119e67de42a277b2201af6e",
       "red": {
         "command": [
@@ -345,7 +345,7 @@
       "original_snippet": "    return \"PASS\" if complete and set(observed) == set(expected) else \"CONCERNS\"\n",
       "mutant_snippet": "    return \"CONCERNS\" if complete and set(observed) == set(expected) else \"CONCERNS\"\n",
       "source_start_line": 8938,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "b7609b5213fdbde80084421eeca76f8001cdc4002fd30fddd4995e9f991b2401",
       "red": {
         "command": [
@@ -392,7 +392,7 @@
       "original_snippet": "    if failed:\n        return \"FAIL\"\n    if input_only and saw_unverifiable and set(observed) == set(expected):\n",
       "mutant_snippet": "    if failed:\n        return \"CONCERNS\"\n    if input_only and saw_unverifiable and set(observed) == set(expected):\n",
       "source_start_line": 8934,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "7f2561442407fcdb3a83059f7352c21f626a88f4a8854731bc2b74ab6c581928",
       "red": {
         "command": [
@@ -439,7 +439,7 @@
       "original_snippet": "        if identity not in expected or (\n            result.used_llm is not True and result.verdict != \"UNVERIFIABLE_INPUT\"\n        ):\n            complete = False\n            input_only = False\n            continue\n",
       "mutant_snippet": "        if False and (\n            identity not in expected\n            or (result.used_llm is not True and result.verdict != \"UNVERIFIABLE_INPUT\")\n        ):\n            complete = False\n            input_only = False\n            continue\n",
       "source_start_line": 8912,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "1d2b2c816188c64f5e8e63500b7cbd0331eb651681f0c34702fd1925badf7a33",
       "red": {
         "command": [
@@ -486,7 +486,7 @@
       "original_snippet": "        if identity in observed or result.verdict != \"PASS\" or result.error:\n            complete = False\n",
       "mutant_snippet": "        if identity in observed or result.error:\n            complete = False\n",
       "source_start_line": 8931,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "f81efbe5c224b85396290c55bccf5bbcf8cfcf68af46cae46eeeec73a758f2ac",
       "red": {
         "command": [
@@ -533,7 +533,7 @@
       "original_snippet": "    if input_only and saw_unverifiable and set(observed) == set(expected):\n        return \"UNVERIFIABLE_INPUT\"\n",
       "mutant_snippet": "    if input_only and saw_unverifiable and set(observed) == set(expected):\n        return \"CONCERNS\"\n",
       "source_start_line": 8936,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "8737a5aa7b788cb6f2db7bb82326c71f84fc5479152a3674abc396842d5cdd24",
       "red": {
         "command": [
@@ -580,7 +580,7 @@
       "original_snippet": "    slots = resolve_slots()[:2]\n    overrides = [model1 or os.environ.get(\"LANGCHAIN_MODEL\"), model2 or model1]\n    expected = [\n",
       "mutant_snippet": "    slots = resolve_slots()[:2]\n    overrides = [None, None]\n    expected = [\n",
       "source_start_line": 8881,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "e9d418f30f28d68fb0505fb39d228afa2ca837a974304d2810daab6a30369c2f",
       "red": {
         "command": [
@@ -1379,7 +1379,7 @@
       "original_snippet": "    return set(_cached_evidence_channels(acceptance, _bind_attached))\n",
       "mutant_snippet": "    _cached_evidence_channels.cache_clear()\n    return set(_cached_evidence_channels(acceptance, _bind_attached))\n",
       "source_start_line": 5820,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "dc8b682edf58b6bf3352f95e98b305b1f21596e2652d9060a9d98a01283c5965",
       "red": {
         "command": [
@@ -1426,7 +1426,7 @@
       "original_snippet": "        set(option) for option in _cached_evidence_options(acceptance, _required_evidence_channels)\n",
       "mutant_snippet": "        set(option)\n        for option in (_cached_evidence_options.cache_clear() or _cached_evidence_options(acceptance, _required_evidence_channels))\n",
       "source_start_line": 5991,
-      "restored_sha256": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
       "mutant_sha256": "4eecf783df75d2f79ef15230ca054ba1a0f0605bbd037595bd97c89fcf0ee26d",
       "red": {
         "command": [

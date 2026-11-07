@@ -5,82 +5,82 @@ branch: codex/issue-4484
 tasks:
   - id: task-01
     title: Fix the source of the unused `config` argument errors in synced `scripts/langchain/_llm_client.py:40:35` and `scripts/langchain/pr_verifier.py:8735:35`.
-    status: completed
+    status: done
     started_at: '2026-11-06T18:25:28Z'
     finished_at: '2026-11-06T19:30:00Z'
-    commit: ''
+    commit: 555c4bd79ee812a6032f0d98531ddf33cb64d36a
     notes:
-      - Authoritative source files identified: scripts/langchain/_llm_client.py and scripts/langchain/pr_verifier.py (listed in .github/sync-manifest.yml lines 745 and 853)
-      - Fixed _llm_client.py:40: SubscriptionClientAdapter.invoke() now passes config parameter to underlying client.invoke()
-      - Fixed pr_verifier.py:8735: CapacityBackupClient.invoke() marked with # noqa: ARG002 (config not applicable to raw HTTP client)
+      - "Authoritative source files identified: scripts/langchain/_llm_client.py and scripts/langchain/pr_verifier.py (listed in .github/sync-manifest.yml lines 745 and 853)"
+      - "Fixed _llm_client.py:40: SubscriptionClientAdapter.invoke() now passes config parameter to underlying client.invoke()"
+      - "Fixed pr_verifier.py:8735: CapacityBackupClient.invoke() marked with # noqa: ARG002 (config not applicable to raw HTTP client)"
   - id: task-02
     title: 'Locate the upstream source files that sync to scripts/langchain/_llm_client.py (verify: confirm completion in repo)'
-    status: completed
+    status: done
     started_at: '2026-11-06T19:30:00Z'
     finished_at: '2026-11-06T19:31:00Z'
-    commit: ''
+    commit: 555c4bd79ee812a6032f0d98531ddf33cb64d36a
     notes:
-      - Confirmed: .github/sync-manifest.yml line 745 declares source: scripts/langchain/_llm_client.py
+      - "Confirmed: .github/sync-manifest.yml line 745 declares source: scripts/langchain/_llm_client.py"
       - This is the authoritative source that syncs to consumer repos including stranske/Travel-Plan-Permission
   - id: task-03
     title: 'scripts/langchain/pr_verifier.py in the consumer repo (verify: confirm completion in repo)'
-    status: completed
+    status: done
     started_at: '2026-11-06T19:31:00Z'
     finished_at: '2026-11-06T19:32:00Z'
-    commit: ''
+    commit: 555c4bd79ee812a6032f0d98531ddf33cb64d36a
     notes:
-      - Confirmed: .github/sync-manifest.yml line 853 declares source: scripts/langchain/pr_verifier.py
+      - "Confirmed: .github/sync-manifest.yml line 853 declares source: scripts/langchain/pr_verifier.py"
       - This is the authoritative source that syncs to consumer repos including stranske/Travel-Plan-Permission
   - id: task-04
     title: 'Fix the ARG002 unused method argument `config` at the method near line 40 of _llm_client.py (verify: config validated)'
-    status: completed
+    status: done
     started_at: '2026-11-06T19:32:00Z'
     finished_at: '2026-11-06T19:35:00Z'
-    commit: ''
+    commit: 555c4bd79ee812a6032f0d98531ddf33cb64d36a
     notes:
       - Changed SubscriptionClientAdapter.invoke() at line 40 to pass config=config to self.client.invoke()
       - Preserves calling contract with keyword config callers
-      - Validation: ruff check --select ARG002 scripts/langchain/_llm_client.py passes
+      - "Validation: ruff check --select ARG002 scripts/langchain/_llm_client.py passes"
   - id: task-05
     title: 'either by using the argument or by marking it intentionally unused (verify: confirm completion in repo)'
-    status: completed
+    status: done
     started_at: '2026-11-06T19:35:00Z'
     finished_at: '2026-11-06T19:36:00Z'
-    commit: ''
+    commit: 555c4bd79ee812a6032f0d98531ddf33cb64d36a
     notes:
-      - For SubscriptionClientAdapter.invoke(): Used the argument by passing it to underlying client
-      - For CapacityBackupClient.invoke(): Marked as # noqa: ARG002 since config is not applicable to raw HTTP client
+      - "For SubscriptionClientAdapter.invoke(): Used the argument by passing it to underlying client"
+      - "For CapacityBackupClient.invoke(): Marked as # noqa: ARG002 since config is not applicable to raw HTTP client"
   - id: task-06
     title: 'Fix the ARG002 unused method argument `config` at the method near line 8735 of pr_verifier.py (verify: config validated)'
-    status: completed
+    status: done
     started_at: '2026-11-06T19:36:00Z'
     finished_at: '2026-11-06T19:38:00Z'
-    commit: ''
+    commit: 555c4bd79ee812a6032f0d98531ddf33cb64d36a
     notes:
-      - Added # noqa: ARG002 to CapacityBackupClient.invoke() at line 8735
+      - "Added # noqa: ARG002 to CapacityBackupClient.invoke() at line 8735"
       - config parameter is not applicable to raw HTTP client implementation
-      - Validation: ruff check --select ARG002 scripts/langchain/pr_verifier.py passes
+      - "Validation: ruff check --select ARG002 scripts/langchain/pr_verifier.py passes"
   - id: task-07
     title: 'Run ruff check on both source files locally to confirm no ARG002 violations remain (verify: lint passes)'
-    status: completed
+    status: done
     started_at: '2026-11-06T19:38:00Z'
     finished_at: '2026-11-06T19:40:00Z'
-    commit: ''
+    commit: 555c4bd79ee812a6032f0d98531ddf33cb64d36a
     notes:
-      - Command: python3 -m ruff check --select ARG002 scripts/langchain/_llm_client.py scripts/langchain/pr_verifier.py
-      - Result: All checks passed!
-      - Exit code: 0
+      - "Command: python3 -m ruff check --select ARG002 scripts/langchain/_llm_client.py scripts/langchain/pr_verifier.py"
+      - "Result: All checks passed!"
+      - "Exit code: 0"
   - id: task-08
     title: Add or extend a regression test reproducing the failure and passing after the fix, using `pytest` or `node --test`, whichever the source uses.
-    status: completed
+    status: done
     started_at: '2026-11-06T19:40:00Z'
     finished_at: '2026-11-07T00:50:00Z'
-    commit: ''
+    commit: ad56949f14f2746a7e6240adcc215adb967f5fb8
     notes:
       - Extended tests/langchain/test_arg002_regression.py with automated deliberate-break coverage
       - Added test_reintroducing_unused_config_fails_arg002 for source + template paths
       - Added test_capacity_backup_client_accepts_unused_config for CapacityBackupClient config kwarg
-      - Verification: pytest tests/langchain/test_arg002_regression.py -v passes (27/27)
+      - "Verification: pytest tests/langchain/test_arg002_regression.py -v passes (27/27)"
   - id: task-09
     title: 'Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha passes on regenerated sync PR stranske/Travel-Plan-Permission#1716, verified with `gh run view <run-id>`, and the repository''s test command passes locally.'
     status: deferred
@@ -88,15 +88,15 @@ tasks:
     finished_at: null
     commit: ''
     notes:
-      - Deferred: Requires external automation (maint-68-sync-consumer-repos.yml is protected)
-      - Local verification completed: ruff check --select ARG002 passes on authoritative sources
+      - "Deferred: Requires external automation (maint-68-sync-consumer-repos.yml is protected)"
+      - "Local verification completed: ruff check --select ARG002 passes on authoritative sources"
       - Next sync-core round will regenerate Travel-Plan-Permission#1716 and CI should pass
   - id: task-10
     title: Reintroducing the reported behavior makes the regression test fail; reverting it makes the test pass.
-    status: completed
+    status: done
     started_at: '2026-11-06T19:45:00Z'
     finished_at: '2026-11-07T00:50:00Z'
-    commit: ''
+    commit: ad56949f14f2746a7e6240adcc215adb967f5fb8
     notes:
       - Automated in test_reintroducing_unused_config_fails_arg002 (tmp mutant fails ARG002; real path passes)
       - Covers _llm_client.py, pr_verifier.py, and consumer template pr_verifier.py
@@ -107,5 +107,5 @@ tasks:
     finished_at: null
     commit: ''
     notes:
-      - Deferred: Requires future sync-core round execution
+      - "Deferred: Requires future sync-core round execution"
       - Source fix is complete; classification will update on next round

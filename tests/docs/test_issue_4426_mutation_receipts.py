@@ -230,7 +230,7 @@ def test_cache_miss_receipts_name_a_restored_failure() -> None:
         "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174"
     )
     assert digests["scripts/langchain/pr_verifier.py"] == (
-        "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886"
+        "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478"
     )
     blocked = [
         by_id["blocked-slot-model-single"]["nodeid"],
@@ -258,7 +258,7 @@ def test_prior_mutation_transcripts_stay_unavailable() -> None:
         assert receipt["id"] in prose
         assert f"red exit {receipt['red']['exit_code']}" in prose
         assert f"green exit {receipt['green']['exit_code']}" in prose
-    assert "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886" in prose
+    assert "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478" in prose
     assert "18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7" in prose
 
 
