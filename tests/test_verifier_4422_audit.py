@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -123,6 +124,83 @@ def test_initial_evidence_does_not_start_a_second_attempt_after_the_budget() -> 
     assert calls == 1
     assert result["attempts"] == 1
     assert result["stop_reason"] == "elapsed-cap"
+
+
+def test_initial_evidence_handles_missing_gh_as_bounded_failure() -> None:
+    def runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("gh: command not found")
+
+    result = audit.run_initial_evidence(runner, clock=lambda: 0.0)
+    assert result["outcome"] is None
+    assert result["attempts"] == 2
+    assert result["stop_reason"] == "attempt-cap"
+    assert len(result["errors"]) == 2
+    assert all("command not found" in err for err in result["errors"])
+    assert result["stop_rule"]["max_attempts"] == 2
+    assert result["stop_rule"]["max_elapsed_seconds"] == 120.0
+
+
+def test_initial_evidence_handles_timeout_expired() -> None:
+    def runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(argv, timeout)
+
+    result = audit.run_initial_evidence(runner, clock=lambda: 0.0)
+    assert result["outcome"] is None
+    assert result["attempts"] == 2
+    assert result["stop_reason"] == "attempt-cap"
+    assert len(result["errors"]) == 2
+    assert all("timeout" in err for err in result["errors"])
+
+
+def test_initial_evidence_handles_malformed_json() -> None:
+    def runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(argv, 0, "not json", "")
+
+    result = audit.run_initial_evidence(runner, clock=lambda: 0.0)
+    assert result["outcome"] is None
+    assert result["attempts"] == 2
+    assert result["stop_reason"] == "attempt-cap"
+    assert len(result["errors"]) == 2
+    assert all("invalid JSON" in err for err in result["errors"])
+
+
+def test_initial_evidence_handles_non_object_json() -> None:
+    def runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(argv, 0, "[1, 2, 3]", "")
+
+    result = audit.run_initial_evidence(runner, clock=lambda: 0.0)
+    assert result["outcome"] is None
+    assert result["attempts"] == 2
+    assert result["stop_reason"] == "attempt-cap"
+    assert len(result["errors"]) == 2
+    assert all("JSON value was not an object" in err for err in result["errors"])
+
+
+def test_initial_evidence_cli_returns_exit_code_2_on_failure(capsys: pytest.CaptureFixture[str]) -> None:
+    import verifier_4422_audit as audit_module
+    original_default_runner = audit_module._default_runner
+
+    def failing_runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("gh not found")
+
+    audit_module._default_runner = failing_runner
+    try:
+        import sys
+        old_argv = sys.argv
+        sys.argv = ["verifier_4422_audit.py", "initial-evidence"]
+        try:
+            exit_code = audit_module.main()
+        finally:
+            sys.argv = old_argv
+        assert exit_code == 2
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        assert payload["outcome"] is None
+        assert payload["stop_reason"] == "attempt-cap"
+        assert len(payload["errors"]) >= 1
+        assert any("command not found" in err for err in payload["errors"])
+    finally:
+        audit_module._default_runner = original_default_runner
 
 
 def test_campaign_definition_command_prints_the_record_without_network() -> None:

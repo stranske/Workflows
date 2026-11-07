@@ -275,6 +275,9 @@ def run_initial_evidence(
         except subprocess.TimeoutExpired:
             errors.append(f"attempt {attempts}: timeout after {timeout:.1f}s")
             continue
+        except FileNotFoundError as exc:
+            errors.append(f"attempt {attempts}: command not found: {exc}")
+            continue
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout or "").strip()
             errors.append(f"attempt {attempts}: exit {completed.returncode}: {detail}")
