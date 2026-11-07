@@ -259,3 +259,32 @@ conclusion=`success`, head `948406465cf7`, job `Python CI / typecheck-mypy`
 Deferred (human / post-merge only): next sync-core round classification without
 this finding. Do not modify or trigger
 `.github/workflows/maint-68-sync-consumer-repos.yml`.
+
+## Sync-core clearance local proxy (this round)
+
+Added `test_ci_history_clears_sync_core_no_redef_finding` so the verbatim
+sync-core fingerprint from round `20261107T014654Z`:
+
+```text
+scripts/ci_history.py:152: error: Name "record" already defined on line 119  [no-redef]
+```
+
+is asserted absent under the reusable-10 / trip-planner consumer mypy gate
+(`pyproject` knobs + `--exclude .workflows-lib` + `.` target) and present when
+the duplicate annotation is reintroduced in a disposable copy.
+
+```text
+pytest tests/scripts/test_ci_history.py::test_ci_history_clears_sync_core_no_redef_finding \
+  tests/scripts/test_ci_history.py::test_ci_history_type_checks_under_consumer_mypy -m 'not slow' -q
+4 passed
+
+pytest tests/scripts/test_ci_history.py tests/workflows/test_ci_history.py -m 'not slow' -q
+28 passed
+
+BLACK_CACHE_DIR=/tmp/issue-4508-black-cache BLACK_NUM_WORKERS=1 \
+  black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+952 files would be left unchanged.
+```
+
+The live sync-core round remains unchecked external verification; this proxy
+advances that acceptance criterion without claiming the live classification.
