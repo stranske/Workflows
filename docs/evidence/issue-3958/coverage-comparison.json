@@ -1,103 +1,168 @@
 {
   "issue": "stranske/Workflows#3958",
   "pr_number": 3962,
-  "comparison_type": "revision-specific coverage gap units",
+  "comparison_type": "revision-specific focused coverage gap units",
   "measurement_date": "2026-11-07",
-  "notes": "Historical coverage measurements from PR #4407. Gap units = missed statements + partial branches. PR #3962 reported 98 → 35 gap units (63-unit delta) at merge. Later improvements on main reduced this further.",
+  "notes": "The reported 98 -> 35 (63-unit reduction) was unverified historical documentation until reproduced in this run. Exact parent and merge measurements below now reproduce it; later-main results remain separate. Focused runs do not establish full-suite success.",
   "revisions": {
+    "merge_dabd38209": {
+      "sha": "dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+      "coverage_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py --cov=scripts.aggregate_agent_metrics --cov-branch --cov-report=term-missing --cov-report=json:/tmp/4521-merge_dabd38209-coverage.json -q",
+      "command_scope": "focused test run; not a suite execution",
+      "coverage_settings": {
+        "run": {
+          "branch": true,
+          "parallel": true,
+          "source": [
+            "scripts",
+            "tools",
+            "src"
+          ],
+          "omit": [
+            "*/tests/*",
+            "*/test_*.py",
+            "*/.venv/*",
+            "archive/*",
+            ".extraction/*",
+            "src/trend_analysis/*"
+          ]
+        },
+        "report": {
+          "precision": 2,
+          "show_missing": true,
+          "skip_covered": false,
+          "exclude_also": [
+            "if __name__ == .__main__.:"
+          ]
+        }
+      },
+      "exit_status": 0,
+      "output": ".................................................................        [100%]\n================================ tests coverage ================================\n_______________ coverage: platform darwin, python 3.12.2-final-0 _______________\n\nName                                 Stmts   Miss Branch BrPart   Cover   Missing\n---------------------------------------------------------------------------------\nscripts/aggregate_agent_metrics.py     899     12    380     23  97.26%   166, 231, 300, 367-368, 386, 447, 492->481, 551, 673->675, 707->709, 710->712, 713->715, 833->835, 836->838, 839, 841->843, 844->829, 851, 954->910, 957->910, 1011->996, 1127-1128, 1173->1193, 1248->1266\n---------------------------------------------------------------------------------\nTOTAL                                  899     12    380     23  97.26%\nCoverage JSON written to file /tmp/4521-merge_dabd38209-coverage.json\n65 passed in 0.90s\n",
+      "target_summary": {
+        "covered_lines": 887,
+        "num_statements": 899,
+        "percent_covered": 97.26348709929633,
+        "percent_covered_display": "97.26",
+        "missing_lines": 12,
+        "excluded_lines": 2,
+        "percent_statements_covered": 98.66518353726363,
+        "percent_statements_covered_display": "98.67",
+        "num_branches": 380,
+        "num_partial_branches": 23,
+        "covered_branches": 357,
+        "missing_branches": 23,
+        "percent_branches_covered": 93.94736842105263,
+        "percent_branches_covered_display": "93.95"
+      },
+      "coverage_version": "7.16.2",
+      "measurement": {
+        "missed_statements": 12,
+        "partial_branches": 23,
+        "gap_units": 35,
+        "coverage_percentage": 97.26348709929633,
+        "exit_status": 0
+      },
+      "status": "reproduced",
+      "interpreter": "/opt/anaconda3/bin/python3"
+    },
     "parent_19d9c3c61": {
       "sha": "19d9c3c61c5a49d461671e9af68ddbce10da95a5",
-      "date": "2026-10-XX",
-      "source_file": "scripts/aggregate_agent_metrics.py",
-      "lines_of_code": 1681,
-      "coverage_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py --cov=scripts.aggregate_agent_metrics --cov-branch --cov-report=term-missing -q",
+      "coverage_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py --cov=scripts.aggregate_agent_metrics --cov-branch --cov-report=term-missing --cov-report=json:/tmp/4521-parent_19d9c3c61-coverage.json -q",
+      "command_scope": "focused test run; not a suite execution",
       "coverage_settings": {
-        "config": "pyproject.toml",
-        "source": ["scripts", "tools", "src"],
-        "omit": [
-          "*/tests/*",
-          "*/test_*.py",
-          "*/.venv/*",
-          "archive/*",
-          ".extraction/*",
-          "src/trend_analysis/*"
-        ],
-        "exclude_also": ["if __name__ == .__main__.:"],
-        "branch": true
+        "run": {
+          "branch": true,
+          "parallel": true,
+          "source": [
+            "scripts",
+            "tools",
+            "src"
+          ],
+          "omit": [
+            "*/tests/*",
+            "*/test_*.py",
+            "*/.venv/*",
+            "archive/*",
+            ".extraction/*",
+            "src/trend_analysis/*"
+          ]
+        },
+        "report": {
+          "precision": 2,
+          "show_missing": true,
+          "skip_covered": false,
+          "exclude_also": [
+            "if __name__ == .__main__.:"
+          ]
+        }
       },
-      "pytest_markers": "not quarantine and not slow",
+      "exit_status": 0,
+      "output": ".............................................................            [100%]\n================================ tests coverage ================================\n_______________ coverage: platform darwin, python 3.12.2-final-0 _______________\n\nName                                 Stmts   Miss Branch BrPart   Cover   Missing\n---------------------------------------------------------------------------------\nscripts/aggregate_agent_metrics.py     899     50    380     48  91.71%   127, 130, 138, 143, 166, 187, 190, 231, 293-300, 367-368, 374, 379-387, 447, 483, 492->481, 509, 551, 673->675, 707->709, 710->712, 713->715, 833->835, 836->838, 839, 841->843, 844->829, 851, 933->935, 936->938, 939->941, 945, 948->951, 954->910, 957->910, 1006->1010, 1011->996, 1014, 1016->1012, 1061, 1100, 1127-1128, 1173->1193, 1176, 1192, 1209-1210, 1221, 1248->1266, 1251, 1254, 1319-1320, 1332, 1351, 1355\n---------------------------------------------------------------------------------\nTOTAL                                  899     50    380     48  91.71%\nCoverage JSON written to file /tmp/4521-parent_19d9c3c61-coverage.json\n61 passed in 1.06s\n",
+      "target_summary": {
+        "covered_lines": 849,
+        "num_statements": 899,
+        "percent_covered": 91.71227521501173,
+        "percent_covered_display": "91.71",
+        "missing_lines": 50,
+        "excluded_lines": 2,
+        "percent_statements_covered": 94.43826473859845,
+        "percent_statements_covered_display": "94.44",
+        "num_branches": 380,
+        "num_partial_branches": 48,
+        "covered_branches": 324,
+        "missing_branches": 56,
+        "percent_branches_covered": 85.26315789473684,
+        "percent_branches_covered_display": "85.26"
+      },
+      "coverage_version": "7.16.2",
       "measurement": {
         "missed_statements": 50,
         "partial_branches": 48,
         "gap_units": 98,
-        "coverage_percentage": 91.71,
-        "executed_lines": 1531,
-        "total_lines": 1681,
+        "coverage_percentage": 91.71227521501173,
         "exit_status": 0
       },
-      "test_count": {
-        "passed": 61,
-        "failed": 0,
-        "skipped": 0,
-        "xfailed": 0,
-        "total": 61
-      },
-      "runtime_seconds": 5.45,
-      "interpreter": "/opt/anaconda3/bin/python3"
-    },
-    "merge_dabd38209": {
-      "sha": "dabd38209a87f81f836fa27c6b44b5da7c30c41c",
-      "date": "2026-10-16",
-      "source_file": "scripts/aggregate_agent_metrics.py",
-      "lines_of_code": 1681,
-      "coverage_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py --cov=scripts.aggregate_agent_metrics --cov-branch --cov-report=term-missing -q",
-      "coverage_settings": {
-        "config": "pyproject.toml",
-        "source": ["scripts", "tools", "src"],
-        "omit": [
-          "*/tests/*",
-          "*/test_*.py",
-          "*/.venv/*",
-          "archive/*",
-          ".extraction/*",
-          "src/trend_analysis/*"
-        ],
-        "exclude_also": ["if __name__ == .__main__.:"],
-        "branch": true
-      },
-      "pytest_markers": "not quarantine and not slow",
-      "measurement": {
-        "missed_statements": 0,
-        "partial_branches": 3,
-        "gap_units": 3,
-        "coverage_percentage": 99.77,
-        "executed_lines": 1678,
-        "total_lines": 1681,
-        "exit_status": 0
-      },
-      "test_count": {
-        "passed": 68,
-        "failed": 0,
-        "skipped": 0,
-        "xfailed": 0,
-        "total": 68
-      },
-      "runtime_seconds": 4.23,
+      "status": "reproduced",
       "interpreter": "/opt/anaconda3/bin/python3"
     }
   },
+  "matching_measurement_settings": true,
   "gap_reduction": {
-    "attributable_gap_units": 95,
-    "gap_units_reduction": 95,
-    "percentage_reduction": 96.94,
-    "formula": "gap_units = missed_statements + partial_branches",
-    "notes": "PR #3962 reported 98 → 35 gap units (63-unit delta) at merge. This measurement shows 98 → 3 (95-unit delta). The difference is due to later test improvements on main that further covered the module. The 63-unit reduction from PR #3962 is labeled unverified until reproduced from historical artifacts."
+    "status": "reproduced",
+    "formula": "gap_units = missed_statements + partial_branches; reduction = parent_gap_units - merge_gap_units",
+    "parent_gap_units": 98,
+    "merge_gap_units": 35,
+    "attributable_gap_units": 63,
+    "gap_units_reduction": 63,
+    "percentage_reduction": 64.29,
+    "shortfall_from_60_units": 0
+  },
+  "historical_report": {
+    "source": "https://github.com/stranske/Workflows/pull/4407",
+    "reported_parent_gap_units": 98,
+    "reported_merge_gap_units": 35,
+    "reported_reduction": 63,
+    "status_before_this_run": "unverified until reproduced",
+    "status_now": "reproduced by the archived focused parent and merge commands"
+  },
+  "later_main": {
+    "sha": "3e513d30e1b11b30bd6a2fdc224adbca97d85930",
+    "source": "https://github.com/stranske/Workflows/pull/4407",
+    "measurement": {
+      "missed_statements": 0,
+      "partial_branches": 3,
+      "gap_units": 3,
+      "coverage_percentage": 99.77
+    },
+    "coverage_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py --cov=scripts.aggregate_agent_metrics --cov-branch --cov-report=term-missing -q",
+    "command_scope": "focused test run",
+    "status": "historical documentation only; not rerun here",
+    "notes": "3 units belongs to later main, not merge_dabd38209. The 95-unit parent-to-later-main delta is not attributable to PR #3962."
   },
   "verification": {
-    "attempted": false,
-    "method": "historical documentation from PR #4407",
-    "canonical_source": "stranske/Workflows#4407",
-    "status": "archived",
-    "notes": "Gate artifacts from run 38973627393 are expired. Coverage measurements are from PR #4407's historical analysis. Both revisions use identical coverage configuration from pyproject.toml at their respective commits."
+    "attempted": true,
+    "status": "reproduced",
+    "method": "focused pytest at exact revisions in isolated historical checkout; concrete outputs and coverage target summaries archived inline",
+    "coverage_version": "7.16.2"
   }
 }
