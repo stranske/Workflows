@@ -1,0 +1,130 @@
+{
+  "plan_id": "sha256:1a22f551228736c4279b2b5434baffbb0e6d5b697dc43727bf5d7f808209dc0b",
+  "plan_scope": "full",
+  "source_commit": "306fc9e79d891030395211fdae8ae1387f2b37c3",
+  "source_repository": "stranske/Workflows",
+  "path": ".github/workflows/agents-guard.yml",
+  "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d",
+  "condition": "always() && (github.event_name == 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository)",
+  "token": "${{ github.token }}",
+  "script": "const owner = context.repo.owner;\nconst repo = context.repo.repo;\nconst pullRequest = context.payload.pull_request;\nconst sha = pullRequest?.head?.sha;\n\nif (!sha) {\n  core.setFailed('PR head SHA unavailable; cannot publish authoritative guard result.');\n  return;\n}\n\nasync function readTrustedRegistry(parameters) {\n  for (let attempt = 1; attempt <= 3; attempt += 1) {\n    try {\n      return await github.rest.repos.getContent(parameters);\n    } catch (error) {\n      const status = error?.status || error?.response?.status;\n      const headers = error?.response?.headers || {};\n      const limited = status === 403 && String(headers['x-ratelimit-remaining']) === '0';\n      const retryable = !status || status === 429 || limited || (status >= 500 && status < 600);\n      if (!retryable || attempt === 3) throw error;\n      await new Promise(resolve => setTimeout(resolve, attempt * 1000));\n    }\n  }\n}\nfunction routingLabelsFromRegistry(text) {\n  // Parse only the canonical agents mapping, never execute registry contents.\n  const labels = new Set(['agent:auto', 'agent:copilot', 'agents:auto-pilot', 'agents:keepalive']);\n  const agents = new Map();\n  let inAgents = false;\n  let sections = 0;\n  let key = null;\n  let enabledSeen = false;\n  const finishEntry = () => {\n    if (key !== null && !enabledSeen) throw new Error('Agent enabled flag is missing');\n  };\n  for (const raw of String(text).split(/\\r?\\n/)) {\n    const line = raw.replace(/\\s+#.*$/, '').replace(/\\s+$/, '');\n    if (!line.trim() || line.trimStart().startsWith('#')) continue;\n    if (line.includes('\\t')) throw new Error('Agent registry tabs are unsupported');\n    if (/^agents:\\s*$/.test(line)) { finishEntry(); inAgents = true; sections++; key = null; continue; }\n    if (/^\\S/.test(line)) { finishEntry(); inAgents = false; key = null; continue; }\n    if (!inAgents) continue;\n    const entry = line.match(/^  ([a-z][a-z0-9_-]*):\\s*$/);\n    if (entry) {\n      finishEntry();\n      key = entry[1];\n      if (agents.has(key)) throw new Error('Duplicate agent registry entry');\n      agents.set(key, false);\n      enabledSeen = false;\n      continue;\n    }\n    if (/^  \\S/.test(line) || !key) throw new Error('Malformed agent registry entry');\n    if (/^    enabled:/.test(line)) {\n      const value = line.match(/^    enabled:\\s*(true|false)$/);\n      if (!value || enabledSeen) throw new Error('Malformed agent enabled flag');\n      enabledSeen = true;\n      agents.set(key, value[1] === 'true');\n    }\n  }\n  finishEntry();\n  if (sections !== 1 || agents.size === 0) throw new Error('Agent registry mapping is incomplete');\n  for (const [agent, enabled] of agents) if (enabled) labels.add(`agent:${agent}`);\n  return labels;\n}\nconst targetUrl =\n  process.env.TARGET_URL ||\n  `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;\n\nconst sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));\nasync function withApiRetry(\n  fn,\n  { label = 'operation', maxAttempts = 5, baseDelay = 1000 } = {},\n) {\n  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {\n    try {\n      return await fn(github);\n    } catch (error) {\n      const status = error?.status || error?.response?.status;\n      const headers = error?.response?.headers || {};\n      const remainingRaw =\n        headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining'];\n      const resetRaw = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset'];\n      const remaining = Number(remainingRaw);\n      const reset = Number(resetRaw);\n      const isRateLimit =\n        status === 403 && Number.isFinite(remaining) && remaining <= 0;\n      const retryable =\n        isRateLimit ||\n        status === 429 ||\n        !status ||\n        (status >= 500 && status < 600);\n      if (!retryable || attempt === maxAttempts) {\n        core.error(`Failed ${label}: ${error.message}`);\n        throw error;\n      }\n      let delay = baseDelay * attempt;\n      const retryAfterRaw = headers['retry-after'] ?? headers['Retry-After'];\n      const retryAfterSeconds = Number(retryAfterRaw);\n      if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {\n        delay = Math.max(delay, retryAfterSeconds * 1000);\n      } else if (isRateLimit && Number.isFinite(reset)) {\n        const nowSeconds = Math.floor(Date.now() / 1000);\n        if (reset > nowSeconds) {\n          const untilReset = (reset - nowSeconds) * 1000 + 500;\n          delay = Math.max(delay, untilReset);\n        }\n      }\n      delay = Math.max(delay, 1000);\n      const humanDelay = delay >= 60000\n        ? `${(delay / 60000).toFixed(2)}m`\n        : `${Math.round(delay)}ms`;\n      core.warning(\n        `Retrying ${label} after ${humanDelay} ` +\n          `(attempt ${attempt + 1}/${maxAttempts}).`\n      );\n      await sleep(delay);\n    }\n  }\n  throw new Error(`Failed ${label} after ${maxAttempts} attempts.`);\n}\n\nasync function assertCorrectiveWriteBinding() {\n  const expectedAttempt = Number(process.env.GITHUB_RUN_ATTEMPT);\n  if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0 ||\n      !Number.isSafeInteger(expectedAttempt) || expectedAttempt < 1 ||\n      !pullRequest.base?.repo?.id || !pullRequest.base?.ref ||\n      !/^[0-9a-f]{40}$/.test(pullRequest.base?.sha || '')) {\n    throw new Error('Corrective guard publication binding is incomplete');\n  }\n  const readRun = async () => (await github.rest.actions.getWorkflowRun({\n    owner, repo, run_id: context.runId,\n  })).data;\n  const validatePr = async () => {\n    const current = (await github.rest.pulls.get({\n      owner, repo, pull_number: pullRequest.number,\n    })).data;\n    if (current?.state !== 'open' || current.number !== pullRequest.number ||\n        current.head?.sha !== sha || current.base?.sha !== pullRequest.base.sha ||\n        current.base?.repo?.id !== pullRequest.base.repo.id ||\n        current.base?.ref !== pullRequest.base.ref) {\n      throw new Error('PR binding changed before corrective guard publication');\n    }\n  };\n  const validateRun = run => {\n    if (Number(run?.id) !== Number(context.runId) ||\n        !/^\\.github\\/workflows\\/agents-guard\\.yml(?:@[^\\s@]+)?$/.test(run?.path || '') ||\n        run?.name !== 'Health 45 Agents Guard' ||\n        run?.event !== context.eventName ||\n        run?.head_sha !== (context.eventName === 'pull_request' ? sha : context.sha) ||\n        Number(run?.run_attempt) !== expectedAttempt ||\n        !Number.isSafeInteger(Number(run?.workflow_id)) || Number(run.workflow_id) <= 0 ||\n        !Number.isSafeInteger(Number(run?.run_number)) || Number(run.run_number) <= 0 ||\n        !/^\\d{4}-\\d{2}-\\d{2}T/.test(run?.created_at || '')) {\n      throw new Error('Run binding changed before corrective guard publication');\n    }\n  };\n  await validatePr();\n  const run = await readRun();\n  validateRun(run);\n  const workflow = (await github.rest.actions.getWorkflow({\n    owner, repo, workflow_id: run.workflow_id,\n  })).data;\n  if (Number(workflow?.id) !== Number(run.workflow_id) ||\n      workflow?.path !== '.github/workflows/agents-guard.yml' ||\n      workflow?.name !== 'Health 45 Agents Guard') {\n    throw new Error('Run is not the canonical Agents Guard workflow');\n  }\n  const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {\n    owner, repo, workflow_id: run.workflow_id, event: run.event,\n    created: `>=${run.created_at}`, per_page: 100,\n  });\n  if (!Array.isArray(runs) || runs.filter(candidate =>\n    Number(candidate.id) === Number(run.id) &&\n    Number(candidate.run_attempt) === expectedAttempt\n  ).length !== 1) throw new Error('Latest guard run inventory is incomplete');\n  for (const candidate of runs) {\n    const newer = Number(candidate.run_number) > Number(run.run_number) ||\n      (Number(candidate.id) === Number(run.id) && Number(candidate.run_attempt) > expectedAttempt);\n    if (!newer) continue;\n    const associated = candidate.pull_requests;\n    if (!Array.isArray(associated) ||\n        associated.some(pr => !Number.isSafeInteger(Number(pr?.number)) || Number(pr.number) <= 0) ||\n        associated.some(pr => Number(pr?.number) === pullRequest.number) ||\n        (associated.length === 0 && candidate.head_sha === run.head_sha)) {\n      throw new Error('Guard run was superseded or newer PR association is ambiguous');\n    }\n  }\n  await validatePr();\n  const finalRun = await readRun();\n  validateRun(finalRun);\n  if (finalRun.path !== run.path || finalRun.name !== run.name ||\n      Number(finalRun.workflow_id) !== Number(run.workflow_id) ||\n      Number(finalRun.run_number) !== Number(run.run_number) ||\n      finalRun.created_at !== run.created_at) {\n    throw new Error('Run identity changed before corrective guard publication');\n  }\n}\n\ntry {\n  let routingLabels;\n  try {\n    const registryRef = pullRequest?.base?.sha;\n    if (!/^[0-9a-f]{40}$/.test(registryRef || '')) throw new Error('Trusted registry base SHA is missing');\n    const registry = (await readTrustedRegistry({\n      owner, repo, path: '.github/agents/registry.yml', ref: registryRef,\n    })).data;\n    if (registry?.type !== 'file' || registry.encoding !== 'base64') throw new Error('Agent registry evidence is incomplete');\n    routingLabels = routingLabelsFromRegistry(Buffer.from(registry.content, 'base64').toString('utf8'));\n  } catch (error) {\n    // Only a current PR/run attempt may invalidate earlier success.\n    // Stale or incomplete bindings must not write a corrective verdict.\n    await assertCorrectiveWriteBinding();\n    await withApiRetry(client => client.rest.repos.createCommitStatus({\n      owner, repo, sha, state: 'failure',\n      context: 'Health 45 Agents Guard / guard',\n      description: `[guard-pr:${pullRequest.number}] Trusted registry evidence unavailable; fresh evaluation required.`,\n      target_url: targetUrl,\n    }), {label: 'invalidate guard status without trusted registry evidence'});\n    core.setFailed(`Trusted registry evidence unavailable: ${error.message}`);\n    return;\n  }\n  const permissionLabel = 'agents:allow-change';\n  const policyLabelNames = (labels) => {\n    if (!Array.isArray(labels)) {\n      throw new Error('PR label evidence is incomplete.');\n    }\n    const names = labels.map((label) => {\n      if (typeof label?.name !== 'string') {\n        throw new Error('PR label evidence is malformed.');\n      }\n      const raw = label.name;\n      const routing = raw.trim().toLowerCase();\n      if (routingLabels.has(routing)) return routing;\n      return raw.toLowerCase() === permissionLabel ? permissionLabel : '';\n    }).filter(Boolean);\n    return [...new Set(names)].sort();\n  };\n  const snapshotLabels = policyLabelNames(pullRequest?.labels);\n\n  const blocked = (process.env.BLOCKED || '').toLowerCase() === 'true';\n  const summary = process.env.SUMMARY || '';\n  const evaluated = process.env.ELIGIBLE === 'true'\n    && process.env.EVALUATE_OUTCOME === 'success'\n    && process.env.BLOCKED === 'false';\n  const safelySkipped = process.env.ELIGIBLE === 'false';\n  const passed = process.env.JOB_STATUS === 'success'\n    && (safelySkipped || evaluated) && !blocked;\n  let state = passed ? 'success' : 'failure';\n  let description = summary || (!passed\n    ? 'Health 45 Agents Guard blocked this pull request.'\n    : 'Health 45 Agents Guard passed.');\n\n  function setFailure(reason) {\n    state = 'failure';\n    description = reason;\n  }\n\n  async function policyFingerprint(labels) {\n    const canonical = labels.join('\\n');\n    const digest = await crypto.subtle.digest(\n      'SHA-256', new TextEncoder().encode(canonical),\n    );\n    return Array.from(new Uint8Array(digest))\n      .map((byte) => byte.toString(16).padStart(2, '0'))\n      .join('');\n  }\n\n  function finalizeDescription(fingerprint) {\n    if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0) {\n      throw new Error('Current pull request number is missing or invalid.');\n    }\n    const prefix = `[guard-pr:${pullRequest.number}] `;\n    const receipt = state === 'success'\n      ? ` [guard-policy-sha256:${fingerprint}]`\n      : '';\n    const maximum = 140 - prefix.length - receipt.length;\n    if (description.length > maximum) {\n      description = `${description.slice(0, maximum - 3)}...`;\n    }\n    description = `${prefix}${description}${receipt}`;\n  }\n\n  const currentLabels = await withApiRetry(\n    (client) => client.paginate(client.rest.issues.listLabelsOnIssue, {\n      owner, repo, issue_number: pullRequest.number, per_page: 100,\n    }),\n    { label: 'read current PR labels before publishing guard status' },\n  );\n  if (!Array.isArray(currentLabels)) {\n    throw new Error('Current PR label evidence is incomplete.');\n  }\n  const currentLabelNames = policyLabelNames(currentLabels);\n  const currentPolicyFingerprint = await policyFingerprint(currentLabelNames);\n  const labelsChanged =\n    JSON.stringify(currentLabelNames) !== JSON.stringify(snapshotLabels);\n  if (evaluated && state === 'success') {\n    let evaluatedLabelNames;\n    try {\n      const evaluatedLabels = JSON.parse(process.env.EVALUATED_LABELS || '');\n      evaluatedLabelNames = policyLabelNames(evaluatedLabels);\n    } catch (error) {\n      setFailure('Agents Guard evaluated label evidence is missing or malformed; fresh evaluation required.');\n    }\n    if (evaluatedLabelNames &&\n        JSON.stringify(evaluatedLabelNames) !== JSON.stringify(currentLabelNames)) {\n      setFailure('PR labels changed after guard evaluation; fresh evaluation required.');\n    }\n  }\n  if (labelsChanged) {\n    // Never let a stale eligible evaluation retain a green required\n    // context after its routing labels have changed.\n    setFailure('PR labels changed after guard evaluation; fresh evaluation required.');\n  }\n  if (!labelsChanged && process.env.ELIGIBLE === 'false') {\n    const statuses = await withApiRetry(\n      (client) => client.paginate(client.rest.repos.listCommitStatusesForRef, {\n        owner, repo, ref: sha, per_page: 100,\n      }),\n      { label: 'read existing exact-head guard status' },\n    );\n    if (!Array.isArray(statuses)) {\n      throw new Error('Incomplete exact-head status inventory.');\n    }\n    const existing = statuses.find(\n      (status) => status.context === 'Health 45 Agents Guard / guard',\n    );\n    if (existing) {\n      if (context.eventName === 'pull_request_target' && existing.state === 'success') {\n        if (typeof existing.description === 'string'\n            && existing.description.startsWith(`[guard-pr:${pullRequest.number}] `)\n            && existing.description.endsWith(` [guard-policy-sha256:${currentPolicyFingerprint}]`)) {\n          core.info('Ineligible PR event: preserving policy-bound exact-head success.');\n          return;\n        }\n        // A changed, missing, or malformed policy receipt cannot\n        // retain a green context. A fresh eligible run may recover it.\n        setFailure('Health 45 Agents Guard policy changed; fresh evaluation required.');\n      } else {\n        core.info('Ineligible PR event: preserving existing exact-head guard verdict.');\n        return;\n      }\n    } else if (context.eventName === 'pull_request_target') {\n      core.info('Ineligible PR event: leaving absent exact-head guard verdict absent.');\n      return;\n    }\n  }\n  finalizeDescription(currentPolicyFingerprint);\n  await withApiRetry(\n    (client) => client.rest.repos.createCommitStatus({\n      owner,\n      repo,\n      sha,\n      state,\n      context: 'Health 45 Agents Guard / guard',\n      description,\n      target_url: targetUrl,\n    }),\n    { label: 'update guard commit status' },\n  );\n  core.info(`Updated Health 45 Agents Guard commit status to ${state}.`);\n} catch (error) {\n  core.setFailed(\n    `Failed to update Health 45 Agents Guard commit status: ${error.message}`\n  );\n}\n",
+  "maint68_canary_run": 41125821299,
+  "maint68_promote_run": 41128622575,
+  "maint71_campaign_run": 41132061438,
+  "health83_run": 41132777649,
+  "agents_verifier": "skipped",
+  "heads": [
+    {
+      "repository": "stranske/Counter_Risk",
+      "pr": 1224,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "7058ca246d94b740785c252835c7ab6237bcb421",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Deliverable-Render",
+      "pr": 125,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "a4d2026d88aaad5762b970643c27187f0202206b",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Doc-Lineage",
+      "pr": 166,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "3e42ab7243eadd39322697b8251e478681b1a450",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Fine-Art-Archive",
+      "pr": 865,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "2747012a4d3c0730d9ce09b468a2ebdbd88db992",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Inv-Man-Intake",
+      "pr": 1060,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "333b9dea43bbf91cea1c6f334ced4b66332662ef",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Manager-Database",
+      "pr": 1872,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "2bbb88acefe8961eef3a091ba3d084cac1e05084",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Manager-Mosaic",
+      "pr": 141,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "ae747511212875ddb0007e3cc343c48bbae228bb",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "pr": 1016,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "29aaf359c9d81b2b4a0a8f50d4c0e65fe2ce5b14",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Pension-Data",
+      "pr": 1007,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "88d98c77481ff012db1dc38b94b11150c7d4a3ac",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2452,
+      "branch": "sync/workflows-candidate",
+      "head_sha": "eee634cd09e283e218e4670d15bba62de61bcde8",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Ready",
+      "pr": 661,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "94a6f8f929e87b5d9a9714911bb245dc3b59d384",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Template",
+      "pr": 1097,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "3fc4565e95f38d3867d1b7f4759ca961e7a795c2",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Travel-Plan-Permission",
+      "pr": 1715,
+      "branch": "sync/workflows-candidate",
+      "head_sha": "80ae115d052d8668e048d4d3f30b1feaf0e3be09",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "pr": 6180,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "ec2b575cd9379425db8096b57f3835aa2466b8c0",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/learning-management-system",
+      "pr": 814,
+      "branch": "sync/workflows-delivery",
+      "head_sha": "ef2406e8b0c348ba7cdcd5ba080e354cca1bfcb7",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "pr": 1954,
+      "branch": "sync/workflows-candidate",
+      "head_sha": "b900b51f7f4488dd222736686a0d5c720c7c9148",
+      "workflow_sha256": "c0290cc1b0734ef05deb4a6c4660d9199de9e383f0ea4272ee52f19c4e8f4b6d"
+    }
+  ]
+}
