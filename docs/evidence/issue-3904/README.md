@@ -638,65 +638,48 @@ Python 3.12 terminal receipts, complete phase evidence and final current-head Ga
 conclusions remain UNKNOWN after REST rate limiting. The evidence task remains
 unchecked; resume the original run after **19:15:34 UTC**, without redispatch.
 
-## Follow-up: Per-arm hosted phase measurement instrumentation (2026-11-07)
+## Closer remainder: original receipts and measured phases (2026-11-07)
 
-The comparison harness now includes per-arm phase timing instrumentation via the
-embedded `ci_test_growth` pytest plugin. This plugin outputs:
+The original [run 42401537967](https://github.com/stranske/Workflows/actions/runs/42401537967)
+completed successfully on both Python 3.12.16 and 3.13.18. The earlier UNKNOWN
+3.12 status above records the rate-limited handoff, not the terminal outcome.
+The actual [3.12 archive](hosted-42401537967/verifier-runtime-3.12.zip), manifest,
+result, terminal run/artifact API responses and [independent reconciliation](hosted-42401537967/verified-3.12-summary.json)
+now accompany the existing 3.13 receipts. The archive digest matches GitHub:
+`a233e756308c0305182671a169abefb090464eb7ba50192e57e69336f1484e2e`.
+Both arms cover 2,144 verifier lines and 759 arcs with zero loss. Every scoped
+JUnit case passed; source manifests were rehashed against immutable Git objects
+and required uploaded coverage/JUnit/console hashes were verified. Four inherited
+source-tree log hash entries were not uploaded and remain UNKNOWN. The original
+run did not measure per-arm collection or reporting boundaries.
 
-- `pytest-collection.json`: Test collection timing and selected node IDs
-- `pytest-resources.json`: Controller and worker resource timing
+The separate new manual measurement uses the same reviewed immutable source
+pair, common lock, four workers and coverage settings. An identical external
+`verifier_phase_probe` plugin records raw `time.monotonic` boundaries in
+`phase-clocks/{controller,gw0,gw1,gw2,gw3}.json` for each arm. Intervals cover
+session hooks, collection hooks, the controller/worker execution-loop hooks and
+final reporting hooks. `reporting` is the directly measured
+`pytest_sessionfinish` hook interval, enclosing coverage, JUnit and terminal
+reporting; per-test report handling remains inside the execution loop. Controller
+collection is its own hook invocation; actual xdist collection occurs separately
+in each worker. The controller loop overlaps worker collection and execution.
+Sessions include reporting; all four workers overlap each other. These intervals
+must never be added across processes or subtracted to invent exclusive overhead.
+Startup and teardown outside these hooks and exclusive overhead remain UNKNOWN.
+Missing, malformed, non-finite, boolean, negative or reversed boundaries produce
+null intervals and explicit UNKNOWN gaps. Phase availability is reported
+separately from the existing outcome and JUnit timing refusal checks.
 
-From these, the harness computes:
-- `collection_seconds`: Time spent collecting tests
-- `controller_elapsed_seconds`: Total controller elapsed time
-- `worker_elapsed_max_seconds`: Maximum worker elapsed time
-- `worker_elapsed_min_seconds`: Minimum worker elapsed time
-- `in_pytest_reporting_seconds`: Reporting time (controller - collection - max_worker)
+The raw archives and phase reconciliations for the new run will be retained
+separately from the original run. No causal speedup claim follows from one pair
+per interpreter; OS page cache remains uncontrolled and arm order is recorded.
 
-When a negative remainder is computed, it indicates measured clock overlap between
-phases (e.g., controller finishing before the slowest worker completes), not a valid
-reporting interval. The `overlap_note` field explicitly documents this behavior:
+Reproduce independent validation from the repository root:
 
-> "Controller elapsed spans collection + reporting; workers run concurrently. 
-> A negative remainder indicates measured clock overlap, not a valid reporting interval."
+```bash
+/opt/anaconda3/bin/python3 docs/evidence/issue-3904/validate_hosted_receipts.py docs/evidence/issue-3904/hosted-42401537967/verifier-runtime-3.12.zip docs/evidence/issue-3904/hosted-42401537967/artifacts-readback-2026-11-07.json
+```
 
-All phase values are nullable: missing plugin outputs, malformed data, negative values,
-non-finite numbers, and invalid types render as `null` rather than fabricating values.
-The instrumentation is identical for both immutable arms.
-
-### Original Run 42401537967 vs. New Measurement
-
-**Original run 42401537967 (retained as-is):**
-- Job IDs: 128490204476 (3.13, succeeded), 128490204156 (3.12, in_progress at readback)
-- Hosted phases JSON: [hosted-phases-3.13.json](hosted-42401537967/hosted-phases-3.13.json)
-- Python 3.13: Complete receipts under [hosted-42401537967/](hosted-42401537967/)
-- Python 3.12: Terminal receipts **UNKNOWN** (rate limited), placeholder files:
-  - [python-3.12-result.json](hosted-42401537967/python-3.12-result.json)
-  - [python-3.12-manifest.json](hosted-42401537967/python-3.12-manifest.json)
-
-**New measurement instrumentation:**
-- Per-arm phase boundaries now captured in `result.json` under `arms[{baseline,candidate}].phases`
-- Plugins outputs retained in arm directories for independent verification
-- `execution_phases()` function validates and extracts timing from plugin outputs
-- Invalid/overlapping/measurements explicitly documented as `null` with `overlap_note`
-
-**What changed:**
-- `scripts/measure_verifier_runtime.py:command()`: Added `-p ci_test_growth` plugin
-- `scripts/measure_verifier_runtime.py:run()`: Writes plugin to temp dir, sets CI_TEST_RESOURCE_DIR
-- `scripts/measure_verifier_runtime.py:execution_phases()`: New function to parse plugin outputs
-- Workflow updated to set CI_TEST_RESOURCE_DIR and upload new artifacts
-- Test count updated from 6 to 12 artifacts (added collection/json, resources.json, coverage.xml)
-
-**What was preserved:**
-- All existing source, dependency, outcome, coverage and timing refusal checks
-- Immutable source selection via commit SHAs in manifest
-- Common lock reference and cache policy
-- Source integrity checks before/after both arms
-- JUnit outcome/timing validation with explicit UNKNOWN states
-- Coverage comparison with branch/line validation
-- All existing failure modes and regression controls
-
-The Python 3.12 job (128490204156) never produced terminal artifacts. No causal
-speedup claim is made from this single run pair. The new instrumentation enables
-controlled per-arm hosted phase measurement for future runs without fabricating
-overlapping-clock remainders; unavailable intervals are explicitly UNKNOWN.
+See [the acceptance record](closer-r2-acceptance.md) for the stop rule, retained
+prior-branch work and validation results. PR #4527's source, dependency, outcome,
+coverage and timing refusal checks remain in force. No dependency pins changed.

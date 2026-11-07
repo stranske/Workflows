@@ -1,20 +1,33 @@
 {
-  "status": "UNKNOWN",
-  "note": "Python 3.12 artifacts for run 42401537967 were not retained. Job 128490204156 was still in_progress at the time of inspection. This manifest is a placeholder documenting the absence of evidence.",
-  "run_id": 42401537967,
-  "job_id": 128490204156,
-  "expected_artifacts": [
-    "measurement/manifest.json",
-    "measurement/result.json",
-    "measurement/baseline.log",
-    "measurement/candidate.log",
-    "measurement/baseline/coverage.json",
-    "measurement/baseline/coverage.xml",
-    "measurement/baseline/pytest-junit.xml",
-    "measurement/candidate/coverage.json",
-    "measurement/candidate/coverage.xml",
-    "measurement/candidate/pytest-junit.xml"
-  ],
-  "actual_artifacts": [],
-  "retrieval_timestamp": null
+  "arms": {
+    "baseline": {
+      "commit": "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769",
+      "tree": "12b50c312b5ac601286ba99b04bbd70b85f9a2d5",
+      "sha256": {
+        "tests/scripts/test_pr_verifier_delivery_destinations.py": "2b0614095ffcb5da62e1fc60f643dbb342fa1e3914eac789a2c1ec21c41a87ca",
+        "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+        "tests/scripts/test_pr_verifier_body_overall_integration.py": "6bea779eba3e8405cb52ee88f235b3aec6e36f438de9aa2a0eb0a8eaaddd73dc",
+        "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+        "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+        "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+      }
+    },
+    "candidate": {
+      "commit": "8c0afc3ef0263cf85949b6167435ceabed5dd2a3",
+      "tree": "fbb5d94688c875479c54a8d62c9c7e4ac918c7cd",
+      "sha256": {
+        "tests/scripts/test_pr_verifier_delivery_destinations.py": "5c00c35afe442cc2ad6b252ce0a1f2cddd4918dd4b10c72770acb93e5da177fc",
+        "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+        "tests/scripts/test_pr_verifier_body_overall_integration.py": "821bb6606f9273d1fa1050ab26c38ff3e898b62014c99b9a5022f327dd59d0c1",
+        "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+        "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+        "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+      }
+    }
+  },
+  "harness_sha256": "88407bab0e0f1a7b8344b28bcd0f5a51e62d8cba7310179f1e8bbce4e13b7de0",
+  "workflow_sha": "8142060267fce57561d25735aa2e7c5f457ade14",
+  "workflow_sha256": "122304cc70786e6cbd4dd4d76cc7f80f994f351a8e7071ec44dce37ca361cda6",
+  "dependency_lock": "candidate/requirements.lock",
+  "cache_policy": "No actions/cache or artifact restore; fresh arm directories, pytest cache provider disabled, bytecode writes disabled. OS page cache is uncontrolled; arm order is recorded in result.json (baseline first on Python 3.12, candidate first otherwise), not within-version replicated."
 }

@@ -14,7 +14,6 @@ import re
 import subprocess
 import sys
 import tarfile
-import tempfile
 import time
 import tomllib
 from pathlib import Path
@@ -30,244 +29,63 @@ SUITES = (
 VERIFIER = "scripts/langchain/pr_verifier.py"
 SOURCE_INPUTS = (*SUITES, VERIFIER, "pyproject.toml", "requirements.lock")
 
-# Growth plugin source embedded for phase timing measurement
-GROWTH_PLUGIN = '''# Phase timing plugin - identical to reusable workflow ci_test_growth hooks
-if True:
-    import json
-    import os
-    import re
-    import sys
-    import time
-    from collections import Counter
-    from pathlib import Path
+# External to both immutable arms; each process records only its own clock.
+PHASE_PLUGIN = r"""import json
+import os
+import time
+from pathlib import Path
 
-    import pytest
+import pytest
 
-    _started = time.monotonic()
-    _ids = None
-    _collection_failed = False
-    _collection_seconds = None
-    _resources = None
-    _expected_workers = 0
-
-    def _resource_start(config):
-        global _resources
-        try:
-            import platform
-            import resource
-            import subprocess
-
-            directory = os.environ.get("CI_TEST_RESOURCE_DIR")
-            if not directory:
-                return
-            usage = resource.getrusage(resource.RUSAGE_SELF)
-            worker = getattr(config, "workerinput", {}).get("workerid", "controller")
-            if not isinstance(worker, str) or re.fullmatch(r"controller|gw[0-9]+", worker) is None:
-                _resources = None
-                return
-            owner_path = Path(directory) / "owner.json"
-            if worker == "controller":
-                import uuid
-                owner_token = uuid.uuid4().hex
-                try:
-                    owner_path.write_text(json.dumps({"token": owner_token, "pid": os.getpid()}), encoding="utf-8")
-                except OSError:
-                    _resources = None
-                    return
-                _resources = {
-                    "controller": {
-                        "workerid": "controller",
-                        "python": sys.version,
-                        "start": time.monotonic(),
-                        "pid": os.getpid(),
-                        "cpu_model": _cpu_model(),
-                        "cache": _cache_info(),
-                        "elapsed_seconds": None,
-                        "coverage": {},
-                    },
-                    "workers": [],
-                    "status": "started",
-                    "expected_workers": 0,
-                    "missing_workers": [],
-                    "context": {
-                        "tested_sha": _git_sha(),
-                    },
-                    "source": "pytest xdist controller",
-                }
-            else:
-                try:
-                    owner = json.loads(owner_path.read_text(encoding="utf-8"))
-                except (OSError, json.JSONDecodeError, ValueError):
-                    _resources = None
-                    return
-                _resources = {
-                    "controller": None,
-                    "workers": [],
-                    "status": "worker",
-                    "expected_workers": 0,
-                    "missing_workers": [],
-                    "context": {},
-                    "source": "pytest xdist worker",
-                }
-        except Exception:
-            _resources = None
-
-    def _cpu_model():
-        try:
-            if platform.system() == "Linux":
-                with open("/proc/cpuinfo", encoding="utf-8") as f:
-                    for line in f:
-                        if line.startswith("model name"):
-                            return line.split(":", 1)[1].strip()
-            return platform.processor() or ""
-        except Exception:
-            return ""
-
-    def _cache_info():
-        try:
-            lines = subprocess.check_output(["free", "-b"]).decode().splitlines()
-            mem = None
-            swap = None
-            for line in lines:
-                if line.startswith("Mem:"):
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        mem = int(parts[1])
-                elif line.startswith("Swap:"):
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        swap = int(parts[1])
-            if mem is not None or swap is not None:
-                return {"memory_bytes": mem, "swap_bytes": swap}
-        except Exception:
-            pass
-        return {}
-
-    def _git_sha():
-        try:
-            return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=Path.cwd()).decode().strip()
-        except Exception:
-            return ""
-
-    def _resource_coverage(config):
-        if _resources is None or not isinstance(_resources, dict):
-            return
-        try:
-            controller = _resources.get("controller")
-            if controller is None or not isinstance(controller, dict):
-                return
-            coverage = controller.get("coverage")
-            if not isinstance(coverage, dict):
-                return
-            cov_path = Path(config.getini("addopts")).parent / "coverage.json"
-            if not cov_path.is_file():
-                for prefix in [Path.cwd(), Path.cwd().parent]:
-                    candidate = prefix / "coverage.json"
-                    if candidate.is_file():
-                        cov_path = candidate
-                        break
-            if not cov_path.is_file():
-                return
-            try:
-                cov_data = json.loads(cov_path.read_text(encoding="utf-8"))
-                files = cov_data.get("files") if isinstance(cov_data, dict) else None
-                if not isinstance(files, dict):
-                    return
-                for verifier in ["scripts/langchain/pr_verifier.py", "scripts/langchain/pr_verifier.py"]:
-                    if verifier in files:
-                        controller["coverage"] = {
-                            "verifier_lines": len(files[verifier].get("executed_lines", [])),
-                            "verifier_branches": len(files[verifier].get("executed_branches", [])),
-                        }
-                        return
-                controller["coverage"] = {"status": "verifier not found in coverage"}
-            except Exception:
-                controller["coverage"] = {"error": "coverage read failure"}
-        except Exception:
-            pass
-
-    def _resource_finish():
-        if _resources is None or not isinstance(_resources, dict):
-            return
-        try:
-            controller = _resources.get("controller")
-            if controller is not None and isinstance(controller, dict):
-                controller["elapsed_seconds"] = round(time.monotonic() - controller.get("start", time.monotonic()), 3)
-                _resources["status"] = "finished"
-                directory = os.environ.get("CI_TEST_RESOURCE_DIR")
-                if directory:
-                    path = Path(directory) / "pytest-resources.json"
-                    try:
-                        path.parent.mkdir(parents=True, exist_ok=True)
-                        path.write_text(json.dumps(_resources, indent=2), encoding="utf-8")
-                    except OSError:
-                        pass
-        except Exception:
-            pass
-
-    def _record(ids):
-        paths = Counter(node.split("::", 1)[0] for node in ids)
-        functions = Counter(node.split("[", 1)[0] for node in ids)
-        Path("pytest-collection.json").write_text(
-            json.dumps({
-                "total": len(ids),
-                "per_file": dict(paths),
-                "largest_functions": functions.most_common(10),
-                "collection_seconds": _collection_seconds,
-                "complete": True,
-                "source": "selected pytest node IDs; controller collection",
-            }, indent=2),
-            encoding="utf-8",
-        )
-
-    @pytest.hookimpl(wrapper=True, tryfirst=True)
-    def pytest_sessionstart(session):
-        _resource_start(session.config)
-        if not hasattr(session.config, "workerinput"):
-            Path("pytest-collection.json").unlink(missing_ok=True)
-        yield
-        _resource_coverage(session.config)
-
-    def pytest_collectreport(report):
-        global _collection_failed
-        if report.failed:
-            _collection_failed = True
-
-    @pytest.hookimpl(optionalhook=True)
-    def pytest_xdist_node_collection_finished(node, ids):
-        global _ids, _collection_failed, _collection_seconds
-        if _ids is None:
-            _ids = tuple(ids)
-            _collection_seconds = round(time.monotonic() - _started, 3)
-        elif _ids != tuple(ids):
-            _collection_failed = True
-
-    def pytest_collection_finish(session):
-        global _collection_seconds
-        _resource_coverage(session.config)
-        if hasattr(session.config, "workerinput") or getattr(session.config.option, "numprocesses", 0):
-            return
-        if not _collection_failed and not session.testsfailed:
-            _collection_seconds = round(time.monotonic() - _started, 3)
-            _record([item.nodeid for item in session.items])
-
-    def pytest_sessionfinish(session, exitstatus):
-        _resource_finish()
-        if hasattr(session.config, "workerinput"):
-            return
-        if exitstatus in (pytest.ExitCode.INTERRUPTED, pytest.ExitCode.INTERNAL_ERROR, pytest.ExitCode.USAGE_ERROR):
-            Path("pytest-collection.json").unlink(missing_ok=True)
-        elif _ids is not None and not _collection_failed:
-            _record(_ids)
-'''
+_clocks = {}
+_role = None
 
 
-def _write_growth_plugin(tmpdir: Path) -> Path:
-    """Write the growth plugin to a temp directory and return the plugin path."""
-    plugin_dir = tmpdir / "growth_plugin"
-    plugin_dir.mkdir(exist_ok=True)
-    plugin_path = plugin_dir / "ci_test_growth.py"
-    plugin_path.write_text(GROWTH_PLUGIN)
+def _mark(name):
+    _clocks[name] = time.monotonic()
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_sessionstart(session):
+    global _role
+    _role = getattr(session.config, "workerinput", {}).get("workerid", "controller")
+    _mark("session_start")
+    yield
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_collection(session):
+    _mark("collection_start")
+    yield
+    _mark("collection_end")
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_runtestloop(session):
+    _mark("loop_start")
+    yield
+    _mark("loop_end")
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_sessionfinish(session, exitstatus):
+    _mark("reporting_start")
+    yield
+    _mark("reporting_end")
+    _mark("session_end")
+    directory = Path(os.environ["VERIFIER_PHASE_DIR"])
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"{_role}.json").write_text(json.dumps({
+        "role": _role, "pid": os.getpid(), "clock": "time.monotonic",
+        "boundaries": _clocks,
+    }, indent=2) + "\n")
+"""
+
+
+def _write_phase_plugin(tmpdir: Path) -> Path:
+    plugin_dir = tmpdir / "phase_plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "verifier_phase_probe.py").write_text(PHASE_PLUGIN)
     return plugin_dir
 
 
@@ -363,7 +181,7 @@ def command() -> list[str]:
         "-p",
         "no:rerunfailures",
         "-p",
-        "ci_test_growth",
+        "verifier_phase_probe",
         "--cov",
         "--cov-config=pyproject.toml",
         "--cov-report=json:coverage.json",
@@ -521,92 +339,44 @@ def coverage_comparison(before: dict, after: dict) -> dict:
 
 
 def execution_phases(arm: Path) -> dict:
-    """Measure collection, controller/worker and reporting phase boundaries.
-
-    Returns per-arm phase timing from growth plugin outputs, or null values
-    for missing/unavailable measurements. Overlap between controller and
-    workers is explicit: the controller elapsed time includes both collection
-    and reporting, and worker times are independent concurrent measurements.
-    """
-    collection_path = arm / "pytest-collection.json"
-    resources_path = arm / "pytest-resources.json"
-
-    collection = None
-    resources = None
-
-    if collection_path.is_file():
+    """Read local process intervals, never subtract overlapping process clocks."""
+    processes, gaps = {}, []
+    for role in ("controller", "gw0", "gw1", "gw2", "gw3"):
         try:
-            with collection_path.open() as f:
-                collection = json.load(f)
-        except (OSError, json.JSONDecodeError, ValueError):
-            collection = None
-
-    if resources_path.is_file():
-        try:
-            with resources_path.open() as f:
-                resources = json.load(f)
-        except (OSError, json.JSONDecodeError, ValueError):
-            resources = None
-
-    if not isinstance(collection, dict):
-        collection = None
-    if not isinstance(resources, dict):
-        resources = None
-
-    collection_seconds = collection.get("collection_seconds") if collection else None
-    if collection_seconds is not None:
-        try:
-            collection_seconds = float(collection_seconds)
-            if not math.isfinite(collection_seconds) or collection_seconds < 0:
-                collection_seconds = None
-        except (TypeError, ValueError):
-            collection_seconds = None
-
-    controller = resources.get("controller") if resources else None
-    controller = controller if isinstance(controller, dict) else None
-    controller_elapsed = controller.get("elapsed_seconds") if controller else None
-    if controller_elapsed is not None:
-        try:
-            controller_elapsed = float(controller_elapsed)
-            if not math.isfinite(controller_elapsed) or controller_elapsed < 0:
-                controller_elapsed = None
-        except (TypeError, ValueError):
-            controller_elapsed = None
-
-    workers = resources.get("workers") if resources else None
-    workers = workers if isinstance(workers, list) else []
-    worker_times = []
-    for worker in workers:
-        if isinstance(worker, dict):
-            elapsed = worker.get("elapsed_seconds")
-            if elapsed is not None:
-                try:
-                    elapsed = float(elapsed)
-                    if math.isfinite(elapsed) and elapsed >= 0:
-                        worker_times.append(elapsed)
-                except (TypeError, ValueError):
-                    pass
-
-    worker_max = max(worker_times) if worker_times else None
-    worker_min = min(worker_times) if worker_times else None
-
-    reporting_seconds = None
-    if (
-        controller_elapsed is not None
-        and collection_seconds is not None
-        and worker_max is not None
-    ):
-        reporting_seconds = float(controller_elapsed) - float(collection_seconds) - float(worker_max)
-        if reporting_seconds < 0:
-            reporting_seconds = None
-
+            receipt = json.loads((arm / "phase-clocks" / f"{role}.json").read_text())
+            if receipt["role"] != role or receipt["clock"] != "time.monotonic":
+                raise ValueError("clock identity mismatch")
+            clocks = receipt["boundaries"]
+            if not isinstance(clocks, dict):
+                raise ValueError("missing boundaries")
+        except (OSError, ValueError, KeyError, TypeError):
+            clocks = {}
+        intervals = {}
+        for label, prefix in (
+            ("session", "session"),
+            ("collection", "collection"),
+            ("controller_worker_loop", "loop"),
+            ("reporting", "reporting"),
+        ):
+            start, end = clocks.get(f"{prefix}_start"), clocks.get(f"{prefix}_end")
+            valid = all(
+                type(v) in (int, float) and math.isfinite(v) and v >= 0 for v in (start, end)
+            )
+            if valid and end >= start:
+                intervals[label] = {"start": start, "end": end, "seconds": end - start}
+            else:
+                intervals[label] = None
+                gaps.append(f"{role} {label} UNKNOWN")
+        processes[role] = intervals
     return {
-        "collection_seconds": collection_seconds,
-        "controller_elapsed_seconds": controller_elapsed,
-        "worker_elapsed_max_seconds": worker_max,
-        "worker_elapsed_min_seconds": worker_min,
-        "in_pytest_reporting_seconds": reporting_seconds,
-        "overlap_note": "Controller elapsed spans collection + reporting; workers run concurrently. A negative remainder indicates measured clock overlap, not a valid reporting interval.",
+        "available": not gaps,
+        "gaps": gaps,
+        "processes": processes,
+        "overlap_note": "Controller session and loop overlap worker sessions and collection; "
+        "worker intervals overlap each other. Session includes reporting. "
+        "Reporting measures pytest_sessionfinish hooks (coverage/JUnit/terminal), "
+        "not all per-test report handling. No intervals are additive across "
+        "processes; startup, teardown outside hooks and exclusive overhead are UNKNOWN.",
     }
 
 
@@ -669,6 +439,7 @@ def run(output: Path) -> int:
         "order": order,
         "arms": {},
         "source_integrity": integrity,
+        "phase_plugin_sha256": hashlib.sha256(PHASE_PLUGIN.encode()).hexdigest(),
     }
     for name in order:
         arm = output / name
@@ -679,9 +450,9 @@ def run(output: Path) -> int:
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         env["TMPDIR"] = str(output / f"tmp-{name}")
         Path(env["TMPDIR"]).mkdir(exist_ok=False)
-        plugin_dir = _write_growth_plugin(output / f"tmp-{name}")
+        plugin_dir = _write_phase_plugin(output / f"tmp-{name}")
         env["PYTHONPATH"] = f"{plugin_dir}:{arm}"
-        env["CI_TEST_RESOURCE_DIR"] = str(output / f"tmp-{name}")
+        env["VERIFIER_PHASE_DIR"] = str(arm / "phase-clocks")
         started = time.perf_counter()
         with (output / f"{name}.log").open("w") as console:
             proc = subprocess.run(
@@ -697,14 +468,6 @@ def run(output: Path) -> int:
             "exit_code": proc.returncode,
             "wall_seconds": time.perf_counter() - started,
         }
-        tmpdir_path = output / f"tmp-{name}"
-        resources_src = tmpdir_path / "pytest-resources.json"
-        resources_dst = arm / "pytest-resources.json"
-        if resources_src.is_file():
-            try:
-                resources_dst.write_bytes(resources_src.read_bytes())
-            except OSError:
-                pass
         row["phases"] = execution_phases(arm)
         if (arm / "pytest-junit.xml").is_file():
             try:
@@ -741,8 +504,11 @@ def run(output: Path) -> int:
             "pytest-junit.xml",
             "baseline.log",
             "candidate.log",
-            "pytest-collection.json",
-            "pytest-resources.json",
+            "controller.json",
+            "gw0.json",
+            "gw1.json",
+            "gw2.json",
+            "gw3.json",
         }
         and not any(part.startswith("tmp-") for part in p.relative_to(output).parts)
     }

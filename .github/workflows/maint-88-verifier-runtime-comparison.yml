@@ -46,11 +46,7 @@ jobs:
           PIP_DISABLE_PIP_VERSION_CHECK: '1'
         run: python -m pip install --requirement measurement/candidate/requirements.lock
       - name: Run both arms with identical coverage and four workers
-        env:
-          CI_TEST_RESOURCE_DIR: ${{ runner.temp }}/pytest-resources
-        run: |
-          mkdir -p "$CI_TEST_RESOURCE_DIR"
-          python scripts/measure_verifier_runtime.py run --output measurement
+        run: python scripts/measure_verifier_runtime.py run --output measurement
       - name: Upload exact source manifests and raw evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -64,10 +60,8 @@ jobs:
             measurement/baseline/coverage.json
             measurement/baseline/coverage.xml
             measurement/baseline/pytest-junit.xml
-            measurement/baseline/pytest-collection.json
-            measurement/baseline/pytest-resources.json
+            measurement/baseline/phase-clocks/*.json
             measurement/candidate/coverage.json
             measurement/candidate/coverage.xml
             measurement/candidate/pytest-junit.xml
-            measurement/candidate/pytest-collection.json
-            measurement/candidate/pytest-resources.json
+            measurement/candidate/phase-clocks/*.json
