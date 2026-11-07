@@ -42,14 +42,22 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
     assert len(caches) == 1, f"{filename}: missing CLI cache step"
     cache = caches[0]
     assert cache["uses"] == CACHE_REF, filename
+    assert cache.get("if", True) in (
+        True,
+        "${{ !cancelled() }}",
+    ), f"{filename}: CLI cache restore must run unless cancelled"
     key = cache["with"]["key"]
     assert "${{ runner.os }}" in key, filename
     assert "${{ runner.arch }}" in key, filename
     version_var = f"{agent.upper()}_CLI_VERSION"
     assert f"${{{{ env.{version_var} }}}}" in key, f"{filename}: CLI cache key missing version"
-    assert "restore-keys" not in cache["with"], filename
+    assert (
+        "restore-keys" not in cache["with"]
+    ), f"{filename}: CLI cache must match the exact version"
     install = _step(job, "Install Codex CLI" if agent == "codex" else f"Ensure {agent.title()} CLI")
-    assert job["steps"].index(cache) < job["steps"].index(install), filename
+    assert job["steps"].index(cache) < job["steps"].index(
+        install
+    ), f"{filename}: CLI cache restored after installation"
     expose_step = _step(job, f"Expose cached {agent.title()} CLI")
     assert job["steps"].index(expose_step) < job["steps"].index(
         install
@@ -105,7 +113,17 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
 
 
 @pytest.mark.parametrize("agent", AGENTS, ids=lambda agent: f"reusable-{agent}-run.yml")
-@pytest.mark.parametrize("regression", ("missing-cache", "unversioned-key", "late-path"))
+@pytest.mark.parametrize(
+    "regression",
+    (
+        "missing-cache",
+        "unversioned-key",
+        "late-path",
+        "skipped-cache",
+        "late-cache",
+        "fallback-key",
+    ),
+)
 def test_cli_cache_contract_rejects_regressions(
     agent: str, regression: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -118,10 +136,17 @@ def test_cli_cache_contract_rejects_regressions(
         version = f"${{{{ env.{agent.upper()}_CLI_VERSION }}}}"
         assert version in cache["with"]["key"]
         cache["with"]["key"] = cache["with"]["key"].replace(version, "fixed")
-    else:
+    elif regression == "late-path":
         expose = _step(job, f"Expose cached {agent.title()} CLI")
         job["steps"].remove(expose)
         job["steps"].append(expose)
+    elif regression == "skipped-cache":
+        cache["if"] = False
+    elif regression == "late-cache":
+        job["steps"].remove(cache)
+        job["steps"].append(cache)
+    else:
+        cache["with"]["restore-keys"] = "${{ runner.os }}-"
 
     monkeypatch.setattr(f"{__name__}._runner", lambda requested: (workflow, job))
     filename = f".github/workflows/reusable-{agent}-run.yml"
@@ -129,6 +154,9 @@ def test_cli_cache_contract_rejects_regressions(
         "missing-cache": "missing CLI cache step",
         "unversioned-key": "CLI cache key missing version",
         "late-path": "CLI path exposed after installation",
+        "skipped-cache": "CLI cache restore must run unless cancelled",
+        "late-cache": "CLI cache restored after installation",
+        "fallback-key": "CLI cache must match the exact version",
     }
     with pytest.raises(AssertionError, match=re.escape(f"{filename}: {messages[regression]}")):
         test_cli_cache_tracks_installed_version_and_path(agent)
