@@ -8,6 +8,7 @@ marker next to them.
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -30,6 +31,30 @@ def test_retained_consumer_registry_matches_observed_github_blob():
     # Git's blob ID binds the exact bytes fetched at the recorded immutable head.
     git_blob = b"blob " + str(len(source)).encode("ascii") + b"\0" + source
     assert hashlib.sha1(git_blob).hexdigest() == observation["file"]["git_blob_sha"]
+
+
+def test_retained_consumer_mypy_receipt_passed_for_the_delivered_head():
+    """A green job on a different head cannot establish delivery acceptance (#4506)."""
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+    ci = observation["ci"]
+    assert ci["name"] == "Python CI / typecheck-mypy"
+    assert (ci["status"], ci["conclusion"]) == ("completed", "success")
+    steps = {step["name"]: step for step in ci["steps"]}
+    for name in ("Mypy (type check)", "Finalize mypy"):
+        assert (steps[name]["status"], steps[name]["conclusion"]) == ("completed", "success")
+
+    log = "\n".join(ci["log_excerpt"])
+    checked_out_heads = re.findall(
+        r"^\S+ HEAD is now at [0-9a-f]+ Merge ([0-9a-f]{40}) into [0-9a-f]{40}$",
+        log,
+        flags=re.MULTILINE,
+    )
+    assert checked_out_heads == [observation["head_sha"]]
+    assert re.search(r"^\S+ Success: no issues found in [1-9][0-9]* source files$", log, re.M)
+    assert re.search(r"^\S+\s+MYPY_OUTCOME: success$", log, re.M)
+    # This checks the retained native CI evidence only. It cannot substitute for
+    # the literal gh command or an independently retained sync-core round.
 
 
 @pytest.mark.skipif(not mypy_available, reason="mypy is not installed")

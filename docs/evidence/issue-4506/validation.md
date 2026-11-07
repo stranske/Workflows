@@ -152,3 +152,49 @@ and post the blocker comment were both rejected with
 No remote checklist, comment or label change succeeded.
 Final connected-app reads confirmed PR #4530 and trip-planner #1957 remain
 open and ready (`draft=false`).
+
+## Retained CI receipt validation continuation
+
+Re-read PR #1957 and native mypy job `128338642025` through the GitHub
+connector. The PR remains open and ready at
+`7ca6deb8d219fe9137fcb220de745e063f42c51c`. The native checkout and success
+lines still match the retained observation. The literal required `gh run view
+42350906876 --repo stranske/trip-planner --log` failed again with exit 1 and
+`error connecting to api.github.com`.
+
+Added `test_retained_consumer_mypy_receipt_passed_for_the_delivered_head` to
+the named consumer-layout test file. It checks the native checkout's full head,
+the job and both mypy step conclusions, and the successful typecheck and
+`MYPY_OUTCOME` log lines. This prevents an old green checkout or skipped check
+from silently establishing delivery acceptance. It validates retained evidence;
+it does not establish a new controller dispatch or sync-core classification.
+
+The named two-file suite passed **321 tests in 7.69s, no skips**, using the
+selected Python 3.14.10 interpreter and installed mypy 2.4.1:
+
+```sh
+python -m pytest -q -o addopts= tests/test_llm_registry_malformed_input.py tests/workflows/test_delivered_scripts_mypy_clean_in_consumers.py -m 'not slow'
+```
+
+Deliberate receipt corruptions in temporary copies were all rejected: a changed
+delivery head, a skipped mypy step, failed finalization, and missing final
+success log. The unchanged native receipt passed. Focused Black (line length
+100), Ruff and `git diff --check` passed.
+
+Source-issue #4485/#4506 comments still contain no newer sync-core receipt for
+this delivered head. No workflow-dispatch tool or controller-local state is
+available; no regeneration was dispatched and no writer locks were changed.
+All remaining operational tasks stay unchecked.
+
+Adding `needs-human` and publishing the blocker comment on PR #4530 were
+each rejected with `MCP tool call requires approval, but approval policy is
+never`. Neither remote mutation succeeded. PR #4530 was also verified open
+and ready (`draft=false`).
+
+The required repository-wide Black check failed with the same multiprocessing
+socket `PermissionError`. The `BLACK_NUM_WORKERS=1` retry returned no terminal
+result and was interrupted (exit 130); no complete formatting pass is claimed.
+Focused formatting was rechecked successfully. Git metadata reports unwritable
+(`os.access('.git', os.W_OK)` is false). No commit or push was attempted after
+the failed global formatting gate. The test and these notes remain uncommitted
+for the automation writer to retain.
