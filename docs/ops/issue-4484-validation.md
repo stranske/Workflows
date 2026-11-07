@@ -586,3 +586,242 @@ Exact file arguments by batch (paths relative to `tests/workflows/`):
 
 The judge's backlog-parking disposition remains appropriate for the unresolved
 remainder; no new automatic agent handoff or PR was created by this continuation.
+
+## PR #4531 bounded runner implementation — 2026-11-07 UTC
+
+This continuation implements `scripts/validate_workflow_test_batches.py` and its
+regression tests. It advances the repository-test evidence task while the ledger
+write remains blocked. Acceptance remains incomplete. Earlier receipts and failed
+runs above are retained as historical observations, including #4511's useful
+consumer lint and classification evidence.
+
+### Current review inventory and guarded disposition
+
+Attempted the GraphQL query shown above again with `gh api graphql -f query=...`.
+Exit 1: `error connecting to api.github.com`. This is not a successful fresh gh
+receipt. As a read-only fallback, the GitHub connector's
+`list_pull_request_review_threads` returned `{"review_threads":[]}` for **#4511**
+and separately for **#4531**. `get_pr_info` confirms #4511 is merged, not draft,
+at head `15e2651cd704f992202ca0aa49a45e312a18975f`, merge
+`dfa7743b1c22a648a49e3500c084efaf5a9880c9`. Thus there are no current #4511
+findings to quote or resolve. The earlier successful gh GraphQL inventory above
+is preserved and distinguished from this failed refresh.
+
+The connector also refreshed **#4487**'s three historical threads. The first two
+remain resolved/outdated; `PRRT_kwDOQprj9M60o6P-` remains unresolved/outdated.
+Its exact applicable request is: “Merge task-03 into task-02, and similarly
+task-05 into task-04.” This is a #4487 finding, not a #4511 thread. The normal
+patch attempted that consolidation, preserving both original completion
+intervals, common commit and notes, and replaced task-09/task-11's stale future
+claims with the retained successful lint/classification receipts. It was rejected:
+
+```text
+patch rejected: writing outside of the project; rejected by user approval settings
+```
+
+The current session grants read access to `.agents`; no alternative writer or
+permission bypass was used. The ledger remains unchanged, and the historical
+fragment finding is not claimed fixed. Its complete disposition remains blocked
+on an authorized ledger writer. Current #4531 is open and ready for review
+(`draft=false`). Guarded merge is **held**, because ledger and workflow acceptance
+remain incomplete. An empty current thread inventory alone does not authorize
+merge or establish the later merge-boundary inventory.
+
+### Interpreter and retained source checks
+
+This Linux runner has no `/opt/anaconda3/bin/python3`. Executing the exact required
+workflow command returned exit **127**, `No such file or directory`. Available
+`python3` is `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`. The following
+results use that available interpreter; they do not claim the absent interpreter
+was run successfully.
+
+```text
+$ python3 scripts/ledger_validate.py .agents/issue-4484-ledger.yml
+Exit: 1
+```
+
+The validator cannot find historical completion commits
+`555c4bd79ee812a6032f0d98531ddf33cb64d36a` and
+`ad56949f14f2746a7e6240adcc215adb967f5fb8` in this checkout. No validation
+relaxation was enabled. This current failure does not erase the earlier successful
+validation receipt from a different checkout above.
+
+```text
+$ python3 -m pytest -q tests/langchain/test_arg002_regression.py tests/scripts/test_verifier_capacity_backup.py tests/scripts/test_pr_verifier_sync_manifest.py -m 'not slow'
+130 passed in 2.57s
+Exit: 0
+
+$ python3 -m ruff check --isolated --select ARG002 scripts/langchain/_llm_client.py scripts/langchain/pr_verifier.py templates/consumer-repo/scripts/langchain/pr_verifier.py
+All checks passed!
+Exit: 0
+```
+
+`git diff --exit-code dbc2f4d59575e74347462a129cead90eb9729aaf HEAD --` followed
+by the two fixed sources, verifier template, `test_arg002_regression.py`,
+`test_verifier_capacity_backup.py`, and `test_issue_4426_mutation_receipts.py`
+returned 0 with no diff. All six retained source/template/regression artifacts
+match #4487's merge; none is modified by this continuation. The focused tests
+exercise the existing temporary deliberate-break/restoration checks.
+
+The consumer run `42325500360`, exact head
+`58dc10da4b4f7f11e283a9a49c34084b3e258f59`, successful lint job, and next
+completed classification `20261107T014654Z` above remain retained receipts.
+**Successful consumer lint and classification do not establish consumer merge.**
+No fresh consumer merge receipt was obtained or inferred.
+
+### Exhaustive workflow batches on the available interpreter
+
+```bash
+timeout 110s python3 -m pytest tests/workflows/ -v
+python3 -m pytest tests/workflows/ --collect-only -q
+python3 -m scripts.validate_workflow_test_batches --output /tmp/issue-4513-workflow-batches
+```
+
+The unbatched command returned **124**, after the 110-second limit, at 46% in
+`test_delivered_scripts_mypy_clean_in_consumers.py`. Its log is
+`/tmp/issue-4513-workflows-full.log`; this is a timeout, not PASS. The independent
+bare collection returned 0 with `3549 tests collected in 5.82s`.
+
+The new runner collects pytest's exact node IDs and absolute source paths through
+a read-only pytest plugin, partitions whole files in original collection order
+at 100 nodes (oversized files alone), and runs each pytest child under its own
+110-second timeout. A timed-out child and its descendants are terminated and
+recorded as exit 124. Pytest session receipts retain collection, setup/call/teardown
+outcomes, commands and terminal exit status; console parsing is not the source of
+execution evidence. The original collection and all batches use the same unfiltered
+workflow selection to preserve every original node, including the slow-marked
+workflow cases. Focused regression commands use `-m 'not slow'`.
+
+All **158 files / 33 batches** produced terminal results below; the longest batch
+took **40.68 seconds**. Exact file arguments match the earlier “Exact file arguments
+by batch” inventory above for every batch, verified programmatically. Each batch
+uses `python3 -m pytest -p scripts.validate_workflow_test_batches
+--workflow-batch-receipt <batch JSON> <those files> -v`.
+
+| Batch | Exit | Wrapper seconds | Terminal pytest summary |
+| --- | --- | --- | --- |
+| 1 | 0 | 1.77 | 95 passed in 0.59s |
+| 2 | 0 | 7.58 | 83 passed in 6.39s |
+| 3 | 0 | 6.63 | 99 passed in 5.44s |
+| 4 | 0 | 33.52 | 545 passed in 32.19s |
+| 5 | 0 | 4.97 | 162 passed in 3.79s |
+| 6 | 0 | 4.32 | 75 passed in 3.06s |
+| 7 | 0 | 6.53 | 60 passed in 5.34s |
+| 8 | 0 | 12.04 | 174 passed in 10.81s |
+| 9 | 0 | 11.03 | 92 passed in 9.82s |
+| 10 | 0 | 3.12 | 84 passed in 1.84s |
+| 11 | 1 | 33.13 | 9 failed, 90 passed in 31.75s |
+| 12 | 0 | 8.94 | 95 passed, 1 skipped in 7.21s |
+| 13 | 0 | 4.92 | 98 passed in 3.29s |
+| 14 | 0 | 4.93 | 59 passed in 3.57s |
+| 15 | 1 | 13.84 | 1 failed, 95 passed in 12.52s |
+| 16 | 0 | 6.28 | 94 passed in 5.04s |
+| 17 | 0 | 3.42 | 36 passed in 2.19s |
+| 18 | 0 | 7.24 | 84 passed in 5.44s |
+| 19 | 0 | 9.90 | 97 passed in 8.14s |
+| 20 | 0 | 10.19 | 97 passed in 7.54s |
+| 21 | 0 | 12.40 | 99 passed in 10.24s |
+| 22 | 1 | 17.17 | 7 failed, 88 passed in 15.88s |
+| 23 | 0 | 9.58 | 90 passed in 8.35s |
+| 24 | 0 | 9.83 | 82 passed in 8.64s |
+| 25 | 0 | 14.99 | 88 passed in 13.77s |
+| 26 | 0 | 40.68 | 98 passed in 39.48s |
+| 27 | 1 | 19.95 | 4 failed, 44 passed in 18.74s |
+| 28 | 0 | 22.36 | 93 passed in 21.15s |
+| 29 | 0 | 3.12 | 23 passed in 1.75s |
+| 30 | 0 | 2.87 | 95 passed in 1.64s |
+| 31 | 0 | 4.37 | 49 passed, 2 skipped in 3.15s |
+| 32 | 0 | 5.28 | 340 passed in 4.07s |
+| 33 | 0 | 3.57 | 22 passed in 2.36s |
+
+The bare collection and plugin collection contain identical node-ID **multisets**.
+The batch collections and terminal execution results also match that original
+multiset exactly: expected = collected = terminal = **3,549**; missing, extra,
+missing-results and extra-results are all empty. The SHA-256 of the sorted original
+node IDs (UTF-8, one ID per line, final newline included) is:
+
+`1bc81787f76b84f673497f718633f3d6a1319c5dae29a5d7bd529191ec4ab9ed`
+
+This is the current runner's independently verified inventory, not a claim that
+the earlier environment's different digest above is identical. Initial aggregate:
+**3,525 passed, 3 skipped, 21 failed**, runner exit **1**. Machine receipts and logs
+are `/tmp/issue-4513-workflow-batches/{collection,batch-01,...,batch-33}.{json,log}`;
+`summary.json` retains the original failing aggregate.
+
+Batch 11's nine failures inherited `GITHUB_STEP_SUMMARY` pointing to the host's
+read-only runner command directory. Re-ran its exact file arguments once, with
+`GITHUB_STEP_SUMMARY=/tmp/issue-4513-step-summary.md`, through the same
+`execute_pytest(..., timeout=110)` runner. Result: **99 passed**, exit **0**,
+wrapper **38.50s**. `batch-11-retry.{json,log}` retains this separate receipt;
+the original batch receipt is unchanged. Replacing only batch 11 with this verified
+retry leaves the exact node multiset intact and yields **3,534 passed, 3 skipped,
+12 failed** (`summary-after-retry.json`, `success=false`).
+
+Remaining failures:
+
+- Batch 15: `test_health_68_liveness.py::test_consumer_drift_detector_executed_recently`
+  cannot query GitHub with gh. No network-dependent test was disabled or skipped.
+- Batch 22: seven `test_repeat_verification_lifecycle.py` failures; batch 27: four
+  `test_verifier_result_admission.py` failures. Their authored workflow JS cannot
+  execute the Python admission/classification helpers in this sandbox. A minimal
+  `node` / `child_process.execFileSync('python3', ['--version'])` reproduces **EPERM**;
+  direct Python execution of the classification helper on the same fixture succeeds.
+  No production behavior, security setting or assertion was weakened to obtain PASS.
+
+Thus exact exhaustive execution evidence is complete on the available interpreter;
+the required **passing workflow acceptance remains unestablished**. No broader
+repository suite or unrelated repair campaign was run.
+
+### Runner verification and formatting
+
+```text
+$ python3 -m pytest -q tests/scripts/test_validate_workflow_test_batches.py -m 'not slow'
+14 passed in 14.75s
+Exit: 0
+
+$ python3 -m ruff check scripts/validate_workflow_test_batches.py tests/scripts/test_validate_workflow_test_batches.py
+All checks passed!
+Exit: 0
+```
+
+The runner regressions exercise real collection, parametrized IDs, ordinary skips,
+teardown failures, collection errors and timeouts, plus rejection of missing/extra/
+duplicate nodes, incomplete phases and stale success receipts. Skips are counted
+separately from passes. A complete inventory cannot hide a failed batch.
+
+Black formatted both changed Python files at line length 100; their individual
+checks pass. The default full command failed at a sandbox-blocked multiprocessing
+socket. Single-worker checks initially timed out. A writable temporary cache and
+single worker ultimately allowed the unchanged full formatting selection to pass:
+
+```text
+$ BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-4513-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+All done!
+958 files would be left unchanged.
+Exit: 0
+```
+
+No acceptance checkbox is newly marked complete on the strength of a timeout,
+failed batch, inaccessible interpreter, or uncommitted ledger proposal.
+
+Final combined verification of the new runner tests and all three required
+regression files with `python3 -m pytest -q ... -m 'not slow'` returned
+**144 passed in 12.32s**, exit 0. The full Black gate above passed again
+(`958 files would be left unchanged`), and Ruff / `git diff --check` passed.
+
+Staging exactly the runner, its test file and this validation document failed:
+
+```text
+$ git add scripts/validate_workflow_test_batches.py tests/scripts/test_validate_workflow_test_batches.py docs/ops/issue-4484-validation.md
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+Exit: 128
+```
+
+No commit or push could be made, and no alternate Git metadata writer was used.
+The requested meaningful source commit remains blocked by this filesystem grant;
+the tested source changes are present in the workspace for an authorized writer.
+
+Attempted the requested blocker comment and additive `needs-human` label on
+#4531 through the GitHub connector. Both mutations returned
+`MCP tool call requires approval, but approval policy is never`. Neither mutation
+was applied. This local document is the available blocker handoff.
