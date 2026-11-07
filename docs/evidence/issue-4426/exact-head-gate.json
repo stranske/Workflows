@@ -1,0 +1,301 @@
+{
+  "schema": "workflows.issue-4426-exact-head-gate/v1",
+  "checked_on": "2026-11-06T20:44:18Z",
+  "numerical_rule_about_units": 180,
+  "numerical_rule_status": "The original numerical rule remains about 180 uncovered statements and branches. This record does not replace that rule.",
+  "uncovered_unit": "missing_lines + missing_branches",
+  "gate_command": "pytest -p ci_test_growth \"${args[@]}\"",
+  "gate_command_source": "docs/evidence/issue-4426/gate-check.md",
+  "accounting": "coverage.py branch percent_covered: covered statements plus covered branches, over statements plus branches. pyproject.toml branch = true and source = [\"scripts\", \"tools\", \"src\"].",
+  "baseline": {
+    "role": "Current-main Gate artifact used by the ranking remainder. It is the pre-chunk comparison point.",
+    "run_id": 42250720123,
+    "url": "https://github.com/stranske/Workflows/actions/runs/42250720123",
+    "artifact_name": "gate-coverage-3.14-1",
+    "tested_sha": "53351df5b25d34abd6dcb91852fafcb3b53430bd",
+    "coverage_json_sha256": "4bbdc0b3e9754e079962008e9678a4fc287d65dfe9bd8023c0435575ba49c78e",
+    "coverage_json_bytes": 3927058,
+    "percent_covered_display": "91.08",
+    "totals": {
+      "covered_lines": 45837,
+      "missing_lines": 3718,
+      "num_statements": 49555,
+      "covered_branches": 17379,
+      "missing_branches": 2475,
+      "num_branches": 19854,
+      "num_partial_branches": 1841
+    }
+  },
+  "chunks": [
+    {
+      "name": "expanded_comparison_verdict",
+      "production_symbol": "scripts/langchain/pr_verifier.py:expanded_comparison_verdict",
+      "delivered_head": "837c3eea46c6fdb3db176534664fedabcaee9edb",
+      "prior_red": {
+        "run_id": 42270085183,
+        "url": "https://github.com/stranske/Workflows/actions/runs/42270085183",
+        "head_oid": "e47c8e3ef1b4d49577324ce8e8702eda0315d43e",
+        "conclusion": "failure",
+        "python_3_14_summary": "4 failed, 49842 passed, 27 skipped, 3 xfailed in 745.49s",
+        "named_failure": "tests/docs/test_issue_4426_ranking.py RuntimeError: fatal: bad object 21c87da23935bb2466cb55361d3296d225a92b7e",
+        "coverage_json_in_this_record": false,
+        "coverage_json_reason": "The run failed before a comparable green artifact. Coverage from this red head was not downloaded."
+      },
+      "green": {
+        "run_id": 42274021297,
+        "url": "https://github.com/stranske/Workflows/actions/runs/42274021297",
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_oid": "837c3eea46c6fdb3db176534664fedabcaee9edb",
+        "tested_sha": "0666820cde798ce3ea72eb3bdd6cdb61506e7869",
+        "tested_tree": "63203eadd9afc3cc10a3e266384c84238ad79133",
+        "tested_subject": "Merge 837c3eea46c6fdb3db176534664fedabcaee9edb into aaabc91f36eefb5f2c54545cff7199685d47d399",
+        "artifact_name": "gate-coverage-3.14-1",
+        "coverage_json_sha256": "6aeeace61b9f8fc98e81cd2459308e95f94e3fcdcb8a5b5e3515c4c55366a3d2",
+        "coverage_json_bytes": 3927035,
+        "controller_elapsed_seconds": 733.316674,
+        "pytest": {
+          "passed": 49846,
+          "skipped": 27,
+          "xfailed": 3,
+          "failed": 0
+        },
+        "totals": {
+          "covered_lines": 45885,
+          "missing_lines": 3670,
+          "num_statements": 49555,
+          "covered_branches": 17404,
+          "missing_branches": 2450,
+          "num_branches": 19854,
+          "num_partial_branches": 1838
+        }
+      }
+    },
+    {
+      "name": "client selection cache miss",
+      "production_symbol": "tools/langchain_client.py:build_chat_clients",
+      "delivered_head": "97fa3cdd6b198623db4adc86f16f0b3788320794",
+      "prior_red": {
+        "run_id": 42283618148,
+        "url": "https://github.com/stranske/Workflows/actions/runs/42283618148",
+        "head_oid": "fac11d40b0133243b35028bbcd663473403fd85a",
+        "conclusion": "failure",
+        "python_3_14_summary": "2 failed, 49862 passed, 27 skipped, 3 xfailed in 711.36s",
+        "named_failure": "tests/tools/test_langchain_client.py::test_slot_provider_override_selects_the_github_builder and test_paired_slot_provider_override_selects_the_github_builder",
+        "coverage_json_in_this_record": false,
+        "coverage_json_reason": "The run failed before a comparable green artifact. Coverage from this red head was not downloaded."
+      },
+      "green": {
+        "run_id": 42287174423,
+        "url": "https://github.com/stranske/Workflows/actions/runs/42287174423",
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_oid": "97fa3cdd6b198623db4adc86f16f0b3788320794",
+        "tested_sha": "e4e584ea61852751c55749ab9ed6539fa10c9a31",
+        "tested_tree": "c9e0d5158f0dd4bc8166c3667439219b7e943fd9",
+        "tested_subject": "Merge 97fa3cdd6b198623db4adc86f16f0b3788320794 into d216eaafb02c97ed5f1da16a10d46d9a967c616f",
+        "artifact_name": "gate-coverage-3.14-1",
+        "coverage_json_sha256": "6b69520f3221ba81daf73c3d30d867c70ed4f109506da15bd877e5b6edf21b92",
+        "coverage_json_bytes": 3927456,
+        "coverage_py_version": "7.17.2",
+        "branch_coverage": true,
+        "controller_elapsed_seconds": 712.740934,
+        "job_started_at": "2026-11-06T20:19:01Z",
+        "job_completed_at": "2026-11-06T20:31:37Z",
+        "python_3_13": {
+          "job_id": 128131232568,
+          "conclusion": "success",
+          "job_started_at": "2026-11-06T20:19:02Z",
+          "job_completed_at": "2026-11-06T20:30:16Z",
+          "controller_elapsed_seconds": 626.370932,
+          "coverage_json": false,
+          "coverage_xml": false,
+          "coverage_status": "UNKNOWN",
+          "pytest": {
+            "passed": 49864,
+            "skipped": 27,
+            "xfailed": 3,
+            "failed": 0
+          }
+        },
+        "pytest": {
+          "passed": 49864,
+          "skipped": 27,
+          "xfailed": 3,
+          "failed": 0
+        },
+        "totals": {
+          "covered_lines": 45907,
+          "missing_lines": 3657,
+          "num_statements": 49564,
+          "covered_branches": 17417,
+          "missing_branches": 2445,
+          "num_branches": 19862,
+          "num_partial_branches": 1833
+        }
+      }
+    }
+  ],
+  "receipt_commit_not_a_coverage_boundary": {
+    "head_oid": "5ca0ab685a2d80c6c57b85cf0e26806a84175352",
+    "run_id": 42278384461,
+    "url": "https://github.com/stranske/Workflows/actions/runs/42278384461",
+    "conclusion": "success",
+    "coverage_json_in_this_record": false,
+    "reason": "That commit records deliberate-break receipts. It does not change the measured production symbols. Its coverage.json was not downloaded, so its per-file counters are unavailable here."
+  },
+  "targets": {
+    "scripts/langchain/pr_verifier.py": {
+      "baseline": {"missing_lines": 155, "missing_branches": 118, "num_statements": 3188, "num_branches": 1288},
+      "after_expanded_comparison_verdict": {"missing_lines": 107, "missing_branches": 93, "num_statements": 3188, "num_branches": 1288},
+      "exact_head": {"missing_lines": 107, "missing_branches": 93, "num_statements": 3188, "num_branches": 1288}
+    },
+    "scripts/sync_test_dependencies.py": {
+      "baseline": {"missing_lines": 1, "missing_branches": 5, "num_statements": 339, "num_branches": 158},
+      "after_expanded_comparison_verdict": {"missing_lines": 1, "missing_branches": 5, "num_statements": 339, "num_branches": 158},
+      "exact_head": {"missing_lines": 1, "missing_branches": 5, "num_statements": 339, "num_branches": 158}
+    },
+    "tools/langchain_client.py": {
+      "baseline": {"missing_lines": 15, "missing_branches": 6, "num_statements": 278, "num_branches": 104},
+      "after_expanded_comparison_verdict": {"missing_lines": 15, "missing_branches": 6, "num_statements": 278, "num_branches": 104},
+      "exact_head": {"missing_lines": 3, "missing_branches": 2, "num_statements": 287, "num_branches": 112}
+    },
+    "scripts/langchain/task_validator.py": {
+      "baseline": {"missing_lines": 3, "missing_branches": 3, "num_statements": 248, "num_branches": 70},
+      "after_expanded_comparison_verdict": {"missing_lines": 3, "missing_branches": 3, "num_statements": 248, "num_branches": 70},
+      "exact_head": {"missing_lines": 3, "missing_branches": 3, "num_statements": 248, "num_branches": 70}
+    },
+    "scripts/langchain/verifier_config.py": {
+      "baseline": {"missing_lines": 1, "missing_branches": 1, "num_statements": 144, "num_branches": 70},
+      "after_expanded_comparison_verdict": {"missing_lines": 1, "missing_branches": 1, "num_statements": 144, "num_branches": 70},
+      "exact_head": {"missing_lines": 1, "missing_branches": 1, "num_statements": 144, "num_branches": 70}
+    },
+    "scripts/langchain/issue_pr_context.py": {
+      "baseline": {"missing_lines": 13, "missing_branches": 6, "num_statements": 359, "num_branches": 150},
+      "after_expanded_comparison_verdict": {"missing_lines": 13, "missing_branches": 6, "num_statements": 359, "num_branches": 150},
+      "exact_head": {"missing_lines": 13, "missing_branches": 6, "num_statements": 359, "num_branches": 150}
+    }
+  },
+  "function_deltas": [
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "symbol": "expanded_comparison_verdict",
+      "counted_toward_target_rule": true,
+      "baseline": {"missing_lines": 48, "missing_branches": 25, "num_statements": 61, "num_branches": 32},
+      "exact_head": {"missing_lines": 0, "missing_branches": 0, "num_statements": 61, "num_branches": 32}
+    },
+    {
+      "path": "tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "counted_toward_target_rule": true,
+      "baseline": {"missing_lines": 7, "missing_branches": 3, "num_statements": 86, "num_branches": 38},
+      "exact_head": {"missing_lines": 1, "missing_branches": 1, "num_statements": 86, "num_branches": 38}
+    },
+    {
+      "path": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "counted_toward_target_rule": true,
+      "baseline": {"missing_lines": 6, "missing_branches": 3, "num_statements": 84, "num_branches": 44},
+      "exact_head": {"missing_lines": 2, "missing_branches": 1, "num_statements": 93, "num_branches": 52}
+    },
+    {
+      "path": "tools/langchain_client.py",
+      "symbol": "_apply_slot_env_overrides",
+      "counted_toward_target_rule": true,
+      "baseline": {"missing_lines": 1, "missing_branches": 0, "num_statements": 1, "num_branches": 0},
+      "exact_head": {"missing_lines": 0, "missing_branches": 0, "num_statements": 1, "num_branches": 0}
+    },
+    {
+      "path": "tools/langchain_client.py",
+      "symbol": "_load_slot_config",
+      "counted_toward_target_rule": true,
+      "baseline": {"missing_lines": 1, "missing_branches": 0, "num_statements": 1, "num_branches": 0},
+      "exact_head": {"missing_lines": 0, "missing_branches": 0, "num_statements": 1, "num_branches": 0}
+    },
+    {
+      "path": "tools/llm_registry.py",
+      "symbol": "apply_slot_env_overrides",
+      "counted_toward_target_rule": false,
+      "baseline": {"missing_lines": 2, "missing_branches": 2, "num_statements": 29, "num_branches": 14},
+      "exact_head": {"missing_lines": 1, "missing_branches": 1, "num_statements": 29, "num_branches": 14},
+      "disposition": "Outside the #3998 target list. Incidental coverage from the client tests. Not an exclusion and not part of the about-180 target reduction."
+    }
+  ],
+  "dispositions": [
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "exclusion": false,
+      "reason": "expanded_comparison_verdict is fully covered. Other functions in this file remain ordinary uncovered code, including follow-up issue creation and evidence classification. They are not dead code and they do not require an unfakeable external service."
+    },
+    {
+      "path": "scripts/sync_test_dependencies.py",
+      "exclusion": false,
+      "reason": "Six uncovered units remain in requirement parsing and path detection. They are local filesystem logic and were not selected in the delivered chunks because they rank below the two measured symbols."
+    },
+    {
+      "path": "tools/langchain_client.py",
+      "exclusion": false,
+      "reason": "build_chat_clients and build_chat_client still have five uncovered units after the cache-miss fix. Provider construction is already faked in tests/tools/test_langchain_client.py. The residue is not an unfakeable service."
+    },
+    {
+      "path": "scripts/langchain/task_validator.py",
+      "exclusion": false,
+      "reason": "Six uncovered units remain on the module body, main, and refinement parsing. They are ordinary branches and were not the selected chunk."
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "exclusion": false,
+      "reason": "latest_verifier_report still has two uncovered units. Artifact coercion and duplicate-verdict parsing already have mutation receipts. This residue is smaller than the measured functions and is not excluded."
+    },
+    {
+      "path": "scripts/langchain/issue_pr_context.py",
+      "exclusion": false,
+      "reason": "_cap_sections still has nineteen uncovered units. The module parses local issue and pull-request context. It ranks last on escaped-defect weight and was not the delivered chunk."
+    }
+  ],
+  "mutation_receipts": {
+    "record": "docs/evidence/issue-4426/mutation-receipts.md",
+    "production_restored": true,
+    "sha256": {
+      "scripts/langchain/pr_verifier.py": "bf7a8b0c238ee3720f6bb90fcec82eab0b30ffe534b429ad62969ce310602886",
+      "scripts/langchain/verifier_config.py": "18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7",
+      "tools/langchain_client.py": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174"
+    }
+  },
+  "stop_rule": {
+    "source": "docs/evidence/issue-4426/gate-check.md",
+    "attempt_limit": 2,
+    "command_limit_seconds": 600,
+    "step_limit_seconds": 1200,
+    "focused_check_limit_seconds": 120,
+    "tripped": false,
+    "stopping_step": "record exact-head Gate artifacts",
+    "local_full_suite_started": false,
+    "failed_runs_of_the_recovered_green_check": 1,
+    "decision": "Each red head failed once and the following commit passed. That is one failure of each required check, not a second failure. A local rerun of the full Gate pytest was not started: the recovered Python 3.14 controller elapsed 712.740934 seconds, past the 600 second command limit. The comparable result is the downloaded exact-head artifact."
+  },
+  "cost_since_preceding_report": {
+    "preceding_report": "Cache-miss section in docs/evidence/issue-4426/README.md, checked 2026-11-06T19:51:20Z",
+    "red_gate_run_id": 42283618148,
+    "red_python_3_14_pytest_seconds": 711.36,
+    "green_gate_run_id": 42287174423,
+    "green_python_3_14_controller_seconds": 712.740934,
+    "green_python_3_13_controller_seconds": 626.370932,
+    "local_full_pytest": "not started"
+  },
+  "follow_ups": [
+    "The about-180 target rule is still unmet. Remaining units are meaningfully testable and are not exclusions.",
+    "tools/llm_registry.py apply_slot_env_overrides lost two uncovered units incidentally. It is outside the #3998 list and is not counted.",
+    "Gate run 42278384461 on the receipt commit succeeded, and its coverage.json was not downloaded.",
+    "The red ranking failure was a missing pre-round git object on the runner. The red client failure was two provider-override assertions. Both were fixed by later commits on this branch and are not reopened here."
+  ],
+  "commands": [
+    "gh run view 42287174423 --repo stranske/Workflows",
+    "gh run download 42287174423 --repo stranske/Workflows --name gate-coverage-3.14-1",
+    "gh run download 42287174423 --repo stranske/Workflows --name gate-coverage-3.13-1",
+    "gh run download 42274021297 --repo stranske/Workflows --name gate-coverage-3.14-1",
+    "gh run download 42250720123 --repo stranske/Workflows --name gate-coverage-3.14-1",
+    "gh run view 42270085183 --repo stranske/Workflows --log-failed",
+    "gh run view 42283618148 --repo stranske/Workflows --log-failed"
+  ]
+}

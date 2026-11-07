@@ -199,3 +199,15 @@ client. The fix consumes that override and keeps each slot's reviewed model.
 An unblocked `model1` still fills both slots, and an explicit `model2` stays
 on the second slot. Receipts are in `mutation-receipts.md`. The about-180
 rule is unchanged. No production mutation remains.
+
+## Exact-head Gate after the delivered chunks
+
+Checked 2026-11-06T20:44:18Z. Comparable artifacts and the measured reduction
+are in `exact-head-gate.md` and `exact-head-gate.json`. Baseline Gate run
+42250720123 had 327 uncovered statements and branches across the six targets.
+The `expanded_comparison_verdict` chunk reduced that to 254. The exact head
+`97fa3cdd6b198623db4adc86f16f0b3788320794` (Gate run 42287174423, synthetic
+merge `e4e584ea61852751c55749ab9ed6539fa10c9a31`) reduced it to 238. The
+round-wide target reduction is 89. Python 3.14 pytest passed (49864 passed,
+27 skipped, 3 xfailed). The about-180 rule is unchanged and unmet. No target
+is excluded. Two incidental units in `tools/llm_registry.py` are not counted.
