@@ -1,0 +1,2 @@
+scripts/ci_history.py:152: error: Name "record" already defined on line 119  [no-redef]
+##[error]Process completed with exit code 1.
