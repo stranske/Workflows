@@ -718,6 +718,7 @@ def test_historical_campaign_command_matches_replay_and_audit_record() -> None:
     assert published["population_count"] == payload["population_count"]
     assert published["known_eligible_count"] == 0
     assert published["network_used_for_replay"] is False
+    assert published["production_repairs"] == payload["production_repairs"]
 
 
 def test_report_is_truncation_concerns_requires_both_markers() -> None:

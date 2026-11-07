@@ -1804,12 +1804,67 @@ def evaluate_historical_campaign(
         "unknown_effects_on_conclusions": unknown_effects,
         "production_repairs": {
             "count": 0,
+            "scope": "Deployed verifier implementation; CI and audit support changes are separate.",
             "note": (
-                "No production-code repair was required for the selected live complete "
+                "No deployed verifier repair was required for the selected live complete "
                 "report path. The earlier run 39090617832 first broken step was an expired "
                 "comparison artifact (evidence availability), not an implementation defect "
                 "with a before/after regression in this audit."
             ),
+            "support_changes": [
+                {
+                    "path": ".github/workflows/reusable-10-ci-python.yml",
+                    "kind": "CI history availability",
+                    "observed_failure": (
+                        "Depth-1 checkout: pinned merge-base exits 128 (commit unavailable). "
+                        "Fetching main alone: pinned checkout ancestry exits 1."
+                    ),
+                    "regression_command": (
+                        "/opt/anaconda3/bin/python3 -m pytest -q -s "
+                        "tests/workflows/test_reusable_ci_workflow.py::"
+                        "test_pinned_verifier_history_fetch_deepens_the_checkout_ref"
+                    ),
+                    "before": (
+                        "Git ancestry exits 128 before fetch and 1 after main-only fetch. "
+                        "Checkout-ref fetch removed temporarily: 1 failed on HEAD ancestry."
+                    ),
+                    "after": "Workflow shell exits 0; pin is ancestor of origin/main and HEAD.",
+                    "validation_limit": (
+                        "Local Git fixture with dated commits and a pull merge ref; only the "
+                        "pinned SHA is substituted in the workflow shell. Not a live Actions run."
+                    ),
+                },
+                {
+                    "path": "scripts/ci_history.py",
+                    "kind": "CI failure diagnostics",
+                    "observed_failure": (
+                        "An arbitrary FileNotFoundError('bad') was recorded as established "
+                        "shallow-history regression evidence."
+                    ),
+                    "regression_command": (
+                        "/opt/anaconda3/bin/python3 -m pytest -q "
+                        "tests/workflows/test_ci_history.py::test_main_handles_load_metrics_error"
+                    ),
+                    "before": "1 failed: regression_evidence unexpectedly present.",
+                    "after": "1 passed: observed file failure retained without causal claims.",
+                    "validation_limit": "Injected missing-file error; no Git-history causation inferred.",
+                },
+                {
+                    "path": "verifier_4422_audit.py:run_initial_evidence",
+                    "kind": "Audit collection helper",
+                    "observed_failure": "Missing gh escaped as FileNotFoundError before bounded failure.",
+                    "regression_command": (
+                        "/opt/anaconda3/bin/python3 -m pytest -q "
+                        "tests/test_verifier_4422_audit.py::"
+                        "test_initial_evidence_handles_missing_gh_as_bounded_failure "
+                        "tests/test_verifier_4422_audit.py::"
+                        "test_initial_evidence_cli_returns_exit_code_2_on_failure"
+                    ),
+                    "before": "Handler removed temporarily: 2 failed with uncaught FileNotFoundError.",
+                    "after": "Handler restored: 2 passed; bounded result and CLI exit 2.",
+                    "validation_limit": "Injected missing executable; not a deployed verifier repair.",
+                },
+            ],
         },
     }
 
