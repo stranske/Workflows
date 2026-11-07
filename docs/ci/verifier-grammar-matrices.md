@@ -230,6 +230,36 @@ acceptance for issue #3904.
 
 ## Controlled hosted comparison
 
+`scripts/gate_runtime_evidence.py` reads downloaded Gate runtime artifacts and
+job JSON without dispatching workflows. Its source and focused tests are restored
+from pre-reduction commit `d5c12fec48816701c24635dcc83ce1032d88c4b2` for #4462.
+The reader requires an explicit `success` job conclusion to report green jobs.
+Every compared after-runtime must have valid wall timestamps before the
+ten-minute target can be evaluated; incomplete walls yield an `UNKNOWN` target
+status and no slowest-job measurement. JSON keeps unknown measurements as null,
+and Markdown renders them as `UNKNOWN`.
+
+Scoped JUnit worker time requires exact scheduled-versus-observed case counts
+for each of the three files, with finite nonnegative durations for every row.
+Zero scheduled cases and zero observed rows measure zero; unknown scheduling,
+missing or extra rows, unreadable XML and invalid timings remain unknown.
+Coverage deltas require explicit executed-line and branch lists with valid
+integer entries; absent or malformed lists cannot establish zero branch loss.
+
+Pass `--repo /path/to/checkout` to verify source identity. `build_report` checks
+the common tested SHA for every runtime against the verifier, lock, pytest
+configuration, Gate inputs and reusable pytest invocation. Missing identity or
+invocation markers and differing inputs withhold configuration/control claims.
+Only full lowercase hexadecimal 40- or 64-character object IDs reach Git.
+The CLI's omitted, matching and mismatched repository identity paths are tested.
+This reader validation does not establish hosted timing or Python 3.12/3.13
+acceptance; retain those execution receipts separately.
+
+```bash
+python -m pytest tests/scripts/test_gate_runtime_evidence.py --cov=scripts.gate_runtime_evidence --cov-report=term-missing -q -m 'not slow'
+python scripts/gate_runtime_evidence.py --help
+```
+
 `maint-88-verifier-runtime-comparison.yml` is a finite manual experiment for #3904,
 not a new PR gate or recurring benchmark service. After normal review/merge, dispatch
 it once from the reviewed harness commit. It runs Python 3.12 and 3.13 on standard
