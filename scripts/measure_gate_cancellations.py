@@ -58,6 +58,7 @@ def collect_runs(repo: str, start: datetime, end: datetime, deadline: float) -> 
 def _collect_runs(
     repo: str, start: datetime, end: datetime, deadline: float, commands: list[list[str]]
 ) -> list:
+    """Share this repository's deadline across all its split-window reads."""
     pending = [(start, end)]
     runs = {}
     while pending:
@@ -144,7 +145,8 @@ def counts(runs: list[dict]) -> tuple[int, int]:
     return numerator, len(runs)
 
 
-def observe(repos: list[str], merge: datetime, now: datetime, deadline: float) -> dict:
+def observe(repos: list[str], merge: datetime, now: datetime, repo_timeout: float = 110.0) -> dict:
+    """Collect with a fresh timeout budget for each repository."""
     end = merge + timedelta(hours=48)
     report = {
         "collected_at": iso(now),
@@ -163,9 +165,10 @@ def observe(repos: list[str], merge: datetime, now: datetime, deadline: float) -
         report["status"] = "pending"
         return report
     for repo in repos:
+        repo_deadline = time.monotonic() + repo_timeout
         try:
             report["runs"][repo], report["commands"][repo] = collect_runs(
-                repo, merge, end, deadline
+                repo, merge, end, repo_deadline
             )
         except CollectionError as exc:
             report["commands"][repo] = exc.commands
@@ -202,7 +205,7 @@ def main() -> int:
     if merge.microsecond:
         parser.error("mergedAt must have whole-second precision")
     repos = extract_repos(ROOT / ".github/workflows/maint-68-sync-consumer-repos.yml")
-    report = observe(repos, merge, datetime.now(UTC), time.monotonic() + 110)
+    report = observe(repos, merge, datetime.now(UTC))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(

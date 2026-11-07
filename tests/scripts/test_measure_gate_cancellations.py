@@ -84,7 +84,7 @@ def test_observation_includes_history_of_disabled_gate(monkeypatch):
         return SimpleNamespace(returncode=0, stdout=json.dumps(page))
 
     monkeypatch.setattr(measure.subprocess, "run", execute)
-    report = measure.observe(["owner/active", "owner/disabled"], START, END, time.monotonic() + 110)
+    report = measure.observe(["owner/active", "owner/disabled"], START, END, 110.0)
 
     assert report["status"] == "complete"
     assert report["errors"] == {}
@@ -106,7 +106,7 @@ def test_unfinished_runs_outside_interval_do_not_block_observation(monkeypatch, 
         lambda *a, **k: SimpleNamespace(returncode=0, stdout=json.dumps(page)),
     )
 
-    report = measure.observe(["owner/repo"], START, END, time.monotonic() + 110)
+    report = measure.observe(["owner/repo"], START, END, 110.0)
 
     assert report["status"] == "complete"
     assert report["runs"] == {"owner/repo": [run(1)]}
@@ -132,7 +132,7 @@ def test_failed_reads_cannot_become_zero_or_pass(monkeypatch, failure):
         )
 
     monkeypatch.setattr(measure.subprocess, "run", execute)
-    report = measure.observe(["owner/repo"], START, END, time.monotonic() + 110)
+    report = measure.observe(["owner/repo"], START, END, 110.0)
     assert report["status"] == "incomplete"
     assert report["numerator"] is report["denominator"] is report["percentage"] is None
     assert report["errors"]["owner/repo"]
@@ -152,7 +152,7 @@ def test_failed_split_read_retains_all_attempted_commands(monkeypatch):
         return SimpleNamespace(returncode=0, stdout=json.dumps(page))
 
     monkeypatch.setattr(measure.subprocess, "run", execute)
-    report = measure.observe(["owner/repo"], START, END, time.monotonic() + 110)
+    report = measure.observe(["owner/repo"], START, END, 110.0)
 
     assert len(commands) == 3
     assert report["commands"] == {"owner/repo": commands}
@@ -202,6 +202,31 @@ def test_expired_deadline_never_calls_gh(monkeypatch):
     assert not report["passed"]
 
 
+def test_repository_timeout_does_not_starve_remaining_repositories(monkeypatch):
+    clock = [0.0]
+    commands = []
+
+    def execute(command, **kwargs):
+        commands.append(command)
+        assert kwargs["timeout"] == 110.0
+        if command[command.index("-R") + 1] == "owner/slow":
+            clock[0] += kwargs["timeout"]
+            raise measure.subprocess.TimeoutExpired(command, kwargs["timeout"])
+        return SimpleNamespace(returncode=0, stdout=json.dumps([run(1)]))
+
+    monkeypatch.setattr(measure.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(measure.subprocess, "run", execute)
+    report = measure.observe(["owner/slow", "owner/next"], START, END)
+
+    assert len(commands) == 2
+    assert report["runs"] == {"owner/next": [run(1)]}
+    assert report["commands"] == {"owner/slow": [commands[0]], "owner/next": [commands[1]]}
+    assert report["errors"] == {"owner/slow": "gh run list unavailable: TimeoutExpired"}
+    assert report["status"] == "incomplete"
+    assert report["numerator"] is report["denominator"] is report["percentage"] is None
+    assert not report["passed"]
+
+
 def test_saturated_one_second_window_refuses_completion(monkeypatch):
     monkeypatch.setattr(measure, "RUN_LIMIT", 1)
     monkeypatch.setattr(
@@ -227,7 +252,7 @@ def test_incomplete_run_never_establishes_acceptance(monkeypatch, field, value, 
         "run",
         lambda *a, **k: SimpleNamespace(returncode=0, stdout=json.dumps([record])),
     )
-    report = measure.observe(["owner/repo"], START, END, time.monotonic() + 110)
+    report = measure.observe(["owner/repo"], START, END, 110.0)
     assert report["status"] == "incomplete"
     assert report["percentage"] is None
 
@@ -271,7 +296,7 @@ def test_invalid_run_data_keeps_observation_incomplete(monkeypatch, page, messag
         return SimpleNamespace(returncode=0, stdout=json.dumps(page))
 
     monkeypatch.setattr(measure.subprocess, "run", execute)
-    report = measure.observe(["owner/repo"], START, END, time.monotonic() + 110)
+    report = measure.observe(["owner/repo"], START, END, 110.0)
 
     assert report["status"] == "incomplete"
     assert message in report["errors"]["owner/repo"]
