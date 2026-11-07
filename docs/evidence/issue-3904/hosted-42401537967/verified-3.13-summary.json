@@ -1,0 +1,119 @@
+{
+  "run_id": 42401537967,
+  "workflow_head": "8142060267fce57561d25735aa2e7c5f457ade14",
+  "artifact_id": 13586510679,
+  "archive_sha256": "acd0b2ec98361587dcb65265a5f20c3ed1024d898539d2b66be0d36fbced397a",
+  "python": "3.13.18 (main, Oct 26 2026, 14:19:33) [GCC 15.2.0]",
+  "coverage": {
+    "lost_lines": [],
+    "lost_branches": [],
+    "baseline_lines": 2144,
+    "candidate_lines": 2144,
+    "baseline_branches": 759,
+    "candidate_branches": 759
+  },
+  "outcomes": {
+    "successful": true,
+    "gaps": []
+  },
+  "junit_worker_timing": {
+    "available": true,
+    "gaps": []
+  },
+  "packages_unchanged": true,
+  "source_integrity_verified": true,
+  "unuploaded_inherited_manifest_entries": [
+    "candidate/docs/evidence/issue-3743/runtime-probes/candidate.log",
+    "candidate/docs/evidence/issue-3743/runtime-probes/baseline.log",
+    "baseline/docs/evidence/issue-3743/runtime-probes/candidate.log",
+    "baseline/docs/evidence/issue-3743/runtime-probes/baseline.log"
+  ],
+  "arms": {
+    "candidate": {
+      "exit_code": 0,
+      "wall_seconds": 439.654637461,
+      "per_suite": {
+        "tests.scripts.test_pr_verifier_delivery_destinations": {
+          "cases": 29777,
+          "worker_seconds": 854.4419999998934,
+          "timed_cases": 29777,
+          "untimed_cases": 0,
+          "passed": 29777,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "timing_status": "KNOWN"
+        },
+        "tests.scripts.test_pr_verifier_prompt_coverage": {
+          "cases": 3813,
+          "worker_seconds": 187.0429999999988,
+          "timed_cases": 3813,
+          "untimed_cases": 0,
+          "passed": 3813,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "timing_status": "KNOWN"
+        },
+        "tests.scripts.test_pr_verifier_body_overall_integration": {
+          "cases": 2054,
+          "worker_seconds": 31.195999999999778,
+          "timed_cases": 2054,
+          "untimed_cases": 0,
+          "passed": 2054,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "timing_status": "KNOWN"
+        }
+      }
+    },
+    "baseline": {
+      "exit_code": 0,
+      "wall_seconds": 456.77748140100005,
+      "per_suite": {
+        "tests.scripts.test_pr_verifier_delivery_destinations": {
+          "cases": 30461,
+          "worker_seconds": 903.0479999998935,
+          "timed_cases": 30461,
+          "untimed_cases": 0,
+          "passed": 30461,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "timing_status": "KNOWN"
+        },
+        "tests.scripts.test_pr_verifier_prompt_coverage": {
+          "cases": 3813,
+          "worker_seconds": 185.58199999999906,
+          "timed_cases": 3813,
+          "untimed_cases": 0,
+          "passed": 3813,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "timing_status": "KNOWN"
+        },
+        "tests.scripts.test_pr_verifier_body_overall_integration": {
+          "cases": 1994,
+          "worker_seconds": 30.87699999999982,
+          "timed_cases": 1994,
+          "untimed_cases": 0,
+          "passed": 1994,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "timing_status": "KNOWN"
+        }
+      }
+    }
+  },
+  "python_3_12": "UNKNOWN: no terminal receipt retained before REST rate limit",
+  "collection_reporting_phase_split": null,
+  "timing_controlled": null,
+  "limitations": [
+    "One pair per interpreter, no replicated timing trial",
+    "Arm wall and JUnit worker times do not separately measure collection/reporting",
+    "No complete two-runtime hosted-phase receipt retained before rate limit"
+  ]
+}
