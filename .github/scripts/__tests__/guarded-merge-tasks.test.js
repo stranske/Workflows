@@ -153,7 +153,7 @@ test('ambiguous source metadata cannot bypass source validation', () => {
 
 const refusalMarker = '<!-- agents-guarded-merge-result:v1 -->';
 
-function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
+function refusalHarness({ login = 'owner', actor = { login: 'Owner' }, credentialSource = 'SERVICE_BOT_PAT', comments = [], failAt = '' } = {}) {
   const actions = [];
   const c = {
     authenticatedLogin: login, owner: 'o', repo: 'r',
@@ -177,7 +177,7 @@ function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
     }, users: { getAuthenticated: async () => {
       actions.push(['identity']);
       if (failAt === 'identity') throw new Error('identity unavailable');
-      return { data: { login: 'Owner' } };
+      return { data: actor };
     } } } },
     withRetry: (fn) => fn(c.github),
     paginateWithRetry: async (method, args) => {
@@ -187,11 +187,55 @@ function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
       if (failAt === 'list') throw new Error('list unavailable');
       return comments;
     },
+    // Mock guardedMergeCredentialSource to return a consistent source for tests
+    guardedMergeCredentialSource: () => credentialSource,
+    process: { env: {} },
   };
   vm.createContext(c);
   const report = source.slice(source.indexOf('            async function reportTaskRefusal'), source.indexOf('            async function loadPullRequest'));
   vm.runInContext(report, c);
   return { c, actions, comments };
+}
+
+test('workflow-token task refusal reuses only a bot receipt without GET /user', async () => {
+  const comments = [
+    { id: 1, user: { login: 'github-actions[bot]', type: 'User' }, body: refusalMarker },
+    { id: 2, user: { login: 'owner', type: 'Bot' }, body: refusalMarker },
+    { id: 3, user: { login: 'github-actions[bot]', type: 'Bot' }, body: refusalMarker },
+  ];
+  const { c, actions } = refusalHarness({
+    login: '', credentialSource: 'github.token', comments, failAt: 'identity',
+  });
+  await c.reportTaskRefusal(42, 'first-head', 'first refusal');
+  await c.reportTaskRefusal(42, 'next-head', 'next refusal');
+  assert.deepEqual(actions.filter(([kind]) => kind === 'update').map(([, args]) => args.comment_id), [3, 3]);
+  assert.equal(comments[2].body, `${refusalMarker}\nHead: next-head\nTask precheck refused: next refusal`);
+  assert.equal(comments[0].body, refusalMarker);
+  assert.equal(comments[1].body, refusalMarker);
+  assert.equal(actions.some(([kind]) => kind === 'identity' || kind === 'create'), false);
+});
+
+for (const ownership of [
+  { name: 'matching IDs despite renamed login', actor: { id: 7, login: 'new-owner' }, user: { id: 7, login: 'old-owner' }, owned: true },
+  { name: 'mismatching IDs despite matching login', actor: { id: 7, login: 'owner' }, user: { id: 8, login: 'owner' }, owned: false },
+  { name: 'missing actor ID uses case-insensitive login', actor: { login: 'Owner' }, user: { id: 7, login: 'OWNER' }, owned: true },
+  { name: 'missing comment ID uses case-insensitive login', actor: { id: 7, login: 'Owner' }, user: { login: 'OWNER' }, owned: true },
+  { name: 'missing ID and foreign login', actor: { id: 7, login: 'owner' }, user: { login: 'foreign' }, owned: false },
+]) {
+  test(`task refusal ownership: ${ownership.name}`, async () => {
+    const comments = [{ id: 5, user: ownership.user, body: refusalMarker }];
+    const { c, actions } = refusalHarness({ login: '', actor: ownership.actor, comments });
+    await c.reportTaskRefusal(42, 'head', 'unchecked tasks');
+    assert.equal(actions.filter(([kind]) => kind === 'identity').length, 1);
+    assert.equal(actions.filter(([kind]) => kind === 'update').length, ownership.owned ? 1 : 0);
+    assert.equal(actions.filter(([kind]) => kind === 'create').length, ownership.owned ? 0 : 1);
+    if (ownership.owned) {
+      assert.equal(actions.find(([kind]) => kind === 'update')[1].comment_id, 5);
+      assert.equal(comments[0].body, `${refusalMarker}\nHead: head\nTask precheck refused: unchecked tasks`);
+    } else {
+      assert.equal(comments[0].body, refusalMarker);
+    }
+  });
 }
 
 test('refusal receipt updates only its writer and survives unavailable identity', async () => {
@@ -391,6 +435,8 @@ function mergeScanHarness({ body = complete.body, finalBody = body, boundaryBody
   let pullReads = 0;
   const summary = {
     addHeading() {},
+    addRaw() { return this; },
+    addEOL() { return this; },
     addTable: (rows) => actions.push(['summary', rows]),
     write: async () => actions.push(['summary-written']),
   };
@@ -954,4 +1000,711 @@ for (const fleet of fleetOpenerFixtures) {
       ['warning', `PR #42: ${reason}`],
     ]);
   });
+}
+
+const mergeFailureMarker = '<!-- agents-guarded-merge-result:v1 -->';
+
+function installMergeFailurePublisher(c) {
+  const actor = { login: 'stranske-automation-bot', id: 4242, type: 'User' };
+  c.guardedMergeCredentialSource = () => 'SERVICE_BOT_PAT';
+  c.github.rest.users.getAuthenticated = async () => ({ data: actor, headers: {} });
+  c.github.rest.issues.createComment = async (args) => {
+    c.actions.push(['create', args]);
+    c.comments.push({ id: 100 + c.comments.length, user: { ...actor }, body: args.body });
+  };
+  const reportStart = source.indexOf('            async function reportMergeFailure');
+  const reportEnd = source.indexOf('            // Resolve the default branch', reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'reportMergeFailure must be in the template');
+  vm.runInContext(source.slice(reportStart, reportEnd), c);
+  return actor;
+}
+
+function failMerge(c, { status = 403, message = 'Resource not accessible by integration' } = {}) {
+  c.github.rest.pulls.merge = async () => {
+    c.actions.push(['merge-attempt', status]);
+    const error = new Error(message);
+    error.status = status;
+    error.response = { status, data: { message } };
+    throw error;
+  };
+}
+
+for (const writer of ['SERVICE_BOT_PAT', 'github.token']) {
+  test(`${writer} reuses one receipt as task refusals alternate with HTTP merge failures`, async () => {
+    const { c, actions, comments } = mergeScanHarness();
+    c.actions = actions;
+    c.comments = comments;
+    const actor = installMergeFailurePublisher(c);
+    c.guardedMergeCredentialSource = () => writer;
+    if (writer === 'github.token') {
+      Object.assign(actor, { login: 'github-actions[bot]', id: 41898282, type: 'Bot' });
+    }
+    c.authenticatedLogin = actor.login;
+    const ordinaryComment = { id: 10, user: { ...actor }, body: 'Review discussion' };
+    comments.push(ordinaryComment);
+    const loadPullRequest = c.loadPullRequest;
+    let hasUncheckedTask = true;
+    c.loadPullRequest = async (number) => {
+      const pr = await loadPullRequest(number);
+      return hasUncheckedTask ? { ...pr, body: pr.body + '\n- [ ] Reviewer request' } : pr;
+    };
+    failMerge(c);
+    let receiptId;
+
+    for (const unchecked of [true, false, true, false]) {
+      hasUncheckedTask = unchecked;
+      actions.length = 0;
+
+      await c.runScan();
+
+      const note = unchecked
+        ? 'PR #42: Refusing auto-merge: linked issue/PR has unchecked tasks.'
+        : 'Merge failed: HTTP 403 Resource not accessible by integration';
+      const body = unchecked
+        ? `${mergeFailureMarker}\nHead: current-head\nTask precheck refused: Refusing auto-merge: linked issue/PR has unchecked tasks.`
+        : `${mergeFailureMarker}\n${note}`;
+      assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+      const receipts = comments.filter((comment) => comment.body.startsWith(mergeFailureMarker));
+      assert.equal(receipts.length, 1, 'both publishers must reuse the same writer receipt');
+      assert.equal(receipts[0].body, body);
+      if (receiptId === undefined) {
+        receiptId = receipts[0].id;
+        assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+      } else {
+        assert.equal(receipts[0].id, receiptId);
+        assert.equal(actions.filter(([kind]) => kind === 'update').length, 1);
+        assert.equal(actions.some(([kind]) => kind === 'create'), false);
+      }
+      assert.equal(comments.length, 2);
+      assert.equal(ordinaryComment.body, 'Review discussion');
+      assert.equal(actions.filter(([kind]) => kind === 'merge-attempt').length, unchecked ? 0 : 1);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+      assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+    }
+  });
+}
+
+for (const status of [403, 409]) {
+  test(`nested HTTP ${status} and response message reach both warning and receipt`, async () => {
+    const { c, actions, comments } = mergeScanHarness();
+    c.actions = actions;
+    c.comments = comments;
+    installMergeFailurePublisher(c);
+    const message = status === 403 ? 'Resource not accessible by integration' : 'Head changed';
+    c.github.rest.pulls.merge = async () => {
+      throw Object.assign(new Error('Generic transport error'), {
+        response: { status, data: { message } },
+      });
+    };
+
+    await c.runScan();
+
+    const note = `Merge failed: HTTP ${status} ${message}`;
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+    assert.ok(actions.some(([kind, line]) => kind === 'info'
+      && line === `PUT /repos/o/r/pulls/42/merge - ${status}`));
+    const rows = actions.find(([kind]) => kind === 'summary')[1];
+    assert.deepEqual([...rows[1]], ['#42', 'error', note]);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+  });
+}
+
+test('final task refusal keeps its receipt when the real merge-failure publisher is installed', async () => {
+  const { c, actions, comments } = mergeScanHarness({
+    finalBody: complete.body + '\n- [ ] Reviewer request',
+  });
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+  c.authenticatedLogin = 'stranske-automation-bot';
+  await c.runScan();
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', `PR #42: ${reason}`]]);
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+  assert.equal(actions.some(([kind]) => kind === 'update'), false);
+});
+
+test('HTTP merge failure publishes one warning and one marker receipt, then updates it', async () => {
+  const harness = mergeScanHarness();
+  const { c, actions, comments } = harness;
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+  const message = 'Resource not accessible by integration';
+  const note = `Merge failed: HTTP 403 ${message}`;
+  failMerge(c, { message });
+
+  await c.runScan();
+
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+  assert.equal(actions.some(([kind]) => kind === 'update'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+    ['output', 'merged', '[]'],
+  ]);
+
+  actions.length = 0;
+  await c.runScan();
+
+  assert.equal(comments.length, 1, 'a second failure must upsert the writer receipt');
+  assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 0);
+  assert.equal(actions.filter(([kind]) => kind === 'update').length, 1);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+});
+
+for (const writer of ['SERVICE_BOT_PAT', 'github.token']) {
+  test(`${writer} reuses its persisted receipt across independent failed dispatches`, async () => {
+    const discussion = Array.from({ length: 101 }, (_, index) => ({
+      id: index + 1,
+      user: { id: 99, login: 'reviewer', type: 'User' },
+      body: `Review comment ${index + 1}`,
+    }));
+    let persistedComments = structuredClone(discussion);
+    let receiptId;
+
+    for (const [status, message] of [
+      [403, 'Resource not accessible by integration'],
+      [409, 'Head changed'],
+      [405, 'Branch policy prevents merge'],
+    ]) {
+      // A dispatch has no memory of the preceding job: only PR comments persist.
+      const { c, actions, comments } = mergeScanHarness();
+      c.context = { payload: { inputs: { pr_number: '42' } } };
+      c.actions = actions;
+      c.comments = comments;
+      comments.push(...structuredClone(persistedComments));
+      const actor = installMergeFailurePublisher(c);
+      c.guardedMergeCredentialSource = () => writer;
+      if (writer === 'github.token') {
+        Object.assign(actor, { id: 41898282, login: 'github-actions[bot]', type: 'Bot' });
+        c.github.rest.users.getAuthenticated = async () => {
+          throw Object.assign(new Error('Identity unavailable'), { status: 403 });
+        };
+      } else if (status !== 403) {
+        actor.login = 'renamed-automation-bot';
+      }
+      const { createTokenAwareRetry } = require('../github-api-with-retry');
+      const retry = await createTokenAwareRetry({ github: c.github, core: c.core, env: {} });
+      c.withRetry = retry.withRetry;
+      failMerge(c, { status, message });
+
+      await c.runScan();
+
+      const note = `Merge failed: HTTP ${status} ${message}`;
+      const receipts = comments.filter((comment) => comment.body.startsWith(mergeFailureMarker));
+      assert.equal(receipts.length, 1, 'new jobs must discover and reuse the persisted receipt');
+      assert.equal(receipts[0].body, `${mergeFailureMarker}\n${note}`);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+      assert.deepEqual(comments.slice(0, discussion.length), discussion);
+      if (receiptId === undefined) {
+        receiptId = receipts[0].id;
+        assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+      } else {
+        assert.equal(receipts[0].id, receiptId);
+        assert.equal(actions.some(([kind]) => kind === 'create'), false);
+        assert.deepEqual(actions.filter(([kind]) => kind === 'update').map(([, args]) =>
+          args.comment_id), [receiptId]);
+      }
+      assert.ok(actions.some(([kind, line]) => kind === 'info'
+        && line === `PUT /repos/o/r/pulls/42/merge - ${status}`));
+      assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+      assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+      persistedComments = structuredClone(comments);
+    }
+  });
+}
+
+test('merge failure receipt regression fails when the publisher is removed and passes when restored', async () => {
+  const { c, actions, comments } = mergeScanHarness();
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+  const message = 'Repository rule violations found';
+  const note = `Merge failed: HTTP 405 ${message}`;
+  failMerge(c, { status: 405, message });
+  const publish = c.reportMergeFailure;
+
+  c.reportMergeFailure = async () => {};
+  await assert.rejects(async () => {
+    await c.runScan();
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  }, { code: 'ERR_ASSERTION' });
+  assert.equal(comments.length, 0);
+  assert.ok(actions.some(([kind]) => kind === 'merge-attempt'));
+  const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+  assert.deepEqual([...summaryRows[1]], ['#42', 'error', note]);
+
+  c.reportMergeFailure = publish;
+  comments.length = 0;
+  actions.length = 0;
+  await c.runScan();
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+});
+
+function installJobTokenFallback(c, actions, fallbackMerge, primaryStatus = 403) {
+  c.guardedMergeCredentialSource = () => 'SERVICE_BOT_PAT';
+  c.process = { env: { GUARDED_MERGE_GITHUB_TOKEN: 'job-token' } };
+  const fallback = {
+    rest: {
+      pulls: { merge: fallbackMerge },
+      users: {
+        getAuthenticated: async () => {
+          const error = new Error('Resource not accessible by integration');
+          error.status = 403;
+          throw error;
+        },
+      },
+    },
+  };
+  c.require = (name) => {
+    throw new Error(`Cannot find module '${name}' in consumer checkout`);
+  };
+  c.getOctokit = (token) => {
+    assert.equal(token, 'job-token');
+    actions.push(['fallback-client', token]);
+    return fallback;
+  };
+  c.withRetry = async (fn, options = {}) => fn(options.github || c.github);
+  c.github.rest.pulls.merge = async () => {
+    actions.push(['merge-primary']);
+    const error = new Error('Resource not accessible by integration');
+    error.status = primaryStatus;
+    error.response = { status: primaryStatus, data: { message: 'Resource not accessible by integration' } };
+    throw error;
+  };
+  c.github.rest.users.getAuthenticated = async () => ({
+    data: { login: 'stranske' },
+    headers: { 'x-oauth-scopes': 'read:org' },
+  });
+  return fallback;
+}
+
+for (const primaryStatus of [401, 403]) {
+  test(`PAT HTTP ${primaryStatus} falls through to github.token and logs PUT 200`, async () => {
+    const { c, actions } = mergeScanHarness();
+    installJobTokenFallback(c, actions, async (args) => {
+      actions.push(['merge-fallback', args]);
+      return { status: 200, data: { merged: true, merge_method: 'squash' } };
+    }, primaryStatus);
+
+    await c.runScan();
+
+    assert.deepEqual(actions.filter(([kind, message]) => kind === 'info' && String(message).startsWith('PUT /repos/')), [
+      ['info', `PUT /repos/o/r/pulls/42/merge - ${primaryStatus}`],
+      ['info', 'PUT /repos/o/r/pulls/42/merge - 200'],
+    ]);
+    assert.equal(actions.filter(([kind]) => kind === 'merge-primary').length, 1);
+    assert.equal(actions.filter(([kind]) => kind === 'merge-fallback').length, 1);
+    assert.deepEqual({ ...actions.find(([kind]) => kind === 'merge-fallback')[1] }, {
+      owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+    }, 'the fallback must merge only the head validated by the guards');
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[42]'],
+    ]);
+    assert.equal(actions.some(([kind, message]) =>
+      kind === 'warning' && String(message).includes(mergeFailureMarker)), false);
+  });
+}
+
+for (const status of [405, 409, 422, 500]) {
+  test(`HTTP ${status} refuses merge without trying a different credential`, async () => {
+    const { c, actions, comments } = mergeScanHarness();
+    installJobTokenFallback(c, actions, async () => {
+      assert.fail('only authentication/authorization failures permit credential fallback');
+    });
+    c.actions = actions;
+    c.comments = comments;
+    installMergeFailurePublisher(c);
+    const message = 'Merge refused by GitHub';
+    failMerge(c, { status, message });
+
+    await c.runScan();
+
+    const note = `Merge failed: HTTP ${status} ${message}`;
+    assert.deepEqual(actions.filter(([kind]) => kind === 'merge-attempt'), [
+      ['merge-attempt', status],
+    ]);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+    assert.equal(comments.length, 1);
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+  });
+}
+
+test('a non-merged fallback response warns and upserts the final HTTP result', async () => {
+  const { c, actions, comments } = mergeScanHarness();
+  let finalStatus = 405;
+  let message = 'Branch policy prevents merge';
+  installJobTokenFallback(c, actions, async () => ({
+    status: finalStatus, data: { merged: false, message },
+  }));
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+
+  for (const status of [405, 409]) {
+    finalStatus = status;
+    message = status === 405 ? 'Branch policy prevents merge' : 'Head changed';
+    actions.length = 0;
+    await c.runScan();
+
+    const note = `Merge failed: HTTP ${status} ${message}`;
+    assert.deepEqual(actions.filter(([kind, warning]) => kind === 'warning'
+      && warning.startsWith('Merge failed:')), [['warning', note]]);
+    assert.equal(comments.length, 1, 'repeated failures must reuse the writer receipt');
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', '[]'],
+    ]);
+    assert.ok(actions.some(([kind, line]) => kind === 'info'
+      && line === `PUT /repos/o/r/pulls/42/merge - ${status}`));
+    assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+  }
+});
+
+test('github.token HTTP 403 after the PAT still publishes one receipt', async () => {
+  const harness = mergeScanHarness();
+  const { c, actions, comments } = harness;
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+  const message = 'Resource not accessible by integration';
+  installJobTokenFallback(c, actions, async () => {
+    actions.push(['merge-fallback']);
+    const error = new Error(message);
+    error.status = 403;
+    error.response = { status: 403, data: { message } };
+    throw error;
+  });
+
+  await c.runScan();
+
+  const note = `Merge failed: HTTP 403 ${message}`;
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+  assert.deepEqual(actions.filter(([kind, message]) => kind === 'info' && String(message).startsWith('PUT /repos/')), [
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+  ]);
+  assert.ok(actions.some(([kind, warning]) => kind === 'warning' && warning === note));
+  assert.equal(actions.filter(([kind]) => kind === 'create').length, 1);
+});
+
+test('a later dispatch recovers a denied merge only after the API confirms merged', async () => {
+  const { c, actions, comments } = mergeScanHarness();
+  c.actions = actions;
+  c.comments = comments;
+  c.context = { payload: { inputs: { pr_number: '42' } } };
+  let result = { status: 403, data: { merged: false, message: 'Permission denied' } };
+  installJobTokenFallback(c, actions, async (args) => {
+    actions.push(['merge-fallback', args]);
+    return result;
+  });
+  installMergeFailurePublisher(c);
+  const { createTokenAwareRetry } = require('../github-api-with-retry');
+  const retry = await createTokenAwareRetry({ github: c.github, core: c.core, env: {} });
+  c.withRetry = retry.withRetry;
+
+  for (const response of [
+    result,
+    { status: 200, data: { merged: false, message: 'Merge not completed' } },
+    { status: 200, data: { merged: true } },
+  ]) {
+    result = response;
+    actions.length = 0;
+
+    await c.runScan();
+
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', result.data.merged ? '[42]' : '[]'],
+    ]);
+    assert.deepEqual({ ...actions.find(([kind]) => kind === 'merge-fallback')[1] }, {
+      owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+    });
+    assert.deepEqual(actions.filter(([kind, line]) => kind === 'info'
+      && line.startsWith('PUT /repos/')), [
+      ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+      ['info', `PUT /repos/o/r/pulls/42/merge - ${result.status}`],
+    ]);
+    assert.equal(comments.length, 1, 'dispatch retries must preserve a single failure receipt');
+    const rows = actions.find(([kind]) => kind === 'summary')[1];
+    if (result.data.merged) {
+      assert.deepEqual([...rows[1]], ['#42', 'merged', 'Merged via squash.']);
+      assert.equal(actions.some(([kind, message]) => kind === 'warning'
+        && message.startsWith('Merge failed:')), false);
+      assert.equal(actions.some(([kind]) => ['create', 'update'].includes(kind)), false);
+      assert.deepEqual({ ...actions.find(([kind]) => kind === 'remove-label')[1] }, {
+        owner: 'o', repo: 'r', issue_number: 1061, name: 'status:in-progress',
+      });
+    } else {
+      const note = `Merge failed: HTTP ${result.status} ${result.data.message}`;
+      assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+      assert.deepEqual(actions.filter(([kind, message]) => kind === 'warning'
+        && message.startsWith('Merge failed:')), [['warning', note]]);
+      assert.deepEqual([...rows[1]], ['#42', 'error', note]);
+      assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+      assert.equal(actions.filter(([kind]) => kind === (result.status === 403
+        ? 'create' : 'update')).length, 1);
+    }
+  }
+});
+
+test('PAT permission failure reaches the exact-head merge through the real retry helper', async () => {
+  const { c, actions } = mergeScanHarness();
+  installJobTokenFallback(c, actions, async (args) => {
+    actions.push(['merge-fallback', args]);
+    return { status: 200, data: { merged: true } };
+  });
+  // Existing scan tests stub withRetry to honor options.github. Exercise the
+  // shipped wrapper too: losing that override silently reuses the rejected PAT.
+  const { createTokenAwareRetry } = require('../github-api-with-retry');
+  const retry = await createTokenAwareRetry({
+    github: c.github,
+    core: c.core,
+    env: {},
+    tokenRegistry: {
+      isInitialized: () => false,
+      initializeTokenRegistry: () => assert.fail('the sanitized merge environment has no credentials'),
+      getOptimalToken: () => assert.fail('merge attempts must stay on their selected client'),
+    },
+  });
+  c.withRetry = retry.withRetry;
+
+  await c.runScan();
+
+  assert.equal(actions.filter(([kind]) => kind === 'merge-primary').length, 1);
+  assert.equal(actions.filter(([kind]) => kind === 'merge-fallback').length, 1);
+  assert.deepEqual({ ...actions.find(([kind]) => kind === 'merge-fallback')[1] }, {
+    owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+  });
+  assert.deepEqual(actions.filter(([kind, line]) => kind === 'info' && line.startsWith('PUT /repos/')), [
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 403'],
+    ['info', 'PUT /repos/o/r/pulls/42/merge - 200'],
+  ]);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[42]']]);
+});
+
+const mergeWakeups = [
+  { name: 'pull request', payload: { pull_request: { number: 42 } } },
+  { name: 'workflow dispatch', payload: { inputs: { pr_number: '42' } } },
+];
+for (const { wakeup, blocker } of mergeWakeups.flatMap((wakeup) =>
+  ['none', 'failed check', 'active review thread'].map((blocker) => ({ wakeup, blocker })))) {
+  test(`${wakeup.name} credential fallback preserves shipped check/thread guards: ${blocker}`, async () => {
+    const { c, actions } = mergeScanHarness();
+    c.context = { payload: wakeup.payload };
+    const loadPullRequest = c.loadPullRequest;
+    c.loadPullRequest = async (number) => {
+      actions.push(['selected-pr-read', number]);
+      assert.equal(number, 42, 'only the PR selected by the wakeup may be inspected');
+      return loadPullRequest(number);
+    };
+    installJobTokenFallback(c, actions, async (args) => {
+      actions.push(['merge-fallback', args]);
+      return { status: 200, data: { merged: true } };
+    });
+    const { createTokenAwareRetry } = require('../github-api-with-retry');
+    const retry = await createTokenAwareRetry({ github: c.github, core: c.core, env: {} });
+    c.withRetry = retry.withRetry;
+    c.okConclusions = ['success', 'skipped'];
+    c.github.rest.repos.getCombinedStatusForRef = async (args) => {
+      actions.push(['status-read', args.ref]);
+      return { data: { state: 'pending', total_count: 0 } };
+    };
+    c.github.rest.checks = { listForRef() {} };
+    const paginate = c.paginateWithRetry;
+    let checkReads = 0;
+    c.paginateWithRetry = async (method, args) => {
+      if (method === c.github.rest.issues.listForRepo) {
+        // Other labelled PRs must never inherit this dispatch's merge authority.
+        return [41, 42, 43].map((number) => ({ number, pull_request: {} }));
+      }
+      if (method !== c.github.rest.checks.listForRef) return paginate(method, args);
+      actions.push(['check-read', args.ref]);
+      checkReads += 1;
+      // The initial snapshot is green. A new failure at the final snapshot
+      // must still prevent either credential from reaching pulls.merge.
+      return [
+        { name: 'Gate', status: 'completed', conclusion: blocker === 'failed check'
+          && checkReads > 1 ? 'failure' : 'success' },
+        { name: 'Optional', status: 'completed', conclusion: 'skipped' },
+      ];
+    };
+    c.github.graphql = async (_query, args) => {
+      actions.push(['thread-read', args.number]);
+      return { repository: { pullRequest: { reviewThreads: {
+        nodes: blocker === 'active review thread'
+          ? [{ isResolved: false, isOutdated: false }] : [],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      } } } };
+    };
+    const guardsStart = source.indexOf('            async function activeReviewThreadFailure(');
+    const guardsEnd = source.indexOf('            async function reviewGuardFailure(', guardsStart);
+    assert.ok(guardsStart >= 0 && guardsEnd > guardsStart, 'shipped API guards must exist');
+    vm.runInContext(source.slice(guardsStart, guardsEnd), c);
+
+    await c.runScan();
+
+    assert.deepEqual([...new Set(actions.filter(([kind]) => kind === 'selected-pr-read')
+      .map(([, number]) => number))], [42]);
+    const expectedReads = blocker === 'none' ? 3 : 2;
+    assert.deepEqual(actions.filter(([kind]) => kind === 'check-read'),
+      Array.from({ length: expectedReads }, () => ['check-read', 'current-head']));
+    assert.deepEqual(actions.filter(([kind]) => kind === 'thread-read'),
+      Array.from({ length: blocker === 'failed check' ? 0 : blocker === 'none' ? 2 : 1 },
+        () => ['thread-read', 42]));
+    if (blocker === 'none') {
+      assert.equal(actions.filter(([kind]) => kind === 'merge-primary').length, 1);
+      assert.deepEqual({ ...actions.find(([kind]) => kind === 'merge-fallback')[1] }, {
+        owner: 'o', repo: 'r', pull_number: 42, merge_method: 'squash', sha: 'current-head',
+      });
+      assert.ok(actions.some(([kind, line]) => kind === 'info'
+        && line === 'PUT /repos/o/r/pulls/42/merge - 200'));
+    } else {
+      assert.equal(actions.some(([kind]) => ['merge-primary', 'merge-fallback', 'remove-label']
+        .includes(kind)), false);
+      const rows = actions.find(([kind]) => kind === 'summary')[1];
+      assert.match(rows[1][2], blocker === 'failed check'
+        ? /Gate concluded failure/ : /1 active non-outdated review thread/);
+    }
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [
+      ['output', 'merged', blocker === 'none' ? '[42]' : '[]'],
+    ]);
+  });
+}
+
+for (const prNumber of [undefined, '', 'invalid', '99']) {
+  test(`workflow dispatch without a matching PR refuses merge (${String(prNumber)})`, async () => {
+    const { c, actions } = mergeScanHarness();
+    c.context = { payload: { inputs: { pr_number: prNumber } } };
+    c.loadPullRequest = async () => assert.fail('no PR is authorized by this dispatch');
+    c.getOctokit = () => assert.fail('no fallback client is needed without an eligible PR');
+
+    await c.runScan();
+
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+    assert.equal(actions.some(([kind]) => ['merge', 'checks', 'threads', 'remove-label']
+      .includes(kind)), false);
+  });
+}
+
+test('direct github.token failure updates one bot receipt without requiring GET /user', async () => {
+  const { c, actions, comments } = mergeScanHarness();
+  c.actions = actions;
+  c.comments = comments;
+  const actor = installMergeFailurePublisher(c);
+  Object.assign(actor, { login: 'github-actions[bot]', id: 41898282, type: 'Bot' });
+  c.guardedMergeCredentialSource = () => 'github.token';
+  c.process = { env: {} };
+  c.require = () => assert.fail('a selected github.token must not construct a fallback client');
+  c.github.rest.users.getAuthenticated = async () => {
+    actions.push(['identity-denied']);
+    const error = new Error('Resource not accessible by integration');
+    error.status = 403;
+    throw error;
+  };
+
+  for (const [status, message] of [
+    [403, 'Resource not accessible by integration'],
+    [405, 'Branch policy prevents merge'],
+  ]) {
+    actions.length = 0;
+    failMerge(c, { status, message });
+
+    await c.runScan();
+
+    const note = `Merge failed: HTTP ${status} ${message}`;
+    assert.equal(comments.length, 1, 'installation-token failures must reuse the bot receipt');
+    assert.equal(comments[0].body, `${mergeFailureMarker}\n${note}`);
+    assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', note]]);
+    assert.equal(actions.filter(([kind]) => kind === 'identity-denied').length, 1,
+      'only the merge diagnostic calls GET /user; the bot receipt must not depend on it');
+    assert.equal(actions.filter(([kind]) => kind === 'create').length, status === 403 ? 1 : 0);
+    assert.equal(actions.filter(([kind]) => kind === 'update').length, status === 405 ? 1 : 0);
+    assert.ok(actions.some(([kind, line]) => kind === 'info'
+      && line === `PUT /repos/o/r/pulls/42/merge - ${status}`));
+    assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+    assert.equal(actions.some(([kind]) => kind === 'remove-label'), false);
+  }
+});
+
+for (const writer of ['SERVICE_BOT_PAT', 'github.token']) {
+  for (const operation of ['list', 'create', 'update']) {
+    test(`${writer} receipt ${operation} failure preserves the merge HTTP warning and result`, async () => {
+      const { c, actions, comments } = mergeScanHarness();
+      c.actions = actions;
+      c.comments = comments;
+      const actor = installMergeFailurePublisher(c);
+      c.guardedMergeCredentialSource = () => writer;
+      if (writer === 'github.token') {
+        Object.assign(actor, { login: 'github-actions[bot]', type: 'Bot' });
+        c.github.rest.users.getAuthenticated = async () => {
+          // The merge diagnostic tolerates an unavailable identity; receipt
+          // publication must use the known bot writer without this endpoint.
+          actions.push(['identity-denied']);
+          throw Object.assign(new Error('Identity unavailable'), { status: 403 });
+        };
+      }
+      const previousBody = `${mergeFailureMarker}\nMerge failed: HTTP 409 Previous failure`;
+      if (operation === 'update') {
+        comments.push({ id: 100, user: { ...actor }, body: previousBody });
+      }
+      const publicationError = Object.assign(new Error(`${operation} unavailable`), { status: 503 });
+      if (operation === 'list') {
+        const paginate = c.paginateWithRetry;
+        c.paginateWithRetry = async (method, args) => {
+          if (method === c.github.rest.issues.listComments) {
+            actions.push(['list-failed']);
+            throw publicationError;
+          }
+          return paginate(method, args);
+        };
+      } else {
+        c.github.rest.issues[`${operation}Comment`] = async (args) => {
+          actions.push([`${operation}-failed`, args]);
+          throw publicationError;
+        };
+      }
+      const message = 'Resource not accessible by integration';
+      const note = `Merge failed: HTTP 403 ${message}`;
+      failMerge(c, { status: 403, message });
+
+      await assert.doesNotReject(c.runScan());
+
+      assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [
+        ['warning', note],
+        ['warning', `Unable to publish guarded merge failure receipt: HTTP 503 ${operation} unavailable`],
+      ]);
+      assert.equal(actions.filter(([kind]) => kind === `${operation}-failed`).length, 1);
+      assert.equal(actions.some(([kind]) => ['create', 'update', 'remove-label'].includes(kind)), false,
+        'publication failure must not create another receipt or perform merge cleanup');
+      assert.equal(comments.length, operation === 'update' ? 1 : 0);
+      if (operation === 'update') assert.equal(comments[0].body, previousBody);
+      if (operation !== 'list') {
+        const attemptedWrite = actions.find(([kind]) => kind === `${operation}-failed`)[1];
+        assert.equal(attemptedWrite.body, `${mergeFailureMarker}\n${note}`);
+        assert.equal(attemptedWrite[operation === 'create' ? 'issue_number' : 'comment_id'],
+          operation === 'create' ? 42 : 100);
+      }
+      if (writer === 'github.token') {
+        assert.equal(actions.filter(([kind]) => kind === 'identity-denied').length, 1,
+          'only the merge diagnostic may call GET /user for a workflow writer');
+      }
+      const summaryRows = actions.find(([kind]) => kind === 'summary')[1];
+      assert.deepEqual([...summaryRows[1]], ['#42', 'error', note]);
+      assert.deepEqual(actions.filter(([kind]) => kind === 'output'), [['output', 'merged', '[]']]);
+    });
+  }
 }
