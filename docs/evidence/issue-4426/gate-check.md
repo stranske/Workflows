@@ -1,5 +1,66 @@
 # Issue #4426 Gate check and stop rule
 
+## Bounded review follow-up, 2026-11-07
+
+Final results for this chunk:
+
+- The required four-module behavioral command passes 165 tests in 3.06s,
+  exit 0. The before/after coverage command passes 68/72 tests in
+  4.43s/3.98s and reports 44.17%/44.77% for this focused selection only.
+  `bounded-review-validation.json` retains complete command outputs,
+  source/configuration/test hashes, missing inventories and artifact digests.
+  The complete coverage JSON files are retained as deterministic gzip files
+  `bounded-review-before.coverage.json.gz` and
+  `bounded-review-after.coverage.json.gz`; decompress with
+  `gzip -dc docs/evidence/issue-4426/bounded-review-after.coverage.json.gz`.
+- The local incremental reduction is 27 units (18 statements, nine branches),
+  with no lost lines or arcs. Four units are explicitly missing in the recorded
+  final Gate report: statements 6688 and 8112 and arcs 6742->6733 and
+  6901->6913. This local measurement does not establish original-round
+  attribution or satisfy the approximately 180-unit contract.
+- `python docs/evidence/issue-4426/bounded-review-mutation-driver.txt`
+  records a named failure (exit 1) and restored pass (exit 0) for each of the
+  four new tests. `bounded-review-mutations.json` retains immutable source
+  symbols, final test bytes, commands and complete outputs. No production
+  mutation remains; the production source hash is unchanged.
+- `python docs/evidence/issue-4426/follow-up-shallow-driver.txt
+  docs/evidence/issue-4426/bounded-review-shallow-validation.json` passes
+  all 68 evidence tests in a depth-one offline checkout in 3.03s, exit 0,
+  without credential copying. Ruff and `git diff --check` pass.
+- Black formats the changed test at line length 100. The full-tree
+  `black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+  check passes (955 files unchanged), exit 0, with a temporary `sitecustomize`
+  loading the existing `black-serial-driver.txt` scheduler. The default
+  multiprocessing launch fails with sandbox `PermissionError`; the serial
+  scheduler preserves the installed formatter and all safety checks.
+
+- Active-checkout staging fails creating `.git/index.lock` on the read-only
+  metadata mount. This chunk is delivered as an isolated local commit and
+  `/tmp/issue4426-bounded-review.patch`; the active branch is unchanged and
+  no push or exact-head Gate run is claimed. PR #4520 was verified open
+  with `draft=false`.
+
+Before edits, the required reconciliation selection passes 53 tests in 1.02s,
+exit 0. The chunk coverage baseline command below passes 68 tests in 4.43s,
+exit 0, with 44.17% coverage for this focused selection only:
+
+```bash
+python -m pytest -q tests/scripts/test_pr_verifier_file_chunks.py tests/scripts/test_pr_verifier_chunk_reconciliation.py tests/scripts/test_pr_verifier_ranked_remainder.py --cov=scripts.langchain.pr_verifier --cov-branch --cov-report=json:/tmp/issue4426-boundary-before.json --cov-report=term -m 'not slow'
+```
+
+Selected symbols before editing: `_evaluate_chunked` (unavailable changed-file
+inventory, oversized-file request cap, and comparison-mode routing) and
+`_coerce_response_content` (memory exhaustion during the second serialization
+fallback). Artifact 13537639987 metadata was reverified against run
+42287174423 and head `97fa3cdd6b198623db4adc86f16f0b3788320794` through
+the GitHub connector. One bounded archive-reference download attempt fails
+with `URLError` (DNS resolution). No archive bytes or original-round
+attribution are available; task 1 remains unchecked. Continue with this
+behavioral chunk toward the incomplete attributable-reduction acceptance
+criterion. The existing two-failure, 10-minute command, 20-minute step and
+under-two-minute focused stop rules remain in force. No full Gate execution
+is claimed and no historical snapshot is replaced.
+
 ## Per-target accounting follow-up, 2026-11-07
 
 Before edits, `python -m pytest -q

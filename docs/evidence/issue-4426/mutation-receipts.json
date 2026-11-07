@@ -2285,5 +2285,8 @@
     "source_restored": true
   },
   "chunk_failure_receipts_record": "chunk-failure-mutations.json",
-  "chunk_failure_production_restored": true
+  "chunk_failure_production_restored": true,
+  "bounded_review_receipts_record": "bounded-review-mutations.json",
+  "bounded_review_validation_record": "bounded-review-validation.json",
+  "bounded_review_reproduction": "python docs/evidence/issue-4426/bounded-review-mutation-driver.txt"
 }

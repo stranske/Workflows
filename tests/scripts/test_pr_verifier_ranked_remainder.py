@@ -117,3 +117,89 @@ def test_chunk_coverage_rejection_prevents_calls_and_review_credit(
         assert review["prompt_coverage"]["reasons"] == ["Assigned review evidence is unavailable."]
         assert "prompt_sha256" not in review
         assert "provider_result" not in review
+
+
+def test_oversized_unparseable_diff_withholds_unknown_file_review(chunk_review) -> None:
+    client = Client()
+    # A large diff capture without Git file headers cannot establish which
+    # complete files a provider would be reviewing.
+    result = verifier._evaluate_chunked(
+        client, "Review all requirements.", "x" * 80000, "openai", "m"
+    )
+
+    assert result is not None
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert result.files_not_reviewed == ["(unknown changed files)"]
+    assert "Changed-file inventory is unavailable" in result.summary
+    assert result.provider_used == "openai" and result.model == "m"
+    assert result.used_llm is False
+    assert client.prompts == []
+
+
+def test_oversized_file_request_cap_preserves_unreviewed_tail(monkeypatch, chunk_review) -> None:
+    monkeypatch.setattr(verifier, "MAX_REVIEW_CHUNKS", 1)
+    client = Client()
+    first, second = patch("first.py", 70000), patch("second.py", 70000)
+
+    result = verifier._evaluate_chunked(
+        client, "Review all requirements.", first + second, "openai", "m"
+    )
+
+    assert result is not None
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert result.files_not_reviewed == ["second.py"]
+    assert result.input_coverage["files_total"] == 2
+    assert result.input_coverage["files_complete"] == 1
+    assert result.input_coverage["chunks"] == 1
+    assert result.input_coverage["sufficient"] is False
+    assert result.used_llm is True
+    assert len(client.prompts) == 1
+    assert first.strip() in client.prompts[0]
+    assert second.strip() not in client.prompts[0]
+    assert result.chunk_reviews[0]["assigned_files"] == ["first.py"]
+
+
+def test_comparison_chunks_use_comparison_operation_and_reconcile(
+    monkeypatch, chunk_review
+) -> None:
+    client = Client()
+    invoke = Mock(wraps=verifier._invoke_llm)
+    monkeypatch.setattr(verifier, "_invoke_llm", invoke)
+
+    result = verifier._evaluate_chunked(
+        client, "Review all requirements.", chunk_review, "openai", "m", evaluate_minimum=False
+    )
+
+    assert result is not None
+    assert result.verdict == "PASS"
+    assert result.files_not_reviewed == []
+    assert result.input_coverage["files_complete"] == 2
+    assert result.used_llm is True
+    assert [call.kwargs["operation"] for call in invoke.call_args_list] == [
+        "evaluate_pr_compare_chunk",
+        "evaluate_pr_compare_chunk",
+        "evaluate_pr_chunk_synthesis",
+    ]
+    assert [call.kwargs.get("diff") for call in invoke.call_args_list] == [
+        patch("first.py", 40000),
+        patch("second.py", 40000),
+        None,
+    ]
+    assert len(client.prompts) == 3
+
+
+def test_response_fallback_propagates_second_string_conversion_memory_error() -> None:
+    class ExhaustedOnRetry:
+        def __init__(self):
+            self.calls = 0
+
+        def __str__(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise ValueError("initial serialization failed")
+            raise MemoryError("fallback exhausted memory")
+
+    response = ExhaustedOnRetry()
+    with pytest.raises(MemoryError, match="fallback exhausted memory"):
+        verifier._coerce_response_content(response)
+    assert response.calls == 2

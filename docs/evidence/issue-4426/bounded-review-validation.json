@@ -1,0 +1,195 @@
+{
+  "checked_on": "2026-11-07",
+  "scope": "local incremental chunk suite; original-round attribution remains unknown",
+  "checkout_head": "1c1618586bde04ea56a97c88e80696d46f4a086f",
+  "source": "scripts/langchain/pr_verifier.py",
+  "source_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+  "pyproject_sha256": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+  "source_and_configuration_unchanged": true,
+  "attributable_original_round_reduction": null,
+  "final_gate_archive_recheck": {
+    "run_id": 42287174423,
+    "artifact_id": 13537639987,
+    "head_sha": "97fa3cdd6b198623db4adc86f16f0b3788320794",
+    "metadata_verified": true,
+    "local_archive_available": false,
+    "download_result": "URLError: DNS resolution failed"
+  },
+  "command": [
+    "python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_pr_verifier_file_chunks.py",
+    "tests/scripts/test_pr_verifier_chunk_reconciliation.py",
+    "tests/scripts/test_pr_verifier_ranked_remainder.py",
+    "--cov=scripts.langchain.pr_verifier",
+    "--cov-branch",
+    "--cov-report=json:<coverage-output>",
+    "--cov-report=term",
+    "-m",
+    "not slow"
+  ],
+  "before": {
+    "summary": {
+      "covered_lines": 1557,
+      "num_statements": 3188,
+      "percent_covered": 44.16890080428954,
+      "percent_covered_display": "44.17",
+      "missing_lines": 1631,
+      "excluded_lines": 35,
+      "percent_statements_covered": 48.83939774153074,
+      "percent_statements_covered_display": "48.84",
+      "num_branches": 1288,
+      "num_partial_branches": 182,
+      "covered_branches": 420,
+      "missing_branches": 868,
+      "percent_branches_covered": 32.608695652173914,
+      "percent_branches_covered_display": "32.61"
+    },
+    "coverage_artifact": "bounded-review-before.coverage.json.gz",
+    "coverage_artifact_sha256": "9ec4e1f207bc159b8b95986b83b0f6a68fbd93185666872f26a3463c24fe52b7",
+    "coverage_json_sha256": "96b8318020425e086046b05919d8d71ece2c914a59f3d0d57fcdf8092f72ea2c",
+    "test_sha256": "07083db02feed3ab2b74875ad30646724167c166946434a9df4799d0b31d0cc3",
+    "exit_code": 0,
+    "output": "....................................................................     [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart   Cover   Missing\n-------------------------------------------------------------------------------\nscripts/langchain/pr_verifier.py    3188   1631   1288    182  44.17%   353-354, 362-371, 378, 393, 405-431, 452->449, 456->449, 458->449, 462, 478, 481, 493-494, 603-607, 617, 655, 695->705, 729->731, 731->733, 734, 743->740, 751->753, 753->755, 760-803, 808, 810-813, 830-846, 859->852, 868, 869->852, 874, 875->852, 877-881, 882->884, 897, 902-910, 912, 916-917, 919, 920->891, 933, 955, 966, 975, 980-981, 992-996, 998, 1030, 1032-1033, 1056-1058, 1067-1112, 1123-1153, 1194-1209, 1211-1219, 1221-1227, 1244, 1248-1267, 1357, 1604-1675, 1842-1888, 2314-2325, 2357-2389, 2665, 2681, 2682->2662, 2692, 2758-2811, 2974-3026, 3082-3108, 3286-3349, 3442-3453, 3566-3637, 3795, 3804-3969, 3974-3992, 3998-4013, 4028-4288, 4501-4502, 4504, 4663-4702, 4716-4778, 4793-4805, 4818-4819, 4825-4844, 4866, 4887, 4891-4900, 4955-5803, 5819, 5911-5956, 5964->5962, 5974-5975, 5989, 6019-6020, 6021->6012, 6045->6096, 6050-6073, 6088-6091, 6097->6096, 6104, 6115-6195, 6211, 6216, 6218, 6221-6227, 6259, 6274, 6280, 6345-6359, 6363, 6365, 6367, 6378-6384, 6386-6394, 6408-6409, 6416-6417, 6426-6429, 6433-6434, 6440, 6445, 6456, 6496, 6529-6558, 6654-6655, 6663, 6673->6686, 6676-6685, 6688, 6715, 6737, 6742->6733, 6778, 6800-6815, 6901->6913, 6907, 6957->6959, 7019, 7029, 7081-7089, 7096-7100, 7109-7112, 7125, 7131, 7134, 7139, 7143-7148, 7170-7201, 7213-7216, 7231-7232, 7251, 7254, 7259-7260, 7263-7264, 7266-7273, 7275-7282, 7285-7291, 7302-7303, 7305-7309, 7319-7383, 7400, 7409, 7462, 7464, 7466, 7474, 7479->7484, 7486, 7488, 7493, 7495, 7501, 7504, 7507, 7510, 7512, 7514, 7532-7550, 7552, 7571, 7575, 7579, 7582, 7603-7607, 7641-7785, 7797-7869, 7879-7884, 7927->7939, 7947-7952, 7962-7967, 7973-7975, 7992-8020, 8025, 8035-8063, 8068-8069, 8087, 8104-8114, 8131-8133, 8139, 8145-8153, 8172-8174, 8226-8229, 8254, 8348, 8353-8359, 8363-8383, 8388-8412, 8431-8480, 8486-8493, 8502-8516, 8523-8692, 8713-8718, 8728, 8736-8767, 8772-8791, 8797-8811, 8817-8842, 8855-8938, 8942-8949, 8961, 8975-8990, 8994-8995, 9002, 9012, 9019-9023, 9026-9027, 9035-9038, 9044-9046, 9056-9057, 9060, 9063-9064, 9066->9070, 9090, 9094-9099, 9103-9105, 9115->9119, 9123-9127, 9133, 9136, 9144, 9153-9157, 9160-9165, 9174->9178, 9190-9193, 9199-9204, 9208-9211, 9215-9350\n-------------------------------------------------------------------------------\nTOTAL                               3188   1631   1288    182  44.17%\nCoverage JSON written to file /tmp/issue4426-boundary-before.json\n68 passed in 4.43s\n"
+  },
+  "after": {
+    "summary": {
+      "covered_lines": 1575,
+      "num_statements": 3188,
+      "percent_covered": 44.77211796246649,
+      "percent_covered_display": "44.77",
+      "missing_lines": 1613,
+      "excluded_lines": 35,
+      "percent_statements_covered": 49.40401505646173,
+      "percent_statements_covered_display": "49.40",
+      "num_branches": 1288,
+      "num_partial_branches": 177,
+      "covered_branches": 429,
+      "missing_branches": 859,
+      "percent_branches_covered": 33.307453416149066,
+      "percent_branches_covered_display": "33.31"
+    },
+    "coverage_artifact": "bounded-review-after.coverage.json.gz",
+    "coverage_artifact_sha256": "6ea4e1a98ff9fa1127df554e1d89157ecf04028fa8e359fb4a7686f4b8d277b3",
+    "coverage_json_sha256": "18c42ace9b84c9540f7d8ed1f86732099dfb41303abb3d12454765adb3f5d446",
+    "test_sha256": "681d582b13611466ac145873a93e89525b59447d80d14a8d1cace5f8f67e3d6f",
+    "exit_code": 0,
+    "output": "........................................................................ [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart   Cover   Missing\n-------------------------------------------------------------------------------\nscripts/langchain/pr_verifier.py    3188   1613   1288    177  44.77%   353-354, 362-371, 378, 393, 405-431, 452->449, 456->449, 458->449, 462, 478, 481, 493-494, 603-607, 617, 655, 695->705, 729->731, 731->733, 734, 743->740, 751->753, 753->755, 760-803, 808, 810-813, 830-846, 868, 869->852, 874, 875->852, 877-881, 897, 902-910, 912, 916-917, 919, 920->891, 933, 955, 966, 975, 980-981, 992-996, 998, 1030, 1032-1033, 1056-1058, 1072-1090, 1094-1111, 1123-1153, 1194-1209, 1211-1219, 1221-1227, 1244, 1248-1267, 1357, 1604-1675, 1842-1888, 2314-2325, 2357-2389, 2665, 2681, 2682->2662, 2692, 2758-2811, 2974-3026, 3082-3108, 3286-3349, 3442-3453, 3566-3637, 3795, 3804-3969, 3974-3992, 3998-4013, 4028-4288, 4501-4502, 4504, 4663-4702, 4716-4778, 4793-4805, 4818-4819, 4825-4844, 4866, 4887, 4891-4900, 4955-5803, 5819, 5911-5956, 5964->5962, 5974-5975, 5989, 6019-6020, 6021->6012, 6050-6073, 6088-6091, 6097->6096, 6104, 6115-6195, 6211, 6216, 6218, 6221-6227, 6259, 6274, 6280, 6345-6359, 6363, 6365, 6367, 6378-6384, 6386-6394, 6408-6409, 6416-6417, 6426-6429, 6433-6434, 6440, 6445, 6456, 6496, 6529-6558, 6654-6655, 6663, 6673->6686, 6676-6685, 6715, 6737, 6778, 6800-6815, 6907, 6957->6959, 7019, 7029, 7081-7089, 7096-7100, 7109-7112, 7125, 7131, 7134, 7139, 7143-7148, 7170-7201, 7213-7216, 7231-7232, 7251, 7254, 7259-7260, 7263-7264, 7266-7273, 7275-7282, 7285-7291, 7302-7303, 7305-7309, 7319-7383, 7400, 7409, 7462, 7464, 7466, 7474, 7479->7484, 7486, 7488, 7493, 7495, 7501, 7504, 7507, 7510, 7512, 7514, 7532-7550, 7552, 7571, 7575, 7579, 7582, 7603-7607, 7641-7785, 7797-7869, 7879-7884, 7927->7939, 7947-7952, 7962-7967, 7973-7975, 7992-8020, 8025, 8035-8063, 8068-8069, 8087, 8107, 8113-8114, 8131-8133, 8139, 8145-8153, 8172-8174, 8226-8229, 8254, 8348, 8353-8359, 8363-8383, 8388-8412, 8431-8480, 8486-8493, 8502-8516, 8523-8692, 8713-8718, 8728, 8736-8767, 8772-8791, 8797-8811, 8817-8842, 8855-8938, 8942-8949, 8961, 8975-8990, 8994-8995, 9002, 9012, 9019-9023, 9026-9027, 9035-9038, 9044-9046, 9056-9057, 9060, 9063-9064, 9066->9070, 9090, 9094-9099, 9103-9105, 9115->9119, 9123-9127, 9133, 9136, 9144, 9153-9157, 9160-9165, 9174->9178, 9190-9193, 9199-9204, 9208-9211, 9215-9350\n-------------------------------------------------------------------------------\nTOTAL                               3188   1613   1288    177  44.77%\nCoverage JSON written to file /tmp/issue4426-boundary-after.json\n72 passed in 3.98s\n"
+  },
+  "newly_covered_lines": [
+    1067,
+    1068,
+    1069,
+    1070,
+    1071,
+    1091,
+    1092,
+    1093,
+    1112,
+    6688,
+    8104,
+    8105,
+    8106,
+    8108,
+    8109,
+    8110,
+    8111,
+    8112
+  ],
+  "newly_covered_branch_arcs": [
+    [
+      859,
+      852
+    ],
+    [
+      882,
+      884
+    ],
+    [
+      1071,
+      1091
+    ],
+    [
+      1093,
+      1112
+    ],
+    [
+      6045,
+      6096
+    ],
+    [
+      6687,
+      6688
+    ],
+    [
+      6742,
+      6733
+    ],
+    [
+      6901,
+      6913
+    ],
+    [
+      8102,
+      8104
+    ]
+  ],
+  "lost_lines": [],
+  "lost_branch_arcs": [],
+  "incremental_missing_unit_reduction": 27,
+  "new_units_explicitly_missing_in_final_gate": {
+    "lines": [
+      6688,
+      8112
+    ],
+    "branch_arcs": [
+      [
+        6742,
+        6733
+      ],
+      [
+        6901,
+        6913
+      ]
+    ],
+    "count": 4
+  },
+  "required_focused_selection": {
+    "command": [
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_pr_verifier_ranked_remainder.py",
+      "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+      "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+      "tests/tools/test_langchain_client.py",
+      "-m",
+      "not slow"
+    ],
+    "exit_code": 0,
+    "output": "........................................................................ [ 43%]\n........................................................................ [ 87%]\n.....................                                                    [100%]\n165 passed in 3.06s\n"
+  },
+  "test_dependencies_sha256": {
+    "tests/scripts/test_pr_verifier_file_chunks.py": "f374a4d77b842fba073a214174d61d8ea788f5ea394cbd20dae66bfc9f255c96",
+    "tests/scripts/test_pr_verifier_chunk_reconciliation.py": "9a9a5b501251af415a3df5e0df606bfcde147ec520045bed275bed50160935c7",
+    "tests/scripts/verifier_capacity_fakes.py": "93f99a1a3d20e4b7897812829ed835557186323efb9ed10ef3fdb6bd6c251c23"
+  },
+  "formatting": {
+    "command": "PYTHONPATH=/tmp/issue4426-black-serial black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "exit_code": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n955 files would be left unchanged.\n",
+    "scheduling_adapter": "Existing black-serial-driver.txt loaded through temporary sitecustomize; formatter and safety checks unchanged",
+    "default_command_exit_code": 1,
+    "default_command_failure": "Sandbox PermissionError in multiprocessing forkserver socket bind"
+  },
+  "delivery": {
+    "active_checkout_staging_exit_code": 128,
+    "active_checkout_staging_failure": "Read-only .git/index.lock",
+    "active_branch_changed": false,
+    "local_patch": "/tmp/issue4426-bounded-review.patch",
+    "pushed": false
+  }
+}

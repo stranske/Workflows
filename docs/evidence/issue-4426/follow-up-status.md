@@ -1,5 +1,23 @@
 # Issue #4500 follow-up status, 2026-11-07
 
+Latest bounded-review chunk:
+
+Four new cases cover oversized unparseable input, the request cap for oversized
+files, comparison-mode chunk routing, and memory exhaustion on the second
+response serialization fallback. The unchanged chunk suite/configuration gains
+27 local missing units (18 statements and nine arcs), with no coverage lost.
+Four units are explicitly missing in the recorded final Gate log. Complete
+before/after coverage JSON artifacts and immutable source/test evidence are
+retained in `bounded-review-*.coverage.json.gz`, `bounded-review-validation.json`
+and `bounded-review-mutations.json`. Each new test has a named mutation failure
+and restored pass; no production mutation remains. The required selection
+passes 165 tests in 3.06s; the offline shallow evidence selection passes all
+68 tests. This does not establish the original-round approximately 180-unit
+reduction. Artifact metadata was reverified, but one bounded archive retrieval
+attempt still fails with DNS resolution. The first task and outstanding
+artifact/attribution acceptance criteria remain unchecked. No historical
+measurement or ranking is changed.
+
 Latest behavioral chunk:
 
 The ranked remainder file now includes five failure-path cases for
