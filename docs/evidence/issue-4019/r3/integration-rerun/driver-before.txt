@@ -1,0 +1,56 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_____________________ test_partial_write_restores_original _____________________
+
+tmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1468/test_partial_write_restores_or0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1052d7290>
+
+    def test_partial_write_restores_original(tmp_path, monkeypatch):
+        driver = load_driver()
+        source = tmp_path / "source.py"
+        original = b"original = True\n"
+        source.write_bytes(original)
+        monkeypatch.setattr(driver, "MUTATIONS", [("injected", "unused", str(source), "True", "False", 1)])
+    
+        def partial_write(path, text):
+            path.write_bytes(b"partial")
+            raise OSError("injected partial write")
+    
+        monkeypatch.setattr(Path, "write_text", partial_write)
+        with pytest.raises(OSError, match="injected partial write"):
+            driver.main(tmp_path)
+>       assert source.read_bytes() == original
+E       AssertionError: assert b'partial' == b'original = True\n'
+E         
+E         At index 0 diff: b'p' != b'o'
+E         Use -v to get more diff
+
+tests/tools/test_issue_4019_mutation_driver.py:34: AssertionError
+___________________ test_subprocess_uses_active_interpreter ____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x105346990>
+
+    def test_subprocess_uses_active_interpreter(monkeypatch):
+        # Use a distinct value so a hardcoded path cannot pass by coincidence.
+        active = "/selected/environment/bin/python"
+        monkeypatch.setattr(sys, "executable", active)
+        driver = load_driver()
+        calls = []
+    
+        def subprocess_run(argv, **kwargs):
+            calls.append(argv)
+            return SimpleNamespace(returncode=0, stdout="passed\n", stderr="")
+    
+        monkeypatch.setattr(driver.subprocess, "run", subprocess_run)
+        assert driver.run("test.py::test_case") == (0, "passed\n")
+>       assert calls == [[active, "-m", "pytest", "test.py::test_case", "-q", "-p", "no:cacheprovider"]]
+E       AssertionError: assert [['/opt/anaco...', '-p', ...]] == [['/selected/...', '-p', ...]]
+E         
+E         At index 0 diff: ['/opt/anaconda3/bin/python3', '-m', 'pytest', 'test.py::test_case', '-q', '-p', 'no:cacheprovider'] != ['/selected/environment/bin/python', '-m', 'pytest', 'test.py::test_case', '-q', '-p', 'no:cacheprovider']
+E         Use -v to get more diff
+
+tests/tools/test_issue_4019_mutation_driver.py:50: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_issue_4019_mutation_driver.py::test_partial_write_restores_original
+FAILED tests/tools/test_issue_4019_mutation_driver.py::test_subprocess_uses_active_interpreter
+2 failed in 0.22s

@@ -1,0 +1,24 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_metadata_keeps_explicit_issue_or_pr_number -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ TestRemainingProviderPaths.test_metadata_keeps_explicit_issue_or_pr_number __
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x106e80aa0>
+
+    def test_metadata_keeps_explicit_issue_or_pr_number(self):
+        with patch.dict(os.environ, {"PR_NUMBER": "99"}, clear=True):
+            config = build_langsmith_metadata(
+                operation="op", repo="o/r", run_id="1", issue_or_pr_number="explicit-7"
+            )
+    
+>       assert config["metadata"]["issue_or_pr_number"] == "explicit-7"
+E       AssertionError: assert '99' == 'explicit-7'
+E         
+E         - explicit-7
+E         + 99
+
+tests/tools/test_llm_provider.py:2186: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_metadata_keeps_explicit_issue_or_pr_number
+1 failed in 0.20s
+exit=1

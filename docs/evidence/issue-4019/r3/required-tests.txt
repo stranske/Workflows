@@ -1,0 +1,4 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py tests/scripts/test_check_consumer_sync_drift.py tests/tools/test_llm_provider.py
+
+============================= 268 passed in 0.55s ==============================
+exit=0

@@ -1,0 +1,4 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_supports_quality_context_error_falls_back_to_legacy_signature -q -p no:cacheprovider
+.                                                                        [100%]
+1 passed in 0.15s
+exit=0

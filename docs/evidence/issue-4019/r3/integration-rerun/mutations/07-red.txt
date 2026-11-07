@@ -1,0 +1,36 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_extract_trace_id_returns_none_when_metadata_access_raises -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_extract_trace_id_returns_none_when_metadata_access_raises _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x108a44890>
+
+    def test_extract_trace_id_returns_none_when_metadata_access_raises(self):
+        class Exploding:
+            @property
+            def response_metadata(self):
+                raise RuntimeError("boom")
+    
+        with patch("tools.llm_provider._ensure_langsmith_enabled", return_value=True):
+>           assert extract_trace_id(Exploding()) is None
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/tools/test_llm_provider.py:2208: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tools/llm_provider.py:185: in extract_trace_id
+    if hasattr(response, "response_metadata"):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths.test_extract_trace_id_returns_none_when_metadata_access_raises.<locals>.Exploding object at 0x108b0c5c0>
+
+    @property
+    def response_metadata(self):
+>       raise RuntimeError("boom")
+E       RuntimeError: boom
+
+tests/tools/test_llm_provider.py:2205: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_extract_trace_id_returns_none_when_metadata_access_raises
+1 failed in 0.23s
+exit=1

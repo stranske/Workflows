@@ -2236,6 +2236,55 @@ class TestRemainingProviderPaths:
         with patch("tools.llm_provider.inspect.signature", side_effect=TypeError("no sig")):
             assert supports_quality_context(unsigned) is False
 
+    def test_github_client_none_when_langchain_openai_missing(self):
+        with patch.dict(sys.modules, {"langchain_openai": None}):
+            assert GitHubModelsProvider()._get_client() is None
+
+    def test_github_client_none_without_reviewed_model(self):
+        fake = SimpleNamespace(ChatOpenAI=MagicMock())
+        with (
+            patch.dict(sys.modules, {"langchain_openai": fake}),
+            patch("tools.llm_provider._configured_langchain_model", return_value=""),
+        ):
+            assert GitHubModelsProvider()._get_client() is None
+        fake.ChatOpenAI.assert_not_called()
+
+    def test_github_client_targets_github_models_endpoint(self):
+        fake = SimpleNamespace(ChatOpenAI=MagicMock(return_value="client"))
+        provider = GitHubModelsProvider()
+        with (
+            patch.dict(sys.modules, {"langchain_openai": fake}),
+            patch.dict(os.environ, {"GITHUB_TOKEN": "gh-token"}, clear=True),
+            patch("tools.llm_provider._configured_langchain_model", return_value="gm-model"),
+        ):
+            assert provider._get_client() == "client"
+
+        fake.ChatOpenAI.assert_called_once_with(
+            model="gm-model",
+            base_url="https://models.github.ai/inference",
+            api_key="gh-token",
+            temperature=0.1,
+        )
+        assert provider._model_name == "gm-model"
+
+    def test_github_analyze_requires_client(self):
+        provider = GitHubModelsProvider()
+        with (
+            patch.object(provider, "_get_client", return_value=None),
+            pytest.raises(RuntimeError, match="GitHub Models client unavailable"),
+        ):
+            provider.analyze_completion("output", ["task1"])
+
+    def test_github_analyze_reraises_api_error(self):
+        provider = GitHubModelsProvider()
+        client = MagicMock()
+        client.invoke.side_effect = ConnectionError("down")
+        with (
+            patch.object(provider, "_get_client", return_value=client),
+            pytest.raises(ConnectionError, match="down"),
+        ):
+            provider.analyze_completion("output", ["task1"])
+
     @pytest.mark.parametrize("provider_class", [OpenAIProvider, AnthropicProvider])
     def test_langchain_client_none_when_helper_missing(self, provider_class):
         with (
@@ -2319,7 +2368,8 @@ class TestRemainingProviderPaths:
             ):
                 get_llm_provider()
 
-    def test_forced_available_provider_is_returned_directly(self):
+    def test_forced_available_provider_is_returned_directly(self, monkeypatch):
+        monkeypatch.delenv("WORKFLOWS_ANALYSIS_CLI", raising=False)
         provider = get_llm_provider(force_provider="regex-fallback")
 
         assert type(provider) is RegexFallbackProvider

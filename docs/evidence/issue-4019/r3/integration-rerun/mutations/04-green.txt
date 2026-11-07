@@ -1,0 +1,4 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_configured_model_falls_back_when_registry_import_fails -q -p no:cacheprovider
+.                                                                        [100%]
+1 passed in 0.15s
+exit=0

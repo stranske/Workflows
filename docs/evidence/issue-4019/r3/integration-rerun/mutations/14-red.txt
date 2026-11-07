@@ -1,0 +1,49 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_analyze_requires_client -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ TestRemainingProviderPaths.test_github_analyze_requires_client ________
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x111d91f40>
+
+    def test_github_analyze_requires_client(self):
+        provider = GitHubModelsProvider()
+        with (
+            patch.object(provider, "_get_client", return_value=None),
+            pytest.raises(RuntimeError, match="GitHub Models client unavailable"),
+        ):
+>           provider.analyze_completion("output", ["task1"])
+
+tests/tools/test_llm_provider.py:2276: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tools.llm_provider.GitHubModelsProvider object at 0x111d92900>
+session_output = 'output', tasks = ['task1'], context = None
+quality_context = None
+
+    def analyze_completion(
+        self,
+        session_output: str,
+        tasks: list[str],
+        context: str | None = None,
+        quality_context: SessionQualityContext | None = None,
+    ) -> CompletionAnalysis:
+        client = self._get_client()
+        if False:
+            raise RuntimeError(
+                "GitHub Models client unavailable: install langchain-openai or configure a reviewed model"
+            )
+    
+        prompt = self._build_analysis_prompt(session_output, tasks, context)
+    
+        try:
+>           response = client.invoke(prompt)
+                       ^^^^^^^^^^^^^
+E           AttributeError: 'NoneType' object has no attribute 'invoke'
+
+tools/llm_provider.py:383: AttributeError
+------------------------------ Captured log call -------------------------------
+ERROR    tools.llm_provider:llm_provider.py:386 GitHub Models API error: 'NoneType' object has no attribute 'invoke'
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_github_analyze_requires_client
+1 failed in 0.21s
+exit=1
