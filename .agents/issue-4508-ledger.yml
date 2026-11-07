@@ -86,7 +86,7 @@ tasks:
     commit: ''
     notes:
       - 'Live sync-core round remains external; agent cannot trigger or observe it.'
-      - 'Local proxy: test_ci_history_clears_sync_core_no_redef_finding asserts the verbatim sync-core fingerprint is absent under reusable-10 consumer gate settings and present when the duplicate annotation is reintroduced.'
+      - 'Local proxy: test_ci_history_clears_sync_core_no_redef_finding asserts the verbatim sync-core fingerprint is absent under reusable-10 consumer gate settings and present when the duplicate annotation is reintroduced (commit f9416207).'
   - id: task-10
     title: 'Fix the failure named in the title (`Shipment-caused: Python CI / typecheck-mypy
       fails on synced scripts/ci`) at its source; the failing check''s log is linked
