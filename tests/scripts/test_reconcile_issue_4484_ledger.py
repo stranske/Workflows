@@ -186,3 +186,26 @@ def test_cli_check_reports_unreadable_candidate(original, tmp_path, capsys, inva
     output = capsys.readouterr()
     assert output.out == ""
     assert "error:" in output.err
+
+
+@pytest.mark.parametrize("field", ["version", "previous_evidence"])
+def test_cli_check_rejects_yaml_boolean_substituted_for_integer(original, tmp_path, capsys, field):
+    # YAML booleans compare equal to 0/1 in Python, but changing their type is
+    # an evidence change, including inside the preserved original records.
+    original["tasks"][8]["receipt_count"] = 1
+    source = tmp_path / "original.yml"
+    candidate = tmp_path / "candidate.yml"
+    source.write_text(yaml.safe_dump(original), encoding="utf-8")
+    corrected = reconciliation.reconcile_ledger(original)
+    if field == "version":
+        corrected["version"] = True
+    else:
+        task = next(task for task in corrected["tasks"] if task["id"] == "task-09")
+        task["previous_evidence"]["receipt_count"] = True
+    candidate.write_text(yaml.safe_dump(corrected), encoding="utf-8")
+    before = {path: path.read_bytes() for path in (source, candidate)}
+
+    assert reconciliation.main([str(source), "--check", str(candidate)]) == 1
+
+    assert "does not match" in capsys.readouterr().err
+    assert {path: path.read_bytes() for path in before} == before

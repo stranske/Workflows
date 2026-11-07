@@ -21,6 +21,25 @@ RECEIPT_COMMIT = "a0547eff1150b59ca8009a226c1dfca3d4f6118b"
 CONSUMER_HEAD = "58dc10da4b4f7f11e283a9a49c34084b3e258f59"
 
 
+def _same_evidence(expected: object, candidate: object) -> bool:
+    """Compare YAML values without equating booleans and numeric evidence."""
+    if type(expected) is not type(candidate):
+        return False
+    if isinstance(expected, dict) and isinstance(candidate, dict):
+        return len(expected) == len(candidate) and all(
+            any(
+                _same_evidence(key, other_key) and _same_evidence(value, other_value)
+                for other_key, other_value in candidate.items()
+            )
+            for key, value in expected.items()
+        )
+    if isinstance(expected, list) and isinstance(candidate, list):
+        return len(expected) == len(candidate) and all(
+            _same_evidence(value, other) for value, other in zip(expected, candidate, strict=True)
+        )
+    return expected == candidate
+
+
 def reconcile_ledger(original: dict) -> dict:
     """Preserve original records while reconciling the four requested tasks."""
     if original.get("version") != 1 or original.get("issue") != 4484:
@@ -110,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         corrected = reconcile_ledger(yaml.safe_load(args.ledger.read_text(encoding="utf-8")))
         if args.check is not None:
             candidate = yaml.safe_load(args.check.read_text(encoding="utf-8"))
-            if candidate != corrected:
+            if not _same_evidence(corrected, candidate):
                 print(
                     "Candidate does not match the evidence-preserving correction.", file=sys.stderr
                 )
