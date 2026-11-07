@@ -2,6 +2,12 @@
 
 ## Current delivery readback (2026-11-07 UTC)
 
+The latest local runtime correction makes the required generator pytest command
+pass with LangSmith's plugin enabled (199 passed); its focused local coverage
+remains 99.92%. See the final section and `pytest-startup-proof.json` for the
+base revision, configuration overlay hashes and commands. This supersedes prior
+local plugin-startup failures, not the unresolved main-delivery criterion.
+
 Latest inspection before this round's code changes: the requested `gh pr view
 4401 --repo stranske/Workflows --json
 state,headRefOid,mergeCommit,statusCheckRollup` again exited 1 connecting to
@@ -906,3 +912,79 @@ Final metadata confirms #4401 OPEN, `draft=false`, unchanged head
 and `draft=false`. Main delivery, the comparable hosted reduction and canonical
 ranking provenance remain incomplete as distinguished above. No acceptance
 checkbox is completed by this local change.
+
+## Required pytest startup correction (2026-11-07 UTC)
+
+Before changing configuration or tests, the requested `gh pr view 4401 --repo
+stranske/Workflows --json state,headRefOid,mergeCommit,statusCheckRollup` exited
+1 connecting to `api.github.com`. Connected metadata independently reports
+#4401 OPEN, `draft=false`, `merged=false`, unchanged head
+`9eaf43313c0e57ef964e4171f645985dca5742b8`, and `merged_at=null`. The three
+reviews are COMMENTED; the revision-table thread `PRRT_kwDOQprj9M6zZ4AB` is
+still unresolved and non-outdated. Two other unresolved threads are outdated.
+The first acceptance criterion remains blocked on remote review and delivery.
+
+The next acceptance command was rerun with the repository-selected interpreter
+`/opt/hostedtoolcache/Python/3.14.10/x64/bin/python` and `-m 'not slow'`.
+It still fails during LangSmith pytest-plugin import: its beta decorator calls
+`asyncio.iscoroutinefunction`, whose Python 3.14 deprecation becomes an error
+under the repository warning policy. No generator tests execute. This round
+will address that narrowly scoped third-party warning while retaining errors
+for other deprecations, rather than treating a plugin-disabled run as acceptance.
+
+Implemented a warning exception restricted to the exact Python 3.14 coroutine
+deprecation in `langsmith._internal._beta_decorator`. The new
+`tests/test_followup_pytest_runtime.py` verifies that warning is tolerated while
+the same warning from application/sibling modules, a different deprecation and
+a different warning category still raise. Before the configuration change, its
+positive case failed on the deprecation and four protections passed; afterward,
+all five pass with plugin autoload enabled. No existing tests or plugins are
+disabled by the configuration correction. This is runtime-policy evidence,
+separate from the historical assertion-failing retained mutation mapping.
+
+The local validation base is `a678142249d1c588458635ee358640d9a70c8343`, plus
+the configuration/new-test overlay identified by SHA256 in
+[pytest-startup-proof.json](pytest-startup-proof.json). Generator source and its
+199-test retained set, both Node production copies and Node tests are unchanged.
+The independently rerun retained audit still reports 35 added functions, 45
+parameter cases, 50 Python receipts and two original Node receipts, with
+`complete=true`, `problems=[]`. No historical receipt was rewritten.
+
+```sh
+PYTEST_ADDOPTS="-m 'not slow'" python -m pytest tests/test_followup_issue_generator.py -q
+# exit 0; 199 passed; LangSmith plugin enabled
+python -m pytest tests/test_followup_pytest_runtime.py -q -m 'not slow'
+# exit 0; 5 passed
+python -m pytest tests/test_followup_issue_generator.py tests/test_followup_pytest_runtime.py tests/scripts/test_audit_followup_mutations.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-startup-coverage.json
+# exit 0; 253 passed; target Cover 99.92%
+# 851 statements, zero missing; 386 branches, one missing arc (124->126)
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one aggregated passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 passed, zero failures/skips
+ruff check tests/test_followup_pytest_runtime.py
+# exit 0
+```
+
+Resolving main again returned `00f43f81e51c4f8b9a057ac51f7e3c2d870d7769`;
+an immutable read of generator lines 100–145 returned blob
+`c3a19cbf41a476954b8afcde6d214b3cf8c82a00`, still defining and calling
+the helper. #4401 remains unmerged. The local passing command advances runtime
+validation but cannot complete acceptance against delivered main. No new hosted
+measurement, comparable hosted reduction or ranking provenance is claimed.
+
+Black formatted the new Python test at line length 100. The mandatory
+repository-wide command `black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` exited 1 with `PermissionError` at the
+multiprocessing forkserver socket. A `BLACK_NUM_WORKERS=1` attempt produced no
+completed result and was interrupted (exit 130). Staging the focused changes
+exited 128 because `.git/index.lock` is on a read-only filesystem. Consequently
+no commit or push is claimed, and the formatting/commit requirements remain
+blocked on the execution environment. No acceptance checkbox is completed by
+this local overlay.
+
+Posting the concrete blocker comment and adding `needs-human` to active PR
+#4518 were both denied: `MCP tool call requires approval, but approval policy
+is never`. No remote comment or label was written. Final metadata confirms
+#4518 and #4401 remain OPEN and `draft=false`; #4401 is unmerged at its
+unchanged head. The prepared local changes require a writer-capable run.
