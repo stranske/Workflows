@@ -512,6 +512,38 @@ test('delivery refresh reads every native writer state before considering anothe
   }
 });
 
+test('native writer API failures stop delivery refresh even after empty earlier states', async () => {
+  const statuses = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
+  for (const failedStatus of statuses) {
+    for (const httpStatus of [403, 429, 503]) {
+      const api = harness();
+      const failure = Object.assign(new Error('native writer inventory unavailable'), {
+        status: httpStatus,
+      });
+      api.client.rest.repos.getCommit = async () => ({ data: { sha: sourceCommit } });
+      api.client.rest.repos.getContent = async () => ({ data: {
+        content: Buffer.from(JSON.stringify({
+          canaries: expectedCanaries.map((repo) => ({ repo })),
+        })).toString('base64'),
+      } });
+      api.client.rest.actions.listWorkflowRuns = async (params) => {
+        api.reads.push(params);
+        assert.ok(statuses.includes(params.status), 'must not read promotion history after a failure');
+        if (params.status === failedStatus) throw failure;
+        return { data: { workflow_runs: [] } };
+      };
+
+      await assert.rejects(dispatchDeliveryRefresh({
+        ...api, expectedCanaries, now, decision: { plan_id: planId, evidence: fixture().evidence },
+      }), (error) => error === failure);
+      assert.deepEqual(api.reads.map((row) => row.status),
+        statuses.slice(0, statuses.indexOf(failedStatus) + 1));
+      assert.equal(api.dispatched.length, 0, `${failedStatus} HTTP ${httpStatus}`);
+      assert.equal(api.summaries.length, 0, 'failed inventory cannot produce a dispatch receipt');
+    }
+  }
+});
+
 test('unreadable or saturated native writer inventory prevents delivery refresh', async () => {
   for (const inventory of [undefined, null, {}, Array(100).fill(promotionRun())]) {
     const api = harness();

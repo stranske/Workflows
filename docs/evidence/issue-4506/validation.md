@@ -1,5 +1,33 @@
 # Issue #4506 delivery verification — 2026-11-07
 
+## Writer-inventory transport failure verification
+
+Added a regression case to `tests/scripts/test_maint71_promote_dispatch.js`
+covering native API failures while collecting each of the five active writer
+states. HTTP 403, 429, and 503 failures must propagate even after earlier state
+queries returned empty inventories. The controller must stop before promotion
+history or dispatch and cannot emit a dispatch receipt. All API calls in this
+test use inert local doubles; it does not release live locks or start a writer.
+
+`node tests/scripts/test_maint71_promote_dispatch.js` passed **49 tests, zero
+skips**; the pre-change baseline passed 48. `git diff --check` passed. No Python
+or workflow files changed.
+
+Fresh connector reads still show trip-planner #1957 at
+`7ca6deb8d219fe9137fcb220de745e063f42c51c` and both it and Workflows #4530
+open and ready. Source #4485/#4506 and consumer #1957 comments provide no newer
+sync-core classification for that head; the two documented controller receipt
+paths remain absent. The literal `gh run view 42350906876 --repo
+stranske/trip-planner --log` again exited 1 with `error connecting to
+api.github.com`. No regeneration or sync-core acceptance is established, and
+no additional task is complete. The remote checked literal-gh items remain
+unsupported by this runner's evidence.
+
+Staging the tested change failed with `.git/index.lock: Read-only file system`,
+so no commit was created. Attempts to add `needs-human` and post the concrete
+blocker comment on PR #4530 were both rejected with `MCP tool call requires
+approval, but approval policy is never`; neither remote update succeeded.
+
 The fix is present in the captured consumer head and its mypy CI passed.
 Operational acceptance remains incomplete. Maint 68 run 42376854357 proves
 a matching delivered tree, but does not classify sync-core findings. Native
