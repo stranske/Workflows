@@ -240,44 +240,18 @@ def binding_rows(root: Path) -> list[dict]:
     return rows
 
 
+def recorded_base(root: Path) -> str:
+    """The frozen inspection names the only base this explicit check may consult."""
+    report = json.loads((root / EVIDENCE / "main-acceptance-map.json").read_text())
+    commit = report["inspected_main"]["commit"]
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("inspection base must be a full commit hash")
+    return commit
+
+
 def _show_origin_main(root: Path, relative: str) -> bytes:
-    """Read a blob from origin/main, fetching that ref on shallow CI checkouts."""
-    spec = f"origin/main:{relative}"
-    command = ["git", "show", spec]
-
-    def show() -> subprocess.CompletedProcess[bytes]:
-        return subprocess.run(command, cwd=root, capture_output=True, check=False)
-
-    result = show()
-    # fetch-depth: 1 pull_request checkouts do not include refs/remotes/origin/main.
-    if result.returncode != 0 and b"invalid object name" in result.stderr:
-        fetch = subprocess.run(
-            [
-                "git",
-                "fetch",
-                "--depth=1",
-                "origin",
-                "+refs/heads/main:refs/remotes/origin/main",
-            ],
-            cwd=root,
-            capture_output=True,
-            check=False,
-            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
-        )
-        if fetch.returncode == 0:
-            result = show()
-        else:
-            result = subprocess.CompletedProcess(
-                command,
-                result.returncode,
-                result.stdout,
-                result.stderr + b"\n" + fetch.stderr,
-            )
-    if result.returncode != 0:
-        raise subprocess.CalledProcessError(
-            result.returncode, command, output=result.stdout, stderr=result.stderr
-        )
-    return result.stdout
+    """Read the recorded base locally; never fetch or consult a mutable ref."""
+    return subprocess.check_output(["git", "show", f"{recorded_base(root)}:{relative}"], cwd=root)
 
 
 def production_helpers(root: Path) -> dict:
@@ -312,7 +286,7 @@ def historical_paths_match_main(root: Path) -> dict:
         "tests/scripts/test_shebang_rejection_replay.py",
     ]
     result = subprocess.run(
-        ["git", "diff", "--exit-code", "origin/main", "--", *paths],
+        ["git", "diff", "--exit-code", recorded_base(root), "--", *paths],
         cwd=root,
         capture_output=True,
         text=True,
@@ -786,6 +760,23 @@ def write_report(root: Path, report: dict) -> None:
 
 def main() -> int:
     root = repo_root()
+    if sys.argv[1:] == ["--inspect-base"]:
+        report = {
+            "base_commit": recorded_base(root),
+            "helpers": production_helpers(root),
+            "historical_tree": historical_paths_match_main(root),
+            "bindings": binding_rows(root),
+        }
+        print(json.dumps(report, indent=2))
+        return (
+            0
+            if (
+                report["helpers"]["root_equals_origin_main"]
+                and report["helpers"]["template_equals_origin_main"]
+                and report["historical_tree"]["match_origin_main"]
+            )
+            else 1
+        )
     report = build_report(root)
     write_report(root, report)
     print(

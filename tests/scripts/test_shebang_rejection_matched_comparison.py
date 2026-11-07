@@ -1,7 +1,9 @@
 """Verify the current shebang-rejection matched baseline/candidate comparison."""
 
+import io
 import json
 import runpy
+import shutil
 import tarfile
 from pathlib import Path
 
@@ -291,3 +293,99 @@ def test_retained_matched_comparison_meets_the_acceptance_contract():
     assert summary["commands"]["baseline"]["exit"] == 0
     assert summary["commands"]["candidate"]["exit"] == 0
     assert summary["archive"]["verified_manifest_members"] > 0
+
+
+@pytest.mark.parametrize(
+    "filename, message",
+    [
+        ("comparison.json", "stored comparison drifted"),
+        ("summary.json", "summary comparison drifted"),
+        ("input-bindings.json", "summary bindings drifted"),
+        ("README.md", "archive verification failed"),
+    ],
+)
+def test_retained_comparison_rejects_isolated_evidence_drift(tmp_path, filename, message):
+    module = load_compare()
+    directory = tmp_path / module["RUN"]
+    shutil.copytree(EVIDENCE / "matched-comparison", directory)
+    shutil.copyfile(EVIDENCE / "replay.py", tmp_path / module["REPLAY"])
+    module["validate_retained"](tmp_path)
+    path = directory / filename
+    if filename == "README.md":
+        path.write_text(path.read_text() + "Corrupted loose member.\n")
+    else:
+        payload = json.loads(path.read_text())
+        if filename == "comparison.json":
+            payload["candidate_pass"] -= 1
+        elif filename == "summary.json":
+            payload["comparison"]["candidate_pass"] -= 1
+        else:
+            payload[next(iter(payload))]["sha256"] = "0" * 64
+        path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match=message):
+        module["validate_retained"](tmp_path)
+
+
+@pytest.mark.parametrize("defect", [None, "missing-member", "member-hash", "loose-bytes"])
+def test_pack_archive_roundtrip_and_isolated_member_rejection(tmp_path, defect):
+    module = load_compare()
+    payload = b"original receipt\n"
+    (tmp_path / "receipt.txt").write_bytes(payload)
+    (tmp_path / "summary.json").write_text("excluded summary")
+    meta = module["pack_archive"](tmp_path)
+    assert meta["verified_manifest_members"] == 1
+    assert module["verify_archive"](tmp_path, meta)["verified"] is True
+    archive = tmp_path / "proof.tar.gz"
+    with tarfile.open(archive) as tar:
+        assert set(tar.getnames()) == {"receipt.txt", "manifest.json"}
+        members = {name: tar.extractfile(name).read() for name in tar.getnames()}
+    if defect in {"missing-member", "member-hash"}:
+        if defect == "missing-member":
+            del members["receipt.txt"]
+        else:
+            members["receipt.txt"] = b"corrupt receipt!\n"
+        with tarfile.open(archive, "w:gz") as tar:
+            for name, data in members.items():
+                member = tarfile.TarInfo(name)
+                member.size = len(data)
+                tar.addfile(member, io.BytesIO(data))
+        meta["sha256"] = module["digest"](archive.read_bytes())
+        meta["bytes"] = archive.stat().st_size
+    elif defect == "loose-bytes":
+        (tmp_path / "receipt.txt").write_bytes(b"loose drift\n")
+    report = module["verify_archive"](tmp_path, meta)
+    assert report["sha256_matches_summary"] is True
+    assert report["bytes_match_summary"] is True
+    assert report["verified"] is (defect is None)
+    if defect == "missing-member":
+        assert report["manifest_covers_archive_files"] is False
+    elif defect in {"member-hash", "loose-bytes"}:
+        assert report["member_mismatches"] == ["receipt.txt"]
+
+
+@pytest.mark.parametrize(
+    "body, message",
+    [
+        (
+            '<testsuites><testcase classname="m" name="n"/><testcase classname="m" name="n"/></testsuites>',
+            "invalid JUnit node",
+        ),
+        ("<testsuites/>", "empty JUnit report"),
+        ('<testsuites><testcase name="n"/></testsuites>', "invalid JUnit node"),
+    ],
+)
+def test_duplicate_empty_and_unnamed_junit_are_rejected(tmp_path, body, message):
+    module = load_compare()
+    report = tmp_path / "junit.xml"
+    report.write_text(body)
+    with pytest.raises(ValueError, match=message):
+        module["junit_nodes"](report)
+
+
+def test_recorded_modules_separates_selection_from_settings():
+    module = load_compare()
+    modules, settings = module["recorded_modules"](
+        ["python", "-m", "pytest", "tests/first.py", "tests/second.py", "-q", "-o", "addopts="]
+    )
+    assert modules == ["tests/first.py", "tests/second.py"]
+    assert settings == ["-q", "-o", "addopts="]

@@ -2,6 +2,8 @@
 
 import json
 import runpy
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -19,31 +21,38 @@ def inspector():
     return runpy.run_path(str(INSPECTOR))
 
 
-def test_historical_archives_verify_and_current_bindings_do_not(inspector):
+def test_historical_archives_verify_and_frozen_bindings_record_the_gaps(inspector):
+    report = json.loads(MAP_PATH.read_text(encoding="utf-8"))
     archives = inspector["historical_archives"](ROOT)
     assert [item["verified"] for item in archives] == [True, True, True]
-    rows = inspector["binding_rows"](ROOT)
+    rows = report["bindings"]
     assert rows
-    assert all(
-        row["archive_copy_matches_summary"] is not False
-        for row in rows
-        if row["archive_copy_sha256"] is not None
-    )
+    for row in rows:
+        summary_path = ROOT / row["summary"]
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        archived = inspector["_archived_bytes"](
+            summary_path.parent / summary["archive"]["path"], f"current-inputs/{row['path']}"
+        )
+        assert archived is not None
+        assert (
+            inspector["digest"](archived) == row["expected"] == summary["input_sha256"][row["path"]]
+        )
+        assert row["archive_copy_matches_summary"] is True
     shebang_gaps = [
         row for row in rows if row["path"] == inspector["TEST"] and row["status"] == "mismatch"
     ]
     assert len(shebang_gaps) == 3
-    helpers = inspector["production_helpers"](ROOT)
+    helpers = report["helpers"]
     assert helpers["equal_each_other"] is True
     assert helpers["root_equals_origin_main"] is True
     assert helpers["template_equals_origin_main"] is True
-    contract = inspector["test_contract"](ROOT)
+    contract = report["test_contract"]
     assert contract["declared_cases_present"] is True
     assert contract["real_executable_file"] is True
     assert contract["no_available_probe"] is True
     assert contract["unmanaged_runtime"] is True
     assert contract["unsuccessful_probe"] is True
-    replay = inspector["replay_contract"](ROOT)
+    replay = report["replay_contract"]
     assert replay["anchors_unique"] is True
     assert replay["claims_output_before_copy"] is True
     assert replay["restores_original_bytes"] is True
@@ -129,3 +138,32 @@ def test_literal_commands_stop_when_interpreter_is_absent(inspector):
     assert [item["exit"] for item in attempts] == [127, 127]
     assert [item["stopped"] for item in attempts] == ["interpreter-absent", "interpreter-absent"]
     assert proof.exists() is existed
+
+
+def test_frozen_receipts_validate_offline_from_a_relocated_checkout(tmp_path, monkeypatch):
+    relocated = tmp_path / "relocated"
+    evidence_rel = EVIDENCE.relative_to(ROOT)
+    shutil.copytree(EVIDENCE, relocated / evidence_rel)
+    capture = runpy.run_path(str(relocated / evidence_rel / "capture_acceptance_run.py"))
+    for relative in capture["HISTORICAL"]:
+        target = relocated / relative
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / relative, target)
+    assert not (relocated / ".git").exists()
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("offline receipt checks must not invoke Git, a fetch, or any subprocess")
+
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(subprocess, "check_output", forbidden)
+    capture["validate_retained"](relocated)
+    compare = runpy.run_path(str(relocated / evidence_rel / "compare_matched.py"))
+    compare["validate_retained"](relocated)
+    monkeypatch.setitem(globals(), "ROOT", relocated)
+    monkeypatch.setitem(
+        globals(), "MAP_PATH", relocated / evidence_rel / "main-acceptance-map.json"
+    )
+    test_historical_archives_verify_and_frozen_bindings_record_the_gaps(
+        runpy.run_path(str(relocated / evidence_rel / "inspect_main_acceptance.py"))
+    )

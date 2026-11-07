@@ -33,7 +33,7 @@ Current input bindings in those records match the files in this tree.
 - historical `docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz`: 151 members, verified True
 - historical `docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz`: 316 members, verified True
 - current `docs/evidence/issue-3743/shebang-rejection/matched-comparison/proof.tar.gz`: 19 members, verified True
-- current `docs/evidence/issue-3743/shebang-rejection/raw-comparison-validation/proof.tar.gz`: 37 members, verified True
+- current `docs/evidence/issue-3743/shebang-rejection/raw-comparison-validation/proof.tar.gz`: 38 members, verified True
 
 ## Matched comparison
 

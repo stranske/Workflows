@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import runpy
 import shutil
 import subprocess
@@ -230,49 +229,9 @@ def validate_pairs(root: Path, proof: Path) -> list[dict]:
     return pairs
 
 
-def _ensure_origin_main(root: Path) -> None:
-    """Fetch origin/main when a depth-1 checkout has no remote-tracking main."""
-    ref = "refs/remotes/origin/main"
-
-    def present() -> bool:
-        probe = subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", ref],
-            cwd=root,
-            capture_output=True,
-            check=False,
-        )
-        return probe.returncode == 0
-
-    if present():
-        return
-    last = subprocess.CompletedProcess(["git", "fetch"], 128, b"", b"")
-    for _attempt in range(6):
-        last = subprocess.run(
-            [
-                "git",
-                "fetch",
-                "--depth=1",
-                "origin",
-                "+refs/heads/main:refs/remotes/origin/main",
-            ],
-            cwd=root,
-            capture_output=True,
-            check=False,
-            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
-        )
-        if present():
-            return
-        if b"lock" not in last.stderr.lower():
-            break
-        time.sleep(0.5)
-    raise subprocess.CalledProcessError(
-        last.returncode, last.args, output=last.stdout, stderr=last.stderr
-    )
-
-
-def validate_retained(root: Path) -> dict:
+def validate_retained(root: Path, run_dir: Path | None = None) -> dict:
     """Check the retained acceptance-run tree against the command contract."""
-    run_dir = root / EVIDENCE / "acceptance-run"
+    run_dir = run_dir if run_dir is not None else root / EVIDENCE / "acceptance-run"
     summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
     literal_pytest = json.loads((run_dir / "literal-pytest.json").read_text(encoding="utf-8"))
     literal_replay = json.loads((run_dir / "literal-replay.json").read_text(encoding="utf-8"))
@@ -319,8 +278,12 @@ def validate_retained(root: Path) -> dict:
         junit_command["argv"]
         == pytest_argv(
             junit_command["argv"][0],
-            Path(summary["cwd"])
-            / "docs/evidence/issue-3743/shebang-rejection/acceptance-run/focused.xml",
+            Path(
+                summary.get(
+                    "receipt_directory", str(Path(summary["cwd"]) / EVIDENCE / "acceptance-run")
+                )
+            )
+            / "focused.xml",
         ),
         "focused junit argv",
     )
@@ -341,10 +304,7 @@ def validate_retained(root: Path) -> dict:
     return summary
 
 
-def capture(root: Path) -> dict:
-    run_dir = root / EVIDENCE / "acceptance-run"
-    if run_dir.exists():
-        shutil.rmtree(run_dir)
+def _capture_staged(root: Path, run_dir: Path) -> dict:
     run_dir.mkdir(parents=True)
     historical_before = tree_digests(root, HISTORICAL)
     existed_before = SPECIFIED_OUTPUT.exists()
@@ -422,6 +382,7 @@ def capture(root: Path) -> dict:
         ),
         "check_date": datetime.now(UTC).date().isoformat(),
         "cwd": str(root),
+        "receipt_directory": str(run_dir),
         "literal_interpreter": LITERAL_INTERPRETER,
         "receipt_interpreter": interpreter,
         "pair_count": json.loads(
@@ -439,7 +400,30 @@ def capture(root: Path) -> dict:
         "production_sha256": {helper: historical_after[helper] for helper in HELPERS},
     }
     write_json(run_dir / "summary.json", summary)
-    validate_retained(root)
+    validate_retained(root, run_dir)
+    return summary
+
+
+def capture(root: Path) -> dict:
+    """Validate a separate attempt before replacing the last complete receipt tree."""
+    run_dir = root / EVIDENCE / "acceptance-run"
+    attempt = Path(tempfile.mkdtemp(prefix=".acceptance-attempt-", dir=run_dir.parent))
+    staged = attempt / "acceptance-run"
+    previous = attempt / "previous"
+    try:
+        summary = _capture_staged(root, staged)
+        if run_dir.exists():
+            run_dir.rename(previous)
+        try:
+            staged.rename(run_dir)
+        except BaseException:
+            if previous.exists():
+                previous.rename(run_dir)
+            raise
+    except BaseException as exc:
+        write_json(attempt / "failure.json", {"error": str(exc), "type": type(exc).__name__})
+        raise
+    shutil.rmtree(attempt)
     return summary
 
 

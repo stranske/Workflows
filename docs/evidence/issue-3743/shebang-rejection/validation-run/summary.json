@@ -42,7 +42,7 @@
       "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.738,
+      "duration_seconds": 1.466,
       "env_overrides": {
         "BLACK_NUM_WORKERS": "1",
         "BLACK_CACHE_DIR": "/tmp/shebang-rejection-validation-black-cache"
@@ -73,7 +73,7 @@
       "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.014,
+      "duration_seconds": 0.077,
       "env_overrides": {},
       "stdout": "All checks passed!\n",
       "stderr": ""
@@ -95,7 +95,7 @@
       "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.113,
+      "duration_seconds": 0.127,
       "env_overrides": {
         "GITHUB_STEP_SUMMARY": "/tmp/shebang-rejection-validation/template-summary.md"
       },
@@ -111,7 +111,7 @@
       "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
       "exit": 0,
       "stopped": null,
-      "duration_seconds": 0.016,
+      "duration_seconds": 0.041,
       "env_overrides": {},
       "stdout": "",
       "stderr": ""
@@ -175,19 +175,19 @@
     },
     "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": {
       "kind": "file",
-      "sha256": "9b2d20412949c106cb2f5a7ea789f8e5bb0f760b3999550a6b10ccec58b27a85",
-      "bytes": 30684,
+      "sha256": "55d99e9bf551115eb5768222eb6e0056b34eb3122039737a230a0a6d18c0abbc",
+      "bytes": 30547,
       "files": 1
     },
     "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py": {
       "kind": "file",
-      "sha256": "a7118ac751640fbb9f11fcc0cd6865a69366f8c1a9e10d04bc450d4e905289ee",
-      "bytes": 20287,
+      "sha256": "94473ffbd863b5435811d06d5ec13e991f06cb9539b101b0d14fb0ac2aa748c2",
+      "bytes": 20037,
       "files": 1
     },
     "docs/evidence/issue-3743/shebang-rejection/acceptance-run": {
       "kind": "tree",
-      "sha256": "a5af64cb294ec1ec7882b2e666c16b3c4853460dbfb9e32a8873fd94bd18abb4",
+      "sha256": "2af143745bb8f3341c3141d80ea25296268282f9c39fb26f9051d479b478b592",
       "bytes": 1315709,
       "files": 111
     },
@@ -217,14 +217,14 @@
     },
     "tests/scripts/test_shebang_rejection_acceptance_run.py": {
       "kind": "file",
-      "sha256": "47344b037d84e176d0d6ca667331759564fd9c5266df818c7469958669536c2b",
-      "bytes": 5657,
+      "sha256": "068d378b80e686c14dff3a35c77db02f224bc2344f403b7b51015b4012bc0f31",
+      "bytes": 7948,
       "files": 1
     },
     "tests/scripts/test_shebang_rejection_acceptance_inspection.py": {
       "kind": "file",
-      "sha256": "7c0922f9cbcb802c90eafbeaff92c1be4523b47a7d5bda6685cde137efc82138",
-      "bytes": 5636,
+      "sha256": "f340def8a4a268ed9aeaf24aff366441285603d0622f89950a67d6d7e0c06c4d",
+      "bytes": 7398,
       "files": 1
     }
   },

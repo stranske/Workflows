@@ -184,3 +184,41 @@ def test_delivered_archives_and_current_bindings_match_the_note():
     )
     for value in counts.values():
         assert str(value) in note
+
+
+@pytest.mark.parametrize("defect", ["current-binding", "note"])
+def test_validate_rejects_isolated_current_binding_and_note_corruption(tmp_path, defect):
+    module = load_verifier()
+    evidence_rel = module["EVIDENCE"]
+    shutil.copytree(EVIDENCE, tmp_path / evidence_rel)
+    relatives = set()
+    for summary_path in (*module["HISTORICAL"], *module["CURRENT"]):
+        summary = json.loads((ROOT / summary_path).read_text())
+        relatives.update(summary["input_sha256"])
+    validation = runpy.run_path(str(EVIDENCE / "capture_validation_run.py"))
+    relatives.update(validation["HISTORICAL_PATHS"])
+    relatives.update((validation["TEMPLATE_SCRIPT"], ".github/sync-manifest.yml"))
+    relatives.update(
+        str(path.relative_to(ROOT)) for path in (ROOT / ".github/workflows").glob("*.yml")
+    )
+    relatives.update(
+        str(path.relative_to(ROOT))
+        for path in (ROOT / "templates/consumer-repo/.github/workflows").glob("*.yml")
+    )
+    for relative in sorted(relatives):
+        source, target = ROOT / relative, tmp_path / relative
+        if source.is_file() and not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+    # The unmodified isolated tree must validate before its single corruption.
+    assert module["validate"](tmp_path)["problems"] == []
+    if defect == "current-binding":
+        helper = tmp_path / "scripts/check_deliberate_break.py"
+        helper.write_bytes(helper.read_bytes() + b"\n# corrupted current binding\n")
+        message = "current binding drifted: scripts/check_deliberate_break.py"
+    else:
+        note = tmp_path / module["DOC"]
+        note.write_text(note.read_text() + "Stale note.\n")
+        message = "current-acceptance.md does not match the verified report"
+    with pytest.raises(ValueError, match=message):
+        module["validate"](tmp_path)

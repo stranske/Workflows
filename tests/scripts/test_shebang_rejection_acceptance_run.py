@@ -2,29 +2,16 @@
 
 import json
 import runpy
+import shutil
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs/evidence/issue-3743/shebang-rejection"
 CAPTURE = EVIDENCE / "capture_acceptance_run.py"
 RUN = EVIDENCE / "acceptance-run"
-HISTORICAL_MAIN_PATHS = (
-    "docs/evidence/issue-3743/shebang-rejection/README.md",
-    "docs/evidence/issue-3743/shebang-rejection/coverage.ini",
-    "docs/evidence/issue-3743/shebang-rejection/replay.py",
-    "docs/evidence/issue-3743/shebang-rejection/summary.json",
-    "docs/evidence/issue-3743/shebang-rejection/proof.tar.gz",
-    "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
-    "docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz",
-    "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
-    "docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz",
-    "docs/evidence/issue-3743/shebang-rejection/replay-validation/task-reconciliation.md",
-    "scripts/check_deliberate_break.py",
-    "templates/consumer-repo/scripts/check_deliberate_break.py",
-    "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
-    "tests/scripts/test_shebang_rejection_replay.py",
-)
 
 
 def load_capture():
@@ -133,3 +120,83 @@ def test_retained_receipts_match_the_acceptance_run_contract():
     assert "8 passed" in (RUN / "operational-pytest.stdout").read_text(encoding="utf-8")
     assert (RUN / "focused.xml").is_file()
     assert (RUN / "mutation-proof" / "summary.json").is_file()
+
+
+@pytest.mark.parametrize("defect", ["pytest", "replay", "junit", "validation", "promotion", None])
+def test_capture_preserves_prior_tree_until_staged_validation_succeeds(
+    tmp_path, monkeypatch, defect
+):
+    module = load_capture()
+    root = tmp_path / "repo"
+    for relative in module["HISTORICAL"]:
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / relative, target)
+    run_dir = root / module["EVIDENCE"] / "acceptance-run"
+    shutil.copytree(RUN, run_dir)
+    before = module["file_hashes"](run_dir)
+    namespace = module["capture"].__globals__
+    specified = tmp_path / "literal-proof"
+    monkeypatch.setitem(namespace, "SPECIFIED_OUTPUT", specified)
+
+    def run_command(argv, cwd, timeout):
+        record = {
+            "argv": argv,
+            "cwd": str(cwd),
+            "exit": 0,
+            "stopped": None,
+            "stdout": "8 passed\n",
+            "stderr": "",
+        }
+        if "--output" in argv:
+            output = Path(argv[-1])
+            if defect == "replay" or output.exists():
+                record.update(exit=1, stderr="File exists: injected replay failure\n")
+            else:
+                shutil.copytree(RUN / "mutation-proof", output)
+        elif any(arg.startswith("--junitxml=") for arg in argv):
+            output = Path(argv[-1].split("=", 1)[1])
+            shutil.copyfile(RUN / "focused.xml", output)
+            if defect == "junit":
+                output.write_text("<testsuites/>")
+        elif defect == "pytest":
+            record.update(exit=1, stderr="injected pytest failure\n")
+        return record
+
+    monkeypatch.setitem(namespace, "run_command", run_command)
+    validate = namespace["validate_retained"]
+    validated = []
+
+    def validate_staged(check_root, staged=None):
+        assert module["file_hashes"](run_dir) == before
+        assert staged != run_dir
+        result = validate(check_root, staged)
+        validated.append(staged)
+        if defect == "validation":
+            raise AssertionError("injected validation failure")
+        return result
+
+    monkeypatch.setitem(namespace, "validate_retained", validate_staged)
+    rename = Path.rename
+
+    def fail_promotion(path, target):
+        if defect == "promotion" and path.name == "acceptance-run" and path != run_dir:
+            raise OSError("injected promotion failure")
+        return rename(path, target)
+
+    monkeypatch.setattr(Path, "rename", fail_promotion)
+    if defect is None:
+        module["capture"](root)
+        assert validated
+        assert not list(run_dir.parent.glob(".acceptance-attempt-*"))
+        assert validate(root)["satisfies_literal_acceptance"] is True
+    else:
+        with pytest.raises((AssertionError, RuntimeError, OSError)):
+            module["capture"](root)
+        assert module["file_hashes"](run_dir) == before
+        attempts = list(run_dir.parent.glob(".acceptance-attempt-*"))
+        assert len(attempts) == 1
+        failure = json.loads((attempts[0] / "failure.json").read_text())
+        assert failure["error"]
+        assert (attempts[0] / "acceptance-run/literal-pytest.json").is_file()
+        assert not (attempts[0] / "previous").exists()

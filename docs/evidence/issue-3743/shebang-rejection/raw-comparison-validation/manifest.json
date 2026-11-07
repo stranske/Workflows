@@ -92,8 +92,8 @@
     "bytes": 1455
   },
   "input-bindings.json": {
-    "sha256": "4eaf16fb552e28e24d24018e6bb7ec11b275304eea3ac029b7636ad6ac93d402",
-    "bytes": 4554
+    "sha256": "21a7e89f495511f406d8ff29f125f50f7d4f5b1d9d1b8bd905c9a5d65e277d6c",
+    "bytes": 5614
   },
   "literal-pytest.json": {
     "sha256": "d5cfd1aa310cc605058dd89d629dc746145350ee63eb7ff269166dbd5318f591",
@@ -122,6 +122,10 @@
   "preservation.json": {
     "sha256": "81d8572b8e9561b791256f3a1e6977cd39082f2914b2c51e31af28b9b3f7aac2",
     "bytes": 44346
+  },
+  "previous-input-bindings.json": {
+    "sha256": "4eaf16fb552e28e24d24018e6bb7ec11b275304eea3ac029b7636ad6ac93d402",
+    "bytes": 4554
   },
   "ruff.json": {
     "sha256": "4ebb8c93b5f95e0feed1e66c3665df094fb867e0db5cedd4436c9fb2381537c5",

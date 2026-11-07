@@ -8,8 +8,8 @@
       "bytes": 14065
     },
     "tests/scripts/test_shebang_rejection_archive_bindings.py": {
-      "sha256": "82cba07bce9e3cb3ca463e968a2cf7c1fd154dcf1e42f915540923262ba76046",
-      "bytes": 6653
+      "sha256": "a22dc459621ce36f195a327f805ead52acaa9d5abd3509f0e38542d12e6e96d7",
+      "bytes": 8554
     },
     "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
       "sha256": "840ba69d31ef5d86ec0ecc98dbf075e9dbc3093a9f30985a54e5fd78c6a7f968",
@@ -106,15 +106,39 @@
     "docs/evidence/issue-3743/shebang-rejection/matched-comparison/comparison.json": {
       "sha256": "d3befbc8b4b5a665b5cfa684f6b35e674035dfb453035c06ee88d8959692566d",
       "bytes": 122121
+    },
+    "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py": {
+      "sha256": "94473ffbd863b5435811d06d5ec13e991f06cb9539b101b0d14fb0ac2aa748c2",
+      "bytes": 20037
+    },
+    "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py": {
+      "sha256": "7dbbf7ed89b2e33298ef5e9bc619f0bb0ad4c28387e61d028c0232cac80cff76",
+      "bytes": 20310
+    },
+    "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": {
+      "sha256": "55d99e9bf551115eb5768222eb6e0056b34eb3122039737a230a0a6d18c0abbc",
+      "bytes": 30547
+    },
+    "tests/scripts/test_shebang_rejection_acceptance_inspection.py": {
+      "sha256": "f340def8a4a268ed9aeaf24aff366441285603d0622f89950a67d6d7e0c06c4d",
+      "bytes": 7398
+    },
+    "tests/scripts/test_shebang_rejection_acceptance_run.py": {
+      "sha256": "068d378b80e686c14dff3a35c77db02f224bc2344f403b7b51015b4012bc0f31",
+      "bytes": 7948
+    },
+    "tests/scripts/test_shebang_rejection_matched_comparison.py": {
+      "sha256": "fda4a767ca7f3134914633564929026d118f06d5b064da0fda804360e03ae154",
+      "bytes": 16089
     }
   },
   "stop_rule": "One literal attempt per command, 120 seconds each; no interpreter substitution for literal acceptance. Independent validation commands have 180-second limits.",
   "archive": {
     "path": "proof.tar.gz",
-    "sha256": "54ab36ea0dfac98ae4aa75c64f065ca0df80d9360f677eb4c3c73282f528021f",
-    "bytes": 26168,
-    "verified_manifest_members": 37,
-    "manifest_sha256": "86e959690d4f61b58ab760c33a5c5d42474c40c4adcf042fd0d58b093f64a580"
+    "sha256": "cc62c043c506ddd0eb91df65329596c55963b326b751a3b19f66afb59c49d765",
+    "bytes": 27596,
+    "verified_manifest_members": 38,
+    "manifest_sha256": "1fe6499e7dbd6d667cb743013fa8f86e63f1b450fc1c35ea8d7bc1e75d48cbc3"
   },
   "commands": {
     "literal-pytest": 127,
@@ -510,5 +534,9 @@
     "commit_created": false,
     "commit_blocker": ".git/index.lock: Read-only file system",
     "pr_body_update_blocked": "Connector requires approval; approval policy is never."
+  },
+  "binding_refresh": {
+    "check_date": "2026-11-06",
+    "scope": "PR 4472 continuation; original command receipts remain historical. Refreshed inputs are covered by continuation-validation/focused receipts. Previous bindings are retained separately."
   }
 }

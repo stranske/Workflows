@@ -26,7 +26,7 @@
     "docs/evidence/issue-3743/shebang-rejection/replay-validation/task-reconciliation.md": "00ca3121382545c09272638b5ca68be50b98a5d6d27bd2bbba01b7102b4373c5",
     "docs/evidence/issue-3743/shebang-rejection/pre-change-record.json": "987d35ea935db2ecc8cd0339c8619c50763ce18600b42a98340a9524c5c05dc7",
     "docs/evidence/issue-3743/shebang-rejection/main-acceptance-map.json": "074da0915ae48f483eb059c32ba94c6fb1f0f22b3f9cc55a9df94a34610879e4",
-    "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": "9b2d20412949c106cb2f5a7ea789f8e5bb0f760b3999550a6b10ccec58b27a85",
+    "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": "55d99e9bf551115eb5768222eb6e0056b34eb3122039737a230a0a6d18c0abbc",
     "scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
     "templates/consumer-repo/scripts/check_deliberate_break.py": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
     "tests/scripts/test_check_deliberate_break_shebang_rejection.py": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a"
