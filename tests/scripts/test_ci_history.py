@@ -7,14 +7,25 @@ from mypy import api as mypy_api
 from scripts import ci_history
 
 
-def test_ci_history_typechecks_in_consumer_layout(tmp_path: Path) -> None:
-    """Check the shipped source without Workflows' scripts.* error suppression."""
+@pytest.mark.parametrize(
+    "reintroduce_redefinition", [False, True], ids=["shipped-source", "duplicate-record"]
+)
+def test_ci_history_typechecks_in_consumer_layout(
+    tmp_path: Path, reintroduce_redefinition: bool
+) -> None:
+    """Consumer mypy accepts shipped code and rejects the original duplicate annotation."""
     package = tmp_path / "scripts"
     package.mkdir()
     (package / "__init__.py").write_text("", encoding="utf-8")
     source_dir = Path(ci_history.__file__).parent
     for name in ("ci_history.py", "ci_metrics.py"):
         shutil.copyfile(source_dir / name, package / name)
+
+    if reintroduce_redefinition:
+        script = package / "ci_history.py"
+        source = script.read_text(encoding="utf-8")
+        assert "failure_record: dict[str, Any]" in source
+        script.write_text(source.replace("failure_record", "record"), encoding="utf-8")
 
     config = tmp_path / "pyproject.toml"
     config.write_text(
@@ -32,8 +43,13 @@ def test_ci_history_typechecks_in_consumer_layout(tmp_path: Path) -> None:
         ]
     )
 
-    assert status == 0, stdout + stderr
-    assert "Success: no issues found" in stdout
+    if reintroduce_redefinition:
+        assert status == 1, stdout + stderr
+        assert 'Name "record" already defined' in stdout
+        assert "[no-redef]" in stdout
+    else:
+        assert status == 0, stdout + stderr
+        assert "Success: no issues found" in stdout
 
 
 def test_truthy_accepts_common_values() -> None:
