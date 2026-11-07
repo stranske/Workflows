@@ -1,0 +1,198 @@
+"""Reject incomplete mutation receipts even when their summary claims success."""
+
+import hashlib
+import json
+
+import pytest
+from scripts import audit_followup_mutations as auditor
+
+
+@pytest.fixture
+def receipts(tmp_path):
+    source = "first = 1\nsecond = 2\n"
+    tests = "def test_before(): pass\ndef test_added(): pass\n"
+    cases = {f"{auditor.PYTHON_TEST}::test_added[{case}]" for case in ("a", "b")}
+
+    def digest(text):
+        return hashlib.sha256(text.encode()).hexdigest()
+
+    python = {
+        "revision": "a" * 40,
+        "source_sha256": digest(source),
+        "test_sha256": digest(tests),
+        "proofs": [
+            {
+                "name": case,
+                "test": case,
+                "before": "first = 1",
+                "mutant": "first = 0",
+                "mutant_source_sha256": digest(source.replace("first = 1", "first = 0")),
+                "restored_source_sha256": digest(source),
+                "command": ["python", "-m", "pytest", case],
+                "red_exit": 1,
+                "green_exit": 0,
+                "red_output": f"E AssertionError: assert 0 == 1\nFAILED {case}\n1 failed",
+                "green_output": "1 passed",
+            }
+            for case in sorted(cases)
+        ],
+    }
+    node = {
+        "revision": "a" * 40,
+        "proofs": [
+            {
+                "test": case,
+                "before": "second = 2",
+                "mutant": "second = 0",
+                "source_sha256": digest(source),
+                "mutant_sha256": digest(source.replace("second = 2", "second = 0")),
+                "command": ["node", "--test", f"--test-name-pattern={case}", auditor.NODE_TEST],
+                "red_exit": 1,
+                "green_exit": 0,
+                "red_output": f"{case}\nAssertionError [ERR_ASSERTION]",
+                "green_output": f"{case}\npass 1\nfail 0",
+            }
+            for case in sorted(auditor.NODE_CASES)
+        ],
+    }
+    files = {
+        auditor.PYTHON_SOURCE: source,
+        auditor.PYTHON_TEST: tests,
+        auditor.NODE_SOURCE: source,
+        auditor.NODE_TEST: "\n".join(f"test('{case}', () => {{}});" for case in auditor.NODE_CASES),
+    }
+    for name, text in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def run():
+        directory = tmp_path / auditor.EVIDENCE
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "retained-mutation-reconciliation.json").write_text(json.dumps(python))
+        (directory / "numbered-checklist-repair-proof.json").write_text(json.dumps(node))
+        return auditor.audit(tmp_path, "def test_before(): pass\n", cases)
+
+    return python, node, cases, run
+
+
+def test_complete_receipts_cover_each_independently_collected_parameter(receipts):
+    result = receipts[-1]()
+    assert result["complete"] is True
+    assert result["added_functions"] == 1
+    assert result["collected_added_cases"] == 2
+    assert len(result["receipts"]) == 4
+
+
+def test_missing_parameter_is_not_hidden_by_other_receipts(receipts):
+    python, _, _, run = receipts
+    python["proofs"].pop()
+    result = run()
+    assert result["complete"] is False
+    assert "missing=" in " ".join(result["problems"])
+    assert "test_added[b]" in " ".join(result["problems"])
+
+
+@pytest.mark.parametrize("language", ["python", "node"])
+@pytest.mark.parametrize(
+    ("field", "value", "problem"),
+    [
+        ("red_exit", 2, "RED is not an assertion failure"),
+        ("red_output", "ImportError during collection", "RED is not an assertion failure"),
+        ("green_exit", 1, "GREEN exit is not 0"),
+        ("green_output", "", "GREEN"),
+        ("command", ["pytest", "different-case"], "command does not select"),
+        ("mutant", "second = 99", "does not reproduce its source hash"),
+    ],
+)
+def test_invalid_receipts_cannot_establish_completion(receipts, language, field, value, problem):
+    python, node, _, run = receipts
+    (python if language == "python" else node)["proofs"][0][field] = value
+    result = run()
+    assert result["complete"] is False
+    assert any(problem in issue for row in result["receipts"] for issue in row["issues"])
+
+
+def test_abbreviated_assertion_diff_stays_incomplete(receipts):
+    python, _, _, run = receipts
+    python["proofs"][0]["red_output"] += "\nFull output truncated (4 lines hidden)"
+    result = run()
+    assert result["complete"] is False
+    assert result["receipts"][0]["issues"] == ["receipt output is truncated"]
+
+
+def test_truncated_is_valid_payload_text_not_an_output_diagnostic(receipts):
+    python, _, _, run = receipts
+    python["proofs"][0]["red_output"] += "\nE expected 'CSV trailer is truncated'"
+    assert run()["complete"] is True
+
+
+def test_oserror_receipt_with_assertionerror_in_test_body_is_not_assertion_red(receipts):
+    python, _, _, run = receipts
+    python["proofs"][0]["red_output"] = (
+        '    raise AssertionError("read_text must not run")\n'
+        "E OSError: File name too long\n"
+        f"FAILED {python['proofs'][0]['test']}\n1 failed"
+    )
+    result = run()
+    assert result["complete"] is False
+    assert "RED is not an assertion failure" in result["receipts"][0]["issues"][0]
+
+
+def test_source_or_test_drift_invalidates_otherwise_green_receipts(receipts):
+    python, _, _, run = receipts
+    python["test_sha256"] = "b" * 64
+    result = run()
+    assert result["complete"] is False
+    assert "hashes do not match" in result["problems"][0]
+
+
+def test_missing_collection_cannot_prove_all_added_tests(receipts):
+    _, _, cases, run = receipts
+    cases.clear()
+    result = run()
+    assert result["complete"] is False
+    assert "test_added" in result["problems"][0]
+
+
+def test_same_text_at_different_location_must_reproduce_recorded_hash():
+    source = "first = 1\nfirst = 1\n"
+    second_mutated = "first = 1\nfirst = 0\n"
+    assert auditor._matches_mutation(
+        source, "first = 1", "first = 0", hashlib.sha256(second_mutated.encode()).hexdigest()
+    )
+    assert not auditor._matches_mutation(source, "first = 1", "first = 0", "b" * 64)
+
+
+def test_different_revisions_cannot_be_silently_combined(receipts):
+    _, node, _, run = receipts
+    node["revision"] = "b" * 40
+    result = run()
+    assert result["complete"] is False
+    assert "different source revisions" in result["problems"][0]
+
+
+@pytest.mark.parametrize("valid_binding", [True, False])
+def test_supplement_must_bind_original_index_and_preserve_mutation(
+    receipts, tmp_path, valid_binding
+):
+    python, _, _, run = receipts
+    replacement = dict(python["proofs"][0], historical_index=0)
+    python["proofs"][0]["red_output"] += "\nFull output truncated (4 lines hidden)"
+    run()
+    directory = tmp_path / auditor.EVIDENCE
+    supplement = {
+        "revision": "c" * 40,
+        "historical_sha256": hashlib.sha256(
+            (directory / "retained-mutation-reconciliation.json").read_bytes()
+        ).hexdigest(),
+        "source_sha256": python["source_sha256"],
+        "test_sha256": python["test_sha256"],
+        "proofs": [replacement],
+    }
+    if not valid_binding:
+        supplement["historical_sha256"] = "b" * 64
+    (directory / "retained-mutation-unabridged-reruns.json").write_text(json.dumps(supplement))
+    result = run()
+    assert result["complete"] is valid_binding
+    assert result["rerun_revision"] == ("c" * 40 if valid_binding else None)

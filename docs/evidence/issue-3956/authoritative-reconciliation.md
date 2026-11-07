@@ -1,6 +1,41 @@
 # Authoritative coverage and mutation reconciliation — issue #3956
 
-Checked 2026-11-03 (America/Chicago). This replaces the overlapping narratives in
+## Current delivery readback (2026-11-07 UTC)
+
+Before changing source or tests in this round, attempted:
+
+```sh
+gh pr view 4401 --repo stranske/Workflows --json state,headRefOid,mergeStateStatus,reviewDecision,statusCheckRollup
+```
+
+The command exited 1: `error connecting to api.github.com`. Connected GitHub
+read-only tools supplied the fallback inspection of PR metadata, all submitted
+reviews, inline review threads, changed files, and commit-associated workflow runs.
+PR #4401 remains OPEN, `isDraft=false`, at
+`9eaf43313c0e57ef964e4171f645985dca5742b8`; `merged=false`, `merged_at=null`.
+REST `mergeable=true` does not establish GraphQL `mergeStateStatus`, review
+approval, or permission to merge. The REST `merge_commit_sha` field on this open
+PR is a test merge, not a delivered main revision.
+
+The actual identified review blocker is active unresolved thread
+`PRRT_kwDOQprj9M6zZ4AB` (comment 4462444583): the revision table declares two
+columns but supplies three cells, hiding repair/source notes. Two other unresolved
+threads are outdated (`PRRT_kwDOQprj9M6y9cVz`, `PRRT_kwDOQprj9M6y9cWG`), about
+local/hosted labeling and receipt mapping. All three submitted reviews are
+COMMENTED; none establishes an approval or a changes-requested decision.
+Commit-associated Gate run `41752024615` and Selftest CI run `41752024817` report
+success. That discovery returns only the first page of pull-request runs and is
+not a complete expected/required-check receipt. Final delivery remains pending
+review settlement, complete exact-head gate verification, merge and main readback.
+
+Main was also read through the connected GitHub file API: lines 100–145 of
+`scripts/langchain/followup_issue_generator.py` still define and call
+`_blocked_reason_with_source` (blob `c3a19cbf41a476954b8afcde6d214b3cf8c82a00`).
+That branch-relative read establishes the missing behavior at readback time;
+it does not pin an immutable main commit. Final main acceptance is unsatisfied.
+
+The following historical measurements were checked 2026-11-03 (America/Chicago).
+This record replaces the overlapping narratives in
 `pr-body-reconciled.md`, `followup-review-correction.md`, and historical receipts.
 Historical records remain intact; their coverage figures are superseded by the matched
 **focused local** comparison below. Hosted Gate evidence is identified separately by
@@ -8,24 +43,29 @@ exact tested revision and artifact. A local run never establishes hosted Gate su
 
 ## Exact revisions and scope
 
-| Role | Revision |
-| --- | --- |
-| Baseline parent of #3960 | `94d9f952dad19f4f8048ae82bb8301bc6baf6ef5` |
-| Merge #3960 | `314895ec5d0b1e102fc80aff8001eae2545ed7fa` |
+| Role | Revision | Notes |
+| --- | --- | --- |
+| Baseline parent of #3960 | `94d9f952dad19f4f8048ae82bb8301bc6baf6ef5` | Original baseline |
+| Merge #3960 | `314895ec5d0b1e102fc80aff8001eae2545ed7fa` | Original delivery |
 | Original repair implementation | `7bcca99bc` | Inline guard restore and helper-only test removal |
-| Measured repair source/tests (main incorporated) | `db91da15d7c44e34dca7d4f3d74e5cae62fff62c` | Final source for coverage, mutations, and Gate target |
+| Measured repair source/tests | `db91da15d7c44e34dca7d4f3d74e5cae62fff62c` | Main was incorporated into the repair branch; this is not delivery to main |
+| Current local source snapshot | `a9fb48a0c90308a13c8f09ac01ac57d9dc309a45` | Same generator and target-test hashes as measured repair; this round adds the auditor separately |
 
-Work merged from `closer/issue-3956` (PR #4401), `closer-r1/issue-3956` (coverage
-JSON and retained-mutation reruns), and `closer-r3/issue-3956` (this head). Commits
+Historical repair work was integrated from `closer/issue-3956` (PR #4401),
+`closer-r1/issue-3956` (coverage JSON and retained-mutation reruns), and
+`closer-r3/issue-3956`. This describes branch integration, not a merged PR. Commits
 `7bcca99bc` and `f77be1eee` are retained. Discarded: nothing from those branches
 conflicted with the helper removal or defect fixes. No production fix from #3960 is
 redone or reverted.
 
-**PR #4401 inspection:** State: OPEN, HeadRefOid: `9eaf43313c0e57ef964e4171f645985dca5742b8`, MergeStateStatus: CLEAN, ReviewDecision: (none). No unresolved review threads blocker identified; PR body documents completion criteria met.
+**Historical PR #4401 inspection:** The earlier CLEAN/no-blocker statement is
+superseded by the current readback above. Checked PR-body boxes are claims, not
+evidence of merge or acceptance. The measured repair revision below identifies
+source bytes; it does not establish delivery to main.
 
 ## One matched focused local comparison
 
-Repository-selected runtime: `/opt/anaconda3/bin/python3` (Python 3.12.2),
+Historical local runtime: `/opt/anaconda3/bin/python3` (Python 3.12.2),
 pytest 9.1.1, coverage 7.16.2. All three snapshots use identical current
 `pyproject.toml` settings (SHA256
 `f793630708820650e709e2976674cfdd5fab636f974ec1bb9e54b5968026a402`),
@@ -46,7 +86,7 @@ hashes, missing lines/arcs, configuration revision and summaries are in
 | Merge `314895ec` | 200 | 852 | 0 | 386 | 0 | 0 | 100.00% |
 | Repair `db91da15d` | 199 | 851 | 0 | 386 | 1 | 1 | 99.92% |
 
-The authoritative baseline → final reduction is **222 missing statement/branch
+The matched local baseline → repair reduction is **222 missing statement/branch
 units (223 → 1)**. These are replacement snapshots; overlapping iterations are
 never summed. The baseline terminal **BrPart=56** counts partially executed
 branch sites, not the **94 missing arcs**. The old 129+56 calculation is superseded.
@@ -80,9 +120,16 @@ or production extraction is used to force 100% coverage.
   parse/merge regexes recognized only dash bullets. Checked state was lost on the
   next refresh. The source and consumer-template fixes and both numbered checklist
   regressions remain. Current repair changes no JS production or test bytes.
-  **Regex difference:** PR #3960 changed from literal-space pattern `\s*- \[(x| )\]`
-  (only dash bullets) to arbitrary-whitespace pattern `\s*(?:[-*+]|\d+[.)])\s+\[(x| )\]`
-  (dash, asterisk, plus, or numbered items), enabling numbered checklist item support.
+  PR #3960's file list locates the implementation at
+  `.github/scripts/agents_pr_meta_update_body.js`, its identical consumer copy at
+  `templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js`, and tests
+  at `.github/scripts/__tests__/agents-pr-meta-update-body.test.js`.
+  **Existing whitespace difference:** `parseCheckboxStates` accepts arbitrary
+  whitespace after a bullet through `(?:[-*+]|\d+[.)])\s+\[(x| )\]`.
+  `mergeCheckboxStates` uses `([-*+]|\d+[.)]) \[( )\]`, with exactly one literal
+  space between the bullet and checkbox. Both recognize numbered bullets; their
+  whitespace contracts still differ. This round records that difference and
+  preserves both regexes without expanding scope into a whitespace repair.
 
 These were real production fixes, so historical “production unchanged” / “test-only”
 claims describe earlier iterations only and do not describe #3960 as delivered.
@@ -93,6 +140,42 @@ claims describe earlier iterations only and do not describe #3960 as delivered.
 then uncovered mass). This repair follows that supplied target; it does not claim
 an independently reproduced ranking or a new ranking run. No additional target is
 introduced.
+
+**Owner-visible limitation:** The canonical ranking inputs and original ranking
+execution are unrecoverable from these receipts. Historical numbers (21 escaped
+defect signals, churn 27, 225 uncovered units) are supplied claims, not independently
+verified ranking results. `followup-coverage-round.md` explicitly records the
+missing canonical ranking and rejects issue-3743 proxy artifacts as substitutes.
+The contradictory checked ranking boxes in `pr-body-reconciled.md` and historical
+JSON contracts are superseded: independent ranking verification remains incomplete.
+
+## Coverage values and contradictory completion claims
+
+| Value | Historical attribution | Supported interpretation |
+| --- | --- | --- |
+| 81.80% | `pr-body-reconciled.md`, early local baseline: 846 statements, 390 branches | Historical local claim; exact tested revision, JSON missing arcs, and hosted run/artifact binding are unsupported. It is not the matched 81.90% baseline. |
+| 89.81% | Same document, early local 160-test snapshot, 74 missing statements and 38 partial branch sites | Historical local claim with a command; exact source revision and hosted binding unsupported. |
+| 99.11% | `followup-edge-coverage-proof.json` and the before-value in `followup-contract-edge-proof.json` | Intermediate local claim tied to source hash `251c5642…`, with 846 statements and 390 branches in the adjacent narrative; no exact tested commit or hosted artifact supports this percentage. |
+| 100% | Matched merge snapshot `314895ec…` in `local-coverage-comparison.json`: 852 statements, 386 branches, zero misses | Supported focused-local merge measurement, including the helper-only test; historical empty-label/helper/OSError receipts also claim 100% at different denominators. None establishes the repaired main state. |
+| 99.92% | Matched repair `db91da15…`, historical hosted `f77be1ee…`, and this round's focused-local rerun | Separately identified local/hosted measurements; repaired source retains one missing defensive arc. |
+
+The old **75-unit** claim subtracts `(130 + 57) - (74 + 38)`, mixing missing
+statements with partial branch sites. It cannot prove approximately 60 missing
+statement/branch destinations were removed. The comparable JSON local snapshots
+measure **(129 + 94) - (0 + 1) = 222** missing statement/branch-destination units.
+No comparable hosted baseline artifact is present in the inspected evidence, so
+the hosted approximately-60-unit criterion remains **incomplete**. Local 222 is
+explicitly separate and cannot fill that gap.
+
+Checked CI, coverage, ranking, exhaustion and completion boxes in
+`pr-body-reconciled.md`, historical proof contracts and PR #4401's body are
+superseded where they claim more than the evidence above. The earlier
+`followup-coverage-round.md` is an intermediate 170→178-test, 29-unit local round
+(92.64%→94.98%), not the final delivery. Its test-only statement describes that
+iteration. `followup-review-correction.md` describes an abandoned frame-based test
+and later helper extraction; this repair removes the helper again. The OSError
+fallback and numbered-checklist changes are production fixes. Original historical
+receipts, including unsupported claims, remain intact for traceability.
 
 ## Every retained added Python test and parameter case
 
@@ -109,6 +192,43 @@ the plain-label parser regression. Three re-raise mutations produced OSError
 failures, so they were replaced with wrong-value mutations that produce actual
 assertion failures. All four discarded attempts remain in the JSON and are not
 counted among the 50 successful receipts.
+
+### Bounded audit and unabridged replacements (2026-11-07)
+
+The retained index was inspected in bounded groups (indices 0–4, 5–9, 10–16,
+17–24, 25–34, 35–42, 43–49); the four discarded attempts and both Node receipts
+were inspected separately. Mutation replacements, parameter-specific failing
+assertions and restored summaries were read without accepting tool-output
+truncation as inspection. The new read-only auditor also reconstructs every
+mutant SHA256, checks restored source/test hashes, compares independently
+collected cases against the baseline AST, and verifies assertion-failing RED
+and single-case GREEN output. It never executes commands from receipt data.
+
+The first audit exited 1: historical indices **2** (duplicate Notes section) and
+**24** (five-item history cap) have pytest `Full output truncated` diagnostics.
+Their original records remain unchanged. Both mutations were rerun independently
+with `-vv --tb=long -m 'not slow'` in isolated temporary packages using the same
+source/test bytes, original support modules, and the current Python 3.14.10.
+Each failed with the relevant assertion (exit 1), then passed after exact source
+restoration (exit 0). Full output, commands, revision, and binding to the original
+receipt digest are in
+[retained-mutation-unabridged-reruns.json](retained-mutation-unabridged-reruns.json).
+The restored production file in the checkout was never mutated.
+
+[retained-mutation-audit.json](retained-mutation-audit.json) enumerates every
+Python parameter case and both Node cases, each replacement, assertion, restored
+GREEN summary and historical receipt index. With the bound replacements the
+audit exits 0: **35 added functions, 45 cases, 50 Python receipts, 2 Node receipts,
+zero unmapped cases or invalid mutation hashes**. This verifies the inspected
+repair source; it does not establish final main delivery.
+
+Reproduction (from the repository root):
+
+```sh
+git show 94d9f952dad19f4f8048ae82bb8301bc6baf6ef5:tests/test_followup_issue_generator.py > /tmp/issue-3956-baseline-tests.py
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py --collect-only -q -m 'not slow' > /tmp/issue-3956-collected-tests.txt
+python scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-3956-baseline-tests.py --collected-tests /tmp/issue-3956-collected-tests.txt
+```
 
 1. `test_extract_verification_data_preserves_supported_mixed_formats`
 2. `test_json_and_markdown_helpers_preserve_machine_and_human_output`
@@ -226,12 +346,102 @@ Earlier repair head `f77be1eee61239aa264c166aed84db8fae8708f3` has
 and [Selftest CI run 41567622897](https://github.com/stranske/Workflows/actions/runs/41567622897).
 Those runs tested that head only.
 
-Downloaded and inspected [Gate Python 3.14 coverage artifact 13200231583](https://github.com/stranske/Workflows/actions/runs/41567623097/artifacts/13200231583)
+The historical receipt records download and inspection of
+[Gate Python 3.14 coverage artifact 13200231583](https://github.com/stranske/Workflows/actions/runs/41567623097/artifacts/13200231583)
 for `f77be1eee`: 851 statements, 0 missing statements, 386 branches, **1 missing
 branch**, 99.92%. ZIP SHA256:
 `540949b4d94392b5d2daafc794f9acc6c1011155ac0cc24bf8f1bb6d635f4136`.
 Summary in [hosted-coverage-receipt.json](hosted-coverage-receipt.json).
 
-**Branch tip `closer-r3/issue-3956`** adds only evidence docs atop `db91da15d`; hosted
-Gate/selftest for the exact pushed head are recorded in PR #4401 (supersedes the
-`f77be1eee` run for merge approval once green).
+The current publication head is `closer/issue-3956` at `9eaf43313…`, not the
+historical `closer-r3/issue-3956` branch. Fresh hosted job-log inspection is recorded
+separately in [hosted-gate-readback.json](hosted-gate-readback.json):
+
+| Tested revision | Gate run | Python 3.14 job | Coverage artifact | Hosted pytest result |
+| --- | --- | --- | --- | --- |
+| `f77be1eee61239aa264c166aed84db8fae8708f3` | `41567623097` | `125693048153` | `13200231583` | 50,308 passed, 27 skipped, 3 xfailed |
+| `9eaf43313c0e57ef964e4171f645985dca5742b8` | `41752024615` | `126320180581` | `13287665592` | 50,354 passed, 27 skipped, 3 xfailed |
+
+Both logs show 851 statements, zero missing statements, 386 branches, one partial
+branch site, `124->126`, and 99.92% for the generator. Runtime is Python 3.14.9;
+coverage versions differ (7.17.0 versus 7.17.1). Artifact metadata binds the second
+archive to `9eaf43313…`, digest
+`b63903e319393d955daf6a879fc9a1ffe7fa5d088672c97ab253be5f6c2ae06a`.
+The ZIP bytes were not inspected in this round; the new exact-head measurement
+is supported by its hosted job log. The older JSON receipt remains distinct.
+
+The logged command builder invokes `pytest -p ci_test_growth "${args[@]}"`.
+Its reconstructed argument vector, using the logged marker/worker environment,
+is below (the repeated xdist flags reflect the actual builder; the final ones win):
+
+```sh
+pytest -p ci_test_growth -m 'not quarantine and not slow' --junitxml=pytest-junit.xml --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -n auto --dist load -n 4 --dist=loadgroup
+```
+
+These hosted results concern repair snapshots only. No comparable original
+hosted baseline has been recovered, and no main delivery is inferred from them.
+
+## Current local validation and remaining delivery work
+
+Checkout source revision: `a9fb48a0c90308a13c8f09ac01ac57d9dc309a45`.
+The generator and original target test file remain byte-for-byte unchanged in
+this round. `git diff 314895ec… HEAD -- scripts/langchain/followup_issue_generator.py
+tests/test_followup_issue_generator.py` confirms the existing repair only restores
+inline annotation and removes the one helper-only test. The numbered-checklist
+implementation and consumer copy compare identical.
+
+The current selected interpreter is
+`/opt/hostedtoolcache/Python/3.14.10/x64/bin/python` (Python 3.14.10), matching the
+primary 3.14 runtime in `.github/workflows/ci-python-versions.env`.
+The required target pytest invocation with `-m 'not slow'` initially exited 3
+during optional LangSmith plugin startup: its use of deprecated
+`asyncio.iscoroutinefunction` conflicts with the repository's warning-as-error
+configuration. The isolated retry excludes that plugin; no test or assertion is
+disabled. The original invocation is not represented as successful.
+
+```sh
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py -q -m 'not slow'
+# 199 passed; exit 0
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-current-coverage.json
+# 199 passed; 851 statements, 0 missing; 386 branches, 1 partial; 99.92%; 124->126
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py tests/scripts/test_audit_followup_mutations.py -q -m 'not slow'
+# 222 passed (199 generator + 23 auditor regression cases); exit 0
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; process-isolated reporter aggregates the file as one passing unit
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# 170 individual tests passed, 0 failed, 0 skipped; exit 0
+ruff check scripts/audit_followup_mutations.py tests/scripts/test_audit_followup_mutations.py
+# All checks passed
+black --line-length 100 scripts/audit_followup_mutations.py
+black --line-length 100 tests/scripts/test_audit_followup_mutations.py
+# Both formatted successfully using single-file invocations
+git diff --check
+# exit 0
+```
+
+The required repository-wide command
+`black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+fails with a sandbox `PermissionError` binding the multiprocessing forkserver
+socket. `BLACK_NUM_WORKERS=1` retries were stopped at 45 and 90 seconds (exit 124);
+the latter reported 889 files unchanged but was aborted, so it is not a passing
+repository-wide result. The formatting gate therefore prohibits a commit.
+Staging the five original changed/new files also failed creating
+`.git/index.lock`: **read-only file system**. All changes remain local and
+uncommitted; no push, PR mutation, sync dispatch or merge was performed.
+
+Current task accounting (local evidence only):
+
+- [x] Inspect #4401 head, reviews and threads before source edits; record the actual blocker, with the `gh` transport failure disclosed.
+- [x] Verify the existing inline-guard repair removes only the helper-only test and retains the OSError fix/tests.
+- [x] Locate the Node files through #3960's file list and preserve their numbered-checklist behavior and existing whitespace difference.
+- [x] Audit all retained mutation cases, replace the two truncated receipts with bound full-output reruns, and verify restored GREEN against the identified repair source.
+- [x] Reconcile original delivery, repair, hosted snapshots, coverage units and unsupported baseline claims.
+- [x] Supersede conflicting historical completion/test-only claims and expose unrecoverable ranking provenance.
+- [x] Run targeted Python and Node validation and record the interpreter, command variants, revisions and results; the unmodified Python command's plugin-startup failure remains disclosed above.
+- [ ] Complete existing #4401 review settlement, exact-head gate verification, merge and immutable main readback. The CLI final readback also failed to connect; connected metadata still reports OPEN, `isDraft=false`, unchanged head and `merged_at=null`.
+
+Acceptance remains incomplete: main still has the helper; #4401 is open with an
+active unresolved thread; the comparable hosted reduction is unproved; canonical
+ranking provenance is unrecoverable; and the unmodified Python invocation has an
+environment startup failure. The local table correction does not resolve the
+thread on the remote repair PR until it is delivered and reviewed there.
