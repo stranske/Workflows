@@ -268,20 +268,29 @@ def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Pat
     npm.write_text(
         "#!/bin/sh\nset -eu\n"
         'printf "%s\\n" "$*" >> "$INSTALL_LOG"\n'
-        'mkdir -p "$NPM_CONFIG_PREFIX/bin"\n'
-        'printf "#!/bin/sh\\necho cached-cli\\n" > "$NPM_CONFIG_PREFIX/bin/$CLI_BINARY"\n'
-        'chmod +x "$NPM_CONFIG_PREFIX/bin/$CLI_BINARY"\n'
+        'package_dir="$NPM_CONFIG_PREFIX/lib/node_modules/$CLI_PACKAGE"\n'
+        'mkdir -p "$NPM_CONFIG_PREFIX/bin" "$package_dir/bin"\n'
+        'printf "#!/bin/sh\\necho cached-cli\\n" > "$package_dir/bin/cli.js"\n'
+        'chmod +x "$package_dir/bin/cli.js"\n'
+        'ln -s "../lib/node_modules/$CLI_PACKAGE/bin/cli.js" '
+        '"$NPM_CONFIG_PREFIX/bin/$CLI_BINARY"\n'
     )
     npm.chmod(0o755)
     prefix_template = install["env"]["NPM_CONFIG_PREFIX"]
     prefix = Path(prefix_template.replace("${{ runner.temp }}", str(tmp_path / "cold")))
     log = tmp_path / "installs"
+    package = {
+        "codex": "@openai/codex",
+        "claude": "@anthropic-ai/claude-code",
+        "gemini": "@google/gemini-cli",
+    }[agent]
     env = {
         **os.environ,
         "PATH": f"{fake_bin}:/usr/bin:/bin",
         "NPM_CONFIG_PREFIX": str(prefix),
         "INSTALL_LOG": str(log),
         "CLI_BINARY": agent,
+        "CLI_PACKAGE": package,
         "CODEX_CLI_VERSION": version,
         "VERSION": version,
         "PACKAGE": "@anthropic-ai/claude-code",
@@ -306,8 +315,13 @@ def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Pat
         ["/bin/bash", "-c", install["run"]], env=env, check=True, capture_output=True, text=True
     )
     restored = Path(prefix_template.replace("${{ runner.temp }}", str(tmp_path / "restored")))
-    shutil.copytree(prefix, restored)
+    shutil.copytree(prefix, restored, symlinks=True)
     shutil.rmtree(prefix)
+    restored_binary = restored / "bin" / agent
+    assert restored_binary.is_symlink()
+    assert restored_binary.resolve(strict=True) == (
+        restored / "lib" / "node_modules" / package / "bin" / "cli.js"
+    )
     env.update(PATH=f"{fake_bin}:/usr/bin:/bin", NPM_CONFIG_PREFIX=str(restored))
     expose_prefix("restored")
     if agent != "codex":
@@ -318,11 +332,6 @@ def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Pat
         [agent, "--version"], env=env, check=True, capture_output=True, text=True
     )
     assert result.stdout.strip() == "cached-cli"
-    package = {
-        "codex": "@openai/codex",
-        "claude": env["PACKAGE"],
-        "gemini": "@google/gemini-cli",
-    }[agent]
     assert log.read_text().splitlines() == [f"install -g {package}@{version}"]
 
 
