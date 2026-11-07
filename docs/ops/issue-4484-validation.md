@@ -1,7 +1,7 @@
 # Issue 4484 focused validation
 
-Latest continuation: the reconciliation tool now checks candidate evidence, and
-the batch runner retains failed summaries for corrupt or unreadable receipts.
+Latest continuation: the reconciliation tool checks candidate evidence, and
+the batch runner rejects malformed receipt fields as well as unreadable JSON.
 Applying the ledger correction remains blocked by the read-only ledger.
 Workflow acceptance remains incomplete.
 Successful consumer lint and classification remain distinct from consumer merge,
@@ -1139,3 +1139,87 @@ used. The tested changes remain in the workspace. The ledger proposal and its
 unified diff are available at `/tmp/issue-4484-reconciled-ledger.yml` and
 `/tmp/issue-4484-ledger-reconciliation.patch` for an authorized writer; neither
 artifact is an applied correction.
+
+## PR #4531 malformed receipt structure continuation — 2026-11-07 UTC
+
+The first unchecked ledger task remains blocked. A normal patch to
+`.agents/issue-4484-ledger.yml` was rejected by the filesystem policy:
+`patch rejected: writing outside of the project; rejected by user approval settings`.
+The ledger was not changed through another writer. The existing reconciliation
+tool regenerated `/tmp/issue-4484-reconciled-ledger.yml`; its `--check` comparison
+against the original returned 0. This is a reviewed candidate, not an applied edit
+or successful Git-object validation.
+
+The prior corrupt-receipt fix handled invalid JSON and non-object JSON but still
+accepted malformed objects. New regressions reproduced null nodes/files/reports,
+non-object reports, missing report fields and an unknown outcome, each with zero
+and nonzero child exits. Before the fix: **12 failed, 6 passed, 16 deselected**,
+exit 1. Null fields and incomplete reports could crash aggregation; an unknown
+outcome with child exit zero could incorrectly produce a passing summary.
+
+`execute_pytest` now validates decoded node IDs, the node-to-file mapping and
+report fields before using the receipt. Invalid structures follow the existing
+unreadable-receipt path: preserve command, child exit code, elapsed time and log,
+discard invalid evidence, and write a failed summary with missing node/results.
+The tests exercise the CLI orchestration and inspect both saved receipt and
+summary. Existing real-child tests still cover successful batches, parametrized
+node IDs, ordinary skips, teardown failures, collection errors and timeouts.
+
+```text
+$ python3 -m pytest -q tests/scripts/test_reconcile_issue_4484_ledger.py tests/scripts/test_validate_workflow_test_batches.py tests/langchain/test_arg002_regression.py tests/scripts/test_verifier_capacity_backup.py tests/scripts/test_pr_verifier_sync_manifest.py -m 'not slow'
+181 passed in 15.66s
+Exit: 0
+
+$ python3 -m ruff check scripts/validate_workflow_test_batches.py tests/scripts/test_validate_workflow_test_batches.py
+All checks passed!
+Exit: 0
+```
+
+Both exact `/opt/anaconda3/bin/python3` acceptance commands returned **127**,
+because that interpreter is absent. Available Python is 3.14.10. Its real ledger
+validator returned **1**, because historical completion commits
+`555c4bd79ee812a6032f0d98531ddf33cb64d36a` and
+`ad56949f14f2746a7e6240adcc215adb967f5fb8` are missing. Evidence requirements were
+not relaxed. The six-file comparison against #4487's merge, listed above,
+returned 0, and the isolated ARG002 lint check passed on both authoritative
+sources and the verifier template. The successful consumer lint and classification
+receipts are preserved; consumer merge remains unestablished.
+
+The workflow suite was not rerun for this receipt-validation correction. Its
+retained **3,534 passed, 3 skipped, 12 failed** result remains failed. The PR body's
+checked passing-workflow criterion remains unsupported and must be unchecked.
+
+A fresh `gh api graphql` request for #4511 returned **1**, `error connecting to
+api.github.com`. The connector fallback returned an empty #4511 thread inventory.
+For #4531, `PRRT_kwDOQprj9M6049Eg` is now **outdated**, still unresolved. Its
+corrupt-receipt finding is addressed by retained commit `42fc5e96` and extended by
+this continuation. These inventories remain separate from historical #4487
+findings; no later merge-boundary inventory or guarded merge is claimed.
+The connector confirmed #4531 is **open**, **draft=false**, head
+`42fc5e96b1df18efc1c0d181096556c13b35a0c5`.
+
+Attempts to uncheck the unsupported passing-workflow criterion, add the requested
+`needs-human` label and post the blocker comment each returned
+`MCP tool call requires approval, but approval policy is never`. None was applied.
+Guarded merge remains held for the unapplied ledger correction and incomplete
+workflow acceptance. No acceptance checkbox is newly marked complete.
+
+Black formatted both changed Python files at line length 100. A single-worker
+full check exceeded its 45-second bound (exit 124). Black's own source selection
+and sequential `reformat_one` API then checked the identical configured selection,
+including the explicit exclude, and populated its writable cache: **960 files,
+960 unchanged, 0 changes, 0 failures**, exit 0. The required normal CLI then passed:
+
+```text
+$ BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-4484-receipt-schema-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+All done!
+960 files would be left unchanged.
+Exit: 0
+```
+
+`git diff --check` passed. After that formatting gate, staging the three changed
+files for commit `fix: reject malformed workflow batch receipt fields` failed:
+`fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock':
+Read-only file system` (exit 128). No commit or push occurred, and no alternate
+Git metadata writer was used. The tested source and regression changes remain
+in the workspace for an authorized writer.

@@ -147,6 +147,29 @@ def compare_receipts(original: list[str], batches: list[dict]) -> dict:
     }
 
 
+def valid_receipt(receipt: object) -> bool:
+    """Check decoded child evidence before collection or result aggregation."""
+    if not isinstance(receipt, dict):
+        return False
+    nodes = receipt.get("nodes", [])
+    files = receipt.get("files", {})
+    reports = receipt.get("reports", [])
+    if not isinstance(nodes, list) or not all(isinstance(node, str) and node for node in nodes):
+        return False
+    if not isinstance(files, dict) or not all(
+        isinstance(files.get(node), str) and files[node] for node in nodes
+    ):
+        return False
+    return isinstance(reports, list) and all(
+        isinstance(report, dict)
+        and isinstance(report.get("nodeid"), str)
+        and bool(report["nodeid"])
+        and report.get("when") in ("setup", "call", "teardown")
+        and report.get("outcome") in ("passed", "failed", "skipped")
+        for report in reports
+    )
+
+
 def execute_pytest(args: list[str], prefix: Path, timeout: float) -> dict:
     """Bound a child and its descendants, preserving its log and terminal status."""
     receipt_path = prefix.with_suffix(".json")
@@ -172,8 +195,8 @@ def execute_pytest(args: list[str], prefix: Path, timeout: float) -> dict:
             exit_code = 124
     try:
         receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
-        if not isinstance(receipt, dict):
-            raise ValueError("pytest receipt must be an object")
+        if not valid_receipt(receipt):
+            raise ValueError("invalid pytest receipt structure")
     except (ValueError, OSError):
         receipt = {"receipt_error": "unreadable pytest receipt"}
     receipt.update(

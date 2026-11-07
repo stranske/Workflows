@@ -160,7 +160,20 @@ def test_reports_cannot_be_borrowed_from_another_batch(transfer):
     }
 
 
-@pytest.mark.parametrize("corruption", ["partial", "nonmapping", "unreadable"])
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        "partial",
+        "nonmapping",
+        "unreadable",
+        "nodes_null",
+        "files_null",
+        "reports_null",
+        "report_nonmapping",
+        "report_missing_field",
+        "report_unknown_outcome",
+    ],
+)
 @pytest.mark.parametrize("child_exit", [0, 1])
 def test_bad_child_receipt_retains_failure_summary(tmp_path, monkeypatch, corruption, child_exit):
     output = tmp_path / "evidence"
@@ -174,7 +187,20 @@ def test_bad_child_receipt_retains_failure_summary(tmp_path, monkeypatch, corrup
             if collecting:
                 path.write_text(json.dumps({"nodes": [node], "files": {node: "test_one.py"}}))
             else:
-                path.write_text("[]" if corruption == "nonmapping" else '{"nodes":')
+                malformed = receipt([node])
+                malformed["files"] = {node: "test_one.py"}
+                if corruption.endswith("_null"):
+                    malformed[corruption.removesuffix("_null")] = None
+                elif corruption == "report_nonmapping":
+                    malformed["reports"][0] = "incomplete report"
+                elif corruption == "report_missing_field":
+                    del malformed["reports"][0]["when"]
+                elif corruption == "report_unknown_outcome":
+                    malformed["reports"][1]["outcome"] = "unknown"
+                if corruption in {"partial", "unreadable"}:
+                    path.write_text('{"nodes":')
+                else:
+                    path.write_text(json.dumps([] if corruption == "nonmapping" else malformed))
                 kwargs["stdout"].write("child stopped while writing receipt\n")
             return 0 if collecting else child_exit
 
