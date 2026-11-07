@@ -3630,6 +3630,96 @@ A held or failed dispatch emits no success receipt. This receipt is not
 production completion. Confirm the next Maint 71 run reaches the review/seal
 path without an identity mismatch.
 
+### Acceptance evidence (issue #4435, PR #4477)
+
+Recorded **2026-11-06** (local observation, America/Regina, UTC−6). **Stop rule:**
+at most two attempts or 30 minutes per observation batch (local Node tests
+completed in one attempt).
+
+**Revision containing the #4477 merge:** current `main` includes merge commit
+`d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4` (PR #4477,
+`git merge-base --is-ancestor d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4 HEAD`
+succeeds). Evidence below was taken at worktree HEAD
+`aaabc91f36eefb5f2c54545cff7199685d47d399`.
+
+**Issue-specified Node tests (both PASS):**
+
+```bash
+node --test .github/scripts/__tests__/scoped-canary-refresh.test.js
+node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js
+```
+
+Result: `scoped-canary-refresh.test.js` — 86 pass, 0 fail;
+`maint71_merge_sync_prs.test.js` — 178 pass, 0 fail.
+
+**Deliberate-break / restore (report-refresh path):** In a disposable checkout,
+`dispatchCandidateRefreshFromReport` in `.github/scripts/maint71_merge_sync_prs.js`
+was temporarily changed to call `dispatchCanaryRefresh` **without** passing
+`refreshState` (the state built from the campaign `source_commit` / plan tuple).
+That makes full-scope admission fall back to the default-branch tip instead of
+the campaign source. The named regression then **failed** as expected:
+
+```bash
+node --test --test-name-pattern='full-scope candidate refresh dispatches with the campaign source and plan id' \
+  .github/scripts/__tests__/scoped-canary-refresh.test.js
+```
+
+Transcript (failure): `AssertionError` — `result.sha` was
+`ffffffffffffffffffffffffffffffffffffffff` (main tip in the fixture) instead
+of the campaign `source_commit` `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`.
+After restoring `refreshState: state` on that call, the same command **passed**
+(1 pass, 0 fail).
+
+**Live Maint 71 binding (`refresh_dispatched` ≥ 1) and three canaries:**
+
+- **Run:** `42263579550` — [workflow run](https://github.com/stranske/Workflows/actions/runs/42263579550)
+  (candidate selector, `Merge Sync PRs [candidate]`, head `d58f4aa9e54658c6f904c0cccf62dc3b094ea4e4`).
+- **Observation command:**  
+  `gh run view 42263579550 --repo stranske/Workflows --log`
+- **Refresh-step log line (candidate refresh receipt):**  
+  `candidate refresh receipt: source_commit=5af534766f3706b109eac5b163b74ff968eef74a plan_id=sha256:72846175e038355cadc4a015d08c6a2af2ee51ffe4192ea5038c323038d9b117 refresh_dispatched=1 held_plans=sha256:72846175e038355cadc4a015d08c6a2af2ee51ffe4192ea5038c323038d9b117 drainable=2`
+- **Report artifact:** job artifact `sync-pr-merge-and-canary-evidence` on that run;
+  `canary_refresh.refresh_dispatched` is `1` with the same `held_plans` and
+  `source_commit`/`plan_id` as the receipt line.
+- **Three configured canaries in that report:** `stranske/Travel-Plan-Permission`
+  (`checks_failed`, `repair-required-checks`), `stranske/trip-planner`
+  (`stable_base_refresh_required`, `dispatch-maint-68-phase-canary-no-filter`),
+  `stranske/Portable-Alpha-Extension-Model` (`stable_base_refresh_required`,
+  `dispatch-maint-68-phase-canary-no-filter`). A plain-text search of
+  `sync-pr-merge-report.json` and `sync-canary-evidence.json` from that artifact
+  found **no** `candidate_immutable_identity_mismatch` string.
+
+**Following Maint 71 report (subsequent run after refresh dispatch):**
+
+- **Run:** `42278393127` — [workflow run](https://github.com/stranske/Workflows/actions/runs/42278393127)
+  (candidate selector, `Merge Sync PRs [candidate]`, head `c13984afb0cfb701d3acc3a649406a4057f4043c`).
+- **Observation command:**
+  `gh run view 42278393127 --repo stranske/Workflows --log`
+- **Refresh status:** `Candidate refresh not required: candidate report has no stable base refresh request`
+  (the refresh dispatched in run 42263579550 has been applied).
+- **Canary refresh accounting:** `canary_refresh.refresh_dispatched` is `1`,
+  `drainable` is `0`, `held_plans` contains the same campaign plan_id
+  `sha256:72846175e038355cadc4a015d08c6a2af2ee51ffe4192ea5038c323038d9b117`.
+- **Canary states in this subsequent report:**
+  - `stranske/Travel-Plan-Permission`: `check_status` = `checks_failed`, `refresh_state.sha` = campaign source `5af534766f3706b109eac5b163b74ff968eef74a`
+  - `stranske/trip-planner`: `check_status` = `seal_pending`, `refresh_state.sha` = campaign source `5af534766f3706b109eac5b163b74ff968eef74a`
+  - `stranske/Portable-Alpha-Extension-Model`: `check_status` = `seal_pending`, `refresh_state.sha` = campaign source `5af534766f3706b109eac5b163b74ff968eef74a`
+  Both `trip-planner` and `Portable-Alpha-Extension-Model` have advanced to
+  `seal_pending`, indicating the refresh completed and they are now ready for sealing.
+- **Artifacts:** `sync-pr-merge-and-canary-evidence` available on this run; artifact search
+  found **no** `candidate_immutable_identity_mismatch` in `sync-pr-merge-report.json`.
+- **No identity mismatch:** All three canaries carry the correct campaign
+  `source_commit`/`plan_id` tuple in their `refresh_state` and `delivery_binding`,
+  confirming full-scope campaign identity was preserved across the refresh.
+
+No production code change was required for this closer step; the live run did
+not expose a defect in `maint71_merge_sync_prs.js` beyond what #4477 already
+merged.
+
+**Local branch note:** `origin/codex/issue-4435-exact-refresh` is far behind
+current `main` (thousands of commits) and was **not** merged; acceptance is
+anchored on `main` above.
+
 
 Maint 71 uses `STALE_CANARY_HOURS = 6` against the producer's
 `head_observed_at` to recover blocked or non-mergeable canaries. Green,
