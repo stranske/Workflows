@@ -1,0 +1,76 @@
+# Issue #4508 source verification
+
+Reviewed source fix `37e23000` and PR #4510 follow-up commits through `8226bd56`.
+The relevant source fix and regression tests are confined to CI history;
+merged base changes are outside this task.
+
+## Verified implementation
+
+- [x] Locate the sync source: `.github/sync-manifest.yml` ships
+  `scripts/ci_history.py` directly, without a separate consumer template.
+- [x] Identify the conflicting annotations in `main()` at lines 119 and 152.
+- [x] Keep `record` in the missing-report branch and use `failure_record` in
+  the exception branch, preserving runtime output.
+- [x] Verify the fixed source with mypy using an empty configuration, bypassing
+  this repository's relaxed `scripts.*` override.
+- [x] Run the consumer-layout regression tests for namespace and regular packages.
+- [x] Reintroduce the duplicate annotation in the actual source, observe the named
+  regression test fail with the original diagnostic, restore the source, and rerun
+  successfully.
+- [x] Extend the runtime error-path test to verify the appended NDJSON record,
+  preservation of previous history, complete failure evidence, and GitHub metadata
+  both present and absent.
+
+Validation:
+
+```text
+python -m mypy --config-file <temporary-empty-mypy.ini> --no-incremental \
+  --ignore-missing-imports --follow-imports=silent \
+  --cache-dir <temporary-cache> scripts/ci_history.py
+Success: no issues found in 1 source file
+
+# Duplicate annotation temporarily restored, then reverted in a finally block:
+python -m pytest tests/scripts/test_ci_history.py::test_ci_history_type_checks_under_consumer_mypy -m 'not slow' -q
+1 failed: scripts/ci_history.py:152: error: Name "record" already defined on line 119 [no-redef]
+
+# Fixed source restored:
+python -m pytest tests/scripts/test_ci_history.py tests/workflows/test_ci_history.py tests/scripts/test_ci_metrics.py tests/workflows/test_ci_metrics.py -m 'not slow' -q
+43 passed
+
+ruff check tests/workflows/test_ci_history.py
+All checks passed!
+```
+
+The broader `python -m pytest tests/ -m 'not slow' -q -x` run was interrupted
+before completion; no full-suite success is claimed. The required repository-wide
+Black command failed when Python 3.14's forkserver tried to bind a local socket
+(`PermissionError: Operation not permitted`). A single-worker retry did not
+return a result and was interrupted. The edited Python file was formatted at
+line length 100 and passes `black --check --line-length 100
+tests/workflows/test_ci_history.py`; the global formatting gate is not established.
+A fork-worker compatibility retry also returned no result and was interrupted.
+
+## Delivery verification remains external
+
+- [ ] Confirm `Python CI / typecheck-mypy` succeeds on the regenerated
+  `stranske/trip-planner#1957` head.
+- [ ] Confirm the next sync-core round no longer reports this finding.
+
+These are post-merge or human verification steps, outside the agent's local
+completion criteria. The scheduled `.github/workflows/maint-68-sync-consumer-repos.yml`
+must regenerate the consumer PR. The workflow file must not be modified or
+manually triggered by this agent; the generated consumer PR must not be patched.
+
+`gh run view 42325493922 --repo stranske/trip-planner --json conclusion,headSha,jobs`
+could not connect to `api.github.com`. The GitHub connector independently confirmed
+that the original run's job `128260180158` (`Python CI / typecheck-mypy`) failed.
+That historical run does not establish success for a regenerated head.
+
+PR checkbox reconciliation was attempted through the GitHub connector but blocked:
+`MCP tool call requires approval, but approval policy is never`. The verified
+checkboxes above record the reconciliation without claiming the remote PR body
+was updated. PR #4510 was verified open and ready for review (`draft=false`).
+
+The local commit is also blocked: `git add` cannot create `.git/index.lock`
+because `.git` is mounted read-only. The source test change and this evidence
+remain in the working tree for the automation runner to commit.
