@@ -515,3 +515,61 @@ merges.
 - `docs/evidence/issue-4019/r3/acceptance.md` exists only on #4431's branch
   (not on this branch), so this record lives in `acceptance-integration.md`.
   It should be reconciled once #4431 merges. Merge remains unauthorized here.
+
+
+## #4433 remainder acceptance recorded before code (2026-11-06 CST)
+
+Check time: 2026-11-07T03:36:40Z. Outcome 1 is the delivered integration's
+`TARGET_MISSING <= 5` from identified raw hosted Python 3.14 coverage, with each
+residual explained; focused pytest and both hosted runtime jobs must pass.
+Command: `/opt/anaconda3/bin/python3 docs/evidence/issue-4019/r3/target_missing.py <artifact>/runtimes/3.14/coverage.json`.
+Focused command: `/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py tests/scripts/test_check_consumer_sync_drift.py tests/tools/test_llm_provider.py`.
+Current outcome: UNKNOWN; integration is not delivered. Stop rule: two failures
+at one step or 60 minutes from 2026-11-07T03:36:40Z, whichever occurs first.
+First broken step must be reported; no next repair is authorized by elapsed time.
+Blocking/drainable: no integration result yet / integrate the named immutable
+#4431 payload under #4433's existing claim and run focused validation plus hosted CI.
+Original #4431 owner's dispatch is terminal with explicit released:true; no
+#4019/#4431 local claim exists. Coordination notice could not be posted: connector approval policy is never.
+The original owner is terminal; its source branch/worktree remain untouched.
+Only closer-r1/issue-4433 exists among closer*/issue-4433 branches; it equals
+current origin/main 0fb506e6ab16f1b4105a587021d28d60c0f6eb8b. Nothing to recover
+from another local #4433 branch; nothing discarded.
+
+## Current integration status (supersedes historical open-#4495 statements above)
+
+#4495 merged as `0fb506e6ab16f1b4105a587021d28d60c0f6eb8b`, current
+`origin/main` at the start of this run. Its production/template fix and focused
+regression are retained byte-for-byte; this integration changes no production
+source, dependency pins, or existing historical receipts. The payload is the
+three aggregate tests, remaining provider tests, and r3 evidence from #4431
+head `69e5b6d6cd3fb154be29890f2ae212772de8ce45`. No earlier tests were removed.
+
+The original #4431 owner's terminal dispatch and released claim were read; the
+source branch/worktree are untouched. An attempted coordination comment was
+rejected by connector approval policy `never`, so no remote handoff was posted.
+Its five unresolved review findings are accounted for here: active interpreter
+and protected write in mutate.py, partial-write/interpreter regressions,
+forced-provider environment isolation, portable documentation, and explicit
+final-head acceptance status. Its threads are not resolved by this integration.
+
+Reruns are separate in `integration-rerun/`; original `mutations/` receipts
+remain byte-identical to #4431. `driver-before.txt` records two behavioral
+assertion failures; `forced-before.txt` records the actual SubscriptionCLIProvider
+mismatch. Deliberate failing controls are expected evidence, not failed repair
+attempts. After files are corrected, the same commands are rerun.
+
+Final-head hosted Python 3.13/3.14 jobs, final raw coverage residuals, merge
+commit, main ancestry, and delivered-revision focused pytest remain PENDING.
+Historical counts above are not relabeled as current integration results.
+The historical 3.13 artifacts lacked coverage.json; a new artifact inventory
+must confirm whether that is still true. Historical summary.json percentages
+disagreed with raw coverage counters; use raw counters and report separately.
+
+Local integrated validation: 269 passed in 0.73s; driver regressions 2 passed
+in 0.20s; forced-provider test with CLI=codex initially set 1 passed in 0.23s.
+Fresh mutation reproduction: 27/27 behavioral red -> restored green; every
+source digest restored, no collection-error substitutes. Retention verification
+confirms 55 original mutation files unchanged and both provider production
+copies plus the sync-drift tests identical to current main. See
+`integration-rerun/retention.json` and separate raw outputs.

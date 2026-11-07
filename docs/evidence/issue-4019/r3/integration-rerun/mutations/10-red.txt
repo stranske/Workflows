@@ -1,0 +1,28 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_supports_quality_context_without_helper_uses_signature -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_supports_quality_context_without_helper_uses_signature _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x106339430>
+
+    def test_supports_quality_context_without_helper_uses_signature(self):
+        def accepts(session_output, tasks, context=None, quality_context=None):
+            return None
+    
+        def legacy(session_output, tasks, context=None):
+            return None
+    
+        with_qc = SimpleNamespace(supports_quality_context=None, analyze_completion=accepts)
+        without_qc = SimpleNamespace(supports_quality_context=None, analyze_completion=legacy)
+        unsigned = SimpleNamespace(supports_quality_context=None, analyze_completion=legacy)
+    
+        assert supports_quality_context(with_qc) is True
+>       assert supports_quality_context(without_qc) is False
+E       assert True is False
+E        +  where True = supports_quality_context(namespace(supports_quality_context=None, analyze_completion=<function TestRemainingProviderPaths.test_supports_quality_context_without_helper_uses_signature.<locals>.legacy at 0x1063adda0>))
+
+tests/tools/test_llm_provider.py:2235: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_supports_quality_context_without_helper_uses_signature
+1 failed in 0.20s
+exit=1

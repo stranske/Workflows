@@ -1,0 +1,59 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_langchain_client_none_when_helper_missing -q -p no:cacheprovider
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_langchain_client_none_when_helper_missing[OpenAIProvider] _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x10581da00>
+provider_class = <class 'tools.llm_provider.OpenAIProvider'>
+
+    @pytest.mark.parametrize("provider_class", [OpenAIProvider, AnthropicProvider])
+    def test_langchain_client_none_when_helper_missing(self, provider_class):
+        with (
+            patch.dict(sys.modules, {"tools.langchain_client": None}),
+            patch("tools.llm_provider._configured_langchain_model", return_value="model"),
+        ):
+>           assert provider_class()._get_client() is None
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/tools/test_llm_provider.py:2294: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tools.llm_provider.OpenAIProvider object at 0x1058c7da0>
+
+    def _get_client(self):
+        """Get LangChain ChatOpenAI client."""
+        try:
+>           from tools.langchain_client import build_chat_client
+E           ModuleNotFoundError: import of tools.langchain_client halted; None in sys.modules
+
+tools/llm_provider.py:613: ModuleNotFoundError
+_ TestRemainingProviderPaths.test_langchain_client_none_when_helper_missing[AnthropicProvider] _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x10581db50>
+provider_class = <class 'tools.llm_provider.AnthropicProvider'>
+
+    @pytest.mark.parametrize("provider_class", [OpenAIProvider, AnthropicProvider])
+    def test_langchain_client_none_when_helper_missing(self, provider_class):
+        with (
+            patch.dict(sys.modules, {"tools.langchain_client": None}),
+            patch("tools.llm_provider._configured_langchain_model", return_value="model"),
+        ):
+>           assert provider_class()._get_client() is None
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/tools/test_llm_provider.py:2294: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tools.llm_provider.AnthropicProvider object at 0x10581d670>
+
+    def _get_client(self):
+        try:
+>           from tools.langchain_client import build_chat_client
+E           ModuleNotFoundError: import of tools.langchain_client halted; None in sys.modules
+
+tools/llm_provider.py:689: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_langchain_client_none_when_helper_missing[OpenAIProvider]
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_langchain_client_none_when_helper_missing[AnthropicProvider]
+2 failed in 0.24s
+exit=1

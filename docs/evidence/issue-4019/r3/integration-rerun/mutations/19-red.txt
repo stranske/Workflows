@@ -1,0 +1,30 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_anthropic_does_not_retry_unrelated_type_error -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_anthropic_does_not_retry_unrelated_type_error _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x1185329f0>
+
+    def test_anthropic_does_not_retry_unrelated_type_error(self):
+        provider = AnthropicProvider()
+        client = MagicMock()
+        client.invoke.side_effect = TypeError("unsupported operand")
+        with (
+            patch.object(provider, "_get_client", return_value=client),
+            pytest.raises(TypeError, match="unsupported operand"),
+        ):
+            provider.analyze_completion(
+                "output", ["task1"], quality_context=SessionQualityContext()
+            )
+>       assert client.invoke.call_count == 1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = <MagicMock name='mock.invoke' id='4703764208'>.call_count
+E        +    where <MagicMock name='mock.invoke' id='4703764208'> = <MagicMock id='4703069504'>.invoke
+
+tests/tools/test_llm_provider.py:2327: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    tools.llm_provider:llm_provider.py:757 Anthropic API error: unsupported operand
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_anthropic_does_not_retry_unrelated_type_error
+1 failed in 0.20s
+exit=1

@@ -1,0 +1,32 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_does_not_retry_unrelated_type_error -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_fallback_chain_does_not_retry_unrelated_type_error _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x10661b650>
+
+    def test_fallback_chain_does_not_retry_unrelated_type_error(self):
+        provider = MagicMock()
+        provider.name = "qc-aware"
+        provider.supports_quality_context.return_value = True
+        provider.analyze_completion.side_effect = TypeError("bad operand type")
+        chain = FallbackChainProvider([provider])
+    
+        with pytest.raises(TypeError, match="bad operand type"):
+            chain._analyze_with_provider(
+                provider,
+                session_output="output",
+                tasks=["task1"],
+                context=None,
+                quality_context=SessionQualityContext(),
+            )
+>       assert provider.analyze_completion.call_count == 1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = <MagicMock name='mock.analyze_completion' id='4402861920'>.call_count
+E        +    where <MagicMock name='mock.analyze_completion' id='4402861920'> = <MagicMock id='4402030512'>.analyze_completion
+
+tests/tools/test_llm_provider.py:2354: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_fallback_chain_does_not_retry_unrelated_type_error
+1 failed in 0.20s
+exit=1

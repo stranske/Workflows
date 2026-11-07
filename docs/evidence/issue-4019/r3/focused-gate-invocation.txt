@@ -1,0 +1,6 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py tests/scripts/test_check_consumer_sync_drift.py tests/tools/test_llm_provider.py -m 'not quarantine and not slow' -n auto --dist load --junitxml=/tmp/4019r3/junit.xml --cov --cov-config=pyproject.toml --cov-report=xml:/tmp/4019r3/cov.xml --cov-report=term-missing --cov-report=json:/tmp/4019r3/cov.json -n 4 --dist=loadgroup -p no:cacheprovider
+scripts/aggregate_agent_metrics.py                           899      0    380      0 100.00%
+scripts/check_consumer_sync_drift.py                         633      0    296      0 100.00%
+tools/llm_provider.py                                        447     15    114      3  96.79%   73-74, 220-224, 265, 270, 292, 1019-1023, 1044
+============================= 268 passed in 23.01s =============================
+exit=0
