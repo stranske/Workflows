@@ -809,7 +809,7 @@ test('a guarded success that skipped mutation does not consume the recovery key'
   f.github.paginate = async (_fn, params) => [{
     name: 'Prepare sync from manifest',
     steps: [{ name: 'Authorize canary payload mutation',
-      conclusion: params.run_id === 21 ? 'success' : 'skipped' }],
+      conclusion: params.run_id === 30 ? 'skipped' : 'success' }],
   }];
   // The live campaign payload is unchanged, so a no-mutation success shares
   // the source key. It must not count as the receipt for its own drift.
@@ -833,6 +833,8 @@ test('a guarded success that skipped mutation does not consume the recovery key'
   const held = await f.call();
   assert.equal(held.dispatched, false);
   assert.equal(held.state, 'cancelled');
+  // Run 31 authorized. A never-authorized cancellation is not a hold. Run 30's
+  // skipped authorization must not retire this newer cancellation.
   assert.equal(f.writes.length, 1, 'a skipped authorization cannot retire a newer cancellation');
 });
 for (const historicalSource of ['campaign', 'newer main']) {

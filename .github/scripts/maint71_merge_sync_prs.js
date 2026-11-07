@@ -336,18 +336,26 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   // A later same-payload success means the producer ran past an older failure
   // or cancellation. That stale non-success must not hold a new recovery key
   // for the rest of the debounce window. A non-success newer than every
-  // matching success still holds, including an unkeyed failure for a new head.
+  // matching success still holds, including an unkeyed failure for a new head,
+  // except a completed delivery-v1 run that never authorized payload mutation
+  // unless job evidence classifies it for the infrastructure debounce policy.
   const observedAt = (run) => Date.parse(run.updated_at || run.created_at);
   const newestSuccessAt = matching.reduce((latest, run) => {
-    if (run.refresh_not_started || run.status !== 'completed' || run.conclusion !== 'success') return latest;
+    if (run.refresh_not_started || run.refresh_unknown || run.status !== 'completed'
+      || run.conclusion !== 'success') return latest;
     const at = observedAt(run);
     return Number.isFinite(at) && at > latest ? at : latest;
   }, 0);
   const recentCandidates = matching.filter((run) => {
     const at = observedAt(run);
-    return run.status === 'completed' && run.conclusion !== 'success'
+    if (!(run.status === 'completed' && run.conclusion !== 'success'
       && Number.isFinite(at) && at > newestSuccessAt
-      && now - at < CANARY_REFRESH_DEBOUNCE_MS;
+      && now - at < CANARY_REFRESH_DEBOUNCE_MS)) return false;
+    if (!run.refresh_not_started) return true;
+    // Never-authorized runs only occupy the window when job evidence classifies
+    // them for the one-miss infrastructure / consumer debounce policy.
+    const classification = canaryRefreshFailureClass(run);
+    return classification === 'infrastructure' || classification === 'consumer';
   });
   // `matching` is one (plan, source, candidates) key. A single infrastructure
   // failure in that key does not debounce the next attempt. A second consecutive
@@ -527,15 +535,22 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     // explicit authorization step is the receipt, not the run conclusion.
     // A skipped authorization must not consume the recovery key: the next
     // Maint 68 guard would otherwise see a success and refuse the mutation
-    // the canaries are still waiting on.
-    if (run.status === 'completed' && run.conclusion === 'success'
-      && String(run.display_title).endsWith(' guard=delivery-v1')) {
+    // the canaries are still waiting on. A rate-limit failure or a cancel
+    // before that step did not write, so it must not occupy the retry window.
+    // Older non-successes are already outside the window and do not need
+    // another job read.
+    const guarded = String(run.display_title).endsWith(' guard=delivery-v1');
+    const recentNonSuccess = run.status === 'completed' && run.conclusion !== 'success'
+      && Number.isFinite(Date.parse(run.updated_at || run.created_at))
+      && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS;
+    if (run.status === 'completed' && guarded && (run.conclusion === 'success' || recentNonSuccess)) {
       const jobs = await withRetry(client => client.paginate(client.rest.actions.listJobsForWorkflowRun,
         { ...location, run_id: run.id, per_page: 100 }));
-      if (!jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
-        && step.conclusion === 'success'))) {
+      const authorized = jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
+        && step.conclusion === 'success'));
+      if (!authorized) {
         run.refresh_not_started = true;
-        continue;
+        if (run.conclusion === 'success') continue;
       }
     }
     run.source_commit = match[1];
