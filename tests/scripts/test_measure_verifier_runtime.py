@@ -261,7 +261,8 @@ def test_run_withholds_comparison_when_source_changes_during_execution(tmp_path,
     def fake_pytest(command, *, cwd, **kwargs):
         _junit_receipt(cwd, name="pytest-junit.xml")
         coverage = {
-            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
+            "meta": {"branch_coverage": True},
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}},
         }
         (cwd / "coverage.json").write_text(json.dumps(coverage))
         # Change the other arm too: both snapshots must be checked at the end,
@@ -289,11 +290,15 @@ def test_run_withholds_comparison_when_source_changes_during_execution(tmp_path,
 
 def test_coverage_loss_is_not_reported_as_equivalence():
     before = {
+        "meta": {"branch_coverage": True},
         "files": {
             measure.VERIFIER: {"executed_lines": [1, 2], "executed_branches": [[1, 2], [1, 3]]}
-        }
+        },
     }
-    after = {"files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, 2]]}}}
+    after = {
+        "meta": {"branch_coverage": True},
+        "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, 2]]}},
+    }
     result = measure.coverage_comparison(before, after)
     assert result["lost_lines"] == [2]
     assert result["lost_branches"] == [(1, 3)]
@@ -393,20 +398,76 @@ def test_source_archive_refuses_links(tmp_path):
 )
 @pytest.mark.parametrize("arm", ["baseline", "candidate"])
 def test_coverage_comparison_refuses_incomplete_or_invalid_lists(entry, arm):
-    valid = {"files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}}
-    invalid = {"files": {measure.VERIFIER: entry}}
+    valid = {
+        "meta": {"branch_coverage": True},
+        "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}},
+    }
+    invalid = {"meta": {"branch_coverage": True}, "files": {measure.VERIFIER: entry}}
     before, after = (invalid, valid) if arm == "baseline" else (valid, invalid)
     with pytest.raises(ValueError, match=arm + ".*coverage"):
         measure.coverage_comparison(before, after)
 
 
 def test_coverage_comparison_accepts_explicit_empty_lists_and_negative_exits():
-    empty = {"files": {measure.VERIFIER: {"executed_lines": [], "executed_branches": []}}}
+    empty = {
+        "meta": {"branch_coverage": True},
+        "files": {measure.VERIFIER: {"executed_lines": [], "executed_branches": []}},
+    }
     populated = {
-        "files": {measure.VERIFIER: {"executed_lines": [1, 2], "executed_branches": [[2, -1]]}}
+        "meta": {"branch_coverage": True},
+        "files": {measure.VERIFIER: {"executed_lines": [1, 2], "executed_branches": [[2, -1]]}},
     }
     assert measure.coverage_comparison(empty, empty)["lost_branches"] == []
     assert measure.coverage_comparison(populated, populated)["candidate_branches"] == 1
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize(
+    "meta",
+    [None, [], {}, {"branch_coverage": False}, {"branch_coverage": "true"}, {"branch_coverage": 1}],
+)
+def test_coverage_comparison_requires_explicit_branch_mode(arm, meta):
+    # Empty arc lists alone cannot distinguish branch coverage from line-only data.
+    valid = {
+        "meta": {"branch_coverage": True},
+        "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": []}},
+    }
+    invalid = {"files": valid["files"]}
+    if meta is not None:
+        invalid["meta"] = meta
+    before, after = (invalid, valid) if arm == "baseline" else (valid, invalid)
+    with pytest.raises(ValueError, match=arm + ".*branch coverage"):
+        measure.coverage_comparison(before, after)
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_run_withholds_line_only_branch_comparison(tmp_path, monkeypatch, arm):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        _junit_receipt(cwd, name="pytest-junit.xml")
+        coverage = {
+            "meta": {"branch_coverage": cwd.name != arm},
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": []}},
+        }
+        (cwd / "coverage.json").write_text(json.dumps(coverage))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.platform, "platform", lambda: "fixture-platform")
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    assert measure.run(output) == 1
+    result = json.loads((output / "result.json").read_text())
+    assert result["verifier_coverage"] is None
+    assert "UNKNOWN" in result["coverage_error"]
+    assert result["outcome_comparison"]["successful"] is True
+    assert result["timing_comparison"]["available"] is True
+    assert result["source_integrity"]["verified"] is True
+    assert result["packages_unchanged"] is True
+    assert all(row["exit_code"] == 0 for row in result["arms"].values())
+    assert len(result["artifact_sha256"]) == 6
 
 
 def _junit_receipt(tmp_path, *, name="receipt.xml", status="", omit_suite=False):
@@ -493,7 +554,8 @@ def test_run_refuses_truncated_junit_even_when_every_scoped_suite_is_present(
         if cwd.name == arm:
             receipt.write_text(receipt.read_text().replace('tests="3"', 'tests="4"'))
         coverage = {
-            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
+            "meta": {"branch_coverage": True},
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}},
         }
         (cwd / "coverage.json").write_text(json.dumps(coverage))
         return subprocess.CompletedProcess(command, 0)
@@ -524,7 +586,8 @@ def test_run_refuses_incomplete_or_unsuccessful_outcome_evidence(
     output = tmp_path / "out"
     measure.prepare(repo, output)
     valid_coverage = {
-        "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
+        "meta": {"branch_coverage": True},
+        "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}},
     }
 
     def fake_pytest(command, *, cwd, **kwargs):
@@ -571,7 +634,9 @@ def test_run_preserves_failed_coverage_comparison_receipt(tmp_path, monkeypatch,
         if defect == "unreadable":
             coverage.write_text("{")
         elif defect == "invalid-lists":
-            coverage.write_text(json.dumps({"files": {measure.VERIFIER: {}}}))
+            coverage.write_text(
+                json.dumps({"meta": {"branch_coverage": True}, "files": {measure.VERIFIER: {}}})
+            )
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(measure, "packages", lambda: [])
@@ -598,7 +663,9 @@ def test_existing_measurement_failure_checks_remain_required(tmp_path, monkeypat
                 entry["executed_lines"] = [1]
             elif failure == "lost-branches":
                 entry["executed_branches"] = [[1, 2]]
-        (cwd / "coverage.json").write_text(json.dumps({"files": {measure.VERIFIER: entry}}))
+        (cwd / "coverage.json").write_text(
+            json.dumps({"meta": {"branch_coverage": True}, "files": {measure.VERIFIER: entry}})
+        )
         return subprocess.CompletedProcess(command, 1 if failure == "exit" else 0)
 
     package_reads = iter([[], [{"name": "changed"}]] if failure == "packages" else [[], []])
@@ -670,7 +737,8 @@ def test_run_keeps_outcomes_but_refuses_unknown_scoped_timing(tmp_path, monkeypa
                 ).replace('tests="3"', 'tests="4"')
             receipt.write_text(text.replace('time="0"', attribute))
         coverage = {
-            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
+            "meta": {"branch_coverage": True},
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}},
         }
         (cwd / "coverage.json").write_text(json.dumps(coverage))
         return subprocess.CompletedProcess(command, 0)

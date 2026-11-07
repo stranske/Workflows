@@ -241,6 +241,9 @@ def timing_comparison(arms: dict) -> dict:
 
 
 def _coverage_entry(report: dict, arm: str) -> dict:
+    meta = report.get("meta") if isinstance(report, dict) else None
+    if not isinstance(meta, dict) or meta.get("branch_coverage") is not True:
+        raise ValueError(f"{arm} branch coverage is not explicitly enabled in the receipt")
     files = report.get("files") if isinstance(report, dict) else None
     entry = files.get(VERIFIER) if isinstance(files, dict) else None
     if isinstance(entry, dict):

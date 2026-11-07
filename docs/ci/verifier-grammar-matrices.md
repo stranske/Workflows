@@ -353,7 +353,10 @@ arms; incomplete timing fails the measurement without erasing passing outcomes
 or relaxing existing exit/package/coverage checks. Known JUnit worker time alone
 does not establish controlled hosted phases or a wall-time speedup.
 Coverage comparison validates explicit executed-line/branch lists before taking
-set differences, including integer types and negative branch exits. Missing,
+set differences, including integer types and negative branch exits. Both JSON
+receipts must explicitly declare boolean `meta.branch_coverage: true`; missing
+metadata, disabled branch mode and truthy non-boolean values cannot establish a
+branch comparison even when both executed-branch lists are empty. Missing,
 unreadable or malformed coverage leaves `verifier_coverage: null` with a
 `coverage_error` UNKNOWN diagnostic and fails the job. These checks establish
 receipt validity; they do not supply missing hosted measurements or assert

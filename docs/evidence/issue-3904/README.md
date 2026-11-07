@@ -1,5 +1,63 @@
 # Issue3904 current evidence
 
+## Follow-up #4462 explicit branch-coverage receipts (2026-11-07)
+
+The comparison harness now requires explicit boolean
+`meta.branch_coverage: true` in both coverage JSON reports before comparing
+executed verifier lines and arcs. Missing/malformed metadata, disabled branch
+mode and truthy non-boolean values leave `verifier_coverage: null` with an UNKNOWN
+diagnostic and fail the measurement. Empty arc lists alone cannot prove that
+branch coverage ran. Existing valid-list, lost-line/branch, source-integrity,
+exit-status, package-drift, outcome and timing checks remain required.
+
+The unchanged harness baseline passed **151 tests in 17.35s**. Twelve metadata
+controls failed against the previous implementation; two additional run-level
+controls reproduced exit zero with line-only coverage and no reported branch
+loss. After the fix, Python **3.14.10** validation reports **165 passed in 19.86s**,
+with harness coverage **94.28%**:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_measure_verifier_runtime.py --cov=scripts.measure_verifier_runtime --cov-report=term-missing -q -m 'not slow'
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+ruff check scripts/measure_verifier_runtime.py tests/scripts/test_measure_verifier_runtime.py
+```
+
+The second command reports **2,207 passed in 12.41s**. Ruff and
+`git diff --check` pass. No harness coverage percentage target is specified.
+The real two-arm fixture still passes with actual branch coverage. These checks
+validate the harness; they do not establish scoped production-verifier coverage
+on Python 3.12/3.13 or controlled hosted phases. Existing archives and manifests
+remain unchanged.
+
+Both installed Python **3.12.16** and **3.13.18** still report
+`No module named pytest`. A fresh isolated Python 3.12 venv install into `/tmp`
+failed with `No matching distribution found for pytest`. Current-head
+[Gate run 42391932142](https://github.com/stranske/Workflows/actions/runs/42391932142)
+for `553a9448002bc48900d1e00bebd2dc1dab5ec910` succeeds, including Python 3.13
+job `128461307727` and Python 3.14 job `128461307780`; the connector omits job
+and step timestamps. This supplies no Python 3.12 job or matched phase comparison.
+
+The final evidence task remains unchecked. An authorized workflow editor must
+align the protected manual comparison's Python matrix and immutable source pair,
+preserve the common dependency lock and existing checks, and retain successful
+3.12/3.13 scoped coverage, branch/outcome comparisons and controlled hosted phase
+receipts. No protected workflow was edited. Attempts to add `needs-human` and
+post the concrete blocker on PR #4527 were rejected with
+`MCP tool call requires approval, but approval policy is never`. The PR was
+verified open with `draft=false`.
+
+Both touched Python files were Black-formatted at line length 100. A serial check
+honoring the configured exclusions populated the writable cache, then the
+required repository-wide command passed with **959 files unchanged**, exit **0**:
+
+```bash
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-4462-branch-mode-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+The requested commit was attempted after validation, but staging failed with
+`Unable to create '.git/index.lock': Read-only file system`. The four source,
+test and documentation changes remain uncommitted in the workspace.
+
 ## Follow-up #4462 prepared-source execution checks (2026-11-07)
 
 The comparison harness now rehashes its six manifest inputs in each prepared
