@@ -1,0 +1,483 @@
+{
+  "proofs": [
+    {
+      "mutation_id": "ci-scope-select-metadata",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "            matched_reasons.append(f\"`{_scenario_name(scenario)}` is unscoped\")",
+      "new": "            matched_reasons.append(f\"`{_scenario_name(scenario)}` is broken\")",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_scope_selection_preserves_requested_metadata_and_includes_unscoped_scenarios",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_scope_selection_preserves_requested_metadata_and_includes_unscoped_scenarios _\n\n    def test_scope_selection_preserves_requested_metadata_and_includes_unscoped_scenarios() -> None:\n        full = [\n            {\"name\": \"always\"},\n            {\"name\": \"docs\", \"scope\": \"docs/\"},\n            {\"name\": \"source\", \"paths\": [\"src/**\"], \"scope\": {\"reason\": \"source changed\"}},\n        ]\n        selected = reusable_ci_scope.select_scenarios(\n            \"example\", [\"docs/guide.md\"], full, {\"strip_scope\": False}\n        )\n    \n        assert selected.matrix == [full[0], full[1]]\n>       assert selected.reason == \"`always` is unscoped\"\nE       AssertionError: assert '`always` is broken' == '`always` is unscoped'\nE         \nE         - `always` is unscoped\nE         + `always` is broken\n\ntests/scripts/test_reusable_ci_scope.py:204: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_scope_selection_preserves_requested_metadata_and_includes_unscoped_scenarios\n1 failed in 0.30s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.23s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-path-matches-docs-slash",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "    if not has_glob:\n        return normalized_path == normalized_pattern or normalized_path.startswith(\n            f\"{normalized_pattern}/\"\n        )",
+      "new": "    if not has_glob:\n        return False",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[docs/guide.md-docs/-True]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_path_matching_normalizes_common_scope_forms[docs/guide.md-docs/-True] __\n\npath = 'docs/guide.md', pattern = 'docs/', expected = True\n\n    @pytest.mark.parametrize(\n        (\"path\", \"pattern\", \"expected\"),\n        [\n            (\"docs/guide.md\", \"docs/\", True),\n            (\"docs/guide.md\", \"docs\", True),\n            (\"nested/a.py\", \"**/*.py\", True),\n            (\"a.py\", \"**/*.py\", True),\n            (\"src/a.py\", \"src/*.js\", False),\n        ],\n    )\n    def test_path_matching_normalizes_common_scope_forms(\n        path: str, pattern: str, expected: bool\n    ) -> None:\n>       assert reusable_ci_scope._path_matches(path, pattern) is expected\nE       AssertionError: assert False is True\nE        +  where False = <function _path_matches at 0x1224eafc0>('docs/guide.md', 'docs/')\nE        +    where <function _path_matches at 0x1224eafc0> = reusable_ci_scope._path_matches\n\ntests/scripts/test_reusable_ci_scope.py:221: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[docs/guide.md-docs/-True]\n1 failed in 0.50s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.27s\n"
+        },
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[docs/guide.md-docs-True]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_path_matching_normalizes_common_scope_forms[docs/guide.md-docs-True] ___\n\npath = 'docs/guide.md', pattern = 'docs', expected = True\n\n    @pytest.mark.parametrize(\n        (\"path\", \"pattern\", \"expected\"),\n        [\n            (\"docs/guide.md\", \"docs/\", True),\n            (\"docs/guide.md\", \"docs\", True),\n            (\"nested/a.py\", \"**/*.py\", True),\n            (\"a.py\", \"**/*.py\", True),\n            (\"src/a.py\", \"src/*.js\", False),\n        ],\n    )\n    def test_path_matching_normalizes_common_scope_forms(\n        path: str, pattern: str, expected: bool\n    ) -> None:\n>       assert reusable_ci_scope._path_matches(path, pattern) is expected\nE       AssertionError: assert False is True\nE        +  where False = <function _path_matches at 0x10aed2fc0>('docs/guide.md', 'docs')\nE        +    where <function _path_matches at 0x10aed2fc0> = reusable_ci_scope._path_matches\n\ntests/scripts/test_reusable_ci_scope.py:221: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[docs/guide.md-docs-True]\n1 failed in 0.46s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.22s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-path-matches-glob",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "    if fnmatch.fnmatchcase(normalized_path, normalized_pattern):\n        return True\n    if normalized_pattern.startswith(\"**/\"):\n        return fnmatch.fnmatchcase(normalized_path, normalized_pattern[3:])",
+      "new": "    if fnmatch.fnmatchcase(normalized_path, normalized_pattern):\n        return False\n    if normalized_pattern.startswith(\"**/\"):\n        return False",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[nested/a.py-**/*.py-True]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_path_matching_normalizes_common_scope_forms[nested/a.py-**/*.py-True] __\n\npath = 'nested/a.py', pattern = '**/*.py', expected = True\n\n    @pytest.mark.parametrize(\n        (\"path\", \"pattern\", \"expected\"),\n        [\n            (\"docs/guide.md\", \"docs/\", True),\n            (\"docs/guide.md\", \"docs\", True),\n            (\"nested/a.py\", \"**/*.py\", True),\n            (\"a.py\", \"**/*.py\", True),\n            (\"src/a.py\", \"src/*.js\", False),\n        ],\n    )\n    def test_path_matching_normalizes_common_scope_forms(\n        path: str, pattern: str, expected: bool\n    ) -> None:\n>       assert reusable_ci_scope._path_matches(path, pattern) is expected\nE       AssertionError: assert False is True\nE        +  where False = <function _path_matches at 0x1071eafc0>('nested/a.py', '**/*.py')\nE        +    where <function _path_matches at 0x1071eafc0> = reusable_ci_scope._path_matches\n\ntests/scripts/test_reusable_ci_scope.py:221: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[nested/a.py-**/*.py-True]\n1 failed in 0.32s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.23s\n"
+        },
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[a.py-**/*.py-True]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_path_matching_normalizes_common_scope_forms[a.py-**/*.py-True] ______\n\npath = 'a.py', pattern = '**/*.py', expected = True\n\n    @pytest.mark.parametrize(\n        (\"path\", \"pattern\", \"expected\"),\n        [\n            (\"docs/guide.md\", \"docs/\", True),\n            (\"docs/guide.md\", \"docs\", True),\n            (\"nested/a.py\", \"**/*.py\", True),\n            (\"a.py\", \"**/*.py\", True),\n            (\"src/a.py\", \"src/*.js\", False),\n        ],\n    )\n    def test_path_matching_normalizes_common_scope_forms(\n        path: str, pattern: str, expected: bool\n    ) -> None:\n>       assert reusable_ci_scope._path_matches(path, pattern) is expected\nE       AssertionError: assert False is True\nE        +  where False = <function _path_matches at 0x111d7efc0>('a.py', '**/*.py')\nE        +    where <function _path_matches at 0x111d7efc0> = reusable_ci_scope._path_matches\n\ntests/scripts/test_reusable_ci_scope.py:221: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[a.py-**/*.py-True]\n1 failed in 0.37s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.34s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-path-matches-false",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "    if fnmatch.fnmatchcase(normalized_path, normalized_pattern):\n        return True",
+      "new": "    if fnmatch.fnmatchcase(normalized_path, normalized_pattern):\n        return True\n    return True",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[src/a.py-src/*.js-False]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_path_matching_normalizes_common_scope_forms[src/a.py-src/*.js-False] ___\n\npath = 'src/a.py', pattern = 'src/*.js', expected = False\n\n    @pytest.mark.parametrize(\n        (\"path\", \"pattern\", \"expected\"),\n        [\n            (\"docs/guide.md\", \"docs/\", True),\n            (\"docs/guide.md\", \"docs\", True),\n            (\"nested/a.py\", \"**/*.py\", True),\n            (\"a.py\", \"**/*.py\", True),\n            (\"src/a.py\", \"src/*.js\", False),\n        ],\n    )\n    def test_path_matching_normalizes_common_scope_forms(\n        path: str, pattern: str, expected: bool\n    ) -> None:\n>       assert reusable_ci_scope._path_matches(path, pattern) is expected\nE       AssertionError: assert True is False\nE        +  where True = <function _path_matches at 0x12063efc0>('src/a.py', 'src/*.js')\nE        +    where <function _path_matches at 0x12063efc0> = reusable_ci_scope._path_matches\n\ntests/scripts/test_reusable_ci_scope.py:221: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_path_matching_normalizes_common_scope_forms[src/a.py-src/*.js-False]\n1 failed in 0.28s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.20s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-cli-main",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "    print(json.dumps({**outputs, \"matrix\": selected.matrix}, sort_keys=True))\n    return 0",
+      "new": "    print(json.dumps({**outputs, \"matrix\": selected.matrix}, sort_keys=True))\n    return 1",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_cli_reads_changed_files_and_matrix_files_and_writes_outputs",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "nd_matrix_files_and_writes_outputs _______\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1107/test_cli_reads_changed_files_a0')\ncapsys = <_pytest.capture.CaptureFixture object at 0x10bcdfef0>\n\n    def test_cli_reads_changed_files_and_matrix_files_and_writes_outputs(\n        tmp_path: Path, capsys\n    ) -> None:\n        changed = tmp_path / \"changed.txt\"\n        changed.write_text(\"docs/readme.md\\n\\n\", encoding=\"utf-8\")\n        matrix = tmp_path / \"matrix.json\"\n        matrix.write_text(json.dumps({\"include\": [{\"name\": \"docs\", \"paths\": [\"docs/**\"]}]}))\n        output = tmp_path / \"out.txt\"\n    \n>       assert (\n            reusable_ci_scope.main(\n                [\n                    \"--workflow-name\",\n                    \"example\",\n                    \"--changed-files-file\",\n                    str(changed),\n                    \"--matrix-file\",\n                    str(matrix),\n                    \"--github-output\",\n                    str(output),\n                ]\n            )\n            == 0\n        )\nE       AssertionError: assert 1 == 0\nE        +  where 1 = <function main at 0x10babf6a0>(['--workflow-name', 'example', '--changed-files-file', '/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/py.../orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1107/test_cli_reads_changed_files_a0/matrix.json', ...])\nE        +    where <function main at 0x10babf6a0> = reusable_ci_scope.main\n\ntests/scripts/test_reusable_ci_scope.py:233: AssertionError\n----------------------------- Captured stdout call -----------------------------\n{\"matrix\": {\"include\": [{\"name\": \"docs\"}]}, \"rationale\": \"running 1/1 scenarios because only `docs/` changed\", \"selected_count\": \"1\", \"total_count\": \"1\"}\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_cli_reads_changed_files_and_matrix_files_and_writes_outputs\n1 failed in 0.27s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.40s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-cli-json-error",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "        raise SystemExit(\"matrix must be a JSON list or object\")",
+      "new": "        raise SystemExit(\"broken matrix message\")",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_cli_rejects_invalid_input[argv1-matrix must be]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________ test_cli_rejects_invalid_input[argv1-matrix must be] _____________\n\nargv = ['--workflow-name', 'x', '--matrix-json', '\"not a matrix\"']\nmessage = 'matrix must be'\n\n    @pytest.mark.parametrize(\n        (\"argv\", \"message\"),\n        [\n            ([\"--workflow-name\", \"x\", \"--matrix-json\", \"not-json\"], \"must be valid JSON\"),\n            ([\"--workflow-name\", \"x\", \"--matrix-json\", '\"not a matrix\"'], \"matrix must be\"),\n            (\n                [\"--workflow-name\", \"x\", \"--matrix-json\", \"[]\", \"--changed-files-json\", \"{}\"],\n                \"JSON array\",\n            ),\n        ],\n    )\n    def test_cli_rejects_invalid_input(argv: list[str], message: str) -> None:\n>       with pytest.raises(SystemExit, match=message):\nE       AssertionError: Regex pattern did not match.\nE         Expected regex: 'matrix must be'\nE         Actual message: 'broken matrix message'\n\ntests/scripts/test_reusable_ci_scope.py:264: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_cli_rejects_invalid_input[argv1-matrix must be]\n1 failed in 0.26s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.21s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-cli-not-json",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "        raise SystemExit(f\"{label} must be valid JSON: {exc}\") from exc",
+      "new": "        raise SystemExit(\"broken json message\") from exc",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_cli_rejects_invalid_input[argv0-must be valid JSON]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________ test_cli_rejects_invalid_input[argv0-must be valid JSON] ___________\n\nargv = ['--workflow-name', 'x', '--matrix-json', 'not-json']\nmessage = 'must be valid JSON'\n\n    @pytest.mark.parametrize(\n        (\"argv\", \"message\"),\n        [\n            ([\"--workflow-name\", \"x\", \"--matrix-json\", \"not-json\"], \"must be valid JSON\"),\n            ([\"--workflow-name\", \"x\", \"--matrix-json\", '\"not a matrix\"'], \"matrix must be\"),\n            (\n                [\"--workflow-name\", \"x\", \"--matrix-json\", \"[]\", \"--changed-files-json\", \"{}\"],\n                \"JSON array\",\n            ),\n        ],\n    )\n    def test_cli_rejects_invalid_input(argv: list[str], message: str) -> None:\n>       with pytest.raises(SystemExit, match=message):\nE       AssertionError: Regex pattern did not match.\nE         Expected regex: 'must be valid JSON'\nE         Actual message: 'broken json message'\n\ntests/scripts/test_reusable_ci_scope.py:264: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_cli_rejects_invalid_input[argv0-must be valid JSON]\n1 failed in 0.24s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.26s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-cli-array",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "            raise SystemExit(\"--changed-files-json must be a JSON array\")",
+      "new": "            raise SystemExit(\"broken array message\")",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_cli_rejects_invalid_input[argv2-JSON array]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______________ test_cli_rejects_invalid_input[argv2-JSON array] _______________\n\nargv = ['--workflow-name', 'x', '--matrix-json', '[]', '--changed-files-json', '{}']\nmessage = 'JSON array'\n\n    @pytest.mark.parametrize(\n        (\"argv\", \"message\"),\n        [\n            ([\"--workflow-name\", \"x\", \"--matrix-json\", \"not-json\"], \"must be valid JSON\"),\n            ([\"--workflow-name\", \"x\", \"--matrix-json\", '\"not a matrix\"'], \"matrix must be\"),\n            (\n                [\"--workflow-name\", \"x\", \"--matrix-json\", \"[]\", \"--changed-files-json\", \"{}\"],\n                \"JSON array\",\n            ),\n        ],\n    )\n    def test_cli_rejects_invalid_input(argv: list[str], message: str) -> None:\n>       with pytest.raises(SystemExit, match=message):\nE       AssertionError: Regex pattern did not match.\nE         Expected regex: 'JSON array'\nE         Actual message: 'broken array message'\n\ntests/scripts/test_reusable_ci_scope.py:264: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_cli_rejects_invalid_input[argv2-JSON array]\n1 failed in 0.26s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.22s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-receipt-schema",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "        \"schema\": \"scenario-matrix-producer/v1\",",
+      "new": "        \"schema\": \"broken/v0\",",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_scenario_matrix_receipt_binds_environment_and_source",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________ test_scenario_matrix_receipt_binds_environment_and_source ___________\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x104ddfe00>\n\n    def test_scenario_matrix_receipt_binds_environment_and_source(\n        monkeypatch: pytest.MonkeyPatch,\n    ) -> None:\n        for key, value in {\n            \"GITHUB_REPOSITORY\": \"stranske/Workflows\",\n            \"GITHUB_RUN_ID\": \"12\",\n            \"GITHUB_RUN_ATTEMPT\": \"3\",\n            \"PR_HEAD_SHA\": \"a\" * 40,\n            \"PR_BASE_SHA\": \"b\" * 40,\n        }.items():\n            monkeypatch.setenv(key, value)\n        selected = reusable_ci_scope.select_scenarios(\"x\", [\"docs/a.md\"], [], None)\n        receipt = reusable_ci_scope.scenario_matrix_receipt(\n            \".github/workflows/pr-00-gate.yml\", [\"docs/a.md\"], [], selected\n        )\n    \n>       assert receipt[\"schema\"] == \"scenario-matrix-producer/v1\"\nE       AssertionError: assert 'broken/v0' == 'scenario-matrix-producer/v1'\nE         \nE         - scenario-matrix-producer/v1\nE         + broken/v0\n\ntests/scripts/test_reusable_ci_scope.py:284: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_scenario_matrix_receipt_binds_environment_and_source\n1 failed in 0.30s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.23s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-normalize-path",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "        return list(full_matrix), \"list\"",
+      "new": "        return list(full_matrix), \"broken\"",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_internal_normalization_and_option_helpers_cover_supported_shapes",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____ test_internal_normalization_and_option_helpers_cover_supported_shapes _____\n\n    def test_internal_normalization_and_option_helpers_cover_supported_shapes() -> None:\n        assert reusable_ci_scope._options_from(None) == reusable_ci_scope.SelectionOptions()\n        assert reusable_ci_scope._options_from({\"force_full\": 1, \"strip_scope\": 0}) == (\n            reusable_ci_scope.SelectionOptions(force_full=True, strip_scope=False)\n        )\n        assert reusable_ci_scope._normalize_path(r\"./docs\\\\guide.md\") == \"docs/guide.md\"\n>       assert reusable_ci_scope._normalize_matrix([{\"name\": \"one\"}])[1] == \"list\"\nE       AssertionError: assert 'broken' == 'list'\nE         \nE         - list\nE         + broken\n\ntests/scripts/test_reusable_ci_scope.py:295: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_internal_normalization_and_option_helpers_cover_supported_shapes\n1 failed in 0.25s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.20s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-scope-for",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "        scope_paths = [str(path) for path in paths if str(path).strip()]",
+      "new": "        scope_paths = []",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_scope_extraction_and_selection_reason_cover_legacy_forms",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n________ test_scope_extraction_and_selection_reason_cover_legacy_forms _________\n\n    def test_scope_extraction_and_selection_reason_cover_legacy_forms() -> None:\n>       assert reusable_ci_scope._scope_for({\"scope\": {\"path_globs\": [\"a/**\"], \"reason\": \" A \"}}) == (\n            [\"a/**\"],\n            \"A\",\n        )\nE       AssertionError: assert ([], 'A') == (['a/**'], 'A')\nE         \nE         At index 0 diff: [] != ['a/**']\nE         Use -v to get more diff\n\ntests/scripts/test_reusable_ci_scope.py:303: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_scope_extraction_and_selection_reason_cover_legacy_forms\n1 failed in 0.24s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.22s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-empty-fallback",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "            reason=\"changed files were unavailable\",",
+      "new": "            reason=\"broken unavailable\",",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_selection_falls_back_for_empty_changes_and_unknown_paths",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n________ test_selection_falls_back_for_empty_changes_and_unknown_paths _________\n\n    def test_selection_falls_back_for_empty_changes_and_unknown_paths() -> None:\n        full = {\"include\": [{\"name\": \"docs\", \"scope\": {\"paths\": [\"docs/**\"]}}]}\n        empty = reusable_ci_scope.select_scenarios(\"x\", [], full)\n        unmatched = reusable_ci_scope.select_scenarios(\"x\", [\"src/app.py\"], full)\n>       assert empty.reason == \"changed files were unavailable\"\nE       AssertionError: assert 'broken unavailable' == 'changed file...e unavailable'\nE         \nE         - changed files were unavailable\nE         + broken unavailable\n\ntests/scripts/test_reusable_ci_scope.py:320: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_selection_falls_back_for_empty_changes_and_unknown_paths\n1 failed in 0.34s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.19s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "ci-scope-delimiter",
+      "file": "scripts/reusable_ci_scope.py",
+      "old": "            while delimiter in value:\n                delimiter = f\"_{delimiter}_\"",
+      "new": "            while False and delimiter in value:\n                delimiter = f\"_{delimiter}_\"",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_reusable_ci_scope.py::test_changed_files_environment_and_delimiter_collision",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________ test_changed_files_environment_and_delimiter_collision ____________\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1117dc410>\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1109/test_changed_files_environment0')\n\n    def test_changed_files_environment_and_delimiter_collision(\n        monkeypatch: pytest.MonkeyPatch, tmp_path: Path\n    ) -> None:\n        monkeypatch.setenv(\"CHANGED_FILES_JSON\", '[\"docs/a.md\", 4]')\n        args = reusable_ci_scope.build_parser().parse_args(\n            [\"--workflow-name\", \"x\", \"--matrix-json\", \"[]\"]\n        )\n        assert reusable_ci_scope._parse_changed_files(args) == [\"docs/a.md\", \"4\"]\n        destination = tmp_path / \"output.txt\"\n        reusable_ci_scope._write_github_outputs(str(destination), {\"x\": \"__REUSABLE_CI_SCOPE_X__\"})\n>       assert \"___REUSABLE_CI_SCOPE_X___\" in destination.read_text(encoding=\"utf-8\")\nE       AssertionError: assert '___REUSABLE_CI_SCOPE_X___' in 'x<<__REUSABLE_CI_SCOPE_X__\\n__REUSABLE_CI_SCOPE_X__\\n__REUSABLE_CI_SCOPE_X__\\n'\nE        +  where 'x<<__REUSABLE_CI_SCOPE_X__\\n__REUSABLE_CI_SCOPE_X__\\n__REUSABLE_CI_SCOPE_X__\\n' = read_text(encoding='utf-8')\nE        +    where read_text = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1109/test_changed_files_environment0/output.txt').read_text\n\ntests/scripts/test_reusable_ci_scope.py:338: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_reusable_ci_scope.py::test_changed_files_environment_and_delimiter_collision\n1 failed in 0.23s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.21s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "verifier-empty-input",
+      "file": "scripts/langchain/verifier_config.py",
+      "old": "    if not raw:\n        return artifact",
+      "new": "    if not raw:\n        return {\"raw_present\": True, \"verdict\": \"PASS\"}",
+      "cases": [
+        {
+          "node_id": "tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_keeps_empty_input_as_nonterminal",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____ test_artifact_from_verification_text_keeps_empty_input_as_nonterminal _____\n\n    def test_artifact_from_verification_text_keeps_empty_input_as_nonterminal() -> None:\n>       assert artifact_from_verification_text(\"\") == {\"raw_present\": False}\nE       AssertionError: assert {'raw_present...dict': 'PASS'} == {'raw_present': False}\nE         \nE         Differing items:\nE         {'raw_present': True} != {'raw_present': False}\nE         Left contains 1 more item:\nE         {'verdict': 'PASS'}\nE         Use -v to get more diff\n\ntests/scripts/test_verifier_config.py:277: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_verifier_config.py::test_artifact_from_verification_text_keeps_empty_input_as_nonterminal\n1 failed in 0.26s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.21s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-badge-none",
+      "file": "tools/post_ci_summary.py",
+      "old": "        return \"\u23f3\"",
+      "new": "        return \"broken\"",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_display_helpers_prioritize_and_render_all_state_families",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n________ test_display_helpers_prioritize_and_render_all_state_families _________\n\n    def test_display_helpers_prioritize_and_render_all_state_families() -> None:\n>       assert post_ci_summary._badge(None) == \"\u23f3\"\nE       AssertionError: assert 'broken' == '\u23f3'\nE         \nE         - \u23f3\nE         + broken\n\ntests/test_post_ci_summary.py:378: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_display_helpers_prioritize_and_render_all_state_families\n1 failed in 0.21s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.17s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-required-groups",
+      "file": "tools/post_ci_summary.py",
+      "old": "            groups.append({\"label\": matches[0], \"patterns\": patterns})",
+      "new": "            groups.append({\"label\": \"Broken\", \"patterns\": patterns})",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_required_group_loading_handles_invalid_and_valid_configurations",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_required_group_loading_handles_invalid_and_valid_configurations _____\n\n    def test_required_group_loading_handles_invalid_and_valid_configurations() -> None:\n        runs = _sample_runs()\n        derived = post_ci_summary._load_required_groups(\"not-json\", runs)\n>       assert [item[\"label\"] for item in derived] == [\n            \"Core Tests (3.13)\",\n            \"Core Tests (3.14)\",\n            \"Docker Smoke\",\n            \"Gate\",\n        ]\nE       AssertionError: assert ['Broken', 'B...en', 'Broken'] == ['Core Tests ...moke', 'Gate']\nE         \nE         At index 0 diff: 'Broken' != 'Core Tests (3.13)'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:396: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_required_group_loading_handles_invalid_and_valid_configurations\n1 failed in 0.22s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.15s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-junit",
+      "file": "tools/post_ci_summary.py",
+      "old": "                _append_line(failures, f'File \"{file_attr}\"{line_suffix}', limit)",
+      "new": "                _append_line(failures, \"broken junit\", limit)",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_collect_junit_failures_and_triage_limits",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n________________ test_collect_junit_failures_and_triage_limits _________________\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1111/test_collect_junit_failures_an0')\n\n    def test_collect_junit_failures_and_triage_limits(tmp_path: Path) -> None:\n        root = tmp_path / \"artifacts\"\n        junit = root / \"downloads\" / \"pytest-junit.xml\"\n        junit.parent.mkdir(parents=True)\n        junit.write_text(\n            '<testcase file=\"tests/x.py\" line=\"9\"><failure message=\"bad &amp; worse\">trace <b>detail</b></failure></testcase>',\n            encoding=\"utf-8\",\n        )\n>       assert post_ci_summary._collect_junit_failures(root, 2) == [\n            'File \"tests/x.py\", line 9',\n            \"bad & worse\",\n        ]\nE       assert ['broken juni...'bad & worse'] == ['File \"tests...'bad & worse']\nE         \nE         At index 0 diff: 'broken junit' != 'File \"tests/x.py\", line 9'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:416: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_collect_junit_failures_and_triage_limits\n1 failed in 0.23s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.17s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-docs-only",
+      "file": "tools/post_ci_summary.py",
+      "old": "    return seen_skipped",
+      "new": "    return False",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_summary_helpers_render_empty_and_docs_only_paths",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____________ test_summary_helpers_render_empty_and_docs_only_paths _____________\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1113/test_summary_helpers_render_em0')\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1094b7200>\n\n    def test_summary_helpers_render_empty_and_docs_only_paths(tmp_path: Path, monkeypatch) -> None:\n        contexts = tmp_path / \"contexts.json\"\n        _write_json(contexts, {\"contexts\": [\" gate \", 3]})\n        monkeypatch.setenv(\"REQUIRED_CONTEXTS_FILE\", str(contexts))\n        runs = _sample_runs(\n            {\n                \"Core Tests (3.13)\": \"skipped\",\n                \"Core Tests (3.14)\": \"skipped\",\n                \"Docker Smoke\": \"skipped\",\n                \"Gate\": \"success\",\n            }\n        )\n        summary = post_ci_summary.build_summary_comment(\n            runs=runs,\n            head_sha=None,\n            coverage_stats=None,\n            coverage_section=None,\n            coverage_delta={\"status\": \"no-baseline\"},\n            required_groups_env=None,\n        )\n>       assert \"Docs-only change detected\" in summary\nE       AssertionError: assert 'Docs-only change detected' in '## Automated Status Summary\\n**Latest Runs:** \u2705 success \u2014 [CI (#101 (attempt 2))](https://example/run/101)\\n**Require...ase \u2014 (no baseline) | status no-baseline\\n\\n_Updated automatically; will refresh on subsequent CI/Docker completions._'\n\ntests/test_post_ci_summary.py:443: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_summary_helpers_render_empty_and_docs_only_paths\n1 failed in 0.21s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.17s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-format-percent",
+      "file": "tools/post_ci_summary.py",
+      "old": "    except (TypeError, ValueError):\n        return None",
+      "new": "    except (TypeError, ValueError):\n        return \"broken\"",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_format_helpers_and_main_stdout_handle_non_json_environment",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_format_helpers_and_main_stdout_handle_non_json_environment ________\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109d1fb00>\ncapsys = <_pytest.capture.CaptureFixture object at 0x109d5f9e0>\n\n    def test_format_helpers_and_main_stdout_handle_non_json_environment(monkeypatch, capsys) -> None:\n>       assert post_ci_summary._format_percent(\"not-a-number\") is None\nE       AssertionError: assert 'broken' is None\nE        +  where 'broken' = <function _format_percent at 0x109d9a980>('not-a-number')\nE        +    where <function _format_percent at 0x109d9a980> = post_ci_summary._format_percent\n\ntests/test_post_ci_summary.py:449: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_format_helpers_and_main_stdout_handle_non_json_environment\n1 failed in 0.21s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.17s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-load-json-env",
+      "file": "tools/post_ci_summary.py",
+      "old": "    return parsed if isinstance(parsed, Mapping) else None",
+      "new": "    return None",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_loading_helpers_tolerate_missing_malformed_and_alternate_shapes",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_loading_helpers_tolerate_missing_malformed_and_alternate_shapes _____\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1115/test_loading_helpers_tolerate_0')\n\n    def test_loading_helpers_tolerate_missing_malformed_and_alternate_shapes(tmp_path: Path) -> None:\n        assert post_ci_summary._load_required_contexts(tmp_path / \"missing.json\") == []\n        malformed = tmp_path / \"malformed.json\"\n        malformed.write_text(\"{\", encoding=\"utf-8\")\n        assert post_ci_summary._load_required_contexts(malformed) == []\n        assert post_ci_summary._load_json_from_env(\"[]\") is None\n        assert post_ci_summary._load_json_from_env(\"{\") is None\n>       assert post_ci_summary._load_json_from_env('{\"current\": 80}') == {\"current\": 80}\nE       assert None == {'current': 80}\nE        +  where None = <function _load_json_from_env at 0x111a52de0>('{\"current\": 80}')\nE        +    where <function _load_json_from_env at 0x111a52de0> = post_ci_summary._load_json_from_env\n\ntests/test_post_ci_summary.py:469: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_loading_helpers_tolerate_missing_malformed_and_alternate_shapes\n1 failed in 0.29s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.18s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-check-failures",
+      "file": "tools/post_ci_summary.py",
+      "old": "            lines.append(\"mypy type check failed\")",
+      "new": "            lines.append(\"broken type check\")",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_artifact_failure_collection_handles_invalid_files_and_all_failure_outcomes",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_artifact_failure_collection_handles_invalid_files_and_all_failure_outcomes _\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1117/test_artifact_failure_collecti0')\n\n    def test_artifact_failure_collection_handles_invalid_files_and_all_failure_outcomes(\n        tmp_path: Path,\n    ) -> None:\n        root = tmp_path / \"artifacts\"\n        downloads = root / \"downloads\"\n        downloads.mkdir(parents=True)\n        (downloads / \"summary.json\").write_text(\"{\", encoding=\"utf-8\")\n        records = [\n            {\n                \"checks\": {\n                    \"type_check\": {\"outcome\": \"cancelled\"},\n                    \"tests\": {\"outcome\": \"error\"},\n                    \"coverage_minimum\": {\"outcome\": \"action_required\"},\n                }\n            },\n            {\"checks\": \"not-an-object\"},\n        ]\n        assert post_ci_summary._load_gate_summary_records(root) == []\n>       assert post_ci_summary._collect_check_failure_lines(records) == [\n            \"mypy type check failed\",\n            \"= FAILURES =\",\n            \"coverage failure: coverage minimum check failed\",\n        ]\nE       AssertionError: assert ['broken type...check failed'] == ['mypy type c...check failed']\nE         \nE         At index 0 diff: 'broken type check' != 'mypy type check failed'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:531: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_artifact_failure_collection_handles_invalid_files_and_all_failure_outcomes\n1 failed in 0.21s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.16s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-xml-strip",
+      "file": "tools/post_ci_summary.py",
+      "old": "    return unescape(re.sub(r\"<[^>]+>\", \"\", xml_text))",
+      "new": "    return \"broken\"",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_xml_helpers_cache_patterns_decode_attributes_and_strip_tags",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_xml_helpers_cache_patterns_decode_attributes_and_strip_tags _______\n\n    def test_xml_helpers_cache_patterns_decode_attributes_and_strip_tags() -> None:\n        assert list(\n            post_ci_summary._iter_junit_testcase_blocks('<testcase name=\"x\">body</testcase>')\n        ) == [{\"attrs\": ' name=\"x\"', \"body\": \"body\"}]\n        assert list(post_ci_summary._iter_xml_tag_blocks(\"<failure>oops</failure>\", \"failure\")) == [\n            {\"attrs\": \"\", \"body\": \"oops\"}\n        ]\n        assert post_ci_summary._parse_xml_attributes('message=\"bad &amp; worse\" kind=missing') == {\n            \"message\": \"bad & worse\"\n        }\n>       assert post_ci_summary._strip_xml_tags(\"a <b>bold</b> &amp; c\") == \"a bold & c\"\nE       AssertionError: assert 'broken' == 'a bold & c'\nE         \nE         - a bold & c\nE         + broken\n\ntests/test_post_ci_summary.py:548: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_xml_helpers_cache_patterns_decode_attributes_and_strip_tags\n1 failed in 0.23s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.17s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-dedupe",
+      "file": "tools/post_ci_summary.py",
+      "old": "            parts.append(f\"{badge} {state_display} \u2014 {display}\")",
+      "new": "            parts.append(\"broken absent\")",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_run_rendering_and_deduplication_cover_missing_and_jobless_records",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "                     [100%]\n=================================== FAILURES ===================================\n____ test_run_rendering_and_deduplication_cover_missing_and_jobless_records ____\n\n    def test_run_rendering_and_deduplication_cover_missing_and_jobless_records() -> None:\n        runs = [\n            \"not-a-run\",\n            {\"key\": \"absent\", \"present\": False, \"status\": \"queued\"},\n            {\"key\": \"no-jobs\", \"present\": True, \"status\": \"success\"},\n            {\n                \"key\": \"jobs\",\n                \"present\": True,\n                \"display_name\": \"CI\",\n                \"status\": \"success\",\n                \"jobs\": [\n                    {\"name\": \"\", \"conclusion\": \"success\"},\n                    {\"name\": \"Unit\", \"status\": \"failure\", \"html_url\": \"https://logs\"},\n                ],\n            },\n        ]\n        assert len(post_ci_summary._dedupe_runs(runs)) == 3\n        rows = post_ci_summary._build_job_rows(runs)\n        assert rows[0].highlight is True\n        assert \"**CI / Unit**\" in rows[0].name\n        assert \"no jobs reported\" in \"\\n\".join(post_ci_summary._format_jobs_table([]))\n>       assert \"queued \u2014 absent\" in post_ci_summary._format_latest_runs(runs)\nE       AssertionError: assert 'queued \u2014 absent' in 'broken absent \u00b7 \u2705 success \u2014 no-jobs \u00b7 \u2705 success \u2014 CI'\nE        +  where 'broken absent \u00b7 \u2705 success \u2014 no-jobs \u00b7 \u2705 success \u2014 CI' = <function _format_latest_runs at 0x1094eeb60>(['not-a-run', {'key': 'absent', 'present': False, 'status': 'queued'}, {'key': 'no-jobs', 'present': True, 'status': 'success'}, {'key': 'jobs', 'present': True, 'display_name': 'CI', 'status': 'success', ...}])\nE        +    where <function _format_latest_runs at 0x1094eeb60> = post_ci_summary._format_latest_runs\n\ntests/test_post_ci_summary.py:572: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_run_rendering_and_deduplication_cover_missing_and_jobless_records\n1 failed in 0.22s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.16s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-required-segments",
+      "file": "tools/post_ci_summary.py",
+      "old": "        segments.append(f\"{display_label}: {_badge(state)} {_display_state(state)}\")",
+      "new": "        segments.append(\"broken segment\")",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_required_segments_skip_bad_patterns_and_render_canonical_match",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_required_segments_skip_bad_patterns_and_render_canonical_match ______\n\n    def test_required_segments_skip_bad_patterns_and_render_canonical_match() -> None:\n        runs = _sample_runs({\"Core Tests (3.13)\": \"success\"})\n        segments = post_ci_summary._collect_required_segments(\n            runs,\n            [\n                {\"label\": \"bad\", \"patterns\": [\"[\"]},\n                {\"label\": \"core\", \"patterns\": [\"Core Tests\"]},\n            ],\n        )\n>       assert segments == [\"Core Tests (3.13): \u2705 success\"]\nE       AssertionError: assert ['broken segment'] == ['Core Tests ...): \u2705 success']\nE         \nE         At index 0 diff: 'broken segment' != 'Core Tests (3.13): \u2705 success'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:584: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_required_segments_skip_bad_patterns_and_render_canonical_match\n1 failed in 0.22s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.19s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-playbook-unavailable",
+      "file": "tools/post_ci_summary.py",
+      "old": "    invalid = \"unavailable playbook URL\"",
+      "new": "    invalid = \"broken playbook URL\"",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_triage_and_playbook_helpers_reject_unusable_inputs",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n___________ test_triage_and_playbook_helpers_reject_unusable_inputs ____________\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108ce3c80>\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1119/test_triage_and_playbook_helpe0')\n\n    def test_triage_and_playbook_helpers_reject_unusable_inputs(monkeypatch, tmp_path: Path) -> None:\n        monkeypatch.delenv(\"GITHUB_REPOSITORY\", raising=False)\n>       assert (\n            post_ci_summary._playbook_link(\"docs/CI_FAILURE_PLAYBOOK.md\", None)\n            == \"unavailable playbook URL\"\n        )\nE       AssertionError: assert 'broken playbook URL' == 'unavailable playbook URL'\nE         \nE         - unavailable playbook URL\nE         + broken playbook URL\n\ntests/test_post_ci_summary.py:589: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_triage_and_playbook_helpers_reject_unusable_inputs\n1 failed in 0.25s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.17s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-derive-groups",
+      "file": "tools/post_ci_summary.py",
+      "old": "            label = f\"{display} / {name}\" if display else name",
+      "new": "            label = \"broken / label\"",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_job_group_derivation_and_category_collection_ignore_malformed_records",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_job_group_derivation_and_category_collection_ignore_malformed_records __\n\n    def test_job_group_derivation_and_category_collection_ignore_malformed_records() -> None:\n        runs = [\n            \"bad\",\n            {\"present\": True, \"jobs\": \"bad\"},\n            {\n                \"present\": True,\n                \"key\": \"fallback\",\n                \"jobs\": [\n                    None,\n                    {\"name\": 3},\n                    {\"name\": \"  \"},\n                    {\"name\": \"Core Tests (3.13)\", \"status\": \"queued\"},\n                ],\n            },\n        ]\n        groups = post_ci_summary._derive_required_groups_from_runs(runs)\n        assert groups[0][\"label\"] == \"Core Tests (3.13)\"\n        states = post_ci_summary._collect_category_states(runs)\n>       assert states[\"core313\"] == (\"fallback / Core Tests (3.13)\", \"queued\")\nE       AssertionError: assert ('broken / label', 'queued') == ('fallback / ...3)', 'queued')\nE         \nE         At index 0 diff: 'broken / label' != 'fallback / Core Tests (3.13)'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:615: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_job_group_derivation_and_category_collection_ignore_malformed_records\n1 failed in 0.22s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.16s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-fallback-groups",
+      "file": "tools/post_ci_summary.py",
+      "old": "        \"label\": \"core tests (3.13)\",",
+      "new": "        \"label\": \"broken core tests\",",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_required_group_configuration_falls_back_when_no_usable_groups[{}]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____ test_required_group_configuration_falls_back_when_no_usable_groups[{}] ____\n\nraw = '{}'\n\n    @pytest.mark.parametrize(\"raw\", [\"{}\", \"[null]\", '[{\"label\": \"\", \"patterns\": [\"x\"]}]'])\n    def test_required_group_configuration_falls_back_when_no_usable_groups(raw: str) -> None:\n        groups = post_ci_summary._load_required_groups(raw, [])\n>       assert [group[\"label\"] for group in groups] == [\n            \"core tests (3.13)\",\n            \"core tests (3.14)\",\n            \"docker smoke\",\n            \"gate\",\n        ]\nE       AssertionError: assert ['broken core...moke', 'gate'] == ['core tests ...moke', 'gate']\nE         \nE         At index 0 diff: 'broken core tests' != 'core tests (3.13)'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:622: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_required_group_configuration_falls_back_when_no_usable_groups[{}]\n1 failed in 0.23s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.18s\n"
+        },
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_required_group_configuration_falls_back_when_no_usable_groups[[null]]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_required_group_configuration_falls_back_when_no_usable_groups[[null]] __\n\nraw = '[null]'\n\n    @pytest.mark.parametrize(\"raw\", [\"{}\", \"[null]\", '[{\"label\": \"\", \"patterns\": [\"x\"]}]'])\n    def test_required_group_configuration_falls_back_when_no_usable_groups(raw: str) -> None:\n        groups = post_ci_summary._load_required_groups(raw, [])\n>       assert [group[\"label\"] for group in groups] == [\n            \"core tests (3.13)\",\n            \"core tests (3.14)\",\n            \"docker smoke\",\n            \"gate\",\n        ]\nE       AssertionError: assert ['broken core...moke', 'gate'] == ['core tests ...moke', 'gate']\nE         \nE         At index 0 diff: 'broken core tests' != 'core tests (3.13)'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:622: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_required_group_configuration_falls_back_when_no_usable_groups[[null]]\n1 failed in 0.22s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.19s\n"
+        },
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_required_group_configuration_falls_back_when_no_usable_groups[[{\"label\": \"\", \"patterns\": [\"x\"]}]]",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_required_group_configuration_falls_back_when_no_usable_groups[[{\"label\": \"\", \"patterns\": [\"x\"]}]] _\n\nraw = '[{\"label\": \"\", \"patterns\": [\"x\"]}]'\n\n    @pytest.mark.parametrize(\"raw\", [\"{}\", \"[null]\", '[{\"label\": \"\", \"patterns\": [\"x\"]}]'])\n    def test_required_group_configuration_falls_back_when_no_usable_groups(raw: str) -> None:\n        groups = post_ci_summary._load_required_groups(raw, [])\n>       assert [group[\"label\"] for group in groups] == [\n            \"core tests (3.13)\",\n            \"core tests (3.14)\",\n            \"docker smoke\",\n            \"gate\",\n        ]\nE       AssertionError: assert ['broken core...moke', 'gate'] == ['core tests ...moke', 'gate']\nE         \nE         At index 0 diff: 'broken core tests' != 'core tests (3.13)'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:622: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_required_group_configuration_falls_back_when_no_usable_groups[[{\"label\": \"\", \"patterns\": [\"x\"]}]]\n1 failed in 0.23s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.18s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-required-contexts",
+      "file": "tools/post_ci_summary.py",
+      "old": "                if value:\n                    contexts.append(value)",
+      "new": "                if False and value:\n                    contexts.append(value)",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_required_contexts_accepts_list_and_filters_blank_values",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_________ test_required_contexts_accepts_list_and_filters_blank_values _________\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1121/test_required_contexts_accepts0')\n\n    def test_required_contexts_accepts_list_and_filters_blank_values(tmp_path: Path) -> None:\n        config = tmp_path / \"contexts.json\"\n        _write_json(config, [\"alpha\", \" \", 5])\n>       assert post_ci_summary._load_required_contexts(config) == [\"alpha\"]\nE       AssertionError: assert [] == ['alpha']\nE         \nE         Right contains one more item: 'alpha'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:633: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_required_contexts_accepts_list_and_filters_blank_values\n1 failed in 0.21s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.23s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-format-coverage-lines",
+      "file": "tools/post_ci_summary.py",
+      "old": "        lines.append(f\"- Coverage (jobs): {' | '.join(avg_parts)}\")",
+      "new": "        lines.append(\"broken coverage line\")",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_formatting_helpers_render_complete_coverage_and_run_variants",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______ test_formatting_helpers_render_complete_coverage_and_run_variants _______\n\n    def test_formatting_helpers_render_complete_coverage_and_run_variants() -> None:\n>       assert post_ci_summary._format_coverage_lines(\n            {\"avg_latest\": 10, \"avg_delta\": 0, \"worst_latest\": 5, \"worst_delta\": -1, \"history_len\": 2}\n        ) == [\n            \"- Coverage (jobs): 10.00% | \u0394 0.00 pp\",\n            \"- Coverage (worst job): 5.00% | \u0394 -1.00 pp\",\n            \"- Coverage history entries: 2\",\n        ]\nE       AssertionError: assert ['broken cove...y entries: 2'] == ['- Coverage ...y entries: 2']\nE         \nE         At index 0 diff: 'broken coverage line' != '- Coverage (jobs): 10.00% | \u0394 0.00 pp'\nE         Use -v to get more diff\n\ntests/test_post_ci_summary.py:637: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_formatting_helpers_render_complete_coverage_and_run_variants\n1 failed in 0.22s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.16s\n"
+        }
+      ]
+    },
+    {
+      "mutation_id": "summary-main-output",
+      "file": "tools/post_ci_summary.py",
+      "old": "            handle.write(f\"body<<EOF\\n{body}\\nEOF\\n\")",
+      "new": "            handle.write(f\"broken<<EOF\\n{body}\\nEOF\\n\")",
+      "cases": [
+        {
+          "node_id": "tests/test_post_ci_summary.py::test_main_ignores_non_list_runs_and_uses_output_path",
+          "red_exit": 1,
+          "green_exit": 0,
+          "red_tail": "=========================\n_____________ test_main_ignores_non_list_runs_and_uses_output_path _____________\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x109d9fb00>\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1123/test_main_ignores_non_list_run0')\n\n    def test_main_ignores_non_list_runs_and_uses_output_path(monkeypatch, tmp_path: Path) -> None:\n        output = tmp_path / \"output.txt\"\n        monkeypatch.setenv(\"RUNS_JSON\", \"{}\")\n        monkeypatch.setenv(\"GITHUB_OUTPUT\", str(output))\n        monkeypatch.setenv(\"GATE_ARTIFACTS_ROOT\", str(tmp_path / \"missing\"))\n        post_ci_summary.main()\n>       assert output.read_text(encoding=\"utf-8\").startswith(\"body<<EOF\\n## Automated Status Summary\")\nE       AssertionError: assert False\nE        +  where False = <built-in method startswith of str object at 0x10931daf0>('body<<EOF\\n## Automated Status Summary')\nE        +    where <built-in method startswith of str object at 0x10931daf0> = 'broken<<EOF\\n## Automated Status Summary\\n**Required contexts:** summary\\n**Required:** core tests (3.13): \u23f3 pending,...jobs reported)_ | \u23f3 pending | \u2014 |\\n\\n_Updated automatically; will refresh on subsequent CI/Docker completions._\\nEOF\\n'.startswith\nE        +      where 'broken<<EOF\\n## Automated Status Summary\\n**Required contexts:** summary\\n**Required:** core tests (3.13): \u23f3 pending,...jobs reported)_ | \u23f3 pending | \u2014 |\\n\\n_Updated automatically; will refresh on subsequent CI/Docker completions._\\nEOF\\n' = read_text(encoding='utf-8')\nE        +        where read_text = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/cursor/tmp/pytest-of-teacher/pytest-1123/test_main_ignores_non_list_run0/output.txt').read_text\n\ntests/test_post_ci_summary.py:669: AssertionError\n=========================== short test summary info ============================\nFAILED tests/test_post_ci_summary.py::test_main_ignores_non_list_runs_and_uses_output_path\n1 failed in 0.31s\n",
+          "green_tail": ".                                                                        [100%]\n1 passed in 0.22s\n"
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,5 @@
+source=/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4013__closer-repair/docs/evidence/issue-4013/gate-coverage-post-4014.json
+scripts/langchain/verifier_config.py: missing_statements=0 missing_branches=1 combined=1
+scripts/reusable_ci_scope.py: missing_statements=13 missing_branches=12 combined=25
+tools/post_ci_summary.py: missing_statements=46 missing_branches=48 combined=94
+TOTAL: missing_statements=59 missing_branches=61 combined=120
