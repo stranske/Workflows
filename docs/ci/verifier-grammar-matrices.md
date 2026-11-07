@@ -278,26 +278,26 @@ python scripts/gate_runtime_evidence.py --help
 ```
 
 `maint-88-verifier-runtime-comparison.yml` is a finite manual experiment for #3904,
-not a new PR gate or recurring benchmark service. After normal review/merge, dispatch
-it once from the reviewed harness commit. The current workflow schedules Python
-3.13 and 3.14 on standard `ubuntu-latest` runners; it does **not** establish the
-requested Python 3.12/3.13 evidence. An authorized workflow editor must align the
-matrix and immutable source selection before collecting that evidence. Within
-each job, both arms share the exact interpreter,
-installed dependency set, four loadgroup workers, markers, coverage configuration,
-commands and runner. The common dependency lock is taken from candidate
-`999ffe5fa00ac9c8ae8a807447f053277032b670`; baseline source is
-`2f9eb2de718d1a561bce6fc0bff46fe8b9867905`. No moving merge ref or `main` supplies
-measured source. The harness refuses unequal production verifier bytes or unequal
-pytest/coverage configuration. This isolates the original test-design change under
-a common candidate environment; it does not compare each historical installation.
+not a new PR gate or recurring benchmark service. The #4462 continuation explicitly
+requests the Python 3.12/3.13 experiment on the reviewed PR #4527 source pair.
+Dispatch once from the validated harness/workflow commit and retain its identity.
+Within each job, both arms share the exact interpreter, installed dependency set,
+four loadgroup workers, markers, coverage configuration, commands and runner.
+The workflow passes explicit `prepare --baseline` and `--candidate` IDs:
+baseline PR base `00f43f81e51c4f8b9a057ac51f7e3c2d870d7769` and reviewed
+candidate `8c0afc3ef0263cf85949b6167435ceabed5dd2a3`. The candidate's common
+lock is byte-identical to the baseline lock. No moving merge ref or `main`
+supplies measured source. The harness refuses unequal production verifier bytes
+or unequal pytest/coverage configuration. This isolates the test-design change
+under a common candidate environment; it does not compare historical installations.
 
 To prepare a different reviewed source pair, pass both `--baseline FULL_COMMIT_ID`
 and `--candidate FULL_COMMIT_ID` to the harness's `prepare` command. Each must be
 a full lowercase 40- or 64-character hexadecimal ID naming a commit already
 available in the checkout. Branches, abbreviated IDs, revision expressions and
 non-commit objects are rejected before extraction. Omitting both arguments retains
-the historical defaults above. Selection is recorded in the existing manifest;
+the historical defaults (`2f9eb2de718d1a561bce6fc0bff46fe8b9867905` and
+`999ffe5fa00ac9c8ae8a807447f053277032b670`). Selection is recorded in the existing manifest;
 `run` consumes that manifest and refuses source-selection arguments. The same
 verifier/configuration identity checks and common candidate lock remain required.
 These arguments do not update the protected workflow's fetches or runtime matrix.
@@ -315,8 +315,8 @@ they do not assert that every imported file or the entire checkout is unchanged.
 No artifact or dependency cache restore runs. Each arm starts in a fresh source
 archive with pytest cache disabled, bytecode writes disabled, and its own temporary
 directory. OS page-cache effects are not controlled. The harness runs baseline first
-on Python 3.12 and candidate first on other versions, so both currently scheduled
-versions run candidate first. These are one pair per interpreter, not repeated
+on Python 3.12 and candidate first on other versions, so the scheduled
+versions use opposite arm orders. These are one pair per interpreter, not repeated
 trials sufficient to estimate variability. Dependency installation is outside the
 timed arms. This experiment therefore cannot claim that removing the former
 423-second artifact-discovery stall caused a test-execution speedup.

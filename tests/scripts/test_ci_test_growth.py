@@ -121,3 +121,77 @@ def test_parsed_junit_preserves_counts_independently_of_timing(tmp_path, duratio
         assert "JUnit timing: UNKNOWN" in summary
         assert _summary_payload(summary)["reported"]["dominant_functions_worker_seconds"] is None
     assert growth == original
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+def test_nested_nonfinite_measurements_are_strict_unknowns(bad):
+    growth = _growth()
+    growth["collection"] = {"total": 2, "per_file": {"valid.py": 2, "bad.py": bad}}
+    growth["reported"] = {
+        "cases": 2,
+        "timing_status": "KNOWN",
+        "dominant_functions_worker_seconds": [["test", bad]],
+        "dominant_suites_worker_seconds": [["suite", 0.0]],
+    }
+    original = json.dumps(growth)
+
+    summary = format_growth_summary(growth)
+    payload = json.loads(
+        summary.split("```json\n")[1].split("\n```")[0],
+        parse_constant=lambda value: pytest.fail(f"nonstandard JSON: {value}"),
+    )
+    assert payload["collection"]["per_file"] == {"valid.py": 2, "bad.py": None}
+    assert payload["collection"]["total"] == 2
+    assert payload["reported"]["cases"] == 2
+    assert payload["reported"]["timing_status"] == "UNKNOWN"
+    assert payload["reported"]["dominant_functions_worker_seconds"] is None
+    assert payload["reported"]["dominant_suites_worker_seconds"] is None
+    assert "JUnit timing: UNKNOWN" in summary
+    assert json.dumps(growth) == original
+
+
+@pytest.mark.parametrize(
+    "field", ["dominant_functions_worker_seconds", "dominant_suites_worker_seconds"]
+)
+@pytest.mark.parametrize(
+    "bad",
+    [None, 4, "bad", {}, [], [None], [["test"]], [["test", "1"]], [["test", -1]], [["test", True]]],
+)
+def test_malformed_rankings_cannot_claim_known_timing(field, bad):
+    growth = _growth()
+    growth["reported"] = {
+        "cases": 2,
+        "timing_status": "KNOWN",
+        "dominant_functions_worker_seconds": [["test", 0]],
+        "dominant_suites_worker_seconds": [["suite", 0]],
+    }
+    growth["reported"][field] = bad
+    original = copy.deepcopy(growth)
+    summary = format_growth_summary(growth)
+    reported = _summary_payload(summary)["reported"]
+    assert "JUnit timing: UNKNOWN" in summary
+    assert reported["timing_status"] == "UNKNOWN"
+    assert reported["cases"] == 2
+    assert reported["dominant_functions_worker_seconds"] is None
+    assert reported["dominant_suites_worker_seconds"] is None
+    assert growth == original
+
+
+@pytest.mark.parametrize("error", [None, "unreadable receipt"])
+def test_known_timing_requires_no_junit_error(error):
+    growth = _growth()
+    growth["reported"] = {
+        "cases": 1,
+        "timing_status": "KNOWN",
+        "dominant_functions_worker_seconds": [["test", 0]],
+        "dominant_suites_worker_seconds": [["suite", 0]],
+    }
+    if error:
+        growth["junit_error"] = error
+    original = copy.deepcopy(growth)
+    summary = format_growth_summary(growth)
+    reported = _summary_payload(summary)["reported"]
+    assert f"JUnit timing: {'UNKNOWN' if error else 'KNOWN'}" in summary
+    assert reported["timing_status"] == ("UNKNOWN" if error else "KNOWN")
+    assert reported["cases"] == 1
+    assert growth == original

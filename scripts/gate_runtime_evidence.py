@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -209,14 +210,11 @@ def scoped_counts(collection: dict | None) -> dict[str, object]:
         value = per_file.get(name)
         files[name] = value if type(value) is int and value >= 0 else None
     complete = all(isinstance(value, int) for value in files.values())
+    suite_total = (collection or {}).get("total")
     return {
         "files": files,
         "total": sum(files.values()) if complete else None,
-        "suite_total": (
-            (collection or {}).get("total")
-            if isinstance((collection or {}).get("total"), int)
-            else None
-        ),
+        "suite_total": suite_total if type(suite_total) is int and suite_total >= 0 else None,
     }
 
 
@@ -488,12 +486,29 @@ def git_show(repo: Path, sha: str, path: str) -> str | None:
     """Read only full lowercase Git object names, never options or revision syntax."""
     if not isinstance(sha, str) or re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", sha) is None:
         return None
-    result = subprocess.run(
-        ["git", "-C", str(repo), "show", f"{sha}:{path}"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    location_vars = {
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_NAMESPACE",
+        "GIT_CEILING_DIRECTORIES",
+        "GIT_DISCOVERY_ACROSS_FILESYSTEM",
+    }
+    env = {key: value for key, value in os.environ.items() if key not in location_vars}
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "show", f"{sha}:{path}"],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return None
     if result.returncode != 0:
         return None
     return result.stdout
@@ -875,6 +890,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args.json_output.parent.mkdir(parents=True, exist_ok=True)
     args.json_output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    args.markdown_output.parent.mkdir(parents=True, exist_ok=True)
     args.markdown_output.write_text(render_markdown(report), encoding="utf-8")
     print(
         json.dumps(

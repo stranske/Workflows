@@ -758,3 +758,30 @@ def test_run_keeps_outcomes_but_refuses_unknown_scoped_timing(tmp_path, monkeypa
     assert "junit_error" not in result["arms"][arm]
     # Evidence JSON must never contain non-standard NaN or Infinity values.
     json.dumps(result, allow_nan=False)
+
+
+def test_hosted_comparison_selects_reviewed_sources_and_requested_runtimes():
+    import shlex
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    workflow = yaml.safe_load(
+        (root / ".github/workflows/maint-88-verifier-runtime-comparison.yml").read_text()
+    )
+    job = workflow["jobs"]["compare"]
+    assert job["strategy"]["matrix"]["python"] == ["3.12", "3.13"]
+    steps = job["steps"]
+    prepare = next(step["run"] for step in steps if step["name"] == "Prepare immutable arms")
+    args = shlex.split(prepare)
+    assert args[args.index("--baseline") + 1] == "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769"
+    assert args[args.index("--candidate") + 1] == "8c0afc3ef0263cf85949b6167435ceabed5dd2a3"
+    install = next(step for step in steps if step["name"].startswith("Install one common"))
+    assert (
+        install["run"]
+        == "python -m pip install --requirement measurement/candidate/requirements.lock"
+    )
+    assert install["env"]["PIP_NO_CACHE_DIR"] == "1"
+    execute = next(step for step in steps if step["name"].startswith("Run both arms"))
+    assert execute["run"] == "python scripts/measure_verifier_runtime.py run --output measurement"
+    assert "continue-on-error" not in execute

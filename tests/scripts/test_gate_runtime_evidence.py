@@ -1,6 +1,8 @@
 """Focused checks for the hosted Gate before/after reader."""
 
 import json
+import os
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -554,8 +556,15 @@ def test_git_show_rejects_invalid_object_names_without_running_git(monkeypatch, 
 def test_git_show_accepts_full_lowercase_object_names(monkeypatch, tmp_path, length, returncode):
     sha = "0123456789abcdef" * (length // 16) + "01234567" * (length % 16 // 8)
 
+    monkeypatch.setenv("GIT_DIR", "/unrelated/repository/.git")
+    monkeypatch.setenv("RECEIPT_CONTROL", "preserved")
+
     def run(argv, **kwargs):
         assert argv == ["git", "-C", str(tmp_path), "show", f"{sha}:{VERIFIER}"]
+        env = kwargs.pop("env")
+        assert "GIT_DIR" not in env
+        assert env["RECEIPT_CONTROL"] == "preserved"
+        assert kwargs.pop("timeout") == 30
         assert kwargs == {"capture_output": True, "text": True, "check": False}
         return SimpleNamespace(returncode=returncode, stdout="source")
 
@@ -642,8 +651,8 @@ def test_main_verifies_source_identity_inside_report(
         )
     if identity_mode != "omitted":
         args.extend(["--repo", str(tmp_path)])
-    output = tmp_path / "report.json"
-    markdown = tmp_path / "report.md"
+    output = tmp_path / "json/missing/report.json"
+    markdown = tmp_path / "markdown/missing/report.md"
     args.extend(["--json-output", str(output), "--markdown-output", str(markdown)])
     assert evidence.main(args) == 0
     report = json.loads(output.read_text())
@@ -775,3 +784,74 @@ def test_measured_branch_loss_survives_another_unknown_comparison(controlled_pai
 
 def test_complete_loss_free_branch_comparison_is_false(controlled_pair):
     assert build_report(**controlled_pair)["verifier_branch_loss"] is False
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        (None, None),
+        (True, None),
+        (False, None),
+        (-1, None),
+        (1.0, None),
+        ("1", None),
+        (0, 0),
+        (2, 2),
+    ],
+)
+def test_scoped_suite_total_requires_exact_nonnegative_integer(value, expected):
+    counts = evidence.scoped_counts({"total": value, "per_file": dict.fromkeys(SCOPED_FILES, 1)})
+    assert counts["suite_total"] == expected
+    assert counts["total"] == 3
+
+
+def test_git_show_timeout_is_unavailable(monkeypatch, tmp_path):
+    def timeout(argv, **kwargs):
+        assert 0 < kwargs["timeout"] <= 60
+        raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+
+    monkeypatch.setattr(evidence.subprocess, "run", timeout)
+    assert evidence.git_show(tmp_path, "a" * 40, VERIFIER) is None
+
+
+def test_git_show_isolates_real_repository_from_inherited_locations(monkeypatch, tmp_path):
+    location_vars = (
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_NAMESPACE",
+        "GIT_CEILING_DIRECTORIES",
+        "GIT_DISCOVERY_ACROSS_FILESYSTEM",
+    )
+    clean_env = {key: value for key, value in os.environ.items() if key not in location_vars}
+    repo = tmp_path / "requested"
+    subprocess.run(["git", "init", "-q", str(repo)], env=clean_env, check=True)
+    (repo / "receipt").write_text("requested repository source")
+    subprocess.run(["git", "-C", str(repo), "add", "receipt"], env=clean_env, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "receipt",
+        ],
+        env=clean_env,
+        check=True,
+    )
+    sha = subprocess.check_output(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], env=clean_env, text=True
+    ).strip()
+    for key in location_vars:
+        monkeypatch.setenv(key, str(tmp_path / "wrong-location"))
+    original = dict(os.environ)
+    assert evidence.git_show(repo, sha, "receipt") == "requested repository source"
+    assert dict(os.environ) == original
