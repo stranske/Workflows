@@ -177,9 +177,26 @@ def test_ci_history_missing_junit(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert record["junit_path"] == str(junit_path)
 
 
-def test_main_handles_load_metrics_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+@pytest.mark.parametrize("with_github_metadata", [False, True])
+def test_main_handles_load_metrics_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, with_github_metadata: bool
+) -> None:
     junit_path = _write_sample_junit(tmp_path)
     history_path = tmp_path / "metrics-history.ndjson"
+    existing_history = '{"status": "previous-run"}\n'
+    history_path.write_text(existing_history, encoding="utf-8")
+
+    github_metadata = {
+        "GITHUB_RUN_ID": "42",
+        "GITHUB_RUN_NUMBER": "7",
+        "GITHUB_SHA": "deadbeef",
+        "GITHUB_REF": "refs/heads/main",
+    }
+    for key, value in github_metadata.items():
+        if with_github_metadata:
+            monkeypatch.setenv(key, value)
+        else:
+            monkeypatch.delenv(key, raising=False)
 
     monkeypatch.setenv("JUNIT_PATH", str(junit_path))
     monkeypatch.setenv("HISTORY_PATH", str(history_path))
@@ -198,15 +215,27 @@ def test_main_handles_load_metrics_error(monkeypatch: pytest.MonkeyPatch, tmp_pa
             monkeypatch.delenv(key, raising=False)
 
     assert exit_code == 1
-    assert history_path.exists()
-    record = json.loads(history_path.read_text(encoding="utf-8").strip())
+    history = history_path.read_text(encoding="utf-8")
+    assert history.startswith(existing_history)
+    assert history.endswith("\n")
+    lines = history.splitlines()
+    assert len(lines) == 2
+    record = json.loads(lines[1])
     assert record["status"] == "observed-failure"
     assert record["reason"] == "file-not-found"
     assert record["error"] == "bad"
     assert record["junit_path"] == str(junit_path)
     assert record["metrics_path"] == str(tmp_path / "ci-metrics.json")
-    assert record["regression_evidence"]["observed_failure"] is True
-    assert record["regression_evidence"]["regression_identified"] == "shallow-history-fetch"
+    assert record["regression_evidence"] == {
+        "observed_failure": True,
+        "file_not_found": "bad",
+        "shallow_history_suspected": True,
+        "regression_identified": "shallow-history-fetch",
+    }
+    if with_github_metadata:
+        assert record["github"] == {key.lower(): value for key, value in github_metadata.items()}
+    else:
+        assert "github" not in record
 
 
 def test_main_removes_existing_classification_when_disabled(
