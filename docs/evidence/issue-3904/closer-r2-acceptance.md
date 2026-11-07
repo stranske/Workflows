@@ -61,3 +61,66 @@ printed `343 passed in 29.28s`; the exact integration command printed
 ============================ 2054 passed in 13.68s =============================
 Both exited 0. Raw outputs are retained in the adjacent closer-r2 pytest files.
 The original 3.12 archive still independently validates with the updated checker.
+
+## Hosted readback and review limits
+
+Python 3.13 from run 42421935858 independently validates, including the GitHub
+archive digest, both source manifests, all scoped JUnit outcomes/times, coverage
+lines/arcs, uploaded hashes and all five process phase receipts per arm. Both
+arms cover 2,144 lines / 759 arcs with no loss. Coverage reporting is directly
+measured at about 24.5s per arm, and final reporting at about 3.2s; neither is an
+inferred overlapping-clock remainder. This is one pair, with no causal claim.
+
+The first actual source-head Gate (42421940995, head 43fc63feb...) was observed
+completed/success. The seven-minute post-push floor elapsed before readback.
+Review comment 4504023552 independently identified the earlier coverage boundary
+error, which this head corrects and the real hosted 3.13 receipts now validate.
+The GitHub connector refused both the PR-description correction and resolution
+of thread PRRT_kwDOQprj9M607byc with
+`MCP tool call requires approval, but approval policy is never`.
+Neither mutation was performed; that review thread remains unresolved and the
+remote PR description retains its earlier pending state. No merge is authorized
+by these receipts alone.
+
+CLI REST inspection hit the shared core quota at 22:59 UTC (reset 23:17:51 UTC).
+Connected GitHub readbacks remained available, so work continued without waiting
+for quota reset. The later raw step-clock readback used:
+`gh run view 42421935858 --repo stranske/Workflows --json status,conclusion,jobs`.
+The downloadable live 3.12 log was not yet published (404); browser inspection
+was unavailable (`native pipe closed before response`). No helper or security
+setting was changed.
+
+## Terminal acceptance — 2026-11-07
+
+Outcome 1: PASS. Run 42421935858 completed successfully on both requested
+runtimes. Independent validation prints `verified: true` for both retained raw
+archives. The new 3.12 digest is
+`b2f68c8e230dff23140719b173d8ed3b5de271284a933f7433d45eecbead72c7`;
+the new 3.13 digest is
+`441a35e21b4399db1f8c6b3db76f8d3a68706517e14c088b9be6da103cf750ba`.
+All actual process boundaries reconcile to the result receipts, including the
+controller coverage-report method. Source identity, raw scoped JUnit outcomes
+and times, coverage line/arc differences, uploaded hashes and embedded probe
+identity all independently reconcile. Package stability remains the harness's
+recorded observation. Missing inherited historical log uploads remain UNKNOWN.
+Raw terminal run/step clocks and connector job/artifact readbacks are retained.
+
+Both new runtime pairs have baseline 36,268 and candidate 35,644 passing cases,
+2,144 verifier lines and 759 arcs per arm, and no lost lines/arcs. The README
+retains measured phase durations. These overlapping clocks never establish an
+exclusive remainder. This is one pair per interpreter with uncontrolled host
+load/CPU placement and OS page cache; no causal speedup claim is made.
+
+No runtime source changed after the successful 343-test focused command and
+2,054-test integration command. The final commit adds receipts/documentation.
+PR #4535 remains the single repair PR on the provisioned branch, ready for review.
+GitHub metadata mutation limits above remain separate from source acceptance.
+
+All four retained archives (original/new on both runtimes) were revalidated with
+the independent command after copying into this branch; all returned exit 0 and
+`verified: true`. The final PR-description update was attempted with the complete
+terminal receipts and the final raw test output, and was again rejected by the
+connector's approval policy. The exact replacement is retained in
+`pr-4535-proposed-body.md`. Apply that body to PR #4535 and resolve addressed
+thread PRRT_kwDOQprj9M607byc after reading the source/phase evidence. These are
+metadata actions still outstanding; no alternate mutation route was attempted.

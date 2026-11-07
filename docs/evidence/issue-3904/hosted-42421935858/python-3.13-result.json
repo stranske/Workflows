@@ -1,0 +1,974 @@
+{
+  "manifest": {
+    "arms": {
+      "baseline": {
+        "commit": "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769",
+        "tree": "12b50c312b5ac601286ba99b04bbd70b85f9a2d5",
+        "sha256": {
+          "tests/scripts/test_pr_verifier_delivery_destinations.py": "2b0614095ffcb5da62e1fc60f643dbb342fa1e3914eac789a2c1ec21c41a87ca",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+          "tests/scripts/test_pr_verifier_body_overall_integration.py": "6bea779eba3e8405cb52ee88f235b3aec6e36f438de9aa2a0eb0a8eaaddd73dc",
+          "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+          "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+          "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+        }
+      },
+      "candidate": {
+        "commit": "8c0afc3ef0263cf85949b6167435ceabed5dd2a3",
+        "tree": "fbb5d94688c875479c54a8d62c9c7e4ac918c7cd",
+        "sha256": {
+          "tests/scripts/test_pr_verifier_delivery_destinations.py": "5c00c35afe442cc2ad6b252ce0a1f2cddd4918dd4b10c72770acb93e5da177fc",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+          "tests/scripts/test_pr_verifier_body_overall_integration.py": "821bb6606f9273d1fa1050ab26c38ff3e898b62014c99b9a5022f327dd59d0c1",
+          "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+          "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+          "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+        }
+      }
+    },
+    "harness_sha256": "47b75973a33d7348d4b153b66afc921b4d84ac66e9b5741e0d828a433855790c",
+    "workflow_sha": "43fc63febb0522b610a78f9dcac3e3c610937727",
+    "workflow_sha256": "3d16dac77fa34b3f27e35db3676baa3f62d245d8225ebec88be92eda52e79ef3",
+    "dependency_lock": "candidate/requirements.lock",
+    "cache_policy": "No actions/cache or artifact restore; fresh arm directories, pytest cache provider disabled, bytecode writes disabled. OS page cache is uncontrolled; arm order is recorded in result.json (baseline first on Python 3.12, candidate first otherwise), not within-version replicated."
+  },
+  "python": "3.13.18 (main, Oct 26 2026, 14:19:33) [GCC 15.2.0]",
+  "platform": "Linux-7.0.0-1019-azure-x86_64-with-glibc2.43",
+  "packages": [
+    {
+      "name": "aiohappyeyeballs",
+      "version": "2.7.1"
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.14.3"
+    },
+    {
+      "name": "aiosignal",
+      "version": "1.4.0"
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0"
+    },
+    {
+      "name": "anthropic",
+      "version": "0.120.0"
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1"
+    },
+    {
+      "name": "ast_serialize",
+      "version": "0.12.1"
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0"
+    },
+    {
+      "name": "black",
+      "version": "26.10.1"
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22"
+    },
+    {
+      "name": "cfgv",
+      "version": "3.5.0"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.9"
+    },
+    {
+      "name": "click",
+      "version": "8.4.2"
+    },
+    {
+      "name": "coverage",
+      "version": "7.17.2"
+    },
+    {
+      "name": "defusedxml",
+      "version": "0.7.1"
+    },
+    {
+      "name": "distlib",
+      "version": "0.4.3"
+    },
+    {
+      "name": "distro",
+      "version": "1.9.0"
+    },
+    {
+      "name": "docformatter",
+      "version": "1.7.8"
+    },
+    {
+      "name": "docstring_parser",
+      "version": "0.18.0"
+    },
+    {
+      "name": "execnet",
+      "version": "2.1.2"
+    },
+    {
+      "name": "faiss-cpu",
+      "version": "1.15.0"
+    },
+    {
+      "name": "filelock",
+      "version": "3.32.0"
+    },
+    {
+      "name": "flake8",
+      "version": "7.3.0"
+    },
+    {
+      "name": "frozenlist",
+      "version": "1.8.0"
+    },
+    {
+      "name": "greenlet",
+      "version": "3.5.4"
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0"
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9"
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1"
+    },
+    {
+      "name": "httpx-sse",
+      "version": "0.4.3"
+    },
+    {
+      "name": "hypothesis",
+      "version": "6.161.5"
+    },
+    {
+      "name": "identify",
+      "version": "2.6.19"
+    },
+    {
+      "name": "idna",
+      "version": "3.18"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.0"
+    },
+    {
+      "name": "isort",
+      "version": "9.0.2"
+    },
+    {
+      "name": "jiter",
+      "version": "0.16.0"
+    },
+    {
+      "name": "jsonpatch",
+      "version": "1.33"
+    },
+    {
+      "name": "jsonpointer",
+      "version": "3.1.1"
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0"
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1"
+    },
+    {
+      "name": "langchain",
+      "version": "1.3.14"
+    },
+    {
+      "name": "langchain-anthropic",
+      "version": "1.5.4"
+    },
+    {
+      "name": "langchain-classic",
+      "version": "1.0.8"
+    },
+    {
+      "name": "langchain-community",
+      "version": "0.4.2"
+    },
+    {
+      "name": "langchain-core",
+      "version": "1.5.3"
+    },
+    {
+      "name": "langchain-openai",
+      "version": "1.4.1"
+    },
+    {
+      "name": "langchain-protocol",
+      "version": "0.0.18"
+    },
+    {
+      "name": "langchain-text-splitters",
+      "version": "1.1.2"
+    },
+    {
+      "name": "langgraph",
+      "version": "1.2.9"
+    },
+    {
+      "name": "langgraph-checkpoint",
+      "version": "4.1.1"
+    },
+    {
+      "name": "langgraph-prebuilt",
+      "version": "1.1.0"
+    },
+    {
+      "name": "langgraph-sdk",
+      "version": "0.4.2"
+    },
+    {
+      "name": "langsmith",
+      "version": "0.10.10"
+    },
+    {
+      "name": "librt",
+      "version": "0.16.0"
+    },
+    {
+      "name": "mccabe",
+      "version": "0.7.0"
+    },
+    {
+      "name": "multidict",
+      "version": "6.7.1"
+    },
+    {
+      "name": "mypy",
+      "version": "2.4.1"
+    },
+    {
+      "name": "mypy_extensions",
+      "version": "1.1.0"
+    },
+    {
+      "name": "nodeenv",
+      "version": "1.10.0"
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.1"
+    },
+    {
+      "name": "openai",
+      "version": "2.48.0"
+    },
+    {
+      "name": "orjson",
+      "version": "3.11.9"
+    },
+    {
+      "name": "ormsgpack",
+      "version": "1.12.2"
+    },
+    {
+      "name": "packaging",
+      "version": "26.2"
+    },
+    {
+      "name": "pandas",
+      "version": "3.0.5"
+    },
+    {
+      "name": "pathspec",
+      "version": "1.1.1"
+    },
+    {
+      "name": "pip",
+      "version": "26.2.2"
+    },
+    {
+      "name": "platformdirs",
+      "version": "4.11.0"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.6.0"
+    },
+    {
+      "name": "pre_commit",
+      "version": "4.6.1"
+    },
+    {
+      "name": "propcache",
+      "version": "0.5.2"
+    },
+    {
+      "name": "pycodestyle",
+      "version": "2.14.0"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.4"
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.46.4"
+    },
+    {
+      "name": "pydantic-settings",
+      "version": "2.14.2"
+    },
+    {
+      "name": "pyflakes",
+      "version": "3.4.0"
+    },
+    {
+      "name": "Pygments",
+      "version": "2.20.0"
+    },
+    {
+      "name": "pytest",
+      "version": "9.2.0"
+    },
+    {
+      "name": "pytest-cov",
+      "version": "7.1.0"
+    },
+    {
+      "name": "pytest-xdist",
+      "version": "3.8.0"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0"
+    },
+    {
+      "name": "python-discovery",
+      "version": "1.5.0"
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.2"
+    },
+    {
+      "name": "pytokens",
+      "version": "0.4.1"
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3"
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0"
+    },
+    {
+      "name": "regex",
+      "version": "2026.7.19"
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2"
+    },
+    {
+      "name": "requests-toolbelt",
+      "version": "1.0.0"
+    },
+    {
+      "name": "rfc3339-validator",
+      "version": "0.1.4"
+    },
+    {
+      "name": "rfc3986-validator",
+      "version": "0.1.1"
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.6.3"
+    },
+    {
+      "name": "ruff",
+      "version": "0.17.3"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0"
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1"
+    },
+    {
+      "name": "sortedcontainers",
+      "version": "2.4.0"
+    },
+    {
+      "name": "SQLAlchemy",
+      "version": "2.0.51"
+    },
+    {
+      "name": "tenacity",
+      "version": "9.1.4"
+    },
+    {
+      "name": "tiktoken",
+      "version": "0.13.0"
+    },
+    {
+      "name": "tomlkit",
+      "version": "0.15.1"
+    },
+    {
+      "name": "tqdm",
+      "version": "4.69.1"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0"
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.2"
+    },
+    {
+      "name": "urllib3",
+      "version": "2.7.0"
+    },
+    {
+      "name": "uuid_utils",
+      "version": "0.17.0"
+    },
+    {
+      "name": "virtualenv",
+      "version": "21.7.0"
+    },
+    {
+      "name": "websockets",
+      "version": "15.0.1"
+    },
+    {
+      "name": "xxhash",
+      "version": "3.8.1"
+    },
+    {
+      "name": "yarl",
+      "version": "1.24.5"
+    },
+    {
+      "name": "zstandard",
+      "version": "0.25.0"
+    }
+  ],
+  "order": [
+    "candidate",
+    "baseline"
+  ],
+  "arms": {
+    "candidate": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.13.18/x64/bin/python",
+        "-m",
+        "pytest",
+        "tests/scripts/test_pr_verifier_delivery_destinations.py",
+        "tests/scripts/test_pr_verifier_prompt_coverage.py",
+        "tests/scripts/test_pr_verifier_body_overall_integration.py",
+        "-m",
+        "not quarantine and not slow",
+        "-n",
+        "4",
+        "--dist=loadgroup",
+        "-p",
+        "no:cacheprovider",
+        "-p",
+        "no:rerunfailures",
+        "-p",
+        "verifier_phase_probe",
+        "--cov",
+        "--cov-config=pyproject.toml",
+        "--cov-report=json:coverage.json",
+        "--cov-report=xml:coverage.xml",
+        "--cov-report=term-missing",
+        "--junitxml=pytest-junit.xml",
+        "--durations=25",
+        "-q"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 358.927694317,
+      "phases": {
+        "available": true,
+        "gaps": [],
+        "processes": {
+          "controller": {
+            "session": {
+              "start": 134.293461809,
+              "end": 487.898745564,
+              "seconds": 353.605283755
+            },
+            "collection": {
+              "start": 134.50633395,
+              "end": 134.506478878,
+              "seconds": 0.0001449279999974351
+            },
+            "controller_worker_loop": {
+              "start": 134.506503716,
+              "end": 484.710593762,
+              "seconds": 350.204090046
+            },
+            "reporting": {
+              "start": 484.710667583,
+              "end": 487.898744733,
+              "seconds": 3.1880771500000264
+            },
+            "coverage_reporting": {
+              "start": 460.057288489,
+              "end": 484.710381132,
+              "seconds": 24.653092643000036
+            }
+          },
+          "gw0": {
+            "session": {
+              "start": 136.159308842,
+              "end": 461.089646722,
+              "seconds": 324.93033788
+            },
+            "collection": {
+              "start": 136.219552609,
+              "end": 147.800600895,
+              "seconds": 11.581048285999998
+            },
+            "controller_worker_loop": {
+              "start": 147.800665893,
+              "end": 458.869711474,
+              "seconds": 311.06904558099995
+            },
+            "reporting": {
+              "start": 458.869852527,
+              "end": 461.089644448,
+              "seconds": 2.2197919210000236
+            }
+          },
+          "gw1": {
+            "session": {
+              "start": 136.291031019,
+              "end": 460.950955604,
+              "seconds": 324.659924585
+            },
+            "collection": {
+              "start": 136.360519892,
+              "end": 147.456112617,
+              "seconds": 11.095592724999989
+            },
+            "controller_worker_loop": {
+              "start": 147.456173218,
+              "end": 458.875833336,
+              "seconds": 311.419660118
+            },
+            "reporting": {
+              "start": 458.875972435,
+              "end": 460.950953721,
+              "seconds": 2.0749812860000247
+            }
+          },
+          "gw2": {
+            "session": {
+              "start": 136.31512334,
+              "end": 460.939728606,
+              "seconds": 324.624605266
+            },
+            "collection": {
+              "start": 136.387242565,
+              "end": 147.487231542,
+              "seconds": 11.099988976999981
+            },
+            "controller_worker_loop": {
+              "start": 147.487298102,
+              "end": 458.893586417,
+              "seconds": 311.406288315
+            },
+            "reporting": {
+              "start": 458.893722322,
+              "end": 460.939726914,
+              "seconds": 2.046004592000031
+            }
+          },
+          "gw3": {
+            "session": {
+              "start": 136.36940403,
+              "end": 461.130335006,
+              "seconds": 324.760930976
+            },
+            "collection": {
+              "start": 136.434765496,
+              "end": 147.817554762,
+              "seconds": 11.382789265999975
+            },
+            "controller_worker_loop": {
+              "start": 147.817614762,
+              "end": 459.305944971,
+              "seconds": 311.48833020899997
+            },
+            "reporting": {
+              "start": 459.306108828,
+              "end": 461.130333113,
+              "seconds": 1.8242242850000139
+            }
+          }
+        },
+        "overlap_note": "Controller session and loop overlap worker sessions and collection; worker intervals overlap each other. Session includes reporting. Reporting measures pytest_sessionfinish hooks (JUnit/terminal); coverage_reporting measures pytest-cov summary inside the loop, not all per-test report handling. No intervals are additive across processes; startup, teardown outside hooks and exclusive overhead are UNKNOWN."
+      },
+      "junit": {
+        "suites": [
+          {
+            "name": "pytest",
+            "errors": "0",
+            "failures": "0",
+            "skipped": "0",
+            "tests": "35644",
+            "time": "352.841",
+            "timestamp": "2026-11-07T22:44:09.414533+00:00",
+            "hostname": "runnervmwuk1x"
+          }
+        ],
+        "per_file": {
+          "tests.scripts.test_pr_verifier_delivery_destinations": {
+            "cases": 29777,
+            "worker_seconds": 627.6279999999136,
+            "timed_cases": 29777,
+            "untimed_cases": 0,
+            "passed": 29777,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "timing_status": "KNOWN"
+          },
+          "tests.scripts.test_pr_verifier_prompt_coverage": {
+            "cases": 3813,
+            "worker_seconds": 136.47900000000192,
+            "timed_cases": 3813,
+            "untimed_cases": 0,
+            "passed": 3813,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "timing_status": "KNOWN"
+          },
+          "tests.scripts.test_pr_verifier_body_overall_integration": {
+            "cases": 2054,
+            "worker_seconds": 24.050000000000253,
+            "timed_cases": 2054,
+            "untimed_cases": 0,
+            "passed": 2054,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "timing_status": "KNOWN"
+          }
+        }
+      }
+    },
+    "baseline": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.13.18/x64/bin/python",
+        "-m",
+        "pytest",
+        "tests/scripts/test_pr_verifier_delivery_destinations.py",
+        "tests/scripts/test_pr_verifier_prompt_coverage.py",
+        "tests/scripts/test_pr_verifier_body_overall_integration.py",
+        "-m",
+        "not quarantine and not slow",
+        "-n",
+        "4",
+        "--dist=loadgroup",
+        "-p",
+        "no:cacheprovider",
+        "-p",
+        "no:rerunfailures",
+        "-p",
+        "verifier_phase_probe",
+        "--cov",
+        "--cov-config=pyproject.toml",
+        "--cov-report=json:coverage.json",
+        "--cov-report=xml:coverage.xml",
+        "--cov-report=term-missing",
+        "--junitxml=pytest-junit.xml",
+        "--durations=25",
+        "-q"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 373.736076129,
+      "phases": {
+        "available": true,
+        "gaps": [],
+        "processes": {
+          "controller": {
+            "session": {
+              "start": 493.117243844,
+              "end": 861.778269072,
+              "seconds": 368.66102522799997
+            },
+            "collection": {
+              "start": 493.333640056,
+              "end": 493.333795781,
+              "seconds": 0.00015572500001326262
+            },
+            "controller_worker_loop": {
+              "start": 493.333823383,
+              "end": 858.588595502,
+              "seconds": 365.254772119
+            },
+            "reporting": {
+              "start": 858.588663154,
+              "end": 861.77826804,
+              "seconds": 3.1896048859999837
+            },
+            "coverage_reporting": {
+              "start": 834.059638273,
+              "end": 858.588395011,
+              "seconds": 24.52875673799997
+            }
+          },
+          "gw0": {
+            "session": {
+              "start": 494.984325686,
+              "end": 835.126238177,
+              "seconds": 340.141912491
+            },
+            "collection": {
+              "start": 495.045571009,
+              "end": 506.088904535,
+              "seconds": 11.04333352599997
+            },
+            "controller_worker_loop": {
+              "start": 506.088973639,
+              "end": 833.082407597,
+              "seconds": 326.993433958
+            },
+            "reporting": {
+              "start": 833.082554818,
+              "end": 835.126235463,
+              "seconds": 2.043680644999995
+            }
+          },
+          "gw1": {
+            "session": {
+              "start": 495.053201989,
+              "end": 834.900214609,
+              "seconds": 339.84701262000004
+            },
+            "collection": {
+              "start": 495.116164413,
+              "end": 506.298826256,
+              "seconds": 11.182661843000005
+            },
+            "controller_worker_loop": {
+              "start": 506.298890633,
+              "end": 832.972494875,
+              "seconds": 326.67360424200007
+            },
+            "reporting": {
+              "start": 832.97263069,
+              "end": 834.900212977,
+              "seconds": 1.9275822870000638
+            }
+          },
+          "gw2": {
+            "session": {
+              "start": 495.102834454,
+              "end": 835.489595968,
+              "seconds": 340.386761514
+            },
+            "collection": {
+              "start": 495.167283523,
+              "end": 506.165204925,
+              "seconds": 10.997921402000031
+            },
+            "controller_worker_loop": {
+              "start": 506.165259778,
+              "end": 832.949064324,
+              "seconds": 326.783804546
+            },
+            "reporting": {
+              "start": 832.949205987,
+              "end": 835.489594225,
+              "seconds": 2.5403882379999914
+            }
+          },
+          "gw3": {
+            "session": {
+              "start": 495.200761899,
+              "end": 835.351993021,
+              "seconds": 340.151231122
+            },
+            "collection": {
+              "start": 495.264590068,
+              "end": 506.537396242,
+              "seconds": 11.272806173999982
+            },
+            "controller_worker_loop": {
+              "start": 506.537460669,
+              "end": 833.236743869,
+              "seconds": 326.69928319999997
+            },
+            "reporting": {
+              "start": 833.236879773,
+              "end": 835.351991498,
+              "seconds": 2.115111724999906
+            }
+          }
+        },
+        "overlap_note": "Controller session and loop overlap worker sessions and collection; worker intervals overlap each other. Session includes reporting. Reporting measures pytest_sessionfinish hooks (JUnit/terminal); coverage_reporting measures pytest-cov summary inside the loop, not all per-test report handling. No intervals are additive across processes; startup, teardown outside hooks and exclusive overhead are UNKNOWN."
+      },
+      "junit": {
+        "suites": [
+          {
+            "name": "pytest",
+            "errors": "0",
+            "failures": "0",
+            "skipped": "0",
+            "tests": "36268",
+            "time": "367.897",
+            "timestamp": "2026-11-07T22:50:08.238317+00:00",
+            "hostname": "runnervmwuk1x"
+          }
+        ],
+        "per_file": {
+          "tests.scripts.test_pr_verifier_delivery_destinations": {
+            "cases": 30461,
+            "worker_seconds": 666.1469999999213,
+            "timed_cases": 30461,
+            "untimed_cases": 0,
+            "passed": 30461,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "timing_status": "KNOWN"
+          },
+          "tests.scripts.test_pr_verifier_prompt_coverage": {
+            "cases": 3813,
+            "worker_seconds": 135.5530000000033,
+            "timed_cases": 3813,
+            "untimed_cases": 0,
+            "passed": 3813,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "timing_status": "KNOWN"
+          },
+          "tests.scripts.test_pr_verifier_body_overall_integration": {
+            "cases": 1994,
+            "worker_seconds": 23.90600000000026,
+            "timed_cases": 1994,
+            "untimed_cases": 0,
+            "passed": 1994,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "timing_status": "KNOWN"
+          }
+        }
+      }
+    }
+  },
+  "source_integrity": {
+    "before": {
+      "verified": true,
+      "gaps": [],
+      "sha256": {
+        "baseline": {
+          "tests/scripts/test_pr_verifier_delivery_destinations.py": "2b0614095ffcb5da62e1fc60f643dbb342fa1e3914eac789a2c1ec21c41a87ca",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+          "tests/scripts/test_pr_verifier_body_overall_integration.py": "6bea779eba3e8405cb52ee88f235b3aec6e36f438de9aa2a0eb0a8eaaddd73dc",
+          "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+          "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+          "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+        },
+        "candidate": {
+          "tests/scripts/test_pr_verifier_delivery_destinations.py": "5c00c35afe442cc2ad6b252ce0a1f2cddd4918dd4b10c72770acb93e5da177fc",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+          "tests/scripts/test_pr_verifier_body_overall_integration.py": "821bb6606f9273d1fa1050ab26c38ff3e898b62014c99b9a5022f327dd59d0c1",
+          "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+          "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+          "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+        }
+      }
+    },
+    "verified": true,
+    "after": {
+      "verified": true,
+      "gaps": [],
+      "sha256": {
+        "baseline": {
+          "tests/scripts/test_pr_verifier_delivery_destinations.py": "2b0614095ffcb5da62e1fc60f643dbb342fa1e3914eac789a2c1ec21c41a87ca",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+          "tests/scripts/test_pr_verifier_body_overall_integration.py": "6bea779eba3e8405cb52ee88f235b3aec6e36f438de9aa2a0eb0a8eaaddd73dc",
+          "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+          "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+          "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+        },
+        "candidate": {
+          "tests/scripts/test_pr_verifier_delivery_destinations.py": "5c00c35afe442cc2ad6b252ce0a1f2cddd4918dd4b10c72770acb93e5da177fc",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+          "tests/scripts/test_pr_verifier_body_overall_integration.py": "821bb6606f9273d1fa1050ab26c38ff3e898b62014c99b9a5022f327dd59d0c1",
+          "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+          "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+          "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+        }
+      }
+    }
+  },
+  "phase_plugin_sha256": "d789896e533a046a5e45d7a8285ea4399037ab1fad7583876c36b4111c306c99",
+  "packages_unchanged": true,
+  "outcome_comparison": {
+    "successful": true,
+    "gaps": []
+  },
+  "timing_comparison": {
+    "available": true,
+    "gaps": []
+  },
+  "verifier_coverage": {
+    "lost_lines": [],
+    "lost_branches": [],
+    "baseline_lines": 2144,
+    "candidate_lines": 2144,
+    "baseline_branches": 759,
+    "candidate_branches": 759
+  },
+  "artifact_sha256": {
+    "candidate.log": "b2ffe5a77591d3e7702ec1f6feb0f8527d0f42a7291cbd52891a4a747a4e341d",
+    "baseline.log": "da22c97931c2126b6e6cb3cf9f3b6b7f25f10569f0a4b51b1c78613e36c89849",
+    "baseline/coverage.xml": "c622e461c616e4a6dc83993a4a74c92bb176501ca922e54e4c4b576075b22442",
+    "baseline/coverage.json": "bd04febb37b3849e5ec7c256b57946c9da416a94f09af91b00249297b84f5aac",
+    "baseline/pytest-junit.xml": "6bd19d2edc2a1be1cfc576bcc54fce88e6e4085a53a8b2406de42aa4ac621efe",
+    "candidate/coverage.xml": "b03684fbb4d4dc889f977dcfe3a6cb9fc6fc901860031a411177c146a63067a9",
+    "candidate/coverage.json": "85901e456b2fd65cba1365be4b2e17a654d2b2a12069a5fb08b42280d252a109",
+    "candidate/pytest-junit.xml": "597f8f53ad698472c0b87f90c75c5213f73a3e6626b4a515981a2e49ab6c9765",
+    "candidate/phase-clocks/gw1.json": "3af1f40ca460985425cdb1312d927ef82b0837411e8690f87ac6755966e899ab",
+    "candidate/phase-clocks/controller.json": "dc7e24460340d398df76d7fbd028e5a28b8e60d673581a2b61c74de64de3566d",
+    "candidate/phase-clocks/gw0.json": "8146f0036c02460a1696560d3fd3d89febf22974761dcf0d7fa42a124dca67a2",
+    "candidate/phase-clocks/gw2.json": "7ebfe7f7a51823f28ea294a055505b59239a3ddede558f859e224ec770b7b2cb",
+    "candidate/phase-clocks/gw3.json": "1fde5393d058e8ace9ed1e86d89a5a6cd3f7308cf8c209766ca079d6bd0256d6",
+    "candidate/docs/evidence/issue-3743/runtime-probes/candidate.log": "b76f222e670fbfc989298ee6d0afe58a0fe391b151a158ad44da3c68d91fda96",
+    "candidate/docs/evidence/issue-3743/runtime-probes/baseline.log": "de87252f2d51a0eb57535cf8ba097c1bad8c32f0b5ac00c78fe3b8d621a3ceb2",
+    "baseline/phase-clocks/gw1.json": "250bd9a81b4310016cc593d70d688dea6c5fb3875cd0cfc3626429efcc24d09f",
+    "baseline/phase-clocks/controller.json": "5d5deea406015db81a47bf5231553c6cb332fc83f5cb90696c5bf81c4be6192f",
+    "baseline/phase-clocks/gw0.json": "afe7c9e204c3c0ffb8f948a8bc97101304204f90c55a34665b0704afa50ac3af",
+    "baseline/phase-clocks/gw2.json": "d1fbd2c8be4a1a6094465902ba0356e06aab7b7ae804c214e443b689b073f829",
+    "baseline/phase-clocks/gw3.json": "70f7d89488030036aa1a4579aca3b6ada84d1721d057dbaf85e8c0fba4c88dee",
+    "baseline/docs/evidence/issue-3743/runtime-probes/candidate.log": "b76f222e670fbfc989298ee6d0afe58a0fe391b151a158ad44da3c68d91fda96",
+    "baseline/docs/evidence/issue-3743/runtime-probes/baseline.log": "de87252f2d51a0eb57535cf8ba097c1bad8c32f0b5ac00c78fe3b8d621a3ceb2"
+  }
+}
