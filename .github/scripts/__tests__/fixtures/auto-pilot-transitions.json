@@ -118,6 +118,28 @@
   ],
   "guardCases": [
     {
+      "name": "reclosure by the same PR requires a new closure handoff",
+      "event": {
+        "issueState": "closed",
+        "verifyHandoffBound": true,
+        "closure": {"id": 1002, "sourcePr": 2454},
+        "verifyHandoff": {"closureId": 1001, "sourcePr": 2454}
+      },
+      "state": "closed-needs-verify",
+      "nextStep": "verify"
+    },
+    {
+      "name": "serialized false flag rejects otherwise matching closure handoff",
+      "event": {
+        "issueState": "closed",
+        "verifyHandoffBound": "false",
+        "closure": {"id": 1001, "sourcePr": 2454},
+        "verifyHandoff": {"closureId": 1001, "sourcePr": 2454}
+      },
+      "state": "closed-needs-verify",
+      "nextStep": "verify"
+    },
+    {
       "name": "old agents:format trigger label does not satisfy formatted guard",
       "event": {
         "issueState": "open",

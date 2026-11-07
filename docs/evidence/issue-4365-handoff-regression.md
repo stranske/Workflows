@@ -45,3 +45,38 @@ node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitio
 Result on 2026-11-06: 50 passed, 0 failed. Covered: reopened issues, same-PR
 reclosure, different source PRs, matching malformed identities, serialized
 false flags, and merged-PR selection on both surfaces.
+
+## Acceptance verification (2026-11-07)
+
+- [x] `hasCurrentVerifyHandoff` requires a true handoff flag, valid positive
+  closure/source-PR identities on both records, and matching identities;
+  `resolveCurrentState` gates `closed-verified` on that proof.
+- [x] `selectMergedClosingPr` selects the first merged matching PR in input
+  order, from either body or title, with digit-bounded issue references.
+- [x] Focused regressions cover reopening, same-PR reclosure, different source
+  PRs, matching malformed identities, serialized false flags, and merged-PR
+  selection on both surfaces. Two new fixture cases cover same-PR reclosure
+  and a serialized false flag with otherwise matching proof.
+
+The existing helper implementations already satisfied these criteria. Added
+direct helper/state assertions for independently invalid fields on both records,
+body/title closing-keyword cases, first-match ordering, and invalid PR batches.
+All transition fixtures now execute against both source and consumer helpers.
+The two helper files remain byte-identical.
+
+```sh
+node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js
+node --test --test-isolation=none tests/workflows/auto_pilot_verify_handoff.test.js
+python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py tests/workflows/test_sync_manifest_delivery.py tests/scripts/test_template_drift_allowlist.py -m "not slow"
+python3 scripts/check_template_drift.py
+```
+
+Results: 80 helper tests passed; 46 workflow handoff tests passed; 91 Python
+tests passed; drift validation exited 0 with no unallowlisted drift.
+
+A broader combined JavaScript run including
+`.github/scripts/__tests__/verifier-correction-wiring.test.js` passed 145 tests
+and failed one existing runner-assembly test at line 167 because
+`spawnSync python3` returned `EPERM` in this execution environment. No test or
+security control was disabled to bypass that failure. Workflow integration and
+consumer delivery remain deferred as described above.

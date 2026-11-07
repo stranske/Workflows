@@ -15,7 +15,6 @@ const {
   isKeepaliveTasksComplete,
   normalizeForceStep,
   redispatchForceStep,
-  resolveCurrentState,
   transition,
 } = require('../auto_pilot_transitions.js');
 
@@ -25,6 +24,11 @@ const fixtures = JSON.parse(
     'utf8',
   ),
 );
+
+const surfaces = [
+  ['source', require('../auto_pilot_transitions.js')],
+  ['consumer template', require('../../../templates/consumer-repo/.github/scripts/auto_pilot_transitions.js')],
+];
 
 test('transition contract documents every state and next step', () => {
   assert.deepEqual(Object.keys(TRANSITION_CONTRACT.transitions).sort(), Object.values(STATES).sort());
@@ -47,31 +51,19 @@ test('transition contract documents every state and next step', () => {
   assert.match(TRANSITION_CONTRACT.guards.join('\n'), /keepalive state/);
 });
 
-for (const scenario of fixtures.validTransitions) {
-  test(`valid transition: ${scenario.name}`, () => {
-    assert.equal(resolveCurrentState(scenario.event), scenario.state);
-    assert.equal(transition(scenario.state, scenario.event), scenario.nextStep);
-    const result = determineNextStep(scenario.event);
-    assert.equal(result.currentState, scenario.state);
-    assert.equal(result.nextStep, scenario.nextStep);
-    assert.equal(result.forced, false);
-  });
-}
-
-for (const scenario of fixtures.guardCases) {
-  test(`guard condition: ${scenario.name}`, () => {
-    const result = determineNextStep(scenario.event);
-    assert.equal(result.currentState, scenario.state);
-    assert.equal(result.nextStep, scenario.nextStep);
-  });
-}
-
-for (const scenario of fixtures.incidentEdges) {
-  test(`incident edge: ${scenario.name}`, () => {
-    const result = determineNextStep(scenario.event);
-    assert.equal(result.currentState, scenario.state);
-    assert.equal(result.nextStep, scenario.nextStep);
-  });
+for (const [surface, transitions] of surfaces) {
+  for (const [group, scenarios] of Object.entries(fixtures)) {
+    for (const scenario of scenarios) {
+      test(`${surface} ${group}: ${scenario.name}`, () => {
+        assert.equal(transitions.resolveCurrentState(scenario.event), scenario.state);
+        assert.equal(transitions.transition(scenario.state, scenario.event), scenario.nextStep);
+        const result = transitions.determineNextStep(scenario.event);
+        assert.equal(result.currentState, scenario.state);
+        assert.equal(result.nextStep, scenario.nextStep);
+        assert.equal(result.forced, false);
+      });
+    }
+  }
 }
 
 test('invalid transition state throws', () => {
@@ -240,10 +232,73 @@ test('handoff identities accept serialized positive IDs and reject absent or mal
   }
 });
 
-for (const [surface, transitions] of [
-  ['source', require('../auto_pilot_transitions.js')],
-  ['consumer template', require('../../../templates/consumer-repo/.github/scripts/auto_pilot_transitions.js')],
-]) {
+for (const [surface, transitions] of surfaces) {
+  test(`${surface}: each identity field independently gates the handoff and closed state`, () => {
+    const issue = {
+      issueState: 'closed',
+      verifyHandoffBound: true,
+      closure: { id: 3001, sourcePr: 2454 },
+      verifyHandoff: { closureId: '3001', sourcePr: '2454' },
+    };
+    const assertHandoff = (event, expected, message) => {
+      assert.equal(transitions.hasCurrentVerifyHandoff(event), expected, message);
+      assert.equal(
+        transitions.resolveCurrentState(event),
+        expected ? STATES.CLOSED_VERIFIED : STATES.CLOSED_NEEDS_VERIFY,
+        message,
+      );
+    };
+    assertHandoff(issue, true, 'mixed numeric and serialized identities match');
+    for (const record of ['closure', 'verifyHandoff']) {
+      for (const missing of [undefined, null]) {
+        assertHandoff({ ...issue, [record]: missing }, false, `missing ${record}`);
+      }
+      for (const field of Object.keys(issue[record])) {
+        for (const value of [
+          undefined, null, '', ' ', 0, '0', -1, '-1', 1.5, '1.5', '01', '+1',
+          '1e3', '0x10', true, false, [], [3001], {}, NaN, Infinity,
+          Number.MAX_SAFE_INTEGER + 1,
+        ]) {
+          assertHandoff({
+            ...issue,
+            [record]: { ...issue[record], [field]: value },
+          }, false, `${record}.${field}=${String(value)}`);
+        }
+      }
+    }
+    for (const verifyHandoff of [
+      { closureId: 3002, sourcePr: 2454 },
+      { closureId: 3001, sourcePr: 2455 },
+    ]) {
+      assertHandoff({ ...issue, verifyHandoff }, false, 'valid but mismatching identities');
+    }
+  });
+
+  test(`${surface}: merged PR selection accepts body and title references in input order`, () => {
+    const merged = { number: 100, merged_at: '2026-02-01T00:00:00Z' };
+    const later = { number: 101, merged_at: '2026-03-01T00:00:00Z', body: 'Closes #12' };
+    for (const field of ['body', 'title']) {
+      for (const reference of [
+        '<!-- meta:issue:12 -->',
+        'close #12', 'Closes #12', 'CLOSED #12',
+        'fix #12', 'Fixes #12', 'FIXED #12',
+        'resolve #12', 'Resolves #12', 'RESOLVED #12',
+      ]) {
+        const matching = { ...merged, [field]: reference };
+        assert.equal(transitions.selectMergedClosingPr([
+          null,
+          { ...matching, merged_at: null },
+          { ...merged, body: 'Related to #12' },
+          matching,
+          later,
+        ], 12), matching, `${field}: ${reference}`);
+      }
+    }
+    for (const pulls of [undefined, null, {}, [], [null, {}]]) {
+      assert.equal(transitions.selectMergedClosingPr(pulls, 12), null);
+    }
+  });
+
   test(`${surface}: merged closing PR selection skips newer unmerged and prefix issue refs`, () => {
     const pulls = [
       { number: 101, merged_at: null, title: 'later', body: 'Closes #12' },
@@ -272,12 +327,16 @@ for (const [surface, transitions] of [
     // Workflow callers supply environment strings. Even matching identities do
     // not prove success when the handoff flag is false or absent.
     for (const verifyHandoffBound of [false, 'false', ' FALSE ', '', undefined, null]) {
-      const result = transitions.determineNextStep({ ...issue, verifyHandoffBound });
+      const event = { ...issue, verifyHandoffBound };
+      assert.equal(transitions.hasCurrentVerifyHandoff(event), false);
+      const result = transitions.determineNextStep(event);
       assert.equal(result.currentState, STATES.CLOSED_NEEDS_VERIFY, String(verifyHandoffBound));
       assert.equal(result.nextStep, NEXT_STEPS.VERIFY, String(verifyHandoffBound));
     }
     for (const verifyHandoffBound of [true, 'true', ' TRUE ']) {
-      const result = transitions.determineNextStep({ ...issue, verifyHandoffBound });
+      const event = { ...issue, verifyHandoffBound };
+      assert.equal(transitions.hasCurrentVerifyHandoff(event), true);
+      const result = transitions.determineNextStep(event);
       assert.equal(result.currentState, STATES.CLOSED_VERIFIED, String(verifyHandoffBound));
       assert.equal(result.nextStep, NEXT_STEPS.DONE, String(verifyHandoffBound));
     }
