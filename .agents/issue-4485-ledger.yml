@@ -14,7 +14,8 @@ tasks:
       - Added provider narrowing guard in _load_positional_slots() in both canonical
         and consumer-template sources
       - Consolidates investigation tasks task-02, task-03, task-04 into this fix
-      - Hardened 2026-11-06 to early `if provider is None: continue` so every later
+      - >-
+        Hardened 2026-11-06 to early `if provider is None: continue` so every later
         SlotDefinition call in the loop sees a narrowed str (not only the retired branch)
   - id: task-05
     title: Run mypy on the fixed source file to verify typecheck passes
@@ -57,7 +58,9 @@ tasks:
     notes:
       - Covered by task-11 test with restore_bug=True variant
       - Consolidates task-17 and task-20 acceptance criteria into test suite
-      - Manual deliberate-break 2026-11-06: FIXED_EXIT=0, BUG_EXIT=1 with exact arg-type error
+      - >-
+        Manual deliberate-break 2026-11-06: FIXED_EXIT=0, BUG_EXIT=1 with exact
+        arg-type error
   - id: task-13
     title: Shipment-caused - Python CI / typecheck-mypy fails on synced tools/llm - passes on regenerated sync PR stranske/trip-planner#1957
     status: deferred
@@ -114,8 +117,10 @@ tasks:
     status: done
     started_at: '2026-11-06T23:59:17Z'
     finished_at: '2026-11-06T23:59:50Z'
-    commit: ''
+    commit: 42bdf74bffc2d2015abb96122d580754e2479578
     notes:
       - Encoded in test_delivered_llm_registry_type_checks_in_a_consumer_layout restore_bug=True
-      - Manual check: strip early None rejection -> mypy exit 1 with exact SlotDefinition arg-type error
+      - >-
+        Manual check: strip early None rejection -> mypy exit 1 with exact
+        SlotDefinition arg-type error
       - Fixed path restores mypy exit 0 under trip-planner mypy.ini
