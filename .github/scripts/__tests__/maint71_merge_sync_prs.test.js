@@ -771,6 +771,40 @@ test('all current green canaries and an empty run emit zero counts without dispa
   }
 });
 
+for (const outcome of ['dispatched', 'active writer', 'failed dispatch']) {
+  test(`mixed canary counts reach logs and job summary after ${outcome}`, async (t) => {
+    const logs = [];
+    t.mock.method(console, 'log', (message) => logs.push(message));
+    let dispatchAttempts = 0;
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: outcome === 'active writer' ? [
+        { status: 'in_progress', display_title: 'Maint 68 promote auto plan source' },
+      ] : [] } }),
+      createWorkflowDispatch: async () => {
+        dispatchAttempts++;
+        if (outcome === 'failed dispatch') throw new Error('dispatch denied');
+      },
+    } });
+    const result = await refreshStableCanaries({ ...api, canaries: [
+      refreshCanary({ check_status: 'checks_failed', head_observed_at: '2026-10-17T05:00:00Z' }),
+      refreshCanary({ repo: 'Template', pr: 13, active_review_thread_count: 1,
+        head_observed_at: '2026-10-17T04:00:00Z' }),
+    ] });
+
+    // Both old heads count as stale even though their refresh reasons differ.
+    // A request that failed or was held by another writer is not a dispatch.
+    const expected = 'canaries: red=1 review_blocked=1 stale=2 '
+      + `refresh_dispatched=${Number(outcome === 'dispatched')} held_plan=plan-4026 drainable=0`;
+    assert.deepEqual(logs.filter(line => line.startsWith('canaries:')), [expected]);
+    assert.deepEqual(api.summaries.filter(line => line.startsWith('canaries:')), [`${expected}\n`]);
+    assert.deepEqual([result.red, result.review_blocked, result.stale], [1, 1, 2]);
+    assert.equal(result.refresh_dispatched, Number(outcome === 'dispatched'));
+    assert.equal(dispatchAttempts, Number(outcome !== 'active writer'));
+    assert.deepEqual(api.failures, outcome === 'failed dispatch'
+      ? ['canary_refresh_failed:dispatch denied'] : []);
+  });
+}
+
 for (const [state, change] of [
   ['behind', { mergeable_state: 'behind' }],
   ['checks_failed', { check_status: 'checks_failed' }],
