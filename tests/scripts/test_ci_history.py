@@ -1,3 +1,4 @@
+import io
 import json
 import shutil
 import subprocess
@@ -317,8 +318,19 @@ _SYNC_CORE_EVIDENCE_DIR = (
             'Name "record" already defined on line 119  [no-redef]\n',
             True,
         ),
+        (
+            # Raw Actions logs may colorize spans mid-diagnostic; strip before match.
+            "2026-11-07T01:44:32.3461098Z scripts/ci_history.py:152: error: "
+            'Name "record" already defined on line 119  \x1b[0m[no-redef]\n',
+            True,
+        ),
         ("Success: no issues found in 1 source file\n", False),
         (
+            "2026-11-07T02:12:31.5934134Z Success: no issues found in 484 source files\n",
+            False,
+        ),
+        (
+            "2026-11-07T02:12:31.6535303Z \x1b[36;1mset -euo pipefail\x1b[0m\n"
             "2026-11-07T02:12:31.5934134Z Success: no issues found in 484 source files\n",
             False,
         ),
@@ -330,8 +342,10 @@ _SYNC_CORE_EVIDENCE_DIR = (
     ids=[
         "sanitized-original-evidence",
         "gha-timestamp-prefixed-red",
+        "ansi-interrupted-fingerprint",
         "clean-success",
         "gha-timestamp-prefixed-green",
+        "ansi-neighbor-green",
         "unrelated-no-redef",
     ],
 )
@@ -359,22 +373,25 @@ def test_sync_core_classifier_on_pinned_trip_planner_logs(
     verbatim fingerprint under a GHA timestamp prefix. Green: regenerated head
     948406465cf7 job 128267659502 succeeds without that finding — the
     agent-verifiable half of the remaining #4508 acceptance criterion before the
-    live sync-core round.
+    live sync-core round. Fixtures keep neighboring ANSI-colored Actions lines so
+    raw-log classification matches downloaded job archives.
     """
     log_path = _SYNC_CORE_EVIDENCE_DIR / fixture_name
     log_text = log_path.read_text(encoding="utf-8")
     assert log_text.strip(), f"empty evidence fixture: {log_path}"
+    assert "\x1b[" in log_text, "fixtures must retain ANSI from live Actions logs"
     assert (
         sync_core_shipment_finding.reports_ci_history_record_no_redef(log_text) is expect_reported
     )
+    normalized = sync_core_shipment_finding.normalize_job_log(log_text)
     if expect_reported:
-        assert sync_core_shipment_finding.CI_HISTORY_RECORD_NO_REDEF_FINDING in log_text
+        assert sync_core_shipment_finding.CI_HISTORY_RECORD_NO_REDEF_FINDING in normalized
         # Raw job logs retain the GHA timestamp prefix ahead of the fingerprint.
-        assert "Z scripts/ci_history.py:152:" in log_text
+        assert "Z scripts/ci_history.py:152:" in normalized
     else:
-        assert "ci_history.py" not in log_text
-        assert "[no-redef]" not in log_text
-        assert "Success: no issues found" in log_text
+        assert "ci_history.py" not in normalized
+        assert "[no-redef]" not in normalized
+        assert "Success: no issues found" in normalized
 
 
 def test_sync_core_shipment_finding_cli_on_pinned_logs() -> None:
@@ -383,6 +400,14 @@ def test_sync_core_shipment_finding_cli_on_pinned_logs() -> None:
     green = _SYNC_CORE_EVIDENCE_DIR / "typecheck-mypy-green.log"
     assert sync_core_shipment_finding.main([str(red)]) == 1
     assert sync_core_shipment_finding.main([str(green)]) == 0
+
+
+def test_sync_core_shipment_finding_cli_stdin_clears_green(monkeypatch, capsys) -> None:
+    """Agents can pipe downloaded Actions job logs through stdin ('-')."""
+    green = (_SYNC_CORE_EVIDENCE_DIR / "typecheck-mypy-green.log").read_text(encoding="utf-8")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(green))
+    assert sync_core_shipment_finding.main(["-"]) == 0
+    assert "cleared:" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
