@@ -1226,7 +1226,7 @@ test('review routing finds the latest source PR behind direct commits across his
   assert.equal(api.comments.length, 1, 'the PR comment must still be deduplicated on retry');
 });
 
-async function assertExecutorCanaryRefresh(t, state) {
+async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `maint71-${state}-canary-`));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const repository = require('../../../config/consumer_sync_canaries.json').canaries[0].repo;
@@ -1359,6 +1359,9 @@ async function assertExecutorCanaryRefresh(t, state) {
       },
       createWorkflowDispatch: async (params) => {
         dispatches.push(params);
+        if (params.workflow_id === 'maint-68-sync-consumer-repos.yml' && refreshDispatchStatus) {
+          throw Object.assign(new Error('candidate refresh unavailable'), { status: refreshDispatchStatus });
+        }
         if (params.workflow_id === 'pr-00-gate.yml' && dispatchError) {
           throw Object.assign(new Error('consumer Gate unavailable'), { status: dispatchError });
         }
@@ -1468,9 +1471,31 @@ async function assertExecutorCanaryRefresh(t, state) {
     assert.equal(dispatches[0].inputs.refresh_key, require('crypto').createHash('sha256')
       .update(`${repository}:${'e'.repeat(40)}:${head}`).digest('hex'));
   }
-  assert.deepEqual(failures, [], JSON.stringify(report.results));
+  assert.deepEqual(failures, refreshDispatchStatus
+    ? ['canary_refresh_failed:candidate refresh unavailable'] : [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
     && (!['aged_green', 'seal_drained'].includes(state) || row.status === 'merged'));
+  if (refreshDispatchStatus) {
+    const expected = `canaries: red=${Number(state === 'checks_failed')} `
+      + `review_blocked=${Number(state === 'review_blocked')} `
+      + `stale=${Number(state === 'stale')} refresh_dispatched=0 held_plan=${plan} drainable=0`;
+    assert.deepEqual(logs.filter(line => line.startsWith('canaries:')), [expected]);
+    assert.deepEqual(summaries.filter(line => line.startsWith('canaries:')), [`${expected}\n`]);
+    assert.deepEqual([report.canary_refresh.red, report.canary_refresh.review_blocked,
+      report.canary_refresh.stale, report.canary_refresh.refresh_dispatched],
+    [Number(state === 'checks_failed'), Number(state === 'review_blocked'), Number(state === 'stale'), 0]);
+    assert.deepEqual(report.canary_refresh.held_plans, [plan]);
+    assert.deepEqual(report.canary_refresh.errors, failures);
+    assert.equal(dispatches.length, 1, 'a refused refresh must not trigger a second writer');
+    assert.equal(dispatches[0].workflow_id, 'maint-68-sync-consumer-repos.yml');
+    assert.equal(row.status, state === 'checks_failed' ? 'checks_failed' : 'stable_base_refresh_required');
+    if (state !== 'checks_failed') {
+      assert.equal(row.next_command, 'dispatch-maint-68-phase-canary-no-filter');
+    }
+    assert.equal(candidate.head.sha, head);
+    assert.equal(merges.length, 0, 'dispatch refusal must preserve the consumer merge hold');
+    return;
+  }
   if (state.startsWith('no_change')) {
     assert.equal(row.status, 'evidence_recovered');
     if (state === 'no_change_merged') {
@@ -1627,6 +1652,8 @@ async function assertExecutorCanaryRefresh(t, state) {
 for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
   test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
     async (t) => assertExecutorCanaryRefresh(t, state));
+  test(`executor retains ${state} canary counts in logs, summary and report after refresh refusal`,
+    async (t) => assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus: 403 }));
 }
 
 for (const state of ['seal_never_staging', 'seal_never_real_failure', 'seal_never_rerun_refused', 'seal_already_rerun_refused', 'seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_already_delivery', 'seal_already_behind', 'seal_already_green', 'seal_already_422', 'seal_already_404', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {

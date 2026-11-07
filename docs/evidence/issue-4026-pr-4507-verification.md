@@ -10,7 +10,24 @@ of merge. Readback command:
 gh run list -R stranske/Workflows --workflow maint-68-sync-consumer-repos.yml --limit 100 --json databaseId,displayTitle,conclusion,createdAt
 ```
 
-This remains unproven until a real run is compared with the PR's `mergedAt`.
+The list command only discovers candidate runs. For a successful title beginning
+`Maint 68 promote`, inspect all latest-attempt job pages and retain their final
+completion timestamp:
+
+```sh
+gh api --paginate --slurp repos/stranske/Workflows/actions/runs/RUN_ID/jobs --jq '[.[].jobs[].completed_at | select(. != null)] | max'
+gh run download RUN_ID -R stranske/Workflows -n consumer-sync-run-report -D /tmp/issue-4026-promote-RUN_ID
+```
+
+Replace `RUN_ID` with the discovered run ID. Confirm that `createdAt` is after
+`mergedAt` and the last job completed no later than `mergedAt` plus 24 hours.
+Run creation alone does not establish completion within the deadline. Inspect
+the downloaded `consumer-sync-run-report.json` and require `inputs.dry_run` to
+be the boolean `false` and `run.run_id` to match `RUN_ID`; a missing, expired or
+dry-run report cannot establish delivery evidence. Retain the run URL, job
+completion timestamps and report with the acceptance readback.
+
+This remains unproven until a real write run is compared with the PR's `mergedAt`.
 The first post-merge Maint 71 run must also supply real canary counts. Local
 mock summaries and pre-merge workflow runs do not satisfy either criterion.
 Workflow scheduling remains controller-owned.
@@ -95,3 +112,32 @@ these local tests.
 The checkout's `.git` directory is read-only, so staging and committing in the
 original checkout are blocked. The change is committed in a writable temporary
 clone and exported to `/tmp/issue-4026-sibling-recovery.patch` for handoff.
+
+## Refresh refusal continuation
+
+Reviewed the eight branch commits through `b4126240`. The five implementation
+tasks and two local acceptance items are correctly checked in the PR body.
+The baseline Maint 71 suite passes all 219 tests. Both operational criteria
+remain unchecked: PR 4507 is open, non-draft and has not merged.
+
+Added four executor regression cases for a Maint 68 dispatch refusal with a
+behind, red, review-blocked or stale canary. Each case exercises `run`, reads its
+saved JSON report, and verifies matching blocker counts in that report, the log
+and the job summary. Refusal records zero successful dispatches, fails visibly,
+attempts no duplicate writer, preserves the head and retains the merge hold.
+
+Validation:
+
+```sh
+node --test --test-isolation=none --test-reporter=tap --test-name-pattern='canary counts in logs, summary and report after refresh refusal' .github/scripts/__tests__/maint71_merge_sync_prs.test.js
+node --test --test-isolation=none --test-reporter=tap .github/scripts/__tests__/maint71_merge_sync_prs.test.js tests/scripts/test_maint71_promote_dispatch.js
+```
+
+Exit 0 for both commands: 4/4 new cases and 259/259 combined tests pass, with
+zero failures or skips. `git diff --check` passes. These are local regression
+results; they do not substitute for post-merge workflow evidence.
+
+The GitHub PR-body update was denied again: the connector requires approval
+and this run's approval policy is `never`. The existing checked items already
+match the verified implementation. No additional checkbox is marked complete.
+The prepared replacement body is retained at `/tmp/issue-4026-pr-body.md`.
