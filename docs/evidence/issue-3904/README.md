@@ -624,3 +624,16 @@ BLACK_CACHE_DIR=/tmp/issue-4462-source-pair-black-cache BLACK_NUM_WORKERS=1 blac
 requested commit. Automatic approval review also rejected the PR-body validation
 update with the same approval-policy error. No remote metadata changed; PR #4527
 was verified open with `draft=false`. The remaining task stays unchecked.
+
+
+## PR #4527 closer continuation (2026-11-07)
+
+The [closer record](closer-4527-2026-11-07.md) retains strict growth JSON,
+exact suite totals, Git isolation/timeout and independent output-parent repairs,
+focused passing checks, all review dispositions, the historical 3.12 experiment
+policy exception, and actual hosted 3.13 receipts. The selected-source comparison
+ran as [42401537967](https://github.com/stranske/Workflows/actions/runs/42401537967).
+Python 3.13 passed both scoped arms with zero lost verifier lines/branches.
+Python 3.12 terminal receipts, complete phase evidence and final current-head Gate
+conclusions remain UNKNOWN after REST rate limiting. The evidence task remains
+unchecked; resume the original run after **19:15:34 UTC**, without redispatch.
