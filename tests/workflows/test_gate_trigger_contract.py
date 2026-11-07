@@ -11,9 +11,12 @@ from pathlib import Path
 import pytest
 import yaml
 from scripts.check_consumer_sync_drift import (
+    gate_trigger_lines,
+    git_blob_hash,
     manifest_skip_reason,
     repo_overwrites_create_only,
 )
+from scripts.list_registered_consumer_repos import extract_repos
 from scripts.sync_manifest_compiler import compile_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +50,55 @@ def test_gate_trigger_campaign_preserves_consumer_sync_policy() -> None:
     assert not repo_overwrites_create_only(gate, "stranske/Manager-Database")
     assert not manifest_skip_reason(gate, "stranske/Doc-Lineage")
     assert not repo_overwrites_create_only(gate, "stranske/Doc-Lineage")
+
+
+@pytest.mark.parametrize(
+    "affected_repo", ["stranske/Template", "stranske/Manager-Database", "stranske/Manager-Mosaic"]
+)
+@pytest.mark.parametrize("read_result", ["matching", "extra", "missing", "unavailable"])
+def test_registered_gate_readback_keeps_sync_exceptions_visible(
+    affected_repo: str, read_result: str
+) -> None:
+    """Real registry/manifest policy must not hide a consumer from trigger readback."""
+    repos = extract_repos(ROOT / ".github/workflows/maint-68-sync-consumer-repos.yml")
+    compiled = compile_manifest(ROOT / ".github/sync-manifest.yml", repo_root=ROOT)
+    gate = next(entry for entry in compiled.section("workflows") if entry.target == GATE_FILES[0])
+    template = Path(gate.resolved_source).read_text(encoding="utf-8")
+    assert affected_repo in repos
+    # Distinct consumer headers force blob reads instead of the equal-SHA shortcut.
+    contents = {repo: f"# Consumer: {repo}\n{template}" for repo in repos}
+    if read_result == "extra":
+        contents[affected_repo] = contents[affected_repo].replace(
+            "ready_for_review]", "ready_for_review, labeled]", 1
+        )
+    elif read_result == "missing":
+        contents[affected_repo] = contents[affected_repo].replace("synchronize, ", "", 1)
+    trees = {
+        repo: {gate.target: {"type": "blob", "sha": git_blob_hash(content.encode("utf-8"))}}
+        for repo, content in contents.items()
+    }
+    reads = []
+
+    def read_blob(repo: str, sha: str) -> str | None:
+        reads.append(repo)
+        assert sha == trees[repo][gate.target]["sha"]
+        if repo == affected_repo and read_result == "unavailable":
+            return None
+        return contents[repo]
+
+    lines = gate_trigger_lines(repos, gate, trees, read_blob)
+
+    assert reads == repos, "Every registered consumer, including custom Gates, must be read"
+    assert ("gate triggers: all match" in lines) == (read_result == "matching")
+    label = f"gate triggers: {affected_repo}"
+    if manifest_skip_reason(gate, affected_repo):
+        label += " (custom gate, never overwritten)"
+    if read_result == "extra":
+        assert f"{label} extra=['labeled']" in lines
+    elif read_result == "missing":
+        assert f"{label} extra=[] missing=['synchronize']" in lines
+    elif read_result == "unavailable":
+        assert f"gate triggers: {affected_repo} unknown (Gate unreadable)" in lines
 
 
 @pytest.mark.parametrize("workflow_path", GATE_FILES)
