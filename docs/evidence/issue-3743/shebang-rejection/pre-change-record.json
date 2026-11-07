@@ -1,0 +1,76 @@
+{
+  "check_date": "2026-11-06",
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "stop_rule": "Attempt each literal acceptance command at most once. If /opt/anaconda3/bin/python3 is missing or not executable, record exit 127 and stop that command. Do not substitute another interpreter, do not change privacy settings, and do not create /tmp/fresh-shebang-rejection-proof. Cap the focused installed-interpreter pytest path at 120 seconds. Do not edit the shebang tests, replay.py, or either production helper until this pre-change record is written.",
+  "focused_limit_seconds": 120,
+  "literal_commands": [
+    {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "interpreter": "/opt/anaconda3/bin/python3",
+      "attempt": 1,
+      "limit_seconds": 120,
+      "exit": 127,
+      "stdout": "",
+      "stderr": "/opt/anaconda3/bin/python3: No such file or directory\n",
+      "stopped": "interpreter-absent",
+      "duration_seconds": 0
+    },
+    {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "docs/evidence/issue-3743/shebang-rejection/replay.py",
+        "--output",
+        "/tmp/fresh-shebang-rejection-proof"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "interpreter": "/opt/anaconda3/bin/python3",
+      "attempt": 1,
+      "limit_seconds": 120,
+      "exit": 127,
+      "stdout": "",
+      "stderr": "/opt/anaconda3/bin/python3: No such file or directory\n",
+      "stopped": "interpreter-absent",
+      "duration_seconds": 0
+    }
+  ],
+  "operational_pytest": {
+    "argv": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "--junitxml=/tmp/shebang-focused-7cmzwta_.xml"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "exit": 0,
+    "stdout": "........                                                                 [100%]\n8 passed in 0.23s\n",
+    "stderr": "",
+    "summary_line": "8 passed in 0.23s",
+    "passed": 8,
+    "duration_seconds": 1.025,
+    "under_two_minutes": true,
+    "stopped": null,
+    "junit": {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "satisfies_literal_interpreter": false
+  },
+  "protected_files_edited_before_record": false,
+  "note": "Recorded before any edit to the shebang tests, replay.py, or production helpers. The operational pytest uses the installed interpreter so the eight-pass outcome is measured. It is not a substitute for the literal Anaconda commands."
+}

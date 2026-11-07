@@ -15,8 +15,11 @@ nobody allowed — so the failure is silent by construction and the contract was
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
+import sys
+from pathlib import Path
 
 import pytest
 from tools import llm_registry
@@ -209,6 +212,201 @@ def _clear_slot_env(monkeypatch):
     for key in list(os.environ):
         if key.startswith("LANGCHAIN_SLOT") or key == "LANGCHAIN_MODEL":
             monkeypatch.delenv(key, raising=False)
+
+
+@pytest.fixture(params=["canonical", "consumer-template"])
+def slot_registry(request, monkeypatch):
+    """Exercise provider validation in both the source and the shipped template."""
+    if request.param == "canonical":
+        return llm_registry
+    path = Path(__file__).resolve().parents[1] / "templates/consumer-repo/tools/llm_registry.py"
+    spec = importlib.util.spec_from_file_location("consumer_slot_registry", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # Dataclasses resolve their defining module through sys.modules during import.
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    "provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
+)
+@pytest.mark.parametrize(
+    "history_provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
+)
+@pytest.mark.parametrize(
+    "override_position, provider_only",
+    [(None, False), (1, False), (2, False), (2, True), (3, False)],
+    ids=["no-override", "invalid-slot", "retired-slot", "retired-provider-only", "valid-slot"],
+)
+def test_a_missing_provider_cannot_become_a_retired_slot(
+    registry_at,
+    slots_at,
+    monkeypatch,
+    slot_registry,
+    provider_fields,
+    history_provider_fields,
+    override_position,
+    provider_only,
+):
+    """Reject missing providers without shifting numbered overrides onto other slots."""
+    _clear_slot_env(monkeypatch)
+    registry_at(
+        {
+            "models": [
+                {"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"},
+                {"provider": "anthropic", "model_id": "claude-y", "lifecycle": "current"},
+            ],
+            "selections": [
+                {
+                    "provider": "anthropic",
+                    "model_id": "claude-y",
+                    "profile": "verifier-balanced",
+                    "status": "approved",
+                    "evidence_ids": ["review-1"],
+                }
+            ],
+            "selection_history": [
+                {
+                    "profile": "verifier-balanced",
+                    "superseded_by": "retired",
+                    **history_provider_fields,
+                },
+                {
+                    "profile": "verifier-balanced",
+                    "provider": "openai",
+                    "superseded_by": "retired",
+                },
+            ],
+        }
+    )
+    slots_at(
+        {
+            "slots": [
+                {"name": "invalid", "model": "unusable", **provider_fields},
+                {"name": "retired", "provider": "openai", "model": "old-model"},
+                {"name": "valid", "provider": "anthropic", "model": "claude-x"},
+            ]
+        }
+    )
+    retired_slot = slot_registry.SlotDefinition(
+        name="retired", provider="openai", model="old-model"
+    )
+    valid_slot = slot_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-x")
+    if override_position is not None and not provider_only:
+        monkeypatch.setenv(f"LANGCHAIN_SLOT{override_position}_MODEL", "claude-y")
+    if override_position == 2:
+        monkeypatch.setenv("LANGCHAIN_SLOT2_PROVIDER", "anthropic")
+
+    assert slot_registry._load_positional_slots() == [
+        (2, "verifier-balanced", retired_slot, True),
+        (3, "verifier-balanced", valid_slot, False),
+    ]
+    assert slot_registry.load_slot_config() == [valid_slot]
+    expected_slot = (
+        slot_registry.SlotDefinition(name="valid", provider="anthropic", model="claude-y")
+        if override_position == 3
+        else valid_slot
+    )
+    expected_slots = [expected_slot]
+    if override_position == 2:
+        # The provider guard must retain valid retired placeholders so an override
+        # can replace them, even when a preceding invalid slot was discarded.
+        # Without a model override, use the new provider's reviewed selection.
+        expected_slots.insert(
+            0,
+            slot_registry.SlotDefinition(name="retired", provider="anthropic", model="claude-y"),
+        )
+    assert slot_registry.resolve_slots() == expected_slots
+
+
+@pytest.mark.parametrize(
+    "provider_fields", [{}, {"provider": None}, {"provider": ""}, {"provider": "unknown"}]
+)
+@pytest.mark.parametrize("override", [False, True], ids=["no-override", "model-override"])
+@pytest.mark.parametrize("retired_history", [False, True], ids=["no-history", "invalid-history"])
+def test_an_allowlist_with_only_a_missing_provider_remains_empty(
+    registry_at, slots_at, monkeypatch, slot_registry, provider_fields, override, retired_history
+):
+    """An invalid identity cannot enable defaults or acquire an identity via overrides."""
+    _clear_slot_env(monkeypatch)
+    registry_at(
+        {
+            "models": [{"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"}],
+            "selections": [
+                {
+                    "provider": "anthropic",
+                    "model_id": "claude-x",
+                    "profile": "verifier-balanced",
+                    "status": "approved",
+                    "evidence_ids": ["review-1"],
+                }
+            ],
+            "selection_history": (
+                [{"profile": "verifier-balanced", "superseded_by": "retired", **provider_fields}]
+                if retired_history
+                else []
+            ),
+        }
+    )
+    # Make the fail-closed assertion meaningful: a reviewed default is available,
+    # but an explicit invalid allowlist must not enable it.
+    assert (
+        slot_registry.SlotDefinition(name="slot2", provider="anthropic", model="claude-x")
+        in slot_registry.default_slots()
+    )
+    slots_at({"slots": [{"name": "invalid", "model": "claude-x", **provider_fields}]})
+    if override:
+        monkeypatch.setenv("LANGCHAIN_MODEL", "claude-x")
+        monkeypatch.setenv("LANGCHAIN_SLOT1_PROVIDER", "anthropic")
+        monkeypatch.setenv("LANGCHAIN_SLOT1_MODEL", "claude-x")
+
+    # A malformed retirement record must not turn the missing provider into a
+    # placeholder that an environment override can revive.
+    assert slot_registry._load_positional_slots() == []
+    assert slot_registry.load_slot_config() == []
+    assert slot_registry.resolve_slots() == []
+    assert slot_registry.configured_model_for_provider("anthropic", fallback="claude-x") == ""
+
+
+def test_a_missing_provider_with_a_reviewed_profile_preserves_valid_slots(
+    registry_at, slots_at, monkeypatch, slot_registry
+):
+    """A reviewed profile supplies a model only after the slot identifies its provider."""
+    _clear_slot_env(monkeypatch)
+    profile = "explicit-review"
+    registry_at(
+        {
+            "models": [{"provider": "anthropic", "model_id": "claude-x", "lifecycle": "current"}],
+            "selections": [
+                {
+                    "provider": "anthropic",
+                    "model_id": "claude-x",
+                    "profile": profile,
+                    "status": "approved",
+                    "evidence_ids": ["review-1"],
+                }
+            ],
+            "selection_history": [{"profile": profile, "superseded_by": "retired"}],
+        }
+    )
+    slots_at(
+        {
+            "slots": [
+                {"name": "invalid", "profile": profile},
+                {"name": "reviewed", "provider": "anthropic", "profile": profile},
+            ]
+        }
+    )
+    # A provider-less retirement key must never create a provider-less placeholder,
+    # even though this profile has a valid reviewed model for another slot.
+    valid_slot = slot_registry.SlotDefinition(
+        name="reviewed", provider="anthropic", model="claude-x"
+    )
+    assert slot_registry._load_positional_slots() == [(2, profile, valid_slot, False)]
+    assert slot_registry.load_slot_config() == [valid_slot]
+    assert slot_registry.resolve_slots() == [valid_slot]
 
 
 def test_a_skipped_retired_slot_does_not_shift_numbered_overrides(slots_at, monkeypatch):

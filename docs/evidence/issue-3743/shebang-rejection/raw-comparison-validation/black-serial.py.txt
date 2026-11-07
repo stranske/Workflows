@@ -1,0 +1,21 @@
+"""Run Black's real single-file CLI checks to populate its ordinary cache."""
+import json
+import os
+import subprocess
+from pathlib import Path
+
+import black
+from click.testing import CliRunner
+
+paths = subprocess.check_output(['git', 'ls-files', '-z', '*.py']).decode().split('\0')
+runner = CliRunner()
+rows = []
+for path in filter(None, paths):
+    if any(part in {'.workflows-lib', 'node_modules', 'archive'} for part in Path(path).parts):
+        continue
+    result = runner.invoke(black.main, ['--check', '--line-length', '100', path])
+    rows.append({'path': path, 'exit': result.exit_code, 'output': result.output})
+    if result.exit_code:
+        print(json.dumps(rows))
+        raise SystemExit(result.exit_code)
+print(json.dumps({'checked_invocations': len(rows), 'cache_directory': os.environ.get('BLACK_CACHE_DIR'), 'results': rows}, indent=2))

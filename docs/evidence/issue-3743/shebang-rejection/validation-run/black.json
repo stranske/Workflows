@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "/opt/anaconda3/bin/black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
+  "attempt": 1,
+  "limit_seconds": 600,
+  "env_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "BLACK_CACHE_DIR": "/tmp/shebang-rejection-validation-black-cache"
+  },
+  "exit": 0,
+  "stdout": "",
+  "stderr": "Warning: Python 3.12 cannot parse code formatted for Python 3.13. To fix this: run Black with Python 3.13, set --target-version to py312, or use --fast to skip the safety check. Black's safety check verifies equivalence by parsing the AST, which fails when the running Python is older than the target version.\nAll done! \u2728 \ud83c\udf70 \u2728\n928 files would be left unchanged.\n",
+  "stopped": null,
+  "duration_seconds": 1.466
+}

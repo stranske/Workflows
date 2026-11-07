@@ -1,0 +1,78 @@
+{
+  "README.md": {
+    "sha256": "a0e0e347fb16996c8d401a5d16cc2ef34993bb713eae1faa285bf35b0d01bb9e",
+    "bytes": 2931
+  },
+  "black-cache-check.py.txt": {
+    "sha256": "4aaa5afc3b938f28c61138e749fb6e206db2b6390884b0f0b06cca7647f323ca",
+    "bytes": 1925
+  },
+  "black-cache-timeout.json": {
+    "sha256": "daf8049494be383e8d9d9cae2f4f258f5cdd82ec17fefdf8cc6bd71c97fb7165",
+    "bytes": 623
+  },
+  "black-final.json": {
+    "sha256": "58494646ac2408c433f23e0523aee95aa549d4758e7cf11ecb9310417a31c003",
+    "bytes": 458
+  },
+  "black-serial-initial.json.gz": {
+    "sha256": "46f3a4c5527ae18af57975eb4abd47ea801471b558ce8ca8620b1eaca49da93b",
+    "bytes": 9947
+  },
+  "black-serial.json.gz": {
+    "sha256": "5c09074a9d6025b0b153c3c2f9d94bfd34f9d07a098932addc7f0aea61e52ea3",
+    "bytes": 9947
+  },
+  "black.json": {
+    "sha256": "c04d8efa691936f455c3de58cd2db3cd6c41dfffc0d3ca0ff072d7827d7776fd",
+    "bytes": 343
+  },
+  "checks.json": {
+    "sha256": "8379b38a072b25bd7d1efcbd63dbe0f5009a68a1d4b995edd39d00e585f61016",
+    "bytes": 6041
+  },
+  "companions.xml": {
+    "sha256": "424bf51e83a497cca537f7b0a4f797e9c8b856daa057be8fa1aa070c05ce988d",
+    "bytes": 13734
+  },
+  "focused.xml": {
+    "sha256": "d8c6e50f575fec777ee105bceabe06ca54d1c09c6581f9bb26b0b2beeb031430",
+    "bytes": 1455
+  },
+  "input-bindings.json": {
+    "sha256": "df26849288ed8e52e6b46842200603fa7ee9f17fd8c4e384eb2788ec348cee92",
+    "bytes": 1007
+  },
+  "inventory-final.json": {
+    "sha256": "e36dde2f4c45109bf10886b89f8265fea9a895de938c3254b0e64267ec4d0842",
+    "bytes": 601
+  },
+  "inventory-final.xml": {
+    "sha256": "13581e2d8528c7f3243d83c777e16d5d28664edf29ae76a892e43415dc03a121",
+    "bytes": 1585
+  },
+  "inventory.xml": {
+    "sha256": "a236a52331604859487d04f5cbda942f4b0b3739ac85c05d3e6244226ff98abd",
+    "bytes": 1384
+  },
+  "measured-file-counts.json": {
+    "sha256": "2352bee6eddeef1aec1bca77f0df04af9666a4718312b0a057c4e63b72411f14",
+    "bytes": 181
+  },
+  "pre-change.json": {
+    "sha256": "0922c2d47e85809b7f022f0192511be41903d647de907d9f499d0ac828e2ec99",
+    "bytes": 792
+  },
+  "preservation.json": {
+    "sha256": "7ef02eb38c8467af59cbb1c0907eaad545011008c451d94b380464d8c3b51b4d",
+    "bytes": 596
+  },
+  "ruff-final.json": {
+    "sha256": "2dd30435433b359a56c84e1c13d28bae9974a0c116343b13fb783a421cde2d23",
+    "bytes": 1234
+  },
+  "test_shebang_rejection_delivered_archives.py.txt": {
+    "sha256": "1ad046adc6067d3c92fb26721905dc3a92d19b88887c26e01bb15b689269d3c6",
+    "bytes": 2064
+  }
+}
