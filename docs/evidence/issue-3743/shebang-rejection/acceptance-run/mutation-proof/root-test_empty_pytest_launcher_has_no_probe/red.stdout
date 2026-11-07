@@ -1,0 +1,38 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_empty_pytest_launcher_has_no_probe[root] _________________
+
+helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+launcher = PosixPath('/tmp/pytest-of-runner/pytest-2/test_empty_pytest_launcher_has0/bin/pytest')
+
+    def test_empty_pytest_launcher_has_no_probe(helper, launcher):
+        assert launcher.read_text(encoding="utf-8") == ""
+>       assert_no_probe(helper, launcher)
+
+tests/scripts/test_check_deliberate_break_shebang_rejection.py:45: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+helper = {'__name__': '<run_path>', '__doc__': 'Opt-in execution check for deliberate-break acceptance criteria.', '__package__': '', '__loader__': None, ...}
+launcher = PosixPath('/tmp/pytest-of-runner/pytest-2/test_empty_pytest_launcher_has0/bin/pytest')
+
+    def assert_no_probe(helper, launcher):
+        assert shutil.which("pytest") == str(launcher)
+        for executable in ("pytest", str(launcher)):
+            command = (executable, "tests/test_named.py::test_named")
+>           assert helper["_pyyaml_probe_command"](command, launcher.parent) is None
+E           assert ('/opt/anaconda3/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") is None
+E            +  where ('/opt/anaconda3/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") = <function _pyyaml_probe_command at 0x7e46a43af270>(('pytest', 'tests/test_named.py::test_named'), PosixPath('/tmp/pytest-of-runner/pytest-2/test_empty_pytest_launcher_has0/bin'))
+E            +    where PosixPath('/tmp/pytest-of-runner/pytest-2/test_empty_pytest_launcher_has0/bin') = PosixPath('/tmp/pytest-of-runner/pytest-2/test_empty_pytest_launcher_has0/bin/pytest').parent
+
+tests/scripts/test_check_deliberate_break_shebang_rejection.py:38: AssertionError
+=============================== warnings summary ===============================
+../../opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/_internal/_beta_decorator.py:92: 13 warnings
+  /opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/_internal/_beta_decorator.py:92: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(func):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[root] - assert ('/opt/anaconda3/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") is None
+ +  where ('/opt/anaconda3/bin/python3', '-c', "import yaml; print('__gate_pyyaml_import_ok__')", '-c', "import yaml; print('__gate_pyyaml_import_ok__')") = <function _pyyaml_probe_command at 0x7e46a43af270>(('pytest', 'tests/test_named.py::test_named'), PosixPath('/tmp/pytest-of-runner/pytest-2/test_empty_pytest_launcher_has0/bin'))
+ +    where PosixPath('/tmp/pytest-of-runner/pytest-2/test_empty_pytest_launcher_has0/bin') = PosixPath('/tmp/pytest-of-runner/pytest-2/test_empty_pytest_launcher_has0/bin/pytest').parent
+1 failed, 13 warnings in 0.11s

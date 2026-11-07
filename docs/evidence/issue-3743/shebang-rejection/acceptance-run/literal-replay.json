@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/opt/anaconda3/bin/python3",
+    "docs/evidence/issue-3743/shebang-rejection/replay.py",
+    "--output",
+    "/tmp/fresh-shebang-rejection-proof"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "attempt": 1,
+  "limit_seconds": 600,
+  "exit": 0,
+  "stdout": "{\"pair_count\": 8, \"output\": \"/tmp/fresh-shebang-rejection-proof\"}\n",
+  "stderr": "",
+  "stopped": null,
+  "duration_seconds": 12.592
+}

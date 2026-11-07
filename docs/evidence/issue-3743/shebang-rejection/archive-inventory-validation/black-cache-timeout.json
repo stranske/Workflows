@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": null,
+  "wrapper_exit": 1,
+  "stopped": "timeout",
+  "timeout_seconds": 120,
+  "stdout": "",
+  "stderr": "",
+  "env_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "BLACK_CACHE_DIR": "/tmp/shebang-inventory-black-cache"
+  },
+  "cause": "Initial serial checks set BLACK_CACHE_DIR after importing Black, so they did not populate the requested ordinary cache. The corrected serial script sets it before importing Black."
+}

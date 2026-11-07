@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 1,
+  "env_overrides": {
+    "BLACK_NUM_WORKERS": "2",
+    "BLACK_CACHE_DIR": "/tmp/shebang-comparison-input-black"
+  },
+  "duration_seconds": 1.104
+}

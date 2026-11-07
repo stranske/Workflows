@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[template]",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/tmp/fresh-shebang-rejection-proof/template-test_unresolved_env_python_has_no_probe/green.xml"
+  ],
+  "cwd": "/tmp/shebang-rejection-proof-ajqa5v3k",
+  "exit": 0,
+  "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[template]"
+}

@@ -1,0 +1,70 @@
+{
+  "scripts/check_deliberate_break.py": {
+    "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "bytes": 45981
+  },
+  "templates/consumer-repo/scripts/check_deliberate_break.py": {
+    "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "bytes": 45981
+  },
+  "tests/scripts/test_check_deliberate_break.py": {
+    "sha256": "8ac94dd5a344e6612af3175085db6c01d7490082fe7f1b8842919e46584c2c11",
+    "bytes": 101553
+  },
+  "tests/scripts/test_check_deliberate_break_archive.py": {
+    "sha256": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+    "bytes": 7687
+  },
+  "tests/scripts/test_check_deliberate_break_fallback_target_selection.py": {
+    "sha256": "e0c6f0e7094e5685d9b9e96a80ed6819cd8eaf9c0cbbf340adc562f201bcd077",
+    "bytes": 1411
+  },
+  "tests/scripts/test_check_deliberate_break_head_launch.py": {
+    "sha256": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+    "bytes": 3099
+  },
+  "tests/scripts/test_check_deliberate_break_launch_boundaries.py": {
+    "sha256": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+    "bytes": 6196
+  },
+  "tests/scripts/test_check_deliberate_break_launcher_admission.py": {
+    "sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+    "bytes": 1300
+  },
+  "tests/scripts/test_check_deliberate_break_module_boundaries.py": {
+    "sha256": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+    "bytes": 2891
+  },
+  "tests/scripts/test_check_deliberate_break_probe_option_boundaries.py": {
+    "sha256": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+    "bytes": 2604
+  },
+  "tests/scripts/test_check_deliberate_break_repair_failures.py": {
+    "sha256": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+    "bytes": 8798
+  },
+  "tests/scripts/test_check_deliberate_break_runtime_health.py": {
+    "sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+    "bytes": 2943
+  },
+  "tests/scripts/test_check_deliberate_break_runtime_probes.py": {
+    "sha256": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+    "bytes": 5769
+  },
+  "tests/scripts/test_check_deliberate_break_uv_resolution.py": {
+    "sha256": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
+    "bytes": 1985
+  },
+  "tests/scripts/test_check_deliberate_break_shebang_rejection.py": {
+    "sha256": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+    "bytes": 2093
+  },
+  "docs/evidence/issue-3743/shebang-rejection/coverage.ini": {
+    "sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+    "bytes": 94
+  },
+  "docs/evidence/issue-3743/shebang-rejection/replay.py": {
+    "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+    "bytes": 6406
+  }
+}
