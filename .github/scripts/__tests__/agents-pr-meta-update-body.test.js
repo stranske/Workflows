@@ -14,6 +14,7 @@ const {
   stripPrTemplateContent: templateStripPrTemplateContent,
   parseCheckboxStates: templateParseCheckboxStates,
   mergeCheckboxStates: templateMergeCheckboxStates,
+  buildStatusBlock: templateBuildStatusBlock,
 } = require('../../../templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js');
 
 const {
@@ -1775,6 +1776,52 @@ test('resolveAgentType returns empty string when no agent source is available', 
   });
 
   assert.strictEqual(agentType, '');
+});
+
+test('buildStatusBlock preserves numbered completion through normalization and repeated refresh', () => {
+  for (const [name, build] of [
+    ['source', buildStatusBlock],
+    ['template', templateBuildStatusBlock],
+  ]) {
+    let existingBody = [
+      '1. [x] Pending task',
+      '<!-- auto-status-summary:start -->',
+      '#### Tasks',
+      '7)\t[X] Finished task',
+      '8) [ ] Pending task',
+      '```markdown',
+      '9) [x] Pending task',
+      '```',
+      '#### Acceptance criteria',
+      '3.  [x] Validated outcome',
+      '4. [ ] Pending outcome',
+      '<!-- auto-status-summary:end -->',
+    ].join('\n');
+
+    for (const number of [12, 20]) {
+      const output = build({
+        scope: 'Preserve numbered checklist state',
+        tasks: `${number})  [ ] Finished task\n${number + 1}) [ ] Pending task`,
+        acceptance: '2.\t[ ] Validated outcome\n3. [ ] Pending outcome',
+        existingBody,
+        connectorStates: new Map(),
+        workflowRuns: new Map(),
+        requiredChecks: [],
+        agentType: 'codex',
+      });
+      assert.ok(output.includes([
+        '#### Tasks',
+        `${number}) [x] Finished task`,
+        `${number + 1}) [ ] Pending task`,
+      ].join('\n')), `${name}: renumbered tasks retain only actual completion`);
+      assert.ok(output.includes([
+        '#### Acceptance criteria',
+        '2. [x] Validated outcome',
+        '3. [ ] Pending outcome',
+      ].join('\n')), `${name}: acceptance state survives whitespace normalization`);
+      existingBody = output;
+    }
+  }
 });
 
 test('buildStatusBlock hides workflow details for CLI agents', () => {

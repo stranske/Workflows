@@ -558,3 +558,91 @@ This round's changes remain uncommitted; no push or remote PR change occurred.
 the helper at the pinned commit, the hosted comparable reduction is unproved and
 ranking provenance is unrecoverable. No delivery or overall acceptance checkbox
 is completed by these local results.
+
+## Task-status reconciliation before further tests (2026-11-07 UTC)
+
+Reviewed commits `a9fb48a0`, `a5145aaf` and `3ab79ec1`. The last two commits
+record the previously uncommitted audit and numbered-checklist work. The first
+unchecked Node inspection task and the historical-proof inspection task are
+already implemented and documented above; a fresh Node run at `3ab79ec1` passed
+all 172 cases. Re-read the historical round and OSError receipt in full and the
+remaining proof coverage/ranking/contract fields separately. Their contradictory
+completion and test-only claims remain superseded, and ranking provenance remains
+unrecoverable.
+
+Before further code edits, the requested `gh pr view 4401` inspection again
+exited 1 connecting to `api.github.com`. Connected metadata reports #4401 OPEN,
+`draft=false`, unchanged head `9eaf43313c0e57ef964e4171f645985dca5742b8`,
+`merged=false`, and `merged_at=null`. All three submitted reviews are COMMENTED.
+Thread `PRRT_kwDOQprj9M6zZ4AB` remains unresolved and non-outdated; the other two
+unresolved threads remain outdated. The checked merge task is therefore false.
+No gate bypass or merge was attempted.
+
+Attempted to update #4518's body to check the two verified inspection tasks and
+uncheck the undelivered #4401 merge task. The connected GitHub update was denied:
+`MCP tool call requires approval, but approval policy is never`. The remote body
+was not changed. This is a local reconciliation, not a successful remote update.
+The next local test will exercise numbered state through `buildStatusBlock`,
+which composes normalization, parsing and merging during a real summary refresh.
+
+### Summary-refresh test and verification
+
+Added `buildStatusBlock preserves numbered completion through normalization and
+repeated refresh` to the identified Node test file. It independently checks both
+production exports through two summary rebuilds: numbered task and acceptance
+completion survives tabs/multiple spaces and renumbering; pending items stay
+unchecked despite checked examples in fenced code or outside the managed block.
+The source and consumer regexes remain unchanged, including their different
+whitespace contracts. No consumer payload, Python file or protected file changed.
+
+[numbered-checklist-summary-proof.json](numbered-checklist-summary-proof.json)
+binds this additional Node case to base `3ab79ec1275d150bd32a2a414cd99d9a28981ce0`
+and test-overlay SHA256
+`05e6d51fef76575be14a373c34decc374455959e7d5d7e94b201165cf65e8bfb`.
+Both production copies retain SHA256
+`3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f`.
+Receipts 0–1 mutate source parsing/merging; 2–3 independently mutate the template.
+Each removes numbered support, fails the named test with the corresponding
+source/template completion assertion (exit 1), then passes after exact byte
+restoration (exit 0, one pass, zero failures). Read all four full outputs in
+bounded pairs 0–1 and 2–3. Production mutations used disposable copies only.
+These supplement the original retained mapping and whitespace receipts without
+claiming any new main delivery.
+
+One discarded exploratory mutation bypassed `ensureChecklist` for tasks and
+survived: `coalesceWrappedChecklist` already normalizes the bullet whitespace.
+The receipt records that survival separately; it is not counted as RED evidence.
+The initial Node mutation driver could not spawn a child (`EPERM`); the Python
+driver completed all four independent mutation/restore runs.
+
+Validation on the named base plus the Node test overlay, using Node v24.22.2 and
+`/opt/hostedtoolcache/Python/3.14.10/x64/bin/python`:
+
+```sh
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; default reporter aggregates one passing file
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 passed, 0 failed, 0 skipped
+python -m pytest tests/test_followup_issue_generator.py -q -m 'not slow'
+# exit 3; optional LangSmith plugin's deprecated asyncio.iscoroutinefunction
+# fails during startup under warning-as-error settings
+python -m pytest -p no:langsmith_plugin tests/test_followup_issue_generator.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-summary-coverage.json
+# exit 0; 199 passed; generator Cover 99.92%, 851 statements, 0 missing,
+# 386 branches, 1 missing arc (124->126)
+git diff --check
+# exit 0
+```
+
+Fresh immutable main read at `d2106cc83e060d0063f63dd08ea94bbaa4104fbf`
+still shows `_blocked_reason_with_source` defined/called in generator blob
+`c3a19cbf41a476954b8afcde6d214b3cf8c82a00`. Main delivery remains incomplete.
+Hosted comparable reduction and canonical ranking provenance remain unresolved;
+this local test/coverage run establishes neither.
+
+The prepared corrected PR body is `/tmp/issue-3956-reconciled-pr-body.md`.
+Its two inspection tasks are checked and its merge task is unchecked; the denied
+remote update remains pending. Staging only the Node test, authoritative record
+and new proof failed with exit 128: `.git/index.lock` cannot be created on the
+read-only filesystem. Changes remain uncommitted for the runner; no push occurred.
+No Python files changed, so the Python pre-commit formatting gate does not apply
+to this round's edits. #4518 and #4401 were both read as open, `draft=false`.
