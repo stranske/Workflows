@@ -37,7 +37,12 @@ class SubscriptionClientAdapter:
 
     client: Any
 
-    def invoke(self, prompt: Any, config: Any = None, **kwargs: Any) -> Any:
+    def invoke(
+        self,
+        prompt: Any,
+        config: Any = None,  # noqa: ARG002 - Runnable.invoke signature; callers pass config=
+        **kwargs: Any,
+    ) -> Any:
         if not isinstance(prompt, str):
             to_string = getattr(prompt, "to_string", None)
             if not callable(to_string):

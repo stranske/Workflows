@@ -14,11 +14,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "templates" / "consumer-repo" / "scripts" / "langchain" / "pr_verifier.py"
-CONSUMER_SELECT = "E,F,I,N,W,UP,B,C4,SIM"
+# Synced to consumers from its source path (no template copy). Travel-Plan-Permission selects `ARG`, so
+# an unused `config` on a Runnable-style invoke() turned its lint-ruff red after the 2026-11-06 sync.
+SYNCED_FROM_SOURCE = [ROOT / "scripts" / "langchain" / "_llm_client.py"]
+CONSUMER_SELECT = "E,F,I,N,W,UP,B,C4,SIM,ARG"
 
 
 def test_consumer_template_passes_the_consumer_ruff_selection() -> None:
-    assert TEMPLATE.is_file(), TEMPLATE
+    files = [TEMPLATE, *SYNCED_FROM_SOURCE]
+    assert all(path.is_file() for path in files), files
     result = subprocess.run(
         [
             sys.executable,
@@ -34,7 +38,7 @@ def test_consumer_template_passes_the_consumer_ruff_selection() -> None:
             "100",
             "--target-version",
             "py312",
-            str(TEMPLATE),
+            *map(str, files),
         ],
         capture_output=True,
         text=True,
