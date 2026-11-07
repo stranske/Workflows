@@ -2,11 +2,11 @@
 
 ## Current delivery readback (2026-11-07 UTC)
 
-The latest local runtime correction makes the required generator pytest command
-pass with LangSmith's plugin enabled (199 passed); its focused local coverage
-remains 99.92%. See the final section and `pytest-startup-proof.json` for the
-base revision, configuration overlay hashes and commands. This supersedes prior
-local plugin-startup failures, not the unresolved main-delivery criterion.
+The required generator pytest command passes with LangSmith's plugin enabled
+(199 retained tests); two supplemental guard-source cases also pass. Focused
+local coverage remains 99.92%. See the final sections and their supplemental
+receipts for the source revision, overlay hashes and commands. This supersedes
+prior local plugin-startup failures, not the unresolved main-delivery criterion.
 
 Latest inspection before this round's code changes: the requested `gh pr view
 4401 --repo stranske/Workflows --json
@@ -988,3 +988,82 @@ Posting the concrete blocker comment and adding `needs-human` to active PR
 is never`. No remote comment or label was written. Final metadata confirms
 #4518 and #4401 remain OPEN and `draft=false`; #4401 is unmerged at its
 unchanged head. The prepared local changes require a writer-capable run.
+
+## Supplemental guard-source regressions (2026-11-07 UTC)
+
+The requested `gh pr view 4401 --repo stranske/Workflows --json
+state,headRefOid,mergeCommit,isDraft,statusCheckRollup` exited 1 connecting to
+`api.github.com`. Connected metadata still reports OPEN, `draft=false`,
+`merged=false`, head `9eaf43313c0e57ef964e4171f645985dca5742b8`, no merge
+date. The same revision-table thread `PRRT_kwDOQprj9M6zZ4AB` is unresolved
+and non-outdated; the other two unresolved threads are outdated. The PR-reported
+main base is now `4928870982db3bc3b85c701b4cca2492128739b2`. Reading the
+generator at that immutable revision returns blob
+`c3a19cbf41a476954b8afcde6d214b3cf8c82a00`, still defining and calling
+`_blocked_reason_with_source`. This is another undelivered-source readback,
+not final main acceptance. The open PR's test-merge SHA is not a delivery SHA.
+
+The existing retained guard regression checks the verification-comment label.
+New `tests/test_followup_guard_contract.py` adds two supplemental cases for
+blocked original-issue text and Codex logs. They check the exact blocked reason,
+payload order and stopping at the blocked payload. The production generator,
+its retained 199-test file, both Node production copies and Node tests are
+unchanged. These cases supplement the existing repair rather than replace it.
+
+Local source revision: `3667ba73cc170b510fe1c5fcf665777bf962e9e3` plus the
+uncommitted new test overlay. The complete supplemental mutation mapping is
+[guard-payload-source-proof.json](guard-payload-source-proof.json); it records
+both parameter node IDs, full source revision, source/test/configuration hashes,
+mutation text and hash, restored source hash, commands and full RED/GREEN output.
+Each case independently fails with the relevant reason assertion when source
+annotation is removed in an isolated temporary generator, then passes after
+exact restoration. Both full outputs were inspected without truncation. No
+checkout production source was mutated. This is local regression evidence,
+separate from the historical retained mapping, hosted measurements and delivery.
+
+Using `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python` (Python 3.14.10):
+
+```sh
+PYTEST_ADDOPTS="-m 'not slow'" python -m pytest tests/test_followup_issue_generator.py -q
+# exit 0; 199 passed; plugins enabled
+python -m pytest tests/test_followup_guard_contract.py -q -m 'not slow'
+# exit 0; 2 passed
+python -m pytest tests/test_followup_issue_generator.py tests/test_followup_guard_contract.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-guard-contract/coverage.json
+# exit 0; 201 passed; target Cover 99.92%
+# 851 statements, zero missing; 386 branches, one missing arc (124->126)
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one aggregated passing file, zero failures
+ruff check tests/test_followup_guard_contract.py
+# exit 0
+black --check --line-length 100 tests/test_followup_guard_contract.py
+# exit 0; formatted at line length 100 before validation
+```
+
+The retained auditor was independently rerun using the original baseline's
+extracted tests and fresh collection of the retained test file. It exits 0:
+35 added functions / 45 cases, 50 Python receipts and two Node receipts,
+`complete=true`, `problems=[]`. The two new cases live in the separate
+supplemental mapping above; historical receipts are unchanged.
+
+The mandatory repository-wide Black command exited 1 with `PermissionError`
+at the multiprocessing forkserver socket. A single-worker retry produced no
+completed result and was interrupted (exit 130). Staging the new source/test
+receipt exited 128: `.git/index.lock` cannot be created on the read-only file
+system. No commit or push occurred; the global formatting gate is unsatisfied.
+
+A concrete two-line correction to #4401's revision-table header was prepared
+against fetched blob `94e2dfc675112ce6c5736ce03dfdc6f5c8f1c0dc` on
+`closer/issue-3956`. Automatic approval review rejected the GitHub contents write:
+`MCP tool call requires approval, but approval policy is never`. No remote
+source, review thread or PR body changed. A writer-capable run must apply that
+correction and settle review before checking complete exact-head gates and
+merging. #4518 is also OPEN and `draft=false` at the local source revision.
+
+No acceptance checkbox is completed here. Main delivery, a comparable hosted
+baseline for the approximately-60-unit claim and canonical ranking provenance
+remain incomplete; these additional local tests cannot replace any of them.
+
+The blocker comment and `needs-human` label on #4518 were also rejected by
+automatic approval review with the same approval-policy message. Neither was
+written. Final #4401 readback remains OPEN, `draft=false`, unmerged at the same
+head; no merge was attempted.
