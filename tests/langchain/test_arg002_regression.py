@@ -48,7 +48,7 @@ def test_no_arg002_violations(source_path: str) -> None:
     [
         (
             "scripts/langchain/_llm_client.py",
-            "return self.client.invoke(prompt, config=config, **kwargs)",
+            "        _ = config\n",
         ),
         (
             "scripts/langchain/pr_verifier.py",
@@ -69,12 +69,8 @@ def test_reintroducing_unused_config_fails_arg002(
     assert restore_needle in original, f"fix needle missing from {source_path}"
 
     if source_path.endswith("_llm_client.py"):
-        # Keep the config parameter in the signature but stop forwarding it.
-        broken = original.replace(
-            "return self.client.invoke(prompt, config=config, **kwargs)",
-            "return self.client.invoke(prompt, **kwargs)",
-            1,
-        )
+        # Keep the config parameter in the signature but stop referencing it.
+        broken = original.replace(restore_needle, "", 1)
     else:
         broken = original.replace(
             "def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:  # noqa: ARG002",
@@ -98,8 +94,8 @@ def test_reintroducing_unused_config_fails_arg002(
 
 @pytest.mark.parametrize("config", [None, {}, {"tags": ["arg002-regression"]}])
 @pytest.mark.parametrize("prompt_value", [False, True], ids=["string", "prompt-value"])
-def test_subscription_adapter_forwards_config_and_kwargs(config, prompt_value: bool) -> None:
-    """Using config must preserve both prompt rendering and invocation options."""
+def test_subscription_adapter_accepts_config_without_forwarding(config, prompt_value: bool) -> None:
+    """Runnable config is accepted for coercion, but not forwarded to the CLI client."""
     client = Mock()
     adapter = SubscriptionClientAdapter(client)
     prompt = (
@@ -110,8 +106,8 @@ def test_subscription_adapter_forwards_config_and_kwargs(config, prompt_value: b
 
     result = adapter.invoke(prompt, config=config, stop=["END"])
 
-    client.invoke.assert_called_once_with("Review the change", config=config, stop=["END"])
-    assert client.invoke.call_args.kwargs["config"] is config
+    client.invoke.assert_called_once_with("Review the change", stop=["END"])
+    assert "config" not in client.invoke.call_args.kwargs
     assert result is client.invoke.return_value
 
 
