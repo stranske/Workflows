@@ -37,7 +37,7 @@ def test_schema_repair_returns_only_usable_response_text(monkeypatch, repaired, 
     result = callback("schema", "validation errors", "raw response")
 
     assert result == expected
-    factory.assert_called_once()
+    assert factory.call_count == 1
     wrapped = factory.call_args.args[0]
     assert isinstance(wrapped, verifier._CapacityCheckedRepairClient)
     assert wrapped.client is client
