@@ -1,0 +1,132 @@
+version: 1
+issue: 4485
+base: main
+branch: codex/issue-4485
+tasks:
+  - id: task-01
+    title: Fix the source of the incompatible `provider` argument to `SlotDefinition`
+      at `tools/llm_registry.py:574` by adding `provider is not None and` guard.
+    status: done
+    started_at: '2026-11-06T18:24:59Z'
+    finished_at: '2026-11-06T18:24:59Z'
+    commit: 15007d8c9c2cba28f7f35af8e03882db3d3e904f
+    notes:
+      - Added provider narrowing guard in _load_positional_slots() in both canonical
+        and consumer-template sources
+      - Consolidates investigation tasks task-02, task-03, task-04 into this fix
+      - >-
+        Hardened 2026-11-06 to early `if provider is None: continue` so every later
+        SlotDefinition call in the loop sees a narrowed str (not only the retired branch)
+  - id: task-05
+    title: Run mypy on the fixed source file to verify typecheck passes
+    status: done
+    started_at: '2026-11-06T18:24:59Z'
+    finished_at: '2026-11-06T18:24:59Z'
+    commit: 15007d8c9c2cba28f7f35af8e03882db3d3e904f
+    notes:
+      - task-06 verification rolled into this task
+      - Local mypy validation passes with the guard in place
+      - Re-verified under trip-planner mypy.ini (explicit_package_bases/namespace_packages)
+  - id: task-07
+    title: Add regression test reproducing the failure in test_llm_registry_malformed_input.py
+    status: done
+    started_at: '2026-11-06T18:24:59Z'
+    finished_at: '2026-11-06T18:24:59Z'
+    commit: 15007d8c9c2cba28f7f35af8e03882db3d3e904f
+    notes:
+      - Consolidates task-08, task-09, task-10 into comprehensive malformed input tests
+      - Added test_a_missing_provider_cannot_become_a_retired_slot and related tests
+  - id: task-11
+    title: Add mypy regression test for consumer layout in test_delivered_scripts_mypy_clean_in_consumers.py
+    status: done
+    started_at: '2026-11-06T18:24:59Z'
+    finished_at: '2026-11-06T23:40:00Z'
+    commit: 749de0614bba309890324bf757bd1f9daadfed69
+    notes:
+      - task-12 assertion rolled into test_delivered_llm_registry_type_checks_in_a_consumer_layout
+      - Tests both fixed and pre-fix (restore_bug) variants for canonical and consumer-template
+      - Mirrors trip-planner mypy.ini (explicit_package_bases / namespace_packages) and asserts
+        returncode == 0 so Workflows tools.* ignore_errors cannot hide the shipped arg-type bug
+      - restore_bug updated to strip the early None rejection (not the old compound guard)
+  - id: task-14
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      restores a passing test.
+    status: done
+    started_at: '2026-11-06T18:24:59Z'
+    finished_at: '2026-11-06T18:24:59Z'
+    commit: 15007d8c9c2cba28f7f35af8e03882db3d3e904f
+    notes:
+      - Covered by task-11 test with restore_bug=True variant
+      - Consolidates task-17 and task-20 acceptance criteria into test suite
+      - >-
+        Manual deliberate-break 2026-11-06: FIXED_EXIT=0, BUG_EXIT=1 with exact
+        arg-type error
+  - id: task-13
+    title: Shipment-caused - Python CI / typecheck-mypy fails on synced tools/llm - passes on regenerated sync PR stranske/trip-planner#1957
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - "External verification step - requires maint-68-sync-consumer-repos.yml regeneration"
+      - "Post-merge - use gh run view <run-id> --repo stranske/trip-planner to verify typecheck-mypy"
+      - Blocked on sync PR regeneration and CI in another repository
+      - Local half verified 2026-11-06 (consumer-layout mypy + 220 related pytest cases)
+      - trip-planner#1957 head 7078336 still ships unfixed blob 1cfbfb30 (pre-merge)
+      - >-
+        2026-11-07: consumer mypy regression now mirrors reusable-10-ci-python
+        (pyproject.toml + --exclude .workflows-lib + target .)
+      - >-
+        2026-11-07: nested deliberate-break pytest hardened against 3.14
+        unraisable scandir cleanup that blocked PR #4486 python-ci / python 3.14
+  - id: task-15
+    title: The next sync-core round classifies stranske/trip-planner#1957 without
+      this finding.
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - External, asynchronous outcome of sync-core round
+      - Manual verification step for maintainer post-merge
+  - id: task-16
+    title: 'Fix the failure named in the title at its source'
+    status: done
+    started_at: '2026-11-06T18:24:59Z'
+    finished_at: '2026-11-06T18:24:59Z'
+    commit: 15007d8c9c2cba28f7f35af8e03882db3d3e904f
+    notes:
+      - Duplicate of task-01; resolved by same commit
+  - id: task-18
+    title: 'Acceptance: the check passes on regenerated sync PR stranske/trip-planner#1957,
+      verified with `gh run view <run-id>`'
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - "Depends on maint-68-sync-consumer-repos.yml regenerating the sync PR"
+      - Scheduled sync drain will handle regeneration and verification
+      - Cannot modify workflows, retry CI pipelines, or trigger regeneration
+  - id: task-19
+    title: 'Acceptance: the next sync-core round classifies stranske/trip-planner#1957
+      without this finding'
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - External, asynchronous outcome
+      - Post-merge manual verification step for maintainer
+  - id: task-20
+    title: 'Acceptance: re-introduce the reported behaviour, confirm the test fails, then revert'
+    status: done
+    started_at: '2026-11-06T23:59:17Z'
+    finished_at: '2026-11-06T23:59:50Z'
+    commit: 42bdf74bffc2d2015abb96122d580754e2479578
+    notes:
+      - Encoded in test_delivered_llm_registry_type_checks_in_a_consumer_layout restore_bug=True
+      - >-
+        Manual check: strip early None rejection -> mypy exit 1 with exact
+        SlotDefinition arg-type error
+      - Fixed path restores mypy exit 0 under trip-planner mypy.ini
