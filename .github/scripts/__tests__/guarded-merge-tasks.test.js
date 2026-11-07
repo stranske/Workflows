@@ -1109,6 +1109,23 @@ for (const status of [403, 409]) {
   });
 }
 
+test('final task refusal keeps its receipt when the real merge-failure publisher is installed', async () => {
+  const { c, actions, comments } = mergeScanHarness({
+    finalBody: complete.body + '\n- [ ] Reviewer request',
+  });
+  c.actions = actions;
+  c.comments = comments;
+  installMergeFailurePublisher(c);
+  c.authenticatedLogin = 'stranske-automation-bot';
+  await c.runScan();
+  const reason = 'Refusing auto-merge: linked issue/PR has unchecked tasks.';
+  assert.equal(actions.some(([kind]) => kind === 'merge'), false);
+  assert.deepEqual(actions.filter(([kind]) => kind === 'warning'), [['warning', `PR #42: ${reason}`]]);
+  assert.equal(comments.length, 1);
+  assert.equal(comments[0].body, `${refusalMarker}\nHead: current-head\nTask precheck refused: ${reason}`);
+  assert.equal(actions.some(([kind]) => kind === 'update'), false);
+});
+
 test('HTTP merge failure publishes one warning and one marker receipt, then updates it', async () => {
   const harness = mergeScanHarness();
   const { c, actions, comments } = harness;

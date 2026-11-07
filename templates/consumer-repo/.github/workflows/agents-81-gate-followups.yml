@@ -3515,6 +3515,7 @@ jobs:
                           note = taskFailure;
                           await reportTaskRefusal(prNumber, headSha, taskFailure);
                         } else {
+                          let mergeAttempted = false;
                           try {
                             const advisorySourceBoxes = countUnchecked(linkedIssueSnapshot?.body);
                             if (advisorySourceBoxes > 0) {
@@ -3581,6 +3582,7 @@ jobs:
                                       core.info(`Guarded merge credential source=${attemptSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
                                     }
                                   }
+                                  mergeAttempted = true;
                                   return client.rest.pulls.merge({
                                     owner,
                                     repo,
@@ -3639,7 +3641,7 @@ jobs:
                             } else {
                               status = 'error';
                               note = `Merge failed: HTTP ${response?.status || 'unknown'} ${response?.data?.message || 'Merge API returned an unexpected response.'}`;
-                              if (typeof reportMergeFailure === 'function') {
+                              if (mergeAttempted && typeof reportMergeFailure === 'function') {
                                 await reportMergeFailure(prNumber, note);
                               }
                             }
@@ -3649,7 +3651,7 @@ jobs:
                             const detail = responseData && responseData.message ? responseData.message : (error.message || String(error));
                             const httpStatus = error.status || error.response?.status;
                             note = httpStatus ? `Merge failed: HTTP ${httpStatus} ${detail}` : `Merge failed: ${detail}`;
-                            if (typeof reportMergeFailure === 'function') {
+                            if (mergeAttempted && typeof reportMergeFailure === 'function') {
                               await reportMergeFailure(prNumber, note);
                             }
                           }
