@@ -30,7 +30,7 @@ PR #3962 added four defensive tests for `scripts/aggregate_agent_metrics.py`:
 | PR #3962 Report | 98 | 35 | -63 | Reported at merge |
 | PR #4407 Measurement | 98 | 3 | -95 | Measured on current main |
 
-**Important**: The difference between 35 and 3 gap units is due to later test improvements on main that further covered the module beyond PR #3962's contributions. PR #3962's attributable improvement is the 63-unit reduction reported at merge.
+**Important**: The difference between 35 and 3 gap units is due to later test improvements on main that further covered the module beyond PR #3962's contributions. PR #3962 reported a 63-unit reduction at merge; exact-revision focused runs now reproduce that reduction (see `coverage-comparison.json`). Gate-wide attribution remains unverified.
 
 ### Gap Unit Formula
 
@@ -44,7 +44,7 @@ gap_units = missed_statements + partial_branches
 
 ## Unverified Claim
 
-PR #3962 reported a **63-unit coverage improvement** (98 → 35 gap units). This claim is **labeled unverified** until reproduced from historical artifacts because:
+PR #3962 reported a **63-unit coverage improvement** (98 → 35 gap units). The exact parent/merge **focused-test** comparison now reproduces this claim (98 → 35); **Gate-wide coverage attribution remains unverified** because:
 1. Gate artifacts from run 38973627393 are **expired**
 2. The full historical `coverage-autopilot.py` snapshot is **unavailable**
 3. Later improvements on main reduced gap units further than PR #3962's merge state

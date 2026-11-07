@@ -135,7 +135,8 @@
     "attributable_gap_units": 63,
     "gap_units_reduction": 63,
     "percentage_reduction": 64.29,
-    "shortfall_from_60_units": 0
+    "shortfall_from_60_units": 0,
+    "scope": "focused test run only; Gate-wide attribution remains unverified"
   },
   "historical_report": {
     "source": "https://github.com/stranske/Workflows/pull/4407",
@@ -163,6 +164,7 @@
     "attempted": true,
     "status": "reproduced",
     "method": "focused pytest at exact revisions in isolated historical checkout; concrete outputs and coverage target summaries archived inline",
-    "coverage_version": "7.16.2"
+    "coverage_version": "7.16.2",
+    "gate_collection_reproduced": false
   }
 }
