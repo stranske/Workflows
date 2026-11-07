@@ -47,6 +47,39 @@ for (const [copy, policy] of [
   ['source', require('../../.github/scripts/agent_delegation_policy.js')],
   ['template', require('../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js')],
 ]) {
+  test(`${copy}: top pool shed and next exhausted -> highest remaining ok agent`, async () => {
+    const document = {
+      schema: 'orchestrator.route-weights/v1',
+      generated_at: now,
+      capacity_schema: 'orchestrator.route-weights-capacity/v1',
+      capacity: {
+        claude: { state: 'shed' },
+        cursor: { state: 'exhausted' },
+        codex: { state: 'ok' },
+      },
+      task_types: {
+        implement: {
+          evidence_ok: true,
+          ranking: [
+            { agent: 'codex', posterior: 0.62 },
+            { agent: 'claude', posterior: 0.88 },
+            { agent: 'cursor', posterior: 0.76 },
+          ],
+        },
+      },
+    };
+    const fetched = await policy.fetchRouteWeights({
+      now,
+      fetchImpl: async () => ({ status: 200, json: async () => document }),
+    });
+    assert.deepEqual(fetched, document);
+    const decision = policy.chooseAgentForIntake('implement', fetched, mockRegistryAgents, { now });
+    assert.deepEqual(decision, {
+      agent: 'codex', posterior: 0.62, poolState: 'ok', pool_state: 'ok',
+      delegationSource: 'route_weights', reason: 'route-weights',
+    });
+  });
+
   for (const schema of ['orchestrator.route-weights/v1', 'orchestrator.route-weights/v2']) {
     for (const [capacityName, capacity] of [
       ['absent', undefined],
