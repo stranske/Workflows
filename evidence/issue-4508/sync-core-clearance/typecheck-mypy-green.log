@@ -1,0 +1,11 @@
+2026-11-07T02:12:14.2299749Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-07T02:12:14.2300044Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-07T02:12:14.2300299Z ##[endgroup]
+2026-11-07T02:12:26.0199309Z tests/baseline/test_planner_routing_baseline.py:100: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+2026-11-07T02:12:31.5934134Z Success: no issues found in 484 source files
+2026-11-07T02:12:31.6535044Z ##[group]Run set -euo pipefail
+2026-11-07T02:12:31.6535303Z [36;1mset -euo pipefail[0m
+2026-11-07T02:12:31.6535539Z [36;1mecho "outcome=${MYPY_OUTCOME}" >> "${GITHUB_OUTPUT}"[0m
+2026-11-07T02:12:31.6535835Z [36;1mif [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then[0m
+2026-11-07T02:12:31.6536093Z [36;1m  {[0m
+2026-11-07T02:12:31.6536268Z [36;1m    printf '## Mypy\n'[0m

@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "env_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "BLACK_CACHE_DIR": "/tmp/shebang-rejection-validation-black-cache"
+  },
+  "exit": 0,
+  "stdout": "",
+  "stderr": "All done! \u2728 \ud83c\udf70 \u2728\n927 files would be left unchanged.\n",
+  "timeout_seconds": 30,
+  "duration_seconds": 0.756,
+  "note": "Retry after a multi-file event-loop stall; the standard Black cache contains the preceding checks."
+}

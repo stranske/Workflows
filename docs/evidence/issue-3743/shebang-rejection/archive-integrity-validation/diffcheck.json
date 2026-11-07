@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "env_overrides": {},
+  "exit": 0,
+  "stdout": "",
+  "stderr": "",
+  "timeout_seconds": 120,
+  "duration_seconds": 0.013
+}

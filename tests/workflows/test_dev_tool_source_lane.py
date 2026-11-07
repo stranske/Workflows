@@ -20,12 +20,29 @@ def test_auto_updater_is_the_single_weekly_source_proposal_lane():
 
 def test_auto_updater_uses_workflow_capable_owner_token_for_source_proposal():
     text = AUTO_UPDATE.read_text(encoding="utf-8")
+    mint = text[
+        text.index("- name: Mint Workflows App proposal token") : text.index(
+            "- name: Checkout Workflows"
+        )
+    ]
     checkout = text[text.index("- name: Checkout Workflows") : text.index("- name: Setup Python")]
     create = text[text.index("- name: Create PR") : text.index("- name: Dry run summary")]
+    token = "${{ steps.proposal_app_token.outputs.token || secrets.OWNER_PR_PAT }}"
 
-    assert "token: ${{ secrets.OWNER_PR_PAT || github.token }}" in checkout
-    assert text.count("GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}") == 3
+    # 2026-11-06: the Workflows App token (workflows: write, as Maint 68 uses) is primary;
+    # OWNER_PR_PAT is only a fallback and must still carry the classic workflow scope.
+    assert "actions/create-github-app-token@" in mint
+    assert "permission-workflows: write" in mint
+    assert "permission-pull-requests: write" in mint
+    assert "continue-on-error: true" in mint
+    assert (
+        "token: ${{ steps.proposal_app_token.outputs.token || secrets.OWNER_PR_PAT || github.token }}"
+        in checkout
+    )
+    assert text.count(f"GH_TOKEN: {token}") == 3
+    assert "GH_TOKEN: ${{ secrets.OWNER_PR_PAT }}" not in text
     assert "Require workflow-capable proposal token" in text
+    assert 'if [ "$APP_TOKEN_MINTED" = "true" ]; then' in text
     assert 'if [ -z "$GH_TOKEN" ]; then' in text
     assert "gh auth status --active --hostname github.com --json hosts" in text
     assert "workflow scope" in text

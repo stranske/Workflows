@@ -110,7 +110,7 @@ workflows:
 
   # Post-merge trusted-base execution, job-scoped permissions and declared secrets.
   - source: .github/workflows/agents-verifier.yml
-    description: "Verifier - optional inert launch-basis correlation and bounded chunked acceptance review, expanded evidence recovery and typed provider-free retained-output recovery; guarded PASS/UNVERIFIABLE_INPUT source closure; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria"
+    description: "Verifier - optional PR/head dispatch correlation and inert launch-basis correlation and bounded chunked acceptance review, expanded evidence recovery and typed provider-free retained-output recovery; guarded PASS/UNVERIFIABLE_INPUT source closure; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria"
 
   - source: .github/workflows/list-llm-models.yml
     description: "List LLM Models - helper to show available models for verifier"
@@ -156,8 +156,9 @@ workflows:
   - source: .github/workflows/agents-auto-pilot.yml
     source_tree: template
     target: .github/workflows/agents-auto-pilot.yml
-    description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify); PR-bound verify handoff requires transition helper + retry wrapper"
+    description: "Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify); PR/head-bound dispatch or confirmed-run handoff; requires verifier entry point, transition helper + retry wrapper"
     requires:
+      - .github/workflows/agents-verifier.yml
       - .github/scripts/auto_pilot_transitions.js
       - .github/scripts/github-api-with-retry.js
 
@@ -735,6 +736,10 @@ scripts:
 
   - source: scripts/langchain/trace_utils.py
     description: "Shared LangSmith trace metadata helpers for LangChain workflows"
+    delivery: copy
+
+  - source: scripts/langchain/response_content.py
+    description: "Shared provider response text-block extraction"
     delivery: copy
 
   - source: scripts/langchain/_llm_client.py

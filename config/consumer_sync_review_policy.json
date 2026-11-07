@@ -12,7 +12,8 @@
     ],
     "verifier_profiles": [
       "codex-6.1-sol-medium"
-    ]
+    ],
+    "unanswered_reassessment_minutes": 120
   },
   "reviewers": [
     {
@@ -21,7 +22,11 @@
         "copilot-pull-request-reviewer",
         "copilot-pull-request-reviewer[bot]"
       ],
-      "check_names": []
+      "check_names": [],
+      "reassessment_comment": "@copilot please reassess this specific finding",
+      "reassessment_review_request": [
+        "copilot-pull-request-reviewer[bot]"
+      ]
     },
     {
       "id": "codex",

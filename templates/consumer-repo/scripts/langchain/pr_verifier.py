@@ -20,7 +20,7 @@ import os
 import re
 import sys
 from time import monotonic
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache, partial
 from pathlib import Path
@@ -28,6 +28,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from scripts import api_client
+from scripts.langchain.response_content import (
+    text_from_response_content as _text_from_response_content,
+)
 from scripts.langchain._llm_client import get_llm_client, get_llm_clients
 from scripts.langchain.structured_output import (
     build_repair_callback,
@@ -44,6 +47,8 @@ from scripts.langchain.verifier_config import (
 from tools.llm_registry import (
     NativeCapacityFacts,
     NativeCapacityUnavailable,
+    _load_object,
+    _slot_path,
     native_capacity_facts_for,
     normalize_provider,
 )
@@ -8091,51 +8096,6 @@ def _fallback_evaluation(
     )
 
 
-def _text_from_response_content(content: object) -> str | None:
-    """Return provider text, or None when the payload carries no text blocks."""
-    if isinstance(content, str):
-        return content if content and not content.isspace() else None
-    if isinstance(content, Mapping):
-        block_type = content.get("type")
-        for key in ("text", "content"):
-            text = content.get(key)
-            if (
-                isinstance(text, str)
-                and text
-                and not text.isspace()
-                and block_type in (None, "text", "output_text")
-            ):
-                return text
-        return None
-    if isinstance(content, list):
-        text_blocks: list[str] = []
-        for block in content:
-            if isinstance(block, str):
-                text = block
-            elif isinstance(block, Mapping):
-                if block.get("type") not in (None, "text", "output_text"):
-                    text = None
-                else:
-                    text = block.get("text")
-                    if not isinstance(text, str):
-                        text = block.get("content")
-            else:
-                if getattr(block, "type", None) not in (None, "text", "output_text"):
-                    text = None
-                else:
-                    text = getattr(block, "text", None)
-                    if not isinstance(text, str):
-                        text = getattr(block, "content", None)
-            if isinstance(text, str):
-                text_blocks.append(text)
-        if any(block and not block.isspace() for block in text_blocks):
-            # Concatenate without a separator: a provider may split one JSON
-            # document across blocks, and an inserted newline inside a string
-            # literal would make the reassembled payload invalid JSON.
-            return "".join(text_blocks)
-    return None
-
-
 def _coerce_response_content(content: object) -> str:
     """Return text from provider response blocks without losing a safe fallback."""
     text = _text_from_response_content(content)
@@ -8772,7 +8732,7 @@ class CapacityBackupClient:
             timeout,
         )
 
-    def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:
+    def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:  # noqa: ARG002
         import urllib.error
         import urllib.request
         from types import SimpleNamespace
@@ -8811,11 +8771,12 @@ def capacity_backup() -> tuple[CapacityBackupClient, str, str] | None:
     """The configured backup judge, or None when it is off, unkeyed or the path is strict."""
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded" or _semantic_mode():
         return None
-    path = Path(__file__).resolve().parents[2] / "config" / "llm_slots.json"
-    try:
-        block = json.loads(path.read_text(encoding="utf-8")).get("capacity_backup")
-    except (OSError, ValueError, AttributeError):
-        return None
+    # The backup shares the primary clients' execution allowlist. `_load_object`
+    # reads only the effective LANGCHAIN_SLOT_CONFIG path and returns None when
+    # that explicit file is empty or unavailable, so the bundled file is never
+    # a fallback.
+    payload = _load_object(_slot_path(), label="slot config")
+    block = None if payload is None else payload.get("capacity_backup")
     if not isinstance(block, dict) or block.get("enabled") is not True:
         return None
     try:

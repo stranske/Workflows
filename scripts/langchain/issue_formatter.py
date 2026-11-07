@@ -30,6 +30,7 @@ try:
         build_issue_context,
         reuse_formatted_body,
     )
+    from scripts.langchain.response_content import text_from_response_content
     from scripts.langchain.trace_utils import TraceInfo, invoke_with_trace
 except ImportError:  # pragma: no cover - fallback for direct invocation
     from _llm_client import get_llm_client as _get_llm_client
@@ -42,6 +43,7 @@ except ImportError:  # pragma: no cover - fallback for direct invocation
         build_issue_context,
         reuse_formatted_body,
     )
+    from response_content import text_from_response_content
     from trace_utils import TraceInfo, invoke_with_trace
 
 # Maximum issue body size to prevent OpenAI rate limit errors (30k TPM limit)
@@ -686,6 +688,28 @@ def _validate_and_refine_tasks(formatted: str, *, use_llm: bool) -> tuple[str, s
     return "\n".join(new_lines).strip(), result.audit_summary
 
 
+def _first_problem(report: Any) -> str:
+    if report.missing_required:
+        return "missing required sections: " + ", ".join(report.missing_required)
+    return report.problems[0] if report.problems else "validator reported no detail"
+
+
+def _rewrite_until_valid(formatted: str, client: Any) -> Any:
+    """Run the fleet validator's rewrite loop with ``client``; None if unavailable."""
+    try:
+        validator = _issue_format_validator()
+    except (ImportError, OSError, RuntimeError, SyntaxError):
+        return None
+    workspace = os.environ.get("GITHUB_WORKSPACE", "").strip()
+    repo_root = Path(workspace).resolve() if workspace else Path.cwd().resolve()
+
+    def rewrite(prompt: str) -> str | None:
+        response, _ = invoke_with_trace(client, prompt, operation="issue_formatter_rewrite")
+        return text_from_response_content(getattr(response, "content", None), separator="\n")
+
+    return validator.rewrite_until_valid(formatted, rewrite, repo_root=repo_root)
+
+
 def _is_github_models_auth_error(exc: Exception) -> bool:
     """Check if exception is a GitHub Models authentication error (401)."""
     exc_str = str(exc).lower()
@@ -802,8 +826,36 @@ def format_issue_body(issue_body: str, *, use_llm: bool = True) -> dict[str, Any
                             raise
                     else:
                         raise
-                content = getattr(response, "content", None) or str(response)
-                formatted = content.strip()
+                content = getattr(response, "content", None)
+                formatted = (text_from_response_content(content, separator="\n") or "").strip()
+                if formatted and not _formatted_output_valid(formatted):
+                    # Feed the validator's complaints back to the same model until
+                    # the body validates; a body that never does is a completed,
+                    # unsuccessful attempt, not a crash and not the heuristic body.
+                    rewritten = _rewrite_until_valid(formatted, client)
+                    if rewritten is not None and getattr(rewritten, "error", None):
+                        # A provider failure mid-rewrite is a crash, like the same
+                        # failure in the first call: never a real rewrite attempt.
+                        raise RuntimeError(f"rewrite call failed: {rewritten.error}")
+                    if rewritten is not None and not rewritten.ok:
+                        result = {
+                            "formatted_body": None,
+                            "error": (
+                                f"not agent-processable after {rewritten.rounds} rewrite "
+                                f"rounds: {_first_problem(rewritten.report)}"
+                            ),
+                            "rewrite_failed": True,
+                            "rewrite_rounds": rewritten.rounds,
+                            "rewrite_report": rewritten.report.as_markdown(),
+                            "provider_used": provider,
+                            "used_llm": True,
+                            "validation_audit": None,
+                            "needs_refinement": True,
+                        }
+                        result.update(trace.as_dict())
+                        return result
+                    if rewritten is not None:
+                        formatted = rewritten.body or ""
                 if _formatted_output_valid(formatted):
                     # NOTE: Task decomposition is now handled by agents:optimize step
                     # which uses LLM for intelligent splitting. Don't do heuristic
@@ -868,7 +920,7 @@ def main() -> None:
     raw = _load_input(args)
     result = format_issue_body(raw, use_llm=not args.no_llm)
 
-    if args.output_file:
+    if args.output_file and result.get("formatted_body") is not None:
         Path(args.output_file).write_text(result["formatted_body"], encoding="utf-8")
 
     if args.json:
@@ -882,6 +934,10 @@ def main() -> None:
         }
         if result.get("error"):
             payload["error"] = result["error"]
+        if result.get("rewrite_failed"):
+            payload["rewrite_failed"] = True
+            payload["rewrite_rounds"] = result.get("rewrite_rounds", 0)
+            payload["rewrite_report"] = result.get("rewrite_report") or ""
         if result.get("guard_blocked"):
             payload["guard_blocked"] = True
             payload["guard_reason"] = result.get("guard_reason") or ""

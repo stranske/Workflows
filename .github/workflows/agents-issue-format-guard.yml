@@ -267,17 +267,56 @@ jobs:
             const isCurrentAttemptMarker = (body) =>
               body.includes(process.env.FORMAT_GUARD_MARKER)
               || body.includes(process.env.FORMAT_GUARD_RETRY_PREFIX);
-            const trusted = comments.some((comment) =>
+            const isTrustedBot = (comment) =>
               comment.user?.login === 'github-actions[bot]'
-              && (comment.user?.id == null || comment.user.id === 41898282)
-              && isCurrentAttemptMarker(comment.body || '')
-            );
-            const attempts = comments.filter((comment) =>
-              comment.user?.login === 'github-actions[bot]'
-              && (comment.user?.id == null || comment.user.id === 41898282)
-              && isCurrentAttemptMarker(comment.body || '')
-            ).length;
-            process.stdout.write(JSON.stringify({ attempts, trusted }));
+              && (comment.user?.id == null || comment.user.id === 41898282);
+            const isCurrentDispatch = (comment) =>
+              isTrustedBot(comment) && isCurrentAttemptMarker(comment.body || '');
+            const trusted = comments.some(isCurrentDispatch);
+            const attempts = comments.filter(isCurrentDispatch).length;
+            // Budget: every optimizer outcome belongs to the most recent dispatch
+            // marker before it, so only outcomes of THIS body's dispatches count —
+            // an edit A -> B -> A never charges B's failures to A. The latest
+            // attempt-cap pause starts a fresh budget, so lifting
+            // agents:auto-pilot-pause never re-pauses at once.
+            const fingerprintOf = (text) => {
+              const match = /<!-- format-guard:([0-9a-f]{12})(?::attempt:\d+)? -->/.exec(text || '');
+              return match ? match[1] : null;
+            };
+            const currentFingerprint = fingerprintOf(process.env.FORMAT_GUARD_MARKER);
+            let outcomeOwner = null;
+            let rewriteFailures = 0;
+            let crashes = 0;
+            let windowDispatches = 0;
+            for (const comment of comments) {
+              const text = comment.body || '';
+              if (isTrustedBot(comment) && text.includes('<!-- format-guard:attempt-cap -->')) {
+                outcomeOwner = null;
+                rewriteFailures = 0;
+                crashes = 0;
+                windowDispatches = 0;
+                continue;
+              }
+              const dispatched = isTrustedBot(comment) ? fingerprintOf(text) : null;
+              if (dispatched) {
+                outcomeOwner = dispatched;
+                if (dispatched === currentFingerprint) windowDispatches += 1;
+                continue;
+              }
+              if (outcomeOwner === null || outcomeOwner !== currentFingerprint) continue;
+              if (isTrustedBot(comment) && text.includes('<!-- issue-optimizer:rewrite-failed -->')) {
+                // Real attempt: the optimizer completed a rewrite that never validated.
+                rewriteFailures += 1;
+              } else if (/\[bot\]$/.test(comment.user?.login || '')
+                && text.includes('agents-issue-optimizer workflow encountered an error')) {
+                // Crash: the optimizer's generic failure report. Consumer repos post
+                // it with an app token, so any bot author counts.
+                crashes += 1;
+              }
+            }
+            process.stdout.write(JSON.stringify({
+              attempts, trusted, rewriteFailures, crashes, windowDispatches,
+            }));
           })().catch((error) => {
             console.error(error);
             process.exit(1);
@@ -286,19 +325,42 @@ jobs:
           )"
           trusted_marker="$(jq -r '.trusted' <<<"$marker_state")"
           format_guard_attempts="$(jq -r '.attempts' <<<"$marker_state")"
+          rewrite_attempts="$(jq -r '.rewriteFailures' <<<"$marker_state")"
+          optimizer_crashes="$(jq -r '.crashes' <<<"$marker_state")"
+          window_dispatches="$(jq -r '.windowDispatches' <<<"$marker_state")"
+          # Real rewrite attempts and crashes have separate budgets: a crash is a
+          # Workflows defect, not evidence the body cannot be fixed. The dispatch
+          # backstop bounds loops whose runs end in neither (cancelled, skipped).
           max_format_guard_attempts=3
+          max_optimizer_crashes=3
+          max_format_guard_dispatches=$((max_format_guard_attempts + max_optimizer_crashes))
           format_guard_next_attempt=$((format_guard_attempts + 1))
           attempt_marker="${retry_marker_prefix}${format_guard_next_attempt} -->"
-          if [[ "$format_guard_attempts" -ge "$max_format_guard_attempts" ]]; then
-            echo "Format guard exhausted $format_guard_attempts optimizer attempts; pausing issue."
+          echo "Format guard budget: real rewrite attempts $rewrite_attempts/$max_format_guard_attempts, optimizer crashes $optimizer_crashes/$max_optimizer_crashes, dispatches $window_dispatches/$max_format_guard_dispatches."
+          if [[ "$rewrite_attempts" -ge "$max_format_guard_attempts" ||
+              "$optimizer_crashes" -ge "$max_optimizer_crashes" ||
+              "$window_dispatches" -ge "$max_format_guard_dispatches" ]]; then
+            echo "Format guard budget exhausted; pausing issue for the opener lane."
+            # Auto-pilot must not run on a body that does not validate.
+            paused=true
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" \
               --add-label "agents:auto-pilot-pause" \
-              || echo "::warning::could not apply agents:auto-pilot-pause"
+              || { paused=false; echo "::warning::could not apply agents:auto-pilot-pause"; }
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agents:format" \
               || echo "::warning::could not release agents:format after attempt cap"
+            # The attempt-cap marker resets the budget, so it is written only when
+            # the pause really landed; otherwise the cap stays in force.
+            cap_marker=''
+            if [[ "$paused" == true ]]; then
+              cap_marker='<!-- format-guard:attempt-cap -->'
+            fi
+            # Literal backticks are Markdown, not command substitution.
+            # shellcheck disable=SC2016
             printf '%s\n' \
-              '<!-- format-guard:attempt-cap -->' \
-              "Automated formatting stopped after $format_guard_attempts optimizer attempts. Fix the issue body manually, then remove agents:auto-pilot-pause before retrying." \
+              "$cap_marker" \
+              "Automated formatting paused after $rewrite_attempts real rewrite attempt(s), $optimizer_crashes optimizer crash(es) and $window_dispatches dispatch(es) for this body (caps: $max_format_guard_attempts, $max_optimizer_crashes, $max_format_guard_dispatches)." \
+              '' \
+              'No human action is required: the opener lane (opener-core) rewrites and re-validates paused issues automatically. `agents:auto-pilot-pause` only keeps auto-pilot off this body until it validates; removing it forces an earlier retry with a fresh budget.' \
               | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file - \
               || echo "::warning::could not post format-guard attempt-cap comment"
             exit 0
@@ -375,7 +437,7 @@ jobs:
           {
             cat report.md
             echo
-            echo "Dispatched the Agents Issue Optimizer format phase (attempt $format_guard_next_attempt of $max_format_guard_attempts)."
+            echo "Dispatched the Agents Issue Optimizer format phase (real rewrite attempts so far: $rewrite_attempts of $max_format_guard_attempts; optimizer crashes: $optimizer_crashes of $max_optimizer_crashes)."
             echo
             echo "$attempt_marker"
           } | gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file -

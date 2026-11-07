@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "-m",
+    "pytest",
+    "tests/scripts/test_shebang_rejection_delivered_archives.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/archive-inventory-validation/inventory-final.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "stdout": ".......                                                                  [100%]\n7 passed in 0.87s\n",
+  "stderr": "",
+  "duration_seconds": 2.663
+}

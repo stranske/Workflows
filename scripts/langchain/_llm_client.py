@@ -20,9 +20,35 @@ only the import-guarded construction here.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 _RETURN_FIELDS = frozenset({"provider", "model", "provider_label"})
+
+
+@dataclass(frozen=True)
+class SubscriptionClientAdapter:
+    """Callable accepted by LangChain's Runnable coercion, without importing it.
+
+    Keep direct string invocation available to auxiliary analyses that run without
+    LangChain installed. PromptValue inputs use their text rendering, rather than
+    their Python representation, at the CLI boundary.
+    """
+
+    client: Any
+
+    def invoke(self, prompt: Any, config: Any = None, **kwargs: Any) -> Any:
+        if not isinstance(prompt, str):
+            to_string = getattr(prompt, "to_string", None)
+            if not callable(to_string):
+                raise TypeError("Subscription prompts must be strings or prompt values")
+            prompt = to_string()
+        if not isinstance(prompt, str):
+            raise TypeError("Subscription prompt rendering must return a string")
+        return self.client.invoke(prompt, config=config, **kwargs)
+
+    def __call__(self, prompt: Any) -> Any:
+        return self.invoke(prompt)
 
 
 def get_llm_client(
@@ -71,18 +97,31 @@ def build_client(
     Exposes the import-guarded construction for callers that need more than the
     ``(client, label)`` shape — e.g. ``followup_issue_generator`` which logs both
     provider and model and returns the model as its label.
+
+    Ordinary chat callers always use the standard factory's provider/model
+    selection, even when subscription analysis is enabled in the environment.
+    Auxiliary callers opt in through :func:`build_auxiliary_client` instead.
     """
-    import os
-
-    if os.environ.get("WORKFLOWS_ANALYSIS_CLI"):
-        from tools.subscription_llm import build_subscription_client
-
-        return build_subscription_client()
     try:
         from tools.langchain_client import build_chat_client
     except ImportError:
         return None
     return build_chat_client(model=model, provider=provider, force_openai=force_openai)
+
+
+def build_auxiliary_client() -> Any | None:
+    """Build a registry-selected subscription client for auxiliary analysis.
+
+    This explicit entrypoint ignores ordinary chat provider/model defaults and
+    propagates subscription configuration/auth failures without an API fallback.
+    It has no LangChain dependency, while supporting prompt pipe composition.
+    """
+    from tools.subscription_llm import build_subscription_client
+
+    info = build_subscription_client()
+    if info is not None:
+        info.client = SubscriptionClientAdapter(info.client)
+    return info
 
 
 def get_llm_clients(

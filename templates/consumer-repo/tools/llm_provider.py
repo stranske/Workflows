@@ -309,7 +309,7 @@ def _supports_quality_context(provider: LLMProvider) -> bool:
                 "supports_quality_context raised for %s, falling back to signature",
                 getattr(provider, "name", provider.__class__.__name__),
             )
-    if supports is not None:
+    elif supports is not None:
         return bool(supports)
     try:
         parameters = inspect.signature(provider.analyze_completion).parameters

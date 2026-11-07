@@ -231,6 +231,26 @@ _WORKFLOW_ENV = "VERIFIER_WORKFLOW_UNDER_TEST"
 _DEFAULT_WORKFLOW = ROOT / ".github/workflows/reusable-agents-verifier.yml"
 
 
+def _nested_pytest_cmd(*extra: str) -> list[str]:
+    """Argv for a child pytest run that must not inherit parent addopts/xdist.
+
+    Disable ``unraisableexception`` so Python 3.14 scandir-finalizer
+    ``PytestUnraisableExceptionWarning`` noise during nested cleanup cannot flip
+    an otherwise-green child suite to exit 1 under a loaded xdist parent.
+    """
+    return [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
+        "-o",
+        "addopts=",
+        "-p",
+        "no:unraisableexception",
+        *extra,
+    ]
+
+
 def _workflow_under_test() -> Path:
     override = os.environ.get(_WORKFLOW_ENV, "").strip()
     return Path(override) if override else _DEFAULT_WORKFLOW
@@ -634,17 +654,7 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
         broken_path.write_text(broken, encoding="utf-8")
         broken_env = {**child_env, _WORKFLOW_ENV: str(broken_path)}
         broken_run = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "-q",
-                "-o",
-                "addopts=",
-                str(Path(__file__).resolve()),
-                "-k",
-                target,
-            ],
+            _nested_pytest_cmd(str(Path(__file__).resolve()), "-k", target),
             cwd=ROOT,
             env=broken_env,
             capture_output=True,
@@ -656,17 +666,7 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
 
     assert _DEFAULT_WORKFLOW.read_bytes() == original_bytes
     restored_run = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "-o",
-            "addopts=",
-            str(Path(__file__).resolve()),
-            "-k",
-            target,
-        ],
+        _nested_pytest_cmd(str(Path(__file__).resolve()), "-k", target),
         cwd=ROOT,
         env=child_env,
         capture_output=True,

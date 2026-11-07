@@ -1,0 +1,95 @@
+{
+  "problems": [],
+  "archives": [
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/summary.json",
+      "kind": "historical",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/proof.tar.gz",
+      "members": 122,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "kind": "historical",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz",
+      "members": 151,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "kind": "historical",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz",
+      "members": 316,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/matched-comparison/summary.json",
+      "kind": "current",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/matched-comparison/proof.tar.gz",
+      "members": 19,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/raw-comparison-validation/summary.json",
+      "kind": "current",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/raw-comparison-validation/proof.tar.gz",
+      "members": 38,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    }
+  ],
+  "historical_input_mismatches": 7,
+  "interpreters": {
+    "acceptance_run": "/opt/anaconda3/bin/python3",
+    "matched_comparison": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "validation_python": "/opt/anaconda3/bin/python3",
+    "validation_black": "/opt/anaconda3/bin/black",
+    "validation_ruff": "/opt/anaconda3/bin/ruff"
+  },
+  "measured_file_counts": {
+    "workflows_directory_yml": 130,
+    "template_directory_yml": 35,
+    "manifest_workflow_targets": 35,
+    "strict_validation_inputs": 166,
+    "black_files": 928,
+    "ruff_files": 15
+  },
+  "matched_comparison": {
+    "added": 8,
+    "removed": 0,
+    "changed": 0,
+    "universes_identical": true,
+    "exclusions": 0,
+    "line_regressions": 0,
+    "branch_regressions": 0
+  }
+}

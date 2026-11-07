@@ -1,7 +1,9 @@
 """Offline credential canary for the real subscription-analysis process boundary.
 
 This checks launch configuration, not a model's behavior or CLI enforcement.
-HOME/CODEX_HOME remain authentication locators; instruction-bearing env is denied.
+Codex auth stays under CODEX_HOME. Claude credentials exist only under
+CLAUDE_CONFIG_DIR, outside ~/.claude, so availability cannot pass by reading the
+default directory. Instruction-bearing env is denied.
 """
 
 from __future__ import annotations
@@ -96,7 +98,8 @@ def test_subscription_analysis_credential_canary(
     canary = f"subscription-credential-canary-{uuid4().hex}"
     home = tmp_path / "home"
     codex_home = home / ".codex"
-    claude_home = home / ".claude"
+    # Distinct from ~/.claude so the pre-fix lookup cannot see these credentials.
+    claude_home = tmp_path / "custom-claude"
     codex_home.mkdir(parents=True)
     claude_home.mkdir()
     auth = {"auth_mode": "chatgpt", "tokens": {"access_token": canary}}

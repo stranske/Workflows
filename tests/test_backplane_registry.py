@@ -293,6 +293,61 @@ def test_cli_expired_deferral_remains_blocking(
     } in report["findings"]
 
 
+@pytest.mark.parametrize(
+    "repo",
+    [
+        "stranske/Trend_Model_Project",
+        "stranske/Counter_Risk",
+        "stranske/Portable-Alpha-Extension-Model",
+        "stranske/Manager-Database",
+        "stranske/learning-management-system",
+    ],
+)
+def test_cli_renewed_deferral_recovers_from_expiration(
+    repo: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = _registry()
+    # Check the renewal as of the registry update, rather than the older unit-test clock.
+    clock = Mock(wraps=datetime)
+    clock.now.return_value = datetime.fromisoformat(registry["updated_at"])
+    monkeypatch.setattr(vbr, "datetime", clock)
+    index, entry = next(
+        (index, entry)
+        for index, entry in enumerate(registry["participants"])
+        if entry["repo"] == repo
+    )
+    renewed_expiry = entry["issue_deferred"]["expires_at"]
+    registry_path = tmp_path / "registry.json"
+
+    # Each of the five renewals must pass, block if rolled back, then pass when restored.
+    for expires_at, exit_code in [
+        (renewed_expiry, 0),
+        ("2026-10-22T00:00:00Z", 1),
+        (renewed_expiry, 0),
+    ]:
+        entry["issue_deferred"]["expires_at"] = expires_at
+        registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+        assert vbr.main(["--json", str(registry_path)]) == exit_code
+        report = json.loads(capsys.readouterr().out)
+        errors = [f for f in report["findings"] if f["severity"] == vbr.ERROR_SEVERITY]
+        assert errors == (
+            [
+                {
+                    "path": f"participants[{index}].issue_deferred.expires_at",
+                    "message": "deferred issue expired",
+                    "severity": vbr.ERROR_SEVERITY,
+                }
+            ]
+            if exit_code
+            else []
+        )
+        assert report["blocking_ok"] is (exit_code == 0)
+
+
 def test_stale_reference_run_is_rejected() -> None:
     registry = copy.deepcopy(_registry())
     entry = _pension_conformant_entry(registry)

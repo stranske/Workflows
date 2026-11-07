@@ -7,12 +7,12 @@ Regenerate: `python scripts/validate_backplane_registry.py --write-status docs/r
 | Repo | Lifecycle status | Reference state | Issue state |
 | --- | --- | --- | --- |
 | stranske/Pension-Data | conformant | valid | `stranske/Pension-Data#703` |
-| stranske/Trend_Model_Project | planned | missing | deferred until 2026-10-22 |
-| stranske/Counter_Risk | planned | missing | deferred until 2026-10-22 |
-| stranske/Portable-Alpha-Extension-Model | planned | missing | deferred until 2026-10-22 |
-| stranske/Manager-Database | planned | missing | deferred until 2026-10-22 |
+| stranske/Trend_Model_Project | planned | missing | deferred until 2026-11-18 |
+| stranske/Counter_Risk | planned | missing | deferred until 2026-11-18 |
+| stranske/Portable-Alpha-Extension-Model | planned | missing | deferred until 2026-11-18 |
+| stranske/Manager-Database | planned | missing | deferred until 2026-11-18 |
 | stranske/Inv-Man-Intake | emitting | missing | `stranske/Inv-Man-Intake#949` |
-| stranske/learning-management-system | candidate | not-applicable | deferred until 2026-10-22 |
+| stranske/learning-management-system | candidate | not-applicable | deferred until 2026-11-18 |
 
 Pension-Data reference evidence:
 

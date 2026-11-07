@@ -2573,8 +2573,16 @@ jobs:
       - name: Merge labelled agent PRs (guarded)
         id: guarded_merge
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          # Secret name only. Token values are masked before any log line.
+          # AGENTS_AUTOMATION_PAT is omitted: on consumers it is the first
+          # non-empty WRITE_TOKEN and the token that received the merge 403.
+          GUARDED_MERGE_TOKEN_SOURCE: ${{ secrets.SERVICE_BOT_PAT != '' && 'SERVICE_BOT_PAT' || secrets.ACTIONS_BOT_PAT != '' && 'ACTIONS_BOT_PAT' || 'github.token' }}
+          # Job installation token. Used only after the selected PAT returns 401/403.
+          # Actions masks github.token; setSecret covers it again before any log line.
+          GUARDED_MERGE_GITHUB_TOKEN: ${{ github.token }}
         with:
-          github-token: ${{ env.WRITE_TOKEN }}
+          github-token: ${{ secrets.SERVICE_BOT_PAT || secrets.ACTIONS_BOT_PAT || github.token }}
           script: |
             const fs = require('fs');
             const label = 'automerge';
@@ -2612,9 +2620,105 @@ jobs:
                     },
                   }),
                 };
-            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({ github, core });
+            // Keep the action's github-token. Do not let the load balancer swap in
+            // WRITE_TOKEN / AGENTS_AUTOMATION_PAT, which is the secret that 403s on merge.
+            const mergeTokenEnv = { ...process.env };
+            for (const secretName of [
+              'GITHUB_TOKEN',
+              'GH_TOKEN',
+              'WRITE_TOKEN',
+              'AGENTS_AUTOMATION_PAT',
+              'ACTIONS_BOT_PAT',
+              'SERVICE_BOT_PAT',
+              'OWNER_PR_PAT',
+              'GUARDED_MERGE_GITHUB_TOKEN',
+            ]) {
+              if (mergeTokenEnv[secretName]) core.setSecret(mergeTokenEnv[secretName]);
+              delete mergeTokenEnv[secretName];
+            }
+            if (process.env.GUARDED_MERGE_GITHUB_TOKEN) {
+              core.setSecret(process.env.GUARDED_MERGE_GITHUB_TOKEN);
+            }
+            const { withRetry, paginateWithRetry, getTokenSource } = await createTokenAwareRetry({
+              github,
+              core,
+              env: mergeTokenEnv,
+              githubToken: '',
+            });
             const summary = core.summary;
             const { owner, repo } = context.repo;
+
+            // Non-secret credential source label. The step env names the secret that
+            // won SERVICE_BOT_PAT → ACTIONS_BOT_PAT → github.token.
+            function guardedMergeCredentialSource() {
+              const selected = getTokenSource?.();
+              if (selected && selected !== 'GITHUB_TOKEN') return selected;
+              const configured = String(process.env.GUARDED_MERGE_TOKEN_SOURCE || '').trim();
+              return configured || 'github.token';
+            }
+
+            // Job start: mask the token, then log /user login and reported OAuth scopes.
+            const guardedMergeTokenSource = guardedMergeCredentialSource();
+            let guardedMergeLogin = guardedMergeTokenSource === 'github.token' ? 'github-actions[bot]' : '';
+            let guardedMergeScopes = 'unavailable';
+            try {
+              const identity = await withRetry(
+                (client) => client.rest.users.getAuthenticated(),
+                { tokenRegistry: null, github },
+              );
+              guardedMergeLogin = String(identity?.data?.login || guardedMergeLogin || 'unavailable');
+              const reportedScopes = identity?.headers?.['x-oauth-scopes'];
+              guardedMergeScopes = reportedScopes
+                ? String(reportedScopes)
+                : 'not reported (fine-grained/App tokens require settings verification)';
+              if (reportedScopes) {
+                const scopeSet = String(reportedScopes).split(',').map((scope) => scope.trim()).filter(Boolean);
+                if (!scopeSet.includes('repo')) {
+                  core.warning(
+                    `Guarded merge token source=${guardedMergeTokenSource} login=${guardedMergeLogin} is missing the classic repo scope required for contents:write and pull_requests:write.`
+                  );
+                }
+              }
+            } catch (identityError) {
+              guardedMergeLogin = guardedMergeLogin || 'unavailable';
+              guardedMergeScopes = `unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`;
+            }
+            core.info(
+              `Guarded merge job start token source=${guardedMergeTokenSource}; /user login=${guardedMergeLogin}; OAuth scopes=${guardedMergeScopes}`
+            );
+
+            // Failure receipt uses the merge-step token, the same client that called pulls.merge.
+            async function reportMergeFailure(prNumber, message) {
+              const marker = '<!-- agents-guarded-merge-result:v1 -->';
+              core.warning(message);
+              try {
+                // Installation tokens (github.token fallback) cannot call GET /user; their writer is fixed.
+                const workflowToken = guardedMergeCredentialSource() === 'github.token';
+                const actor = workflowToken
+                  ? { login: 'github-actions[bot]', type: 'Bot' }
+                  : (await withRetry((client) => client.rest.users.getAuthenticated())).data;
+                const ownedByWriter = (user) => (workflowToken
+                  ? user?.login === 'github-actions[bot]' && user?.type === 'Bot'
+                  : user?.id === actor.id);
+                const comments = await paginateWithRetry(github.rest.issues.listComments, {
+                  owner, repo, issue_number: prNumber, per_page: 100,
+                });
+                const existing = comments.find((comment) =>
+                  ownedByWriter(comment.user) && comment.body?.startsWith(marker));
+                const receipt = `${marker}\n${message}`;
+                if (existing) {
+                  await withRetry((client) => client.rest.issues.updateComment({
+                    owner, repo, comment_id: existing.id, body: receipt,
+                  }));
+                } else {
+                  await withRetry((client) => client.rest.issues.createComment({
+                    owner, repo, issue_number: prNumber, body: receipt,
+                  }));
+                }
+              } catch (error) {
+                core.warning(`Unable to publish guarded merge failure receipt: HTTP ${error.status || 'unknown'} ${error.message || error}`);
+              }
+            }
 
             // Resolve the default branch (agent PRs must target it).
             let defaultBranch = (context.payload.repository && context.payload.repository.default_branch) || '';
@@ -2629,7 +2733,7 @@ jobs:
 
             // #2270 (FO-5): consumer in-repo guarded merger. Mirrors the reusable-70
             // automerge sweep guards (combined status + all check-runs success), REFUSES
-            // bootstrap-only placeholder PRs, and REFUSES PRs whose linked issue/PR still
+            // bootstrap-only placeholder PRs, and REFUSES PRs whose task block still
             // has unchecked tasks. This gives consumers an in-repo merge leg instead of
             // depending on the local closer lane, now that the belt worker no longer
             // enables guardless native auto-merge.
@@ -2691,7 +2795,7 @@ jobs:
 
             // Count unchecked GitHub task checkboxes ("- [ ]") in real (non-quoted) lines.
             // Quoted lines ("> - [ ]", e.g. the belt PR's mirrored issue body) are ignored
-            // so they do not block a merge; the linked issue's own body is the source of truth.
+            // so they do not block a merge; the PR's actionable tasks carry progress.
             function countUnchecked(text) {
               if (!text) return 0;
               let count = 0;
@@ -2766,7 +2870,7 @@ jobs:
             function uncheckedTaskFailure(pr, linkedIssueSnapshot) {
               const referenceFailure = issueReferenceFailure(pr);
               if (referenceFailure) return referenceFailure;
-              let unchecked = countUnchecked(pr?.body);
+              const unchecked = countUnchecked(pr?.body);
               const linkedIssue = inferIssue(pr);
               if (linkedIssue) {
                 if (
@@ -2778,11 +2882,66 @@ jobs:
                 if (linkedIssueSnapshot.failure) {
                   return linkedIssueSnapshot.failure;
                 }
-                unchecked += countUnchecked(linkedIssueSnapshot.body);
+                // Source identity/version remain binding; progress lives in the PR.
+                // Keepalive reconciles PR checks, never writes source task completion.
               }
               return unchecked > 0
                 ? 'Refusing auto-merge: linked issue/PR has unchecked tasks.'
                 : '';
+            }
+
+            async function reportTaskRefusal(prNumber, headSha, reason) {
+              core.warning(`PR #${prNumber}: ${reason}`);
+              try {
+                // Use the same ownership logic as reportMergeFailure to ensure single-receipt
+                // behavior across supported writer changes. Fall back to login-based matching
+                // for comments without user.id (e.g., from older runs or tests) and when
+                // authenticatedLogin is available.
+                const marker = '<!-- agents-guarded-merge-result:v1 -->';
+                const body = `${marker}\nHead: ${headSha}\nTask precheck refused: ${reason}`;
+                const workflowToken = guardedMergeCredentialSource() === 'github.token';
+                let actorLogin = '';
+                let actorId = null;
+                if (workflowToken) {
+                  actorLogin = 'github-actions[bot]';
+                } else {
+                  // Try to get identity from authenticatedLogin (set by reviewWindowObservation)
+                  // or from getAuthenticated()
+                  if (authenticatedLogin) {
+                    actorLogin = authenticatedLogin;
+                  } else {
+                    try {
+                      const identity = await withRetry((client) => client.rest.users.getAuthenticated());
+                      actorLogin = String(identity?.data?.login || '').toLowerCase();
+                      actorId = identity?.data?.id;
+                    } catch (identityError) {
+                      core.info(`Receipt writer identity unavailable: ${identityError.message || identityError}`);
+                    }
+                  }
+                }
+                const ownedByWriter = (user) => {
+                  if (workflowToken) {
+                    return user?.login === 'github-actions[bot]' && user?.type === 'Bot';
+                  }
+                  // For non-workflow tokens, prefer ID-based matching; fall back to login if ID unavailable
+                  if (actorId && user?.id) {
+                    return user.id === actorId;
+                  }
+                  return String(user?.login || '').toLowerCase() === actorLogin;
+                };
+                const comments = actorLogin || actorId ? await paginateWithRetry(github.rest.issues.listComments, {
+                  owner, repo, issue_number: prNumber, per_page: 100,
+                }) : [];
+                const existing = comments.find((comment) =>
+                  ownedByWriter(comment.user) && comment.body?.startsWith(marker));
+                if (existing) {
+                  await withRetry((client) => client.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body }));
+                } else {
+                  await withRetry((client) => client.rest.issues.createComment({ owner, repo, issue_number: prNumber, body }));
+                }
+              } catch (error) {
+                core.warning(`Unable to publish task refusal for #${prNumber}: ${error.message || error}`);
+              }
             }
 
             async function loadPullRequest(prNumber) {
@@ -3140,6 +3299,7 @@ jobs:
                 const finalLinkedIssueSnapshot = await linkedIssueTaskSnapshot(finalPr);
                 const finalTaskFailure = uncheckedTaskFailure(finalPr, finalLinkedIssueSnapshot);
                 if (finalTaskFailure) {
+                  await reportTaskRefusal(prNumber, expectedHead, finalTaskFailure);
                   return finalTaskFailure;
                 }
                 const finalCheckFailure = await checkStateFailure(expectedHead);
@@ -3220,7 +3380,9 @@ jobs:
                   mergeBoundaryLinkedIssueSnapshot
                 );
                 if (mergeBoundaryTaskFailure) {
-                  return `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
+                  const reason = `Final merge-boundary task validation failed: ${mergeBoundaryTaskFailure}`;
+                  await reportTaskRefusal(prNumber, expectedHead, reason);
+                  return reason;
                 }
                 if (
                   mergeBoundaryLinkedIssueSnapshot.body !== finalLinkedIssueSnapshot.body
@@ -3336,11 +3498,12 @@ jobs:
                           }
                         }
 
-                        // Unchecked-task refusal: inspect the PR body and, when resolvable,
-                        // the linked issue body. Either carrying an open "- [ ]" blocks merge.
+                        // PR tasks carry progress. Bind the linked issue identity/version without
+                        // treating its unreconciled source checkboxes as current progress.
                         let taskFailure = '';
+                        let linkedIssueSnapshot = null;
                         if (checksOk && !bootstrapOnly) {
-                          const linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr);
+                          linkedIssueSnapshot = await linkedIssueTaskSnapshot(pr);
                           taskFailure = uncheckedTaskFailure(pr, linkedIssueSnapshot);
                         }
 
@@ -3350,8 +3513,16 @@ jobs:
                           note = failingCheck || 'Refusing auto-merge: bootstrap-only placeholder PR (no work landed).';
                         } else if (taskFailure) {
                           note = taskFailure;
+                          await reportTaskRefusal(prNumber, headSha, taskFailure);
                         } else {
+                          let mergeAttempted = false;
                           try {
+                            const advisorySourceBoxes = countUnchecked(linkedIssueSnapshot?.body);
+                            if (advisorySourceBoxes > 0) {
+                              core.info(
+                                `PR #${prNumber}: source issue #${linkedIssueSnapshot.issueNumber} keeps ${advisorySourceBoxes} unchecked task box(es); the PR task block is authoritative.`
+                              );
+                            }
                             await assertRuntimeAcMergeAllowed({
                               github,
                               core,
@@ -3365,13 +3536,83 @@ jobs:
                             if (finalMergeFailure) {
                               throw new Error(finalMergeFailure);
                             }
-                            const response = await withRetry((client) => client.rest.pulls.merge({
-                              owner,
-                              repo,
-                              pull_number: prNumber,
-                              merge_method: 'squash',
-                              sha: headSha,
-                            }));
+                            // PAT first, then the job installation token. A 401/403 is a token
+                            // grant failure; do not treat it as a final refusal while github.token
+                            // still has the job's contents:write and pull-requests:write.
+                            const mergeCandidates = [{ source: 'step-token', client: github }];
+                            const jobToken = (typeof process !== 'undefined' && process.env)
+                              ? String(process.env.GUARDED_MERGE_GITHUB_TOKEN || '').trim()
+                              : '';
+                            const primarySource = (typeof guardedMergeCredentialSource === 'function')
+                              ? guardedMergeCredentialSource()
+                              : '';
+                            if (primarySource && primarySource !== 'step-token') {
+                              mergeCandidates[0].source = primarySource;
+                            }
+                            if (
+                              mergeCandidates[0].source !== 'github.token'
+                              && jobToken
+                              && typeof getOctokit === 'function'
+                            ) {
+                              try {
+                                const fallbackClient = getOctokit(jobToken);
+                                if (fallbackClient) {
+                                  mergeCandidates.push({ source: 'github.token', client: fallbackClient });
+                                }
+                              } catch (fallbackError) {
+                                core.warning(`Unable to build the github.token merge client: ${fallbackError.message || fallbackError}`);
+                              }
+                            }
+                            let response = null;
+                            let mergeError = null;
+                            for (let attemptIndex = 0; attemptIndex < mergeCandidates.length; attemptIndex += 1) {
+                              const attempt = mergeCandidates[attemptIndex];
+                              try {
+                                response = await withRetry(async (client) => {
+                                  // Stay on this attempt's token. A balancer switch would retry the
+                                  // 403 secret (AGENTS_AUTOMATION_PAT) that cannot merge.
+                                  // The scan harness evaluates this block without the helper in scope.
+                                  if (typeof guardedMergeCredentialSource === 'function') {
+                                    const credentialSource = guardedMergeCredentialSource();
+                                    const attemptSource = attemptIndex === 0 ? credentialSource : attempt.source;
+                                    try {
+                                      const identity = await client.rest.users.getAuthenticated();
+                                      core.info(`Guarded merge credential source=${attemptSource}; actor=${identity.data.login}; OAuth scopes=${identity.headers?.['x-oauth-scopes'] || 'not reported (fine-grained/App tokens require settings verification)'}`);
+                                    } catch (identityError) {
+                                      core.info(`Guarded merge credential source=${attemptSource}; actor=unavailable; OAuth scopes=unavailable (identity lookup failed: HTTP ${identityError.status || 'unknown'})`);
+                                    }
+                                  }
+                                  mergeAttempted = true;
+                                  return client.rest.pulls.merge({
+                                    owner,
+                                    repo,
+                                    pull_number: prNumber,
+                                    merge_method: 'squash',
+                                    sha: headSha,
+                                  });
+                                }, { tokenRegistry: null, github: attempt.client });
+                                const httpStatus = response?.status || (response?.data?.merged ? 200 : 'unknown');
+                                core.info(`PUT /repos/${owner}/${repo}/pulls/${prNumber}/merge - ${httpStatus}`);
+                                if (response && response.data && response.data.merged) {
+                                  mergeError = null;
+                                  break;
+                                }
+                                mergeError = new Error(response?.data?.message || 'Merge API returned an unexpected response.');
+                                mergeError.status = response?.status;
+                                mergeError.response = response;
+                                response = null;
+                              } catch (error) {
+                                response = null;
+                                mergeError = error;
+                                const httpStatus = error.status || error.response?.status || 'unknown';
+                                core.info(`PUT /repos/${owner}/${repo}/pulls/${prNumber}/merge - ${httpStatus}`);
+                              }
+                              const httpStatus = mergeError?.status || mergeError?.response?.status;
+                              const tokenRejected = httpStatus === 401 || httpStatus === 403;
+                              if (!tokenRejected || attemptIndex === mergeCandidates.length - 1) break;
+                              core.warning(`Guarded merge token ${attempt.source} returned HTTP ${httpStatus}; retrying with github.token.`);
+                            }
+                            if (mergeError) throw mergeError;
                             if (response && response.data && response.data.merged) {
                               status = 'merged';
                               note = `Merged via ${response.data.merge_method || 'squash'}.`;
@@ -3399,13 +3640,20 @@ jobs:
                               }
                             } else {
                               status = 'error';
-                              note = 'Merge API returned an unexpected response.';
+                              note = `Merge failed: HTTP ${response?.status || 'unknown'} ${response?.data?.message || 'Merge API returned an unexpected response.'}`;
+                              if (mergeAttempted && typeof reportMergeFailure === 'function') {
+                                await reportMergeFailure(prNumber, note);
+                              }
                             }
                           } catch (error) {
                             status = 'error';
                             const responseData = error && error.response ? error.response.data : undefined;
                             const detail = responseData && responseData.message ? responseData.message : (error.message || String(error));
-                            note = `Merge failed: ${detail}`;
+                            const httpStatus = error.status || error.response?.status;
+                            note = httpStatus ? `Merge failed: HTTP ${httpStatus} ${detail}` : `Merge failed: ${detail}`;
+                            if (mergeAttempted && typeof reportMergeFailure === 'function') {
+                              await reportMergeFailure(prNumber, note);
+                            }
                           }
                         }
                       }

@@ -1,0 +1,219 @@
+{
+  "agent_pr_basis": "Labels on the merged pull request include agent:codex, agents:keepalive, and agent:auto. The head ref is codex/issue-4387-retired-provider. agent_pr_definition remains unknown.",
+  "artifact_api": [
+    {
+      "expired": false,
+      "expires_at": "2026-12-03T23:13:33Z",
+      "name": "agents-verifier-metrics",
+      "size_in_bytes": 598
+    },
+    {
+      "expired": false,
+      "expires_at": "2026-11-10T23:13:30Z",
+      "name": "comparison-results-41736356184",
+      "size_in_bytes": 36750
+    },
+    {
+      "expired": false,
+      "expires_at": "2026-11-17T23:12:22Z",
+      "name": "verifier-closure-plans-41736356184",
+      "size_in_bytes": 1492
+    },
+    {
+      "expired": false,
+      "expires_at": "2026-11-17T23:13:32Z",
+      "name": "verifier-terminal-disposition-41736356184",
+      "size_in_bytes": 1505
+    }
+  ],
+  "artifact_report": {
+    "comment_matches_downloaded_member": true,
+    "comment_member": "comparison-comment.md",
+    "comment_sha256": "4e5a3621f852e0108494461e88f94f48195fe9457692c0b65907e1ae5dbdb0b7",
+    "downloaded_members": [
+      "comparison-comment.md",
+      "comparison-execution.json",
+      "comparison-stderr.log",
+      "comparison.json",
+      "verification-event-manifest.json",
+      "verifier-capacity-checks.jsonl",
+      "verifier-context.md",
+      "verifier-diff-summary.md",
+      "verifier-input-manifest.json",
+      "verifier-pr-diff.patch",
+      "verifier-shadow.json"
+    ],
+    "files_not_reviewed": [],
+    "input_coverage": [
+      {
+        "acceptance": "complete",
+        "acceptance_evidence": "truncated",
+        "code": "complete",
+        "context_truncated": true,
+        "files_complete": 4,
+        "files_not_reviewed": [],
+        "files_total": 4,
+        "files_truncated": 0,
+        "omitted_optional_evidence_sections": [
+          "comments",
+          "artifacts"
+        ],
+        "provider": "openai"
+      },
+      {
+        "acceptance": "complete",
+        "acceptance_evidence": "truncated",
+        "code": "complete",
+        "context_truncated": true,
+        "files_complete": 4,
+        "files_not_reviewed": [],
+        "files_total": 4,
+        "files_truncated": 0,
+        "omitted_optional_evidence_sections": [
+          "comments",
+          "artifacts"
+        ],
+        "provider": "anthropic"
+      }
+    ],
+    "reviewed_file_paths": [
+      ".github/workflows/maint-39-test-llm-providers.yml",
+      "docs/WORKFLOW_GUIDE.md",
+      "docs/ci/WORKFLOWS.md",
+      "tests/workflows/test_maint39_llm_provider_workflow.py"
+    ]
+  },
+  "changed_files": [
+    {
+      "additions": 1,
+      "blob_sha": "9001dccaf7a42cae7500cb2e77f937cd067af697",
+      "deletions": 19,
+      "path": ".github/workflows/maint-39-test-llm-providers.yml",
+      "status": "modified"
+    },
+    {
+      "additions": 1,
+      "blob_sha": "2ec31ce69b64604b204e788d732cbd4842ed5ca8",
+      "deletions": 1,
+      "path": "docs/WORKFLOW_GUIDE.md",
+      "status": "modified"
+    },
+    {
+      "additions": 1,
+      "blob_sha": "2894f61e667f1dce4f7c5f8182d482c3a05767bd",
+      "deletions": 1,
+      "path": "docs/ci/WORKFLOWS.md",
+      "status": "modified"
+    },
+    {
+      "additions": 127,
+      "blob_sha": "71f436507e23b8f946a3cfd6e920b10e80e43923",
+      "deletions": 0,
+      "path": "tests/workflows/test_maint39_llm_provider_workflow.py",
+      "status": "added"
+    }
+  ],
+  "collected_at": "2026-11-06T20:48:17Z",
+  "downloaded_artifact_names": [
+    "agents-verifier-metrics",
+    "comparison-results-41736356184",
+    "verifier-closure-plans-41736356184",
+    "verifier-terminal-disposition-41736356184"
+  ],
+  "log_excerpt": "check\tUNKNOWN STEP\t2026-11-03T23:06:15.3664718Z Working directory is '/home/runner/work/Workflows/Workflows'\ncheck\tUNKNOWN STEP\t2026-11-03T23:06:17.6650662Z [command]/usr/bin/git log -1 --format=%H\ncheck\tUNKNOWN STEP\t2026-11-03T23:06:17.6677091Z 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:06:40.1570474Z Uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@refs/heads/main (4928870982db3bc3b85c701b4cca2492128739b2)\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:06:41.0760320Z Working directory is '/home/runner/work/Workflows/Workflows'\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:06:44.7611472Z [command]/usr/bin/git log -1 --format=%H\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:06:44.7630192Z 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:06:51.5284174Z Working directory is '/home/runner/work/Workflows/Workflows/.workflows-lib'\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:06:55.5242108Z [command]/usr/bin/git log -1 --format=%H\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:06:55.5270593Z 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:12:10.3781863Z   VERIFIER_PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:12:22.0345446Z   ISSUE_NUMBERS: [4387]\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:12:22.0345763Z   TARGET_SHA: 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:12:22.0346303Z   PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:12:23.8880988Z Artifact verifier-closure-plans-41736356184 has been successfully uploaded! Final size is 1492 bytes. Artifact ID is 13278524417\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:12:23.9049124Z   VERIFIER_TARGET_SHA: 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:12:23.9050053Z   VERIFIER_PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:28.4446290Z - openai: files reviewed 4 of 4\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:28.4446690Z - anthropic: files reviewed 4 of 4\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:28.4564279Z   PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:28.4564833Z   EVALUATED_SHA: 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:29.9854755Z https://github.com/stranske/Workflows/pull/4390#issuecomment-6617887078\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:29.9983524Z   PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:29.9984058Z   EVALUATED_SHA: 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:30.2566564Z   PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:30.2567127Z   EVALUATED_SHA: 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:30.5262537Z   PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:30.5834965Z   name: comparison-results-41736356184\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:30.5836122Z   path: verification-recovery-source.zip\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverification-recovery-origin.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverification-revalidation-receipt.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tcomparison.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tcomparison-execution.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tcomparison-stderr.log\nverifier / Run post-merge verifier\tUNKNOWN STEP\tcomparison-comment.md\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-shadow.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-context.md\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverification-event-manifest.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tcloser-correction-seeds.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tcloser-correction-seed-refusal.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-diff-summary.md\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-pr-diff.patch\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-input-manifest.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-capacity-checks.jsonl\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:30.5837234Z   if-no-files-found: ignore\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:30.6866082Z With the provided path, there will be 11 files uploaded\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:31.9974557Z Artifact comparison-results-41736356184 has been successfully uploaded! Final size is 36750 bytes. Artifact ID is 13279436475\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:32.0544498Z   PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:32.0545071Z   EVALUATED_SHA: 4928870982db3bc3b85c701b4cca2492128739b2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:32.2656640Z   PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:32.3061251Z   PR_NUMBER: 4390\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:33.6742948Z Artifact verifier-terminal-disposition-41736356184 has been successfully uploaded! Final size is 1505 bytes. Artifact ID is 13280410762\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-11-03T23:13:35.0103980Z Artifact agents-verifier-metrics has been successfully uploaded! Final size is 598 bytes. Artifact ID is 13280350818\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-11-03T23:13:44.7308521Z Working directory is '/home/runner/work/Workflows/Workflows'\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-11-03T23:13:47.5262055Z [command]/usr/bin/git log -1 --format=%H\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-11-03T23:13:47.5276515Z 4928870982db3bc3b85c701b4cca2492128739b2\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-11-03T23:13:48.7033144Z   TARGET_SHA: 4928870982db3bc3b85c701b4cca2492128739b2\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-11-03T23:13:48.7033313Z   PR_NUMBER: 4390\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-11-03T23:13:50.9171331Z Closed source issues: none\n",
+  "metrics": {
+    "metric_type": "evaluation",
+    "pr_number": 4390,
+    "verdict": "PASS",
+    "issues_created": 0,
+    "issue_numbers": [],
+    "acceptance_criteria_count": 39,
+    "checks_run": 2,
+    "skip_reason": "",
+    "codex_model": "gpt-6-astra",
+    "codex_model_selection_reason": "default",
+    "codex_cli_version": "codex-cli 0.153.2",
+    "verifier_mode": "compare",
+    "chain_depth": 0,
+    "settlement_interrupted": false,
+    "recorded_at": "2026-11-03T23:13:32.288435+00:00",
+    "langsmith_trace_id": "resp_0829cfd8dc0dd8f0006aea6a897b1487d09aa643274efaef43",
+    "langsmith_trace_url": "https://smith.langchain.com/r/resp_0829cfd8dc0dd8f0006aea6a897b1487d09aa643274efaef43",
+    "langsmith_traces": [
+      {
+        "operation": "comparison",
+        "provider": "provider-0",
+        "trace_id": "resp_0829cfd8dc0dd8f0006aea6a897b1487d09aa643274efaef43",
+        "trace_url": "https://smith.langchain.com/r/resp_0829cfd8dc0dd8f0006aea6a897b1487d09aa643274efaef43"
+      },
+      {
+        "operation": "comparison",
+        "provider": "provider-1",
+        "trace_id": "lc_run--01a1a3b0-40b4-7350-965a-3a5f766067a7-0",
+        "trace_url": "https://smith.langchain.com/r/lc_run--01a1a3b0-40b4-7350-965a-3a5f766067a7-0"
+      }
+    ]
+  },
+  "pull_request": {
+    "author_login": "stranske",
+    "base_ref": "main",
+    "head_ref": "codex/issue-4387-retired-provider",
+    "head_sha": "2224529eeeb985a56a89689042449348023f47ae",
+    "html_url": "https://github.com/stranske/Workflows/pull/4390",
+    "labels": [
+      "agent:codex",
+      "agents:keepalive",
+      "autofix",
+      "automerge",
+      "verify:compare",
+      "codex",
+      "codex-automation",
+      "agent:auto"
+    ],
+    "merge_commit_sha": "4928870982db3bc3b85c701b4cca2492128739b2",
+    "merged_at": "2026-11-03T23:05:14Z",
+    "number": 4390,
+    "state": "closed",
+    "title": "Fix Maint 39 after GitHub Models retirement (#4387)"
+  },
+  "report_comment": {
+    "body": "**Verdict:** PASS\n\n## Provider Comparison Report\n\n- openai: files reviewed 4 of 4\n- anthropic: files reviewed 4 of 4\n\n### Provider Summary\n| Provider | Model | Verdict | Confidence | Summary |\n| --- | --- | --- | --- | --- |\n| openai | gpt-6.1-sol | PASS | 97% | The changes remove the retired GitHub Models dispatch option, forced-provider step, and unused models permission while preserving OpenAI smoke testing and registry availability reporting. Both oper... |\n| anthropic | claude-sonnet-5-5 | PASS | 85% | The change removes the `github-models` dispatch option, deletes the Test GitHub Models step, and drops the unused `models: read` permission. Default `provider=all` no longer hits the retired provid... |\n\n<details>\n<summary>\ud83d\udccb Full Provider Details (click to expand)</summary>\n\n#### openai\n- **Model:** gpt-6.1-sol\n- **Verdict:** PASS\n- **Confidence:** 97%\n- **Scores:**\n  - Correctness: 10.0/10\n  - Completeness: 10.0/10\n  - Quality: 9.0/10\n  - Testing: 10.0/10\n  - Risks: 9.0/10\n- **Summary:** The changes remove the retired GitHub Models dispatch option, forced-provider step, and unused models permission while preserving OpenAI smoke testing and registry availability reporting. Both operator documents accurately distinguish OpenAI smoke testing from Anthropic and regex fallback availability checks. The required named test inspects the workflow YAML, and parameterized regression tests implement deliberate-break and restoration checks for both the option and step, including their combined reintroduction. Changes remain within scope, are readable, and introduce no significant security, performance, or compatibility concerns.\n\n#### anthropic\n- **Model:** claude-sonnet-5-5\n- **Verdict:** PASS\n- **Confidence:** 85%\n- **Scores:**\n  - Correctness: 9.0/10\n  - Completeness: 9.0/10\n  - Quality: 8.0/10\n  - Testing: 9.0/10\n  - Risks: 8.0/10\n- **Summary:** The change removes the `github-models` dispatch option, deletes the Test GitHub Models step, and drops the unused `models: read` permission. Default `provider=all` no longer hits the retired provider. Both operator docs (`docs/WORKFLOW_GUIDE.md`, `docs/ci/WORKFLOWS.md`) now describe OpenAI smoke testing plus `check_providers()` reporting. The new test file includes the named test `test_maint39_does_not_reference_retired_github_models_provider`, which loads the real workflow YAML and asserts the option, step names, run commands and permission are absent. A parametrized test reintroduces the option and step in several forms and checks that the named test fails, then restores and checks it passes, which automates the deliberate-break requirement. A third test inspects the availability step with `ast` and checks the real `check_providers()` registry. All tasks and acceptance criteria are met. The only blemishes are the small extra secret env var and the unverifiable break/revert transcript.\n- **Concerns:**\n  - The workflow adds a `CLAUDE_API_STRANSKE` secret to the availability step env. The issue did not ask for it. It is read-only and fits the docs' claim that Anthropic availability is reported, but it is a small scope extension.\n  - The deliberate-break \u2192 revert evidence appears only as a PR body claim. Comment and artifact retrieval was incomplete, so no transcript could be inspected. The parametrized regression test covers the same behavior in code.\n\n</details>\n\n### Agreement\n- Verdict: PASS (all providers)\n- Correctness: scores within 1 point (avg 9.5/10, range 9.0-10.0)\n- Completeness: scores within 1 point (avg 9.5/10, range 9.0-10.0)\n- Quality: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n- Testing: scores within 1 point (avg 9.5/10, range 9.0-10.0)\n- Risks: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n\n### Disagreement\nNo major disagreements detected.\n\n### Unique Insights\n- openai: The changes remove the retired GitHub Models dispatch option, forced-provider step, and unused models permission while preserving OpenAI smoke testing and registry availability reporting. Both operator documents accurately distinguish OpenAI smoke testing from Anthropic and regex fallback availab...\n- anthropic: The workflow adds a `CLAUDE_API_STRANSKE` secret to the availability step env. The issue did not ask for it. It is read-only and fits the docs' claim that Anthropic availability is reported, but it is a small scope extension.; The deliberate-break \u2192 revert evidence appears only as a PR body claim. Comment and artifact retrieval was incomplete, so no transcript could be inspected. The parametrized regression test covers the same behavior in code.\n\n### \ud83d\udd0d LangSmith Traces\n- [openai](https://smith.langchain.com/r/resp_0829cfd8dc0dd8f0006aea6a897b1487d09aa643274efaef43)\n- [anthropic](https://smith.langchain.com/r/lc_run--01a1a3b0-40b4-7350-965a-3a5f766067a7-0)\n\n\n<!-- verifier-corpus-decision/v1 {\"assessment_identity\": {\"canonical\": true, \"mode\": \"compare\", \"model\": \"\", \"model2\": \"\", \"provider\": \"\"}, \"ci_failed\": false, \"evaluated_sha\": \"4928870982db3bc3b85c701b4cca2492128739b2\", \"head_sha\": \"2224529eeeb985a56a89689042449348023f47ae\", \"pr\": \"4390\", \"provider_verdicts\": [\"PASS\", \"PASS\"], \"repo\": \"stranske/Workflows\", \"result_admission\": {\"execution_receipt_sha256\": \"01deb59254d36b1548b51ccc9706365a05a0c27e401e7dae5d3bca764f0991d8\", \"mode\": \"compare\", \"payload_sha256\": \"2f530a30f5b9922168460b0decef3e586031094d21d55028b0827671f2433be6\", \"schema\": \"verifier-result-admission/v1\"}, \"run_attempt\": \"1\", \"run_id\": \"41736356184\", \"schema\": \"verifier-corpus-decision/v1\", \"verdict\": \"PASS\", \"verification_event\": {\"evaluated_sha\": \"4928870982db3bc3b85c701b4cca2492128739b2\", \"event_id\": \"a136c86cacb907d0b482d72fab39b84dbdf678e36b0343302e49300ee74ffa27\", \"head_sha\": \"2224529eeeb985a56a89689042449348023f47ae\", \"material_sha256\": \"0ca00bb3192c369ff868d0751239ef48bfa3b43afad25a6914d12f94504b197b\", \"pr\": \"4390\", \"repo\": \"stranske/workflows\", \"request_sha256\": \"f96af7fe4f95f66be2aabfea2b9e65568065e3dfd9f4741f71eed80993069b36\", \"schema\": \"verification-event/v1\"}} -->\n",
+    "created_at": "2026-11-03T23:13:29Z",
+    "html_url": "https://github.com/stranske/Workflows/pull/4390#issuecomment-6617887078",
+    "id": 6617887078,
+    "user_login": "github-actions[bot]"
+  },
+  "repository": "stranske/Workflows",
+  "run_completed_at": "2026-11-03T23:13:53Z",
+  "run_list": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-11-03T23:05:44Z",
+      "databaseId": 41736356184,
+      "displayTitle": "Fix Maint 39 after GitHub Models retirement (#4387)",
+      "event": "pull_request_target",
+      "headSha": "2224529eeeb985a56a89689042449348023f47ae",
+      "status": "completed",
+      "url": "https://github.com/stranske/Workflows/actions/runs/41736356184"
+    }
+  ],
+  "run_list_created": "2026-11-03T23:05:00Z..2026-11-03T23:06:00Z",
+  "selected_run_id": "41736356184",
+  "source_issue": {
+    "closed_at": "2026-11-03T23:05:16Z",
+    "closed_by": "stranske",
+    "created_at": "2026-11-02T10:48:00Z",
+    "html_url": "https://github.com/stranske/Workflows/issues/4387",
+    "number": 4387,
+    "state": "closed",
+    "state_reason": "completed",
+    "title": "[P1] Maint 39 LLM provider smoke workflow still forces retired github-models \u2014 default dispatch fails"
+  },
+  "source_issue_timeline": [
+    {
+      "actor": "stranske",
+      "created_at": "2026-11-03T23:05:17Z",
+      "event": "closed"
+    }
+  ]
+}

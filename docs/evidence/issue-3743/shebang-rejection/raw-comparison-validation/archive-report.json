@@ -1,0 +1,57 @@
+{
+  "scope": "All four archives that predate this follow-up; the new archive is verified in summary.json after packaging.",
+  "archives": [
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/summary.json",
+      "kind": "historical",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/proof.tar.gz",
+      "members": 122,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "kind": "historical",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz",
+      "members": 151,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "kind": "historical",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz",
+      "members": 316,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/matched-comparison/summary.json",
+      "kind": "current",
+      "archive": "docs/evidence/issue-3743/shebang-rejection/matched-comparison/proof.tar.gz",
+      "members": 19,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true
+    }
+  ]
+}

@@ -1,14 +1,14 @@
 {
   "validTransitions": [
     {
-      "name": "closed issue with PR-bound verify handoff is done",
-      "state": "closed-verified",
+      "name": "closed issue with verify:pr-handoff label still re-verifies (label-only cannot complete)",
+      "state": "closed-needs-verify",
       "event": {
         "issueState": "closed",
         "hasVerify": true,
         "verifyHandoffBound": true
       },
-      "nextStep": "done"
+      "nextStep": "verify"
     },
     {
       "name": "closed issue with issue-only verify label stays pending verify",
@@ -189,15 +189,15 @@
       "nextStep": "verify"
     },
     {
-      "name": "issue 1437 shape: closed with PR-bound handoff is done",
+      "name": "issue 1437 shape: closed with verify:pr-handoff label re-verifies before done",
       "event": {
         "issueState": "closed",
         "labels": ["agents:formatted", "agents:apply-suggestions", "verify:evaluate", "verify:pr-handoff", "agents:auto-pilot"],
         "hasVerify": true,
         "verifyHandoffBound": true
       },
-      "state": "closed-verified",
-      "nextStep": "done"
+      "state": "closed-needs-verify",
+      "nextStep": "verify"
     },
     {
       "name": "issue 1453 shape: closed formatted apply follow-up without verify triggers verify",
