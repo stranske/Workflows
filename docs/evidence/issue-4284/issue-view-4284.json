@@ -1,0 +1,366 @@
+{
+  "body": "## Why\n\nThe trailing-seven-day Gate p50 is 10.43 min against a\n10 min target. Longest observed job: [python ci / python 3.14](https://github.com/stranske/Workflows/actions/runs/40032494229/job/120684428094)\n(14.20 min), in `.github/workflows/pr-00-gate.yml`.\nCurrent share: 2.82%; distance: 0.043;\ndrainable_in: 7 days.\n\n## Scope\n\nReduce the measured `python ci / python 3.14` bottleneck in stranske/Workflows's Gate without weakening checks.\n\n## Non-Goals\n\nDo not waive required checks or block merges on duration. Scaffold-only or partial\ncompletion does not count: a plan without a measured reduction is unfinished.\n\n## Tasks\n\n- [x] Inspect `python ci / python 3.14` in `.github/workflows/pr-00-gate.yml` and its called workflow using the linked run; identify the duration bottleneck.\n- [x] Implement the bounded grammar-matrix optimization in `tests/scripts/test_pr_verifier_delivery_destinations.py` and retain `tests/scripts/test_pr_verifier_grammar_inventory.py` coverage; delivered by PR #4267 / merge `014ba9eeda65841ec377b6d353e59bf6ea22453b`.\n- [x] Compare `python ci / python 3.14` Gate job durations using `gh run view <run> --repo stranske/Workflows --json jobs`, and attach run URLs and measurements below.\n\n## Acceptance Criteria\n\n- [x] Live-verification gate: `gh run view 40551187519 --repo stranske/Workflows --json jobs,status,conclusion` returns success; `python ci / python 3.13` and `python ci / python 3.14` each have `completedAt - startedAt <= 600 seconds`. Retain the measured job URLs and output in the delivery evidence below.\n- [ ] Live-verification gate: Health 85 reports trailing-seven-day Gate p50 at or below 10 min for seven consecutive daily measurements; retain the dated p50 series in `docs/reports/ci-budget.json` and this issue before closure. A single successful Gate does not satisfy this criterion.\n\n## Implementation Notes\n\nHealth 85 updates measurements daily. The opener reserves `ceil(share * cap)`\nslots for this repo before other materializations; the coordinator applies that\nrule. Source report: `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`.\nFirst over-target measurement: 2026-10-27T11:44:41+00:00.\n<!-- ci-time-budget:v1 -->\n\n\n## Delivery evidence checked 2026-10-27\n\nThe timing implementation already exists in merged [PR #4267](https://github.com/stranske/Workflows/pull/4267), source #4258. Its retained before/after evidence measured Python 3.14 at 713 \u2192 485 seconds and Python 3.13 at 668 \u2192 507 seconds. Those are separate observed hosted runs; runner/cache variability is not isolated.\n\nFresh independent readback of successful [Gate 40551187519](https://github.com/stranske/Workflows/actions/runs/40551187519), head `dcb2d28859bb320a12047e44932db5a87135f7ea`, observed:\n\n| Job | Started UTC | Completed UTC | Seconds |\n| --- | --- | --- | ---: |\n| [Python 3.13](https://github.com/stranske/Workflows/actions/runs/40551187519/job/122355504848) | 2026-10-27T17:31:00Z | 2026-10-27T17:38:59Z | 479 |\n| [Python 3.14](https://github.com/stranske/Workflows/actions/runs/40551187519/job/122355504921) | 2026-10-27T17:31:00Z | 2026-10-27T17:40:40Z | 580 |\n\nBoth current jobs are below 600 seconds. The original cited run40032494229 predates the delivered optimization; its 52,683-case JUnit artifact and 816.28-second test run were retained for provenance, not represented as current main.\n\nThe remaining owner is Health 85 / the existing CI-budget source owner: collect the seven dated daily measurements, assess the trailing-window criterion, and close only when that gate passes. No duplicate performance PR, workflow dispatch, protected workflow edit, or source acceptance waiver is implied. If a new current job breaches 600 seconds, reopen bounded diagnosis from that exact run rather than repeating the old optimization.\n",
+  "comments": [
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_TGmA",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-10-27: p50=10.43 min; target=10 min; distance=0.043; share=2.82%; drainable_in=7; longest_job=python ci / python 3.14.",
+      "createdAt": "2026-10-27T12:19:51Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441715352",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_TmcQ",
+      "author": {
+        "login": "github-actions"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "This issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.\n\n- `Tasks` item must name a concrete file, symbol, path, config key, job, or command: `Implement a bounded change to that job or its invoked tests, preserving required validation.`.\n- `Acceptance Criteria` names no test, runnable command or observable verification gate \u2014 Definition of Ready / Quality Bar \u00a72 requires one.\n\n_Advisory:_\n- 3 cited path(s) do not exist yet: `pr-00-gate.yml`, `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`, `before/after` \u2014 expected when a task creates them; check for typos otherwise.\n\nDispatched the Agents Issue Optimizer format phase (attempt 1 of 3).\n\n<!-- format-guard:abf78d3e3130:attempt:1 -->\n",
+      "createdAt": "2026-10-27T12:20:15Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441723505",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_UFSA",
+      "author": {
+        "login": "agents-workflows-bot"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "### \ud83c\udff7\ufe0f Label Suggestions\n\nBased on the issue content, these labels might be relevant:\n\n- `ci` (95% confidence)\n- `ci-budget` (95% confidence)\n- `docs` (95% confidence)\n- `duplicate` (95% confidence)\n- `github-actions` (95% confidence)\n\n<details>\n<summary>How to use these suggestions</summary>\n\n- Click the label name in the sidebar to add it\n- Or use the GitHub CLI: `gh issue edit 4284 --add-label \"label-name\"`\n</details>\n\n---\n*Auto-generated by label matcher*",
+      "createdAt": "2026-10-27T12:20:39Z",
+      "includesCreatedEdit": true,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441731400",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_UoDQ",
+      "author": {
+        "login": "github-actions"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "\u26a0\ufe0f **Workflow failed**\n\nThe agents-issue-optimizer workflow encountered an error.\n\n**Details**: [View workflow run](https://github.com/stranske/Workflows/actions/runs/40502954415)\n\n**Format validation report:**\n```text\nThis issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.\n\n- `Tasks` item must name a concrete file, symbol, path, config key, job, or command: `Implement a bounded change to that job or its invoked tests, preserving required validation.`.\n- `Acceptance Criteria` names no test, runnable command or observable verification gate \u2014 Definition of Ready / Quality Bar \u00a72 requires one.\n\n_Advisory:_\n- 3 cited path(s) do not exist yet: `pr-00-gate.yml`, `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`, `before/after` \u2014 expected when a task creates them; check for typos otherwise.\n```\n",
+      "createdAt": "2026-10-27T12:21:07Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441740301",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_VEsw",
+      "author": {
+        "login": "github-actions"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "This issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.\n\n- `Tasks` item must name a concrete file, symbol, path, config key, job, or command: `Implement a bounded change to that job or its invoked tests, preserving required validation.`.\n- `Acceptance Criteria` names no test, runnable command or observable verification gate \u2014 Definition of Ready / Quality Bar \u00a72 requires one.\n\n_Advisory:_\n- 3 cited path(s) do not exist yet: `pr-00-gate.yml`, `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`, `before/after` \u2014 expected when a task creates them; check for typos otherwise.\n\nDispatched the Agents Issue Optimizer format phase (attempt 2 of 3).\n\n<!-- format-guard:abf78d3e3130:attempt:2 -->\n",
+      "createdAt": "2026-10-27T12:21:30Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441747635",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_WJuw",
+      "author": {
+        "login": "github-actions"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "\u26a0\ufe0f **Workflow failed**\n\nThe agents-issue-optimizer workflow encountered an error.\n\n**Details**: [View workflow run](https://github.com/stranske/Workflows/actions/runs/40503117411)\n\n**Format validation report:**\n```text\nThis issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.\n\n- `Tasks` item must name a concrete file, symbol, path, config key, job, or command: `Implement a bounded change to that job or its invoked tests, preserving required validation.`.\n- `Acceptance Criteria` names no test, runnable command or observable verification gate \u2014 Definition of Ready / Quality Bar \u00a72 requires one.\n\n_Advisory:_\n- 3 cited path(s) do not exist yet: `pr-00-gate.yml`, `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`, `before/after` \u2014 expected when a task creates them; check for typos otherwise.\n```\n",
+      "createdAt": "2026-10-27T12:22:24Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441765307",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_WkFw",
+      "author": {
+        "login": "github-actions"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "This issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.\n\n- `Tasks` item must name a concrete file, symbol, path, config key, job, or command: `Implement a bounded change to that job or its invoked tests, preserving required validation.`.\n- `Acceptance Criteria` names no test, runnable command or observable verification gate \u2014 Definition of Ready / Quality Bar \u00a72 requires one.\n\n_Advisory:_\n- 3 cited path(s) do not exist yet: `pr-00-gate.yml`, `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`, `before/after` \u2014 expected when a task creates them; check for typos otherwise.\n\nDispatched the Agents Issue Optimizer format phase (attempt 3 of 3).\n\n<!-- format-guard:abf78d3e3130:attempt:3 -->\n",
+      "createdAt": "2026-10-27T12:22:46Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441772055",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_X3uQ",
+      "author": {
+        "login": "github-actions"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "\u26a0\ufe0f **Workflow failed**\n\nThe agents-issue-optimizer workflow encountered an error.\n\n**Details**: [View workflow run](https://github.com/stranske/Workflows/actions/runs/40503280456)\n\n**Format validation report:**\n```text\nThis issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.\n\n- `Tasks` item must name a concrete file, symbol, path, config key, job, or command: `Implement a bounded change to that job or its invoked tests, preserving required validation.`.\n- `Acceptance Criteria` names no test, runnable command or observable verification gate \u2014 Definition of Ready / Quality Bar \u00a72 requires one.\n\n_Advisory:_\n- 3 cited path(s) do not exist yet: `pr-00-gate.yml`, `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`, `before/after` \u2014 expected when a task creates them; check for typos otherwise.\n```\n",
+      "createdAt": "2026-10-27T12:23:51Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441793465",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABf_YQ_Q",
+      "author": {
+        "login": "github-actions"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "<!-- format-guard:attempt-cap -->\nAutomated formatting stopped after 3 optimizer attempts. Fix the issue body manually, then remove agents:auto-pilot-pause before retrying.\n",
+      "createdAt": "2026-10-27T12:24:12Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6441799933",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABgZNcEg",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-10-28: p50=11.22 min; target=10 min; distance=0.122; share=3.50%; drainable_in=7; longest_job=test-quality.",
+      "createdAt": "2026-10-28T12:23:47Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6468885522",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABgzspnQ",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-10-29: p50=11.37 min; target=10 min; distance=0.137; share=3.65%; drainable_in=7; longest_job=python ci / python 3.12.",
+      "createdAt": "2026-10-29T12:27:35Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6496659869",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABhgMx0w",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-10-31: p50=11.75 min; target=10 min; distance=0.175; share=4.06%; drainable_in=7; longest_job=python ci / python 3.12.",
+      "createdAt": "2026-10-31T12:24:32Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6543323603",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABhuEU4Q",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-11-01: p50=11.72 min; target=10 min; distance=0.172; share=4.02%; drainable_in=7; longest_job=python ci / python 3.12.",
+      "createdAt": "2026-11-01T12:21:10Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6557865185",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABiANMZw",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-11-02: p50=11.85 min; target=10 min; distance=0.185; share=4.18%; drainable_in=7; longest_job=python ci / python 3.12.",
+      "createdAt": "2026-11-02T12:15:34Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6576884839",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABiZq9sA",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-11-03: p50=11.84 min; target=10 min; distance=0.184; share=4.17%; drainable_in=7; longest_job=python ci / python 3.12.",
+      "createdAt": "2026-11-03T12:18:19Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6603586992",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABizVhEQ",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-11-04: p50=11.85 min; target=10 min; distance=0.185; share=4.18%; drainable_in=7; longest_job=python ci / python 3.13.",
+      "createdAt": "2026-11-04T12:23:25Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6630498577",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABjCJauQ",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "<!-- opener-core/v1 action=park target=stranske/Workflows#4284 round=20261105T001705Z -->\nopener-core parked this issue. It needs: Health 85 / the existing CI-budget source owner must supply seven consecutive dated daily measurements showing trailing-seven-day Gate p50 <= 10 minutes, retained in docs/reports/ci-budget.json and the issue; a coding agent cannot produce the required elapsed-time live observations from repository code alone..\n- Execution authority: parked backlog. No agent, keepalive or auto-pilot assignment is requested; nothing waits on it. Remove `agents:paused` to revive it.",
+      "createdAt": "2026-11-05T00:22:30Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6646028985",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABjpfjzw",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "<!-- opener-core/v1 action=start target=stranske/Workflows#4284 agent=cursor mode=remote round=20261106T142842Z -->\nopener-core started cursor (remote) on this issue.",
+      "createdAt": "2026-11-06T14:33:02Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6687286223",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABjpgb4g",
+      "author": {
+        "login": "agents-workflows-bot"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "Branch `cursor/issue-4284` created from `main`.\n\nOption 1 (Invite) is enforced on issue events.\nPR creation is disabled by design so you are the PR author.\nCursor only engages on human-authored PRs.\n\nPlease open the PR as the author so Cursor can work on it:\n\n- Compare link: https://github.com/stranske/Workflows/compare/main...cursor/issue-4284?expand=1\n- Suggested title: `Cursor bootstrap for #4284`\n- Assign to: stranske-automation-bot\n- Start command after opening the PR: `@cursor start`\n- Suggested body (copy/paste):\n\n```markdown\n<!-- meta:issue:4284 -->\n\n@cursor Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.\n\n## Keepalive Next Task\n\n**This round you MUST:**\n1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.\n2. Commit meaningful source code (.py, .yml, .js, etc.)\u2014not just status/docs updates.\n3. Mark a task checkbox complete ONLY after verifying the implementation works.\n4. Focus on the FIRST unchecked task unless blocked, then move to the next.\n\n**Guidelines:**\n- Keep edits scoped to the current task rather than reshaping the entire PR.\n- Use repository instructions, conventions, and tests to validate work.\n- Prefer small, reviewable commits; leave clear notes when follow-up is required.\n- Do NOT work on unrelated improvements until all PR tasks are complete.\n\n## Pre-Commit Formatting Gate (Black)\n\nBefore you commit or push any Python (`.py`) changes, you MUST:\n1. Run Black to format the relevant files (line length 100).\n2. Verify formatting passes CI by running:\n   `black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .`\n3. If the check fails, do NOT commit/push; format again until it passes.\n\n**COVERAGE TASKS - SPECIAL RULES:**\nIf a task mentions \"coverage\" or a percentage target (e.g., \"\u226595%\", \"to 95%\"), you MUST:\n1. After adding tests, run TARGETED coverage verification to avoid timeouts:\n   - For a specific script like `scripts/foo.py`, run:\n     `pytest tests/scripts/test_foo.py --cov=scripts/foo --cov-report=term-missing -m \"not slow\"`\n   - If no matching test file exists, run:\n     `pytest tests/ --cov=scripts/foo --cov-report=term-missing -m \"not slow\" -x`\n2. Find the specific script in the coverage output table\n3. Verify the `Cover` column shows the target percentage or higher\n4. Only mark the task complete if the actual coverage meets the target\n5. If coverage is below target, add more tests until it meets the target\n\nIMPORTANT: Always use `-m \"not slow\"` to skip slow integration tests that may timeout.\nIMPORTANT: Use targeted `--cov=scripts/specific_module` instead of `--cov=scripts` for faster feedback.\n\nA coverage task is NOT complete just because you added tests. It is complete ONLY when the coverage command output confirms the target is met.\n\n**The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.\n\n<!-- \n  DO NOT ADD TASK CONTENT BELOW THIS LINE\n  \n  Task content is dynamically injected from the PR body via the `appendix` input.\n  This template file should only contain instructions, not PR-specific tasks.\n  \n  If you see task content in this file, it was incorrectly committed and should\n  be removed. The guard script will flag this as an error.\n-->\n```",
+      "createdAt": "2026-11-06T14:33:41Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6687300578",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABjrQQYw",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "<!-- closer-core/v1 action=reopen target=stranske/Workflows#4284 round=20261106T154636Z -->\ncloser-core reopens stranske/Workflows#4284: PR #4475 only added a keepalive bootstrap placeholder, so its merge closed the issue without delivering any of it.",
+      "createdAt": "2026-11-06T15:55:43Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6689132643",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABjrXndA",
+      "author": {
+        "login": "agents-workflows-bot"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "Branch `cursor/issue-4284` created from `main`.\n\nOption 1 (Invite) is enforced on issue events.\nPR creation is disabled by design so you are the PR author.\nCursor only engages on human-authored PRs.\n\nPlease open the PR as the author so Cursor can work on it:\n\n- Compare link: https://github.com/stranske/Workflows/compare/main...cursor/issue-4284?expand=1\n- Suggested title: `Cursor bootstrap for #4284`\n- Assign to: stranske-automation-bot\n- Start command after opening the PR: `@cursor start`\n- Suggested body (copy/paste):\n\n```markdown\n<!-- meta:issue:4284 -->\n\n@cursor Your objective is to satisfy the **Acceptance Criteria** by completing each **Task** within the defined **Scope**.\n\n## Keepalive Next Task\n\n**This round you MUST:**\n1. Implement actual code or test changes that advance at least one incomplete task toward acceptance.\n2. Commit meaningful source code (.py, .yml, .js, etc.)\u2014not just status/docs updates.\n3. Mark a task checkbox complete ONLY after verifying the implementation works.\n4. Focus on the FIRST unchecked task unless blocked, then move to the next.\n\n**Guidelines:**\n- Keep edits scoped to the current task rather than reshaping the entire PR.\n- Use repository instructions, conventions, and tests to validate work.\n- Prefer small, reviewable commits; leave clear notes when follow-up is required.\n- Do NOT work on unrelated improvements until all PR tasks are complete.\n\n## Pre-Commit Formatting Gate (Black)\n\nBefore you commit or push any Python (`.py`) changes, you MUST:\n1. Run Black to format the relevant files (line length 100).\n2. Verify formatting passes CI by running:\n   `black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .`\n3. If the check fails, do NOT commit/push; format again until it passes.\n\n**COVERAGE TASKS - SPECIAL RULES:**\nIf a task mentions \"coverage\" or a percentage target (e.g., \"\u226595%\", \"to 95%\"), you MUST:\n1. After adding tests, run TARGETED coverage verification to avoid timeouts:\n   - For a specific script like `scripts/foo.py`, run:\n     `pytest tests/scripts/test_foo.py --cov=scripts/foo --cov-report=term-missing -m \"not slow\"`\n   - If no matching test file exists, run:\n     `pytest tests/ --cov=scripts/foo --cov-report=term-missing -m \"not slow\" -x`\n2. Find the specific script in the coverage output table\n3. Verify the `Cover` column shows the target percentage or higher\n4. Only mark the task complete if the actual coverage meets the target\n5. If coverage is below target, add more tests until it meets the target\n\nIMPORTANT: Always use `-m \"not slow\"` to skip slow integration tests that may timeout.\nIMPORTANT: Use targeted `--cov=scripts/specific_module` instead of `--cov=scripts` for faster feedback.\n\nA coverage task is NOT complete just because you added tests. It is complete ONLY when the coverage command output confirms the target is met.\n\n**The Tasks and Acceptance Criteria are provided in the appendix below.** Work through them in order.\n\n<!-- \n  DO NOT ADD TASK CONTENT BELOW THIS LINE\n  \n  Task content is dynamically injected from the PR body via the `appendix` input.\n  This template file should only contain instructions, not PR-specific tasks.\n  \n  If you see task content in this file, it was incorrectly committed and should\n  be removed. The guard script will flag this as an error.\n-->\n```",
+      "createdAt": "2026-11-06T16:00:57Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6689253236",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABjtmpnQ",
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "<!-- closer-core/v1 action=followup target=stranske/Workflows#4284 disposition=followup round=20261106T174633Z followup=#4482 -->\ncloser-core closes stranske/Workflows#4284: unmet criteria moved to #4482",
+      "createdAt": "2026-11-06T17:52:08Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6691596701",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABjvUWRg",
+      "author": {
+        "login": "agents-workflows-bot"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "## Delivery evidence re-read 2026-11-06\n\n`gh run view 40551187519 --repo stranske/Workflows --json jobs,status,conclusion`\n\n- status: `completed`\n- conclusion: `success`\n- run: https://github.com/stranske/Workflows/actions/runs/40551187519\n\n| Job | URL | Started UTC | Completed UTC | Seconds |\n| --- | --- | --- | --- | ---: |\n| python ci / python 3.13 | https://github.com/stranske/Workflows/actions/runs/40551187519/job/122355504848 | 2026-10-27T17:31:00Z | 2026-10-27T17:38:59Z | 479 |\n| python ci / python 3.14 | https://github.com/stranske/Workflows/actions/runs/40551187519/job/122355504921 | 2026-10-27T17:31:00Z | 2026-10-27T17:40:40Z | 580 |\n\nBoth named jobs completed within 600 seconds. The CLI payload, job URLs, and calculated durations are retained in `docs/evidence/issue-4284/gate-run-40551187519.json` on PR #4491 (`2480fb05`). This comment records that live-verification gate only. The Health 85 seven-day p50 gate is still unmet, so this does not change the issue completion status.",
+      "createdAt": "2026-11-06T19:21:14Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6693393990",
+      "viewerDidAuthor": false
+    },
+    {
+      "id": "IC_kwDOQprj9M8AAAABjvYOKw",
+      "author": {
+        "login": "agents-workflows-bot"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "## Health 85 delivery evidence checked 2026-11-06\n\n`gh workflow list --repo stranske/Workflows` identifies **Health 85 CI Time Budget**, workflow id `387854305`, path `.github/workflows/health-85-ci-time-budget.yml`, state `active`.\n\nPublished report inspected: `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json` blob `b917229e8f0cd9228754c6e30c4c0ef993dc0b99`. Health 85 stores trailing-seven-day Gate p50 in **minutes**. The 600-second gate is 10 minutes. These seven consecutive dates match `docs/reports/ci-budget.json` on PR #4491 (`748136bc`).\n\n| Date | p50 minutes | p50 seconds | Within 600s | Health 85 run |\n| --- | ---: | ---: | --- | --- |\n| 2026-10-31 | 11.75 | 705.0 | no | https://github.com/stranske/Workflows/actions/runs/41197692660 |\n| 2026-11-01 | 11.716666666666665 | 703.0 | no | https://github.com/stranske/Workflows/actions/runs/41302778594 |\n| 2026-11-02 | 11.85 | 711.0 | no | https://github.com/stranske/Workflows/actions/runs/41438356129 |\n| 2026-11-03 | 11.841666666666667 | 710.5 | no | https://github.com/stranske/Workflows/actions/runs/41629164812 |\n| 2026-11-04 | 11.85 | 711.0 | no | https://github.com/stranske/Workflows/actions/runs/41822549611 |\n| 2026-11-05 | missing | missing | no | https://github.com/stranske/Workflows/actions/runs/42020576555 |\n| 2026-11-06 | missing | missing | no | https://github.com/stranske/Workflows/actions/runs/42211705537 |\n\n2026-11-05 and 2026-11-06 runs concluded `failure`. Both logs say `ERROR: stranske/Workflows: measurement unavailable`. The 2026-11-06 published report error is a GitHub API 403 rate limit at 2026-11-06 11:58:23 UTC. The 2026-11-05 job log does not include the exception text.\n\nNo measured day in this window is at or below 600 seconds, and two dates have no p50. The sustained-performance gate stays incomplete. This comment does not change #4284's completion status.",
+      "createdAt": "2026-11-06T19:24:31Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4284#issuecomment-6693457451",
+      "viewerDidAuthor": false
+    }
+  ],
+  "state": "CLOSED"
+}

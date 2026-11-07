@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "env_overrides": {
+    "BLACK_NUM_WORKERS": "1",
+    "BLACK_CACHE_DIR": "/tmp/shebang-rejection-validation-black-cache"
+  },
+  "exit": 124,
+  "stdout": "",
+  "stderr": "",
+  "timeout_seconds": 180,
+  "duration_seconds": 180.013
+}

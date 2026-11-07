@@ -188,6 +188,9 @@ jobs:
               .write();
             let agent = defaultAgent;
 
+            // Control suffixes match bridge_preflight controlLabelSuffixes and the root
+            // normalize_inputs jq filter (def control: [...]). Labels such as agents:formatted
+            // must not be treated as the assigned agent key or override agent:cursor/codex.
             // Metadata labels that aren't actual agent assignments
             const metadataLabels = new Set([
               'keepalive', 'formatted', 'optimize', 'allow-change',

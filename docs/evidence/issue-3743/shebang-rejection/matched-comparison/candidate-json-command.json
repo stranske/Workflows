@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "-m",
+    "coverage",
+    "json",
+    "--rcfile=docs/evidence/issue-3743/shebang-rejection/coverage.ini",
+    "--data-file=/tmp/shebang-matched-comparison-2ewade3o/candidate.coverage",
+    "-o",
+    "/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate.json"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "duration_seconds": 0.264,
+  "env_overrides": {
+    "PYTEST_ADDOPTS": null,
+    "COVERAGE_FILE": null
+  }
+}

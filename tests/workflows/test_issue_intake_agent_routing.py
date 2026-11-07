@@ -56,6 +56,11 @@ def test_intake_routes_the_labelled_agent_not_codex(tmp_path):
             check=True,
         ).stdout.strip()
         assert runner == f".github/workflows/reusable-{agent}-run.yml"
+    # Control labels are not agent keys. They must not override agent:cursor/codex
+    # or become the default when no real agent label is present.
+    assert _run(tmp_path, ["agents:formatted", "agent:cursor"])["bridge_agent"] == "cursor"
+    assert _run(tmp_path, ["agents:keepalive", "agent:codex"])["bridge_agent"] == "codex"
+    assert _run(tmp_path, ["agents:formatted"])["bridge_agent"] == ""
     assert _run(tmp_path, ["bug"])["bridge_agent"] == ""  # preflight resolves the default
     assert _run(tmp_path, ["agent:auto"])["bridge_agent"] == "auto"
 

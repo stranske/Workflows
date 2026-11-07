@@ -1,0 +1,9 @@
+{
+  "path": "/tmp/fresh-shebang-rejection-proof",
+  "role": "Reserved for the literal acceptance command and its explicit reuse check. Additional replays use a fresh directory.",
+  "existed_before": false,
+  "created_by_this_run": true,
+  "exists_after": true,
+  "explicit_reuse_checked": true,
+  "additional_output": null
+}

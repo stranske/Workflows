@@ -1,0 +1,139 @@
+{
+  "check_date": "2026-11-06T18:42:09.745627+00:00",
+  "base_commit": "4a9367e58ef81027447ae46fe7f1d468830e6c85",
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+  "input_bindings": {
+    "docs/evidence/issue-3743/shebang-rejection/README.md": {
+      "sha256": "8db08c1b204bfa908f2292f352b300c366bdd47f53a28c737a7f30ab33f4f52e",
+      "bytes": 3688
+    },
+    "docs/evidence/issue-3743/shebang-rejection/coverage.ini": {
+      "sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "bytes": 94
+    },
+    "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": {
+      "sha256": "9b2d20412949c106cb2f5a7ea789f8e5bb0f760b3999550a6b10ccec58b27a85",
+      "bytes": 30684
+    },
+    "docs/evidence/issue-3743/shebang-rejection/main-acceptance-map.json": {
+      "sha256": "074da0915ae48f483eb059c32ba94c6fb1f0f22b3f9cc55a9df94a34610879e4",
+      "bytes": 46893
+    },
+    "docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz": {
+      "sha256": "f432fadc3959ac92e548b37b949f4070c4c9e00ad2ea19f8d1b5a9645c2fd254",
+      "bytes": 473676
+    },
+    "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json": {
+      "sha256": "dd7f81c8a2cbae55083ebb1ad690ffc78c8e9862a296ee0c14850eabe09452c9",
+      "bytes": 8373
+    },
+    "docs/evidence/issue-3743/shebang-rejection/pre-change-record.json": {
+      "sha256": "987d35ea935db2ecc8cd0339c8619c50763ce18600b42a98340a9524c5c05dc7",
+      "bytes": 2880
+    },
+    "docs/evidence/issue-3743/shebang-rejection/proof.tar.gz": {
+      "sha256": "83bf8bec764c0630a08c661876eaf7a24b5a7b27e1ee2875f6f96565ff281fae",
+      "bytes": 381289
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz": {
+      "sha256": "0a1974ad9d253eba6d78fca5b36a870aa9eac20b11db9b3bf0ac8be3c38abf8a",
+      "bytes": 854770
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json": {
+      "sha256": "841ef4290cb8183320fa90b1241113d55736e74ab2f7c2827e21bd4dcc689e66",
+      "bytes": 8473
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation/task-reconciliation.md": {
+      "sha256": "00ca3121382545c09272638b5ca68be50b98a5d6d27bd2bbba01b7102b4373c5",
+      "bytes": 2652
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay.py": {
+      "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "bytes": 6406
+    },
+    "docs/evidence/issue-3743/shebang-rejection/summary.json": {
+      "sha256": "c4f78b1edef8812eba7f3cf8ce205aab744b3a6498efdbf661c3e3c4463e3e3f",
+      "bytes": 4382
+    },
+    "docs/evidence/issue-3743/shebang-rejection/verify_archives.py": {
+      "sha256": "e20f5e1cecbf3e5c60e81dacca1d8dfb914831b6717a99f77998eb7ba402eda6",
+      "bytes": 12473
+    },
+    "scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py": {
+      "sha256": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+      "bytes": 2093
+    },
+    "tests/scripts/test_shebang_rejection_acceptance_inspection.py": {
+      "sha256": "7c0922f9cbcb802c90eafbeaff92c1be4523b47a7d5bda6685cde137efc82138",
+      "bytes": 5636
+    },
+    "tests/scripts/test_shebang_rejection_acceptance_run.py": {
+      "sha256": "6d7c3f3a1a8f231be506c4866db7f028117528460397dd51c01349014d6f9c3e",
+      "bytes": 5953
+    },
+    "tests/scripts/test_shebang_rejection_archive_bindings.py": {
+      "sha256": "6882ee0ea490cd51586a95a41f1698b9fced8e6c2240203283c0d6b2010116f7",
+      "bytes": 4643
+    },
+    "tests/scripts/test_shebang_rejection_matched_comparison.py": {
+      "sha256": "6bcb8d0ae274d36d3c798ad1c870928445aa5d6bdd03fbec0bc5c22656183879",
+      "bytes": 7692
+    },
+    "tests/scripts/test_shebang_rejection_replay.py": {
+      "sha256": "01a515e7157d8aa54dcc548473f734e65409d87b354cf463686a44196e350a0d",
+      "bytes": 7056
+    },
+    "tests/scripts/test_shebang_rejection_validation_run.py": {
+      "sha256": "21f2efb42fd0dfa1e0c63e3e8e2aabc1b82315df35a459f7279d341aa27cd75d",
+      "bytes": 3602
+    }
+  },
+  "historical_and_production_equal_base": true,
+  "production_helpers_equal": true,
+  "commands": {
+    "literal-pytest": 127,
+    "literal-replay": 127,
+    "focused": 0,
+    "companions": 0,
+    "black": 0,
+    "ruff": 0,
+    "template": 0,
+    "diffcheck": 0,
+    "black-initial": 124
+  },
+  "measured_validation_file_counts": {
+    "workflows_directory_yml": 130,
+    "template_directory_yml": 35,
+    "manifest_workflow_targets": 35,
+    "strict_validation_inputs": 166,
+    "ruff_paths": 15,
+    "black_files": 927
+  },
+  "literal_acceptance_blocked": true,
+  "tools": {
+    "black": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/black",
+    "ruff": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/ruff"
+  },
+  "test_counts": {
+    "focused": {
+      "passed": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "companions": {
+      "passed": 51,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}

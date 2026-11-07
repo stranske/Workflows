@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/black",
+    "--check",
+    "--line-length",
+    "100",
+    "--exclude",
+    "(\\.workflows-lib|node_modules)",
+    "."
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 124,
+  "timeout_seconds": 120,
+  "stopped": "time-limit",
+  "reason": "Concurrent per-file checks left 243 cache entries missing. Serial checks then retained every validated entry."
+}

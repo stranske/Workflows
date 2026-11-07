@@ -1,0 +1,274 @@
+{
+  "check_date": "2026-11-06T19:53:52.471024+00:00",
+  "base_commit": "fb7e532ed89c5e2d514dd30c4844fc83d2c86e96",
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+  "input_sha256": {
+    "tests/scripts/test_shebang_rejection_matched_comparison.py": {
+      "sha256": "fda4a767ca7f3134914633564929026d118f06d5b064da0fda804360e03ae154",
+      "bytes": 16089
+    },
+    "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
+      "sha256": "840ba69d31ef5d86ec0ecc98dbf075e9dbc3093a9f30985a54e5fd78c6a7f968",
+      "bytes": 27201
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay.py": {
+      "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "bytes": 6406
+    },
+    "docs/evidence/issue-3743/shebang-rejection/coverage.ini": {
+      "sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "bytes": 94
+    },
+    "docs/evidence/issue-3743/shebang-rejection/verify_archives.py": {
+      "sha256": "d0037af6dd8ac64a2c33c89d1192722f5271b0122e5acc8cc565f927bccaff63",
+      "bytes": 14065
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/summary.json": {
+      "sha256": "e9133fb74248c02478b334851e454315a3d87cbe168d52109ad5198399d43459",
+      "bytes": 136015
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-command.json": {
+      "sha256": "165c1016cfc71803963da6e9466666db2f99ddff60ce0bb3444134ae9cc40a58",
+      "bytes": 1465
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate-command.json": {
+      "sha256": "bd23ff342506ce42fda3bc3be02c519163281a8d78239eacf82e15ff32e18f02",
+      "bytes": 1537
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline.xml": {
+      "sha256": "4b8527d4fadba66dd2d184b94252a7983163cdd117b9d0169d8f8510cdf0103a",
+      "bytes": 53909
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate.xml": {
+      "sha256": "34bc18f33f872463b3dd0388a100d4102c516da593b42225bc2f838e2a82849c",
+      "bytes": 55115
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline.json": {
+      "sha256": "63eb227060b2bbdb1ec592b2e601ac636b10dd09f790056a5a76eb0f94c8ec25",
+      "bytes": 95457
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate.json": {
+      "sha256": "0221ebd7db29b235478eba96d1b3e86ab3d65bf2fa7923021af1f516ca199969",
+      "bytes": 95434
+    },
+    "docs/evidence/issue-3743/shebang-rejection/matched-comparison/comparison.json": {
+      "sha256": "d3befbc8b4b5a665b5cfa684f6b35e674035dfb453035c06ee88d8959692566d",
+      "bytes": 122121
+    },
+    "scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981
+    },
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py": {
+      "sha256": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+      "bytes": 2093
+    }
+  },
+  "archive": {
+    "path": "proof.tar.gz",
+    "sha256": "be366efe73e7d8f7df8fe42bc68174aa3966a019a22d68496b979b3046280b80",
+    "bytes": 43290,
+    "verified_manifest_members": 47,
+    "manifest_sha256": "8e14272a2d19b25a24a5a08b4f049179032d5a7dcb1395f6de179a8e25c38a54"
+  },
+  "commands": {
+    "literal-pytest": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+        "-q",
+        "-o",
+        "addopts="
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 127,
+      "env_overrides": {},
+      "duration_seconds": 0.001
+    },
+    "literal-replay": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "docs/evidence/issue-3743/shebang-rejection/replay.py",
+        "--output",
+        "/tmp/fresh-shebang-rejection-proof"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 127,
+      "env_overrides": {},
+      "duration_seconds": 0.0
+    },
+    "focused-pytest": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/focused.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {},
+      "duration_seconds": 2.806
+    },
+    "comparison-pytest": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_shebang_rejection_matched_comparison.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--cov",
+        "--cov-config=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/comparison-coverage.ini",
+        "--cov-report=term-missing",
+        "--cov-report=json:/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/comparison-coverage.json",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/comparison.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {
+        "COVERAGE_FILE": "/tmp/shebang-comparison-input-validation.coverage"
+      },
+      "duration_seconds": 3.599
+    },
+    "companion-pytest": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
+        "tests/scripts/test_shebang_rejection_acceptance_run.py",
+        "tests/scripts/test_shebang_rejection_archive_bindings.py",
+        "tests/scripts/test_shebang_rejection_replay.py",
+        "tests/scripts/test_shebang_rejection_validation_run.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "-m",
+        "not slow",
+        "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/companions.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {},
+      "duration_seconds": 50.122
+    },
+    "ruff": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/ruff",
+        "check",
+        "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py",
+        "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py",
+        "docs/evidence/issue-3743/shebang-rejection/compare_matched.py",
+        "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py",
+        "docs/evidence/issue-3743/shebang-rejection/replay.py",
+        "docs/evidence/issue-3743/shebang-rejection/verify_archives.py",
+        "scripts/check_deliberate_break.py",
+        "templates/consumer-repo/scripts/check_deliberate_break.py",
+        "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+        "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
+        "tests/scripts/test_shebang_rejection_acceptance_run.py",
+        "tests/scripts/test_shebang_rejection_archive_bindings.py",
+        "tests/scripts/test_shebang_rejection_matched_comparison.py",
+        "tests/scripts/test_shebang_rejection_replay.py",
+        "tests/scripts/test_shebang_rejection_validation_run.py"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {},
+      "duration_seconds": 0.014
+    },
+    "template": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "scripts/validate_template_completeness.py",
+        "--workflows-dir",
+        ".github/workflows",
+        "--template-dir",
+        "templates/consumer-repo/.github/workflows",
+        "--manifest",
+        ".github/sync-manifest.yml",
+        "--source",
+        "sync-manifest",
+        "--strict"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {
+        "GITHUB_STEP_SUMMARY": "/tmp/shebang-comparison-input-template-summary.md"
+      },
+      "duration_seconds": 0.162
+    },
+    "diffcheck": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {},
+      "duration_seconds": 0.012
+    },
+    "black": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "exit": 0,
+      "env_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/shebang-comparison-input-black"
+      },
+      "duration_seconds": 0.995
+    }
+  },
+  "measured_file_counts": {
+    "workflows_directory_yml": 130,
+    "template_directory_yml": 35,
+    "manifest_workflow_targets": 35,
+    "strict_validation_inputs": 166,
+    "black_files": 927,
+    "ruff_files": 15
+  },
+  "preserved_input_files": 240,
+  "historical_unchanged": true,
+  "literal_acceptance_blocked": true,
+  "archive_verification": {
+    "summary": "docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/summary.json",
+    "kind": "current",
+    "archive": "docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/proof.tar.gz",
+    "members": 46,
+    "sha256_matches_summary": true,
+    "bytes_match_summary": true,
+    "manifest_sha256_matches_summary": true,
+    "member_count_matches_summary": true,
+    "manifest_covers_archive_files": true,
+    "member_mismatches": [],
+    "verified": true
+  },
+  "binding_refresh": {
+    "check_date": "2026-11-07",
+    "scope": "Refresh supplementary current bindings after PR 4472 continuation. Existing commands remain historical; continuation-validation/focused receipts cover the refreshed matched-comparison test. Previous bindings are retained separately."
+  }
+}

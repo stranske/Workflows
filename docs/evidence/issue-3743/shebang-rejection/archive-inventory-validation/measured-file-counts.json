@@ -1,0 +1,8 @@
+{
+  "workflows_directory_yml": 130,
+  "template_directory_yml": 35,
+  "manifest_workflow_targets": 35,
+  "strict_validation_inputs": 166,
+  "black_files": 928,
+  "ruff_files": 16
+}
