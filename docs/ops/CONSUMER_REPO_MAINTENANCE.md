@@ -3634,7 +3634,10 @@ successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
 reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
-most one configured-candidate refresh per invocation. Full-scope refresh keeps
+most one configured-candidate refresh per invocation. A consumed recovery for
+one canary's payload/head or live tip/head does not suppress a sibling's new
+recovery key in that plan; active writers still hold the entire candidate set.
+Full-scope refresh keeps
 its existing **rendered delivery digest** identity across source SHAs.
 `scripts/consumer_delivery_digest.py:delivery_digest` hashes full delivery intent
 for refresh, Maint 68 preparation, and the seal writer.

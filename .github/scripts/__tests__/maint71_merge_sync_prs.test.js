@@ -2619,6 +2619,45 @@ for (const [reason, change] of [
   });
 }
 
+for (const [reason, change] of [
+  ['behind', { mergeable_state: 'behind' }],
+  ['checks_failed', { check_status: 'checks_failed' }],
+  ['review_blocked', { active_review_thread_count: 1 }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
+]) {
+  test(`consumed sibling recovery does not hide a new ${reason} canary in the same plan`, async () => {
+    let runs = [producerRun()];
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+    } });
+    const consumed = refreshCanary(change);
+    const sibling = refreshCanary({ ...change, repo: 'Template', pr: 13, head_sha: 'd'.repeat(40) });
+    const refresh = (canaries) => refreshStableCanaries({ ...api, canaries });
+    assert.equal((await refresh([consumed])).refresh_dispatched, 1);
+    runs.unshift(producerRun({ id: 4069,
+      display_title: `${producerRun().display_title} drift=${api.dispatches[0].inputs.refresh_key}` }));
+    assert.equal((await refresh([consumed])).refresh_dispatched, 0);
+
+    const result = await refresh([consumed, sibling]);
+    assert.equal(result.refresh_dispatched, 1, `missing sibling refresh dispatch: ${reason}`);
+    assert.equal(api.dispatches.length, 2, 'one additional dispatch for the plan');
+    const key = api.dispatches[1].inputs.refresh_key;
+    assert.notEqual(key, api.dispatches[0].inputs.refresh_key);
+    assert.deepEqual(result.held_plans, [consumed.plan_id]);
+    assert.match(api.notices.at(-1), new RegExp(`stranske/Template:${reason}`));
+
+    runs.unshift(producerRun({ id: 4070, status: 'queued', conclusion: null,
+      display_title: `${producerRun().display_title} drift=${key}` }));
+    assert.equal((await refresh([consumed, sibling])).refresh_dispatched, 0,
+      'an active writer still holds both recovery keys');
+    runs[0] = { ...runs[0], status: 'completed', conclusion: 'success' };
+    assert.equal((await refresh([consumed, sibling])).refresh_dispatched, 0,
+      'both successful recovery keys remain consumed');
+    assert.equal(api.dispatches.length, 2);
+    assert.deepEqual(api.failures, []);
+  });
+}
+
 test('new main SHA dispatches exactly once across held plans and subsequent observations', async () => {
   let runs = [producerRun({ head_sha: 'b'.repeat(40),
     display_title: producerRun().display_title.replace('a'.repeat(40), 'b'.repeat(40)) })];

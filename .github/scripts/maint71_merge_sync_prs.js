@@ -1095,7 +1095,7 @@ async function refreshStableCanaries({
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      for (const [plan, rows] of plans) {
+      refreshPlans: for (const [plan, rows] of plans) {
         if (unreadableTipPlans.has(plan)) continue;
         const recovery = rows.find(row => row.mergeable_state === 'behind') || rows[0];
         const request = campaignBoundRefreshPlan(recovery);
@@ -1110,29 +1110,33 @@ async function refreshStableCanaries({
         }
         const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
           scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan } : {};
-        const fullAligned = (state) => request?.plan_scope === 'full'
-          && state?.sha === request.source_commit && sameRefreshPlan(state.refresh_plan, request);
-        const reusable = request?.plan_scope === 'full'
-          ? (fullAligned(recovery.refresh_state) ? recovery.refresh_state
-            : fullAligned(refreshState) ? refreshState : null)
-          : (recovery.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
-            ? null : refreshState));
-        const baseState = reusable || await readCanaryRefreshState({
-          withRetry, context, expectedCanaries, now, ...inputs });
-        const recoveryKey = canaryRecoveryKey(recovery, baseState);
-        const state = baseState.drift_key === recoveryKey ? baseState
-          : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
-            ...inputs, driftKey: recoveryKey });
-        const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
-          expectedCanaries, refreshState: state, now, cleanupBranches });
-        if (!refresh.dispatched) continue;
-        counts.refresh_dispatched++;
-        core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
-          rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
-          '; completion awaits a successful Maint 68 run');
-        // Stable candidate branches have one writer even before REST exposes
-        // this newly requested run. Other held plans remain for a later pass.
-        break;
+        // A consumed recovery belongs to one payload/head (or live tip/head).
+        // Check siblings too, preserving behind priority and one producer write.
+        for (const candidate of [recovery, ...rows.filter(row => row !== recovery)]) {
+          const fullAligned = (state) => request?.plan_scope === 'full'
+            && state?.sha === request.source_commit && sameRefreshPlan(state.refresh_plan, request);
+          const reusable = request?.plan_scope === 'full'
+            ? (fullAligned(candidate.refresh_state) ? candidate.refresh_state
+              : fullAligned(refreshState) ? refreshState : null)
+            : (candidate.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
+              ? null : refreshState));
+          const baseState = reusable || await readCanaryRefreshState({
+            withRetry, context, expectedCanaries, now, ...inputs });
+          const recoveryKey = canaryRecoveryKey(candidate, baseState);
+          const state = baseState.drift_key === recoveryKey ? baseState
+            : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
+              ...inputs, driftKey: recoveryKey });
+          const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
+            expectedCanaries, refreshState: state, now, cleanupBranches });
+          if (!refresh.dispatched) continue;
+          counts.refresh_dispatched++;
+          core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
+            rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
+            '; completion awaits a successful Maint 68 run');
+          // Stable candidate branches have one writer even before REST exposes
+          // this newly requested run. Other held plans remain for a later pass.
+          break refreshPlans;
+        }
       }
     }
   } catch (error) {

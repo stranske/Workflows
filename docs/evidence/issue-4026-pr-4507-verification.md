@@ -55,3 +55,43 @@ CI run; no merge gate or review floor was bypassed.
 
 Post-push CI, review, guarded merge and operational acceptance require fresh
 readback. This receipt establishes local regression evidence only.
+
+## Sibling recovery continuation
+
+Reviewed commits through `8dd78c0e`. Upstream synced-file review routing and
+per-run canary counts are implemented. The remaining dispatch gap selected only
+one recovery key per plan, allowing its consumed receipt to hide a sibling's
+new blocker. The refresh pass now examines each blocked sibling's recovery key
+and stops after the first dispatch across all plans. Plan binding, unreadable-tip
+holds, active-writer guards and consumed recovery receipts remain enforced.
+
+Four new regression cases cover `behind`, `checks_failed`, `review_blocked` and
+`stale`. Before the fix, all four failed with state-specific missing-sibling
+dispatch assertions. After the fix, each case verifies one additional dispatch,
+no dispatch while its writer is queued, and no repeated dispatch after success.
+
+Validation on the retained source:
+
+```sh
+node --test --test-isolation=none --test-reporter=tap .github/scripts/__tests__/maint71_merge_sync_prs.test.js
+```
+
+Exit 0; 216 tests, 216 pass, 0 fail. Explicit test isolation is required in this
+runner to expose the individual tests; the plain command reports one file wrapper.
+Temporarily returning `null` only for `checks_failed` and running the same command
+with `--test-name-pattern='one checks_failed canary'` exited 1: 1 test, 0 pass,
+1 fail, naming `one checks_failed canary among green siblings dispatches once and
+waits for its writer` with `missing refresh dispatch: checks_failed` (`0 !== 1`).
+The source was restored byte-for-byte, then the full suite again passed all 216
+tests. The mutation is excluded from the commit.
+
+The GitHub PR-body update was denied because its tool requires approval and the
+run's approval policy is `never`. The reconciled replacement body is prepared at
+`/tmp/issue-4026-pr-body.md` in the run workspace. It checks the verified local
+implementation and acceptance items while leaving both operational criteria open.
+No post-merge Maint 71 counts or qualifying Maint 68 promotion are established by
+these local tests.
+
+The checkout's `.git` directory is read-only, so staging and committing in the
+original checkout are blocked. The change is committed in a writable temporary
+clone and exported to `/tmp/issue-4026-sibling-recovery.patch` for handoff.
