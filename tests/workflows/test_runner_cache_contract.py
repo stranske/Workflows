@@ -241,13 +241,13 @@ def test_cli_cache_deletion_fails_pytest_and_recovers(
     diagnostic = broken.stdout + broken.stderr
     assert broken.returncode == pytest.ExitCode.TESTS_FAILED, diagnostic
     assert ".github/workflows/reusable-codex-run.yml: missing CLI cache step" in diagnostic
-    assert "1 failed, 4 passed" in broken.stdout, diagnostic
+    assert f"1 failed, {len(AGENTS) - 1} passed" in broken.stdout, diagnostic
 
     recovered = subprocess.run(
         command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=30
     )
     assert recovered.returncode == pytest.ExitCode.OK, recovered.stdout + recovered.stderr
-    assert "5 passed" in recovered.stdout
+    assert f"{len(AGENTS)} passed" in recovered.stdout
     assert codex_path.read_bytes() == original_source, "Protected workflow source was modified"
 
 
