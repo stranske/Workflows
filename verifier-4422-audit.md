@@ -1259,7 +1259,37 @@ Published summary (full per-PR evidence is in the command output and in
   ],
   "production_repairs": {
     "count": 0,
-    "note": "No production-code repair was required for the selected live complete report path. The earlier run 39090617832 first broken step was an expired comparison artifact (evidence availability), not an implementation defect with a before/after regression in this audit."
+    "note": "No deployed verifier repair was required for the selected live complete report path. The earlier run 39090617832 first broken step was an expired comparison artifact (evidence availability), not an implementation defect with a before/after regression in this audit.",
+    "scope": "Deployed verifier implementation; CI and audit support changes are separate.",
+    "support_changes": [
+      {
+        "after": "Workflow shell exits 0; pin is ancestor of origin/main and HEAD.",
+        "before": "Git ancestry exits 128 before fetch and 1 after main-only fetch. Checkout-ref fetch removed temporarily: 1 failed on HEAD ancestry.",
+        "kind": "CI history availability",
+        "observed_failure": "Depth-1 checkout: pinned merge-base exits 128 (commit unavailable). Fetching main alone: pinned checkout ancestry exits 1.",
+        "path": ".github/workflows/reusable-10-ci-python.yml",
+        "regression_command": "/opt/anaconda3/bin/python3 -m pytest -q -s tests/workflows/test_reusable_ci_workflow.py::test_pinned_verifier_history_fetch_deepens_the_checkout_ref",
+        "validation_limit": "Local Git fixture with dated commits and a pull merge ref; only the pinned SHA is substituted in the workflow shell. Not a live Actions run."
+      },
+      {
+        "after": "1 passed: observed file failure retained without causal claims.",
+        "before": "1 failed: regression_evidence unexpectedly present.",
+        "kind": "CI failure diagnostics",
+        "observed_failure": "An arbitrary FileNotFoundError('bad') was recorded as established shallow-history regression evidence.",
+        "path": "scripts/ci_history.py",
+        "regression_command": "/opt/anaconda3/bin/python3 -m pytest -q tests/workflows/test_ci_history.py::test_main_handles_load_metrics_error",
+        "validation_limit": "Injected missing-file error; no Git-history causation inferred."
+      },
+      {
+        "after": "Handler restored: 2 passed; bounded result and CLI exit 2.",
+        "before": "Handler removed temporarily: 2 failed with uncaught FileNotFoundError.",
+        "kind": "Audit collection helper",
+        "observed_failure": "Missing gh escaped as FileNotFoundError before bounded failure.",
+        "path": "verifier_4422_audit.py:run_initial_evidence",
+        "regression_command": "/opt/anaconda3/bin/python3 -m pytest -q tests/test_verifier_4422_audit.py::test_initial_evidence_handles_missing_gh_as_bounded_failure tests/test_verifier_4422_audit.py::test_initial_evidence_cli_returns_exit_code_2_on_failure",
+        "validation_limit": "Injected missing executable; not a deployed verifier repair."
+      }
+    ]
   },
   "repositories_not_queried": [
     "stranske/collab-admin"
@@ -1307,49 +1337,95 @@ Target outcomes under the recovered campaign definition:
   (3 unknown).
 - A later successful live run (41736356184 on 2026-11-03) is not in this historical
   evidence and is not counted as 2026-10-24 achievement.
-- Production-code repairs in this audit: 0. The incomplete earlier live packet failed on
+- Deployed verifier repairs in this audit: 0 (CI and audit support changes are listed separately). The incomplete earlier live packet failed on
   an expired comparison artifact (evidence availability), not on an implementation defect
   with a before/after regression here.
 
-## CI history-fetch observed-failure and regression evidence
+## Retained CI and audit support changes: observed validation
 
-The CI history-fetch step in `.github/workflows/reusable-10-ci-python.yml` has recorded
-observed-failure and regression evidence for the shallow-history issue.
+Check date: 2026-11-06 (America/Chicago). The `production_repairs.count` of 0
+counts deployed verifier implementation repairs only. It does not claim that
+PR #4483 made no executable changes. The machine-readable `support_changes`
+above lists three retained CI/audit changes and their validation limits.
 
-The observed shallow-history failure occurs when the workflow attempts to fetch Git history
-with a shallow clone that doesn't include enough context for the verifier to operate.
-This was identified as a regression in the CI workflow that needed to be addressed.
+1. **CI history fetch** (`.github/workflows/reusable-10-ci-python.yml`): the
+   runnable Git regression uses a local repository with dated commits and a
+   depth-1 pull merge checkout. Before fetching, `git merge-base --is-ancestor`
+   for the pin exits 128 (commit unavailable). Fetching main alone makes the pin
+   available on origin/main, but the pin-to-HEAD ancestry check exits 1. Running
+   the actual workflow shell, substituting only the fixture's pinned SHA,
+   exits 0 and both ancestry checks pass. Removing only the checkout-ref fetch
+   makes this named regression fail on HEAD ancestry; restoring it passes.
+   This demonstrates the retained fetch
+   behavior; it is not a live Actions rerun or evidence of a deployed verifier bug.
+2. **CI diagnostics** (`scripts/ci_history.py`): the previous generic missing-file
+   handler labeled `FileNotFoundError("bad")` as a shallow-history regression.
+   The corrected regression fails on that causal field before this repair and
+   passes after its removal. The retained record reports the exception, paths,
+   timestamp and available GitHub metadata only. Missing JUnit stays skipped;
+   missing metrics are regenerated from JUnit. Neither establishes Git causation.
+3. **Audit collection helper** (`verifier_4422_audit.py:run_initial_evidence`):
+   temporarily removing only the retained missing-executable handler produces
+   two uncaught `FileNotFoundError` test failures. Restoring it passes both tests:
+   the helper returns its bounded failure result and the CLI returns 2. This is
+   an injected executable-availability failure, not a deployed verifier repair.
 
-The named before/after regression test demonstrates:
-- **Before**: CI workflow with shallow history fetch fails to collect sufficient evidence
-- **After**: CI workflow with proper history depth successfully completes
+Exact named regression commands (repository-selected environment absent;
+owner-directed fallback `/opt/anaconda3/bin/python3`, Python 3.12.2):
 
-This regression evidence supports the correctness of `.github/workflows/reusable-10-ci-python.yml`
-and ensures that the workflow maintains proper history depth for verifier operations.
-
-Command to verify the replay against published audit (no network):
 ```text
-python3 verifier_4422_audit.py live-report-acceptance
-python3 verifier_4422_audit.py historical-campaign
+/opt/anaconda3/bin/python3 -m pytest -q -s tests/workflows/test_reusable_ci_workflow.py::test_pinned_verifier_history_fetch_deepens_the_checkout_ref
+/opt/anaconda3/bin/python3 -m pytest -q tests/workflows/test_ci_history.py::test_main_handles_load_metrics_error
+/opt/anaconda3/bin/python3 -m pytest -q tests/test_verifier_4422_audit.py::test_initial_evidence_handles_missing_gh_as_bounded_failure tests/test_verifier_4422_audit.py::test_initial_evidence_cli_returns_exit_code_2_on_failure
 ```
 
-Both commands complete successfully and reproduce the published live acceptance and historical
-metrics without network access.
+Observed results:
 
-## Verified disposition for discussion_r4496163415
+```text
+Git fixture before (depth 1): pinned ancestry exit 128, fatal: Not a valid commit name
+Git fixture before (main-only fetch): checkout ancestry exit 1
+Git regression with checkout-ref fetch removed: 1 failed, HEAD ancestry exit 1
+Git fixture after (workflow fetch restored): pinned and checkout ancestry exit 0; 1 passed
+CI diagnostic before (main handler, corrected assertion): 1 failed, regression_evidence unexpectedly present
+CI diagnostic after (causal fields removed): 1 passed
+Audit helper before (only FileNotFoundError handler removed): 2 failed, uncaught FileNotFoundError
+Audit helper after (handler restored): 2 passed, bounded result and CLI exit 2
+```
 
-**Disposition**: Verified and approved for merge.
+The before/after helper experiment restored the handler without changing it.
+The CI history correction removes `regression_evidence`, including
+`shallow_history_suspected` and `regression_identified`; it does not infer a
+history-fetch diagnosis from a file error. The Git regression replaces the
+previous script-string assertions with execution of the workflow's shell.
 
-**Evidence**:
-- All focused tests pass (5 new tests for FileNotFoundError, TimeoutExpired, malformed JSON, non-object JSON, and CLI failure)
-- `run_initial_evidence` now handles `FileNotFoundError` explicitly with structured bounded failure
-- CI history-fetch records observed-failure and regression evidence for shallow-history issues
-- Offline replay reproduces published live acceptance and historical metrics without network calls
-- Main returns exit code 2 on failure as required
+Saved-evidence acceptance commands (no network):
 
-**Preserved gates**:
-- Merge gate: All existing tests continue to pass (38 total in test_verifier_4422_audit.py)
-- Verification gate: New tests verify the FileNotFoundError handling and CLI behavior
-- Reusable CI workflow: `.github/workflows/reusable-10-ci-python.yml` supported with regression evidence
+```text
+/opt/anaconda3/bin/python3 verifier_4422_audit.py live-report-acceptance
+/opt/anaconda3/bin/python3 verifier_4422_audit.py historical-campaign
+```
 
-**Conclusion**: The changes satisfy all remaining tasks for PR #4483. The FileNotFoundError handling ensures robust error handling when `gh` is missing, and the CI history-fetch changes record proper evidence for debugging shallow-history issues.
+Both exit 0. Live reconciliation retains 4/4 files for each provider and no
+complete-report broken step. Historical replay retains 16 candidate records,
+0 known eligible records, 11 truncation-CONCERNS among 14 known classifications
+(2 unknown), and 3/13 closures within two hours (3 unknown). Both historical
+targets remain indeterminate. These replays validate saved evidence, not current
+artifact availability or a fresh operational verifier run.
+
+Focused validation command:
+
+```text
+/opt/anaconda3/bin/python3 -m pytest -q tests/test_verifier_4422_audit.py tests/workflows/test_ci_history.py tests/workflows/test_reusable_ci_workflow.py
+```
+
+The audit-record reconciliation test now compares the entire published
+`production_repairs` object with the machine-readable replay, including support
+changes. Historical sampling limits and unknown eligibility remain unchanged.
+
+## Readback of discussion_r4496163415
+
+PR #4483's previously blocking thread was read back as resolved. Its requested
+missing-gh, timeout, malformed JSON, non-object JSON and CLI failure tests remain.
+No new thread mutation or merge approval is asserted by this audit. The earlier
+unsupported statement that generic CI file errors establish shallow-history
+regressions is superseded by the observed validation and limits above.

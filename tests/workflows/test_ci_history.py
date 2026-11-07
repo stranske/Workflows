@@ -96,6 +96,7 @@ def test_ci_history_generates_metrics_when_missing(
     record = json.loads(history_path.read_text(encoding="utf-8").strip())
     assert record["summary"]["tests"] == 3
     assert "metrics_path" not in record
+    assert "regression_evidence" not in record
 
 
 def test_load_metrics_falls_back_on_invalid_json(tmp_path: Path) -> None:
@@ -175,6 +176,7 @@ def test_ci_history_missing_junit(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert record["status"] == "skipped"
     assert record["reason"] == "missing-junit-report"
     assert record["junit_path"] == str(junit_path)
+    assert "regression_evidence" not in record
 
 
 def test_main_handles_load_metrics_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -205,8 +207,9 @@ def test_main_handles_load_metrics_error(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert record["error"] == "bad"
     assert record["junit_path"] == str(junit_path)
     assert record["metrics_path"] == str(tmp_path / "ci-metrics.json")
-    assert record["regression_evidence"]["observed_failure"] is True
-    assert record["regression_evidence"]["regression_identified"] == "shallow-history-fetch"
+    assert "regression_evidence" not in record
+    assert "shallow_history_suspected" not in record
+    assert "regression_identified" not in record
 
 
 def test_main_removes_existing_classification_when_disabled(

@@ -439,11 +439,11 @@ def test_working_directory_propagates_to_steps() -> None:
     assert coverage_upload["with"]["path"] == "${{ env.PROJECT_ROOT }}/artifacts/coverage"
 
 
-def test_pinned_verifier_history_fetch_deepens_the_checkout_ref() -> None:
-    """origin/main history must not be the only deepened ref.
+def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) -> None:
+    """Execute the workflow shell against a local depth-1 pull merge checkout.
 
-    A depth-1 pull merge commit stays disconnected if only main is fetched, so
-    commits that are merely present fail the #4426 ancestor check.
+    The fixture substitutes only the pinned SHA; dates, fetch commands and the
+    ancestry check come from the production step. No GitHub access is needed.
     """
     steps = _load_workflow()["jobs"]["tests"]["steps"]
     step = next(
@@ -451,9 +451,82 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref() -> None:
     )
     script = step["run"]
     assert step["if"] == "${{ hashFiles('tests/test_verifier_4422_audit.py') != '' }}"
-    assert 'git fetch --no-tags --shallow-since="$since" origin main' in script
-    assert 'git fetch --no-tags --shallow-since="$since" origin "${GITHUB_REF}"' in script
-    assert "021ec67ef580c83a88402a1574e27ea34db14dde" in script
+    source = tmp_path / "source.git"
+    checkout = tmp_path / "checkout"
+    main_only_checkout = tmp_path / "main-only-checkout"
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Regression fixture",
+        "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+        "GIT_COMMITTER_NAME": "Regression fixture",
+        "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+        "GITHUB_REF": "refs/pull/1/merge",
+    }
+
+    def git(cwd: Path, *args: str, input: str | None = None, check: bool = True):
+        return subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            env=env,
+            input=input,
+            text=True,
+            capture_output=True,
+            check=check,
+            timeout=20,
+        )
+
+    git(tmp_path, "init", "--bare", "--initial-branch=main", str(source))
+    tree = git(source, "mktree", input="").stdout.strip()
+
+    def commit(day: int, *parents: str) -> str:
+        env["GIT_AUTHOR_DATE"] = env["GIT_COMMITTER_DATE"] = f"2026-10-{day}T12:00:00Z"
+        parent_args = [arg for parent in parents for arg in ("-p", parent)]
+        return git(source, "commit-tree", tree, *parent_args, input=f"day {day}\n").stdout.strip()
+
+    root = commit(16)
+    pin = commit(18, root)
+    main = commit(19, pin)
+    feature = commit(20, pin)
+    merge = commit(21, main, feature)
+    git(source, "update-ref", "refs/heads/main", main)
+    git(source, "update-ref", env["GITHUB_REF"], merge)
+    def shallow_checkout(path: Path) -> None:
+        git(tmp_path, "init", "--initial-branch=main", str(path))
+        git(path, "remote", "add", "origin", source.as_uri())
+        git(path, "fetch", "--depth=1", "origin", env["GITHUB_REF"])
+        git(path, "checkout", "--detach", "FETCH_HEAD")
+
+    shallow_checkout(checkout)
+
+    before = git(checkout, "merge-base", "--is-ancestor", pin, "origin/main", check=False)
+    assert before.returncode == 128, before.stderr
+    print(f"before (depth 1): pinned ancestry exit {before.returncode}: {before.stderr.strip()}")
+    shallow_checkout(main_only_checkout)
+    git(
+        main_only_checkout,
+        "fetch",
+        "--no-tags",
+        "--shallow-since=2026-10-17T00:00:00Z",
+        "origin",
+        "main",
+    )
+    git(main_only_checkout, "merge-base", "--is-ancestor", pin, "origin/main")
+    main_only = git(main_only_checkout, "merge-base", "--is-ancestor", pin, "HEAD", check=False)
+    assert main_only.returncode == 1, main_only.stderr
+    print(f"before (main-only fetch): checkout ancestry exit {main_only.returncode}")
+
+    completed = subprocess.run(
+        ["bash", "-c", script.replace("021ec67ef580c83a88402a1574e27ea34db14dde", pin)],
+        cwd=checkout,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    git(checkout, "merge-base", "--is-ancestor", pin, "origin/main")
+    git(checkout, "merge-base", "--is-ancestor", pin, "HEAD")
+    print("after (workflow fetch): pinned and checkout ancestry exit 0")
 
 
 # --- Coverage config / editable-install gating -----------------------------
