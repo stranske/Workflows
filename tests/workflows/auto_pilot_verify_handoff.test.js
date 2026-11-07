@@ -23,15 +23,6 @@ const HEAD = 'c'.repeat(40);
 const OTHER_HEAD = 'd'.repeat(40);
 const PRE_CHANGE_MAX_PAGES = 10;
 
-test('closed issue with verify:evaluate only remains on verify step', () => {
-  const result = determineNextStep({
-    issueState: 'closed',
-    hasVerify: true,
-    verifyHandoffBound: false,
-  });
-  assert.equal(result.nextStep, 'verify');
-});
-
 for (const [surface, workflowPath] of SURFACES) {
   function stepBlock(stepName) {
     const lines = fs.readFileSync(workflowPath, 'utf8').split('\n');
@@ -147,10 +138,7 @@ for (const [surface, workflowPath] of SURFACES) {
       labelCreateRaces: new Set(seed.labelCreateRaces || []),
       prLabels: new Map(Object.entries(seed.prLabels || {}).map(([k, v]) => [Number(k), new Set(v)])),
       issueLabels: new Set(seed.issueLabels || ['agents:auto-pilot']),
-      issueState: seed.issueState || 'open',
-      timeline: Object.hasOwn(seed, 'timeline')
-        ? seed.timeline
-        : [{ event: 'closed', id: 9001 }],
+      timeline: seed.timeline || [],
       dispatchError: seed.dispatchError || null,
       dispatchCreatesRun: seed.dispatchCreatesRun !== false,
       calls: [],
@@ -213,7 +201,7 @@ for (const [surface, workflowPath] of SURFACES) {
               data: {
                 number: params.issue_number,
                 title: 'Issue',
-                state: world.issueState,
+                state: 'open',
                 labels: [...world.issueLabels].map((n) => ({ name: n })),
               },
             };
@@ -308,10 +296,7 @@ for (const [surface, workflowPath] of SURFACES) {
     };
     const requireStub = (name) => {
       if (name.endsWith('/.github/scripts/github-api-with-retry.js')) return retryModule;
-      if (
-        name === './.github/scripts/auto_pilot_transitions.js'
-        || name.endsWith('/.github/scripts/auto_pilot_transitions.js')
-      ) {
+      if (name.endsWith('/.github/scripts/auto_pilot_transitions.js')) {
         return require('../../.github/scripts/auto_pilot_transitions.js');
       }
       throw new Error(`Unexpected require: ${name}`);
@@ -357,24 +342,6 @@ for (const [surface, workflowPath] of SURFACES) {
     world.removed.some((entry) => entry.issue === ISSUE && entry.name === 'agents:auto-pilot');
   const completionPosted = (world) =>
     world.comments.some((comment) => comment.body.includes('Auto-Pilot Complete'));
-
-  test(`${surface}: verify step documents absent/incomplete handoff without issue-only verify label`, () => {
-    const workflow = fs.readFileSync(workflowPath, 'utf8');
-    assert.match(workflow, /verify_handoff['"],\s*handoffState/);
-    assert.match(workflow, /verify_handoff_issue['"],\s*String\(issueNumber\)/);
-    assert.match(workflow, /truncated \? 'incomplete' : 'absent'/);
-    assert.doesNotMatch(
-      workflow,
-      /couldn't find linked merged PR[\s\S]*labels: \['verify:evaluate'\]/,
-    );
-    assert.match(workflow, /verify:pr-handoff/);
-    assert.match(workflow, /async function ensureLabel\(name, color, description\)/);
-    assert.match(workflow, /for \(let page = 1; page <= maxPages; page \+= 1\)/);
-    assert.match(workflow, /client\.rest\.pulls\.list\(\{/);
-    assert.match(workflow, /verification triggered on a merged source PR/);
-    assert.match(workflow, /determineNextStep\(buildDetermineNextStepEventFromEnv/);
-    assert.match(workflow, /verify:pr-handoff' && issue/);
-  });
 
   function redispatchFires(nextStep, verify) {
     return evaluateCondition(stepCondition('Re-dispatch for next step'), {
@@ -684,66 +651,5 @@ for (const [surface, workflowPath] of SURFACES) {
       payload: { inputs: { issue_number: '12' } },
     });
     assert.equal(exact.outputs.linked_pr, '902');
-  });
-
-  test(`${surface}: context: closure source PR is the merged closer, not a later unmerged reference`, async () => {
-    const crossRef = (number, body) => ({
-      event: 'cross-referenced',
-      source: {
-        issue: {
-          number,
-          body,
-          title: 'Work',
-          pull_request: {},
-          repository: { full_name: 'stranske/Workflows' },
-        },
-      },
-    });
-    const world = createWorld({
-      issueState: 'closed',
-      prs: [
-        {
-          number: 101,
-          merged_at: null,
-          title: 'follow-up',
-          body: `Closes #${ISSUE}`,
-          head: { sha: OTHER_HEAD },
-        },
-        mergedPr(100, ISSUE),
-      ],
-      timeline: [
-        { event: 'closed', id: 9001 },
-        crossRef(100, `<!-- meta:issue:${ISSUE} -->`),
-        crossRef(101, `Closes #${ISSUE}`),
-      ],
-    });
-    const result = await runStep('Determine context', { world });
-    assert.equal(result.outcome, 'success', result.failures.join('; ') || result.error?.message);
-    assert.equal(result.outputs.linked_pr, '101');
-    assert.equal(result.outputs.closure_source_pr, '100');
-    assert.equal(result.outputs.closure_id, '9001');
-  });
-
-  test(`${surface}: verify: handoff records the merged closer when a newer unmerged PR also references the issue`, async () => {
-    const world = createWorld({
-      prs: [
-        {
-          number: 101,
-          merged_at: null,
-          title: 'follow-up',
-          body: `Closes #${ISSUE}`,
-          head: { sha: OTHER_HEAD },
-        },
-        mergedPr(100, ISSUE),
-      ],
-    });
-    const result = await runVerify(world);
-    assert.equal(result.outputs.verify_handoff, 'found');
-    assert.equal(result.outputs.verify_handoff_source_pr, '100');
-  });
-
-  test(`${surface}: cycle cap recognizes the bold step comments the workflow writes`, () => {
-    const workflow = fs.readFileSync(workflowPath, 'utf8');
-    assert.match(workflow, /c\.body\.includes\('🤖 \*\*Auto-pilot step'\)/);
   });
 }

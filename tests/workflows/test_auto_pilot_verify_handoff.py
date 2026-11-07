@@ -42,7 +42,6 @@ def _run_verify(
     prs: list[dict[str, Any]],
     workflow: Path,
     *,
-    fixture_overrides: dict[str, Any] | None = None,
     pr_labels: tuple[str, ...] = (),
     fail_on_page: int | None = None,
     dispatch_unavailable: bool = False,
@@ -58,8 +57,6 @@ def _run_verify(
 
     script = _extract_verify_script(workflow)
     harness = r"""
-import { createRequire } from 'node:module';
-const requireModule = createRequire(import.meta.url);
 const fixture = JSON.parse(process.env.FIXTURE);
 const outputs = {};
 const failures = [];
@@ -135,9 +132,6 @@ const github = {
       },
     },
     issues: {
-      listEventsForTimeline: async () => ({
-        data: fixture.timeline || [{ event: 'closed', id: fixture.closureId || 9001 }],
-      }),
       createComment: async (params) => {
         comments.push({ issue_number: params.issue_number, body: params.body });
         return { data: {} };
@@ -189,20 +183,8 @@ const withRetry = async (fn) => fn(github);
 const requireStub = (name) => {
   if (name === './.github/scripts/github-api-with-retry.js') {
     return {
-      createTokenAwareRetry: async () => ({
-        withRetry,
-        paginateWithRetry: async (_method, params) => {
-          const response = await github.rest.issues.listEventsForTimeline(params);
-          return response.data;
-        },
-      }),
+      createTokenAwareRetry: async () => ({ withRetry }),
     };
-  }
-  if (
-    name === './.github/scripts/auto_pilot_transitions.js'
-    || name.endsWith('/.github/scripts/auto_pilot_transitions.js')
-  ) {
-    return requireModule(process.env.TRANSITIONS_MODULE);
   }
   throw new Error('Unexpected require: ' + name);
 };
@@ -240,11 +222,6 @@ process.stdout.write(JSON.stringify({
             **os.environ,
             "SCRIPT": script,
             "ISSUE_NUMBER": str(ISSUE_NUMBER),
-            "TRANSITIONS_MODULE": str(
-                ROOT / "templates/consumer-repo/.github/scripts/auto_pilot_transitions.js"
-                if "consumer-repo" in workflow.parts
-                else ROOT / ".github/scripts/auto_pilot_transitions.js"
-            ),
             "FIXTURE": json.dumps(
                 {
                     "prs": prs,
@@ -253,7 +230,6 @@ process.stdout.write(JSON.stringify({
                     "failOnPage": fail_on_page,
                     "dispatchUnavailable": dispatch_unavailable,
                     "existingRuns": existing_runs or [],
-                    **(fixture_overrides or {}),
                 }
             ),
         },
@@ -403,40 +379,6 @@ def test_handoff_successful_pr_bound_labels_merged_pr_and_issue(workflow: Path) 
         for entry in result["labelsAdded"]
     )
     assert all(entry["name"] != "agents:auto-pilot" for entry in result["labelsRemoved"])
-
-
-def test_handoff_success_persists_closure_bound_identity_marker(workflow: Path) -> None:
-    """Successful verify records a durable handoff marker tied to the latest closure."""
-    result = _run_verify(
-        [_matching_pr(555)],
-        workflow,
-        fixture_overrides={"closureId": 4242},
-    )
-
-    assert result["outputs"].get("verify_handoff") == "found"
-    assert result["outputs"].get("verify_handoff_closure_id") == "4242"
-    assert result["outputs"].get("verify_handoff_source_pr") == "555"
-    assert any(
-        comment["issue_number"] == ISSUE_NUMBER
-        and "auto-pilot-verify-handoff:v1" in comment["body"]
-        and '"closureId":"4242"' in comment["body"].replace(" ", "")
-        and '"sourcePr":"555"' in comment["body"].replace(" ", "")
-        for comment in result["comments"]
-    )
-
-
-def test_handoff_without_closure_event_withholds_identity_marker(workflow: Path) -> None:
-    result = _run_verify(
-        [_matching_pr(555)],
-        workflow,
-        fixture_overrides={"timeline": [{"event": "commented", "id": 1}]},
-    )
-
-    assert result["failures"]
-    assert result["outputs"].get("verify_handoff") != "found"
-    assert not any(
-        "auto-pilot-verify-handoff:v1" in comment["body"] for comment in result["comments"]
-    )
 
 
 def _verifier_run(

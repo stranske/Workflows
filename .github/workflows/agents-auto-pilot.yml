@@ -95,8 +95,6 @@ jobs:
           custom-predicate: >-
             event_name == 'workflow_dispatch' ||
             (action == 'labeled' && label.name == 'agents:auto-pilot') ||
-            (action == 'labeled' && label.name == 'verify:pr-handoff' && issue &&
-              contains(issue.labels[].name, 'agents:auto-pilot')) ||
             (action == 'closed' && (
               (issue && contains(issue.labels[].name, 'agents:auto-pilot')) ||
               (pull_request && contains(pull_request.labels[].name, 'agents:auto-pilot'))
@@ -291,7 +289,6 @@ jobs:
         with:
           script: |
             const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
-            const autoPilotTransitions = require(`${scriptsPath}/.github/scripts/auto_pilot_transitions.js`);
             const retryHelpers = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
             const { createTokenAwareRetry } = retryHelpers;
             const isRateLimitError = retryHelpers.isRateLimitError || ((error) => {
@@ -494,58 +491,6 @@ jobs:
               }
             }
 
-            const {
-              findLatestClosureEvent,
-              findLatestVerifyHandoff,
-              selectMergedClosingPr,
-            } = autoPilotTransitions;
-            const latestClosure = findLatestClosureEvent(timelineEvents);
-            const persistedHandoff = findLatestVerifyHandoff(comments);
-            // Same merged-PR rule as Execute step - Verify. The last timeline
-            // reference can be a later unmerged PR and must not become the
-            // closure source, or a successful handoff can never reach done.
-            let closureSourcePr = '';
-            if (String(issue.state || '').toLowerCase() === 'closed') {
-              const maxPages = 10;
-              const perPage = 100;
-              for (let page = 1; page <= maxPages; page += 1) {
-                let pageItems = [];
-                try {
-                  const response = await withRetry((client) => client.rest.pulls.list({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    state: 'closed',
-                    sort: 'updated',
-                    direction: 'desc',
-                    per_page: perPage,
-                    page,
-                  }));
-                  pageItems = Array.isArray(response?.data) ? response.data : [];
-                } catch (error) {
-                  if (deferForRateLimit('merged source PR scan', error)) return;
-                  throw error;
-                }
-                const selected = selectMergedClosingPr(pageItems, issueNumber);
-                if (selected?.number) {
-                  closureSourcePr = selected.number;
-                  break;
-                }
-                if (pageItems.length < perPage) {
-                  break;
-                }
-              }
-            }
-            core.setOutput('closure_id', latestClosure?.id != null ? String(latestClosure.id) : '');
-            core.setOutput('closure_source_pr', closureSourcePr ? String(closureSourcePr) : '');
-            core.setOutput(
-              'verify_handoff_closure_id',
-              persistedHandoff?.closureId ? String(persistedHandoff.closureId) : '',
-            );
-            core.setOutput(
-              'verify_handoff_source_pr',
-              persistedHandoff?.sourcePr ? String(persistedHandoff.sourcePr) : '',
-            );
-
             core.setOutput('issue_number', issueNumber);
             core.setOutput('issue_title', issue.title);
             core.setOutput('issue_state', issue.state);
@@ -617,10 +562,7 @@ jobs:
             }
 
             const stepComments = allComments.filter(c =>
-              typeof c.body === 'string' && (
-                c.body.includes('🤖 **Auto-pilot step') ||
-                c.body.includes('🤖 Auto-pilot step')
-              )
+              typeof c.body === 'string' && c.body.includes('🤖 Auto-pilot step')
             );
 
             const stepCount = stepComments.length;
@@ -688,14 +630,8 @@ jobs:
         id: next
         env:
           FORCE_STEP: ${{ inputs.force_step }}
-          VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
-          CLOSURE_ID: ${{ steps.context.outputs.closure_id }}
-          CLOSURE_SOURCE_PR: ${{ steps.context.outputs.closure_source_pr }}
-          VERIFY_HANDOFF_CLOSURE_ID: ${{ steps.context.outputs.verify_handoff_closure_id }}
-          VERIFY_HANDOFF_SOURCE_PR: ${{ steps.context.outputs.verify_handoff_source_pr }}
         run: |
           SCRIPTS_PATH="${WORKFLOWS_SCRIPTS_PATH:-$GITHUB_WORKSPACE}"
-          export WORKFLOWS_SCRIPTS_PATH="$SCRIPTS_PATH"
           ISSUE_STATE="${{ steps.context.outputs.issue_state }}"
           HAS_FORMAT="${{ steps.context.outputs.has_format }}"
           HAS_OPTIMIZER_OUTPUT="${{ steps.context.outputs.has_optimizer_output }}"
@@ -707,7 +643,7 @@ jobs:
           # Force step if specified (not 'auto')
           if [[ -n "$FORCE_STEP" && "$FORCE_STEP" != "auto" ]]; then
             set -e
-            FORCE_STEP="$FORCE_STEP" node - <<'NODE'
+            WORKFLOWS_SCRIPTS_PATH="$SCRIPTS_PATH" FORCE_STEP="$FORCE_STEP" node - <<'NODE'
           const fs = require('fs');
           const { determineNextStep } = require(
             `${process.env.WORKFLOWS_SCRIPTS_PATH}/.github/scripts/auto_pilot_transitions.js`
@@ -728,8 +664,7 @@ jobs:
           if [[ -n "$LINKED_PR" ]] && ! LINKED_PR="$LINKED_PR" node - <<'NODE' > "$PR_STATE_FILE"
           (async () => {
             const { Octokit } = require('@octokit/rest');
-            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
-            const { createTokenAwareRetry } = require(`${scriptsPath}/.github/scripts/github-api-with-retry.js`);
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
             const core = { info: () => {}, warning: console.warn, debug: () => {} };
             const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
             const { paginateWithRetry } = await createTokenAwareRetry({
@@ -772,20 +707,24 @@ jobs:
             PR_STATE_FETCH_FAILED="$PR_STATE_FETCH_FAILED" \
             node - <<'NODE'
           const fs = require('fs');
-          const {
-            buildDetermineNextStepEventFromEnv,
-            determineNextStep,
-          } = require(
+          const { determineNextStep } = require(
             `${process.env.WORKFLOWS_SCRIPTS_PATH}/.github/scripts/auto_pilot_transitions.js`
           );
 
           const keepaliveState = process.env.PR_STATE_FILE
             ? fs.readFileSync(process.env.PR_STATE_FILE, 'utf8')
             : '';
-          const result = determineNextStep(buildDetermineNextStepEventFromEnv({
-            ...process.env,
-            KEEPALIVE_STATE: keepaliveState,
-          }));
+          const result = determineNextStep({
+            issueState: process.env.ISSUE_STATE,
+            hasFormat: process.env.HAS_FORMAT,
+            hasOptimizerOutput: process.env.HAS_OPTIMIZER_OUTPUT,
+            hasApply: process.env.HAS_APPLY,
+            hasAgent: process.env.HAS_AGENT,
+            linkedPr: process.env.LINKED_PR,
+            hasVerify: process.env.HAS_VERIFY,
+            keepaliveState,
+            prStateFetchFailed: process.env.PR_STATE_FETCH_FAILED === 'true',
+          });
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `next_step=${result.nextStep}\n`);
           console.log(result.message);
           NODE
@@ -2379,10 +2318,8 @@ jobs:
         with:
           github-token: ${{ steps.app_token.outputs.token || github.token }}
           script: |
-            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const { selectMergedClosingPr } = require(`${scriptsPath}/.github/scripts/auto_pilot_transitions.js`);
-            const { withRetry, paginateWithRetry } = await createTokenAwareRetry({
+            const { withRetry } = await createTokenAwareRetry({
               github,
               core,
               env: process.env,
@@ -2398,6 +2335,26 @@ jobs:
             let truncated = false;
             let linkedPr = null;
 
+            // Helper to detect explicit closing/fixing references to this issue
+            function matchesIssueReference(text, num) {
+              if (!text) return false;
+              // Match: closes #123, fixes #123, resolves #123 (and variations)
+              const pattern = new RegExp(
+                `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`, 'i'
+              );
+              return pattern.test(text);
+            }
+
+            function matchesLinkedIssue(pr) {
+              return Boolean(
+                pr?.merged_at && (
+                  new RegExp(`meta:issue:${issueNumber}(?!\\d)`).test(pr.body || '') ||
+                  matchesIssueReference(pr.body, issueNumber) ||
+                  matchesIssueReference(pr.title, issueNumber)
+                )
+              );
+            }
+
             for (let page = 1; page <= maxPages; page += 1) {
               const { data: pageItems } = await withRetry((client) => client.rest.pulls.list({
                 owner: context.repo.owner,
@@ -2409,7 +2366,7 @@ jobs:
                 page,
               }));
               const batch = Array.isArray(pageItems) ? pageItems : [];
-              linkedPr = selectMergedClosingPr(batch, issueNumber);
+              linkedPr = batch.find((pr) => matchesLinkedIssue(pr)) || null;
               if (linkedPr) {
                 break;
               }
@@ -2446,39 +2403,6 @@ jobs:
             }
 
             core.info(`Found merged PR #${linkedPr.number} for issue #${issueNumber}`);
-
-            const {
-              findLatestClosureEvent,
-              formatVerifyHandoffMarker,
-            } = require(`${scriptsPath}/.github/scripts/auto_pilot_transitions.js`);
-            let closureTimeline = [];
-            try {
-              closureTimeline = await paginateWithRetry(
-                github.rest.issues.listEventsForTimeline,
-                {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  per_page: 100,
-                }
-              );
-            } catch (timelineError) {
-              core.setFailed(
-                `Could not read closure timeline for issue #${issueNumber}: ${timelineError?.message || timelineError}`,
-              );
-              return;
-            }
-            const latestClosure = findLatestClosureEvent(closureTimeline);
-            if (!latestClosure?.id) {
-              core.setFailed(
-                `Could not resolve closure event id for issue #${issueNumber}; handoff identity withheld`,
-              );
-              return;
-            }
-            const handoffIdentity = {
-              closureId: latestClosure.id,
-              sourcePr: linkedPr.number,
-            };
 
             async function ensureLabel(name, color, description) {
               try {
@@ -2665,22 +2589,6 @@ jobs:
               issue_number: issueNumber,
               labels: ['verify:evaluate', 'verify:pr-handoff']
             }));
-
-            const marker = formatVerifyHandoffMarker(handoffIdentity);
-            await withRetry((client) => client.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              body: [
-                '🤖 **Auto-pilot**: Recorded PR-bound verification handoff identity.',
-                '',
-                marker,
-              ].join('\n'),
-            }));
-            core.setOutput('verify_handoff', 'found');
-            core.setOutput('verify_handoff_issue', String(issueNumber));
-            core.setOutput('verify_handoff_closure_id', String(handoffIdentity.closureId));
-            core.setOutput('verify_handoff_source_pr', String(handoffIdentity.sourcePr));
 
       - name: Metrics - End verify timer
         if: always() && steps.next.outputs.next_step == 'verify'
@@ -4261,19 +4169,9 @@ jobs:
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           VERIFY_HANDOFF: ${{ steps.verify_step.outputs.verify_handoff }}
           VERIFY_HANDOFF_BOUND: ${{ steps.context.outputs.verify_handoff_bound }}
-          CLOSURE_ID: ${{ steps.context.outputs.closure_id }}
-          CLOSURE_SOURCE_PR: ${{ steps.context.outputs.closure_source_pr }}
-          VERIFY_HANDOFF_CLOSURE_ID: ${{ steps.context.outputs.verify_handoff_closure_id }}
-          VERIFY_HANDOFF_SOURCE_PR: ${{ steps.context.outputs.verify_handoff_source_pr }}
         with:
           script: |
-            const scriptsPath = process.env.WORKFLOWS_SCRIPTS_PATH || process.env.GITHUB_WORKSPACE;
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
-            const {
-              buildDetermineNextStepEventFromEnv,
-              determineNextStep,
-              selectMergedClosingPr,
-            } = require(`${scriptsPath}/.github/scripts/auto_pilot_transitions.js`);
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -4283,15 +4181,24 @@ jobs:
             });
             const issueNumber = parseInt(process.env.ISSUE_NUMBER);
 
-            const completion = determineNextStep(buildDetermineNextStepEventFromEnv({
-              ISSUE_STATE: 'closed',
-              HAS_VERIFY: 'true',
-              VERIFY_HANDOFF_BOUND: process.env.VERIFY_HANDOFF_BOUND,
-              CLOSURE_ID: process.env.CLOSURE_ID,
-              CLOSURE_SOURCE_PR: process.env.CLOSURE_SOURCE_PR,
-              VERIFY_HANDOFF_CLOSURE_ID: process.env.VERIFY_HANDOFF_CLOSURE_ID,
-              VERIFY_HANDOFF_SOURCE_PR: process.env.VERIFY_HANDOFF_SOURCE_PR,
-            }));
+            // Helper to check if a PR matches this issue
+            function matchesIssueReference(text, num) {
+              if (!text) return false;
+              const pattern = new RegExp(
+                `\\b(close[sd]?|fixe?[sd]?|resolve[sd]?)\\s+#${num}\\b`, 'i'
+              );
+              return pattern.test(text);
+            }
+
+            function matchesLinkedIssue(pr, issueNum) {
+              return Boolean(
+                pr?.merged_at && (
+                  new RegExp(`meta:issue:${issueNum}(?!\\d)`).test(pr.body || '') ||
+                  matchesIssueReference(pr.body, issueNum) ||
+                  matchesIssueReference(pr.title, issueNum)
+                )
+              );
+            }
 
             function isApplicableVerifierRun(run, prNumber, headSha) {
               if (!run || !headSha) return false;
@@ -4323,7 +4230,7 @@ jobs:
                   page,
                 }));
                 const batch = Array.isArray(pageItems) ? pageItems : [];
-                linkedPr = selectMergedClosingPr(batch, issueNum);
+                linkedPr = batch.find((pr) => matchesLinkedIssue(pr, issueNum)) || null;
                 if (linkedPr) break;
                 if (batch.length < perPage) break;
               }
@@ -4364,42 +4271,30 @@ jobs:
               return Boolean(existingRun);
             }
 
-            // Current closure-bound identity completes the issue. A handoff
-            // recorded in this run is also direct evidence when no identity was
-            // loaded. Label-only proof (no identity yet) must be re-checked
-            // against a real PR/head verifier run. A present but non-matching
-            // identity is stale and must not be repaired by an older run.
-            const identityPresent = [
-              'CLOSURE_ID',
-              'CLOSURE_SOURCE_PR',
-              'VERIFY_HANDOFF_CLOSURE_ID',
-              'VERIFY_HANDOFF_SOURCE_PR',
-            ].some((name) => String(process.env[name] || '').trim() !== '');
-            const recordedThisRun = process.env.VERIFY_HANDOFF === 'found';
-            let verifyTriggered = completion.nextStep === 'done' ||
-              (recordedThisRun && !identityPresent);
-            if (
-              !verifyTriggered &&
-              process.env.VERIFY_HANDOFF_BOUND === 'true' &&
-              !identityPresent
-            ) {
+            // Accept direct evidence from verify_step in this execution.
+            let verifyTriggered = process.env.VERIFY_HANDOFF === 'found';
+            
+            // If verify_step did not run in this execution but the issue has a
+            // verify:pr-handoff label, re-check the actual verification state to
+            // prevent stale labels from bypassing verification.
+            if (!verifyTriggered && process.env.VERIFY_HANDOFF_BOUND === 'true') {
               core.info('Re-validating verification handoff from label presence');
               verifyTriggered = await checkVerificationEvidence(issueNumber, withRetry);
             }
-
+            
             if (!verifyTriggered) {
               await withRetry((client) => client.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: `🤖 **Auto-pilot**: Issue #${issueNumber} reached Report - Done without a current PR-bound verification handoff.
+                body: `🤖 **Auto-pilot**: Issue #${issueNumber} reached Report - Done without a recorded PR-bound verification handoff.
 
-            Verification proof is missing or stale for this closure. \`agents:auto-pilot\` remains for retry.
+            Verification was **not** triggered. \`agents:auto-pilot\` remains for retry.
 
             **Owner / retry:** ensure a merged source PR closes #${issueNumber}, then re-run with \`force_step=verify\`.`
               }));
               core.setFailed(
-                `Issue #${issueNumber}: verification handoff missing or stale; refusing done disposition`,
+                `Issue #${issueNumber}: verification handoff missing; refusing done disposition`,
               );
               return;
             }

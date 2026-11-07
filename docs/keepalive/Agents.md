@@ -78,28 +78,6 @@ errors, and clears the provider backoff marker.
 
 ### Critical Integration Points
 
-Closed-issue transitions require `verifyHandoffBound` plus matching identities:
-`closure: { id, sourcePr }` and `verifyHandoff: { closureId, sourcePr }`.
-The workflow must read the latest closed event from the issue timeline and
-persist its ID and merged source PR after a successful verifier handoff. The
-handoff must come from automation-owned state for this issue. A label alone is
-insufficient, and reopening followed by another closure requires a fresh
-handoff even if the source PR is unchanged. Missing or mismatched identities
-keep the issue at `verify`.
-
-`agents-auto-pilot.yml` reads the latest closed timeline event and accepts an
-`auto-pilot-verify-handoff:v1` marker only from the automation-owned writer
-class. The closure source PR is the same merged closing PR the verify step
-records. The event gate admits issue `verify:pr-handoff` label events when
-`agents:auto-pilot` is present, and redispatch runs only when
-`verify_handoff == 'found'`. Report - Done completes only when that persisted
-marker matches the current closure. A stale, missing, or forged marker keeps
-`agents:auto-pilot` and stays on `verify`.
-
-After merge, maintainers run Maint 68 to regenerate the consumer candidate and
-check the subsequent Maint 71 report for the original review finding. Local
-source tests do not establish that deployment or live acceptance.
-
 1. **PR body is the contract**: Auto-pilot writes structured tasks into the PR body. Keepalive reads these tasks via the task appendix. If the PR body format changes, both must be updated together.
 
 2. **Labels are handoff signals**: Auto-pilot applies the selected registry-backed `agent:<name>` label (for example, `agent:codex` or `agent:claude`) and keepalive activates. Every non-transient run/fix failure records automation-owned recovery state and explicitly dispatches a bounded retry through the active workflow (`agents-keepalive-loop.yml` in the root lane or `agents-81-gate-followups.yml` in consolidated consumers). A failed direct dispatch defers that durable lease for the hourly sweep instead of adding a sticky `agent:retry` label; after 3 failures, the current strategy pauses for the same hourly recovery sweep. It does not infer that a human is required. Each hourly sweep wakeup bypasses state debounce so current state is re-evaluated, while ordinary wakeups retain completed-runner debounce. A possible authority boundary enters an independent scheduled challenge whose durable fingerprint is derived only from the routed agent's registry-backed required credentials, shared registry authority credentials, finite permission targets, and HTTP 401/403; arbitrary runner text is never copied or persisted. Both the root and consolidated consumer lanes require a dedicated keepalive or Workflows App token before marking an agent running or writing the final summary, so every mutation of App-owned state uses the same trusted writer class. Every keepalive reader selects durable state only from a marked summary comment owned by `stranske-keepalive[bot]`, `agents-workflows-bot[bot]`, the identity-checked PAT fallbacks `stranske` and `stranske-automation-bot`, or the migration-only legacy `github-actions[bot]` writer; arbitrary users cannot override an earlier trusted state marker. When the selected App encounters a summary from the known legacy writer or the other dedicated App, it preserves the parsed state in a new comment owned by that App because editing the old comment would retain its original author. The hourly sweep signs a v2 claim binding repository, PR, current ledger generation, boundary fingerprint, due time, expiry, head, nonce, and exact sweep run/attempt. The claim grants a debounce bypass only after a conditional single-use receipt is written to the PR-wide authority ledger on `keepalive-authority-state`. A generic retry, replayed claim, or another workflow sharing `github-actions[bot]` cannot grant or confirm the challenge; the owning downstream attempt must present its receipt and actual worker execution evidence. Missing signing material fails closed to an ordinary non-forced recheck. A matching second failure may record the projected human action and apply `needs-human`. A different auth failure stays automation-owned and is challenged again on the next sweep.

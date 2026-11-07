@@ -129,20 +129,11 @@ for(const surface of autopilotSurfaces)test(`${surface}: actual ordinary context
   const issue={number:9,title:'Native ordinary issue',body,state:'open',labels:[{name:'agent:codex'}]};
   const issues={get:async args=>{calls.push(['get',args]);return {data:issue};},listComments:async()=>({data:[]}),listEventsForTimeline:async()=>({data:[]})};
   const github={rest:{issues,actions:new Proxy({},{get(){throw Error('unrelated expired/failed history is unavailable');}})}};
-  const inertRequire=name=>{
-    assert.ok(name.endsWith('/github-api-with-retry.js') || name.endsWith('/auto_pilot_transitions.js'));
-    if (name.endsWith('/auto_pilot_transitions.js')) {
-      return {
-        findLatestClosureEvent: () => null,
-        findLatestVerifyHandoff: () => null,
-      };
-    }
-    return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github),paginateWithRetry:async(fn,args)=>(await fn(args)).data})};
-  };
+  const inertRequire=name=>{assert.ok(name.endsWith('/github-api-with-retry.js'));return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github),paginateWithRetry:async(fn,args)=>(await fn(args)).data})};};
   await run(row,inertRequire,{github,core,env:{WORKFLOWS_SCRIPTS_PATH:'/inert/trusted'},context:{runId:900,repo:{owner:'stranske',repo:'example'},eventName:'workflow_dispatch',payload:{inputs:{issue_number:"9'); throw Error('never execute'); //"}}}});
   assert.equal(calls.length,1);assert.equal(calls[0][1].issue_number,9);assert.equal(core.outputs.should_continue,'true');results.push(core.outputs);
  }
- assert.deepEqual(results[0],results[1]);assert.deepEqual(results[0],{issue_number:9,issue_title:'Native ordinary issue',issue_state:'open',should_continue:'true',has_format:'false',has_optimize:'false',has_optimizer_output:'false',has_apply:'false',has_agent:'true',has_autofix:'false',has_automerge:'false',has_verify:'false',verify_handoff_bound:'false',linked_pr:'',closure_id:'',closure_source_pr:'',verify_handoff_closure_id:'',verify_handoff_source_pr:''});
+ assert.deepEqual(results[0],results[1]);assert.deepEqual(results[0],{issue_number:9,issue_title:'Native ordinary issue',issue_state:'open',should_continue:'true',has_format:'false',has_optimize:'false',has_optimizer_output:'false',has_apply:'false',has_agent:'true',has_autofix:'false',has_automerge:'false',has_verify:'false',verify_handoff_bound:'false',linked_pr:''});
 });
 for(const surface of autopilotSurfaces)test(`${surface}: ordinary pause/human guards and format wakeup remain intact`,async()=>{
  const source=read(surface);assert.match(script(step(source,'Determine context')),/labels\.includes\('needs-human'\)/);assert.match(script(step(source,'Determine context')),/labels\.includes\('agents:auto-pilot-pause'\)/);

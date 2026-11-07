@@ -1,7 +1,5 @@
 'use strict';
 
-const { parseStateComment } = require('./keepalive_state.js');
-
 const STATES = Object.freeze({
   CLOSED_VERIFIED: 'closed-verified',
   CLOSED_NEEDS_VERIFY: 'closed-needs-verify',
@@ -91,93 +89,28 @@ function normalizeForceStep(forceStep) {
   return step;
 }
 
-const VERIFY_HANDOFF_MARKER_LINE = new RegExp(
-  '^<!--\\s*auto-pilot-verify-handoff:v1\\s+(\\{[^]*\\})\\s*-->$',
-);
-
-function lineOutsideStructuralContext(line, { inFence, fenceDelim }) {
-  const t = String(line ?? '');
-  const trimmed = t.trim();
-  if (!trimmed) {
-    return { inFence, fenceDelim, usable: false };
-  }
-  if (inFence) {
-    if (fenceDelim && trimmed === fenceDelim) {
-      return { inFence: false, fenceDelim: '', usable: false };
-    }
-    return { inFence, fenceDelim, usable: false };
-  }
-  if (/^(`{3,}|~{3,})/.test(trimmed)) {
-    const delim = trimmed.match(/^(`{3,}|~{3,})/)[0];
-    return { inFence: true, fenceDelim: delim, usable: false };
-  }
-  if (trimmed.startsWith('>')) {
-    return { inFence, fenceDelim, usable: false };
-  }
-  return { inFence, fenceDelim, usable: true };
-}
-
-function findStandaloneVerifyHandoffMarkerLine(body) {
-  const text = String(body ?? '');
-  let inFence = false;
-  let fenceDelim = '';
-  const lines = text.split(/\r?\n/);
-  let latestMatch = null;
-  for (let i = 0; i < lines.length; i += 1) {
-    const ctx = lineOutsideStructuralContext(lines[i], { inFence, fenceDelim });
-    inFence = ctx.inFence;
-    fenceDelim = ctx.fenceDelim;
-    if (!ctx.usable) {
-      continue;
-    }
-    const trimmed = lines[i].trim();
-    const match = trimmed.match(VERIFY_HANDOFF_MARKER_LINE);
-    if (match) {
-      latestMatch = match[1];
-    }
-  }
-  return latestMatch;
-}
-
 function isKeepaliveTasksComplete(body) {
   const text = String(body ?? '');
-  let inFence = false;
-  let fenceDelim = '';
-  const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i += 1) {
-    const ctx = lineOutsideStructuralContext(lines[i], { inFence, fenceDelim });
-    inFence = ctx.inFence;
-    fenceDelim = ctx.fenceDelim;
-    if (!ctx.usable) {
-      continue;
-    }
-    const trimmed = lines[i].trim();
-    const parsed = parseStateComment(trimmed);
-    if (!parsed || !parsed.data || typeof parsed.data !== 'object') {
-      continue;
-    }
-    const data = parsed.data;
-    if (data.last_action === 'stop' && data.last_reason === 'tasks-complete') {
-      return true;
-    }
-  }
-  return false;
+  return text.includes('"last_action":"stop"') &&
+    text.includes('"last_reason":"tasks-complete"');
+}
+
+function isPositiveId(value) {
+  return (typeof value === 'string' || Number.isSafeInteger(value)) &&
+    /^[1-9]\d*$/.test(normalizeText(value));
 }
 
 function hasCurrentVerifyHandoff(event) {
-  // A label is only a signal. The workflow must supply the current closure
+  // A label is only a signal. The caller must supply the current closure
   // from the issue timeline and the identity recorded after the PR handoff.
   // Closure event IDs change even when the same PR closes a reopened issue.
   const closure = event.closure;
   const handoff = event.verifyHandoff;
-  const isId = (value) =>
-    (typeof value === 'string' || Number.isSafeInteger(value)) &&
-    /^[1-9]\d*$/.test(normalizeText(value));
   return normalizeBoolean(event.verifyHandoffBound) &&
-    isId(closure?.id) &&
-    isId(closure?.sourcePr) &&
-    isId(handoff?.closureId) &&
-    isId(handoff?.sourcePr) &&
+    isPositiveId(closure?.id) &&
+    isPositiveId(closure?.sourcePr) &&
+    isPositiveId(handoff?.closureId) &&
+    isPositiveId(handoff?.sourcePr) &&
     normalizeText(closure.id) === normalizeText(handoff.closureId) &&
     normalizeText(closure.sourcePr) === normalizeText(handoff.sourcePr);
 }
@@ -299,83 +232,6 @@ function redispatchForceStep(currentStep) {
   return nextStepMap[step] || 'auto';
 }
 
-const VERIFY_HANDOFF_MARKER_PREFIX = '<!-- auto-pilot-verify-handoff:v1 ';
-
-// Same automation-owned writer class as keepalive state. Bot and user
-// logins stay in separate sets so a non-bot account cannot satisfy a bot login.
-const TRUSTED_VERIFY_HANDOFF_BOT_LOGINS = new Set([
-  'agents-workflows-bot[bot]',
-  'stranske-keepalive[bot]',
-  'github-actions[bot]',
-]);
-const TRUSTED_VERIFY_HANDOFF_USER_LOGINS = new Set([
-  'stranske',
-  'stranske-automation-bot',
-]);
-
-function isPositiveId(value) {
-  return (typeof value === 'string' || Number.isSafeInteger(value)) &&
-    /^[1-9]\d*$/.test(normalizeText(value));
-}
-
-function normalizeHandoffIdentity(identity) {
-  if (!identity || typeof identity !== 'object') {
-    return null;
-  }
-  const closureId = identity.closureId ?? identity.id;
-  const sourcePr = identity.sourcePr;
-  if (!isPositiveId(closureId) || !isPositiveId(sourcePr)) {
-    return null;
-  }
-  return {
-    closureId: normalizeText(closureId),
-    sourcePr: normalizeText(sourcePr),
-  };
-}
-
-function formatVerifyHandoffMarker(identity) {
-  const normalized = normalizeHandoffIdentity(identity);
-  if (!normalized) {
-    throw new Error('Invalid verify handoff identity for marker');
-  }
-  return `${VERIFY_HANDOFF_MARKER_PREFIX}${JSON.stringify(normalized)} -->`;
-}
-
-function parseVerifyHandoffMarker(text) {
-  const jsonSlice = findStandaloneVerifyHandoffMarkerLine(text);
-  if (!jsonSlice) {
-    return null;
-  }
-  try {
-    return normalizeHandoffIdentity(JSON.parse(jsonSlice));
-  } catch {
-    return null;
-  }
-}
-
-function isTrustedVerifyHandoffAuthor(comment) {
-  const type = normalizeText(comment?.user?.type).toLowerCase();
-  const login = normalizeText(comment?.user?.login).toLowerCase();
-  return (type === 'bot' && TRUSTED_VERIFY_HANDOFF_BOT_LOGINS.has(login))
-    || (type === 'user' && TRUSTED_VERIFY_HANDOFF_USER_LOGINS.has(login));
-}
-
-function findLatestVerifyHandoff(comments) {
-  const entries = Array.isArray(comments) ? [...comments].reverse() : [];
-  for (const comment of entries) {
-    // A marker is automation-owned state only when its author is in the
-    // trusted writer class. Any other commenter is ignored.
-    if (!isTrustedVerifyHandoffAuthor(comment)) {
-      continue;
-    }
-    const parsed = parseVerifyHandoffMarker(comment?.body);
-    if (parsed) {
-      return parsed;
-    }
-  }
-  return null;
-}
-
 function textReferencesIssue(text, issueNumber) {
   const num = normalizeText(issueNumber);
   if (!/^[1-9]\d*$/.test(num)) {
@@ -400,66 +256,18 @@ function selectMergedClosingPr(pulls, issueNumber) {
   ) || null;
 }
 
-function findLatestClosureEvent(timelineEvents) {
-  let latest = null;
-  for (const entry of timelineEvents || []) {
-    if (entry?.event === 'closed' && entry.id != null) {
-      latest = entry;
-    }
-  }
-  if (!latest) {
-    return null;
-  }
-  return { id: latest.id };
-}
-
-function buildDetermineNextStepEventFromEnv(env = process.env) {
-  const readId = (name) => {
-    const value = normalizeText(env[name]);
-    return isPositiveId(value) ? value : undefined;
-  };
-  const closureId = readId('CLOSURE_ID');
-  const closureSourcePr = readId('CLOSURE_SOURCE_PR');
-  const handoffClosureId = readId('VERIFY_HANDOFF_CLOSURE_ID');
-  const handoffSourcePr = readId('VERIFY_HANDOFF_SOURCE_PR');
-  const event = {
-    issueState: env.ISSUE_STATE,
-    hasFormat: env.HAS_FORMAT,
-    hasOptimizerOutput: env.HAS_OPTIMIZER_OUTPUT,
-    hasApply: env.HAS_APPLY,
-    hasAgent: env.HAS_AGENT,
-    linkedPr: env.LINKED_PR,
-    hasVerify: env.HAS_VERIFY,
-    verifyHandoffBound: env.VERIFY_HANDOFF_BOUND,
-    keepaliveState: env.KEEPALIVE_STATE,
-    prStateFetchFailed: env.PR_STATE_FETCH_FAILED === 'true',
-    forceStep: env.FORCE_STEP,
-  };
-  if (closureId && closureSourcePr) {
-    event.closure = { id: closureId, sourcePr: closureSourcePr };
-  }
-  if (handoffClosureId && handoffSourcePr) {
-    event.verifyHandoff = { closureId: handoffClosureId, sourcePr: handoffSourcePr };
-  }
-  return event;
-}
-
 module.exports = {
   STATES,
   NEXT_STEPS,
   FORCED_STEPS,
   TRANSITION_CONTRACT,
-  buildDetermineNextStepEventFromEnv,
   determineNextStep,
-  findLatestClosureEvent,
-  findLatestVerifyHandoff,
-  formatVerifyHandoffMarker,
-  selectMergedClosingPr,
+  hasCurrentVerifyHandoff,
   hasLinkedPr,
   isKeepaliveTasksComplete,
   normalizeForceStep,
-  parseVerifyHandoffMarker,
   redispatchForceStep,
   resolveCurrentState,
+  selectMergedClosingPr,
   transition,
 };
