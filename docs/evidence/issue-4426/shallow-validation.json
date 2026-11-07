@@ -1,6 +1,6 @@
 {
   "command": [
-    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "/opt/anaconda3/bin/python3",
     "-m",
     "pytest",
     "-q",
@@ -19,8 +19,8 @@
   "is_shallow": true,
   "network_guard": true,
   "credential_copying": false,
-  "checkout": "/tmp/issue-4426-offline-in0_icin/checkout",
+  "checkout": "/Users/teacher/.codex/orchestrator/agent-runtime/vibe/tmp/issue-4426-offline-arf6_ckv/checkout",
   "exit_code": 0,
-  "elapsed_seconds": 7.049,
-  "output": ".........................................                                [100%]\n41 passed in 4.92s\n"
+  "elapsed_seconds": 3.869,
+  "output": "....................................................................     [100%]\n68 passed in 2.53s\n"
 }

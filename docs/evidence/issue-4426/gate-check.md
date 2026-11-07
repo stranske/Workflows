@@ -308,7 +308,7 @@ The earlier receipts and their original source bytes remain separate.
 Whole-Gate coverage invocation, expanded from the recorded reusable step:
 
 ```bash
-PYTHONPATH=scripts python -m pytest -p ci_test_growth -n auto --dist load --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -m 'not quarantine and not slow' -n 4 --dist=loadgroup
+PYTHONPATH=scripts python -m pytest -p ci_test_growth --cov --cov-config=pyproject.toml --cov-report=xml:coverage.xml --cov-report=term-missing --cov-report=json:coverage.json -m 'not quarantine and not slow' -n auto --dist loadgroup
 ```
 
 No whole-Gate run for this follow-up checkout is claimed. The recovered #4481

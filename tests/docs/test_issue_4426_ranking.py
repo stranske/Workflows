@@ -861,10 +861,12 @@ def test_contribution_ledger_does_not_double_count() -> None:
     assert contributions["pull_requests"]["4000"]["counted_unit_reduction"] == 0
     assert contributions["pull_requests"]["4000"]["coverage_artifact_available"] is False
     assert contributions["pull_requests"]["4000"]["measured_unit_reduction"] is None
+    assert contributions["pull_requests"]["4000"]["attributable_unit_reduction"] is None
     assert contributions["pull_requests"]["4405"]["merged"] is False
     assert contributions["pull_requests"]["4405"]["counted_unit_reduction"] == 0
     assert contributions["pull_requests"]["4405"]["unmerged_target_units"] == 312
     assert contributions["pull_requests"]["4405"]["artifact_describes_main"] is False
+    assert contributions["pull_requests"]["4405"]["attributable_unit_reduction"] == 0
     per_file_difference = sum(
         item["unattributed_snapshot_difference"] for item in contributions["per_file"]
     )

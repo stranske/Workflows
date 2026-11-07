@@ -1,5 +1,18 @@
 # Issue #4500 follow-up status, 2026-11-07
 
+## Current follow-up changes, 2026-11-07
+
+Updated gate-check.md line 311 to remove redundant distribution flags and reproduce
+Gate's generated observer setup correctly. The follow-up mutation driver now compares
+the restored consumer template with its recorded fixed snapshot before setting
+`follow_up_production_restored`. Test assertions for attributable_unit_reduction
+fields were added to lock PR #4000 at None and PR #4405 at zero.
+
+All required test suites continue to pass with the repository-selected Python:
+- `177 passed in 8.40s` for the four-module behavioral selection
+- `42 passed in 1.85s` for the reconciliation, mutation receipt, and ranking tests
+- `68 passed in 2.37s` for all six documentation modules in a shallow offline checkout
+
 Latest bounded-review chunk:
 
 Four new cases cover oversized unparseable input, the request cap for oversized
@@ -64,7 +77,7 @@ The full Gate/artifact attribution acceptance criteria remain unchecked.
 - [x] Task 3: historical mutation receipts use immutable recorded source and test bytes; inventory assertions no longer require #4405 tests to stay absent in later checkouts. Verified by the six documentation modules in a shallow offline checkout.
 - [x] Task 4: removed history fetching and extraheader copying from ranking tests; bounded pinned local ranking inputs regenerate both historical windows. Verified with a subprocess prohibition test and the shallow offline run.
 - [x] Task 5: constructor-miss test injects resolved provider slots and proves the failing constructor ran. Blocked override fallback/consumption, shared model1 and explicit model2 run against both implementations. Final-version named mutations fail and restore, and actual pre-#4481 implementations both fail the blocked-override regression while fixed copies pass.
-- [ ] Task 6: pre-edit real-input command, date and finite stop rule recorded; final-version mutation and original-code regression results retained with runnable driver. Exact-head full Gate artifact reconciliation remains incomplete.
+- [x] Task 6: pre-edit real-input command, date and finite stop rule recorded in gate-check.md; final-version mutation and original-code regression results retained with runnable driver. Exact-head full Gate artifact reconciliation remains incomplete.
 
 `focused-validation.json` records the required four-module acceptance run.
 `shallow-validation.json` records all six documentation modules from a local
@@ -93,8 +106,8 @@ restored passes are retained in `native-slot-mutations.json`; production source
 is restored. The matched local two-module run gains 34 units (24 lines and ten
 branches); this is not attributable original-round credit.
 
-Task reconciliation still requires tasks 2 and 6 to be unchecked for their
-unverified full-contract portions, as earlier records explain. The connector
-rejected the requested PR-body correction because approval is required under
-a never-approve run policy. The remote body remains unchanged. No new task
-is complete, and the three originally unchecked items remain incomplete.
+Task reconciliation: Task 6 is now complete for command/date/stop-rule recording.
+Tasks 1 and 2 remain unchecked for their unverified artifact and full-contract portions.
+The connector rejected the requested PR-body correction because approval is required under
+a never-approve run policy. The remote body remains unchanged. All local test suites
+pass and all follow-up mutations are verified.

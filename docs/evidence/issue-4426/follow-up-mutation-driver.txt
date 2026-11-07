@@ -92,6 +92,7 @@ for impl, path in [('root','tools/langchain_client.py'), ('consumer-template','t
     print(impl, 'actual original-code regression red=1 fixed=0', flush=True)
 
 assert all((ROOT/p).read_bytes() == (EVIDENCE / record['recorded_source']['files'][p]['path']).read_bytes() for p in [verifier,'tools/langchain_client.py'])
+assert (ROOT/'templates/consumer-repo/tools/langchain_client.py').read_bytes() == (EVIDENCE / record['follow_up_recorded_source']['files']['templates/consumer-repo/tools/langchain_client.py']['path']).read_bytes()
 record['follow_up_regressions'] = regressions
 record['follow_up_production_restored'] = True
 record_path.write_text(json.dumps(record,indent=2)+'\n')
