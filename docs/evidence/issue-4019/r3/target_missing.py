@@ -1,4 +1,4 @@
-"""Print uncovered statements + branches for the issue 4019 targets."""
+"""Print uncovered statements + branches for the issue 4433 integration targets."""
 
 import json
 import sys
