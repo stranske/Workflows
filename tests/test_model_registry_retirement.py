@@ -63,6 +63,30 @@ def slots(config_root: Path) -> dict:
     return json.loads((config_root / "config/llm_slots.json").read_text(encoding="utf-8"))
 
 
+def test_retirement_preserves_production_judges_and_muse_capacity_backup(registry, slots):
+    """Both delivered configs retain Muse in slot 3 without a GitHub Models judge."""
+    assert [(slot["name"], slot["provider"]) for slot in slots["slots"]] == [
+        ("slot1", "openai"),
+        ("slot2", "anthropic"),
+    ]
+    backup = slots["capacity_backup"]
+    assert backup["enabled"] is True
+    assert backup["provider"] == "muse-api"
+    assert backup["slot"] == "slot3"
+
+    assert not any(selection["provider"] == "github-models" for selection in registry["selections"])
+    retired = [
+        selection
+        for selection in registry["selection_history"]
+        if selection["provider"] == "github-models"
+        and selection["profile"] == "verifier-balanced"
+        and selection.get("superseded_by") == "retired"
+    ]
+    assert len(retired) == 1
+    assert retired[0]["status"] == "provisional"
+    assert retired[0]["model_id"] == "openai/gpt-5"
+
+
 @pytest.mark.parametrize("has_backup", [False, True])
 def test_registry_retirement_supports_create_only_consumer_slots(registry, slots, has_backup):
     if not has_backup:
