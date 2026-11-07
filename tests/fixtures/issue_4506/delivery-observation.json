@@ -1,0 +1,77 @@
+{
+  "schema": "issue-4506-delivery-observation/v1",
+  "observed_on": "2026-11-07",
+  "repository": "stranske/trip-planner",
+  "pr": 1957,
+  "head_sha": "7ca6deb8d219fe9137fcb220de745e063f42c51c",
+  "state": "open",
+  "is_draft": false,
+  "source_commit": "37e230009cdba04743376410c9f72356b85fb64f",
+  "file": {
+    "path": "tools/llm_registry.py",
+    "url": "https://github.com/stranske/trip-planner/blob/7ca6deb8d219fe9137fcb220de745e063f42c51c/tools/llm_registry.py",
+    "git_blob_sha": "c43f6ef1252c817a03afd6efab9c7c6ee3e69a5e",
+    "snapshot": "llm_registry.py.txt",
+    "retrieval": "GitHub connector fetch_file at immutable head"
+  },
+  "producer": {
+    "run_id": 42376854357,
+    "job_id": 128416416561,
+    "conclusion": "success",
+    "effect": "existing matching base/tree preserved; metadata refreshed",
+    "log_excerpt": [
+      "2026-11-07T13:26:44.5887648Z Inspecting existing sync PR #1957 for same-generation refresh",
+      "2026-11-07T13:26:45.6840812Z Existing PR #1957 refreshable=true reason=stable_plan_rotation",
+      "2026-11-07T13:26:46.3624164Z Existing PR #1957 already matches this base and desired tree; preserving its review lifecycle while refreshing metadata",
+      "2026-11-07T13:26:48.5200204Z https://github.com/stranske/trip-planner/pull/1957",
+      "2026-11-07T13:26:50.1375970Z https://github.com/stranske/trip-planner/pull/1957"
+    ]
+  },
+  "ci": {
+    "run_id": 42350906876,
+    "job_id": 128338642025,
+    "name": "Python CI / typecheck-mypy",
+    "status": "completed",
+    "conclusion": "success",
+    "steps": [
+      {
+        "name": "Mypy (type check)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 11
+      },
+      {
+        "name": "Finalize mypy",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 12
+      }
+    ],
+    "retrieval": "GitHub connector fetch_commit_workflow_runs, fetch_workflow_run_jobs, fetch_workflow_job_logs",
+    "log_excerpt": [
+      "2026-11-07T07:21:06.8762834Z Complete job name: Python CI / typecheck-mypy",
+      "2026-11-07T07:21:08.5262937Z HEAD is now at 4b5133a Merge 7ca6deb8d219fe9137fcb220de745e063f42c51c into f9541643d8f6c7e9f4c431f615e78d284bf8081f",
+      "2026-11-07T07:21:16.1796307Z  + mypy==2.4.0",
+      "2026-11-07T07:21:33.0916086Z Success: no issues found in 484 source files",
+      "2026-11-07T07:21:33.1564223Z   MYPY_OUTCOME: success"
+    ]
+  },
+  "gh_log_command": {
+    "command": "gh run view 42350906876 --repo stranske/trip-planner --log",
+    "exit_code": 1,
+    "error": "error connecting to api.github.com; check your internet connection or https://githubstatus.com",
+    "note": "Retried in this continuation with the same failure. Native mypy evidence was independently re-read through the GitHub connector; no successful literal gh invocation was verified."
+  },
+  "sync_core": {
+    "status": "unavailable",
+    "receipt": null,
+    "checked_issue": 4485,
+    "last_retained_handoff": {
+      "url": "https://github.com/stranske/Workflows/issues/4485#issuecomment-6700244368",
+      "evaluated_head_prefix": "7f96a095cbd6",
+      "round": "20261107T011939Z",
+      "disposition": "still present"
+    },
+    "note": "Source issue #4485, follow-up issue #4506, and consumer PR #1957 provide no later classification receipt for the captured head. Maint 68 proves delivery only; its matching-tree receipt cannot establish sync-core clearance. Controller-local rounds.jsonl is unavailable in this runner."
+  }
+}
