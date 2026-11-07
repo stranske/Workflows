@@ -69,6 +69,7 @@ def test_real_arms_keep_one_environment_and_preserve_coverage(tmp_path, monkeypa
     result = json.loads((output / "result.json").read_text())
     assert result["packages_unchanged"]
     assert result["outcome_comparison"] == {"successful": True, "gaps": []}
+    assert result["timing_comparison"] == {"available": True, "gaps": []}
     assert result["arms"]["baseline"]["command"] == result["arms"]["candidate"]["command"]
     assert result["verifier_coverage"]["baseline_lines"] > 0
     assert result["verifier_coverage"]["candidate_branches"] > 0
@@ -322,3 +323,85 @@ def test_existing_measurement_failure_checks_remain_required(tmp_path, monkeypat
     result = json.loads((output / "result.json").read_text())
     assert result["outcome_comparison"]["successful"] is True
     assert result["verifier_coverage"] is not None
+
+
+@pytest.mark.parametrize("duration", [None, "bad", "-1", "nan", "inf", "-inf"])
+def test_junit_unknown_timing_preserves_outcomes_and_other_suite_times(tmp_path, duration):
+    path = _junit_receipt(tmp_path)
+    text = path.read_text()
+    attribute = "" if duration is None else f'time="{duration}"'
+    path.write_text(text.replace('time="0"', attribute, 1))
+
+    receipt = measure.junit(path)
+    first = receipt["per_file"][measure.SUITES[0][:-3].replace("/", ".")]
+    assert first["cases"] == first["passed"] == 1
+    assert first["worker_seconds"] is None
+    assert first["timed_cases"] == 0
+    assert first["untimed_cases"] == 1
+    assert first["timing_status"] == "UNKNOWN"
+    for suite in measure.SUITES[1:]:
+        row = receipt["per_file"][suite[:-3].replace("/", ".")]
+        assert row["worker_seconds"] == 0
+        assert row["timing_status"] == "KNOWN"
+
+
+def test_junit_partial_or_overflowing_timing_never_reports_a_partial_sum(tmp_path):
+    path = tmp_path / "receipt.xml"
+    path.write_text(
+        '<testsuite><testcase classname="partial" time="2"/>'
+        '<testcase classname="partial"/>'
+        '<testcase classname="overflow" time="1e308"/>'
+        '<testcase classname="overflow" time="1e308"/></testsuite>'
+    )
+    receipt = measure.junit(path)
+    partial, overflow = receipt["per_file"]["partial"], receipt["per_file"]["overflow"]
+    for row in (partial, overflow):
+        assert row["passed"] == row["cases"] == 2
+        assert row["worker_seconds"] is None
+        assert row["timing_status"] == "UNKNOWN"
+    assert partial["timed_cases"] == 1
+    assert partial["untimed_cases"] == 1
+    assert overflow["timed_cases"] == 2
+    assert overflow["untimed_cases"] == 0
+
+
+@pytest.mark.parametrize("duration", [None, "bad", "-1", "nan", "inf", "1e308", "0", "2.5"])
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_run_keeps_outcomes_but_refuses_unknown_scoped_timing(tmp_path, monkeypatch, arm, duration):
+    repo = fixture_repo(tmp_path, monkeypatch)
+    output = tmp_path / "out"
+    measure.prepare(repo, output)
+
+    def fake_pytest(command, *, cwd, **kwargs):
+        receipt = _junit_receipt(cwd, name="pytest-junit.xml")
+        if cwd.name == arm:
+            text = receipt.read_text()
+            attribute = "" if duration is None else f'time="{duration}"'
+            # Two valid individual durations can overflow the suite's total.
+            if duration == "1e308":
+                suite = measure.SUITES[0][:-3].replace("/", ".")
+                text = text.replace(
+                    "</testsuite>", f'<testcase classname="{suite}" time="1e308"/></testsuite>'
+                )
+            receipt.write_text(text.replace('time="0"', attribute))
+        coverage = {
+            "files": {measure.VERIFIER: {"executed_lines": [1], "executed_branches": [[1, -1]]}}
+        }
+        (cwd / "coverage.json").write_text(json.dumps(coverage))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(measure, "packages", lambda: [])
+    monkeypatch.setattr(measure.subprocess, "run", fake_pytest)
+    known = duration in ("0", "2.5")
+    monkeypatch.setattr(measure.platform, "platform", lambda: "fixture-platform")
+    assert measure.run(output) == (0 if known else 1)
+    result = json.loads((output / "result.json").read_text())
+    assert result["outcome_comparison"] == {"successful": True, "gaps": []}
+    assert result["timing_comparison"]["available"] is known
+    if not known:
+        assert any(arm in gap and "UNKNOWN" in gap for gap in result["timing_comparison"]["gaps"])
+    assert len(result["arms"]) == 2
+    assert len(result["artifact_sha256"]) == 6
+    assert "junit_error" not in result["arms"][arm]
+    # Evidence JSON must never contain non-standard NaN or Infinity values.
+    json.dumps(result, allow_nan=False)

@@ -314,6 +314,14 @@ conflicting case outcomes cannot certify successful scoped execution, even when
 the process reports exit zero. Per-suite outcome counts are retained in the arm
 receipts and `outcome_comparison` records the decision and gaps. Unreadable JUnit
 leaves an UNKNOWN diagnostic while both arms and their raw artifacts are retained.
+JUnit outcome accounting is independent of timing validity. Each suite retains
+`timed_cases`, `untimed_cases` and `timing_status`; absent, invalid, negative or
+nonfinite durations and overflowing sums produce `worker_seconds: null`, never
+zero or a partial sum. Explicit finite zero remains measured. The separate
+`timing_comparison` requires known worker time in every scoped suite in both
+arms; incomplete timing fails the measurement without erasing passing outcomes
+or relaxing existing exit/package/coverage checks. Known JUnit worker time alone
+does not establish controlled hosted phases or a wall-time speedup.
 Coverage comparison validates explicit executed-line/branch lists before taking
 set differences, including integer types and negative branch exits. Missing,
 unreadable or malformed coverage leaves `verifier_coverage: null` with a

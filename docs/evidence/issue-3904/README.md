@@ -292,3 +292,60 @@ BLACK_CACHE_DIR=/tmp/issue-4462-harness-black-cache BLACK_NUM_WORKERS=1 black --
 `git add` returned `Unable to create '.git/index.lock': Read-only file system`.
 The four source/test/documentation changes remain uncommitted in the workspace.
 PR #4527 was verified open with `draft=false`; no task checkbox was changed.
+
+## Follow-up #4462 JUnit timing validity (2026-11-07)
+
+The comparison harness no longer substitutes zero for missing testcase durations
+or discards valid outcome counts when a duration is unreadable. It preserves
+per-suite outcomes independently of `timed_cases`, `untimed_cases` and
+`timing_status`. Missing, invalid, negative or nonfinite durations and overflowing
+suite totals produce `worker_seconds: null`. Explicit finite zero remains known.
+The separate `timing_comparison` names incomplete scoped timing as UNKNOWN and
+fails the measurement, while retaining both arms, raw artifact hashes and valid
+outcome/coverage comparisons. Existing exit-status, package-drift and executed
+line/branch-loss checks remain required.
+
+The unchanged harness baseline passed **63 tests**. The 23 new timing controls
+failed against the old implementation. After repair, local Python **3.14.10**
+validation reports **86 passed in 16.21s**, harness coverage **93.59%**:
+
+```bash
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_measure_verifier_runtime.py --cov=scripts.measure_verifier_runtime --cov-report=term-missing -q -m 'not slow'
+env -u GITHUB_STEP_SUMMARY python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+ruff check scripts/measure_verifier_runtime.py tests/scripts/test_measure_verifier_runtime.py
+```
+
+The second command reports **2,202 passed in 14.02s**; Ruff passes. These checks
+validate fixture timing receipts and the real small two-arm execution, not scoped
+production coverage or controlled hosted phases. No harness coverage percentage
+target is specified. The existing evidence archives and manifests are unchanged.
+
+Both installed Python **3.12.16** and **3.13.18** interpreters still report
+`No module named pytest`. An isolated Python 3.12 venv install using the unchanged
+`requirements.lock` and public PyPI failed with `No matching distribution found`
+for `aiohappyeyeballs==2.7.1`. No successful older-interpreter run is claimed.
+Read-only inspection of [Gate run 42377677149](https://github.com/stranske/Workflows/actions/runs/42377677149)
+for head `32258a8f93b671b6bbcdd525fe57c43bcf123c5b` found successful Python
+3.13/3.14 jobs (`128418780559` / `128418780512`); this does not supply a Python
+3.12 job or a matched baseline/candidate phase comparison. The connector's job
+payload omits wall and step timestamps.
+
+The remaining evidence task stays unchecked. The authorized workflow/source-pair
+follow-up described above is still needed; this run has no explicit
+`agent-high-privilege` approval and edited no protected workflow. Requests to add
+`needs-human` and post the concrete follow-up on PR #4527 were both rejected:
+`MCP tool call requires approval, but approval policy is never`. Neither remote
+mutation succeeded.
+
+Both changed Python files were formatted with Black at line length 100. A serial
+check honoring the repository configuration populated a writable cache; the exact
+required check then passed with **959 files unchanged**, exit **0**:
+
+```bash
+BLACK_CACHE_DIR=/tmp/issue-4462-junit-black-cache BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+`git diff --check` passes. The requested commit was blocked at staging:
+`git add` failed with `Unable to create '.git/index.lock': Read-only file system`.
+The four source/test/documentation files remain uncommitted. PR #4527 was checked
+again as open with `draft=false`; no task checkbox was changed.

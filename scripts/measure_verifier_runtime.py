@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import io
 import json
+import math
 import os
 import platform
 import subprocess
@@ -120,6 +121,7 @@ def command() -> list[str]:
 
 
 def junit(path: Path) -> dict:
+    """Retain outcomes independently of complete, finite JUnit worker timings."""
     from defusedxml import ElementTree as ET
 
     root = ET.parse(path).getroot()
@@ -132,6 +134,8 @@ def junit(path: Path) -> dict:
             {
                 "cases": 0,
                 "worker_seconds": 0.0,
+                "timed_cases": 0,
+                "untimed_cases": 0,
                 "passed": 0,
                 "failures": 0,
                 "errors": 0,
@@ -139,7 +143,16 @@ def junit(path: Path) -> dict:
             },
         )
         row["cases"] += 1
-        row["worker_seconds"] += float(case.get("time", "0"))
+        raw = case.get("time")
+        try:
+            seconds = float(raw) if raw is not None else None
+        except ValueError:
+            seconds = None
+        if seconds is None or not math.isfinite(seconds) or seconds < 0:
+            row["untimed_cases"] += 1
+        else:
+            row["timed_cases"] += 1
+            row["worker_seconds"] += seconds
         outcomes = [
             label
             for tag, label in (("failure", "failures"), ("error", "errors"), ("skipped", "skipped"))
@@ -148,6 +161,11 @@ def junit(path: Path) -> dict:
         if len(outcomes) > 1:
             raise ValueError("JUnit case has conflicting outcomes")
         row[outcomes[0] if outcomes else "passed"] += 1
+    for row in by_file.values():
+        complete = row["untimed_cases"] == 0 and math.isfinite(row["worker_seconds"])
+        row["timing_status"] = "KNOWN" if complete else "UNKNOWN"
+        if not complete:
+            row["worker_seconds"] = None
     return {"suites": [s.attrib for s in suites], "per_file": by_file}
 
 
@@ -171,6 +189,21 @@ def outcome_comparison(arms: dict) -> dict:
             elif row["failures"] or row["errors"] or row["skipped"]:
                 gaps.append(f"{arm} {suite} has non-passing outcomes")
     return {"successful": not gaps, "gaps": gaps}
+
+
+def timing_comparison(arms: dict) -> dict:
+    """Require measured scoped worker time without inferring hosted phase control."""
+    gaps = []
+    for arm in ("baseline", "candidate"):
+        receipt = arms[arm].get("junit")
+        if receipt is None:
+            gaps.append(f"{arm} JUnit timing UNKNOWN")
+            continue
+        for suite in SUITES:
+            row = receipt["per_file"].get(suite[:-3].replace("/", "."))
+            if row is None or row["cases"] == 0 or row["timing_status"] != "KNOWN":
+                gaps.append(f"{arm} {suite} JUnit worker time UNKNOWN")
+    return {"available": not gaps, "gaps": gaps}
 
 
 def _coverage_entry(report: dict, arm: str) -> dict:
@@ -260,6 +293,7 @@ def run(output: Path) -> int:
         (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     result["packages_unchanged"] = initial_packages == packages()
     result["outcome_comparison"] = outcome_comparison(result["arms"])
+    result["timing_comparison"] = timing_comparison(result["arms"])
     coverage_files = [output / name / "coverage.json" for name in ("baseline", "candidate")]
     result["verifier_coverage"] = None
     try:
@@ -283,6 +317,7 @@ def run(output: Path) -> int:
                 "exit_codes": {k: v["exit_code"] for k, v in result["arms"].items()},
                 "coverage": result.get("verifier_coverage"),
                 "outcomes": result["outcome_comparison"],
+                "timing": result["timing_comparison"],
             },
             indent=2,
         )
@@ -291,6 +326,7 @@ def run(output: Path) -> int:
     return int(
         any(row["exit_code"] for row in result["arms"].values())
         or not result["outcome_comparison"]["successful"]
+        or not result["timing_comparison"]["available"]
         or not result["packages_unchanged"]
         or coverage is None
         or bool(coverage["lost_lines"] or coverage["lost_branches"])
