@@ -1,0 +1,117 @@
+{
+  "issue": "stranske/Workflows#3958",
+  "pr_number": 3962,
+  "title": "Break-and-revert proof for PR #3962 tests",
+  "source_file": "scripts/aggregate_agent_metrics.py",
+  "source_sha256_after_repair": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+  "verification_date": "2026-11-07",
+  "notes": "Reproduced all four mutations at exact merge revision dabd38209 in an isolated historical checkout. Each archived run below failed at the intended assertion (exit 1), then passed after restoration (exit 0).",
+  "production_code_verification": {
+    "command": "git diff --exit-code -- scripts/aggregate_agent_metrics.py tests/scripts/test_aggregate_agent_metrics.py",
+    "expected_exit_status": 0,
+    "notes": "git diff --exit-code executed after restoration against checkout HEAD dabd38209a87f81f836fa27c6b44b5da7c30c41c; production code and tests match that revision.",
+    "revision": "dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+    "exit_status": 0,
+    "output": ""
+  },
+  "mutations": [
+    {
+      "test_name": "test_metric_helper_fallbacks_preserve_safe_defaults",
+      "mutation_description": "_normalize_version_text(None) returns \"broken\" instead of empty string",
+      "mutated_function": "_normalize_version_text",
+      "mutation_value": "\"broken\"",
+      "expected_value": "\"\"",
+      "red_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_metric_helper_fallbacks_preserve_safe_defaults -q",
+      "red_assertion": "assert 'broken' == ''",
+      "red_exit_status": 1,
+      "green_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_metric_helper_fallbacks_preserve_safe_defaults -q",
+      "green_exit_status": 0,
+      "green_output": ".                                                                        [100%]\n1 passed in 0.22s\n",
+      "verification": {
+        "method": "live historical checkout at dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+        "status": "reproduced",
+        "notes": "Full concrete RED and GREEN output archived inline."
+      },
+      "red_output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________ test_metric_helper_fallbacks_preserve_safe_defaults ______________\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1480/test_metric_helper_fallbacks_p0')\n\n    def test_metric_helper_fallbacks_preserve_safe_defaults(tmp_path: Path) -> None:\n>       assert aggregate_agent_metrics._normalize_version_text(None) == \"\"\nE       AssertionError: assert 'broken' == ''\nE         \nE         + broken\n\ntests/scripts/test_aggregate_agent_metrics.py:1876: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_aggregate_agent_metrics.py::test_metric_helper_fallbacks_preserve_safe_defaults\n1 failed in 0.43s\n",
+      "source_sha256_before_mutation": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+      "source_sha256_after_repair": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
+    },
+    {
+      "test_name": "test_optional_metric_contract_inputs_fail_closed",
+      "mutation_description": "_verifier_run_key returns \"entry:unknown\" instead of \"entry:4\"",
+      "mutated_function": "_verifier_run_key",
+      "mutation_value": "\"entry:unknown\"",
+      "expected_value": "\"entry:4\"",
+      "red_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_optional_metric_contract_inputs_fail_closed -q",
+      "red_assertion": "assert 'entry:unknown' == 'entry:4'",
+      "red_exit_status": 1,
+      "green_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_optional_metric_contract_inputs_fail_closed -q",
+      "green_exit_status": 0,
+      "green_output": ".                                                                        [100%]\n1 passed in 0.19s\n",
+      "verification": {
+        "method": "live historical checkout at dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+        "status": "reproduced",
+        "notes": "Full concrete RED and GREEN output archived inline."
+      },
+      "red_output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______________ test_optional_metric_contract_inputs_fail_closed _______________\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1482/test_optional_metric_contract_0')\n\n    def test_optional_metric_contract_inputs_fail_closed(tmp_path: Path) -> None:\n        assert aggregate_agent_metrics._langsmith_trace_refs(\n            {\"langsmith_trace_url\": \"https://trace\", \"langsmith_traces\": [\"invalid\"]}\n        ) == {\"url:https://trace\"}\n>       assert aggregate_agent_metrics._verifier_run_key({}, 4) == \"entry:4\"\nE       AssertionError: assert 'entry:unknown' == 'entry:4'\nE         \nE         - entry:4\nE         + entry:unknown\n\ntests/scripts/test_aggregate_agent_metrics.py:1902: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_aggregate_agent_metrics.py::test_optional_metric_contract_inputs_fail_closed\n1 failed in 0.31s\n",
+      "source_sha256_before_mutation": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+      "source_sha256_after_repair": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
+    },
+    {
+      "test_name": "test_autopilot_summary_ignores_incomplete_optional_values",
+      "mutation_description": "skip counting publish failure when success is \"0\" (should count)",
+      "mutated_behavior": "publish failures with success value \"0\" are not counted",
+      "red_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_incomplete_optional_values -q",
+      "red_assertion": "AssertionError: assert {} == {'publish': 1}",
+      "red_exit_status": 1,
+      "green_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_incomplete_optional_values -q",
+      "green_exit_status": 0,
+      "green_output": ".                                                                        [100%]\n1 passed in 0.19s\n",
+      "verification": {
+        "method": "live historical checkout at dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+        "status": "reproduced",
+        "notes": "Full concrete RED and GREEN output archived inline."
+      },
+      "red_output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__________ test_autopilot_summary_ignores_incomplete_optional_values ___________\n\n    def test_autopilot_summary_ignores_incomplete_optional_values() -> None:\n        summary = aggregate_agent_metrics._summarise_autopilot(\n            [\n                {\"metric_type\": \"cycle\", \"issue\": \"not-a-number\"},\n                {\"metric_type\": \"step\", \"step_name\": \"publish\", \"success\": \"0\"},\n                {\"metric_type\": \"step\", \"success\": False, \"failure_reason\": \"ignored\"},\n            ]\n        )\n    \n        assert summary[\"issues\"] == 0\n        assert summary[\"cycle_records\"] == 1\n>       assert summary[\"step_failures\"] == {\"publish\": 1}\nE       AssertionError: assert {} == {'publish': 1}\nE         \nE         Right contains 1 more item:\nE         {'publish': 1}\nE         Use -v to get more diff\n\ntests/scripts/test_aggregate_agent_metrics.py:1954: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_incomplete_optional_values\n1 failed in 0.24s\n",
+      "source_sha256_before_mutation": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+      "source_sha256_after_repair": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
+    },
+    {
+      "test_name": "test_legacy_parse_and_artifact_contract_error_paths",
+      "mutation_description": "_format_parse_error_details([]) returns [\"broken\"] instead of []",
+      "mutated_function": "_format_parse_error_details",
+      "mutation_value": "[\"broken\"]",
+      "expected_value": "[]",
+      "red_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_legacy_parse_and_artifact_contract_error_paths -q",
+      "red_assertion": "assert ['broken'] == []",
+      "red_exit_status": 1,
+      "green_command": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_legacy_parse_and_artifact_contract_error_paths -q",
+      "green_exit_status": 0,
+      "green_output": ".                                                                        [100%]\n1 passed in 0.20s\n",
+      "verification": {
+        "method": "live historical checkout at dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+        "status": "reproduced",
+        "notes": "Full concrete RED and GREEN output archived inline."
+      },
+      "red_output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____________ test_legacy_parse_and_artifact_contract_error_paths ______________\n\ntmp_path = PosixPath('/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/pytest-of-teacher/pytest-1484/test_legacy_parse_and_artifact0')\n\n    def test_legacy_parse_and_artifact_contract_error_paths(tmp_path: Path) -> None:\n        scalar_path = tmp_path / \"legacy-scalar.json\"\n        scalar_path.write_text('[\\n  \"not-a-metric\"\\n]\\n', encoding=\"utf-8\")\n        entries, errors = aggregate_agent_metrics.read_ndjson_file(scalar_path)\n        assert entries == []\n        assert errors\n    \n        malformed_manifest_path = tmp_path / \"malformed-manifest.json\"\n        malformed_manifest_path.write_text(\"{\", encoding=\"utf-8\")\n        manifest = aggregate_agent_metrics._read_artifact_download_contract(malformed_manifest_path)\n        assert manifest is not None\n        assert manifest[\"status\"] == \"error\"\n    \n        malformed_selection_path = tmp_path / \"malformed-selection.json\"\n        malformed_selection_path.write_text(\"{\", encoding=\"utf-8\")\n        selection = aggregate_agent_metrics._read_artifact_selection_contract(malformed_selection_path)\n        assert selection is not None\n        assert selection[\"status\"] == \"error\"\n    \n        downloads = aggregate_agent_metrics._artifact_download_contract(\n            {\n                \"artifacts\": [\n                    \"invalid\",\n                    {\"name\": \"pending\"},\n                    {\"name\": \"failed\", \"download\": {\"status\": \"failed\"}},\n                ]\n            },\n            malformed_manifest_path,\n        )\n        assert [artifact[\"name\"] for artifact in downloads[\"pending_artifacts\"]] == [\"pending\"]\n        assert [artifact[\"name\"] for artifact in downloads[\"failed_artifacts\"]] == [\"failed\"]\n    \n>       assert aggregate_agent_metrics._format_parse_error_details([]) == []\nE       AssertionError: assert ['broken'] == []\nE         \nE         Left contains one more item: 'broken'\nE         Use -v to get more diff\n\ntests/scripts/test_aggregate_agent_metrics.py:1990: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_aggregate_agent_metrics.py::test_legacy_parse_and_artifact_contract_error_paths\n1 failed in 0.25s\n",
+      "source_sha256_before_mutation": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+      "source_sha256_after_repair": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df"
+    }
+  ],
+  "summary": {
+    "total_mutations": 4,
+    "all_red_exit_status": 1,
+    "all_green_exit_status": 0,
+    "source_hashes_verified": true,
+    "diff_clean_after_restoration": true,
+    "notes": "Four intended assertion failures followed by four passing restored runs at dabd38209; matching source SHA256 and clean production/test diff verified locally."
+  },
+  "attribution": {
+    "source": "https://github.com/stranske/Workflows/pull/4407",
+    "method": "historical mutation descriptions independently reproduced at exact merge revision",
+    "status": "reproduced"
+  },
+  "revision": "dabd38209a87f81f836fa27c6b44b5da7c30c41c",
+  "source_sha256_before_mutation": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+  "verified_at": "2026-11-07T08:51:19.468160+00:00"
+}
