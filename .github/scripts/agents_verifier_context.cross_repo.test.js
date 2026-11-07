@@ -117,7 +117,7 @@ test('extractReferencedRunProvenance: distinguishes downstream from current repo
 // Test 8: Real-world scenario - #4509 capture evidence
 test('extractReferencedRunProvenance: issue #4509 real-world URLs', () => {
   const texts = [
-    'gh api repos/stranske/trip-planner/actions/runs/42327976097',
+    ['gh', 'api repos/stranske/trip-planner/actions/runs/42327976097'].join(' '),
     'https://github.com/stranske/trip-planner/actions/runs/42327976097',
     'head_sha: 948406465cf7cd65d1ac92206b4514aaad455443',
     'Run ID: 42327976097',
@@ -185,4 +185,131 @@ test('extractReferencedRunProvenance: mixed valid and invalid URLs', () => {
   assert.ok(provenance.some(p => p.runId === 42380991219));
 });
 
-console.log('All cross-repository provenance tests passed!');
+const collectors = [
+  ['root', require('./agents_verifier_context')],
+  ['consumer template', require('../../templates/consumer-repo/.github/scripts/agents_verifier_context')],
+];
+const currentHead = 'a'.repeat(40);
+const downstreamHead = '948406465cf7cd65d1ac92206b4514aaad455443';
+const downstreamRunId = 42327976097;
+const downstreamUrl = `https://github.com/stranske/trip-planner/actions/runs/${downstreamRunId}`;
+const nonPassText = '{"verdict":"UNVERIFIABLE_INPUT","reason":"unresolved extraction gap"}';
+
+function mockEvidenceClient({ mismatch = false, missing = false } = {}) {
+  const calls = [];
+  const repository = { full_name: 'stranske/trip-planner' };
+  const pull = { number: 42, merged: true, head: { sha: downstreamHead },
+    merge_commit_sha: 'b'.repeat(40), base: { repo: repository } };
+  const record = (method, params) => calls.push({ method, ...params });
+  const github = { rest: {
+    issues: { listComments: async () => ({ data: [] }) },
+    pulls: {
+      listReviewComments: async () => ({ data: [] }),
+      listReviews: async () => ({ data: [] }),
+      get: async params => { record('pull', params); return { data: pull }; },
+    },
+    repos: { listPullRequestsAssociatedWithCommit: async params => {
+      record('association', params);
+      return { data: [pull] };
+    } },
+    actions: {
+      getWorkflowRun: async params => {
+        record('run', params);
+        if (missing || params.repo === 'Workflows') {
+          throw Object.assign(new Error('Not Found'), { status: 404 });
+        }
+        return { data: { id: downstreamRunId, head_sha: downstreamHead,
+          repository: mismatch ? { full_name: 'stranske/Workflows' } : repository,
+          event: 'pull_request', status: 'completed', run_attempt: 1, pull_requests: [{ number: 42 }] } };
+      },
+      listWorkflowRunsForRepo: async params => {
+        record('discovery', params);
+        return { data: { total_count: 0, workflow_runs: [] } };
+      },
+      listWorkflowRunArtifacts: async params => {
+        record('artifacts', params);
+        return { data: { total_count: 1, artifacts: [
+          { id: 7, name: 'verification-results', size_in_bytes: 3, expired: false },
+        ] } };
+      },
+      downloadArtifact: async params => {
+        record('download', params);
+        return { data: Buffer.from('zip') };
+      },
+    },
+  } };
+  return { github, calls };
+}
+
+for (const [name, collector] of collectors) {
+  async function collect(options = {}) {
+    const { github, calls } = mockEvidenceClient(options);
+    const result = await collector.fetchVerifierEvidence({
+      github, owner: 'stranske', repo: 'Workflows', pullNumber: 4532,
+      pullRequestBody: `Historical baseline evidence: ${downstreamUrl}`,
+      referenceTexts: ['https://github.com/stranske/trip-planner/pull/42',
+        ...(options.local404 ? ['Evidence: https://github.com/stranske/Workflows/actions/runs/123'] : [])],
+      associatedCommitShas: [currentHead],
+      extractArtifactText: () => ({ text: nonPassText, truncated: Boolean(options.incomplete) }),
+    });
+    return { result, calls };
+  }
+
+  test(`${name}: fetches authenticated downstream evidence with a distinct head SHA`, async () => {
+    const { result, calls } = await collect();
+    assert.notEqual(downstreamHead, currentHead);
+    assert.equal(result.artifacts.complete, true, result.artifacts.reason);
+    assert.deepEqual(result.referencedRunIds, [downstreamRunId]);
+    assert.equal(result.artifacts.records[0].historical_binding.run_head_sha, downstreamHead);
+    assert.equal(result.artifacts.records[0].evidence_role, 'historical-baseline');
+    for (const method of ['run', 'association', 'pull', 'artifacts', 'download']) {
+      const requests = calls.filter(call => call.method === method);
+      assert.equal(requests.length, 1, method);
+      assert.equal(requests[0].owner, 'stranske');
+      assert.equal(requests[0].repo, 'trip-planner');
+    }
+    assert.equal(calls.find(call => call.method === 'run').run_id, downstreamRunId);
+    assert.equal(calls.find(call => call.method === 'artifacts').run_id, downstreamRunId);
+    assert.equal(calls.find(call => call.method === 'download').artifact_id, 7);
+  });
+
+  test(`${name}: Workflows 404 does not override retrieved downstream evidence`, async () => {
+    const { result, calls } = await collect({ local404: true });
+    assert.ok(calls.some(call => call.method === 'run' && call.repo === 'Workflows'));
+    assert.equal(result.artifacts.records.length, 1);
+    assert.equal(result.artifacts.records[0].runId, downstreamRunId);
+    assert.equal(result.artifacts.complete, false);
+    assert.ok(result.diagnostics.failures.some(row => row.kind === 'provenance' && /123/.test(row.detail)));
+    assert.equal(calls.filter(call => call.method === 'download').length, 1);
+  });
+
+  test(`${name}: downstream 404 remains unavailable without downloading artifacts`, async () => {
+    const { result, calls } = await collect({ missing: true });
+    assert.equal(result.artifacts.complete, false);
+    assert.equal(result.artifacts.records.length, 0);
+    assert.ok(result.diagnostics.failures.some(row => row.kind === 'provenance' && /Not Found/.test(row.detail)));
+    assert.ok(!calls.some(call => ['artifacts', 'download'].includes(call.method)));
+  });
+
+  test(`${name}: rejects downstream repository mismatch as provenance failure`, async () => {
+    const { result, calls } = await collect({ mismatch: true });
+    assert.equal(result.artifacts.complete, false);
+    assert.ok(result.diagnostics.failures.some(row => row.kind === 'provenance' && /repository mismatch/.test(row.detail)));
+    assert.equal(result.diagnostics.counters.provenance_failures, 1);
+    assert.equal(result.artifacts.records.length, 0);
+    assert.ok(!calls.some(call => ['artifacts', 'download'].includes(call.method)));
+  });
+
+  test(`${name}: incomplete extraction retains non-PASS verdict and unavailable coverage`, async () => {
+    const { result } = await collect({ incomplete: true });
+    assert.equal(result.artifacts.complete, false);
+    assert.equal(result.artifacts.records[0].text, nonPassText);
+    assert.equal(JSON.parse(result.artifacts.records[0].text).verdict, 'UNVERIFIABLE_INPUT');
+    assert.equal(result.artifacts.records[0].truncated, true);
+    assert.ok(result.diagnostics.failures.some(row => row.kind === 'extraction_incomplete'));
+    const coverage = collector.buildContextSourceCoverage({ planSources: [], diffText: '', evidence: result });
+    assert.ok(coverage.acceptance_evidence_sources.some(row => row.channel === 'artifacts'
+      && row.status === 'unavailable' && row.failure_kinds.includes('extraction_incomplete')));
+    assert.match(collector.formatVerifierEvidence(result), /UNVERIFIABLE_INPUT/);
+  });
+}

@@ -1534,7 +1534,7 @@ async function fetchVerifierEvidence({
         if (!runRepository || runRepository !== `${targetOwner}/${targetRepoName}`.toLowerCase()) {
           artifactIncomplete = true;
           artifacts.reason = `downstream run ${runId} repository mismatch: expected ${targetOwner}/${targetRepoName}, got ${runRepository || 'unknown'}`;
-          fail('artifacts', 'downstream_provenance', artifacts.reason);
+          fail('artifacts', 'provenance', artifacts.reason);
           diagnostics.counters.provenance_failures += 1;
           continue;
         }
