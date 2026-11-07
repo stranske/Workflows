@@ -1,5 +1,43 @@
 # Issue #4506 delivery verification — 2026-11-07
 
+## Canary dispatch with lagging general history
+
+Reviewed recent commits through `f8be0d53`. No new operational checkbox is
+verified complete. Fresh connected reads still show trip-planner #1957 open
+and ready at `7ca6deb8d219fe9137fcb220de745e063f42c51c`. Native mypy job
+`128338642025` retains the exact-head checkout and successful 484-file result.
+The required literal `gh run view 42350906876 --repo stranske/trip-planner
+--log` still exits 1 because this runner cannot connect to `api.github.com`.
+
+Added a regression exercising `dispatchCanaryRefresh` through its native
+inventory reader, decision, and dispatch path without injecting a precomputed
+refresh state. For both a canary and a promotion producer on another source,
+an empty general-history response must preserve the separately observed live
+writer and prevent dispatch. Only a later empty native active-state inventory
+permits one non-forced request pinned to the selected source. All remote calls
+use inert doubles; these results do not establish live regeneration.
+
+Validation: the dispatch suite passed **51 tests** (baseline: 50), the scoped
+refresh suite passed **86 tests**, and `git diff --check` passed. Python 3.14.10
+with mypy 2.4.1 ran the named two-file pytest command with `-m 'not slow'`:
+**351 passed in 8.87s**, no skips. No Python or workflow files changed.
+
+Source #4485 still provides only the older sync-core handoff for round
+`20261107T011939Z`, evaluated head prefix `7f96a095cbd6`; source #4506 and
+consumer #1957 comments provide no later classification. Both documented
+controller-local receipt paths remain absent. The available connector has no
+workflow-dispatch operation. A connected controller must perform the requested
+regeneration and retain the next classification with its full evaluated head.
+
+Attempts to correct the unsupported checked literal-gh items, add `needs-human`,
+and post the concrete blocker comment each failed with `MCP tool call requires
+approval, but approval policy is never`. No remote reconciliation succeeded.
+
+Staging the tested JavaScript and evidence failed with `.git/index.lock:
+Read-only file system`; no commit or push was possible. The verified change
+remains in the working tree for a writer-capable continuation. Final connected
+reads verified both Workflows #4530 and trip-planner #1957 open and ready.
+
 ## Multiple-writer completion regression
 
 Reviewed recent commits `71509a7b`, `b6120277`, `42d89fd5`, and `73d3b51d`.

@@ -544,6 +544,50 @@ test('native writer API failures stop delivery refresh even after empty earlier 
   }
 });
 
+test('canary dispatch retains a native writer omitted from general run history', async () => {
+  for (const phase of ['canary', 'promote']) {
+    const api = harness();
+    const previousSource = 'e'.repeat(40);
+    const writer = promotionRun({
+      status: 'waiting', conclusion: null, head_sha: previousSource,
+      display_title: phase === 'canary'
+        ? `Maint 68 canary full source=${previousSource} candidates=${expectedCanaries.join(',')} dry=false`
+        : `Maint 68 promote auto sha256:${'f'.repeat(64)} ${previousSource}`,
+    });
+    const original = structuredClone(writer);
+    let active = true;
+    api.client.rest.repos.getCommit = async () => ({ data: { sha: sourceCommit } });
+    api.client.rest.repos.getContent = async () => ({ data: {
+      content: Buffer.from(JSON.stringify({
+        canaries: expectedCanaries.map((repo) => ({ repo })),
+      })).toString('base64'),
+    } });
+    api.client.rest.actions.listWorkflowRuns = async (params) => {
+      api.reads.push(params);
+      // General history can lag the native active-state inventory. Its empty
+      // response must not erase the writer that still owns the stable branches.
+      return { data: { workflow_runs: active && params.status === writer.status ? [writer] : [] } };
+    };
+
+    const args = { ...api, expectedCanaries, now };
+    const held = await dispatchCanaryRefresh(args);
+    assert.equal(held.dispatched, false, phase);
+    assert.equal(held.state, 'writer-active');
+    assert.equal(held.run_id, writer.id);
+    assert.equal(api.dispatched.length, 0);
+    assert.deepEqual(api.reads.map((row) => row.status),
+      ['queued', 'in_progress', 'waiting', 'pending', 'requested', undefined]);
+    assert.deepEqual(writer, original, 'history reconciliation must not release the native writer');
+
+    active = false; // The next native observation, rather than elapsed time, releases ownership.
+    assert.equal((await dispatchCanaryRefresh(args)).dispatched, true);
+    assert.equal(api.dispatched.length, 1);
+    assert.equal(api.dispatched[0].workflow_id, 'maint-68-sync-consumer-repos.yml');
+    assert.equal(api.dispatched[0].inputs.scope_head_sha, sourceCommit);
+    assert.equal(api.dispatched[0].inputs.force, 'false');
+  }
+});
+
 test('delivery refresh waits for every writer when one producer finishes', async () => {
   const api = harness();
   const previousSource = 'e'.repeat(40);
