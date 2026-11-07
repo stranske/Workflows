@@ -1,9 +1,10 @@
 # Issue 4484 focused validation
 
-Latest continuation: the ledger remains read-only and workflow acceptance remains
-incomplete. The batch-evidence integrity fix and fresh focused results are recorded
-in the final section. Successful consumer lint and classification remain distinct
-from consumer merge, which has not been established.
+Latest continuation: a tested reconciliation tool now emits the complete proposed
+ledger correction while preserving the original records. Applying that correction
+remains blocked by the read-only ledger. Workflow acceptance remains incomplete.
+Successful consumer lint and classification remain distinct from consumer merge,
+which has not been established. See the final section for current checks and blockers.
 
 Check date: 2026-11-06. Interpreter: /opt/anaconda3/bin/python3.
 
@@ -917,3 +918,134 @@ Both the additive `needs-human` label and the blocker-comment attempts on #4531
 were denied: `MCP tool call requires approval, but approval policy is never`.
 Neither remote mutation was applied. This document retains the blocker handoff;
 no acceptance checkbox was newly marked complete.
+
+## PR #4531 ledger reconciliation preparation — 2026-11-07 UTC
+
+Reviewed recent commits `a0547eff`, `4ff52f15`, and `4a816b23` before changing
+anything. They retain exhaustive failed workflow execution and implement the
+bounded runner; none changes the ledger. The first unchecked task remains
+incomplete. A normal consolidation patch to `.agents/issue-4484-ledger.yml` was
+again rejected: `patch rejected: writing outside of the project; rejected by user
+approval settings`. No alternative writer was used for that restricted file.
+
+### Concrete, tested correction for an authorized writer
+
+`scripts/reconcile_issue_4484_ledger.py` reads the original issue-4484 ledger and
+emits corrected YAML on stdout. It never writes its input. Its bounded correction:
+
+- Consolidates task-03 into task-02 and task-05 into task-04. Each surviving task
+  retains both complete original records in `consolidated_from`, including original
+  titles, status, timestamps, commit and notes; its combined notes include both
+  originals. Other tasks and top-level metadata remain unchanged except task-09/11.
+- Replaces task-09's stale future-lint claim with the retained successful run
+  `42325500360`, exact head `58dc10da4b4f7f11e283a9a49c34084b3e258f59` and
+  lint completion `2026-11-07T01:44:17Z`. It stays **blocked** because local workflow
+  acceptance remains incomplete: the latest retained exhaustive result is
+  **3,534 passed, 3 skipped, 12 failed**. The earlier incomplete suite remains UNKNOWN.
+- Records task-11's completed round `20261107T014654Z`, receipt timestamp
+  `2026-11-07T01:47:11Z`, waiting/ci disposition and Maint 71 report `42325528409`,
+  with the shipment finding absent. Its completion evidence points to the existing
+  receipt-documentation commit `a0547eff1150b59ca8009a226c1dfca3d4f6118b`.
+- Retains the entire original task-09/task-11 records as `previous_evidence`.
+  Both updated records state that successful consumer lint and classification
+  **do not establish consumer merge**.
+
+Generate the review candidate, without changing the protected input:
+
+```bash
+python3 scripts/reconcile_issue_4484_ledger.py .agents/issue-4484-ledger.yml > /tmp/issue-4484-reconciled-ledger.yml
+```
+
+This command returned 0. An independent comparison of the actual ledger and its
+emitted candidate verified 11 original tasks become 9, both consolidation pairs
+preserve their exact original records, task-09 is blocked and task-11 is done.
+A reviewable unified diff is `/tmp/issue-4484-ledger-reconciliation.patch`.
+These temporary artifacts are regenerable; they are not an applied ledger edit.
+An authorized writer must review/apply the correction and validate real historical
+commit evidence before checking off the ledger task.
+
+Nine new regression tests verify evidence preservation, unchanged unrelated tasks,
+nonmutation of the input, receipt boundaries, schema compatibility, stdout-only
+CLI behavior, and refusal of wrong-issue, wrong-version, duplicate, missing or
+unfinished task records. The schema unit test mocks Git object lookup explicitly;
+it does not claim the real acceptance validator succeeded.
+
+```text
+$ python3 -m pytest -q tests/scripts/test_reconcile_issue_4484_ledger.py tests/scripts/test_validate_workflow_test_batches.py tests/langchain/test_arg002_regression.py tests/scripts/test_verifier_capacity_backup.py tests/scripts/test_pr_verifier_sync_manifest.py -m 'not slow'
+155 passed in 12.59s
+Exit: 0
+
+$ python3 -m ruff check scripts/reconcile_issue_4484_ledger.py tests/scripts/test_reconcile_issue_4484_ledger.py
+All checks passed!
+Exit: 0
+```
+
+The exact `/opt/anaconda3/bin/python3` ledger and focused-regression commands both
+returned **127**, because that interpreter is absent. With the available Python
+3.14.10 interpreter, real validation of both the original ledger and emitted
+candidate returned **1**, because historical commits
+`555c4bd79ee812a6032f0d98531ddf33cb64d36a` and
+`ad56949f14f2746a7e6240adcc215adb967f5fb8` are missing. Their completion evidence
+was preserved; no schema or evidence check was relaxed to obtain a pass.
+
+The six-file comparison against #4487's merge listed in the previous continuation
+again returned 0. Its source/template fixes and original regressions are unchanged.
+No workflow file or consumer source was changed. The exhaustive workflow suite was
+not rerun for this standalone reconciliation tool; its failed receipt above remains
+failed and is not replaced by the passing focused tests.
+
+### Checklist reconciliation and current review state
+
+A fresh `gh api graphql` request for #4511 returned 1 (`error connecting to
+api.github.com`). The read-only GitHub connector returned empty review-thread
+inventories separately for #4511 and #4531. Historical #4487 findings remain
+separate: the fragment-consolidation request is prepared but **not applied**.
+The connector confirmed #4531 is open, `draft=false`, head
+`4a816b2382ef0d0720b14429c766a41f4af7c73a`.
+
+Attempted to update #4531's body to uncheck the unsupported passing-workflow
+criterion and check the verified consumer-lint/classification-versus-merge
+documentation criterion. The mutation returned `MCP tool call requires approval,
+but approval policy is never`. The PR body was not changed; its existing checked
+passing-workflow criterion remains unsupported. The ledger task remains unchecked.
+The requested additive `needs-human` label and blocker comment were also denied
+with the same approval error and were not applied.
+
+Guarded merge remains **held** for the unapplied ledger correction and failed
+workflow acceptance. No consumer merge or future merge-boundary inventory is
+claimed. The retained successful consumer lint and classification receipts remain
+valid, distinct observations.
+
+Black formatted both new Python files at line length 100. The ordinary concurrent
+invocation hit the sandbox's multiprocessing socket restriction; single-worker
+checks stalled and were interrupted. Black's own `get_sources`/`reformat_one`
+APIs then checked the identical 960-file selection sequentially with the configured
+Python 3.13 target, include/extend-exclude/force-exclude and explicit command
+exclude: **960 files, 0 changes, 0 failures**, exit 0. Its verified cache was placed
+in Black's versioned cache directory; the required normal CLI then passed:
+
+```text
+$ BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/issue-4484-reconciliation-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+All done!
+960 files would be left unchanged.
+Exit: 0
+```
+
+Ruff's isolated ARG002 check of both authoritative sources and the verifier
+consumer template also passed. `git diff --check` passed. After the import-format
+correction, all nine reconciliation tests passed again (0.60s).
+
+The requested commit was attempted only after the formatting gate passed:
+
+```text
+$ git add scripts/reconcile_issue_4484_ledger.py tests/scripts/test_reconcile_issue_4484_ledger.py docs/ops/issue-4484-validation.md && git commit -m "fix: prepare evidence-preserving issue 4484 ledger reconciliation"
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+Exit: 128
+```
+
+No commit or push occurred, and no alternate Git metadata writer was used.
+The tested implementation remains in the workspace for an authorized writer.
+A final connector read confirms #4531 is still **open**, **draft=false**, at
+`4a816b2382ef0d0720b14429c766a41f4af7c73a`. No new acceptance checkbox is claimed
+complete by the unapplied proposal, the mocked schema unit test, the denied remote
+mutations or the failed commit attempt.
