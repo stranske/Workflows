@@ -503,3 +503,15 @@ merges.
 - #4431 is still not merged, so its results remain undelivered on main and the
   merge-dependent acceptance criteria stay open. Merging is an outward-facing
   action that this run does not take without explicit authorization.
+
+## Task 1 record (2026-11-07)
+
+- Checked head: `69e5b6d6cd3fb154be29890f2ae212772de8ce45`; acceptance date
+  2026-11-07; state OPEN, `mergeCommit: null`, `isDraft=false`, MERGEABLE,
+  `reviewDecision` empty (re-read via `gh pr view 4431`).
+- `docs/AGENT_ISSUE_FORMAT.md` does not exist on this branch; the only copy is
+  the consumer template `templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md`,
+  which is the one inspected.
+- `docs/evidence/issue-4019/r3/acceptance.md` exists only on #4431's branch
+  (not on this branch), so this record lives in `acceptance-integration.md`.
+  It should be reconciled once #4431 merges. Merge remains unauthorized here.
