@@ -112,3 +112,43 @@ PR #4530 were both rejected with
 `MCP tool call requires approval, but approval policy is never`.
 No remote checklist, comment or label change succeeded. Both PR #4530 and
 trip-planner #1957 were verified open and ready for review (`draft=false`).
+
+## Consumer behavioral verification continuation
+
+Re-read PR #1957 through the connected GitHub app: it is still open and ready
+at `7ca6deb8d219fe9137fcb220de745e063f42c51c`. Fetching
+`tools/llm_registry.py` at that immutable head again returned Git blob
+`c43f6ef1252c817a03afd6efab9c7c6ee3e69a5e`, matching the retained capture.
+The connected app again reported successful mypy job `128338642025` in
+CI run `42350906876`; its log still binds the checkout to this exact head.
+
+Extended the existing `slot_registry` fixture in
+`tests/test_llm_registry_malformed_input.py` to import a temporary Python copy
+of the retained consumer module. This executes the same 97 behavioral cases
+against the delivered bytes, including malformed providers and retirement
+history, valid neighboring slots, numbered overrides and fail-closed allowlists.
+The capture itself is unchanged. The source and template cases still execute.
+
+The named two-file pytest suite, with `-m 'not slow'`, passed **320 tests in
+8.60s, no skips**, using Python 3.14.10 and installed mypy 2.4.1.
+The command and stdout are retained in `pytest-consumer-behavior.txt`.
+Focused Black (line length 100), Ruff and `git diff --check` passed.
+The required repository-wide Black command failed with forkserver socket
+`PermissionError: Operation not permitted`. A single-worker retry timed out
+after 45 seconds (exit 124), reporting 521 files unchanged before aborting;
+this is not a complete formatting pass. No commit or push was attempted
+after that failed formatting gate.
+
+The literal `gh run view 42350906876 --repo stranske/trip-planner --log`
+again failed to connect to `api.github.com`. No next-head sync-core receipt
+was available in PR #1957 or source-issue #4485/#4506 comments. No new
+regeneration was dispatched, and no writer lock or consumer branch was changed.
+These operational tasks remain unchecked.
+
+Staging the test change again failed with `.git/index.lock: Read-only file
+system`; no commit was created. The attempts to label PR #4530 `needs-human`
+and post the blocker comment were both rejected with
+`MCP tool call requires approval, but approval policy is never`.
+No remote checklist, comment or label change succeeded.
+Final connected-app reads confirmed PR #4530 and trip-planner #1957 remain
+open and ready (`draft=false`).

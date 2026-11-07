@@ -1,0 +1,11 @@
+Interpreter: /opt/hostedtoolcache/Python/3.14.10/x64/bin/python
+Mypy: 2.4.1 (installed)
+Command: python -m pytest -q -o addopts= tests/test_llm_registry_malformed_input.py tests/workflows/test_delivered_scripts_mypy_clean_in_consumers.py -m 'not slow'
+Exit code: 0
+
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 67%]
+........................................................................ [ 90%]
+................................                                         [100%]
+320 passed in 8.60s
