@@ -720,6 +720,30 @@ test('unreadable or saturated native writer inventory prevents delivery refresh'
   }
 });
 
+test('saturated later native writer inventory prevents delivery refresh', async () => {
+  const api = harness();
+  api.client.rest.repos.getCommit = async () => ({ data: {
+    sha: sourceCommit, commit: { committer: { date: '2026-10-01T00:00:00Z' } },
+  } });
+  api.client.rest.repos.getContent = async () => ({ data: {
+    content: Buffer.from(JSON.stringify({
+      canaries: expectedCanaries.map((repo) => ({ repo })),
+    })).toString('base64'),
+  } });
+  const saturated = Array.from({ length: 100 }, (_, index) => promotionRun({
+    id: index + 1, status: 'waiting', conclusion: null, display_title: 'Maint 68 other',
+  }));
+  api.client.rest.actions.listWorkflowRuns = async (params) => {
+    api.reads.push(params);
+    return { data: { workflow_runs: params.status === 'waiting' ? saturated : [] } };
+  };
+  await assert.rejects(dispatchDeliveryRefresh({
+    ...api, expectedCanaries, now, decision: { plan_id: planId, evidence: fixture().evidence },
+  }), /canary_refresh_active_history_unreadable/);
+  assert.equal(api.dispatched.length, 0);
+  assert.deepEqual(api.reads.map((row) => row.status), ['queued', 'in_progress', 'waiting']);
+});
+
 for (const phase of ['canary', 'promote']) {
   for (const status of ['queued', 'in_progress', 'waiting', 'pending', 'requested']) {
     test(`canary regeneration preserves an old-plan ${phase} writer in ${status}`, async () => {

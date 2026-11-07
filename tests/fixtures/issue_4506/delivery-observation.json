@@ -63,8 +63,20 @@
     "note": "Retried in this continuation with the same failure. Native mypy evidence was independently re-read through the GitHub connector; no successful literal gh invocation was verified."
   },
   "sync_core": {
-    "status": "unavailable",
-    "receipt": null,
+    "status": "ready-for-maint71",
+    "receipt": {
+      "round": "20261107T203055Z",
+      "ts": "2026-11-07T20:31:24Z",
+      "target": "stranske/trip-planner#1957",
+      "evaluated_head": "7ca6deb8d219fe9137fcb220de745e063f42c51c",
+      "disposition": "ready-for-maint71",
+      "error": null,
+      "owner": "maint-71",
+      "reasons": [],
+      "handoffs": [],
+      "round_source": "/Users/teacher/.codex/orchestrator/sync-core/rounds.jsonl",
+      "head_binding_source": "/Users/teacher/.codex/orchestrator/sync-core/targets/stranske_trip_planner_1957.json"
+    },
     "checked_issue": 4485,
     "last_retained_handoff": {
       "url": "https://github.com/stranske/Workflows/issues/4485#issuecomment-6700244368",
@@ -72,6 +84,6 @@
       "round": "20261107T011939Z",
       "disposition": "still present"
     },
-    "note": "Source issue #4485, follow-up issue #4506, and consumer PR #1957 provide no later classification receipt for the captured head. Maint 68 proves delivery only; its matching-tree receipt cannot establish sync-core clearance. Controller-local rounds.jsonl is unavailable in this runner."
+    "note": "Read the controller-local round and target state on 2026-11-07. The target state's last_round and head bind this clearance to the captured delivery head. The round item has no error, reasons, or handoffs. This is sync-core clearance for Maint 71, not a merge or a new regeneration receipt; the earlier handoff remains historical context."
   }
 }

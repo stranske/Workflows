@@ -1,5 +1,45 @@
 # Issue #4506 delivery verification — 2026-11-07
 
+## Sync-core clearance and later-state saturation — 2026-11-07
+
+Read controller-local `/Users/teacher/.codex/orchestrator/sync-core/rounds.jsonl`
+round `20261107T203055Z`, timestamp `2026-11-07T20:31:24Z`. Its item for
+`stranske/trip-planner#1957` records `disposition=ready-for-maint71`,
+`error=null`, `owner=maint-71`, and empty `reasons` and `handoffs`.
+The corresponding `sync-core/targets/stranske_trip_planner_1957.json` records
+`last_round=20261107T203055Z` and evaluated head
+`7ca6deb8d219fe9137fcb220de745e063f42c51c`, matching the retained delivery.
+Retained this receipt and its head-binding provenance in
+`tests/fixtures/issue_4506/delivery-observation.json`.
+
+This supersedes the earlier unavailable-sync-core observations below: this
+round clears the captured head for Maint 71 without the reported llm_registry
+finding. It does not establish a merge, a new regeneration, or successful
+literal `gh` log retrieval; those historical evidence limits are unchanged.
+
+Addressed review thread `PRRT_kwDOQprj9M605eSL` with a later-state saturation
+case in `tests/scripts/test_maint71_promote_dispatch.js`: the native reader
+observes empty `queued` and `in_progress` inventories, then 100 active
+`waiting` runs. It must reject with `canary_refresh_active_history_unreadable`,
+dispatch nothing, and read exactly those three states in order. This uses
+inert API doubles and does not change any live writer.
+
+Validation commands and terminal results:
+
+```sh
+node tests/scripts/test_maint71_promote_dispatch.js
+# tests 53; pass 53; fail 0; skipped 0; exit 0
+python -m pytest -q -o addopts= tests/test_llm_registry_malformed_input.py tests/workflows/test_delivered_scripts_mypy_clean_in_consumers.py -m 'not slow'
+# 351 passed in 8.18s; no skips; exit 0
+```
+
+The initial shared-runtime pytest run reported `344 passed, 7 skipped` because
+mypy was absent. The final command used an activated temporary environment at
+`/private/tmp/issue-4506-validation-venv`, based on the shared Python 3.14.3,
+with mypy 2.4.1 and pytest 9.2.0 installed; no repository dependency pins changed.
+The Node suite passed but printed an existing synthetic-commit fetch failure
+and fallback-to-SHA diagnostic. No production code or unrelated tests changed.
+
 ## Dispatch rejection and ownership recovery
 
 Added one controller-path regression for the first unchecked task. After a
