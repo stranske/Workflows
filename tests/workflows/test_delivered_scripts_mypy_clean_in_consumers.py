@@ -33,10 +33,8 @@ def test_retained_consumer_registry_matches_observed_github_blob():
     assert hashlib.sha1(git_blob).hexdigest() == observation["file"]["git_blob_sha"]
 
 
-def test_retained_consumer_mypy_receipt_passed_for_the_delivered_head():
-    """A green job on a different head cannot establish delivery acceptance (#4506)."""
-    fixture = ROOT / "tests/fixtures/issue_4506"
-    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+def _assert_consumer_mypy_receipt(observation):
+    """Require native checkout and executed mypy evidence for the delivered head."""
     ci = observation["ci"]
     assert ci["name"] == "Python CI / typecheck-mypy"
     assert (ci["status"], ci["conclusion"]) == ("completed", "success")
@@ -55,6 +53,41 @@ def test_retained_consumer_mypy_receipt_passed_for_the_delivered_head():
     assert re.search(r"^\S+\s+MYPY_OUTCOME: success$", log, re.M)
     # This checks the retained native CI evidence only. It cannot substitute for
     # the literal gh command or an independently retained sync-core round.
+
+
+def test_retained_consumer_mypy_receipt_passed_for_the_delivered_head():
+    """A green job on a different head cannot establish delivery acceptance (#4506)."""
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+    _assert_consumer_mypy_receipt(observation)
+
+
+@pytest.mark.parametrize(
+    ("path", "replacement"),
+    [
+        pytest.param(("head_sha",), "0" * 40, id="stale-checkout"),
+        pytest.param(("ci", "name"), "Python CI / lint-ruff", id="different-job"),
+        pytest.param(("ci", "status"), "in_progress", id="unfinished-job"),
+        pytest.param(("ci", "conclusion"), "failure", id="failed-job"),
+        pytest.param(("ci", "steps", 0, "conclusion"), "skipped", id="skipped-mypy"),
+        pytest.param(("ci", "steps", 0, "status"), "queued", id="unstarted-mypy"),
+        pytest.param(("ci", "steps", 1, "conclusion"), "failure", id="failed-finalization"),
+        pytest.param(("ci", "log_excerpt", 1), "", id="missing-checkout-log"),
+        pytest.param(("ci", "log_excerpt", 3), "", id="missing-typecheck-result"),
+        pytest.param(("ci", "log_excerpt", 4), "", id="missing-final-outcome"),
+    ],
+)
+def test_consumer_mypy_receipt_rejects_incomplete_or_stale_evidence(path, replacement):
+    """Keep the previously manual deliberate-break receipt checks executable."""
+    fixture = ROOT / "tests/fixtures/issue_4506"
+    observation = json.loads((fixture / "delivery-observation.json").read_text(encoding="utf-8"))
+    target = observation
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = replacement
+
+    with pytest.raises(AssertionError):
+        _assert_consumer_mypy_receipt(observation)
 
 
 @pytest.mark.skipif(not mypy_available, reason="mypy is not installed")

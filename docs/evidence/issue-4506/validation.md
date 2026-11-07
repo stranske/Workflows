@@ -198,3 +198,50 @@ Focused formatting was rechecked successfully. Git metadata reports unwritable
 (`os.access('.git', os.W_OK)` is false). No commit or push was attempted after
 the failed global formatting gate. The test and these notes remain uncommitted
 for the automation writer to retain.
+
+## Automated rejection checks and task reconciliation
+
+Reviewed commits `80c8a5f6`, `6744efe3`, and `99856b77`. They verify the
+captured provider guard and named pytest suite. They do not establish a new
+controller dispatch, a successful literal `gh` log read, or the next sync-core
+classification. The remote PR incorrectly checks the literal `gh` acceptance
+criterion while leaving its corresponding task unchecked. Attempted to uncheck
+that acceptance criterion; the connector rejected the update with
+`MCP tool call requires approval, but approval policy is never`. The verified
+task accounting in this document remains unchanged.
+
+Fresh connector reads still show consumer PR #1957 open and ready at
+`7ca6deb8d219fe9137fcb220de745e063f42c51c`. Native job `128338642025` in run
+`42350906876` still reports completed/success, both mypy steps succeeded, and
+its checkout and success log lines match the retained observation. The required
+literal `gh run view 42350906876 --repo stranske/trip-planner --log` again
+failed to connect to `api.github.com`. Source issue #4485's latest available
+sync-core handoff remains round `20261107T011939Z` on older head `7f96a095cbd6`;
+PR #1957 and issue #4506 provide no newer sync-core handoff. Neither the
+controller's documented local receipt path nor its runner-home equivalent
+exists here. This absence does not establish clearance.
+
+Converted the previously manual receipt-corruption checks into ten executable
+cases in the named consumer-layout test file. They reject a stale checkout,
+another job, unfinished or failed jobs, skipped or unstarted mypy, failed
+finalization, and missing checkout/typecheck/final-outcome log evidence. The
+unchanged native receipt still passes. These tests validate retained evidence;
+they do not substitute for the required operational receipts.
+
+The named two-file suite passed **331 tests in 5.79s, no skips**, with Python
+3.14.10 and installed mypy 2.4.1. Its command and output are retained in
+`pytest-consumer-behavior.txt`. Focused Black, Ruff, and `git diff --check`
+passed. No workflow, consumer branch, or live writer lock was changed.
+
+Attempts to add `needs-human` and publish the reconciliation/blocker comment
+were also rejected by the same approval-policy restriction. The controller
+owner must retain the next classification receipt and its evaluated head,
+and a connected authorized runner must perform the literal `gh` log read.
+
+The mandatory repository-wide Black command was run with
+`BLACK_NUM_WORKERS=1`; it produced no terminal result and was interrupted
+(exit 130). This is not a formatting pass. Git metadata is still read-only
+(`os.access('.git', os.W_OK)` is false). No commit or push was attempted;
+the source-test change and updated evidence remain in the working tree for
+the automation writer. Final connector reads verified Workflows PR #4530
+and consumer PR #1957 are both open and ready (`draft=false`).
