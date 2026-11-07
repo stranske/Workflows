@@ -35,7 +35,7 @@ def _step(job: dict, name: str) -> dict:
 @pytest.mark.parametrize("agent", AGENTS, ids=lambda agent: f"reusable-{agent}-run.yml")
 def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
     workflow, job = _runner(agent)
-    filename = f"reusable-{agent}-run.yml"
+    filename = f".github/workflows/reusable-{agent}-run.yml"
     caches = [step for step in job["steps"] if step.get("id") == f"{agent}_cli_cache"]
     assert len(caches) == 1, f"{filename}: missing CLI cache step"
     cache = caches[0]
@@ -48,7 +48,9 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
     assert "restore-keys" not in cache["with"], filename
     install = _step(job, "Install Codex CLI" if agent == "codex" else f"Ensure {agent.title()} CLI")
     assert job["steps"].index(cache) < job["steps"].index(install), filename
-    expose = _step(job, f"Expose cached {agent.title()} CLI")["run"]
+    expose_step = _step(job, f"Expose cached {agent.title()} CLI")
+    assert job["steps"].index(expose_step) < job["steps"].index(install), filename
+    expose = expose_step["run"]
     assert '>> "$GITHUB_PATH"' in expose, filename
 
     if agent != "muse":
@@ -90,6 +92,30 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
         assert "auth" not in cache["with"]["path"]
     if agent == "claude":
         assert "${{ env.CLAUDE_CLI_PACKAGE }}" in key
+
+
+@pytest.mark.parametrize("agent", AGENTS, ids=lambda agent: f"reusable-{agent}-run.yml")
+@pytest.mark.parametrize("regression", ("missing-cache", "unversioned-key", "late-path"))
+def test_cli_cache_contract_rejects_regressions(
+    agent: str, regression: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mutate parsed copies so protected workflow files are never rewritten."""
+    workflow, job = _runner(agent)
+    cache = next(step for step in job["steps"] if step.get("id") == f"{agent}_cli_cache")
+    if regression == "missing-cache":
+        job["steps"].remove(cache)
+    elif regression == "unversioned-key":
+        version = f"${{{{ env.{agent.upper()}_CLI_VERSION }}}}"
+        cache["with"]["key"] = cache["with"]["key"].replace(version, "fixed")
+    else:
+        expose = _step(job, f"Expose cached {agent.title()} CLI")
+        job["steps"].remove(expose)
+        job["steps"].append(expose)
+
+    monkeypatch.setattr(f"{__name__}._runner", lambda requested: (workflow, job))
+    filename = f".github/workflows/reusable-{agent}-run.yml"
+    with pytest.raises(AssertionError, match=re.escape(filename)):
+        test_cli_cache_tracks_installed_version_and_path(agent)
 
 
 @pytest.mark.parametrize("agent", AGENTS, ids=lambda agent: f"reusable-{agent}-run.yml")
