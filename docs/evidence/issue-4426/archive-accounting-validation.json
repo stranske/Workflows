@@ -1,0 +1,107 @@
+{
+  "checked_on": "2026-11-07",
+  "scope": "offline archive accounting, synthetic fixtures; not final-head Gate execution",
+  "python": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "sha256": {
+    "scripts/reconcile_issue_4426_coverage.py": "37a639d9897caa975a7ac2b74aaf9d4adee4280d5ac2dfbb157cc8385e49a4e8",
+    "tests/scripts/test_reconcile_issue_4426_coverage.py": "0d0594823684381c0cc17e5383e947351c7be6990a68601c0ca1912ab275182c",
+    "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+    "docs/evidence/issue-4426/gate-report-inputs.json": "edef0047a34517cdbd3543e0bc308e180865305bcc5f618ba3ea1619dc5e4a3c",
+    "docs/evidence/issue-4426/coverage-measurement.json": "065043e53187ee16442fb4d1f4fae2d0b1201b1d7b4f217f9235ed8946db1523",
+    "docs/evidence/issue-4426/ranking.json": "bd091ccce95ca24d6cf93c8ba085b8b42c14a0b5c38a1708223eec8917270f74"
+  },
+  "results": [
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py",
+        "--cov=scripts.reconcile_issue_4426_coverage",
+        "--cov-branch",
+        "--cov-report=term-missing",
+        "-m",
+        "not slow",
+        "--tb=short"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.969,
+      "output": "..........................................                               [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                                       Stmts   Miss Branch BrPart   Cover   Missing\n---------------------------------------------------------------------------------------\nscripts/reconcile_issue_4426_coverage.py      95      1     36      1  98.47%   56\n---------------------------------------------------------------------------------------\nTOTAL                                         95      1     36      1  98.47%\n42 passed in 0.94s\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+        "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+        "tests/tools/test_langchain_client.py",
+        "-m",
+        "not slow",
+        "--tb=short"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 6.412,
+      "output": "........................................................................ [ 40%]\n........................................................................ [ 81%]\n.................................                                        [100%]\n177 passed in 4.07s\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/docs/test_issue_4426_coverage_measurement.py",
+        "tests/docs/test_issue_4426_ranking.py",
+        "-m",
+        "not slow",
+        "--tb=short"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.805,
+      "output": ".....................................................                    [100%]\n53 passed in 0.99s\n"
+    },
+    {
+      "command": [
+        "ruff",
+        "check",
+        "scripts/reconcile_issue_4426_coverage.py",
+        "tests/scripts/test_reconcile_issue_4426_coverage.py"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01,
+      "output": "All checks passed!\n"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.018,
+      "output": ""
+    }
+  ],
+  "real_archive_available": false,
+  "attributable_round_reduction": null,
+  "formatting": {
+    "command": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "--exclude",
+      "(\\.workflows-lib|node_modules)",
+      "."
+    ],
+    "environment": {
+      "PYTHONPATH": "/tmp/issue4426-accounting-black"
+    },
+    "scheduler": "existing serial adapter through temporary sitecustomize; installed Black formatter and safety checks unchanged",
+    "exit_code": 0,
+    "output": "All done! \u2728 \ud83c\udf70 \u2728\n957 files would be left unchanged.\n"
+  }
+}

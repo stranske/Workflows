@@ -17,6 +17,8 @@ import sys
 import zipfile
 from pathlib import Path
 
+from coverage.results import Numbers
+
 EVIDENCE = Path(__file__).resolve().parents[1] / "docs/evidence/issue-4426"
 REPORT_INPUTS_SHA256 = "edef0047a34517cdbd3543e0bc308e180865305bcc5f618ba3ea1619dc5e4a3c"
 # Job 128131232558's TOTAL row is retained in final-head-gate.json, separately
@@ -58,6 +60,67 @@ def read_coverage_archive(path: Path, digest: str) -> tuple[dict, str]:
     return coverage, hashlib.sha256(data).hexdigest()
 
 
+def _validate_summary(summary: dict, name: str) -> None:
+    """Require coverage.py's counters and blended percentage to agree."""
+    statements, missed, branches, missing_branches, partial = (
+        summary[key]
+        for key in (
+            "num_statements",
+            "missing_lines",
+            "num_branches",
+            "missing_branches",
+            "num_partial_branches",
+        )
+    )
+    if (
+        any(
+            type(value) is not int
+            for value in (statements, missed, branches, missing_branches, partial)
+        )
+        or not 0 <= missed <= statements
+        or not 0 <= partial <= missing_branches <= branches
+    ):
+        raise ValueError(f"invalid coverage counters: {name}")
+    for field, expected in (
+        ("covered_lines", statements - missed),
+        ("covered_branches", branches - missing_branches),
+    ):
+        if type(summary[field]) is not int or summary[field] != expected:
+            raise ValueError(f"inconsistent covered counters: {name}")
+    display = Numbers(
+        precision=2,
+        n_statements=statements,
+        n_missing=missed,
+        n_branches=branches,
+        n_missing_branches=missing_branches,
+    ).pc_covered_str
+    if display != summary["percent_covered_display"]:
+        raise ValueError(f"branch counters disagree with coverage percentage: {name}")
+
+
+def _validate_inventory(missing_lines: list, missing_branches: list, name: str) -> None:
+    """Reject repeated or malformed units that could inflate artifact accounting."""
+    if (
+        not isinstance(missing_lines, list)
+        or any(type(line) is not int or line <= 0 for line in missing_lines)
+        or len(set(missing_lines)) != len(missing_lines)
+    ):
+        raise ValueError(f"invalid missing-line inventory: {name}")
+    if (
+        not isinstance(missing_branches, list)
+        or any(
+            not isinstance(arc, list)
+            or len(arc) != 2
+            or any(type(line) is not int for line in arc)
+            or arc[0] <= 0
+            or arc[1] == 0
+            for arc in missing_branches
+        )
+        or len({tuple(arc) for arc in missing_branches}) != len(missing_branches)
+    ):
+        raise ValueError(f"invalid missing-branch inventory: {name}")
+
+
 def _match_report(summary: dict, lines: list[str], name: str) -> None:
     """Check JSON counters against the pinned precision-two Gate term report."""
     pattern = re.compile(
@@ -72,6 +135,7 @@ def _match_report(summary: dict, lines: list[str], name: str) -> None:
         raise ValueError(f"coverage counters disagree with Gate log: {name}")
     if summary["percent_covered_display"] != values[4]:
         raise ValueError(f"coverage percentage disagrees with Gate log: {name}")
+    _validate_summary(summary, name)
 
 
 def reconcile_archive(archive: Path, evidence: Path = EVIDENCE) -> dict:
@@ -90,6 +154,7 @@ def reconcile_archive(archive: Path, evidence: Path = EVIDENCE) -> dict:
         summary = row["summary"]
         _match_report(summary, lines, path)
         missing_lines, missing_branches = row["missing_lines"], row["missing_branches"]
+        _validate_inventory(missing_lines, missing_branches, path)
         if (
             len(missing_lines) != summary["missing_lines"]
             or len(missing_branches) != summary["missing_branches"]
