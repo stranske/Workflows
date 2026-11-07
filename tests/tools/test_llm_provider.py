@@ -2369,6 +2369,7 @@ class TestRemainingProviderPaths:
                 get_llm_provider()
 
     def test_forced_available_provider_is_returned_directly(self, monkeypatch):
+        monkeypatch.setenv("WORKFLOWS_ANALYSIS_CLI", "codex")
         monkeypatch.delenv("WORKFLOWS_ANALYSIS_CLI", raising=False)
         provider = get_llm_provider(force_provider="regex-fallback")
 
