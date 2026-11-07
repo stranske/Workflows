@@ -74,12 +74,13 @@ tasks:
     title: Add or extend a regression test reproducing the failure and passing after the fix, using `pytest` or `node --test`, whichever the source uses.
     status: completed
     started_at: '2026-11-06T19:40:00Z'
-    finished_at: '2026-11-06T19:45:00Z'
+    finished_at: '2026-11-07T00:50:00Z'
     commit: ''
     notes:
-      - Created tests/langchain/test_arg002_regression.py
-      - Tests: test_no_arg002_violations (runs ruff check), test_config_parameter_present_in_invoke (verifies contract preserved)
-      - Verification: pytest tests/langchain/test_arg002_regression.py -v passes (2/2 tests pass)
+      - Extended tests/langchain/test_arg002_regression.py with automated deliberate-break coverage
+      - Added test_reintroducing_unused_config_fails_arg002 for source + template paths
+      - Added test_capacity_backup_client_accepts_unused_config for CapacityBackupClient config kwarg
+      - Verification: pytest tests/langchain/test_arg002_regression.py -v passes (27/27)
   - id: task-09
     title: 'Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha passes on regenerated sync PR stranske/Travel-Plan-Permission#1716, verified with `gh run view <run-id>`, and the repository''s test command passes locally.'
     status: deferred
@@ -94,12 +95,11 @@ tasks:
     title: Reintroducing the reported behavior makes the regression test fail; reverting it makes the test pass.
     status: completed
     started_at: '2026-11-06T19:45:00Z'
-    finished_at: '2026-11-06T19:50:00Z'
+    finished_at: '2026-11-07T00:50:00Z'
     commit: ''
     notes:
-      - Verified: Broken code (config parameter not used) fails ARG002 check
-      - Verified: Fixed code passes ARG002 check
-      - Regression test validates both conditions
+      - Automated in test_reintroducing_unused_config_fails_arg002 (tmp mutant fails ARG002; real path passes)
+      - Covers _llm_client.py, pr_verifier.py, and consumer template pr_verifier.py
   - id: task-11
     title: The next sync-core round classifies stranske/Travel-Plan-Permission#1716 without this finding.
     status: deferred
