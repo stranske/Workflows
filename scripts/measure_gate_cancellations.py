@@ -70,6 +70,7 @@ def _collect_runs(
             repo,
             "--workflow",
             "pr-00-gate.yml",
+            "--all",  # Include historical runs even if Gate has since been disabled.
             "--created",
             f"{iso(lower)}..{iso(upper)}",
             "--limit",

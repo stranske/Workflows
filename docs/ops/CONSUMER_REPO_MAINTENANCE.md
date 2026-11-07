@@ -3348,7 +3348,8 @@ closes any open alert so a recovered incident cannot remain as a stale red issue
   `mergedAt` from current PR metadata, then run
   `python3 scripts/measure_gate_cancellations.py --merge "$FINAL_CAMPAIGN_MERGED_AT" --output /tmp/gate-observation.json`
   with that verified timestamp in `FINAL_CAMPAIGN_MERGED_AT`.
-  The collector reads every registered consumer with authenticated `gh run list`,
+  The collector reads every registered consumer with authenticated `gh run list --all`
+  so disabling Gate after the interval does not hide its historical runs,
   paginates with `--limit 1000`, and splits saturated date windows to avoid
   silently accepting truncated results. It retains raw runs and commands, counts
   each cancelled `pull_request` run with a distinct same-repository, same-head

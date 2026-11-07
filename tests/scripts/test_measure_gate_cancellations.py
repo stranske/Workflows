@@ -70,6 +70,31 @@ def test_collection_excludes_interval_end(monkeypatch):
     assert runs == [run(1)]
 
 
+def test_observation_includes_history_of_disabled_gate(monkeypatch):
+    """A workflow disabled after the interval must not lose its historical runs."""
+    commands = []
+
+    def execute(command, **kwargs):
+        commands.append(command)
+        # gh resolves named disabled workflows only when --all is passed.
+        if command[command.index("-R") + 1] == "owner/disabled" and "--all" not in command:
+            return SimpleNamespace(returncode=1, stdout="")
+        page = [run(1, conclusion="cancelled"), run(2, 1)]
+        return SimpleNamespace(returncode=0, stdout=json.dumps(page))
+
+    monkeypatch.setattr(measure.subprocess, "run", execute)
+    report = measure.observe(["owner/active", "owner/disabled"], START, END, time.monotonic() + 110)
+
+    assert report["status"] == "complete"
+    assert report["errors"] == {}
+    assert (report["numerator"], report["denominator"], report["percentage"]) == (2, 4, 50)
+    assert not report["passed"]
+    assert report["commands"] == {
+        "owner/active": [commands[0]],
+        "owner/disabled": [commands[1]],
+    }
+
+
 @pytest.mark.parametrize("seconds", [-1, 172800, 172801])
 def test_unfinished_runs_outside_interval_do_not_block_observation(monkeypatch, seconds):
     outside = run(2, seconds, conclusion="")
