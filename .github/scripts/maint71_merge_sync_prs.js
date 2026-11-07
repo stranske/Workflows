@@ -773,6 +773,11 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
 
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
 // Only a successful producer observation resets the clock; comments do not.
+function canaryObservationIsStale(canary, now) {
+  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
+  return Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000;
+}
+
 function canaryNeedsRefresh(canary, now = Date.now()) {
   if (canary.mergeable_state === 'behind') return 'behind';
   if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) {
@@ -784,8 +789,7 @@ function canaryNeedsRefresh(canary, now = Date.now()) {
   // mergeability still goes through that path's existing fail-closed gates.
   if (['ready', 'success'].includes(canary.check_status) && canary.mergeable !== false
     && !['dirty', 'blocked', 'unknown', 'draft'].includes(canary.mergeable_state)) return null;
-  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
-  if (Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000) return 'stale';
+  if (canaryObservationIsStale(canary, now)) return 'stale';
   return null;
 }
 
@@ -986,19 +990,30 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
     const origin = thread.comments?.nodes?.[0]?.url;
     if (!origin || !thread.id) throw new Error('canary_review_thread_link_missing');
     const location = { owner: context.repo.owner, repo: context.repo.repo };
-    const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
-      ...location, sha: context.payload.repository?.default_branch || 'main',
-      path: source.sourcePath, per_page: 1,
-    }));
-    if (!commits[0]?.sha) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
-    const commit = commits[0].sha;
-    const prs = await withRetry((client) => client.paginate(
-      client.rest.repos.listPullRequestsAssociatedWithCommit,
-      { ...location, commit_sha: commit, per_page: 100 },
-    ));
-    const latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
-      `${location.owner}/${location.repo}`)
-      .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+    let commit;
+    let latest;
+    // Direct source commits have no PR association. Walk this path's history
+    // until its latest merged PR is found, retaining the newest commit only
+    // as a fallback when the entire path history has no merged source PR.
+    for (let page = 1; ; page++) {
+      const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
+        ...location, sha: context.payload.repository?.default_branch || 'main',
+        path: source.sourcePath, per_page: 100, page,
+      }));
+      commit ||= commits[0]?.sha;
+      for (const entry of commits) {
+        const prs = await withRetry((client) => client.paginate(
+          client.rest.repos.listPullRequestsAssociatedWithCommit,
+          { ...location, commit_sha: entry.sha, per_page: 100 },
+        ));
+        latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
+          `${location.owner}/${location.repo}`)
+          .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+        if (latest) break;
+      }
+      if (latest || commits.length < 100) break;
+    }
+    if (!commit) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
     const marker = `<!-- maint71-canary-upstream:${canary.owner}/${canary.repo}:${thread.id} -->`;
     const comments = await withRetry((client) => client.paginate(
       latest ? client.rest.issues.listComments : client.rest.repos.listCommentsForCommit,
@@ -1029,13 +1044,16 @@ async function refreshStableCanaries({
   const counts = { red: 0, drainable: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
   // Preserve every held plan's reasons, but refresh the full candidate set once.
   const plans = new Map();
+  const unreadableTipPlans = new Set();
   const errors = [];
   for (const canary of canaries) {
     try {
       await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
     } catch (error) {
       errors.push(`canary_refresh_tip_unreadable:${canary.owner}/${canary.repo}:${error.message}`);
-      continue;
+      // Keep known blockers visible even when branch drift cannot be read.
+      // A sibling must not dispatch this plan using an incomplete live-tip read.
+      unreadableTipPlans.add(canary.plan_id);
     }
     if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) counts.red++;
     if (canary.expected_preseal_gate_hold && !canaryHasBlockingReviewDebt(canary)) counts.drainable++;
@@ -1048,8 +1066,9 @@ async function refreshStableCanaries({
     await core.summary.addRaw(`${sealLine}\n`).write();
     if (canaryHasBlockingReviewDebt(canary)) counts.review_blocked++;
     const reason = canaryNeedsRefresh(canary, now);
-    if (reason && canaryNeedsRefresh({ ...canary, mergeable_state: '', mergeable: false,
-      check_status: '', active_review_thread_count: 0 }, now) === 'stale') counts.stale++;
+    // Age accounting is independent of review classification. Reclassifying a
+    // synthetic zero-thread row would invalidate its bound review snapshot.
+    if (reason && !canary.expected_preseal_gate_hold && canaryObservationIsStale(canary, now)) counts.stale++;
     canary.refresh_reason = reason;
     if (!reason) continue;
     if (!canary.plan_id) {
@@ -1076,7 +1095,8 @@ async function refreshStableCanaries({
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      for (const [plan, rows] of plans) {
+      refreshPlans: for (const [plan, rows] of plans) {
+        if (unreadableTipPlans.has(plan)) continue;
         const recovery = rows.find(row => row.mergeable_state === 'behind') || rows[0];
         const request = campaignBoundRefreshPlan(recovery);
         if (rows.some(row => row.plan_scope === 'source-delta' || row.refresh_plan?.plan_scope === 'source-delta')
@@ -1090,29 +1110,33 @@ async function refreshStableCanaries({
         }
         const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
           scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan } : {};
-        const fullAligned = (state) => request?.plan_scope === 'full'
-          && state?.sha === request.source_commit && sameRefreshPlan(state.refresh_plan, request);
-        const reusable = request?.plan_scope === 'full'
-          ? (fullAligned(recovery.refresh_state) ? recovery.refresh_state
-            : fullAligned(refreshState) ? refreshState : null)
-          : (recovery.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
-            ? null : refreshState));
-        const baseState = reusable || await readCanaryRefreshState({
-          withRetry, context, expectedCanaries, now, ...inputs });
-        const recoveryKey = canaryRecoveryKey(recovery, baseState);
-        const state = baseState.drift_key === recoveryKey ? baseState
-          : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
-            ...inputs, driftKey: recoveryKey });
-        const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
-          expectedCanaries, refreshState: state, now, cleanupBranches });
-        if (!refresh.dispatched) continue;
-        counts.refresh_dispatched++;
-        core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
-          rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
-          '; completion awaits a successful Maint 68 run');
-        // Stable candidate branches have one writer even before REST exposes
-        // this newly requested run. Other held plans remain for a later pass.
-        break;
+        // A consumed recovery belongs to one payload/head (or live tip/head).
+        // Check siblings too, preserving behind priority and one producer write.
+        for (const candidate of [recovery, ...rows.filter(row => row !== recovery)]) {
+          const fullAligned = (state) => request?.plan_scope === 'full'
+            && state?.sha === request.source_commit && sameRefreshPlan(state.refresh_plan, request);
+          const reusable = request?.plan_scope === 'full'
+            ? (fullAligned(candidate.refresh_state) ? candidate.refresh_state
+              : fullAligned(refreshState) ? refreshState : null)
+            : (candidate.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
+              ? null : refreshState));
+          const baseState = reusable || await readCanaryRefreshState({
+            withRetry, context, expectedCanaries, now, ...inputs });
+          const recoveryKey = canaryRecoveryKey(candidate, baseState);
+          const state = baseState.drift_key === recoveryKey ? baseState
+            : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
+              ...inputs, driftKey: recoveryKey });
+          const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
+            expectedCanaries, refreshState: state, now, cleanupBranches });
+          if (!refresh.dispatched) continue;
+          counts.refresh_dispatched++;
+          core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
+            rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
+            '; completion awaits a successful Maint 68 run');
+          // Stable candidate branches have one writer even before REST exposes
+          // this newly requested run. Other held plans remain for a later pass.
+          break refreshPlans;
+        }
       }
     }
   } catch (error) {

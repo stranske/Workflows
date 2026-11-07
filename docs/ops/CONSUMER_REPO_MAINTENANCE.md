@@ -3608,6 +3608,22 @@ Coordinated negative subjects use shared descriptor-aware URL tokens and a bound
 
 ### Stable canary refresh clock
 
+Review-blocked canaries route each active synced-file finding to the latest
+merged Workflows PR in that manifest source path's history, including when newer
+changes were direct commits. The lookup paginates past direct commits; only a
+path with no merged source PR falls back to a comment on its newest commit.
+Existing authenticated-writer markers suppress duplicate comments on retries.
+Each comment links the consumer thread; the original finding remains blocking.
+
+Maint 71 counts stale producer observations independently of overlapping check
+and review blockers. A bound review snapshot does not suppress the stale count:
+an old review-blocked canary contributes to both `review_blocked` and `stale`.
+Healthy green canaries and expected pre-seal Gate holds retain their existing
+age exemptions.
+An unreadable live default-branch tip does not erase known blocker counts or
+the held plan from the summary. Refresh for that plan stays blocked, including
+requests from its siblings, and the live-tip read error still fails the run.
+
 Full-scope report refreshes retain the verified campaign source commit and pass
 its expected plan ID to Maint 68. The in-loop stable refresh does the same
 when the canary carries that sha256 plan and source, including when current
@@ -3639,7 +3655,10 @@ successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
 reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
-most one configured-candidate refresh per invocation. Full-scope refresh keeps
+most one configured-candidate refresh per invocation. A consumed recovery for
+one canary's payload/head or live tip/head does not suppress a sibling's new
+recovery key in that plan; active writers still hold the entire candidate set.
+Full-scope refresh keeps
 its existing **rendered delivery digest** identity across source SHAs.
 `scripts/consumer_delivery_digest.py:delivery_digest` hashes full delivery intent
 for refresh, Maint 68 preparation, and the seal writer.
