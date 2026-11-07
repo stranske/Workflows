@@ -346,3 +346,109 @@ def test_supplement_must_bind_original_index_and_preserve_mutation(
         for index, row in enumerate(result["receipts"])
         if index != 1
     )
+
+
+def _write_supplement(tmp_path, python, run, proofs):
+    run()
+    directory = tmp_path / auditor.EVIDENCE
+    supplement = {
+        "revision": "c" * 40,
+        "historical_sha256": hashlib.sha256(
+            (directory / "retained-mutation-reconciliation.json").read_bytes()
+        ).hexdigest(),
+        "source_sha256": python["source_sha256"],
+        "test_sha256": python["test_sha256"],
+        "proofs": proofs,
+    }
+    (directory / "retained-mutation-unabridged-reruns.json").write_text(json.dumps(supplement))
+
+
+@pytest.mark.parametrize("index", [-1, 2, "1", 1.0, True, None])
+def test_supplement_rejects_out_of_range_or_non_integer_index(receipts, tmp_path, index):
+    python, _, _, run = receipts
+    replacement = dict(python["proofs"][1], historical_index=index)
+    _write_supplement(tmp_path, python, run, [replacement])
+    result = run()
+    assert result["complete"] is False
+    assert "Supplemental receipt has an invalid or duplicate index" in result["problems"]
+    assert all(row["source_revision"] == "a" * 40 for row in result["receipts"])
+
+
+def test_supplement_rejects_duplicate_historical_index(receipts, tmp_path):
+    python, _, _, run = receipts
+    replacement = dict(python["proofs"][1], historical_index=1)
+    _write_supplement(tmp_path, python, run, [replacement, replacement])
+    result = run()
+    assert result["complete"] is False
+    assert "Supplemental receipt has an invalid or duplicate index" in result["problems"]
+
+
+@pytest.mark.parametrize("field", ["name", "test", "before", "mutant", "mutant_source_sha256"])
+def test_supplement_cannot_change_historical_mutation(receipts, tmp_path, field):
+    python, _, _, run = receipts
+    replacement = dict(python["proofs"][1], historical_index=1)
+    replacement[field] = "changed"
+    _write_supplement(tmp_path, python, run, [replacement])
+    result = run()
+    assert result["complete"] is False
+    assert "Supplemental receipt 1 changes the historical mutation" in result["problems"]
+    assert result["receipts"][1]["source_revision"] == "a" * 40
+
+
+@pytest.mark.parametrize("mismatch", ["missing", "unexpected", "absent-from-file"])
+def test_node_receipts_must_match_required_existing_cases(receipts, tmp_path, mismatch):
+    _, node, _, run = receipts
+    if mismatch == "missing":
+        node["proofs"].pop()
+    elif mismatch == "unexpected":
+        node["proofs"][0]["test"] = "unrelated test"
+    else:
+        (tmp_path / auditor.NODE_TEST).write_text("")
+    result = run()
+    assert result["complete"] is False
+    assert (
+        "The two retained Node cases are missing or do not exist in the test file"
+        in result["problems"]
+    )
+
+
+def test_discovery_preserves_async_and_class_qualified_test_names():
+    assert (
+        auditor._functions("""
+def helper(): pass
+async def test_async(): pass
+class Helper:
+    def test_hidden(self): pass
+class TestClass:
+    def helper(self): pass
+    def test_method(self): pass
+    async def test_async(self): pass
+    class TestNested:
+        def test_nested(self): pass
+""")
+        == {
+            "test_async",
+            "TestClass::test_method",
+            "TestClass::test_async",
+            "TestClass::TestNested::test_nested",
+        }
+    )
+
+
+def test_class_qualified_collection_does_not_borrow_same_named_top_level_case(receipts, tmp_path):
+    python, _, cases, run = receipts
+    tests = "def test_before(): pass\nclass TestClass:\n    async def test_added(self): pass\n"
+    (tmp_path / auditor.PYTHON_TEST).write_text(tests)
+    python["test_sha256"] = hashlib.sha256(tests.encode()).hexdigest()
+    result = run()
+    assert result["complete"] is False
+    assert "TestClass::test_added" in " ".join(result["problems"])
+    for proof in python["proofs"]:
+        old = proof["test"]
+        new = old.replace("::test_added", "::TestClass::test_added")
+        proof["test"] = new
+        proof["command"][-1] = new
+        proof["red_output"] = proof["red_output"].replace(old, new)
+    cases.clear()
+    cases.update(proof["test"] for proof in python["proofs"])
+    assert run()["complete"] is True

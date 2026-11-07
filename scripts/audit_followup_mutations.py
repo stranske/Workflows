@@ -25,7 +25,15 @@ def _sha(text: str) -> str:
 
 
 def _functions(text: str) -> set[str]:
-    return {node.name for node in ast.parse(text).body if isinstance(node, ast.FunctionDef)}
+    def discover(nodes, prefix=""):
+        for node in nodes:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name.startswith("test_"):
+                    yield prefix + node.name
+            elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
+                yield from discover(node.body, prefix + node.name + "::")
+
+    return set(discover(ast.parse(text).body))
 
 
 def _is_commit_sha(value: object) -> bool:
@@ -91,7 +99,8 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
     expected = {
         case
         for case in collected
-        if case.startswith(PYTHON_TEST + "::") and case.split("::")[-1].split("[")[0] in added
+        if case.startswith(PYTHON_TEST + "::")
+        and case.removeprefix(PYTHON_TEST + "::").split("[")[0] in added
     }
     mapped = {proof["test"] for proof in python["proofs"]}
     problems = []
@@ -144,7 +153,7 @@ def audit(root: Path, baseline_tests: str, collected: set[str]) -> dict:
         problems.append("Python source/test hashes do not match the inspected checkout")
     if python.get("revision") != node.get("revision"):
         problems.append("Python and Node receipts name different source revisions")
-    uncollected = added - {case.split("::")[-1].split("[")[0] for case in expected}
+    uncollected = added - {case.removeprefix(PYTHON_TEST + "::").split("[")[0] for case in expected}
     if not expected or uncollected:
         problems.append(f"Added tests missing from collection: {sorted(uncollected)}")
     if mapped != expected:

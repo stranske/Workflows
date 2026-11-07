@@ -12,7 +12,8 @@
     "addopts=",
     "--cov=scripts.langchain.followup_issue_generator",
     "--cov-branch",
-    "--cov-report=term-missing"
+    "--cov-report=term-missing",
+    "--cov-report=json"
   ],
   "coverage_config_revision": "db91da15d7c44e34dca7d4f3d74e5cae62fff62c",
   "config_sha256": "f793630708820650e709e2976674cfdd5fab636f974ec1bb9e54b5968026a402",

@@ -1291,3 +1291,46 @@ also prohibits committing Python changes. Final CLI readback still failed to
 connect; final connected metadata confirms #4401 and #4518 remain OPEN,
 `draft=false`, at their recorded heads, with #4401 `merged=false` and
 `merged_at=null`. Main-delivery acceptance remains incomplete.
+
+## PR #4518 continuation acceptance check (2026-11-07)
+
+Real-input retained-receipt audit: **PASS**, checked 2026-11-07 against the
+repository's actual evidence files and a fresh collection of its generator tests.
+Runnable commands (from the repository root):
+
+```sh
+git show 94d9f952dad19f4f8048ae82bb8301bc6baf6ef5:tests/test_followup_issue_generator.py > /tmp/issue-4518-baseline.py
+/opt/anaconda3/bin/python3 -m pytest tests/test_followup_issue_generator.py --collect-only -q -m 'not slow' > /tmp/issue-4518-collected.txt
+/opt/anaconda3/bin/python3 scripts/audit_followup_mutations.py --baseline-tests /tmp/issue-4518-baseline.py --collected-tests /tmp/issue-4518-collected.txt > docs/evidence/issue-3956/retained-mutation-audit.json
+```
+
+The auditor exited 0 and printed `complete=true`, `problems=[]`, 35 added
+functions, 45 collected added cases, 50 Python receipts and two Node receipts.
+Every generated row now identifies `receipt_file`, `source_revision` and
+`historical_index`; supplemental rows retain their separate receipt index.
+This command checks retained real-input evidence without re-executing its
+historical mutation commands. It establishes receipt consistency, not a new
+execution of the generator on production input.
+
+Broader real-input acceptance remains **INCOMPLETE**: this continuation has not
+established final main delivery, a comparable hosted baseline for the
+approximately-60-unit claim, or the missing independent ranking provenance.
+The audit PASS does not complete those acceptance criteria or retroactively
+validate historical completion claims.
+
+Continuation validation on 2026-11-07:
+
+```sh
+/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_audit_followup_mutations.py tests/test_followup_issue_generator.py -q -m 'not slow'
+# exit 0; 265 passed in 1.29s
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 tests passed, zero failures, cancellations or skips
+```
+
+```sh
+/opt/anaconda3/bin/python3 -m black --check --line-length 100 scripts/ tests/
+# exit 0; 725 files would be left unchanged
+```
+
+Black also warned that the running Python 3.12 cannot parse every Python 3.13
+target syntax; it reported no formatting changes needed in this checkout.
