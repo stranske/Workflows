@@ -221,3 +221,41 @@ BLACK_CACHE_DIR=/tmp/issue-4508-black-cache BLACK_NUM_WORKERS=1 \
 
 Earlier interrupted attempts remain historical records, not the current
 formatting result. Full local suite success is still not claimed.
+
+## Named-gate deliberate-break parametrization (this round)
+
+Extended `test_ci_history_type_checks_under_consumer_mypy` with
+`fixed-source` / `reintroduced-redefinition` cases so the named acceptance gate
+itself covers deliberate-break → restore.
+
+Verified:
+
+```text
+# Actual source temporarily reintroduced duplicate record annotation:
+pytest ...::test_ci_history_type_checks_under_consumer_mypy[fixed-source]
+FAILED: scripts/ci_history.py:152: error: Name "record" already defined on line 119 [no-redef]
+
+# Source restored byte-for-byte:
+pytest ...::test_ci_history_type_checks_under_consumer_mypy[fixed-source]
+     ...::test_ci_history_type_checks_under_consumer_mypy[reintroduced-redefinition]
+2 passed
+
+pytest tests/scripts/test_ci_history.py tests/workflows/test_ci_history.py -m 'not slow' -q
+26 passed
+
+python -m mypy --config-file <empty> --no-incremental --ignore-missing-imports \
+  --follow-imports=silent scripts/ci_history.py
+Success: no issues found in 1 source file
+
+BLACK_CACHE_DIR=/tmp/issue-4508-black-cache BLACK_NUM_WORKERS=1 \
+  black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+952 files would be left unchanged.
+```
+
+Consumer verification via `gh run view 42327976097 --repo stranske/trip-planner`:
+conclusion=`success`, head `948406465cf7`, job `Python CI / typecheck-mypy`
+(128267659502) conclusion=`success`.
+
+Deferred (human / post-merge only): next sync-core round classification without
+this finding. Do not modify or trigger
+`.github/workflows/maint-68-sync-consumer-repos.yml`.

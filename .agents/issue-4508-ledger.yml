@@ -5,126 +5,130 @@ branch: codex/issue-4508
 tasks:
   - id: task-01
     title: Fix the `record` redefinition in the source of synced `scripts/ci_history.py`.
-    status: doing
+    status: done
     started_at: '2026-11-07T01:55:13Z'
-    finished_at: null
-    commit: ''
-    notes: []
+    finished_at: '2026-11-07T03:55:00Z'
+    commit: '37e23000'
+    notes:
+      - 'Source fix landed on main via #4509; exception branch uses failure_record.'
   - id: task-02
     title: 'Locate the source template of scripts/ci_history.py in the sync source
       repository (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-07T01:55:13Z'
+    finished_at: '2026-11-07T03:55:00Z'
+    commit: '37e23000'
+    notes:
+      - '.github/sync-manifest.yml ships scripts/ci_history.py directly.'
   - id: task-03
     title: 'identify the two conflicting definitions of `record` near lines 119 (verify:
       confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-07T01:55:13Z'
+    finished_at: '2026-11-07T03:55:00Z'
+    commit: '37e23000'
+    notes:
+      - 'Line 119 keeps record in the missing-junit branch.'
   - id: task-04
     title: '152 (verify: confirm completion in repo)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-07T01:55:13Z'
+    finished_at: '2026-11-07T03:55:00Z'
+    commit: '37e23000'
+    notes:
+      - 'Line 152 now annotates failure_record in the FileNotFoundError branch.'
   - id: task-05
     title: 'Fix the mypy no-redef error by renaming or consolidating the duplicate
       `record` definitions in the source file without changing runtime behavior (verify:
       typecheck passes)'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-07T01:55:13Z'
+    finished_at: '2026-11-07T03:55:00Z'
+    commit: '37e23000'
+    notes:
+      - 'Empty-config mypy on scripts/ci_history.py: Success: no issues found.'
   - id: task-06
     title: Add or extend a regression test reproducing the failure that passes after
       the fix, using `pytest` or `node --test`, whichever the source uses.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-11-07T02:21:06Z'
+    finished_at: '2026-11-07T03:55:00Z'
     commit: ''
-    notes: []
+    notes:
+      - 'Named gate test_ci_history_type_checks_under_consumer_mypy plus consumer-layout matrix.'
   - id: task-07
     title: '`Shipment-caused: Python CI / typecheck-mypy fails on synced scripts/ci`
       passes on regenerated sync PR stranske/trip-planner#1957; verify with `gh run
       view <run-id>` using the Evidence run. The repository''s test command passes
       locally.'
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-11-07T03:39:58Z'
+    finished_at: '2026-11-07T03:55:00Z'
     commit: ''
-    notes: []
+    notes:
+      - 'gh run view 42327976097: conclusion=success; Python CI / typecheck-mypy job 128267659502 success on head 948406465cf7.'
+      - 'Focused local suite tests/scripts/test_ci_history.py + tests/workflows/test_ci_history.py: 26 passed.'
   - id: task-08
     title: Reintroducing the reported behavior makes the regression test fail; reverting
       restores its passing result.
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-11-07T03:50:00Z'
+    finished_at: '2026-11-07T03:55:00Z'
     commit: ''
-    notes: []
+    notes:
+      - 'Actual source reintroduction failed fixed-source gate with original no-redef; restore passed both parametrized cases.'
   - id: task-09
     title: The next sync-core round classifies stranske/trip-planner#1957 without
       this finding.
-    status: todo
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'Human/post-merge verification; agent cannot trigger or observe the next sync-core round.'
   - id: task-10
     title: 'Fix the failure named in the title (`Shipment-caused: Python CI / typecheck-mypy
       fails on synced scripts/ci`) at its source; the failing check''s log is linked
       under Evidence and the sync PR is stranske/trip-planner#1957.'
-    status: todo
-    started_at: null
-    finished_at: null
-    commit: ''
-    notes: []
+    status: done
+    started_at: '2026-11-07T01:55:13Z'
+    finished_at: '2026-11-07T03:55:00Z'
+    commit: '37e23000'
+    notes:
+      - 'Duplicate of task-01/05; fixed in source via #4509.'
   - id: task-11
     title: Add or extend a test that reproduces the failure and passes after the fix
       (`pytest` or `node --test`, whichever the source uses).
-    status: todo
-    started_at: null
-    finished_at: null
+    status: done
+    started_at: '2026-11-07T02:21:06Z'
+    finished_at: '2026-11-07T03:55:00Z'
     commit: ''
-    notes: []
+    notes:
+      - 'Duplicate of task-06.'
   - id: task-12
     title: 'Acceptance: `Python CI / typecheck-mypy` passes on regenerated sync PR
-      stranske/trip-planner#1957; verify with `gh run view <run-id>` (The agent cannot
-      retry CI pipelines. Regeneration of the sync PR depends on .github/workflows/maint-68-sync-consumer-repos.yml,
-      which is protected and cannot be modified or re-run by the agent. The consumer
-      repo PR is also outside the source repo. | Have the agent verify locally by
-      running `mypy` on the fixed source file and the repo test command. A human or
-      the scheduled sync workflow then triggers regeneration and confirms the CI result
-      on PR #1957.)'
-    status: todo
-    started_at: null
-    finished_at: null
+      stranske/trip-planner#1957; verify with `gh run view <run-id>`'
+    status: done
+    started_at: '2026-11-07T03:39:58Z'
+    finished_at: '2026-11-07T03:55:00Z'
     commit: ''
-    notes: []
+    notes:
+      - 'Verified via gh run view 42327976097; local mypy + focused pytest also pass. Protected maint-68 must not be modified.'
   - id: task-13
     title: 'Acceptance: The next sync-core round classifies stranske/trip-planner#1957
-      without this finding. (This depends on an external sync-core round and a workflow
-      run that the agent cannot trigger or observe. | Mark it as a human or post-merge
-      verification step, outside the agent''s completion criteria.)'
-    status: todo
+      without this finding.'
+    status: deferred
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'Outside agent completion criteria; requires a later sync-core round.'
   - id: task-14
     title: Fix the source and let `.github/workflows/maint-68-sync-consumer-repos.yml`
-      regenerate the sync PR. (This is a note and not a task. It is fine as written,
-      as long as the agent does not try to edit or trigger the protected workflow.
-      | Keep it as an implementation note and state explicitly that the workflow file
-      must not be modified.)
-    status: todo
+      regenerate the sync PR.
+    status: note
     started_at: null
     finished_at: null
     commit: ''
-    notes: []
+    notes:
+      - 'Implementation note only. Do not modify or manually trigger the protected workflow.'

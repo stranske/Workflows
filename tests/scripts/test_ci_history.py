@@ -241,15 +241,33 @@ def test_build_classification_payload_counts_statuses() -> None:
     assert payload["entries"][0]["nodeid"] == "a"
 
 
-def test_ci_history_type_checks_under_consumer_mypy(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "reintroduce_redefinition",
+    [False, True],
+    ids=["fixed-source", "reintroduced-redefinition"],
+)
+def test_ci_history_type_checks_under_consumer_mypy(
+    tmp_path: Path, reintroduce_redefinition: bool
+) -> None:
     """Consumers type-check this synced script; Workflows' own mypy covers only src/.
 
     2026-11-07: a second ``record: dict[str, Any]`` annotation in main() raised mypy
     ``no-redef`` and turned trip-planner's typecheck-mypy red on its sync canary.
+
+    Acceptance: the fixed source passes; reintroducing the duplicate annotation
+    reproduces the original diagnostic and fails this named gate.
     """
     # This named acceptance gate must fail, rather than skip, when mypy is missing.
     # mypy is a required development dependency and runs through the test interpreter.
     script = Path(__file__).resolve().parents[2] / "scripts" / "ci_history.py"
+    target = script
+    if reintroduce_redefinition:
+        # Mutate a disposable copy so parallel suites never see a broken checkout.
+        target = tmp_path / "ci_history.py"
+        source = script.read_text(encoding="utf-8")
+        assert "failure_record: dict[str, Any]" in source
+        target.write_text(source.replace("failure_record", "record"), encoding="utf-8")
+
     # Consumers run mypy with their own (near-default) config; Workflows' pyproject relaxes
     # checks that consumers enforce, so use an empty config rather than this repo's.
     config = tmp_path / "mypy.ini"
@@ -267,10 +285,15 @@ def test_ci_history_type_checks_under_consumer_mypy(tmp_path: Path) -> None:
             "--no-error-summary",
             "--cache-dir",
             str(tmp_path / ".mypy_cache"),
-            str(script),
+            str(target),
         ],
         capture_output=True,
         text=True,
         timeout=300,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
+    if reintroduce_redefinition:
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert 'Name "record" already defined' in result.stdout
+        assert "[no-redef]" in result.stdout
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
