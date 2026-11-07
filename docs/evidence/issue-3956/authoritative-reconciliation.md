@@ -2,6 +2,86 @@
 
 ## Current delivery readback (2026-11-07 UTC)
 
+Before the CLI fallback regression changes, checkout
+`407b236b5d4c84f4f345c15872d60e186d2ba4bc` was inspected. The required
+`gh pr view 4401 --repo stranske/Workflows --json
+state,headRefOid,mergeStateStatus,reviewDecision,statusCheckRollup,mergeCommit,isDraft`
+exited 1 connecting to `api.github.com`. Connected metadata still reports OPEN,
+`draft=false`, `merged=false`, head `9eaf43313c0e57ef964e4171f645985dca5742b8`.
+All three submitted reviews are COMMENTED. The non-outdated unresolved revision
+table thread `PRRT_kwDOQprj9M6zZ4AB` remains the identified review blocker.
+An immutable generator read at reported main base
+`4928870982db3bc3b85c701b4cca2492128739b2` again returns blob
+`c3a19cbf41a476954b8afcde6d214b3cf8c82a00`, defining and calling the helper.
+The first unchecked main-delivery criterion remains blocked on #4401 delivery;
+the next local work verifies CLI fallback integration without replacing that repair.
+No checked merge claim is accepted as evidence.
+
+### CLI fallback integration validation (local, 2026-11-07)
+
+`tests/test_followup_cli_fallback_contract.py` adds six supplemental cases:
+`verification_comment`, `original_issue`, and `codex_log`, each failing at
+`probe` and `read`. With real temporary input files, each case fails only the
+selected input. Verification/issue fallbacks reach the inline guard as their
+literal arguments; a blocked literal reports its source and prevents generation.
+An unreadable optional log is omitted, while the other two files retain their
+parsed contents. This preserves #4401's repair and the original 199-test file.
+
+[cli-fallback-integration-proof.json](cli-fallback-integration-proof.json) maps
+all six parameter IDs to full assertion-failing RED and restored GREEN outputs.
+The mutation returns an unreadable-file diagnostic as content after OSError,
+losing the literal fallback or forwarding an unreadable log to the guard. Each
+case fails its exact scanned-input assertion (exit 1) and then passes against
+restored source (exit 0). All six receipts were inspected without truncation.
+Source revision is `407b236b5d4c84f4f345c15872d60e186d2ba4bc`, generator SHA256
+`59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925`,
+with the new test overlay bound by SHA256
+`003bca7903bc0e41a584bce21c54f27961d2a63ad8cd070cbfd96c6935e29b40`.
+Only temporary module copies were mutated. These supplemental receipts extend
+the evidence index; the historical retained-test mapping is preserved separately.
+
+Selected interpreter: `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python`
+(Python 3.14.10), consistent with the repository's primary 3.14 runtime.
+LangSmith's plugin remained enabled. Commands and results:
+
+```sh
+python -m pytest tests/test_followup_issue_generator.py -q -m 'not slow'
+# exit 0; 199 passed
+python -m pytest tests/test_followup_issue_generator.py tests/test_followup_guard_contract.py tests/test_followup_cli_fallback_contract.py -q -m 'not slow' --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-cli-coverage.json
+# exit 0; 212 passed; 99.92% combined local coverage
+node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; one passing process-isolated file unit
+node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js
+# exit 0; 173 individual cases passed; zero failed or skipped
+ruff check tests/test_followup_cli_fallback_contract.py
+# exit 0; all checks passed
+black --line-length 100 tests/test_followup_cli_fallback_contract.py
+# exit 0; file unchanged
+```
+
+Coverage JSON confirms 851 statements, zero missing statements, 386 branches,
+one missing branch (`124 -> 126`). This focused local measurement supplies no
+new hosted baseline, approximately 60-unit reduction, ranking provenance, or
+main-delivery evidence. The unchecked source acceptance criteria remain pending.
+
+
+The commit attempt is blocked before staging: `git add` for this test, its
+receipt and this record exits 128 because `.git/index.lock` cannot be created
+on the read-only filesystem. No commit, push, PR change, or merge was made.
+
+The required repository-wide formatting check was also attempted:
+
+```sh
+BLACK_NUM_WORKERS=1 black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+It produced no output for several minutes and was interrupted with exit 130.
+The changed-file Black result above passed; this repository-wide result is
+incomplete and does not satisfy the pre-commit gate. No acceptance checkbox was
+changed on the strength of local results or the checked historical merge task.
+
+### Earlier readbacks (historical)
+
 Before the clean-payload regression changes, checkout `95be0640` was inspected.
 The required `gh pr view 4401 --repo stranske/Workflows --json
 state,headRefOid,mergeCommit,isDraft,statusCheckRollup` exited 1 connecting to
