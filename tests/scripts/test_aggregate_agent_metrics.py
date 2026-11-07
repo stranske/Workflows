@@ -2168,3 +2168,32 @@ def test_metrics_helpers_preserve_empty_and_malformed_input_boundaries(tmp_path:
     assert selection["missing_terminal_artifact_families"] == list(
         aggregate_agent_metrics._TERMINAL_ARTIFACT_FAMILIES
     )
+
+
+def test_langsmith_trace_refs_skip_trace_list_item_without_id_or_url() -> None:
+    entry = {"langsmith_traces": [{"note": "no identifiers"}, {"trace_id": "abc"}]}
+
+    assert aggregate_agent_metrics._langsmith_trace_refs(entry) == {"id:abc"}
+
+
+def test_autopilot_summary_ignores_step_with_unknown_success_value() -> None:
+    summary = aggregate_agent_metrics._summarise_autopilot(
+        [{"step_name": "implement", "success": None, "failure_reason": "timeout"}]
+    )
+
+    assert summary["step_successes"] == {}
+    assert summary["step_failures"] == {}
+    assert summary["failure_reasons"] == Counter()
+    assert summary["total_steps"] == 0
+
+
+def test_codex_freshness_summary_tolerates_missing_update_targets() -> None:
+    summary = aggregate_agent_metrics._summarise_codex_cli_freshness(
+        [
+            {"status": "current", "package": "codex-cli"},
+            {"status": "outdated", "package": "codex-cli", "update_targets": [{"path": "a.env"}]},
+        ]
+    )
+
+    assert summary["records"] == 2
+    assert summary["update_targets"] == Counter({"a.env": 1})

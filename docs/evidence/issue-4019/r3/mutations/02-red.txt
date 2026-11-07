@@ -1,0 +1,23 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_step_with_unknown_success_value -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_autopilot_summary_ignores_step_with_unknown_success_value ________
+
+    def test_autopilot_summary_ignores_step_with_unknown_success_value() -> None:
+        summary = aggregate_agent_metrics._summarise_autopilot(
+            [{"step_name": "implement", "success": None, "failure_reason": "timeout"}]
+        )
+    
+        assert summary["step_successes"] == {}
+>       assert summary["step_failures"] == {}
+E       AssertionError: assert {'implement': 1} == {}
+E         
+E         Left contains 1 more item:
+E         {'implement': 1}
+E         Use -v to get more diff
+
+tests/scripts/test_aggregate_agent_metrics.py:2185: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_aggregate_agent_metrics.py::test_autopilot_summary_ignores_step_with_unknown_success_value
+1 failed in 0.23s
+exit=1

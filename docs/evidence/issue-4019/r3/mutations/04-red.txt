@@ -1,0 +1,21 @@
+$ /opt/anaconda3/bin/python3 -m pytest tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_configured_model_falls_back_when_registry_import_fails -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ TestRemainingProviderPaths.test_configured_model_falls_back_when_registry_import_fails _
+
+self = <tests.tools.test_llm_provider.TestRemainingProviderPaths object at 0x104c85fa0>
+
+    def test_configured_model_falls_back_when_registry_import_fails(self):
+        from tools import llm_provider
+    
+        with patch.dict(sys.modules, {"tools.llm_registry": None}):
+>           assert llm_provider._configured_langchain_model("openai", fallback="fb") == "fb"
+E           AssertionError: assert '' == 'fb'
+E             
+E             - fb
+
+tests/tools/test_llm_provider.py:2154: AssertionError
+=========================== short test summary info ============================
+FAILED tests/tools/test_llm_provider.py::TestRemainingProviderPaths::test_configured_model_falls_back_when_registry_import_fails
+1 failed in 0.19s
+exit=1
