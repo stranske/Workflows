@@ -3551,10 +3551,9 @@ jobs:
                             if (
                               mergeCandidates[0].source !== 'github.token'
                               && jobToken
-                              && typeof require === 'function'
+                              && typeof getOctokit === 'function'
                             ) {
                               try {
-                                const { getOctokit } = require('@actions/github');
                                 const fallbackClient = getOctokit(jobToken);
                                 if (fallbackClient) {
                                   mergeCandidates.push({ source: 'github.token', client: fallbackClient });

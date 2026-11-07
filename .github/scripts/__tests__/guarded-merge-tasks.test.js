@@ -153,7 +153,7 @@ test('ambiguous source metadata cannot bypass source validation', () => {
 
 const refusalMarker = '<!-- agents-guarded-merge-result:v1 -->';
 
-function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
+function refusalHarness({ login = 'owner', actor = { login: 'Owner' }, credentialSource = 'SERVICE_BOT_PAT', comments = [], failAt = '' } = {}) {
   const actions = [];
   const c = {
     authenticatedLogin: login, owner: 'o', repo: 'r',
@@ -177,7 +177,7 @@ function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
     }, users: { getAuthenticated: async () => {
       actions.push(['identity']);
       if (failAt === 'identity') throw new Error('identity unavailable');
-      return { data: { login: 'Owner' } };
+      return { data: actor };
     } } } },
     withRetry: (fn) => fn(c.github),
     paginateWithRetry: async (method, args) => {
@@ -188,13 +188,54 @@ function refusalHarness({ login = 'owner', comments = [], failAt = '' } = {}) {
       return comments;
     },
     // Mock guardedMergeCredentialSource to return a consistent source for tests
-    guardedMergeCredentialSource: () => 'SERVICE_BOT_PAT',
+    guardedMergeCredentialSource: () => credentialSource,
     process: { env: {} },
   };
   vm.createContext(c);
   const report = source.slice(source.indexOf('            async function reportTaskRefusal'), source.indexOf('            async function loadPullRequest'));
   vm.runInContext(report, c);
   return { c, actions, comments };
+}
+
+test('workflow-token task refusal reuses only a bot receipt without GET /user', async () => {
+  const comments = [
+    { id: 1, user: { login: 'github-actions[bot]', type: 'User' }, body: refusalMarker },
+    { id: 2, user: { login: 'owner', type: 'Bot' }, body: refusalMarker },
+    { id: 3, user: { login: 'github-actions[bot]', type: 'Bot' }, body: refusalMarker },
+  ];
+  const { c, actions } = refusalHarness({
+    login: '', credentialSource: 'github.token', comments, failAt: 'identity',
+  });
+  await c.reportTaskRefusal(42, 'first-head', 'first refusal');
+  await c.reportTaskRefusal(42, 'next-head', 'next refusal');
+  assert.deepEqual(actions.filter(([kind]) => kind === 'update').map(([, args]) => args.comment_id), [3, 3]);
+  assert.equal(comments[2].body, `${refusalMarker}\nHead: next-head\nTask precheck refused: next refusal`);
+  assert.equal(comments[0].body, refusalMarker);
+  assert.equal(comments[1].body, refusalMarker);
+  assert.equal(actions.some(([kind]) => kind === 'identity' || kind === 'create'), false);
+});
+
+for (const ownership of [
+  { name: 'matching IDs despite renamed login', actor: { id: 7, login: 'new-owner' }, user: { id: 7, login: 'old-owner' }, owned: true },
+  { name: 'mismatching IDs despite matching login', actor: { id: 7, login: 'owner' }, user: { id: 8, login: 'owner' }, owned: false },
+  { name: 'missing actor ID uses case-insensitive login', actor: { login: 'Owner' }, user: { id: 7, login: 'OWNER' }, owned: true },
+  { name: 'missing comment ID uses case-insensitive login', actor: { id: 7, login: 'Owner' }, user: { login: 'OWNER' }, owned: true },
+  { name: 'missing ID and foreign login', actor: { id: 7, login: 'owner' }, user: { login: 'foreign' }, owned: false },
+]) {
+  test(`task refusal ownership: ${ownership.name}`, async () => {
+    const comments = [{ id: 5, user: ownership.user, body: refusalMarker }];
+    const { c, actions } = refusalHarness({ login: '', actor: ownership.actor, comments });
+    await c.reportTaskRefusal(42, 'head', 'unchecked tasks');
+    assert.equal(actions.filter(([kind]) => kind === 'identity').length, 1);
+    assert.equal(actions.filter(([kind]) => kind === 'update').length, ownership.owned ? 1 : 0);
+    assert.equal(actions.filter(([kind]) => kind === 'create').length, ownership.owned ? 0 : 1);
+    if (ownership.owned) {
+      assert.equal(actions.find(([kind]) => kind === 'update')[1].comment_id, 5);
+      assert.equal(comments[0].body, `${refusalMarker}\nHead: head\nTask precheck refused: unchecked tasks`);
+    } else {
+      assert.equal(comments[0].body, refusalMarker);
+    }
+  });
 }
 
 test('refusal receipt updates only its writer and survives unavailable identity', async () => {
@@ -1145,14 +1186,12 @@ function installJobTokenFallback(c, actions, fallbackMerge, primaryStatus = 403)
     },
   };
   c.require = (name) => {
-    assert.equal(name, '@actions/github');
-    return {
-      getOctokit: (token) => {
-        assert.equal(token, 'job-token');
-        actions.push(['fallback-client', token]);
-        return fallback;
-      },
-    };
+    throw new Error(`Cannot find module '${name}' in consumer checkout`);
+  };
+  c.getOctokit = (token) => {
+    assert.equal(token, 'job-token');
+    actions.push(['fallback-client', token]);
+    return fallback;
   };
   c.withRetry = async (fn, options = {}) => fn(options.github || c.github);
   c.github.rest.pulls.merge = async () => {
