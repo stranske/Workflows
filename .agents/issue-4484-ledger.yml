@@ -125,7 +125,7 @@ tasks:
   status: done
   started_at: '2026-11-08T20:47:15Z'
   finished_at: '2026-11-08T21:00:00Z'
-  commit: d897e3fbc
+  commit: cca20860d64bf4722646a2b5b873eb4cb2e56225
   notes:
   - 'Native current-host bounded workflow acceptance: 3643 passed, 9 skipped, 3652 collected and terminal,
     zero failures or multiset gaps.'
