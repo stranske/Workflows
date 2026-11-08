@@ -156,14 +156,14 @@ test('redispatch map preserves current workflow force_step contract', () => {
   assert.equal(redispatchForceStep('verify'), 'done');
 });
 
-test('a handoff from an earlier closure cannot complete a reopened issue closed by another PR', () => {
+test('closed issues re-verify even when a handoff record matches the current closure', () => {
   const original = {
     issueState: 'closed',
     verifyHandoffBound: true,
     closure: { id: 1001, sourcePr: 2454 },
     verifyHandoff: { closureId: 1001, sourcePr: 2454 },
   };
-  assert.equal(determineNextStep(original).nextStep, NEXT_STEPS.DONE);
+  assert.equal(determineNextStep(original).nextStep, NEXT_STEPS.VERIFY);
   assert.equal(
     determineNextStep({ ...original, issueState: 'open' }).nextStep,
     NEXT_STEPS.FORMAT,
@@ -173,13 +173,13 @@ test('a handoff from an earlier closure cannot complete a reopened issue closed 
   assert.equal(determineNextStep(reclosed).currentState, STATES.CLOSED_NEEDS_VERIFY);
   assert.equal(determineNextStep(reclosed).nextStep, NEXT_STEPS.VERIFY);
 
-  // Only a new handoff for the new closure may complete the issue.
+  // A new handoff record remains evidence for verify_step, not completion proof.
   assert.equal(
     determineNextStep({
       ...reclosed,
       verifyHandoff: { closureId: 1002, sourcePr: 2455 },
     }).nextStep,
-    NEXT_STEPS.DONE,
+    NEXT_STEPS.VERIFY,
   );
 });
 
@@ -210,14 +210,14 @@ test('label-only handoffs from the current workflow stay pending verification', 
   }).nextStep, NEXT_STEPS.VERIFY);
 });
 
-test('handoff identities accept serialized positive IDs and reject absent or malformed IDs', () => {
+test('handoff identities remain pending verification regardless of representation', () => {
   const event = {
     issueState: 'closed',
     verifyHandoffBound: 'true',
     closure: { id: 1001, sourcePr: 2454 },
     verifyHandoff: { closureId: '1001', sourcePr: '2454' },
   };
-  assert.equal(determineNextStep(event).nextStep, NEXT_STEPS.DONE);
+  assert.equal(determineNextStep(event).nextStep, NEXT_STEPS.VERIFY);
   assert.equal(
     determineNextStep({ ...event, verifyHandoffBound: false }).nextStep,
     NEXT_STEPS.VERIFY,
@@ -261,8 +261,8 @@ for (const [surface, transitions] of [
     }
     for (const verifyHandoffBound of [true, 'true', ' TRUE ']) {
       const result = transitions.determineNextStep({ ...issue, verifyHandoffBound });
-      assert.equal(result.currentState, STATES.CLOSED_VERIFIED, String(verifyHandoffBound));
-      assert.equal(result.nextStep, NEXT_STEPS.DONE, String(verifyHandoffBound));
+      assert.equal(result.currentState, STATES.CLOSED_NEEDS_VERIFY, String(verifyHandoffBound));
+      assert.equal(result.nextStep, NEXT_STEPS.VERIFY, String(verifyHandoffBound));
     }
   });
 
@@ -299,11 +299,8 @@ for (const [surface, transitions] of [
       closure: { id: '3001', sourcePr: '2454' },
       verifyHandoff: { closureId: '3001', sourcePr: '2454' },
     };
-    const next = () => transitions.determineNextStep({
-      ...issue,
-      forceStep: transitions.redispatchForceStep(NEXT_STEPS.VERIFY),
-    });
-    assert.equal(next().nextStep, NEXT_STEPS.DONE);
+    const next = () => transitions.determineNextStep(issue);
+    assert.equal(next().nextStep, NEXT_STEPS.VERIFY);
 
     // Reopening leaves both legacy labels and the recorded handoff in place.
     issue = { ...issue, issueState: 'open' };
@@ -316,15 +313,15 @@ for (const [surface, transitions] of [
     assert.equal(next().nextStep, NEXT_STEPS.VERIFY);
 
     issue = { ...issue, verifyHandoff: { closureId: '3002', sourcePr: '2454' } };
-    assert.equal(next().currentState, STATES.CLOSED_VERIFIED);
-    assert.equal(next().nextStep, NEXT_STEPS.DONE);
+    assert.equal(next().currentState, STATES.CLOSED_NEEDS_VERIFY);
+    assert.equal(next().nextStep, NEXT_STEPS.VERIFY);
 
     // A matching closure alone also cannot authorize a different source PR.
     issue = { ...issue, verifyHandoff: { closureId: '3002', sourcePr: '2455' } };
     assert.equal(next().nextStep, NEXT_STEPS.VERIFY);
   });
 
-  test(`${surface}: legacy verify:evaluate reaches done after a current PR handoff`, () => {
+  test(`${surface}: legacy verify:evaluate remains pending after a current PR handoff`, () => {
     const issue = {
       issueState: 'closed',
       hasVerify: true,
@@ -338,21 +335,14 @@ for (const [surface, transitions] of [
     const labeled = { ...issue, verifyHandoffBound: true };
     assert.equal(transitions.determineNextStep(labeled).nextStep, NEXT_STEPS.VERIFY);
 
-    // Exercise the helper's redispatch contract, without claiming the workflow
-    // schedules it: that requires its protected stage allowlist to admit verify.
     const handedOff = {
       ...labeled,
       verifyHandoff: { closureId: 2001, sourcePr: 2454 },
     };
-    const continuation = {
-      ...handedOff,
-      forceStep: transitions.redispatchForceStep(initial.nextStep),
-    };
-    const completed = transitions.determineNextStep(continuation);
-    assert.equal(completed.forced, false);
-    assert.equal(completed.currentState, STATES.CLOSED_VERIFIED);
-    assert.equal(completed.nextStep, NEXT_STEPS.DONE);
-    assert.equal(transitions.determineNextStep(continuation).nextStep, NEXT_STEPS.DONE);
+    const pending = transitions.determineNextStep(handedOff);
+    assert.equal(pending.forced, false);
+    assert.equal(pending.currentState, STATES.CLOSED_NEEDS_VERIFY);
+    assert.equal(pending.nextStep, NEXT_STEPS.VERIFY);
   });
 
   test(`${surface}: failed or stale legacy handoffs stay retryable until fresh proof exists`, () => {
@@ -363,15 +353,14 @@ for (const [surface, transitions] of [
       closure: { id: 2002, sourcePr: 2455 },
       verifyHandoff: { closureId: 2001, sourcePr: 2454 },
     };
-    const forceStep = transitions.redispatchForceStep(NEXT_STEPS.VERIFY);
-    const next = (event) => transitions.determineNextStep({ ...event, forceStep }).nextStep;
+    const next = (event) => transitions.determineNextStep(event).nextStep;
 
     assert.equal(next(issue), NEXT_STEPS.VERIFY);
     assert.equal(next({ ...issue, verifyHandoffBound: true }), NEXT_STEPS.VERIFY);
 
     const freshProof = { ...issue, verifyHandoff: { closureId: 2002, sourcePr: 2455 } };
     assert.equal(next(freshProof), NEXT_STEPS.VERIFY);
-    assert.equal(next({ ...freshProof, verifyHandoffBound: true }), NEXT_STEPS.DONE);
+    assert.equal(next({ ...freshProof, verifyHandoffBound: true }), NEXT_STEPS.VERIFY);
   });
 }
 
