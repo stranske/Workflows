@@ -1546,3 +1546,93 @@ The following marks describe verified working-tree implementation only:
 An authorized runner must publish the three changed test files and evidence,
 complete the gates in an environment supporting their IPC, and execute the
 selected delivery lifecycle before the remaining acceptance can be claimed.
+
+## Issue 4550: complete downstream refresh at 11:44 UTC
+
+This iteration starts at `1c1e6440c0449d8a1dab128443bca90e544d9966`.
+It adds four replay tests to `tests/scripts/test_issue_4369_downstream_evidence.py`
+and retains a fresh [downstream receipt](runtime-4550/downstream-refresh.json).
+The receipt SHA-256 is
+`6ee153517d3cb4399ae80e4add8a718ae979a97511e6ea892973e69d4ec5ed00`.
+These are local changes; publication and final consumer delivery remain pending.
+
+The unfiltered repository run inventory contains **632 unique runs across all
+seven pages**, covering **2026-11-08T08:58:07Z through 11:42:44Z**. Every page
+reports the same total, and the final page contains 32 rows. All trigger types
+are included, rather than selecting only scheduled/manual runs. No row belongs
+to `maint-68-sync-consumer-repos.yml` or `maint-71-merge-sync-prs.yml`.
+Normalized rows retain the API URL, page, total, full head SHA, event, path,
+timestamps, status, conclusion and run URL. This bounded inventory does not
+claim anything about runs outside its interval.
+
+The authorized, single-consumer Maint 68 dispatch was retried:
+
+```console
+gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows --ref main -f repos=stranske/Portable-Alpha-Extension-Model -f phase=canary -f delivery_scope=source-delta -f scope_base_sha=7e377b7ad8cc06e506393218bc7459ba47757f01 -f scope_head_sha=9acdde6d5f0731bf968a6766d83f2b47db8375a3 -f force=true -f cleanup_branches=false
+```
+
+It exits **1** with `error connecting to api.github.com`. The GitHub connector
+has no workflow-dispatch method. No run ID was received and no subsequent
+Maint 71 dispatch was attempted without a successful producer handoff.
+The immutable source range and selected canary are unchanged from the prior
+attempt; neither unrelated source changes nor additional consumers join it.
+
+The consumer default branch still resolves to
+`0543dc9732eab0ad12227308749566a937581eea`. A fresh exact-ref file read has blob
+`c889fd8064806a9c0f932f7c1dc09762896afe67`, differing from final source/template
+blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2` at frozen source commit
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`. Both complete file contents are
+retained in the receipt and their Git blob identities are recomputed by tests.
+The current consumer still lacks final directory normalization. A resolved
+historical review thread cannot establish delivery of those later bytes.
+
+Discussion **4434491702** remains **resolved and outdated**. The retained
+thread includes owner disposition **4505043101**, bound to earlier consumer
+head `9c85282d05359ddc468d0881ec6b09269ac592a2`. This is not a Maint 71 finding
+disposition for a newly delivered final payload.
+
+The fresh REST issue-comment collection contains **all 49 comments** on one
+page of capacity 100. The short final page establishes collection completeness;
+real creation/update timestamps and full bodies are retained. There is **no
+later scoped sync-core recurrence through 2026-11-08T11:44:29Z**. The last
+scoped recurrence remains comment **6649911684**, round `20261105T044440Z`.
+The collection completed at **11:44:30Z**. This verifies a finite observation,
+independently of the still-missing final delivery receipts.
+
+Validation of this change:
+
+| Check | Exit | Result |
+| --- | --- | --- |
+| Existing evidence tests before editing | 0 | 17 passed in 0.93s |
+| `python3 -m pytest -q tests/scripts/test_issue_4369_downstream_evidence.py -m 'not slow'` | 0 | 21 passed in 0.86s; [raw log](runtime-4550/downstream-refresh-tests.log) |
+| `python3 -m ruff check tests/scripts/test_issue_4369_downstream_evidence.py` | 0 | All checks passed |
+| Black formatting and targeted check, line length 100 | 0 | Edited test file formatted and check passes |
+| Repository-wide Black check with the documented sandbox scheduling workaround | 0 | 974 files would be left unchanged; [raw log](runtime-4550/downstream-refresh-black.log) |
+| `git diff --check` | 0 | Pass |
+
+The plain required repository-wide Black invocation initially exits **1** at
+the sandbox's forbidden multiprocessing forkserver socket. The successful
+retry uses `BLACK_NUM_WORKERS=1` and the previously documented 50 ms event-loop
+heartbeat in temporary `/tmp/issue-4550-refresh-black-runtime/sitecustomize.py`:
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4550-refresh-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Formatter rules, safe mode and repository selection are unchanged. The two
+complete-suite commands were not rerun; their previously recorded failures
+remain unresolved. No full-suite or final-delivery acceptance checkbox is
+advanced by these focused evidence tests.
+
+After successful validation, staging the tests and evidence exits **128**:
+`.git/index.lock: Read-only file system`. No commit or push succeeded. A final
+PR metadata read verifies Workflows PR **4551** remains **open and non-draft**
+at `1c1e6440c0449d8a1dab128443bca90e544d9966`. No protected workflow or
+security-sensitive file was changed. A runner with writable Git metadata and
+GitHub dispatch access must publish these changes and obtain the selected
+Maint 68/71 delivery receipts before the remaining task can be completed.
+
+Automatic approval review rejected both the prepared blocker comment on PR
+4551 and the additive `needs-human` label with `MCP tool call requires approval,
+but approval policy is never`. Neither was published. These external mutations
+were not retried through another transport.

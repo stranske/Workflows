@@ -31,6 +31,12 @@ def complete_receipt() -> dict:
     return json.loads(EVIDENCE.with_stem("downstream-observation-complete").read_text())
 
 
+@pytest.fixture(scope="module")
+def refreshed_receipt() -> dict:
+    path = ROOT / "docs/evidence/issue-4369/runtime-4550/downstream-refresh.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def utc(value: str) -> datetime:
     parsed = datetime.fromisoformat(value)
     assert parsed.utcoffset() is not None
@@ -216,4 +222,116 @@ def test_rest_comments_bound_nonrecurrence_to_actual_creation_times(complete_rec
     assert all(
         utc(comment["created_at"]) < utc(complete_receipt["source_pr"]["merged_at"])
         for comment in sync
+    )
+
+
+def test_refreshed_inventory_covers_every_page_and_trigger(refreshed_receipt: dict) -> None:
+    inventory = refreshed_receipt["collection"]["run_inventory"]
+    pages = inventory["pages"]
+    total = pages[0]["total_count"]
+    capacity = inventory["per_page"]
+    assert len(pages) == (total + capacity - 1) // capacity
+    observed = utc(refreshed_receipt["observed_at_utc"])
+    start, end = (utc(inventory[key]) for key in ("start", "end"))
+    assert start < end < observed
+    collected = []
+    for number, page in enumerate(pages, start=1):
+        assert page["page"] == number
+        assert page["total_count"] == total
+        url = urlparse(page["url"])
+        assert url.path == "/repos/stranske/Workflows/actions/runs"
+        # No event filter: a newly introduced trigger cannot hide a producer or
+        # the immediately following Maint 71 run from this observation.
+        assert parse_qs(url.query) == {
+            "per_page": [str(capacity)],
+            "page": [str(number)],
+            "created": [f'{inventory["start"]}..{inventory["end"]}'],
+        }
+        assert len(page["runs"]) == min(capacity, total - (number - 1) * capacity)
+        assert all(start <= utc(run["created_at"]) <= end for run in page["runs"])
+        collected.extend(page["runs"])
+    assert len({run["id"] for run in collected}) == total
+    assert {"schedule", "workflow_dispatch", "repository_dispatch"} <= {
+        run["event"] for run in collected
+    }
+    assert not any(run["path"] in {MAINT68, MAINT71} for run in collected)
+
+
+def test_refreshed_payload_binding_keeps_final_delivery_pending(refreshed_receipt: dict) -> None:
+    payloads = refreshed_receipt["payloads"]
+    source, consumer = (payloads[key] for key in ("source", "consumer"))
+    assert source["ref"] == "9acdde6d5f0731bf968a6766d83f2b47db8375a3"
+    assert source["path"] == "templates/consumer-repo/tools/subscription_llm.py"
+    assert consumer["path"] == "tools/subscription_llm.py"
+    branch = refreshed_receipt["consumer_default_branch"]
+    assert consumer["ref"] == branch["sha"]
+    assert branch["name"] == "main"
+    assert urlparse(branch["url"]).path == (f'/repos/{consumer["repository"]}/branches/main')
+    for payload in (source, consumer):
+        content = payload["content"].encode("utf-8")
+        git_object = f"blob {len(content)}\0".encode("ascii") + content
+        assert hashlib.sha1(git_object).hexdigest() == payload["sha"]
+    # A resolved historical finding and a merged older candidate are insufficient
+    # when the exact default-branch bytes still differ from the frozen source.
+    assert source["sha"] != consumer["sha"]
+    assert "Path(config_dir).expanduser().resolve()" in source["content"]
+    assert "Path(config_dir).expanduser().resolve()" not in consumer["content"]
+    assert refreshed_receipt["final_delivery_acceptance"] is False
+
+
+def test_failed_dispatch_does_not_fabricate_a_following_lifecycle(refreshed_receipt: dict) -> None:
+    dispatch = refreshed_receipt["dispatch"]
+    assert dispatch["workflow"] == MAINT68
+    assert dispatch["ref"] == "main"
+    inputs = dispatch["inputs"]
+    assert inputs["repos"] == refreshed_receipt["consumer_repository"]
+    assert inputs["scope_head_sha"] == refreshed_receipt["payloads"]["source"]["ref"]
+    assert inputs["scope_base_sha"] == "7e377b7ad8cc06e506393218bc7459ba47757f01"
+    assert inputs["delivery_scope"] == "source-delta"
+    assert inputs["phase"] == "canary"
+    assert inputs["cleanup_branches"] == "false"
+    canaries = json.loads((ROOT / "config/consumer_sync_canaries.json").read_text())
+    assert inputs["repos"] in {entry["repo"] for entry in canaries["canaries"]}
+    assert dispatch["exit_code"] != 0
+    assert "error connecting to api.github.com" in dispatch["output"]
+    assert dispatch["maint71_dispatched"] is False
+    assert "run_id" not in dispatch
+
+
+def test_refreshed_comment_observation_and_historical_thread_disposition(
+    refreshed_receipt: dict,
+) -> None:
+    collection = refreshed_receipt["collection"]["comments"]
+    comments = refreshed_receipt["issue_comments"]
+    assert parse_qs(urlparse(collection["url"]).query) == {
+        "per_page": [str(collection["per_page"])],
+        "page": ["1"],
+    }
+    assert urlparse(collection["url"]).path == "/repos/stranske/Workflows/issues/4369/comments"
+    assert collection["page"] == 1
+    # The final short page proves completeness, rather than relying on a fixed
+    # historical comment count or treating one full page as the entire history.
+    assert len(comments) == collection["returned"] < collection["per_page"]
+    assert len({comment["id"] for comment in comments}) == len(comments)
+    through = utc(collection["observed_through_utc"])
+    assert through <= utc(refreshed_receipt["observed_at_utc"])
+    assert all(utc(comment["updated_at"]) <= through for comment in comments)
+    scoped = [
+        comment
+        for comment in comments
+        if comment["body"].startswith("<!-- sync-core/v1 ")
+        and f"#discussion_r{DISCUSSION}" in comment["body"]
+    ]
+    last = max(scoped, key=lambda comment: utc(comment["created_at"]))
+    assert last["id"] == 6649911684
+    assert "round 20261105T044440Z" in last["body"]
+    assert utc(last["created_at"]) < utc(refreshed_receipt["collection"]["run_inventory"]["start"])
+    thread = refreshed_receipt["thread"]
+    original, disposition = thread["comments"]
+    assert str(original["database_id"]) == DISCUSSION
+    assert thread["is_resolved"] is thread["is_outdated"] is True
+    assert disposition["database_id"] == 4505043101
+    assert "9c85282d05359ddc468d0881ec6b09269ac592a2" in disposition["body"]
+    assert utc(disposition["created_at"]) < utc(
+        refreshed_receipt["collection"]["run_inventory"]["start"]
     )
