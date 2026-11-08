@@ -1935,3 +1935,84 @@ Stop rule for this continuation: stop after three failures at the same required
 step or 60 minutes. Preserve existing completed fixes and all review/merge gates.
 Blocking/drainable pair: final delivery is blocked pending causal Maint 71/merged
 consumer evidence; focused binding and runtime diagnostics can proceed meanwhile.
+
+
+### Published validation and causal delivery result, 2026-11-08 13:46 UTC
+
+The branch was published as `b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7`
+after preserving concurrent keepalive commit `b28068cc8` in a merge commit.
+Git branch/index/object writes and push work; a restricted `packed-refs.lock`
+write reports an error during fetch/commit bookkeeping but does not prevent the
+successful fast-forward publication. No remote history was overwritten.
+CI then identified one required Black layout change in the added regression;
+that exact correction was published as
+`5ce655b88e34b35e2af8809964b5c12fe05e93bd`. Its focused evidence file prints
+**29 passed in 0.48s**, exit **0**.
+
+On that exact published revision, Selftest run **42486148395**, job
+**128748376682**, runs `node --test .github/scripts/__tests__/*.test.js` and
+exits **0**: **3757 passed, 0 failed, 1 skipped**, in **21.662 seconds**.
+The complete raw job log is
+[runtime-4550/supported-published-node-ci-5ce655b88.log](runtime-4550/supported-published-node-ci-5ce655b88.log),
+with complete run/job timestamps, revision and conclusions in
+[runtime-4550/supported-selftest-5ce655b88.json](runtime-4550/supported-selftest-5ce655b88.json).
+The setup log records Node **v24.22.2** at
+`/opt/hostedtoolcache/node/24.22.2/x64`; this is the setup installation path,
+not an independently captured `command -v node` result. The explicit
+unfiltered Python command remains **NOT RUN**, in accordance with the owner's
+final local-suite prohibition. Normal marker-filtered PR Python CI is not a
+substitute for that exact-command requirement, so the combined suite thread
+`PRRT_kwDOQprj9M61AQwJ` remains open.
+
+Producer **42485644055** created consumer PR **2486**, head
+`653f443b52ec179c6680ee369be06ed3e3ce2617`, from frozen source
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`, plan
+`sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2`.
+Its own immediately following Maint 71 dispatch is **42485792262**; the
+producer raw log records dispatch at **13:36:45.1929598Z**. That run first
+sealed the candidate and requested consumer Gate rerun **42485765535**.
+It subsequently failed at `Refresh stale candidate bases` with
+`canary_refresh_report_subject_unknown`. Complete raw logs, metadata and both
+retained JSON report artifacts are named `runtime-4550/maint71-42485792262-*`
+and `runtime-4550/maint71-42485792262.log`/`.json`.
+
+After that run was terminal, a single-consumer Maint 71 retry **42485974523**
+was dispatched with the same immutable handoff, `active_sync_hash=candidate`,
+`auto_merge=true`, `dry_run=false`, and `cleanup_branches=false`. Its reports
+and complete raw output are retained under `runtime-4550/maint71-42485974523*`.
+Consumer sealed Gate run **42485765535** completed successfully. The retry's
+final merge report classifies the selected head **campaign_prepared**, with
+`next_command=merge-current-delivery`, but **merged=0**. Its exact-head finding
+evaluation has **0 active findings**, **0 blocking**, **0 unknown**, and empty
+finding/disposition arrays. Historical discussion **4434491702** is excluded
+from this new-payload proof.
+
+The retry still evaluates all three configured canaries despite the selected
+repository input. It fails at the same missing-subject refresh step and holds
+promotion at **1/3 green**, because the other two candidates are absent.
+No broadening to those repositories or manual merge bypass was performed.
+Blocking/drainable pair printed by the final report: missing canaries **2**,
+drainable **0**; selected candidate **campaign_prepared**, merged **0**.
+This is a live lifecycle blocker, not a failing Node fixture. Final delivery
+cannot be claimed from a green selected candidate.
+
+The complete exact-ref observation is retained in
+[runtime-4550/supported-live-observation.json](runtime-4550/supported-live-observation.json).
+Frozen source and consumer candidate both recompute to Git blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. Consumer `main` remains at
+`0543dc9732eab0ad12227308749566a937581eea`, blob
+`c889fd8064806a9c0f932f7c1dc09762896afe67`. No merged consumer SHA exists for
+this payload. Delivery thread `PRRT_kwDOQprj9M61AQwK` remains open.
+
+That receipt retains all **49** comments, with full bodies and creation/update
+timestamps, from the short final REST page (capacity 100). There is no later
+scoped sync-core recurrence through **2026-11-08T13:38:40.283455Z**;
+collection completed **13:38:42.616837Z**. The last scoped comment remains
+**6649911684**, created **2026-11-05T04:45:07Z**. This finite nonrecurrence
+boundary does not establish delivery.
+
+Binding thread `PRRT_kwDOQprj9M61Ask-` was replied to with published red/green
+evidence and resolved, response
+https://github.com/stranske/Workflows/pull/4551#discussion_r4506410511.
+The other two named threads remain unresolved for their missing acceptance
+evidence. Dependency pins and existing completed repairs are preserved.
