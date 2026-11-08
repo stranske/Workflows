@@ -1,0 +1,109 @@
+{
+  "revision": "0a05390816ca7ed3a5c73ce6edf9aa65065d2d87",
+  "command": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+    "tests/scripts/test_issue_4369_downstream_evidence.py",
+    "-m",
+    "not slow"
+  ],
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+  "version": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "started_at_utc": "2026-11-08T14:48:41.884907+00:00",
+  "duration_seconds": 3.4748540639999987,
+  "external_timeout_seconds": 60,
+  "exit_code": 0,
+  "log_sha256": "5e0e379da64f994a48c5a8da82bb09cfff52551e5a4de548003c7f0591069fa3",
+  "test_sha256": "6c9a12b6f2b76638973424600e889be3631b0e9d7de65c0d6dad6e88874fb8d8",
+  "log": "scope-binding-tests.log",
+  "red_control": {
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "-k",
+      "substituted_payload_scope",
+      "-m",
+      "not slow"
+    ],
+    "external_timeout_seconds": 60,
+    "exit_code": 1,
+    "result": "4 failed, 22 deselected; DID NOT RAISE",
+    "log": "scope-binding-red.log"
+  },
+  "publication": {
+    "pr_body_update": "rejected",
+    "needs_human_label": "rejected",
+    "blocker_comment": "rejected",
+    "automatic_approval_review_reason": "MCP tool call requires approval, but approval policy is never",
+    "git_add_exit_code": 128,
+    "git_add_error": ".git/index.lock: Read-only file system",
+    "commit_created": false
+  },
+  "formatting": {
+    "changed_file_exit_code": 0,
+    "full_check_exit_code": 1,
+    "reason": "forkserver socket PermissionError",
+    "log": "scope-binding-black.log",
+    "one_worker_exit_code": 124,
+    "one_worker_timeout_seconds": 20,
+    "heartbeat_retry_exit_code": 124,
+    "heartbeat_retry_timeout_seconds": 60,
+    "changed_file_check_exit_code": 0,
+    "full_check_command": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "--exclude",
+      "(\\.workflows-lib|node_modules)",
+      "."
+    ],
+    "heartbeat_attempts": [
+      {
+        "hook": "black.concurrency.maybe_use_uvloop",
+        "exit_code": 124,
+        "timeout_seconds": 60,
+        "stdout_bytes": 67,
+        "log": "scope-binding-black-supported.log",
+        "heartbeat_seconds": 0.05
+      },
+      {
+        "hook": "asyncio.new_event_loop",
+        "exit_code": 124,
+        "timeout_seconds": 60,
+        "stdout_bytes": 67,
+        "log": "scope-binding-black-supported-2.log",
+        "heartbeat_seconds": 0.05
+      },
+      {
+        "hook": "asyncio.new_event_loop",
+        "heartbeat_seconds": 0.001,
+        "exit_code": 124,
+        "timeout_seconds": 60,
+        "stdout_bytes": 67,
+        "log": "scope-binding-black-supported-3.log"
+      }
+    ],
+    "retry_environment": {
+      "BLACK_NUM_WORKERS": "1",
+      "PYTHONPATH": "/tmp/issue-4369-black-runtime"
+    }
+  },
+  "final_delivery_acceptance": false,
+  "evidence_sha256": {
+    "scope-binding-tests.log": "5e0e379da64f994a48c5a8da82bb09cfff52551e5a4de548003c7f0591069fa3",
+    "scope-binding-red.log": "3b2cd68138ea40fb845f4d642a61454327a2eaa811fb9a407df9e58ff36c8d0e",
+    "scope-binding-black.log": "48360972d99821f8d1181341a0370029044c8862c9c23ea05b4ecad6b7a0299a",
+    "scope-binding-black-one-worker.log": "be86219482fc1fe3b6f0681a9335d8d6d42dbe1d3748ae3a2d911d74bfa348cc",
+    "scope-binding-observation.json": "3d2a1ba78b1aa819fb61d45e1759b1f7199b621f2f1017eb3fb87ec98db1c937",
+    "scope-binding-black-supported.log": "dd2e67b5583425d3dbeb223a5ac68b6ba06f03db539d4abd568bf40785584878",
+    "scope-binding-black-supported-2.log": "4873867e3afcaf907cdcecf3842e0d9c361755dbe84bf911eceb6b0c1ad1fed5",
+    "scope-binding-black-supported-3.log": "aa6d8a2574122f6867fb65f8060b273af22a3e8a681beb5643108d477da3b8ef"
+  }
+}

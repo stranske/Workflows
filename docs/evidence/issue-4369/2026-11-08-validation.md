@@ -2334,3 +2334,48 @@ no commit or push succeeded. Automatic approval review rejects the additive
 `needs-human` label and concrete blocker comment on PR **4551** with
 `MCP tool call requires approval, but approval policy is never`. Neither was
 published. No protected workflow file was edited.
+
+### Receipt scope substitution regression, 2026-11-08 14:52 UTC
+
+Reviewed commits through `0a05390816ca7ed3a5c73ce6edf9aa65065d2d87` and the
+live PR body. Verified progress remains **7/10**; no additional checkbox is
+complete. The reconciliation update was rejected by automatic approval review.
+
+The delivery-receipt assertions now bind both causal Maint 71 result rows to
+the selected candidate's `source-delta` scope and exact scope-base SHA, in
+addition to the existing source/plan/head/finding tuple. Four negative cases
+substitute a full scope or another base while preserving that tuple. All four
+failed before the fix with `DID NOT RAISE`. After the fix, both downstream
+evidence modules report **55 passed**, exit **0**, under a **60-second** bound.
+The exact command, incoming revision, Python **3.14.10** interpreter, timing,
+working-tree test digest and publication results are retained in
+[scope-binding-tests.json](runtime-4550/scope-binding-tests.json), with
+[passing output](runtime-4550/scope-binding-tests.log) and
+[the red control](runtime-4550/scope-binding-red.log).
+
+The [fresh observation](runtime-4550/scope-binding-observation.json) retains all
+**49** issue comments with full bodies and creation/update timestamps; ordered
+IDs match the independent all-pages connector. No scoped recurrence appears
+through **2026-11-08T14:48:19Z**. Historical discussion **4434491702** remains
+resolved and outdated with disposition **4505043101**. All **37** workflow runs
+in **14:40:10Z–14:48:19Z** fit on one short page; none is Maint 68 or Maint 71
+consumer delivery. Source PR **4551** and consumer PR **2486** remain open and
+non-draft. Consumer main remains `0543dc9732eab0ad12227308749566a937581eea`,
+while candidate head remains `653f443b52ec179c6680ee369be06ed3e3ce2617`.
+Immutable payload bytes are explicitly reused from the previous receipt,
+rather than represented as new file reads. Final merged delivery is still false.
+
+Black formatted and checked the changed Python file at line length 100.
+The required repository-wide check fails on the sandbox's forkserver socket
+restriction; the one-worker and temporary event-loop heartbeat attempts also
+time out. These failures are recorded rather than counted as a passing full
+formatting gate. No commit or push was attempted after the failed gate.
+Staging fails with exit **128**, `.git/index.lock: Read-only file system`.
+
+The CLI read probe still cannot connect to `api.github.com`; the connector has
+no workflow-dispatch operation. The two absent canaries require an authorized
+owner recovery under the existing frozen-plan contract. Automatic approval
+review rejected the PR-body update, additive `needs-human` label and concrete
+blocker comment with `MCP tool call requires approval, but approval policy is
+never`; none was published. No protected file or consumer payload was edited.
+The test change and evidence remain local for the automation writer.

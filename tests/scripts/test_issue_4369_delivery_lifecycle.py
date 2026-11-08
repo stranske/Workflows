@@ -45,10 +45,16 @@ def expected_binding() -> dict:
 
 def assert_finding_binding(report: dict) -> None:
     expected = expected_binding()
+    metadata = protocol(
+        read("supported-live-observation.json")["consumer_pr"]["body"],
+        "workflows-consumer-sync:v1",
+    )
     (result,) = [row for row in report["results"] if f'{row["owner"]}/{row["repo"]}' == CONSUMER]
     assert {key: result[key] for key in expected if key != "repository"} == {
         key: value for key, value in expected.items() if key != "repository"
     }
+    assert result["plan_scope"] == metadata["plan_scope"] == "source-delta"
+    assert result["scope_base_sha"] == metadata["scope_base_sha"]
     finding = result["review_finding_disposition"]
     assert finding["binding"] == expected
     assert finding["raw_active_count"] == 0
@@ -73,6 +79,18 @@ def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, 
     row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
     binding = row["review_finding_disposition"]["binding"]
     binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+    with pytest.raises(AssertionError):
+        assert_finding_binding(report)
+
+
+@pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+@pytest.mark.parametrize("field", ["plan_scope", "scope_base_sha"])
+def test_causal_report_rejects_a_substituted_payload_scope(run_id: int, field: str) -> None:
+    report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+    row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+    # Preserve source, plan, consumer head and finding disposition. The finite
+    # source-delta shipment must still reject a widened scope or another base.
+    row[field] = "full" if field == "plan_scope" else "0" * 40
     with pytest.raises(AssertionError):
         assert_finding_binding(report)
 
