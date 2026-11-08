@@ -33,12 +33,17 @@ async function dispatch(runs, continuations = [continuation]) {
 test('native multiline active title suppresses duplicate continuation dispatch', async () => {
   assert.equal((await dispatch([{status: 'in_progress', display_title: 'Merge Sync PRs [dev-tool]\nsame-key'}])).length, 0);
 });
-test('changed key or failed attempt stays eligible, successful exact key is consumed', async () => {
-  assert.equal((await dispatch([{status: 'in_progress', display_title: 'Merge Sync PRs [dev-tool]\nother-key'}])).length, 1);
+test('changed key waits for the incumbent, failed attempt remains eligible and successful key is consumed', async () => {
+  assert.equal((await dispatch([{status: 'in_progress', display_title: 'Merge Sync PRs [dev-tool]\nother-key'}])).length, 0);
+  assert.equal((await dispatch([{status: 'completed', conclusion: 'success', display_title: 'Merge Sync PRs [dev-tool]\nother-key'}])).length, 1);
   assert.equal((await dispatch([{status: 'completed', conclusion: 'success', display_title: 'Merge Sync PRs [dev-tool]\nsame-key'}])).length, 0);
   assert.equal((await dispatch([{status: 'completed', conclusion: 'failure', display_title: 'Merge Sync PRs [dev-tool]\nsame-key'}])).length, 1);
 });
 test('duplicate rows dispatch once and active delivery retains candidate priority', async () => {
   assert.equal((await dispatch([], [continuation, continuation])).length, 1);
   assert.equal((await dispatch([{status: 'queued', display_title: '  Merge Sync PRs [delivery]\nkey'}], [{...continuation, lane: 'candidate'}])).length, 0);
+});
+
+test('different due keys submit one writer so the pending queue cannot replace an earlier intent', async () => {
+  assert.equal((await dispatch([], [continuation, {...continuation, continuation_key: 'other-key'}])).length, 1);
 });

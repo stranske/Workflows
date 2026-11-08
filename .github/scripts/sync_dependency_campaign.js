@@ -111,6 +111,7 @@ function projectOwnerExclusions(state = {}) {
   const history = excludeOwnerBlockedRecords(state.source_review_history);
   const reconciliationErrors = excludeOwnerBlockedRecords(state.handoff_reconciliation_errors);
   const blockedKeys = excludeOwnerBlockedRecords(state.handoff_verification_blocked_keys);
+  const reassessments = excludeOwnerBlockedRecords(state.handoff_reassessments);
   const cachedClaims = cleanArray(state.stats?.local_codex_claims?.items);
   const claims = excludeOwnerBlockedRecords(cachedClaims);
   const pruned = nestedCandidatePruned || items.length !== cleanArray(state.items).length
@@ -119,6 +120,7 @@ function projectOwnerExclusions(state = {}) {
     || history.length !== cleanArray(state.source_review_history).length
     || reconciliationErrors.length !== cleanArray(state.handoff_reconciliation_errors).length
     || blockedKeys.length !== cleanArray(state.handoff_verification_blocked_keys).length
+    || reassessments.length !== cleanArray(state.handoff_reassessments).length
     || claims.length !== cachedClaims.length;
   if (!pruned) return state;
   return {
@@ -131,6 +133,7 @@ function projectOwnerExclusions(state = {}) {
     source_review_history: history,
     handoff_reconciliation_errors: reconciliationErrors,
     handoff_verification_blocked_keys: blockedKeys,
+    handoff_reassessments: reassessments,
     stats: {
       ...(state.stats || {}),
       ...deriveItemStats(items),
@@ -652,6 +655,10 @@ function selectMaint71ContinuationRepos(
   const allowed = cleanArray(registeredRepos)
     .map(cleanString)
     .filter((repo) => repo && !excluded.has(repositoryIdentity(repo)));
+  if (continuation.reassessment === true) {
+    return normalizeHandoffReassessment(continuation) && allowed.includes(continuation.repository)
+      ? [continuation.repository] : [];
+  }
   if (continuation.lane === 'campaign' || continuation.lane === 'dev-tool') {
     // Campaign authorization deliberately inspects the whole non-manual fleet.
     return allowed;
@@ -744,10 +751,42 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
     .slice(0, limit);
 }
 
+function normalizeHandoffReassessment(value = {}) {
+  if (isOwnerExcludedRepository(value) || value.reassessment !== true || value.lane !== 'dev-tool'
+    || (Object.hasOwn(value, 'cleanup_branches') && typeof value.cleanup_branches !== 'boolean')
+    || !/^[\w.-]+\/[\w.-]+$/.test(value.repository || '') || !cleanInteger(value.pr)
+    || !String(value.branch || '').startsWith(DEV_TOOL_SYNC_BRANCH_PREFIX)
+    || ![value.head_sha, value.prior_head_sha, value.base_sha].every(sha => /^[a-f0-9]{40}$/.test(sha || ''))
+    || value.head_sha === value.prior_head_sha) return null;
+  const key = `reconcile-${crypto.createHash('sha256').update(JSON.stringify([
+    value.repository, value.pr, value.branch, value.head_sha, value.base_sha,
+    cleanString(value.mergeable_state) || 'unknown',
+  ])).digest('hex').slice(0, 20)}`;
+  if (value.continuation_key && value.continuation_key !== key) return null;
+  return { repository: value.repository, pr: value.pr, branch: value.branch,
+    head_sha: value.head_sha, prior_head_sha: value.prior_head_sha, base_sha: value.base_sha,
+    mergeable_state: cleanString(value.mergeable_state) || 'unknown',
+    reassessment: true, lane: 'dev-tool', continuation_key: key,
+    ...(typeof value.cleanup_branches === 'boolean' ? { cleanup_branches: value.cleanup_branches } : {}) };
+}
+
+function mergeHandoffReassessments(previous = [], incoming = [], blockedKeys = []) {
+  const blocked = new Set(blockedKeys);
+  const requests = new Map();
+  for (const value of [...cleanArray(previous), ...cleanArray(incoming)]) {
+    const normalized = normalizeHandoffReassessment(value);
+    if (!normalized) continue;
+    const key = `${normalized.repository}#${normalized.pr}`;
+    if (blocked.has(key)) requests.set(key, normalized);
+  }
+  return [...requests.values()];
+}
+
 async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api, withRetry, now = '') {
   const records = [];
   const errors = [];
   const blockedKeys = [];
+  const reassessments = [];
   const incomingKeys = new Set(excludeOwnerBlockedRecords(incoming).map((row) => `${row.repository}#${row.pr}`));
   for (const retained of excludeOwnerBlockedRecords(previous).map((row) => normalizeDeliveryHandoff(row)).filter(Boolean)) {
     if (preparedDeliveryContinuation(retained).class === 'terminal') continue;
@@ -768,6 +807,20 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
         if (pr.head?.sha !== retained.head_sha || pr.head?.ref !== retained.branch) {
           errors.push(`${key}: open PR identity differs from retained delivery handoff`);
           blockedKeys.push(key);
+          // A wake request grants no adoption/merge authority. Maint 71 must
+          // independently prepare and validate the actual current native head.
+          if (retained.lane === 'dev-tool-sync' && pr.draft !== true
+            && pr.head?.ref === retained.branch && pr.head?.repo?.full_name === retained.repository
+            && pr.base?.repo?.full_name === retained.repository
+            && require('./sync_pr_merge_contract').isTrustedGeneratedDeliveryPr(pr,
+              [owner, `${owner}-automation-bot`, 'github-actions[bot]'])) {
+            const request = normalizeHandoffReassessment({ repository: retained.repository,
+              pr: retained.pr, branch: retained.branch, prior_head_sha: retained.head_sha,
+              head_sha: pr.head.sha, base_sha: pr.base.sha, mergeable_state: pr.mergeable_state,
+              ...(typeof retained.cleanup_branches === 'boolean' ? { cleanup_branches: retained.cleanup_branches } : {}),
+              lane: 'dev-tool', reassessment: true });
+            if (request) reassessments.push(request);
+          }
         }
         continue;
       }
@@ -804,7 +857,7 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
       blockedKeys.push(key);
     }
   }
-  return { records, errors, blockedKeys };
+  return { records, errors, blockedKeys, reassessments };
 }
 
 async function verifyIncomingDeliveryHandoffs(incoming = [], api, withRetry) {
@@ -1006,6 +1059,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     delivery_handoffs: deliveryHandoffs,
     continuation_acknowledgments: cleanArray(previousState.continuation_acknowledgments),
     continuation_completion_runs: cleanArray(previousState.continuation_completion_runs),
+    handoff_reassessments: cleanArray(previousState.handoff_reassessments),
     items,
   };
 }
@@ -1354,6 +1408,7 @@ function compactStateForMarker(state = {}) {
     delivery_handoffs: cleanArray(state.delivery_handoffs).slice(0, DEFAULT_MAX_DELIVERY_HANDOFFS),
     continuation_acknowledgments: cleanArray(state.continuation_acknowledgments),
     continuation_completion_runs: cleanArray(state.continuation_completion_runs),
+    handoff_reassessments: cleanArray(state.handoff_reassessments),
     marker_item_filter: 'actionable-claimed-blocked-unpublished',
     items: markerItems.map(compactQueueItemForMarker),
   };
@@ -2233,9 +2288,11 @@ async function runCampaign({
   state.handoff_verification_blocked_keys = [...new Set([
     ...verifiedIncoming.blockedKeys, ...closureReconciliation.blockedKeys,
   ])];
+  state.handoff_reassessments = mergeHandoffReassessments(previousState.handoff_reassessments,
+    closureReconciliation.reassessments, state.handoff_verification_blocked_keys);
   state.continuation_acknowledgments = mergeContinuationAcknowledgments(
     previousState.continuation_acknowledgments, maint71Runs,
-    queuedMaint71Intents(state.delivery_handoffs), {
+    [...queuedMaint71Intents(state.delivery_handoffs), ...state.handoff_reassessments], {
       repository: `${campaignOwner}/${campaignRepo}`,
       defaultBranch: context.payload?.repository?.default_branch || 'main',
     });
@@ -2312,6 +2369,8 @@ async function runCampaign({
 }
 
 module.exports = {
+  normalizeHandoffReassessment,
+  mergeHandoffReassessments,
   hasContinuationAcknowledgment,
   mergeContinuationAcknowledgments,
   observeMaint71Runs,

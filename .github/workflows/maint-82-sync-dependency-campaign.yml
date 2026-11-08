@@ -157,10 +157,15 @@ jobs:
               (record) => record.repository !== 'stranske/Collab-Admin'
                 && !blockedHandoffKeys.has(`${record.repository}#${record.pr}`),
             );
-            const continuations = planMaint71Continuations(eligibleHandoffs, {
+            const plannedContinuations = planMaint71Continuations(eligibleHandoffs, {
               now: new Date().toISOString(),
               acknowledgments: result.state.continuation_acknowledgments,
             });
+            const continuations = [
+              ...plannedContinuations.filter(row => row.lane !== 'dev-tool'),
+              ...(result.state.handoff_reassessments || []),
+              ...plannedContinuations.filter(row => row.lane === 'dev-tool'),
+            ];
             core.setOutput('maint71_acknowledgments', JSON.stringify(result.state.continuation_acknowledgments || []));
             core.setOutput('maint71_observed_runs', JSON.stringify((result.maint71Runs || []).map(run => ({
               status: run.status, conclusion: run.conclusion, display_title: run.display_title,
@@ -263,6 +268,10 @@ jobs:
                 .filter((run) => run.status === 'completed' && run.conclusion === 'success')
                 .map((run) => normalizeTitle(run.display_title)),
             );
+            if (activeTitles.size > 0) {
+              core.notice('Maint 71 writer already active or queued; durable intents remain pending');
+              return;
+            }
             for (const continuation of continuations) {
               const selector = continuation.lane;
               const key = String(continuation.continuation_key || '').trim();
@@ -321,6 +330,9 @@ jobs:
                 `Dispatched due Maint 71 ${selector} continuation for ` +
                   `${continuation.repository}#${continuation.pr} (${continuation.reason})`,
               );
+              // GitHub retains only one pending stable-PR writer. Leave other
+              // intents durable for the next completion/scheduled sweep.
+              break;
             }
 
       - name: Upload campaign state
