@@ -1,0 +1,24 @@
+{
+  "checked_at": "2026-11-08T21:00:44.323957+00:00",
+  "prospective_main_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "selection_status": "Awaiting post-merge verification; not yet an accepted revision",
+  "commands": [
+    {
+      "command": "git merge-base --is-ancestor b21fae85fe4f79e72c4133c29a3814b9d5950c3a 0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "git merge-base --is-ancestor 154858c48424d7aa30c9edaf22ee3edb90066c5d 0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "parents": [
+    "1a7a3c7de40b62af2839cb138e8d2abfe72fc766",
+    "154858c48424d7aa30c9edaf22ee3edb90066c5d"
+  ],
+  "final_source_blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2"
+}

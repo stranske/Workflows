@@ -1497,3 +1497,94 @@ on one published main revision containing the repair.
 Initial blocking/drainable pair: blocking=1 (PR 4551 not merged; exact-head
 Python 3.13 Gate job pending), drainable=1 (read-only downstream receipt capture).
 No acceptance revision has been selected and no suite success is claimed.
+
+
+### Issue 4557 live delivery receipts — 2026-11-08
+
+Outcome 1 remains **NOT MET**: both exact full suites on an eligible revision
+are still pending. Outcome 2 (the merged subscription bytes) is **PASS**.
+
+PR [4551](https://github.com/stranske/Workflows/pull/4551) merged at
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf` on 2026-11-08T20:54:56Z.
+The preceding native writer printed `released: true` for that exact target.
+The [premerge receipt](runtime-4550/4557-fixture-premerge-gates.json) retains the
+exact head, completed checks, complete review-thread pagination, no active
+non-outdated threads, and the 1,012-second unchanged-head review floor. The
+merge used `--match-head-commit 154858c48424d7aa30c9edaf22ee3edb90066c5d`
+and no administrative bypass. The [merge receipt](runtime-4550/4557-fixture-merged.json)
+and [ancestry commands](runtime-4550/4557-fixture-ancestry.json) retain both
+required-ancestor and salvaged-head inclusion (both exits 0).
+Post-merge `verify:compare` run
+[42522535899](https://github.com/stranske/Workflows/actions/runs/42522535899)
+is pending; no acceptance revision is selected until that gate is disposed.
+
+The existing [Maint 68 run 42499084007](https://github.com/stranske/Workflows/actions/runs/42499084007)
+froze source `bbfc6ae604c8e8c4021138c5efe964a368482957` and plan
+`sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4`.
+Its [consumer result](runtime-4550/4557-maint68-target.json) identifies PR 2486;
+the [target job log](runtime-4550/4557-maint68-target.log) records verified
+candidate `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`.
+The [reconciliation excerpt](runtime-4550/4557-maint68-reconciliation-excerpt.log)
+records the immutable source/plan inputs and native dispatch of Maint 71.
+The following [run 42499282783](https://github.com/stranske/Workflows/actions/runs/42499282783)
+has `stranske-automation-bot` as actor and triggering actor in its
+[run receipt](runtime-4550/4557-run-42499282783.json). Its
+[artifact projection](runtime-4550/4557-initial-maint71-target.json) binds the
+same source, full plan, PR, and candidate; it stopped at sealed checks pending.
+Causality is established by those shared immutable identities and the retained
+native dispatch, rather than chronology alone.
+
+The later [Maint 71 run 42521606142](https://github.com/stranske/Workflows/actions/runs/42521606142)
+retains that exact source/plan/PR/head binding and reports `status: merged` in the
+[target report](runtime-4550/4557-maint71-target.json).
+[Consumer PR 2486](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2486)
+merged at **2026-11-08T20:48:24Z**, actual merge SHA
+`1ff9e11cd51a456333c626cb354543b63202bef6`, as recorded by the
+[PR receipt](runtime-4550/4557-consumer-pr.json) and
+[commit receipt](runtime-4550/4557-consumer-merge-commit.json).
+The [main comparison receipt](runtime-4550/4557-consumer-main-reachability.json)
+binds this commit to consumer main. No Maint 68 or Maint 71 run was dispatched
+by this task. Both existing workflow-dispatch runs use the owner token; their
+API actor fields alone cannot identify whether a human or local automation
+initiated them. This initiating-process provenance remains **UNKNOWN**; the
+following Maint 71 bot dispatch and payload lineage are independently retained.
+
+The complete [source bytes](runtime-4550/4557-source-subscription_llm.py.txt) at
+source `bbfc6ae604c8e8c4021138c5efe964a368482957` and
+[consumer bytes](runtime-4550/4557-consumer-subscription_llm.py.txt) at actual
+merge `1ff9e11cd51a456333c626cb354543b63202bef6` each have 7,087 bytes,
+Git blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`, and SHA-256
+`ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca`.
+Both Git blob IDs were recomputed from retained bytes: see the
+[source](runtime-4550/4557-source-blob.json) and
+[consumer](runtime-4550/4557-consumer-blob.json) receipts. The prospective main
+revision has that same source-template blob in its ancestry receipt.
+The retained [`cmp` command](runtime-4550/4557-byte-comparison.json) exits **0**.
+
+Applicable exact-head Maint 71 findings: **none**. The final report binds
+`raw_active_count: 0`, `blocked: false`, no errors, empty findings, and zero
+unresolved conversations to head `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`.
+Historical discussion **4434491702** is excluded from this disposition; this is
+not a claim that an outdated finding was explicitly resolved on the new head.
+
+The fresh [issue-4369 comment receipt](runtime-4550/4557-issue-4369-comments.json)
+records all **49** comments through boundary **2026-11-08T20:55:40.624898+00:00**. REST returned
+one page of capacity 100 with 49 rows, proving pagination exhaustion; comment
+IDs and actual creation/update timestamps are retained. No newer scoped
+sync-core handoff appears: last Portable-Alpha recurrence is comment 6649911684,
+2026-11-05T04:45:07Z; last any-consumer recurrence is 6650145104,
+2026-11-05T05:01:44Z. This bounded observation does not predict future runs.
+Artifact IDs, original archive SHA-256 digests, members and targeted projection
+rules are in [artifact provenance](runtime-4550/4557-artifact-provenance.json).
+
+The historical restricted-runner Node and Python logs at `b2949e496` were read
+in full and retained as `4557-historical-coding-stdin-*.log`. Their nine failing
+Node files and Python progress without a terminal summary remain diagnostic
+leads, not reproduced supported-runner failures. No named test/source symbol
+was repaired from those historical failures.
+
+The temporary exact-command Selftest executor initially failed the hosted API
+wrapper guard (one failed attempt; [raw log](runtime-4550/4557-harness-api-guard-failure.log)).
+Only that printed failure was repaired, using `setup-api-client` and
+`createTokenAwareRetry`; the same hosted guard subsequently passed. No local
+test command, formatter, broad-suite fallback, or consumer mutation was run.
