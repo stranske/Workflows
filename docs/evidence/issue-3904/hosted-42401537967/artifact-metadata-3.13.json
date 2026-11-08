@@ -1,13 +1,1 @@
-{
-  "artifacts": [
-    {
-      "id": 2,
-      "name": "verifier-runtime-3.13-42401537967",
-      "digest": "sha256:acd0b2ec98361587dcb65265a5f20c3ed1024d898539d2b66be0d36fbced397a",
-      "workflow_run": {
-        "id": 42401537967,
-        "head_sha": "8142060267fce57561d25735aa2e7c5f457ade14"
-      }
-    }
-  ]
-}
+{"total_count":2,"artifacts":[{"id":13586510679,"node_id":"MDg6QXJ0aWZhY3QxMzU4NjUxMDY3OQ==","name":"verifier-runtime-3.13-42401537967","size_in_bytes":1531959,"url":"https://api.github.com/repos/stranske/Workflows/actions/artifacts/13586510679","archive_download_url":"https://api.github.com/repos/stranske/Workflows/actions/artifacts/13586510679/zip","expired":false,"digest":"sha256:acd0b2ec98361587dcb65265a5f20c3ed1024d898539d2b66be0d36fbced397a","created_at":"2026-11-07T18:45:20Z","updated_at":"2026-11-07T18:45:20Z","expires_at":"2026-12-07T18:45:19Z","workflow_run":{"id":42401537967,"repository_id":1117447156,"head_repository_id":1117447156,"head_branch":"codex/issue-4462","head_sha":"8142060267fce57561d25735aa2e7c5f457ade14"}},{"id":13586268339,"node_id":"MDg6QXJ0aWZhY3QxMzU4NjI2ODMzOQ==","name":"verifier-runtime-3.12-42401537967","size_in_bytes":1560708,"url":"https://api.github.com/repos/stranske/Workflows/actions/artifacts/13586268339","archive_download_url":"https://api.github.com/repos/stranske/Workflows/actions/artifacts/13586268339/zip","expired":false,"digest":"sha256:a233e756308c0305182671a169abefb090464eb7ba50192e57e69336f1484e2e","created_at":"2026-11-07T18:52:59Z","updated_at":"2026-11-07T18:52:59Z","expires_at":"2026-12-07T18:52:58Z","workflow_run":{"id":42401537967,"repository_id":1117447156,"head_repository_id":1117447156,"head_branch":"codex/issue-4462","head_sha":"8142060267fce57561d25735aa2e7c5f457ade14"}}]}

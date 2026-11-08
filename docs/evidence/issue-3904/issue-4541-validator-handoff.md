@@ -1,3 +1,29 @@
+# Current continuation — 2026-11-08
+
+Outcome: four independent archives print `verified: true`; integrated acceptance
+must print two passing pytest totals with all five marker assertions retained.
+Commands: `/opt/anaconda3/bin/python3 docs/evidence/issue-3904/validate_hosted_receipts.py ARCHIVE ARTIFACT_METADATA`
+for each retained archive, then the two exact acceptance commands in issue #4541.
+Stop rule: two recovery attempts per unavailable input; 60 minutes maximum.
+
+Fresh Git fetch and source reads resolve original harness
+`8142060267fce57561d25735aa2e7c5f457ade14` and candidate
+`8c0afc3ef0263cf85949b6167435ceabed5dd2a3`. All four validator commands exit 0.
+The four `validation-verifier-runtime-*.json` outputs retain authentic IDs
+13586268339, 13586510679, 13595212445 and 13593659835. The per-runtime metadata
+files now contain byte-for-byte unmodified run artifacts API responses obtained
+on 2026-11-08. ZIP bytes are unchanged and all four API SHA-256 digests match.
+Every output verifies immutable source manifests and uploaded hashes, retaining
+2,144 verifier lines and 759 arcs in each arm with zero loss. Historical
+unuploaded entries, original-run phases and exclusive overhead remain UNKNOWN.
+
+Integration target: #4535 head `f3325610782d7d8d57fbd9659cfae8b1e12fe10e`.
+Only this task's #4542 branch is writable; the other branch's writer is retained.
+The earlier entries below are historical reports from other environments and do
+not describe current interpreter availability, Git availability or acceptance.
+
+---
+
 # Receipt validator regression handoff — 2026-11-08
 
 ## Missing raw phase receipts before source lookup
