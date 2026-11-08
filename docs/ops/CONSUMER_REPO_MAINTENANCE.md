@@ -3863,3 +3863,15 @@ Each stage repeats the native check inventories and head/linkage reads. A presen
 failed, pending or unknown required context remains blocking. Generated delivery
 PRs and their final merge guard continue to require their own exact-head checks;
 this no-change fallback does not apply to them.
+
+### Maint 71 inventory when REST is exhausted
+
+Maint 71 retries PR inventory through the separately budgeted GraphQL interface
+when REST reports primary rate-limit exhaustion after credential rotation. The
+fallback paginates every open PR and retrieves the latest closed stable candidate
+and delivery heads needed for recovery. It preserves exact PR/head/base identity,
+author, lifecycle body and labels; an incomplete identity or label inventory is an
+error, never an empty or ready result. Permission errors and secondary limits do
+not invoke this fallback. Subsequent delivery operations retain their existing
+required checks, source/plan bindings and merge guards; inventory fallback alone
+does not authorize a merge or claim that REST-only operations are available.

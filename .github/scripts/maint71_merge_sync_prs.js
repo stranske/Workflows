@@ -27,6 +27,8 @@ const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requ
 // Share the fleet's existing exhausted-primary-limit policy with Gate readers.
 function isPrimaryRateLimitExhausted(error) {
   const retryHelpers = require('./github-api-with-retry');
+  const message = String(error?.message || error?.response?.data?.message || '');
+  if (/secondary rate limit|abuse/i.test(message)) return false;
   return typeof retryHelpers.isRateLimitError === 'function'
     && typeof retryHelpers.isSecondaryRateLimitError === 'function'
     && retryHelpers.isRateLimitError(error)
@@ -2562,10 +2564,25 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
   // head can turn target_missing into a false terminal state or expose its live
   // branch to cleanup. Open inventories are normally one page, but correctness
   // cannot depend on that being true.
-  const open = await withRetry((client) => client.paginate(
-    client.rest.pulls.list,
-    { owner, repo, state: 'open', per_page: 100 },
-  ));
+  let open;
+  try {
+    open = await withRetry((client) => client.paginate(
+      client.rest.pulls.list,
+      { owner, repo, state: 'open', per_page: 100 },
+    ));
+  } catch (error) {
+    if (!isPrimaryRateLimitExhausted(error)) throw error;
+    try {
+      return await listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed });
+    } catch (fallbackError) {
+      try {
+        error.graphqlFallbackError = String(fallbackError.message || fallbackError);
+      } catch (_ignored) {
+        console.error(`GraphQL fallback unavailable: ${fallbackError.message || fallbackError}`);
+      }
+      throw error;
+    }
+  }
   if (!includeClosed) return { open, closed: [] };
 
   // Merged recovery needs only the reusable candidate and delivery heads. Query
@@ -2583,6 +2600,68 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
       per_page: 1,
     }));
     if (response?.data?.[0]) closed.push(response.data[0]);
+  }
+  return { open, closed };
+}
+
+// REST and GraphQL have separate resource budgets. Token rotation alone cannot
+// recover an exhausted user REST allowance. Keep this adapter's REST-shaped
+// output so the exact-plan, review and merge guards below remain unchanged.
+async function listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed }) {
+  const query = `query($owner:String!,$repo:String!,$states:[PullRequestState!]!,$head:String,$after:String){
+    repository(owner:$owner,name:$repo){pullRequests(first:100,states:$states,headRefName:$head,
+      after:$after,orderBy:{field:UPDATED_AT,direction:DESC}){pageInfo{hasNextPage endCursor} nodes{
+        id number title body url state isDraft createdAt updatedAt closedAt mergedAt
+        headRefName headRefOid baseRefName baseRefOid author{login} headRepositoryOwner{login}
+        repository{nameWithOwner name owner{login}}
+        headRepository{nameWithOwner name owner{login}}
+        labels(first:100){pageInfo{hasNextPage} nodes{name}}
+    }}}}`;
+  async function collect(states, head = null, latestOnly = false) {
+    const rows = [];
+    let after = null;
+    do {
+      const data = await withRetry((client) => client.graphql(query, {
+        owner, repo, states, head, after,
+      }), { rateResource: 'graphql' });
+      const page = data?.repository?.pullRequests;
+      if (!page || !Array.isArray(page.nodes) || !page.pageInfo) {
+        throw new Error('GraphQL PR inventory incomplete');
+      }
+      for (const pr of page.nodes) {
+        if (!pr || !pr.author?.login || pr.labels?.pageInfo?.hasNextPage) {
+          throw new Error('GraphQL PR identity or label inventory incomplete');
+        }
+        const headOwner = pr.headRepositoryOwner?.login || pr.headRepository?.owner?.login;
+        if (latestOnly && !headOwner) throw new Error('GraphQL closed PR head owner unavailable');
+        if (latestOnly && headOwner.toLowerCase() !== owner.toLowerCase()) continue;
+        const repository = (r) => r ? {
+          full_name: r.nameWithOwner, name: r.name, owner: { login: r.owner.login },
+        } : null;
+        rows.push({
+          number: pr.number, node_id: pr.id, title: pr.title, body: pr.body,
+          html_url: pr.url, state: pr.state === 'OPEN' ? 'open' : 'closed',
+          draft: pr.isDraft, created_at: pr.createdAt, updated_at: pr.updatedAt,
+          closed_at: pr.closedAt, merged_at: pr.mergedAt, user: { login: pr.author.login },
+          head: { ref: pr.headRefName, sha: pr.headRefOid, repo: repository(pr.headRepository) },
+          base: { ref: pr.baseRefName, sha: pr.baseRefOid, repo: repository(pr.repository) },
+          labels: pr.labels.nodes,
+        });
+        if (latestOnly) return rows;
+      }
+      if (page.pageInfo.hasNextPage && (!page.pageInfo.endCursor || page.pageInfo.endCursor === after)) {
+        throw new Error('GraphQL PR inventory cursor did not advance');
+      }
+      after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    } while (after);
+    return rows;
+  }
+  const open = await collect(['OPEN']);
+  const closed = [];
+  if (includeClosed) {
+    for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
+      closed.push(...await collect(['CLOSED', 'MERGED'], branch, true));
+    }
   }
   return { open, closed };
 }
@@ -6062,8 +6141,10 @@ async function run({ github, context, core }) {
         });
       }
     } catch (e) {
-      console.log(`✗ Error processing ${repo}: ${e.message}`);
-      results.push({ owner, repo, status: 'error', error: e.message });
+      const message = e.graphqlFallbackError
+        ? `${e.message}; GraphQL fallback unavailable: ${e.graphqlFallbackError}` : e.message;
+      console.log(`✗ Error processing ${repo}: ${message}`);
+      results.push({ owner, repo, status: 'error', error: message });
 
       // A primary rate-limit error that reaches this outer catch is always
       // terminal: withRetry already tried token rotation and found no
