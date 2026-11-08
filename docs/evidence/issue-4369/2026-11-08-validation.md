@@ -1878,3 +1878,60 @@ manual Maint 68/71 dispatch, merge/promotion bypass, source-issue closure, draft
 conversion, or automation rescheduling was performed to remove these gaps.
 The first unresolved delivery step is that non-PASS verification disposition;
 producer-origin proof is a separate missing receipt. The issue remains incomplete.
+
+## Local keepalive round 2 readback — 2026-11-08
+
+Outcome 1: **NOT MET**, with **8/11** task/criterion IDs verified. The original
+60-minute deadline, **2026-11-08T21:46:00Z**, has been reached. Acceptance attempts
+stop here; no new code repair, full-suite execution, provider attempt or workflow
+dispatch was made during this round. Cost: read-only Git/GitHub checks plus this
+evidence publication; zero additional runner executions.
+
+The [round-2 command receipt](runtime-4550/4558-round2-readback.json) records exit-0
+ancestry checks for the required ancestor, salvaged PR 4551 head and published
+main reachability of `0a06f1976db1dd7eb12853f493a3371ee4736bcf`. All nine retained
+fix files compare unchanged against the salvaged head. A live PR read confirmed
+4551 merged at that revision. This establishes inclusion, but **T1 remains
+incomplete** because its required verification gate is non-PASS, as recorded in
+[the upstream assessment](runtime-4550/4557-source-verification.json). Passing
+suites do not substitute for that assessment.
+
+T2/T3/T4/A1: the pre-code acceptance plan above retains the reference runner,
+commands and execution/stop bounds. The historical restricted-runner Node and
+Python logs were read as diagnostic leads only. No repair was justified by those
+logs. The terminal supported-runner run 42523162606 is successful. This round
+independently recomputed both complete retained log hashes and matched their
+exit-0 receipts on the same immutable checkout. No remaining suite failure was
+reproduced or code changed; another suite execution would add no acceptance
+information. The earlier exact-command results, runner identity, selected Python
+path, timings and bounds remain the operative receipts.
+
+T6/A2: a fresh `cmp` of the retained final source and actual consumer merge bytes
+exited **0**. The source Git tree and live consumer contents API at
+`1ff9e11cd51a456333c626cb354543b63202bef6` both return blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. Exact commands and exits are in the
+round-2 receipt; the earlier merge/main-reachability receipts retain delivery.
+
+T7/A4: the applicable exact-head Maint 71 dispositions recorded above remain
+zero active/blocking/nonblocking/unknown findings, with discussion 4434491702
+excluded. The [fresh comment observation](runtime-4550/4558-round2-comments.json)
+retains the complete raw comments and its explicit UTC boundary. Page 1 returned
+49 comments; page 2 returned 0; all IDs are unique. No new comment appeared since
+the preceding complete 49-comment observation. The round-2 receipt also links
+this observation and records its boundary.
+
+T5/A3 remain incomplete: workflow-specific inventory from the original task start
+through **2026-11-08T21:45:56Z** returned **zero** next Maint 68 runs. Existing
+source/plan/candidate/merge lineage is retained above, but neither owner-token
+`workflow_dispatch` metadata nor temporal proximity authenticates its originating
+process. No manual Maint 68/71 dispatch was used to fill that gap.
+
+First unresolved step at stop: the non-PASS upstream verification disposition.
+Separate missing receipt: the next automation-started Maint 68 → Maint 71 chain.
+Blocking/drainable pair: **blocking=2** (verification disposition and producer
+origin/next chain), **drainable=1** (publish these readback receipts). This report
+creates no new lock or hold and changes no controller scheduling. Continuation
+ownership remains with the existing closer/controller; this round does not clear
+its gates or claim overall completion.
+
+Verified IDs for this round: **T2, T3, T4, T6, T7, A1, A2, A4**.
