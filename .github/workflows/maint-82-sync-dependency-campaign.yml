@@ -244,7 +244,7 @@ jobs:
                 .filter((run) =>
                   ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status),
                 )
-                .map((run) => String(run.display_title || '')),
+                .map((run) => String(run.display_title || '').replace(/\s+/g, ' ').trim()),
             );
             for (const continuation of continuations) {
               const selector = continuation.lane;

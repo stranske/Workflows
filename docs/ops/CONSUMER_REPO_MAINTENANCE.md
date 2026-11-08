@@ -3863,3 +3863,5 @@ Each stage repeats the native check inventories and head/linkage reads. A presen
 failed, pending or unknown required context remains blocking. Generated delivery
 PRs and their final merge guard continue to require their own exact-head checks;
 this no-change fallback does not apply to them.
+
+Maint 82 compares active Maint 71 continuation titles after collapsing whitespace, because native run names may contain a newline before the continuation key. It preserves exact continuation-key matching and candidate/delivery priority; a completed run does not count as an active writer.
