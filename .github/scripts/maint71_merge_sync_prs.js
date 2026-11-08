@@ -239,9 +239,14 @@ function syncJobStarted(job) {
 // starts is infrastructure (rate limit, runner, or transport). A Sync job that
 // actually ran is a consumer failure and keeps the six-hour debounce.
 function canaryRefreshFailureClass(run) {
-  if (!run || run.status !== 'completed' || run.conclusion !== 'failure') return null;
+  if (!run || run.status !== 'completed' || !['failure', 'cancelled'].includes(run.conclusion)) return null;
   const jobs = Array.isArray(run.refresh_jobs) ? run.refresh_jobs : Array.isArray(run.jobs) ? run.jobs : null;
   if (!jobs) return null;
+  // A cancelled run that never started a Sync job attempted nothing: the stable
+  // writer queue replaced it, or it was stopped before the matrix. Holding the
+  // next refresh for it latched the canaries for six hours (2026-11-07 01:39Z,
+  // "refresh: skipped (cancelled)" while confirmed_not_started was 2).
+  if (run.conclusion === 'cancelled') return jobs.some(syncJobStarted) ? 'consumer' : 'not_started';
   const prepareFailed = jobs.some(job => job?.name === 'Prepare sync from manifest' && job.conclusion === 'failure'
     && job.status !== 'queued' && job.status !== 'in_progress' && job.status !== 'waiting');
   const syncStarted = jobs.some(syncJobStarted);
@@ -253,8 +258,11 @@ function canaryRefreshFailureClass(run) {
 function canaryRefreshFailureRows(runs) {
   const rows = [];
   for (const run of runs) {
-    const classification = canaryRefreshFailureClass(run);
-    if (classification !== 'infrastructure' && classification !== 'consumer') continue;
+    // Job evidence may be unreadable while a receipt already proves the run never started.
+    const classification = canaryRefreshFailureClass(run)
+      || (run?.status === 'completed' && run.conclusion === 'cancelled' && run.refresh_not_started
+        ? 'not_started' : null);
+    if (!['infrastructure', 'consumer', 'not_started'].includes(classification)) continue;
     const row = { classification };
     if (Number.isSafeInteger(run.id) && run.id > 0) row.run_id = run.id;
     const attempt = Number(run.run_attempt);
@@ -276,7 +284,8 @@ function canaryRefreshDiagnostics(state) {
       unknown: unknown.length, potential_overwrites: runs.filter(run => run.refresh_potential_overwrite).length,
       confirmed_not_started: runs.filter(run => run.refresh_not_started).length,
       infrastructure_failures: failureClassification.filter(row => row.classification === 'infrastructure').length,
-      consumer_failures: failureClassification.filter(row => row.classification === 'consumer').length },
+      consumer_failures: failureClassification.filter(row => row.classification === 'consumer').length,
+      cancelled_before_sync: failureClassification.filter(row => row.classification === 'not_started').length },
     failure_classification: failureClassification.slice(0, 8),
     omitted_failure_classifications: Math.max(0, failureClassification.length - 8),
     blocking_receipt: unknown.find(run => run.id === state.run_id)?.refresh_receipt || null,
@@ -290,7 +299,7 @@ async function reportCanaryRefreshDiagnostics({ core, state }) {
   const diagnostic = canaryRefreshDiagnostics(state);
   const scoped = state.refresh_plan?.plan_scope === 'source-delta';
   const classified = diagnostic.inventory.infrastructure_failures > 0
-    || diagnostic.inventory.consumer_failures > 0;
+    || diagnostic.inventory.consumer_failures > 0 || diagnostic.inventory.cancelled_before_sync > 0;
   if (!scoped && !classified) return;
   const encoded = JSON.stringify(diagnostic);
   core.notice(`canary-refresh-diagnostics: ${encoded}`);
@@ -348,6 +357,7 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const recentCandidates = matching.filter((run) => {
     const at = observedAt(run);
     return run.status === 'completed' && run.conclusion !== 'success'
+      && !run.refresh_not_started && canaryRefreshFailureClass(run) !== 'not_started'
       && Number.isFinite(at) && at > newestSuccessAt
       && now - at < CANARY_REFRESH_DEBOUNCE_MS;
   });
@@ -389,7 +399,7 @@ async function listCanaryRefreshAttemptJobs(client, params) {
 
 async function attachCanaryRefreshFailureEvidence({ runs, withRetry, location, now }) {
   for (const run of runs) {
-    if (run.status !== 'completed' || run.conclusion !== 'failure') continue;
+    if (run.status !== 'completed' || !['failure', 'cancelled'].includes(run.conclusion)) continue;
     if (Array.isArray(run.refresh_jobs) || Array.isArray(run.jobs)) continue;
     const at = Date.parse(run.updated_at || run.created_at);
     if (!Number.isFinite(at) || now - at >= CANARY_REFRESH_DEBOUNCE_MS) continue;
