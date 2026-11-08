@@ -122,30 +122,46 @@ tasks:
   - 'Verification: pytest tests/langchain/test_arg002_regression.py -v passes (27/27)'
 - id: task-09
   title: Verify regenerated consumer lint and the documented local workflow suite.
-  status: blocked
-  started_at: null
-  finished_at: null
-  commit: ''
+  status: done
+  started_at: '2026-11-08T20:47:15Z'
+  finished_at: '2026-11-08T21:00:00Z'
+  commit: d897e3fbc
   notes:
-  - 'Retained verified receipt: Travel-Plan-Permission run 42325500360 completed successfully at head
-    58dc10da4b4f7f11e283a9a49c34084b3e258f59; Python CI / lint-ruff succeeded 2026-11-07T01:44:17Z.'
-  - 'Local workflow acceptance remains incomplete: retained exhaustive batches report 3534 passed, 3 skipped,
-    12 failed; the earlier incomplete suite remains UNKNOWN, not PASS.'
-  - Successful consumer lint and classification do not establish consumer merge.
-  - 'Receipt provenance: docs/ops/issue-4484-validation.md, PR #4531 continuation.'
+  - 'Native current-host bounded workflow acceptance: 3643 passed, 9 skipped, 3652 collected and terminal,
+    zero failures or multiset gaps.'
+  - Live Health68 execution probe passed with private child credentials; no Node subprocess or filesystem
+    restrictions remain.
+  - Retained earlier failed acceptance remains nested in previous_evidence; it is not relabeled as a pass.
+  - Travel-Plan-Permission#1716 independently confirmed merged at 71d6359516d9796b8ec586549779c34afc778d98.
+  - 'Receipt and source binding: docs/ops/issue-4534-acceptance.json; complete logs retained by native
+    task.'
   previous_evidence:
     id: task-09
-    title: 'Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha passes on regenerated
-      sync PR stranske/Travel-Plan-Permission#1716, verified with `gh run view <run-id>`, and the repository''s
-      test command passes locally.'
-    status: deferred
+    title: Verify regenerated consumer lint and the documented local workflow suite.
+    status: blocked
     started_at: null
     finished_at: null
     commit: ''
     notes:
-    - 'Deferred: Requires external automation (maint-68-sync-consumer-repos.yml is protected)'
-    - 'Local verification completed: ruff check --select ARG002 passes on authoritative sources'
-    - Next sync-core round will regenerate Travel-Plan-Permission#1716 and CI should pass
+    - 'Retained verified receipt: Travel-Plan-Permission run 42325500360 completed successfully at head
+      58dc10da4b4f7f11e283a9a49c34084b3e258f59; Python CI / lint-ruff succeeded 2026-11-07T01:44:17Z.'
+    - 'Local workflow acceptance remains incomplete: retained exhaustive batches report 3534 passed, 3
+      skipped, 12 failed; the earlier incomplete suite remains UNKNOWN, not PASS.'
+    - Successful consumer lint and classification do not establish consumer merge.
+    - 'Receipt provenance: docs/ops/issue-4484-validation.md, PR #4531 continuation.'
+    previous_evidence:
+      id: task-09
+      title: 'Shipment-caused: Python CI / lint-ruff fails on synced scripts/langcha passes on regenerated
+        sync PR stranske/Travel-Plan-Permission#1716, verified with `gh run view <run-id>`, and the repository''s
+        test command passes locally.'
+      status: deferred
+      started_at: null
+      finished_at: null
+      commit: ''
+      notes:
+      - 'Deferred: Requires external automation (maint-68-sync-consumer-repos.yml is protected)'
+      - 'Local verification completed: ruff check --select ARG002 passes on authoritative sources'
+      - Next sync-core round will regenerate Travel-Plan-Permission#1716 and CI should pass
 - id: task-10
   title: Reintroducing the reported behavior makes the regression test fail; reverting it makes the test
     pass.
