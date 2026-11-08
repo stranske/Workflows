@@ -41,7 +41,7 @@ execution_profiles:
   codex-default:
     agent: codex
     model: gpt-6.1-sol
-    fallback_model: gpt-5.5
+    fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
@@ -50,7 +50,7 @@ execution_profiles:
   codex-fast:
     agent: codex
     model: gpt-5.6-terra
-    fallback_model: gpt-5.5
+    fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
@@ -59,7 +59,7 @@ execution_profiles:
   codex-implement:
     agent: codex
     model: gpt-6.1-sol
-    fallback_model: gpt-5.5
+    fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
@@ -68,7 +68,7 @@ execution_profiles:
   codex-coordinate:
     agent: codex
     model: gpt-6.1-sol
-    fallback_model: gpt-5.5
+    fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
@@ -77,7 +77,7 @@ execution_profiles:
   codex-routine:
     agent: codex
     model: gpt-5.6-terra
-    fallback_model: gpt-5.5
+    fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
@@ -86,7 +86,7 @@ execution_profiles:
   codex-extract:
     agent: codex
     model: gpt-6-luna
-    fallback_model: gpt-5.5
+    fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
@@ -95,7 +95,7 @@ execution_profiles:
   codex-hard:
     agent: codex
     model: gpt-6-astra
-    fallback_model: gpt-5.5
+    fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
@@ -104,7 +104,7 @@ execution_profiles:
   codex-hardest:
     agent: codex
     model: gpt-6-astra
-    fallback_model: gpt-5.5
+    fallback_model: gpt-5.6-terra
     runner: reusable-codex-run
     capacity_pool: codex-standard
     safety: standard
