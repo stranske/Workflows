@@ -4330,3 +4330,44 @@ test('refreshedSourceRepin re-pins only a canary-phase candidate produced by a s
   assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ display_title: `Maint 68 canary full source=${refreshed} candidates=stranske/trip-planner dry=false` })] }), null);
   assert.equal(refreshedSourceRepin({ ...base, defaultBranch: 'master', refreshRuns: [run({ head_branch: 'master' })] }).refresh_run_id, 7);
 });
+
+test('Maint71 falls back to paginated GraphQL on exhausted REST without changing PR identity', async () => {
+  const calls = [];
+  const node = (number, state = 'OPEN') => ({
+    id: `PR_${number}`, number, title: 'sync', body: 'bound plan', url: `https://github.com/o/r/pull/${number}`,
+    state, isDraft: false, headRefName: 'sync/workflows-candidate', headRefOid: 'a'.repeat(40),
+    baseRefName: 'main', baseRefOid: 'b'.repeat(40), author: {login:'stranske'},
+    repository: {nameWithOwner:'stranske/Ready',name:'Ready',owner:{login:'stranske'}},
+    headRepository: {nameWithOwner:'stranske/Ready',name:'Ready',owner:{login:'stranske'}},
+    labels: {pageInfo:{hasNextPage:false},nodes:[{name:'sync:delivery-staging'}]},
+  });
+  const client = {
+    rest:{pulls:{list(){}}},
+    paginate: async () => {throw Object.assign(new Error('API rate limit exceeded'), {
+      status:403, response:{headers:{'x-ratelimit-remaining':'0'}}});},
+    graphql: async (_q, vars) => {
+      calls.push(vars);
+      const nodes = vars.states[0] === 'OPEN' ? [node(vars.after ? 2 : 1)] : [node(3,'MERGED')];
+      return {repository:{pullRequests:{nodes,pageInfo:{hasNextPage:vars.states[0]==='OPEN' && !vars.after,endCursor:'page2'}}}};
+    },
+  };
+  const resources = [];
+  const result = await listMaint71PullRequests({owner:'stranske',repo:'Ready',includeClosed:true,
+    withRetry:async (fn, options) => {resources.push(options?.rateResource);return fn(client);}});
+  assert.deepEqual(result.open.map(p=>p.number),[1,2]);
+  assert.equal(result.closed.length,2);
+  assert.equal(result.open[0].head.sha,'a'.repeat(40));
+  assert.equal(result.open[0].user.login,'stranske');
+  assert.equal(result.open[0].labels[0].name,'sync:delivery-staging');
+  assert.equal(result.closed[0].state,'closed');
+  assert.deepEqual(resources.slice(1),['graphql','graphql','graphql','graphql']);
+  assert.deepEqual(calls.slice(2).map(v=>v.head),['sync/workflows-candidate','sync/workflows-delivery']);
+});
+
+test('Maint71 does not disguise REST permission errors as rate-limit fallback', async () => {
+  let graphqlCalled=false;
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw Object.assign(new Error('Forbidden'),{status:403});},
+    graphql:async()=>{graphqlCalled=true;}};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}),/Forbidden/);
+  assert.equal(graphqlCalled,false);
+});

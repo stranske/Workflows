@@ -2562,10 +2562,21 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
   // head can turn target_missing into a false terminal state or expose its live
   // branch to cleanup. Open inventories are normally one page, but correctness
   // cannot depend on that being true.
-  const open = await withRetry((client) => client.paginate(
-    client.rest.pulls.list,
-    { owner, repo, state: 'open', per_page: 100 },
-  ));
+  let open;
+  try {
+    open = await withRetry((client) => client.paginate(
+      client.rest.pulls.list,
+      { owner, repo, state: 'open', per_page: 100 },
+    ));
+  } catch (error) {
+    if (!isPrimaryRateLimitExhausted(error)) throw error;
+    try {
+      return await listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed });
+    } catch (fallbackError) {
+      error.message += `; GraphQL fallback unavailable: ${fallbackError.message || fallbackError}`;
+      throw error;
+    }
+  }
   if (!includeClosed) return { open, closed: [] };
 
   // Merged recovery needs only the reusable candidate and delivery heads. Query
@@ -2583,6 +2594,65 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
       per_page: 1,
     }));
     if (response?.data?.[0]) closed.push(response.data[0]);
+  }
+  return { open, closed };
+}
+
+// REST and GraphQL have separate resource budgets. Token rotation alone cannot
+// recover an exhausted user REST allowance. Keep this adapter's REST-shaped
+// output so the exact-plan, review and merge guards below remain unchanged.
+async function listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed }) {
+  const query = `query($owner:String!,$repo:String!,$states:[PullRequestState!]!,$head:String,$after:String){
+    repository(owner:$owner,name:$repo){pullRequests(first:100,states:$states,headRefName:$head,
+      after:$after,orderBy:{field:UPDATED_AT,direction:DESC}){pageInfo{hasNextPage endCursor} nodes{
+        id number title body url state isDraft createdAt updatedAt closedAt mergedAt
+        headRefName headRefOid baseRefName baseRefOid author{login}
+        repository{nameWithOwner name owner{login}}
+        headRepository{nameWithOwner name owner{login}}
+        labels(first:100){pageInfo{hasNextPage} nodes{name}}
+    }}}}`;
+  async function collect(states, head = null, latestOnly = false) {
+    const rows = [];
+    let after = null;
+    do {
+      const data = await withRetry((client) => client.graphql(query, {
+        owner, repo, states, head, after,
+      }), { rateResource: 'graphql' });
+      const page = data?.repository?.pullRequests;
+      if (!page || !Array.isArray(page.nodes) || !page.pageInfo) {
+        throw new Error('GraphQL PR inventory incomplete');
+      }
+      for (const pr of page.nodes) {
+        if (!pr || !pr.author?.login || pr.labels?.pageInfo?.hasNextPage) {
+          throw new Error('GraphQL PR identity or label inventory incomplete');
+        }
+        const repository = (r) => r ? {
+          full_name: r.nameWithOwner, name: r.name, owner: { login: r.owner.login },
+        } : null;
+        rows.push({
+          number: pr.number, node_id: pr.id, title: pr.title, body: pr.body,
+          html_url: pr.url, state: pr.state === 'OPEN' ? 'open' : 'closed',
+          draft: pr.isDraft, created_at: pr.createdAt, updated_at: pr.updatedAt,
+          closed_at: pr.closedAt, merged_at: pr.mergedAt, user: { login: pr.author.login },
+          head: { ref: pr.headRefName, sha: pr.headRefOid, repo: repository(pr.headRepository) },
+          base: { ref: pr.baseRefName, sha: pr.baseRefOid, repo: repository(pr.repository) },
+          labels: pr.labels.nodes,
+        });
+        if (latestOnly) return rows;
+      }
+      if (page.pageInfo.hasNextPage && (!page.pageInfo.endCursor || page.pageInfo.endCursor === after)) {
+        throw new Error('GraphQL PR inventory cursor did not advance');
+      }
+      after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    } while (after);
+    return rows;
+  }
+  const open = await collect(['OPEN']);
+  const closed = [];
+  if (includeClosed) {
+    for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
+      closed.push(...await collect(['CLOSED', 'MERGED'], branch, true));
+    }
   }
   return { open, closed };
 }
