@@ -1,0 +1,26 @@
+{
+  "checkout_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "runner": {
+    "RUNNER_NAME": "GitHub Actions 1004686100",
+    "RUNNER_OS": "Linux",
+    "RUNNER_ARCH": "X64",
+    "ImageOS": "ubuntu26",
+    "ImageVersion": "20261101.186.1",
+    "GITHUB_RUN_ID": "42523162606",
+    "GITHUB_RUN_ATTEMPT": "1",
+    "GITHUB_WORKFLOW_SHA": "c914fffc1f15c15ed526d622c82840e1722c8d29"
+  },
+  "interpreters": {
+    "node": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "python3": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3.14"
+  },
+  "python_executable": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+  "command": "node --test .github/scripts/__tests__/*.test.js",
+  "bound_seconds": 600,
+  "started_at": "2026-11-08T21:05:24.550364+00:00",
+  "completed_at": "2026-11-08T21:05:52.285527+00:00",
+  "wall_seconds": 27.735170009,
+  "exit_code": 0,
+  "timed_out": false,
+  "log_sha256": "08b20d314f3e69489d5bc9e7c3cad198ace79fd2f925f8ca76fea14e481dcba3"
+}

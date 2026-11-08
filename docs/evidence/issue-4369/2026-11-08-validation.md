@@ -1793,3 +1793,88 @@ The report evaluates original issue 4550, including its full-suite and consumer
 acceptance deferred to issue 4557. No passing verdict, release, source-issue
 closure, or cleared verification gate is inferred. The supported exact-command
 run is retained as diagnosis on the merged candidate while this gate is unmet.
+
+
+## Issue 4557 final operational receipts — 2026-11-08T21:31:19Z
+
+**Overall outcome 1: NOT MET. Exact-suite pair: PASS. Merged-byte comparison:
+PASS. Automation-origin proof: UNKNOWN. Upstream verification: NON-PASS.**
+This section supersedes earlier pending run observations without changing their
+historical receipts. No source runtime or test symbol required repair: the
+historical restricted-runner failures did not reproduce in the exact supported
+commands below.
+
+[Selftest run 42523162606](https://github.com/stranske/Workflows/actions/runs/42523162606),
+[job 128860888586](https://github.com/stranske/Workflows/actions/runs/42523162606/job/128860888586),
+completed on GitHub-hosted `ubuntu-latest`, runner **GitHub Actions 1004686100**,
+Linux X64, image `ubuntu26` / `20261101.186.1`. Its executor was published branch
+commit `c914fffc1f15c15ed526d622c82840e1722c8d29`; its actual tested main checkout
+was **`0a06f1976db1dd7eb12853f493a3371ee4736bcf`**, not the executor SHA.
+The checkout guard and fixture-PR read passed before either command.
+[Run and runner receipt](runtime-4550/4557-exact-main-run.json) retains the job,
+steps, immutable identities, selected Python configuration blob, and artifact
+**13634718948**, `issue-4557-exact-main-acceptance`.
+
+| Exact command | Exit | External bound | Wall seconds | Complete result |
+| --- | --- | --- | --- | --- |
+| `node --test .github/scripts/__tests__/*.test.js` | **0** | 600s | 27.735 | 3,789 passed, 1 skipped, 0 failed |
+| `python3 -m pytest -q tests/` | **0** | 1800s | 1299.060 | 50,842 passed, 25 skipped, 3 xfailed |
+
+Both [Node receipt](runtime-4550/4557-exact-main/node-full.json) and
+[Python receipt](runtime-4550/4557-exact-main/python-full.json) report the same
+published-main checkout and no timeout. Full combined stdout/stderr is retained
+unchanged in [Node log](runtime-4550/4557-exact-main/node-full.log) and
+[Python log](runtime-4550/4557-exact-main/python-full.log). These are the exact
+unfiltered commands; normal test-defined skips and intentional xfails remain
+visible in the complete summaries.
+
+Resolved Node executable:
+`/opt/hostedtoolcache/node/24.22.2/x64/bin/node`.
+The selected revision's `ci-python-versions.env` chooses Python 3.14; resolved
+`python3` is `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3.14`, and the
+supervisor's executable is
+`/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`.
+No local Python fallback or local full suite was used.
+
+The Node command ran 21:05:24.550364–21:05:52.285527Z; Python ran
+21:05:52.286692–21:27:31.346603Z. Downloaded raw-log SHA-256 values were independently
+recomputed and matched both receipts:
+
+- Node: `08b20d314f3e69489d5bc9e7c3cad198ace79fd2f925f8ca76fea14e481dcba3`
+- Python: `a0f8a82d67e4a6fb5f4777966fc3724e9aff54abdfd72368f97bcccdcb3e6d59`
+- Original artifact ZIP: `3188b16c1a6bfd2d5038dfd8ba02c8de104719a1df07534fc42e518c6fd26fde`
+
+The final source-to-consumer `cmp` still exits 0 at the immutable revisions
+recorded above. Applicable exact-head Maint 71 findings are empty, excluding
+discussion 4434491702. The [fresh final issue-comment observation](runtime-4550/4557-issue-4369-comments-final.json)
+covers **2026-11-08T21:30:03.551859+00:00**: page 1 returned 49 comments, explicit page 2 returned 0,
+all IDs are unique, and pagination is complete. There is no newer scoped
+sync-core recurrence than comment 6649911684 at 2026-11-05T04:45:07Z.
+
+The [next-run observation](runtime-4550/4557-next-maint68-observation.json)
+retains the complete workflow-specific inventory from this task's 20:46:00Z
+start through **2026-11-08T21:31:19Z**: **0** Maint 68 runs. No qualifying
+next automation-started producer run is fabricated. The earlier source/plan/
+candidate/actual-merge chain is retained, but its producer's initiating process
+cannot be authenticated from the owner-token `workflow_dispatch` metadata.
+
+Acceptance disposition:
+
+- [x] Both exact full-suite commands exit 0 on the same immutable published main
+  revision containing the required ancestor and salvaged PR 4551 fixes, with
+  complete logs and runner/interpreter/bound/timing/exit receipts.
+- [x] Final source and actual merged consumer-main payload bytes compare equal,
+  with both immutable revision and blob receipts.
+- [ ] Authenticate the automation-started Maint 68 origin and retain the qualifying
+  next Maint 68 → Maint 71 causal chain. Existing payload lineage is proven;
+  originating-process proof is missing.
+- [x] Record exact-head finding dispositions and a fresh complete issue-4369
+  comment observation through an explicit UTC boundary.
+
+The prerequisite upstream verification gate is also **not cleared**: its
+retained OpenAI parse error and Anthropic CONCERNS remain non-PASS. The exact
+suite success does not silently replace that assessment. No new provider attempt,
+manual Maint 68/71 dispatch, merge/promotion bypass, source-issue closure, draft
+conversion, or automation rescheduling was performed to remove these gaps.
+The first unresolved delivery step is that non-PASS verification disposition;
+producer-origin proof is a separate missing receipt. The issue remains incomplete.
