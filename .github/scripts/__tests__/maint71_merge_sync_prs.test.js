@@ -4421,3 +4421,30 @@ test('Copilot reassessment posts the in-thread request and a best-effort review 
     assert.equal(reviewRequests.length, 1, 'a reused request never re-requests review');
   }
 });
+
+test('cleanup absence requires both a missing ref and retained repository access', async () => {
+  const { deleteSyncBranch } = require('../maint71_merge_sync_prs');
+  const missing = Object.assign(new Error('Reference does not exist'), { status: 422 });
+  const absent = Object.assign(new Error('Not Found'), { status: 404 });
+  const calls = [];
+  const client = { rest: {
+    git: {
+      deleteRef: async () => { calls.push('delete'); throw missing; },
+      getRef: async () => { calls.push('ref'); throw absent; },
+    },
+    repos: { get: async () => { calls.push('repo'); return { data: { full_name: 'o/r' } }; } },
+  } };
+  const args = { owner: 'o', repo: 'r', branch: 'sync/workflows-candidate', withRetry: fn => fn(client) };
+  assert.deepEqual(await deleteSyncBranch(args), { already_absent: true });
+  assert.deepEqual(calls, ['delete', 'ref', 'repo']);
+  client.rest.repos.get = async () => { throw absent; };
+  await assert.rejects(deleteSyncBranch(args), error => error === absent);
+  client.rest.git.getRef = async () => ({ data: { object: { sha: 'a'.repeat(40) } } });
+  await assert.rejects(deleteSyncBranch(args), error => error === missing);
+  client.rest.git.getRef = async () => { throw Object.assign(new Error('Forbidden'), { status: 403 }); };
+  await assert.rejects(deleteSyncBranch(args), /Forbidden/);
+  client.rest.git.deleteRef = async () => { throw new Error('timeout: outcome unknown'); };
+  await assert.rejects(deleteSyncBranch(args), /outcome unknown/);
+  client.rest.git.deleteRef = async () => {};
+  assert.deepEqual(await deleteSyncBranch(args), { already_absent: false });
+});

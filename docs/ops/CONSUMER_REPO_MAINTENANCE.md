@@ -3938,3 +3938,7 @@ does not authorize a merge or claim that REST-only operations are available.
 ## Reusing completed Gate job measurements
 
 Health 85 refreshes the completed-run inventory daily, then reuses fully observed job snapshots for the exact repository, run ID, attempt, head SHA and update revision. Changed attempts/updates, incomplete jobs and invalid cache records require a fresh read. Failed reads never become successful measurements. The Actions cache retains completed snapshots even when another repository's measurement fails, reducing repeated job-list reads across daily runs. The ten-minute target and seven consecutive genuine daily measurements are unchanged.
+
+## Idempotent sync branch cleanup
+
+GitHub may delete a merged sync branch before Maint 71's explicit cleanup. On a delete 404/422, Maint 71 re-reads the ref and confirms repository access. Only a missing ref with accessible repository is reported as successful cleanup (`branch_deleted`, `already_absent: true`). An existing/protected ref, inaccessible repository or uncertain write remains a failure. Dry runs and all publication/merge gates retain their existing behavior.
