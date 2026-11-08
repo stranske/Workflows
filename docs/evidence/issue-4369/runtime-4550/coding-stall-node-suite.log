@@ -1,0 +1,323 @@
+✔ .github/scripts/__tests__/agent-delegation-policy-intake.test.js (142.809744ms)
+✔ .github/scripts/__tests__/agent-delegation-policy.test.js (113.744043ms)
+✔ .github/scripts/__tests__/agent-event-eligibility.test.js (75.568822ms)
+✔ .github/scripts/__tests__/agent-install-failure.test.js (77.012568ms)
+✔ .github/scripts/__tests__/agent-registry.test.js (121.360464ms)
+✔ .github/scripts/__tests__/agent-stall-rotation.test.js (65.850013ms)
+✔ .github/scripts/__tests__/agent_delegation_policy.test.js (500.002487ms)
+✔ .github/scripts/__tests__/agents-belt-scan.test.js (72.903065ms)
+✔ .github/scripts/__tests__/agents-dispatch-summary.test.js (57.061245ms)
+✔ .github/scripts/__tests__/agents-guard.test.js (82.943326ms)
+✔ .github/scripts/__tests__/agents-orchestrator-resolve.test.js (82.140964ms)
+✔ .github/scripts/__tests__/agents-pr-meta-contract-status.test.js (250.42631ms)
+✔ .github/scripts/__tests__/agents-pr-meta-keepalive.test.js (119.641091ms)
+✔ .github/scripts/__tests__/agents-pr-meta-orchestrator.test.js (307.057952ms)
+✔ .github/scripts/__tests__/agents-pr-meta-status-idempotence.test.js (89.86983ms)
+✔ .github/scripts/__tests__/agents-pr-meta-update-body.test.js (3233.774176ms)
+✖ .github/scripts/__tests__/agents-verifier-context.test.js (3471.090031ms)
+✔ .github/scripts/__tests__/agents-verifier-historical-baseline.test.js (221.562566ms)
+✔ .github/scripts/__tests__/api-helpers.test.js (4550.136574ms)
+✔ .github/scripts/__tests__/api-rate-diagnostic.test.js (60.576135ms)
+✔ .github/scripts/__tests__/artifact-cache.test.js (55.634842ms)
+✔ .github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js (399.17731ms)
+✔ .github/scripts/__tests__/auto-pilot-transitions.test.js (524.043128ms)
+✔ .github/scripts/__tests__/autopilot-metrics.test.js (47.025479ms)
+✔ .github/scripts/__tests__/bot-comment-auth-coverage.test.js (119.648748ms)
+✔ .github/scripts/__tests__/bot-comment-dismiss.test.js (85.104215ms)
+✔ .github/scripts/__tests__/bot-comment-handler.test.js (99.054061ms)
+✔ .github/scripts/__tests__/campaign-no-change-qualification.test.js (153.407559ms)
+✔ .github/scripts/__tests__/capability-bundle-contract.test.js (99.792342ms)
+✔ .github/scripts/__tests__/checkout_source.test.js (53.915471ms)
+✔ .github/scripts/__tests__/comment-dedupe.test.js (66.717892ms)
+✔ .github/scripts/__tests__/conflict-detector.test.js (66.174609ms)
+✔ .github/scripts/__tests__/connector-exclusion-smoke.test.js (72.454259ms)
+✔ .github/scripts/__tests__/consumer-sync-drift-issue-body.test.js (53.383365ms)
+✔ .github/scripts/__tests__/corrective-verification-instruction.test.js (202.740307ms)
+✔ .github/scripts/__tests__/coverage-monitor-summary.test.js (123.678853ms)
+✔ .github/scripts/__tests__/coverage-normalize.test.js (59.055747ms)
+✔ .github/scripts/__tests__/create-signed-sync-commit.test.js (53.742345ms)
+✔ .github/scripts/__tests__/dependency-repair-contract.test.js (54.916551ms)
+✔ .github/scripts/__tests__/dependency-sync-run-window.test.js (447.486944ms)
+✔ .github/scripts/__tests__/detect-changes.test.js (64.77539ms)
+✔ .github/scripts/__tests__/error-classifier.test.js (64.976989ms)
+✔ .github/scripts/__tests__/error-diagnostics.test.js (56.999909ms)
+✔ .github/scripts/__tests__/failure-comment-formatter.test.js (58.106905ms)
+✔ .github/scripts/__tests__/gate-docs-only.test.js (53.371507ms)
+✖ .github/scripts/__tests__/generated-delivery-seal-action.test.js (110.490283ms)
+✔ .github/scripts/__tests__/github-api-cache-client.test.js (59.177868ms)
+✔ .github/scripts/__tests__/github-api-cache.test.js (57.766383ms)
+✔ .github/scripts/__tests__/github-api-retry.test.js (1205.814888ms)
+✔ .github/scripts/__tests__/github-api-with-retry.test.js (1092.187389ms)
+✔ .github/scripts/__tests__/github-rate-limited-wrapper.test.js (164.06542ms)
+✔ .github/scripts/__tests__/guarded-merge-tasks.test.js (209.647515ms)
+✔ .github/scripts/__tests__/handoff_head_reconciliation.test.js (56.071527ms)
+✔ .github/scripts/__tests__/issue_context_utils.test.js (635.504023ms)
+✔ .github/scripts/__tests__/issue_pr_locator.test.js (59.076038ms)
+✔ .github/scripts/__tests__/issue_scope_parser.test.js (109.75144ms)
+✔ .github/scripts/__tests__/issue_template_sections.test.js (48.922042ms)
+✔ .github/scripts/__tests__/keepalive-attempt-presence.test.js (273.251014ms)
+✔ .github/scripts/__tests__/keepalive-authority-state.test.js (833.117764ms)
+✔ .github/scripts/__tests__/keepalive-challenge-due.test.js (67.32583ms)
+✔ .github/scripts/__tests__/keepalive-contract.test.js (74.324233ms)
+✔ .github/scripts/__tests__/keepalive-gate.test.js (85.207547ms)
+✔ .github/scripts/__tests__/keepalive-guard-utils.test.js (67.709928ms)
+✔ .github/scripts/__tests__/keepalive-independent-verifier.test.js (125.175795ms)
+✔ .github/scripts/__tests__/keepalive-instruction-segment.test.js (53.078914ms)
+✔ .github/scripts/__tests__/keepalive-instruction-template.test.js (82.784486ms)
+✔ .github/scripts/__tests__/keepalive-loop.test.js (6897.155377ms)
+✔ .github/scripts/__tests__/keepalive-model-profile-contract.test.js (71.346673ms)
+✔ .github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js (116.744896ms)
+✔ .github/scripts/__tests__/keepalive-post-work.test.js (95.266964ms)
+✔ .github/scripts/__tests__/keepalive-presence-delta.test.js (2316.602605ms)
+✔ .github/scripts/__tests__/keepalive-prompt-composer.test.js (71.423015ms)
+✔ .github/scripts/__tests__/keepalive-prompt-routing.test.js (61.33036ms)
+✔ .github/scripts/__tests__/keepalive-reporter-applicability.test.js (263.689794ms)
+✔ .github/scripts/__tests__/keepalive-review-guard.test.js (69.963388ms)
+✔ .github/scripts/__tests__/keepalive-runner-dispatch.test.js (67.16323ms)
+✔ .github/scripts/__tests__/keepalive-runner-prompt.test.js (73.708092ms)
+✔ .github/scripts/__tests__/keepalive-runner-scope.test.js (83.168122ms)
+✔ .github/scripts/__tests__/keepalive-runner-token.test.js (75.268017ms)
+✔ .github/scripts/__tests__/keepalive-state.test.js (101.623287ms)
+✔ .github/scripts/__tests__/keepalive-worker-evidence.test.js (78.770696ms)
+✔ .github/scripts/__tests__/keepalive-worker-gate.test.js (99.051852ms)
+✔ .github/scripts/__tests__/langsmith-fleet-artifacts.test.js (91.768615ms)
+✔ .github/scripts/__tests__/maint-post-ci.test.js (95.019648ms)
+node:child_process:982
+    throw err;
+    ^
+
+<ref *1> Error: spawnSync python3 EPERM
+    at Object.spawnSync (node:internal/child_process:1191:20)
+    at spawnSync (node:child_process:929:24)
+    at execFileSync (node:child_process:972:15)
+    at Object.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint68-scoped-receipt.test.js:14:28)
+    at Module._compile (node:internal/modules/cjs/loader:1929:14)
+    at Object..js (node:internal/modules/cjs/loader:2060:10)
+    at Module.load (node:internal/modules/cjs/loader:1651:32)
+    at Module._load (node:internal/modules/cjs/loader:1443:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5) {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'spawnSync python3',
+  path: 'python3',
+  spawnargs: [
+    '-c',
+    '\n' +
+      'import json,tempfile\n' +
+      'from pathlib import Path\n' +
+      'from scripts.sync_manifest_compiler import compile_manifest\n' +
+      'from scripts.scope_consumer_sync_plan import select_plan\n' +
+      'with tempfile.TemporaryDirectory() as directory:\n' +
+      " root=Path(directory);(root/'.github').mkdir();(root/'scripts').mkdir()\n" +
+      " (root/'scripts/copied.js').write_text('copied\\n');(root/'scripts/other.js').write_text('other\\n')\n" +
+      " (root/'.github/sync-manifest.yml').write_text('version: 1\\nscripts:\\n  - source: scripts/copied.js\\n    description: café\\n  - source: scripts/other.js\\n    description: unrelated\\n')\n" +
+      " full=compile_manifest(root/'.github/sync-manifest.yml',repo_root=root).to_plan()\n" +
+      " plan,scope=select_plan(full,mode='source-delta',changed_paths=['scripts/copied.js'],base_sha='b'*40,source_commit='a'*40)\n" +
+      " phase={'schema':'workflows.consumer-sync-phase-selection/v1','version':1,'phase':'canary','plan_id':plan['plan_id'],'selected_repos':['owner/a','owner/b']}\n" +
+      " print(json.dumps({name:json.dumps(value,sort_keys=True,indent=2,ensure_ascii=True)+'\\n' for name,value in [('manifest.json',plan),('manifest.full.json',full),('sync-plan-scope.json',scope),('sync-phase-selection.json',phase)]}))\n"
+  ],
+  error: [Circular *1],
+  status: 0,
+  signal: null,
+  output: [
+    null,
+    '{"manifest.json": "{\\n  \\"entries\\": [\\n    {\\n      \\"content_sha256\\": \\"sha256:c859968d74aafda9272be2d13a897eb016930e2c6e9c0054c385d51ec2679d22\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"caf\\\\u00e9\\",\\n      \\"effect_fingerprint\\": \\"sha256:11c01cf57027d0bf320c983e168e0c5d1fe4e2511416dda66dfe78a54c634f3f\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/copied.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/copied.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/copied.js\\",\\n      \\"template_sync\\": null\\n    }\\n  ],\\n  \\"manifest_sha256\\": \\"sha256:03acce46d263f73ac82b01e986062d339966a301cb0cb496d553f9c2c7dddf00\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"removals\\": [],\\n  \\"schema\\": \\"workflows.consumer-sync-plan/v1\\",\\n  \\"version\\": 1\\n}\\n", "manifest.full.json": "{\\n  \\"entries\\": [\\n    {\\n      \\"content_sha256\\": \\"sha256:c859968d74aafda9272be2d13a897eb016930e2c6e9c0054c385d51ec2679d22\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"caf\\\\u00e9\\",\\n      \\"effect_fingerprint\\": \\"sha256:11c01cf57027d0bf320c983e168e0c5d1fe4e2511416dda66dfe78a54c634f3f\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/copied.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/copied.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/copied.js\\",\\n      \\"template_sync\\": null\\n    },\\n    {\\n      \\"content_sha256\\": \\"sha256:7e4fa2eb8c7ac089739d5defc4489fad68a100d92082ca35c6b40a4524821f87\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"unrelated\\",\\n      \\"effect_fingerprint\\": \\"sha256:d35d87fa677fde8b50c1f15f74274b13d81e3c1f1fcfe826f582581dfb3babe4\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/other.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/other.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/other.js\\",\\n      \\"template_sync\\": null\\n    }\\n  ],\\n  \\"manifest_sha256\\": \\"sha256:03acce46d263f73ac82b01e986062d339966a301cb0cb496d553f9c2c7dddf00\\",\\n  \\"plan_id\\": \\"sha256:a4e7b4947c40e96e7902d9ce3b83e9c489035eeb07a9b7a3b4eb0d7a5a3281f9\\",\\n  \\"removals\\": [],\\n  \\"schema\\": \\"workflows.consumer-sync-plan/v1\\",\\n  \\"version\\": 1\\n}\\n", "sync-plan-scope.json": "{\\n  \\"base_sha\\": \\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\",\\n  \\"changed_paths\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"dependency_targets\\": [],\\n  \\"full_plan_id\\": \\"sha256:a4e7b4947c40e96e7902d9ce3b83e9c489035eeb07a9b7a3b4eb0d7a5a3281f9\\",\\n  \\"ignored_changed_paths\\": [],\\n  \\"matched_changed_paths\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"mode\\": \\"source-delta\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"schema\\": \\"workflows.consumer-sync-plan-scope/v1\\",\\n  \\"selected_entry_count\\": 1,\\n  \\"selected_removal_count\\": 0,\\n  \\"selected_targets\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"source_commit\\": \\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\"\\n}\\n", "sync-phase-selection.json": "{\\n  \\"phase\\": \\"canary\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"schema\\": \\"workflows.consumer-sync-phase-selection/v1\\",\\n  \\"selected_repos\\": [\\n    \\"owner/a\\",\\n    \\"owner/b\\"\\n  ],\\n  \\"version\\": 1\\n}\\n"}\n',
+    ''
+  ],
+  pid: 1198,
+  stdout: '{"manifest.json": "{\\n  \\"entries\\": [\\n    {\\n      \\"content_sha256\\": \\"sha256:c859968d74aafda9272be2d13a897eb016930e2c6e9c0054c385d51ec2679d22\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"caf\\\\u00e9\\",\\n      \\"effect_fingerprint\\": \\"sha256:11c01cf57027d0bf320c983e168e0c5d1fe4e2511416dda66dfe78a54c634f3f\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/copied.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/copied.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/copied.js\\",\\n      \\"template_sync\\": null\\n    }\\n  ],\\n  \\"manifest_sha256\\": \\"sha256:03acce46d263f73ac82b01e986062d339966a301cb0cb496d553f9c2c7dddf00\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"removals\\": [],\\n  \\"schema\\": \\"workflows.consumer-sync-plan/v1\\",\\n  \\"version\\": 1\\n}\\n", "manifest.full.json": "{\\n  \\"entries\\": [\\n    {\\n      \\"content_sha256\\": \\"sha256:c859968d74aafda9272be2d13a897eb016930e2c6e9c0054c385d51ec2679d22\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"caf\\\\u00e9\\",\\n      \\"effect_fingerprint\\": \\"sha256:11c01cf57027d0bf320c983e168e0c5d1fe4e2511416dda66dfe78a54c634f3f\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/copied.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/copied.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/copied.js\\",\\n      \\"template_sync\\": null\\n    },\\n    {\\n      \\"content_sha256\\": \\"sha256:7e4fa2eb8c7ac089739d5defc4489fad68a100d92082ca35c6b40a4524821f87\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"unrelated\\",\\n      \\"effect_fingerprint\\": \\"sha256:d35d87fa677fde8b50c1f15f74274b13d81e3c1f1fcfe826f582581dfb3babe4\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/other.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/other.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/other.js\\",\\n      \\"template_sync\\": null\\n    }\\n  ],\\n  \\"manifest_sha256\\": \\"sha256:03acce46d263f73ac82b01e986062d339966a301cb0cb496d553f9c2c7dddf00\\",\\n  \\"plan_id\\": \\"sha256:a4e7b4947c40e96e7902d9ce3b83e9c489035eeb07a9b7a3b4eb0d7a5a3281f9\\",\\n  \\"removals\\": [],\\n  \\"schema\\": \\"workflows.consumer-sync-plan/v1\\",\\n  \\"version\\": 1\\n}\\n", "sync-plan-scope.json": "{\\n  \\"base_sha\\": \\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\",\\n  \\"changed_paths\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"dependency_targets\\": [],\\n  \\"full_plan_id\\": \\"sha256:a4e7b4947c40e96e7902d9ce3b83e9c489035eeb07a9b7a3b4eb0d7a5a3281f9\\",\\n  \\"ignored_changed_paths\\": [],\\n  \\"matched_changed_paths\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"mode\\": \\"source-delta\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"schema\\": \\"workflows.consumer-sync-plan-scope/v1\\",\\n  \\"selected_entry_count\\": 1,\\n  \\"selected_removal_count\\": 0,\\n  \\"selected_targets\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"source_commit\\": \\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\"\\n}\\n", "sync-phase-selection.json": "{\\n  \\"phase\\": \\"canary\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"schema\\": \\"workflows.consumer-sync-phase-selection/v1\\",\\n  \\"selected_repos\\": [\\n    \\"owner/a\\",\\n    \\"owner/b\\"\\n  ],\\n  \\"version\\": 1\\n}\\n"}\n',
+  stderr: ''
+}
+
+Node.js v24.22.2
+✖ .github/scripts/__tests__/maint68-scoped-receipt.test.js (158.83429ms)
+✔ .github/scripts/__tests__/maint71_consumer_declared_contexts.test.js (149.988057ms)
+✔ .github/scripts/__tests__/maint71_devtool_final_binding.test.js (78.827916ms)
+✔ .github/scripts/__tests__/maint71_finding_verification.test.js (197.964319ms)
+✔ .github/scripts/__tests__/maint71_integration_delivery.test.js (85.167482ms)
+✔ .github/scripts/__tests__/maint71_merge_sync_prs.test.js (846.835089ms)
+✔ .github/scripts/__tests__/maint71_promote_dispatch.test.js (818.758276ms)
+✔ .github/scripts/__tests__/maint82_continuation_dispatch.test.js (69.879163ms)
+✔ .github/scripts/__tests__/merge-manager.test.js (98.176963ms)
+✔ .github/scripts/__tests__/no-change-qualification.test.js (75.586948ms)
+✔ .github/scripts/__tests__/path-classifier-replay.test.js (60.86293ms)
+✔ .github/scripts/__tests__/path-classifier.test.js (102.895809ms)
+✔ .github/scripts/__tests__/post-completion-comment.test.js (81.914346ms)
+✔ .github/scripts/__tests__/pr-context-graphql.test.js (113.652208ms)
+✔ .github/scripts/__tests__/pr-source-context-coverage.test.js (74.474959ms)
+✔ .github/scripts/__tests__/pr-source-context-report.test.js (82.762797ms)
+✔ .github/scripts/__tests__/prompt-injection-guard.test.js (192.857951ms)
+✔ .github/scripts/__tests__/prompt_integrity_guard.test.js (73.765793ms)
+✔ .github/scripts/__tests__/runtime-ac-merge-guard.test.js (68.861432ms)
+✔ .github/scripts/__tests__/scoped-canary-refresh.test.js (186.057355ms)
+✔ .github/scripts/__tests__/source-context.test.js (150.828216ms)
+✔ .github/scripts/__tests__/sync-run-contract.test.js (83.51036ms)
+✔ .github/scripts/__tests__/sync-tracker-state.test.js (75.545176ms)
+✔ .github/scripts/__tests__/sync_cleanup_policy.test.js (109.472776ms)
+✔ .github/scripts/__tests__/sync_dependency_campaign.test.js (277.519642ms)
+✔ .github/scripts/__tests__/sync_pr_lease_contract.test.js (66.259687ms)
+✔ .github/scripts/__tests__/sync_pr_merge_contract.test.js (476.69784ms)
+✔ .github/scripts/__tests__/sync_recovery_followups.test.js (101.731651ms)
+✔ .github/scripts/__tests__/terminal-disposition-coverage.test.js (95.340696ms)
+✔ .github/scripts/__tests__/terminal-disposition.test.js (88.944717ms)
+✔ .github/scripts/__tests__/test-directory-entrypoint.test.js (301.760651ms)
+✔ .github/scripts/__tests__/timeout-config.test.js (68.456731ms)
+✖ .github/scripts/__tests__/token-load-balancer-resolution.test.js (99.335209ms)
+✔ .github/scripts/__tests__/token-load-balancer.test.js (72.684883ms)
+✖ .github/scripts/__tests__/vendored-glob-security.test.js (178.705716ms)
+✔ .github/scripts/__tests__/verification-events.test.js (155.62073ms)
+✔ .github/scripts/__tests__/verifier-acceptance-prompt.test.js (55.003092ms)
+✔ .github/scripts/__tests__/verifier-ci-query.test.js (80.025398ms)
+✔ .github/scripts/__tests__/verifier-closure.test.js (94.906325ms)
+✖ .github/scripts/__tests__/verifier-comparison-baseline.test.js (332.798549ms)
+✔ .github/scripts/__tests__/verifier-correction-artifacts.test.js (2732.441652ms)
+✔ .github/scripts/__tests__/verifier-correction-autopilot.test.js (360.987669ms)
+
+Interrupted while running:
+
+⚠ .github/scripts/__tests__/verifier-correction-coding.test.js (.github/scripts/__tests__/verifier-correction-coding.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-collector.test.js (.github/scripts/__tests__/verifier-correction-collector.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-consumer.test.js (.github/scripts/__tests__/verifier-correction-consumer.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-decision.test.js (.github/scripts/__tests__/verifier-correction-decision.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-effects.test.js (.github/scripts/__tests__/verifier-correction-effects.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-host.test.js (.github/scripts/__tests__/verifier-correction-host.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-inert-deployment.test.js (.github/scripts/__tests__/verifier-correction-inert-deployment.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-keepalive.test.js (.github/scripts/__tests__/verifier-correction-keepalive.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-profile.test.js (.github/scripts/__tests__/verifier-correction-profile.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-runtime.test.js (.github/scripts/__tests__/verifier-correction-runtime.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-seed.test.js (.github/scripts/__tests__/verifier-correction-seed.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-wiring.test.js (.github/scripts/__tests__/verifier-correction-wiring.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-issue-formatter.test.js (.github/scripts/__tests__/verifier-issue-formatter.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-plan-fingerprint.test.js (.github/scripts/__tests__/verifier-plan-fingerprint.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-request-correlation.test.js (.github/scripts/__tests__/verifier-request-correlation.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-selected-artifact-metadata.test.js (.github/scripts/__tests__/verifier-selected-artifact-metadata.test.js:1:1)
+⚠ .github/scripts/__tests__/weekly-metrics-artifacts.test.js (.github/scripts/__tests__/weekly-metrics-artifacts.test.js:1:1)
+⚠ .github/scripts/__tests__/weekly-metrics-download-manifest.test.js (.github/scripts/__tests__/weekly-metrics-download-manifest.test.js:1:1)
+✖ .github/scripts/__tests__/verifier-correction-coding.test.js (61717.079226ms)
+✔ .github/scripts/__tests__/verifier-correction-collector.test.js (106.034491ms)
+✔ .github/scripts/__tests__/verifier-correction-consumer.test.js (85.222354ms)
+✔ .github/scripts/__tests__/verifier-correction-decision.test.js (53.871251ms)
+✔ .github/scripts/__tests__/verifier-correction-effects.test.js (204.719774ms)
+✔ .github/scripts/__tests__/verifier-correction-host.test.js (128.722938ms)
+✔ .github/scripts/__tests__/verifier-correction-inert-deployment.test.js (66.497206ms)
+✔ .github/scripts/__tests__/verifier-correction-keepalive.test.js (231.684914ms)
+✖ .github/scripts/__tests__/verifier-correction-profile.test.js (20085.776468ms)
+✔ .github/scripts/__tests__/verifier-correction-runtime.test.js (73.749751ms)
+✔ .github/scripts/__tests__/verifier-correction-seed.test.js (60.078643ms)
+✖ .github/scripts/__tests__/verifier-correction-wiring.test.js (121.784016ms)
+✔ .github/scripts/__tests__/verifier-issue-formatter.test.js (85.694039ms)
+✔ .github/scripts/__tests__/verifier-plan-fingerprint.test.js (56.896556ms)
+✔ .github/scripts/__tests__/verifier-request-correlation.test.js (71.143314ms)
+node:child_process:982
+    throw err;
+    ^
+
+<ref *1> Error: spawnSync python3 EPERM
+    at Object.spawnSync (node:internal/child_process:1191:20)
+    at spawnSync (node:child_process:929:24)
+    at execFileSync (node:child_process:972:15)
+    at Object.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/verifier-selected-artifact-metadata.test.js:9:15)
+    at Module._compile (node:internal/modules/cjs/loader:1929:14)
+    at Object..js (node:internal/modules/cjs/loader:2060:10)
+    at Module.load (node:internal/modules/cjs/loader:1651:32)
+    at Module._load (node:internal/modules/cjs/loader:1443:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5) {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'spawnSync python3',
+  path: 'python3',
+  spawnargs: [
+    '-c',
+    "import io,zipfile,sys;b=io.BytesIO();z=zipfile.ZipFile(b,'w');z.writestr('proof.txt','complete selected proof');z.close();sys.stdout.buffer.write(b.getvalue())"
+  ],
+  error: [Circular *1],
+  status: 0,
+  signal: null,
+  output: [
+    null,
+    Buffer(139) [Uint8Array] [
+       80,  75,   3,   4,  20,   0,   0,   0,   0,   0,  70, 108,
+      104,  93, 221,   5,  29,  14,  23,   0,   0,   0,  23,   0,
+        0,   0,   9,   0,   0,   0, 112, 114, 111, 111, 102,  46,
+      116, 120, 116,  99, 111, 109, 112, 108, 101, 116, 101,  32,
+      115, 101, 108, 101,  99, 116, 101, 100,  32, 112, 114, 111,
+      111, 102,  80,  75,   1,   2,  20,   3,  20,   0,   0,   0,
+        0,   0,  70, 108, 104,  93, 221,   5,  29,  14,  23,   0,
+        0,   0,  23,   0,   0,   0,   9,   0,   0,   0,   0,   0,
+        0,   0,   0,   0,
+      ... 39 more items
+    ],
+    Buffer(0) [Uint8Array] []
+  ],
+  pid: 2011,
+  stdout: Buffer(139) [Uint8Array] [
+     80,  75,   3,   4,  20,   0,   0,   0,   0,   0,  70, 108,
+    104,  93, 221,   5,  29,  14,  23,   0,   0,   0,  23,   0,
+      0,   0,   9,   0,   0,   0, 112, 114, 111, 111, 102,  46,
+    116, 120, 116,  99, 111, 109, 112, 108, 101, 116, 101,  32,
+    115, 101, 108, 101,  99, 116, 101, 100,  32, 112, 114, 111,
+    111, 102,  80,  75,   1,   2,  20,   3,  20,   0,   0,   0,
+      0,   0,  70, 108, 104,  93, 221,   5,  29,  14,  23,   0,
+      0,   0,  23,   0,   0,   0,   9,   0,   0,   0,   0,   0,
+      0,   0,   0,   0,
+    ... 39 more items
+  ],
+  stderr: Buffer(0) [Uint8Array] []
+}
+
+Node.js v24.22.2
+✖ .github/scripts/__tests__/verifier-selected-artifact-metadata.test.js (81.340404ms)
+✔ .github/scripts/__tests__/weekly-metrics-artifacts.test.js (62.380229ms)
+✔ .github/scripts/__tests__/weekly-metrics-download-manifest.test.js (51.225075ms)
+ℹ tests 144
+ℹ suites 0
+ℹ pass 134
+ℹ fail 9
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 74978.34672
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1:1
+✖ .github/scripts/__tests__/agents-verifier-context.test.js (3471.090031ms)
+  'test failed'
+
+test at .github/scripts/__tests__/generated-delivery-seal-action.test.js:1:1
+✖ .github/scripts/__tests__/generated-delivery-seal-action.test.js (110.490283ms)
+  'test failed'
+
+test at .github/scripts/__tests__/maint68-scoped-receipt.test.js:1:1
+✖ .github/scripts/__tests__/maint68-scoped-receipt.test.js (158.83429ms)
+  'test failed'
+
+test at .github/scripts/__tests__/token-load-balancer-resolution.test.js:1:1
+✖ .github/scripts/__tests__/token-load-balancer-resolution.test.js (99.335209ms)
+  'test failed'
+
+test at .github/scripts/__tests__/vendored-glob-security.test.js:1:1
+✖ .github/scripts/__tests__/vendored-glob-security.test.js (178.705716ms)
+  'test failed'
+
+test at .github/scripts/__tests__/verifier-comparison-baseline.test.js:1:1
+✖ .github/scripts/__tests__/verifier-comparison-baseline.test.js (332.798549ms)
+  'test failed'
+
+test at .github/scripts/__tests__/verifier-correction-coding.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-coding.test.js (61717.079226ms)
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-profile.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-profile.test.js (20085.776468ms)
+  'test failed'
+
+test at .github/scripts/__tests__/verifier-correction-wiring.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-wiring.test.js (121.784016ms)
+  'test failed'
+
+test at .github/scripts/__tests__/verifier-selected-artifact-metadata.test.js:1:1
+✖ .github/scripts/__tests__/verifier-selected-artifact-metadata.test.js (81.340404ms)
+  'test failed'
