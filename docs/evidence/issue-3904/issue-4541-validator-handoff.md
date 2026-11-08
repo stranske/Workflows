@@ -1,5 +1,38 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Missing raw phase receipts before source lookup
+
+Declared phase instrumentation now requires all five raw process receipts for
+each arm before Git lookup. A complete summary alone cannot defer a missing-file
+diagnostic behind unavailable immutable history. Ten new controls, covering both
+arms and every controller/worker role, failed before this change and now pass.
+Existing receipt hash, raw clock and immutable source checks still follow this
+preflight; legacy phase UNKNOWN behavior is unchanged.
+
+```text
+python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+615 passed in 23.38s
+
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 11.67s
+```
+
+These results use Python 3.14.10; the requested Anaconda interpreter remains
+absent. All five marker-specific options assertions remain unchanged. Ruff,
+whitespace checks and individual Black formatting at line length 100 pass.
+The repository-wide Black command and subsequent serial check stalled and were
+interrupted; the required repository-wide formatting gate has not passed in this
+run, so no commit or push is authorized by that gate.
+
+Fresh validation of all four retained archives still stops at missing immutable
+Git objects, as detailed below. Fetch fails because `.git/FETCH_HEAD` is read-only.
+The current-head expected-check reporter returns UNKNOWN; all 13 review threads
+remain active. Both PRs are open and ready at their unchanged heads. Posting the
+blocker comment on #4535 and adding `needs-human` to #4541 were rejected with
+`MCP tool call requires approval, but approval policy is never`. No remote state
+or acceptance checkbox was changed. Historical uploads and exclusive overhead
+remain UNKNOWN.
+
 ## Nested phase summary validation
 
 The validator now checks every declared process interval before Git: required

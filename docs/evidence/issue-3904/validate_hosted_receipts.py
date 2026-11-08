@@ -113,6 +113,16 @@ def validate(archive, metadata):
                         raise ValueError(
                             f"{arm} requires complete available phase measurements for {role}/{label}"
                         )
+            missing_receipts = sorted(
+                f"{arm}/phase-clocks/{role}.json"
+                for role in phases["processes"]
+                if f"{arm}/phase-clocks/{role}.json" not in members
+            )
+            if missing_receipts:
+                raise ValueError(
+                    f"{arm} requires complete available phase measurements; "
+                    f"missing raw phase receipts: {', '.join(missing_receipts)}"
+                )
     assert result["manifest"] == manifest
     assert manifest["workflow_sha"] == artifact["workflow_run"]["head_sha"]
     assert manifest["dependency_lock"] == "candidate/requirements.lock"

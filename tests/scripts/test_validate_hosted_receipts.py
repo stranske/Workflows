@@ -705,8 +705,24 @@ def test_phase_summary_cannot_replace_raw_receipt(hosted_archive, arm, role, cha
             members[path] = json.dumps(clock).encode()
             result["artifact_sha256"][path] = validator.digest(members[path])
 
-    with pytest.raises(AssertionError):
+    expected_error = ValueError if change == "missing_receipt" else AssertionError
+    with pytest.raises(expected_error):
         validator.validate(*build(phase_enabled=True, mutate=damage_clock))
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("role", ["controller", "gw0", "gw1", "gw2", "gw3"])
+def test_missing_raw_phase_receipt_rejected_before_git(hosted_archive, arm, role):
+    """A complete summary cannot mask an absent process receipt behind missing Git history."""
+    build, git_calls = hosted_archive
+    path = f"{arm}/phase-clocks/{role}.json"
+
+    def remove_receipt(result, members):
+        del members[path]
+
+    with pytest.raises(ValueError, match=f"{arm}.*missing raw phase receipts: {path}"):
+        validator.validate(*build(phase_enabled=True, mutate=remove_receipt))
+    assert git_calls == []
 
 
 @pytest.mark.parametrize(
