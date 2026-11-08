@@ -670,6 +670,58 @@ for (const [surface, workflowPath] of SURFACES) {
     assert.equal(world.dispatches.filter((d) => d.workflow_id === 'agents-verifier.yml').length, 0);
   });
 
+  for (const conclusion of ['cancelled', 'failure']) {
+    test(`${surface}: issue 4365: ${conclusion} verifier after handoff retains ownership until retry completes`, async () => {
+      const world = createWorld({
+        prs: [mergedPr(PR, ISSUE)],
+        issueState: 'closed',
+        issueLabels: ['agents:auto-pilot', 'verify:evaluate'],
+      });
+      const verify = await runVerify(world);
+      assert.equal(verify.outcome, 'success');
+      assert.equal(verify.outputs.verify_handoff, 'found');
+      assert.equal(redispatchFires('verify', verify), true);
+      const redispatch = await runStep('Re-dispatch for next step', {
+        world,
+        env: { CURRENT_STEP: 'verify' },
+      });
+      assert.equal(redispatch.outcome, 'success');
+      const continuation = world.dispatches.find((d) => d.workflow_id === 'agents-auto-pilot.yml');
+      assert.equal(continuation.inputs.force_step, 'done');
+
+      // The verifier can finish unsuccessfully while the separate continuation
+      // is waiting. Its former queued status and retained labels are no longer
+      // sufficient evidence for that continuation to release ownership.
+      assert.equal(world.runs.length, 1);
+      Object.assign(world.runs[0], { status: 'completed', conclusion });
+      const context = await runStep('Determine context', { world });
+      assert.equal(context.outcome, 'success');
+      assert.equal(context.outputs.should_continue, 'true');
+      assert.equal(context.outputs.verify_handoff_bound, 'true');
+      const done = await runDone(world, {
+        VERIFY_HANDOFF: '',
+        VERIFY_HANDOFF_BOUND: context.outputs.verify_handoff_bound,
+      });
+      assert.equal(done.outcome, 'failure');
+      assert.match(done.failures.join('; '), /verification handoff missing/);
+      assert.equal(completionPosted(world), false);
+      assert.equal(ownershipRemoved(world), false);
+      assert.ok(world.issueLabels.has('agents:auto-pilot'));
+
+      // A normal closed-issue retry must dispatch again rather than reuse the
+      // failed run, then automatically report completion and remove ownership.
+      world.dispatches = [];
+      await completeClosedIssue(world);
+      const verifier = world.dispatches.filter((d) => d.workflow_id === 'agents-verifier.yml');
+      assert.equal(verifier.length, 1);
+      assert.deepEqual(verifier[0].inputs, {
+        pr_number: String(PR), pr_head_sha: HEAD, mode: 'evaluate',
+      });
+      assert.equal(world.runs.length, 2);
+      assert.equal(world.runs[1].conclusion, conclusion);
+    });
+  }
+
   test(`${surface}: issue 4365: reopening then closing with a different PR verifies the new PR`, async () => {
     const world = createWorld({ prs: [mergedPr(PR, ISSUE)] });
     await completeClosedIssue(world);

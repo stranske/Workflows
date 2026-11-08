@@ -1,5 +1,89 @@
 # Issue #4365: handoff regression verification
 
+## Verifier termination between handoff and completion — 2026-11-08
+
+Reconciled recent commits through `4fb65791` before editing. GitHub now reports
+[#4538](https://github.com/stranske/Workflows/pull/4538) merged into main as
+`7e377b7ad8cc06e506393218bc7459ba47757f01` at 03:36:15 UTC. #4447 and
+#4451 remain closed and unmerged. Main already includes #4463's unconditional
+closed-issue `verify` routing, confirmed `verify -> done` redispatch and guarded
+completion, plus #4537's rejection of label-triggered no-op verifier runs.
+The source and consumer helpers and existing regression tests are preserved.
+No protected workflow changes are needed for this test extension.
+
+Pre-edit acceptance command:
+
+```sh
+timeout 60s node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js .github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js
+```
+
+Baseline: **111 passed, 0 failed**. Expected additional observation: when the
+bound verifier becomes cancelled or fails after handoff but before the separate
+`done` run, that continuation refuses completion and retains `agents:auto-pilot`.
+A normal retry dispatches the verifier again, explicitly continues to `done`,
+posts exactly one completion report and removes ownership. Stop rule: one
+baseline and one post-edit acceptance attempt, each capped at 60 seconds; one
+restoration check after the mutation experiments. Full gates each receive one
+300-second attempt; timeout is incomplete. Each mutation receives one
+60-second attempt per defect/surface and unconditional restoration.
+
+- [x] Source/template lifecycle regressions for both `cancelled` and `failure`:
+  **115 passed, 0 failed**, including the post-restoration acceptance run.
+- [x] Temporarily restored label-only closed-state completion, then lost
+  continuation (`verify -> auto`), separately in each helper. All four checks
+  exited 1, failing the named regressions `issue 4365: cancelled verifier after
+  handoff retains ownership until retry completes`, `issue 4365: reopening then
+  closing with a different PR verifies the new PR`, and the legacy completion
+  regression on the mutated surface. Both helpers were restored in `finally`;
+  byte comparison and `git diff --exit-code` confirm no mutation remains.
+- [x] `timeout 60s python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -m 'not slow'`:
+  **66 passed**, Python 3.14.10 with normal plugin loading.
+- [x] `git diff --check`: passed.
+- [ ] `timeout 300s node --test .github/scripts/__tests__/*.test.js`: exit
+  **124**, summary **115 passed, 6 failed, 20 cancelled**. The unchanged
+  `agents-verifier-context.test.js` and
+  `generated-delivery-seal-action.test.js` fail before the timeout. Their focused
+  diagnostic with `--test-isolation=none` reports **199 passed, 18 failed**,
+  including `spawnSync git/zip/python3 EPERM` and a missing
+  `delivery_not_sealed:staging` assertion. No unrelated tests were changed.
+- [ ] `timeout 300s python3 -m pytest -q tests/ -m 'not slow'`: exit **124**,
+  approximately 6% progress, including a failure indicator without a final
+  failure summary. This is not a passing full Python gate.
+- [ ] Commit: staging the JavaScript test failed with `.git/index.lock:
+  Read-only file system`. No commit was created.
+
+Checklist reconciliation: tasks 1–7 and acceptance criteria 1–3 and 5 are
+verified. Continuation uses explicit workflow dispatch, so acceptance criterion
+3 does not depend on handoff-label event admission. Tasks 8–9 and acceptance
+criteria 4 and 6 remain incomplete. There is no open PR for this branch; #4538
+has merged. An attempt to reconcile the source issue's verified checkboxes was
+rejected: `MCP tool call requires approval, but approval policy is never`.
+The connector separately rejected the `needs-human` label and the concrete
+results/blocker comment for the same reason. No remote checklist, label or
+comment update is claimed.
+
+Issue #4365 is now closed. Its live [handoff comment](https://github.com/stranske/Workflows/issues/4365#issuecomment-6716793514)
+at 03:37:15 UTC names PR #4538, followed by a [completion report](https://github.com/stranske/Workflows/issues/4365#issuecomment-6716805694)
+at 03:38:40 UTC. Readback shows no `agents:auto-pilot` label. This is evidence
+of issue completion, separate from the consumer delivery acceptance.
+
+[Maint 71 run 42443348491](https://github.com/stranske/Workflows/actions/runs/42443348491)
+completed successfully, reporting consumer #2454 at unchanged generated head
+`b36b8ebf242bde649f6e31edc2cc915ad49d7421`, source
+`c2ac6f38d6f2ce73f000158fa6f729bfece82092`, generation `4017589cec3c`,
+`status=campaign_prepared`, `review_state=clear` and `findings=[]`.
+Its `review_reassessment` job was skipped. The two reported review threads
+remain outdated and unresolved; the last sync-core bump still names head
+`d6f4831035dd` and round `20261106T115526Z`. This does not establish live
+acceptance. [Maint 68 run 42443774162](https://github.com/stranske/Workflows/actions/runs/42443774162)
+subsequently succeeded while promoting that same source plan; its next
+[Maint 71 run 42443888718](https://github.com/stranske/Workflows/actions/runs/42443888718)
+also succeeded and again reported the unchanged head, the same source and
+generation, `status=campaign_prepared`, `review_state=clear` and `findings=[]`.
+That run's `review_reassessment` job was skipped too. The unchanged generation
+and absent reassessment leave live acceptance incomplete. No consumer branch
+was modified.
+
 ## Verifier visibility recovery check — 2026-11-08
 
 Pre-edit acceptance command:
