@@ -50,7 +50,11 @@ def analysis_model(agent: str) -> str:
 
 def _has_subscription_auth(agent: str) -> bool:
     if agent == "claude":
-        home = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
+        config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+        if config_dir:
+            home = Path(config_dir).expanduser().resolve()
+        else:
+            home = Path.home() / ".claude"
         return (
             bool(os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"))
             or (home / ".credentials.json").is_file()

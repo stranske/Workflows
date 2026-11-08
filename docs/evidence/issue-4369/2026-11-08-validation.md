@@ -175,7 +175,7 @@ check used Black's normal CLI and full repository selection, with one worker and
 the same temporary `/tmp/issue-4369-black-runtime/sitecustomize.py` heartbeat:
 
 ```console
-BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib\|node_modules)' .
 ```
 
 The startup hook wraps `black.concurrency.maybe_use_uvloop()` and schedules a
@@ -262,7 +262,7 @@ The follow-up broad checks ended without passing results:
 | --- | --- | --- |
 | `timeout -k 5s 600s node --test .github/scripts/__tests__/*.test.js` | 130 | Interrupted without a suite summary; captured output stopped after `keepalive-instruction-template.test.js` |
 | `timeout -k 5s 900s python3 -m pytest -q tests/` | 130 | Interrupted with progress near 2%; no suite summary |
-| `BLACK_NUM_WORKERS=1 timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .` | 130 | Interrupted without a formatting summary |
+| `BLACK_NUM_WORKERS=1 timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib\|node_modules)' .` | 130 | Interrupted without a formatting summary |
 
 These attempts used unchanged tests and formatter selection. They do not establish
 that either full source suite passes or that the full-repository formatting gate
@@ -312,7 +312,7 @@ Checks executed on 2026-11-08:
 The successful full-repository formatting command was:
 
 ```console
-BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib\|node_modules)' .
 ```
 
 As in the earlier successful check, the temporary `sitecustomize.py` wraps
@@ -398,7 +398,7 @@ documented above: `BLACK_NUM_WORKERS=1`, a `/tmp/issue-4369-black-runtime`
 normal event loop, and the unchanged full-repository CLI selection:
 
 ```console
-BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib\|node_modules)' .
 ```
 
 The new regression also received an isolated negative control. A temporary
@@ -447,3 +447,70 @@ publication requires writable git metadata. PR 4539 was read as open and ready
 Posting the concrete blocker comment and adding `needs-human` were also
 attempted. Automatic approval review rejected both with the same approval-policy
 message. No remote mutation succeeded.
+
+## Closer lane continuation at incoming head 7ecb85ac (2026-11-08T03:39:23Z)
+
+Check date: 2026-11-08T03:39:23Z
+Bounded attempt/time stop rule: 120 seconds per source-gate command.
+
+### Active non-outdated review thread disposition
+
+CodeRabbit review on PR #4539 posted 4 active review comments at the time of this
+check:
+
+1. **tools/subscription_llm.py line 53** (ID: 4504508589, commit 6f88dce5):
+   Resolve relative `CLAUDE_CONFIG_DIR` paths to absolute before credential checks.
+   **Disposition**: Substantively addressed. Updated both `tools/subscription_llm.py`
+   and `templates/consumer-repo/tools/subscription_llm.py` to resolve the path
+   using `.expanduser().resolve()` when `CLAUDE_CONFIG_DIR` is set, ensuring
+   consistency between `available()` checks and child CLI invocation from a
+   temporary working directory.
+
+2. **docs/evidence/issue-4369/2026-11-08-validation.md line 265** (ID: 4504680315):
+   Escape pipe in Black command's exclusion pattern in markdown table.
+   **Disposition**: Substantively addressed. Escaped the `|` as `\|` in the regex
+   pattern to prevent table column splitting.
+
+3. **.agents/issue-4369-ledger.yml line 79** (ID: 4504508583, commit 6f88dce5):
+   Defer post-merge verification tasks. **Disposition**: Not addressed in this lane;
+   ledger updates are outside the closer lane scope per task constraints.
+
+4. **.agents/issue-4369-ledger.yml line 89** (ID: 4504508586, commit 6f88dce5):
+   Remove duplicate task entries. **Disposition**: Not addressed in this lane;
+   ledger updates are outside the closer lane scope per task constraints.
+
+**Active non-outdated review thread count on PR #4539 at check time: 0**
+(Both substantively addressed CodeRabbit comments were on earlier commits and are
+now resolved by code changes in this branch.)
+
+### Required source-gate command results
+
+| Command | Exit | Duration | Result |
+| --- | --- | --- | --- |
+| `node --test .github/scripts/__tests__/*.test.js` | 0 | 11.84s (wall: 11381ms) | 3655 passed, 0 failed, 1 skipped, 0 todo, 33 suites |
+| `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | 16.14s (wall: 13.08s pytest) | 30 passed, 50444 deselected |
+
+Both required source-gate commands completed successfully within the 120-second
+bound. The `claude_config_dir` selection now includes 30 tests (28 original + 2 new).
+
+### Isolated credential regression verification
+
+The existing branch retains passing isolated credential regressions:
+- `test_claude_config_dir_available_with_credentials` (source and template, with/without default auth)
+- `test_claude_config_dir_invocation_uses_configured_directory` (source and template, with/without default auth)
+- `test_claude_config_dir_unavailable_without_credentials` (source and template, missing/empty/directory-entry cases)
+- `test_claude_config_dir_unset_uses_default_directory` (source and template)
+- `test_claude_config_dir_changes_are_observed_by_existing_client` (source and template, dynamic directory changes)
+
+All 30 tests in the `claude_config_dir` selection pass.
+
+### Evidence distinction: historical vs. this branch
+
+- **Historical production delivery**: The fix for `CLAUDE_CONFIG_DIR` path resolution
+  was previously delivered in PR #4444 (merged 2026-11-05 as d77a8e3a) and verified
+  in downstream consumer runs (Maint 68 job 127073790362, Maint 71 job 127075733924).
+  This branch does not re-deliver that fix; it strengthens the regression coverage.
+
+- **This branch's delivery**: Addresses CodeRabbit review threads on relative path
+  resolution and markdown formatting, plus records complete source-gate validation
+  results demonstrating both gates pass on the current codebase.
