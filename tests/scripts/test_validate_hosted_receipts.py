@@ -2,6 +2,9 @@
 
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -179,6 +182,77 @@ def hosted_archive(tmp_path, monkeypatch):
         return archive, metadata
 
     return build, git_calls
+
+
+@pytest.fixture
+def run_validator_cli(tmp_path):
+    """Exercise the public command with the test interpreter and no Git on PATH."""
+
+    def run(archive, metadata):
+        metadata_path = tmp_path / "artifact-metadata.json"
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+        environment = os.environ.copy()
+        environment["PATH"] = str(tmp_path / "no-git")
+        return subprocess.run(
+            [sys.executable, str(VALIDATOR_PATH), str(archive), str(metadata_path)],
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+
+    return run
+
+
+@pytest.mark.parametrize("workflow_sha", [None, 123, [], "--help", "A" * 40, "a" * 40 + "\n"])
+def test_cli_rejects_invalid_workflow_identity_before_git(
+    hosted_archive, run_validator_cli, workflow_sha
+):
+    """The unpatched CLI must diagnose invalid identities without needing Git."""
+    build, _ = hosted_archive
+    result = run_validator_cli(*build(workflow_sha=workflow_sha))
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert "ValueError: workflow_sha must be a full lowercase" in result.stderr
+    assert "FileNotFoundError" not in result.stderr
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("change", ["missing", "unavailable", "missing_worker"])
+def test_cli_rejects_incomplete_phases_before_git(hosted_archive, run_validator_cli, arm, change):
+    """Either arm's missing phase data must fail before immutable-source lookup."""
+    build, _ = hosted_archive
+
+    def damage_phases(result, members):
+        if change == "missing":
+            del result["arms"][arm]["phases"]
+        elif change == "unavailable":
+            result["arms"][arm]["phases"]["available"] = False
+        else:
+            del result["arms"][arm]["phases"]["processes"]["gw3"]
+
+    result = run_validator_cli(*build(phase_enabled=True, mutate=damage_phases))
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert f"ValueError: {arm} requires complete available phase measurements" in result.stderr
+    assert "FileNotFoundError" not in result.stderr
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+def test_cli_cannot_verify_archive_without_immutable_git_sources(
+    hosted_archive, run_validator_cli, phase_enabled
+):
+    """Complete self-reported receipts cannot replace independent Git verification."""
+    build, _ = hosted_archive
+    result = run_validator_cli(*build(phase_enabled=phase_enabled))
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert "FileNotFoundError" in result.stderr
+    assert "'git'" in result.stderr
 
 
 @pytest.mark.parametrize("workflow_sha", ["a" * 40, "b" * 64])
@@ -670,17 +744,16 @@ def test_malformed_recorded_runtime_rejected(hosted_archive, python_version):
 @pytest.mark.parametrize("optimize_flag", ["-O", "-OO"])
 def test_optimized_python_refuses_validation_with_minus_O(tmp_path, hosted_archive, optimize_flag):
     """Optimized Python execution refuses validation before accepting any archive."""
-    import subprocess
-
     build, _ = hosted_archive
     archive, metadata = build()
     metadata_path = tmp_path / "metadata.json"
     metadata_path.write_text(json.dumps(metadata))
 
     result = subprocess.run(
-        ["python", optimize_flag, str(VALIDATOR_PATH), str(archive), str(metadata_path)],
+        [sys.executable, optimize_flag, str(VALIDATOR_PATH), str(archive), str(metadata_path)],
         capture_output=True,
         text=True,
+        timeout=10,
     )
     assert result.returncode != 0
     assert "Optimized execution refuses validation" in result.stderr
@@ -688,9 +761,6 @@ def test_optimized_python_refuses_validation_with_minus_O(tmp_path, hosted_archi
 
 def test_optimized_python_refuses_validation_with_PYTHONOPTIMIZE(tmp_path, hosted_archive):
     """PYTHONOPTIMIZE=1 refuses validation before accepting any archive."""
-    import os
-    import subprocess
-
     build, _ = hosted_archive
     archive, metadata = build()
     metadata_path = tmp_path / "metadata.json"
@@ -699,10 +769,11 @@ def test_optimized_python_refuses_validation_with_PYTHONOPTIMIZE(tmp_path, hoste
     env = os.environ.copy()
     env["PYTHONOPTIMIZE"] = "1"
     result = subprocess.run(
-        ["python", str(VALIDATOR_PATH), str(archive), str(metadata_path)],
+        [sys.executable, str(VALIDATOR_PATH), str(archive), str(metadata_path)],
         capture_output=True,
         text=True,
         env=env,
+        timeout=10,
     )
     assert result.returncode != 0
     assert "Optimized execution refuses validation" in result.stderr

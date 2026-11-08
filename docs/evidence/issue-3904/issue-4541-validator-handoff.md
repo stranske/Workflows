@@ -1,5 +1,64 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## CLI refusal and current acceptance reconciliation
+
+Reviewed the recent commits and live PR state before editing. The newest commit
+restored all four retained archives, but fresh independent validation fails for
+each: the original run lacks immutable harness source
+`8142060267fce57561d25735aa2e7c5f457ade14:scripts/measure_verifier_runtime.py`, and
+the new run lacks candidate commit `8c0afc3ef0263cf85949b6167435ceabed5dd2a3`.
+The checked archive-revalidation and PR-delivery tasks therefore overstate the
+verified result. Reopening those two PR #4542 checkboxes was rejected with
+`MCP tool call requires approval, but approval policy is never`.
+
+Added 14 subprocess controls exercising the actual validator CLI with Git absent
+from PATH. Invalid workflow identities and either arm's missing, unavailable or
+incomplete phases fail with their specific ValueError before Git lookup. Complete
+legacy and phase-enabled fixtures instead reach the required Git lookup and fail
+without emitting a successful JSON receipt. These controls do not mock the CLI's
+Git helper or certify the retained hosted archives. Existing optimization controls
+now use `sys.executable` and bounded subprocess timeouts.
+
+Verification with installed Python 3.14.10:
+
+```text
+python -m pytest tests/scripts/test_validate_hosted_receipts.py -q -m 'not slow'
+232 passed in 3.17s
+
+python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+561 passed in 24.02s
+
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 12.56s
+```
+
+All five marker-specific options assertions remain unchanged. The exact Anaconda
+interpreter is absent. The proposed PR body now distinguishes these current local
+results from retained historical transcripts and explicitly lists missing source,
+integration, review and check requirements. No instrumentation, archived receipt,
+immutable source selection or dependency lock was changed. Unavailable historical
+uploads and exclusive overhead remain UNKNOWN.
+
+PR #4535 remains open and ready at
+`f3325610782d7d8d57fbd9659cfae8b1e12fe10e`, with 13 active unresolved review
+threads. Its current-head expected-check reporter exits 2 with UNKNOWN because
+native-gh cannot reach GitHub. No merge is authorized by these local results.
+
+The touched test passes Ruff and `git diff --check`. Black formatted it at line
+length 100. After serial cache warmup honoring configured exclusions, the required
+repository-wide formatting command passed with 970 unchanged files:
+
+```text
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-4541-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Staging the test, this handoff and the corrected proposed body failed with
+`.git/index.lock: Read-only file system`; no commit or push was possible.
+Automatic approval review also rejected publishing the corrected #4535 body,
+posting the concrete blocker comment, and adding `needs-human` to #4542 with
+`MCP tool call requires approval, but approval policy is never`. No remote
+checkbox, body, review-thread or merge state changed.
+
 ## Instrumentation identity regression continuation
 
 Added ten fixture regression cases requiring recorded harness/workflow hashes

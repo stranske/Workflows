@@ -2,9 +2,46 @@
 
 Refs #4462
 
-- [x] Validate and retain the original successful Python 3.12 artifact alongside the existing Python 3.13 receipts.
-- [x] Measure controlled per-arm hosted phases for both requested runtimes without fabricating overlapping-clock remainders.
+- [ ] Independently revalidate all four retained Python 3.12/3.13 archives with the immutable Git sources available.
+- [ ] Deliver the focused validator/test changes from follow-up #4542 through the existing PR writer.
+- [ ] Disposition active review threads and satisfy the existing checks, review floor and guarded merge.
 - [x] Preserve all existing source, dependency, outcome, coverage and timing refusal checks.
+
+Current follow-up verification uses Python 3.14.10. The requested Anaconda
+interpreter is absent, so the exact acceptance commands have not been rerun here.
+The validator and regression changes are on `codex/issue-4541`; they have not been
+delivered to this PR's unchanged head `f3325610782d7d8d57fbd9659cfae8b1e12fe10e`.
+The local validator rejects invalid workflow identities and incomplete declared
+phases before Git. Fourteen CLI regressions exercise those refusals and establish
+that self-reported receipts cannot replace independent Git verification.
+
+All four retained ZIPs are now present. Fresh independent validation stops at
+missing Git sources: the original run cannot resolve
+`8142060267fce57561d25735aa2e7c5f457ade14:scripts/measure_verifier_runtime.py`, and
+the new run cannot resolve candidate commit
+`8c0afc3ef0263cf85949b6167435ceabed5dd2a3`. Retained successful validation JSON
+does not substitute for this missing verification. The immutable source pair and
+dependency lock remain unchanged. Historical uploads and exclusive overhead stay
+UNKNOWN.
+
+PR #4535 has 13 active unresolved review threads. Its current-head expected-check
+reporter returns UNKNOWN because native-gh cannot reach GitHub. The pending
+delivery, check and review requirements do not authorize a merge.
+
+Current local validation:
+
+```text
+python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+561 passed in 24.02s
+
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 12.56s
+```
+
+All five marker-specific options assertions remain in the unchanged integration
+file. These results apply to the follow-up checkout, not the integrated PR head.
+The following experiment narrative and command transcript are retained historical
+records, not successful reruns on this runner.
 
 The original run 42401537967 succeeded on both runtimes. This retains its actual Python 3.12 archive and independently reconciles raw scoped JUnit totals/outcomes/times, verifier lines/arcs, uploaded hashes, immutable source trees/input hashes, and harness/workflow identity. The archive digest matches GitHub; both arms cover 2,144 lines and 759 arcs, with zero loss. The same checker revalidated the existing 3.13 archive. Four inherited, unuploaded historical log entries remain UNKNOWN.
 
@@ -43,7 +80,7 @@ Validation (only requested/focused tests; no local full suite or release/verify 
 2054 passed in 12.01s
 ```
 
-Both exact acceptance test commands pass. All five marker-specific options assertions retained. The real two-arm fixture validates all process receipts per arm, alongside bounded missing/invalid/reversed-clock controls. Four-archive validation independently succeeded for all retained Python 3.12/3.13 archives against retained metadata and immutable Git sources.
+The historical transcript records passing commands and all five marker-specific options assertions. The real two-arm fixture checks process receipts alongside bounded missing/invalid/reversed-clock controls. Fresh four-archive validation and exact-command verification remain blocked as described above.
 
 The current source correction (43fc63feb) also addresses review comment 4504023552: actual hosted coverage-report intervals are independently measured (about 29s on 3.12 and 24.5s on 3.13). The source-head Gate passed. No runtime source changed after the passing requested tests; the last commit retains receipts/documentation. Missing historical log uploads and exclusive overhead remain UNKNOWN.
 
