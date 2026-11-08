@@ -1,0 +1,1826 @@
+﻿2026-11-08T16:19:36.7246385Z Current runner version: '2.338.2'
+2026-11-08T16:19:36.7279939Z ##[group]Runner Image Provisioner
+2026-11-08T16:19:36.7280455Z Hosted Compute Agent
+2026-11-08T16:19:36.7280923Z Version: 20261028.624
+2026-11-08T16:19:36.7281288Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-08T16:19:36.7281723Z Build Date: 2026-10-28T21:51:42Z
+2026-11-08T16:19:36.7282392Z Worker ID: {9ca9fb16-f3d6-47e1-b8b4-6e427ff0213d}
+2026-11-08T16:19:36.7282840Z Region: westus3
+2026-11-08T16:19:36.7283208Z Cloud: Azure
+2026-11-08T16:19:36.7283525Z ##[endgroup]
+2026-11-08T16:19:36.7284329Z ##[group]Operating System
+2026-11-08T16:19:36.7284691Z Ubuntu
+2026-11-08T16:19:36.7285051Z 26.04.1
+2026-11-08T16:19:36.7285398Z LTS
+2026-11-08T16:19:36.7285703Z ##[endgroup]
+2026-11-08T16:19:36.7286049Z ##[group]Runner Image
+2026-11-08T16:19:36.7286435Z Image: ubuntu-26.04
+2026-11-08T16:19:36.7286791Z Version: 20261101.186.1
+2026-11-08T16:19:36.7287565Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-08T16:19:36.7288427Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-08T16:19:36.7288965Z ##[endgroup]
+2026-11-08T16:19:36.7289857Z ##[group]GITHUB_TOKEN Permissions
+2026-11-08T16:19:36.7291031Z Actions: write
+2026-11-08T16:19:36.7291404Z Checks: read
+2026-11-08T16:19:36.7291735Z Contents: write
+2026-11-08T16:19:36.7292271Z Metadata: read
+2026-11-08T16:19:36.7292651Z PullRequests: write
+2026-11-08T16:19:36.7292979Z Statuses: read
+2026-11-08T16:19:36.7293316Z ##[endgroup]
+2026-11-08T16:19:36.7294832Z Secret source: Actions
+2026-11-08T16:19:36.7295430Z Cache mode: write
+2026-11-08T16:19:36.7295927Z Prepare workflow directory
+2026-11-08T16:19:36.7498007Z Prepare all required actions
+2026-11-08T16:19:36.7539935Z Getting action download info
+2026-11-08T16:19:37.0690961Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-08T16:19:37.1644176Z Download action repository 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0' (SHA:6d4fd22b20465ccc0f7354476588e8df7c9ca0e0)
+2026-11-08T16:19:37.7617911Z Download action repository 'actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3' (SHA:3a2844b7e9c422d3c10d287c895573f7108da1b3)
+2026-11-08T16:19:38.2536024Z Download action repository 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-08T16:19:38.4542067Z Complete job name: merge_sync_prs
+2026-11-08T16:19:38.5200162Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-11-08T16:19:38.5201001Z with:
+2026-11-08T16:19:38.5201453Z   persist-credentials: false
+2026-11-08T16:19:38.5202114Z   repository: stranske/Workflows
+2026-11-08T16:19:38.5206506Z   token: ***
+2026-11-08T16:19:38.5206936Z   ssh-strict: true
+2026-11-08T16:19:38.5207366Z   ssh-user: git
+2026-11-08T16:19:38.5207781Z   clean: true
+2026-11-08T16:19:38.5208242Z   sparse-checkout-cone-mode: true
+2026-11-08T16:19:38.5208795Z   fetch-depth: 1
+2026-11-08T16:19:38.5209224Z   fetch-tags: false
+2026-11-08T16:19:38.5209675Z   show-progress: true
+2026-11-08T16:19:38.5210125Z   lfs: false
+2026-11-08T16:19:38.5210538Z   submodules: false
+2026-11-08T16:19:38.5210993Z   set-safe-directory: true
+2026-11-08T16:19:38.5211513Z   allow-unsafe-pr-checkout: false
+2026-11-08T16:19:38.5212218Z ##[endgroup]
+2026-11-08T16:19:38.6994848Z Syncing repository: stranske/Workflows
+2026-11-08T16:19:38.6996744Z ##[group]Getting Git version info
+2026-11-08T16:19:38.6997455Z Working directory is '/home/runner/work/Workflows/Workflows'
+2026-11-08T16:19:38.6998514Z [command]/usr/bin/git version
+2026-11-08T16:19:38.6999038Z git version 2.56.0
+2026-11-08T16:19:38.7007117Z ##[endgroup]
+2026-11-08T16:19:38.7013274Z Temporarily overriding HOME='/home/runner/work/_temp/beb81040-e9bd-406a-86ea-d882710da9ed' before making global git config changes
+2026-11-08T16:19:38.7014655Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-08T16:19:38.7016313Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows
+2026-11-08T16:19:38.7068705Z Deleting the contents of '/home/runner/work/Workflows/Workflows'
+2026-11-08T16:19:38.7070937Z ##[group]Determining repository object format
+2026-11-08T16:19:38.7072714Z ##[endgroup]
+2026-11-08T16:19:38.7074305Z ##[group]Initializing the repository
+2026-11-08T16:19:38.7075709Z [command]/usr/bin/git init /home/runner/work/Workflows/Workflows
+2026-11-08T16:19:38.7146977Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-08T16:19:38.7148153Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-08T16:19:38.7149163Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-08T16:19:38.7149924Z hint: call:
+2026-11-08T16:19:38.7150418Z hint:
+2026-11-08T16:19:38.7150984Z hint: 	git config --global init.defaultBranch <name>
+2026-11-08T16:19:38.7151624Z hint:
+2026-11-08T16:19:38.7152351Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-08T16:19:38.7153434Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-08T16:19:38.7154188Z hint:
+2026-11-08T16:19:38.7154699Z hint: 	git branch -m <name>
+2026-11-08T16:19:38.7155178Z hint:
+2026-11-08T16:19:38.7155829Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-08T16:19:38.7158424Z Initialized empty Git repository in /home/runner/work/Workflows/Workflows/.git/
+2026-11-08T16:19:38.7165678Z [command]/usr/bin/git remote add origin https://github.com/stranske/Workflows
+2026-11-08T16:19:38.7205303Z ##[endgroup]
+2026-11-08T16:19:38.7206100Z ##[group]Disabling automatic garbage collection
+2026-11-08T16:19:38.7207091Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-08T16:19:38.7233113Z ##[endgroup]
+2026-11-08T16:19:38.7234154Z ##[group]Setting up auth
+2026-11-08T16:19:38.7234702Z Removing SSH command configuration
+2026-11-08T16:19:38.7236491Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-08T16:19:38.7263389Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-08T16:19:38.7566213Z Removing HTTP extra header
+2026-11-08T16:19:38.7570269Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-08T16:19:38.7595982Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-08T16:19:38.7797601Z Removing includeIf entries pointing to credentials config files
+2026-11-08T16:19:38.7801091Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-08T16:19:38.7830490Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-08T16:19:38.8052093Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-08T16:19:38.8082933Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/.git.path /home/runner/work/_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config
+2026-11-08T16:19:38.8110953Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config
+2026-11-08T16:19:38.8137850Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config
+2026-11-08T16:19:38.8164403Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config
+2026-11-08T16:19:38.8187865Z ##[endgroup]
+2026-11-08T16:19:38.8188682Z ##[group]Fetching the repository
+2026-11-08T16:19:38.8192345Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +bbfc6ae604c8e8c4021138c5efe964a368482957:refs/remotes/origin/main
+2026-11-08T16:19:40.8127545Z From https://github.com/stranske/Workflows
+2026-11-08T16:19:40.8128300Z  * [new ref]         bbfc6ae604c8e8c4021138c5efe964a368482957 -> origin/main
+2026-11-08T16:19:40.8129360Z [command]/usr/bin/git branch --list --remote origin/main
+2026-11-08T16:19:40.8149270Z   origin/main
+2026-11-08T16:19:40.8155200Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+2026-11-08T16:19:40.8173877Z bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:19:40.8176898Z ##[endgroup]
+2026-11-08T16:19:40.8177333Z ##[group]Determining the checkout info
+2026-11-08T16:19:40.8177825Z ##[endgroup]
+2026-11-08T16:19:40.8180322Z [command]/usr/bin/git sparse-checkout disable
+2026-11-08T16:19:40.8227402Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-08T16:19:40.8251897Z ##[group]Checking out the ref
+2026-11-08T16:19:40.8254380Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-08T16:19:41.1182294Z Switched to a new branch 'main'
+2026-11-08T16:19:41.1185538Z branch 'main' set up to track 'origin/main'.
+2026-11-08T16:19:41.1205608Z ##[endgroup]
+2026-11-08T16:19:41.1246788Z [command]/usr/bin/git log -1 --format=%H
+2026-11-08T16:19:41.1269112Z bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:19:41.1277193Z ##[group]Removing auth
+2026-11-08T16:19:41.1277451Z Removing SSH command configuration
+2026-11-08T16:19:41.1280305Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-08T16:19:41.1306468Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-08T16:19:41.1522963Z Removing HTTP extra header
+2026-11-08T16:19:41.1525716Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-08T16:19:41.1549989Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-08T16:19:41.1753422Z Removing includeIf entries pointing to credentials config files
+2026-11-08T16:19:41.1756341Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-08T16:19:41.1779325Z includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path
+2026-11-08T16:19:41.1779851Z includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path
+2026-11-08T16:19:41.1780290Z includeif.gitdir:/github/workspace/.git.path
+2026-11-08T16:19:41.1780703Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-08T16:19:41.1785939Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path
+2026-11-08T16:19:41.1804344Z /home/runner/work/_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config
+2026-11-08T16:19:41.1810741Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-cb33c8fa\-a763\-4683\-bbb2\-5945388de358\.config
+2026-11-08T16:19:41.1837282Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path
+2026-11-08T16:19:41.1855767Z /home/runner/work/_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config
+2026-11-08T16:19:41.1861375Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-cb33c8fa\-a763\-4683\-bbb2\-5945388de358\.config
+2026-11-08T16:19:41.1888543Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-11-08T16:19:41.1907031Z /github/runner_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config
+2026-11-08T16:19:41.1912021Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-cb33c8fa\-a763\-4683\-bbb2\-5945388de358\.config
+2026-11-08T16:19:41.1937139Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-08T16:19:41.1972282Z /github/runner_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config
+2026-11-08T16:19:41.1973337Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-cb33c8fa\-a763\-4683\-bbb2\-5945388de358\.config
+2026-11-08T16:19:41.1988582Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-08T16:19:41.2189306Z Removing credentials config '/home/runner/work/_temp/git-credentials-cb33c8fa-a763-4683-bbb2-5945388de358.config'
+2026-11-08T16:19:41.2196198Z ##[endgroup]
+2026-11-08T16:19:41.2385730Z ##[group]Run actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+2026-11-08T16:19:41.2385948Z with:
+2026-11-08T16:19:41.2386070Z   python-version: 3.14
+2026-11-08T16:19:41.2386200Z   check-latest: false
+2026-11-08T16:19:41.2387623Z   token: ***
+2026-11-08T16:19:41.2387800Z   mirror: https://raw.githubusercontent.com/actions/python-versions/main
+2026-11-08T16:19:41.2388018Z   update-environment: true
+2026-11-08T16:19:41.2388167Z   allow-prereleases: false
+2026-11-08T16:19:41.2388304Z   freethreaded: false
+2026-11-08T16:19:41.2388441Z ##[endgroup]
+2026-11-08T16:19:41.3067853Z ##[group]Installed versions
+2026-11-08T16:19:41.3704983Z Successfully set up CPython (3.14.10)
+2026-11-08T16:19:41.3705504Z ##[endgroup]
+2026-11-08T16:19:41.3792915Z ##[group]Run python -m pip install pyyaml
+2026-11-08T16:19:41.3793156Z [36;1mpython -m pip install pyyaml[0m
+2026-11-08T16:19:41.3916654Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:19:41.3916813Z env:
+2026-11-08T16:19:41.3916970Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:41.3917211Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:41.3917441Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:41.3917651Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:41.3917855Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:41.3918064Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:41.3918246Z ##[endgroup]
+2026-11-08T16:19:44.0146712Z Collecting pyyaml
+2026-11-08T16:19:44.0557809Z   Downloading pyyaml-6.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2026-11-08T16:19:44.0681976Z Downloading pyyaml-6.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (794 kB)
+2026-11-08T16:19:44.1062487Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 794.2/794.2 kB 41.1 MB/s  0:00:00
+2026-11-08T16:19:44.2342033Z Installing collected packages: pyyaml
+2026-11-08T16:19:44.2831481Z Successfully installed pyyaml-6.0.3
+2026-11-08T16:19:44.2836408Z 
+2026-11-08T16:19:44.2836564Z [notice] A new release of pip is available: 26.2.2 -> 26.3
+2026-11-08T16:19:44.2836870Z [notice] To update, run: pip install --upgrade pip
+2026-11-08T16:19:44.3441393Z Prepare all required actions
+2026-11-08T16:19:44.3569651Z ##[group]Run ./.github/actions/setup-api-client
+2026-11-08T16:19:44.3569824Z with:
+2026-11-08T16:19:44.3571311Z   github_token: ***
+2026-11-08T16:19:44.3571582Z   owner_pr_pat: ***
+2026-11-08T16:19:44.3571887Z   service_bot_pat: ***
+2026-11-08T16:19:44.3572014Z   skip_deps: false
+2026-11-08T16:19:44.3572133Z   verbose: false
+2026-11-08T16:19:44.3572405Z env:
+2026-11-08T16:19:44.3572554Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:44.3572789Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:44.3573021Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:44.3573232Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:44.3573438Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:44.3573648Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:44.3573858Z ##[endgroup]
+2026-11-08T16:19:44.3608394Z ##[start-action display=Install API client dependencies;id=__self.__run]
+2026-11-08T16:19:44.3638318Z ##[group]Run set -euo pipefail
+2026-11-08T16:19:44.3638810Z [36;1mset -euo pipefail[0m
+2026-11-08T16:19:44.3638940Z [36;1m[0m
+2026-11-08T16:19:44.3639089Z [36;1m# Use dedicated scripts dir, create if needed[0m
+2026-11-08T16:19:44.3639266Z [36;1mINSTALL_DIR=""[0m
+2026-11-08T16:19:44.3639410Z [36;1mif [ -z "$INSTALL_DIR" ]; then[0m
+2026-11-08T16:19:44.3639592Z [36;1m  INSTALL_DIR="${GITHUB_WORKSPACE}/.github/scripts"[0m
+2026-11-08T16:19:44.3639767Z [36;1mfi[0m
+2026-11-08T16:19:44.3639887Z [36;1mmkdir -p "$INSTALL_DIR"[0m
+2026-11-08T16:19:44.3640027Z [36;1m[0m
+2026-11-08T16:19:44.3640194Z [36;1mecho "📦 Installing @octokit dependencies in $INSTALL_DIR..."[0m
+2026-11-08T16:19:44.3640400Z [36;1mcd "$INSTALL_DIR"[0m
+2026-11-08T16:19:44.3640524Z [36;1m[0m
+2026-11-08T16:19:44.3640645Z [36;1mdeclare -a VENDORED_ALIAS_DIRS=()[0m
+2026-11-08T16:19:44.3640797Z [36;1m[0m
+2026-11-08T16:19:44.3640911Z [36;1mcleanup_vendor_aliases() {[0m
+2026-11-08T16:19:44.3641085Z [36;1m  if [ "${#VENDORED_ALIAS_DIRS[@]}" -eq 0 ]; then[0m
+2026-11-08T16:19:44.3641249Z [36;1m    return 0[0m
+2026-11-08T16:19:44.3641368Z [36;1m  fi[0m
+2026-11-08T16:19:44.3641473Z [36;1m[0m
+2026-11-08T16:19:44.3641597Z [36;1m  local cleanup_dir="$INSTALL_DIR"[0m
+2026-11-08T16:19:44.3641880Z [36;1m  if [ -z "$cleanup_dir" ]; then[0m
+2026-11-08T16:19:44.3642093Z [36;1m    echo "::warning::Install dir is empty, skipping vendored alias cleanup"[0m
+2026-11-08T16:19:44.3642303Z [36;1m    return 0[0m
+2026-11-08T16:19:44.3642420Z [36;1m  fi[0m
+2026-11-08T16:19:44.3642528Z [36;1m[0m
+2026-11-08T16:19:44.3642659Z [36;1m  if ! pushd "$cleanup_dir" >/dev/null 2>&1; then[0m
+2026-11-08T16:19:44.3642929Z [36;1m    echo "::warning::Failed to enter install dir \"$cleanup_dir\"; skipping vendored alias cleanup"[0m
+2026-11-08T16:19:44.3643173Z [36;1m    return 0[0m
+2026-11-08T16:19:44.3643296Z [36;1m  fi[0m
+2026-11-08T16:19:44.3643401Z [36;1m[0m
+2026-11-08T16:19:44.3643543Z [36;1m  for vendored_alias in "${VENDORED_ALIAS_DIRS[@]}"; do[0m
+2026-11-08T16:19:44.3643734Z [36;1m    if [ -z "$vendored_alias" ]; then[0m
+2026-11-08T16:19:44.3643892Z [36;1m      continue[0m
+2026-11-08T16:19:44.3644009Z [36;1m    fi[0m
+2026-11-08T16:19:44.3644136Z [36;1m    rm -rf -- "$vendored_alias" || true[0m
+2026-11-08T16:19:44.3644303Z [36;1m    local parent_dir[0m
+2026-11-08T16:19:44.3644456Z [36;1m    parent_dir=$(dirname "$vendored_alias")[0m
+2026-11-08T16:19:44.3644706Z [36;1m    # Remove empty parent directories that may have been created for scoped packages[0m
+2026-11-08T16:19:44.3644977Z [36;1m    while [ "$parent_dir" != "." ] && [ "$parent_dir" != "/" ]; do[0m
+2026-11-08T16:19:44.3645185Z [36;1m      rmdir -- "$parent_dir" 2>/dev/null || break[0m
+2026-11-08T16:19:44.3645372Z [36;1m      parent_dir=$(dirname "$parent_dir")[0m
+2026-11-08T16:19:44.3645525Z [36;1m    done[0m
+2026-11-08T16:19:44.3645791Z [36;1m  done[0m
+2026-11-08T16:19:44.3645952Z [36;1m[0m
+2026-11-08T16:19:44.3646094Z [36;1m  popd >/dev/null 2>&1 || true[0m
+2026-11-08T16:19:44.3646237Z [36;1m}[0m
+2026-11-08T16:19:44.3646340Z [36;1m[0m
+2026-11-08T16:19:44.3646455Z [36;1mtrap cleanup_vendor_aliases EXIT[0m
+2026-11-08T16:19:44.3646603Z [36;1m[0m
+2026-11-08T16:19:44.3646716Z [36;1mcreate_vendor_aliases() {[0m
+2026-11-08T16:19:44.3646953Z [36;1m  if [ ! -f "package.json" ]; then[0m
+2026-11-08T16:19:44.3647098Z [36;1m    return 0[0m
+2026-11-08T16:19:44.3647214Z [36;1m  fi[0m
+2026-11-08T16:19:44.3647323Z [36;1m[0m
+2026-11-08T16:19:44.3647429Z [36;1m  local alias_tmp[0m
+2026-11-08T16:19:44.3647564Z [36;1m  alias_tmp=$(mktemp)[0m
+2026-11-08T16:19:44.3647692Z [36;1m[0m
+2026-11-08T16:19:44.3647906Z [36;1m  local helper_root="${GITHUB_ACTION_PATH:-${GITHUB_WORKSPACE}/.github/actions/setup-api-client}"[0m
+2026-11-08T16:19:44.3648210Z [36;1m  local alias_helper="${helper_root}/create_vendor_aliases.js"[0m
+2026-11-08T16:19:44.3648410Z [36;1m  if [ ! -f "$alias_helper" ]; then[0m
+2026-11-08T16:19:44.3648602Z [36;1m    echo "::error::Missing vendored alias helper: $alias_helper"[0m
+2026-11-08T16:19:44.3648799Z [36;1m    rm -f "$alias_tmp"[0m
+2026-11-08T16:19:44.3648937Z [36;1m    return 1[0m
+2026-11-08T16:19:44.3649054Z [36;1m  fi[0m
+2026-11-08T16:19:44.3649159Z [36;1m[0m
+2026-11-08T16:19:44.3649308Z [36;1m  if node "$alias_helper" "$INSTALL_DIR" >"$alias_tmp"; then[0m
+2026-11-08T16:19:44.3649489Z [36;1m    :[0m
+2026-11-08T16:19:44.3649596Z [36;1m  else[0m
+2026-11-08T16:19:44.3649756Z [36;1m    echo "::error::Failed to prepare vendored dependency aliases"[0m
+2026-11-08T16:19:44.3649947Z [36;1m    rm -f "$alias_tmp"[0m
+2026-11-08T16:19:44.3650085Z [36;1m    return 1[0m
+2026-11-08T16:19:44.3650200Z [36;1m  fi[0m
+2026-11-08T16:19:44.3650306Z [36;1m[0m
+2026-11-08T16:19:44.3650426Z [36;1m  while IFS= read -r vendored_alias; do[0m
+2026-11-08T16:19:44.3650597Z [36;1m    if [ -z "$vendored_alias" ]; then[0m
+2026-11-08T16:19:44.3650751Z [36;1m      continue[0m
+2026-11-08T16:19:44.3650872Z [36;1m    fi[0m
+2026-11-08T16:19:44.3651004Z [36;1m    VENDORED_ALIAS_DIRS+=("$vendored_alias")[0m
+2026-11-08T16:19:44.3651165Z [36;1m  done <"$alias_tmp"[0m
+2026-11-08T16:19:44.3651295Z [36;1m[0m
+2026-11-08T16:19:44.3651401Z [36;1m  rm -f "$alias_tmp"[0m
+2026-11-08T16:19:44.3651530Z [36;1m}[0m
+2026-11-08T16:19:44.3651633Z [36;1m[0m
+2026-11-08T16:19:44.3651741Z [36;1mcreate_vendor_aliases[0m
+2026-11-08T16:19:44.3652013Z [36;1m[0m
+2026-11-08T16:19:44.3652191Z [36;1m# Strip unresolvable file: dependencies from package.json so npm install[0m
+2026-11-08T16:19:44.3652459Z [36;1m# doesn't choke when vendored packages are missing (e.g. sparse checkout[0m
+2026-11-08T16:19:44.3652716Z [36;1m# that doesn't include node_modules/).  Back up the original first so we[0m
+2026-11-08T16:19:44.3652980Z [36;1m# can restore it after npm install — avoids leaking modified state into[0m
+2026-11-08T16:19:44.3653213Z [36;1m# downstream steps that expect a clean workspace.[0m
+2026-11-08T16:19:44.3653389Z [36;1mSTRIPPED_PKG_JSON=false[0m
+2026-11-08T16:19:44.3653537Z [36;1mif [ -f "package.json" ]; then[0m
+2026-11-08T16:19:44.3653685Z [36;1m  node -e '[0m
+2026-11-08T16:19:44.3653813Z [36;1m    const fs = require("fs");[0m
+2026-11-08T16:19:44.3653964Z [36;1m    const path = require("path");[0m
+2026-11-08T16:19:44.3654156Z [36;1m    const raw = fs.readFileSync("package.json", "utf8");[0m
+2026-11-08T16:19:44.3654347Z [36;1m    const pkg = JSON.parse(raw);[0m
+2026-11-08T16:19:44.3654499Z [36;1m    let changed = false;[0m
+2026-11-08T16:19:44.3654680Z [36;1m    for (const section of ["dependencies", "devDependencies"]) {[0m
+2026-11-08T16:19:44.3654878Z [36;1m      if (!pkg[section]) continue;[0m
+2026-11-08T16:19:44.3655073Z [36;1m      for (const [name, spec] of Object.entries(pkg[section])) {[0m
+2026-11-08T16:19:44.3655413Z [36;1m        if (typeof spec === "string" && spec.startsWith("file:")) {[0m
+2026-11-08T16:19:44.3668571Z [36;1m          const target = path.resolve(spec.slice(5));[0m
+2026-11-08T16:19:44.3668849Z [36;1m          if (!fs.existsSync(target)) {[0m
+2026-11-08T16:19:44.3669097Z [36;1m            delete pkg[section][name];[0m
+2026-11-08T16:19:44.3669294Z [36;1m            changed = true;[0m
+2026-11-08T16:19:44.3669540Z [36;1m            console.log("::notice::Stripped unresolvable vendored dep: " + name + " (" + spec + ")");[0m
+2026-11-08T16:19:44.3669902Z [36;1m          }[0m
+2026-11-08T16:19:44.3670018Z [36;1m        }[0m
+2026-11-08T16:19:44.3670131Z [36;1m      }[0m
+2026-11-08T16:19:44.3670295Z [36;1m      if (pkg[section] && Object.keys(pkg[section]).length === 0) {[0m
+2026-11-08T16:19:44.3670487Z [36;1m        delete pkg[section];[0m
+2026-11-08T16:19:44.3670624Z [36;1m      }[0m
+2026-11-08T16:19:44.3670731Z [36;1m    }[0m
+2026-11-08T16:19:44.3670847Z [36;1m    if (changed) {[0m
+2026-11-08T16:19:44.3671019Z [36;1m      fs.copyFileSync("package.json", "package.json.bak");[0m
+2026-11-08T16:19:44.3671264Z [36;1m      fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");[0m
+2026-11-08T16:19:44.3671492Z [36;1m      process.stdout.write("STRIPPED");[0m
+2026-11-08T16:19:44.3671646Z [36;1m    }[0m
+2026-11-08T16:19:44.3671752Z [36;1m  '[0m
+2026-11-08T16:19:44.3672044Z [36;1m  if [ -f "package.json.bak" ]; then[0m
+2026-11-08T16:19:44.3672209Z [36;1m    STRIPPED_PKG_JSON=true[0m
+2026-11-08T16:19:44.3672344Z [36;1m  fi[0m
+2026-11-08T16:19:44.3672453Z [36;1mfi[0m
+2026-11-08T16:19:44.3672556Z [36;1m[0m
+2026-11-08T16:19:44.3672748Z [36;1m# Vendored packages often ship lifecycle scripts (tshy builds, custom bundlers, etc.)[0m
+2026-11-08T16:19:44.3673061Z [36;1m# that expect repo-specific tooling. Disable lifecycle scripts globally so npm install[0m
+2026-11-08T16:19:44.3673312Z [36;1m# never invokes those hooks inside CI.[0m
+2026-11-08T16:19:44.3673482Z [36;1mexport npm_config_ignore_scripts=true[0m
+2026-11-08T16:19:44.3673636Z [36;1m[0m
+2026-11-08T16:19:44.3673783Z [36;1m# Track if we create package.json so we can clean it up[0m
+2026-11-08T16:19:44.3673970Z [36;1mCREATED_PACKAGE_JSON=false[0m
+2026-11-08T16:19:44.3674119Z [36;1mif [ ! -f "package.json" ]; then[0m
+2026-11-08T16:19:44.3674286Z [36;1m  echo '{"private":true}' > package.json[0m
+2026-11-08T16:19:44.3674452Z [36;1m  CREATED_PACKAGE_JSON=true[0m
+2026-11-08T16:19:44.3674596Z [36;1mfi[0m
+2026-11-08T16:19:44.3674698Z [36;1m[0m
+2026-11-08T16:19:44.3674861Z [36;1m# Check if already installed (including lru-cache@10.4.3, a required[0m
+2026-11-08T16:19:44.3675123Z [36;1m# transitive dep of @octokit/auth-app used for GitHub App token minting).[0m
+2026-11-08T16:19:44.3675399Z [36;1mif [ -d "node_modules/@octokit/rest" ] && [ -d "node_modules/lru-cache" ]; then[0m
+2026-11-08T16:19:44.3675637Z [36;1m  echo "✅ @octokit/rest already installed"[0m
+2026-11-08T16:19:44.3675791Z [36;1melse[0m
+2026-11-08T16:19:44.3675950Z [36;1m  # Snapshot vendored package metadata before npm install.[0m
+2026-11-08T16:19:44.3676176Z [36;1m  # npm may overwrite transitive deps (e.g. minimatch) that are[0m
+2026-11-08T16:19:44.3676417Z [36;1m  # committed as vendored packages with intentional version pins.[0m
+2026-11-08T16:19:44.3676615Z [36;1m  VENDORED_SNAPSHOT=""[0m
+2026-11-08T16:19:44.3676784Z [36;1m  if [ -f "node_modules/minimatch/package.json" ]; then[0m
+2026-11-08T16:19:44.3676978Z [36;1m    VENDORED_SNAPSHOT=$(mktemp -d)[0m
+2026-11-08T16:19:44.3677148Z [36;1m    for pkg_dir in node_modules/*/; do[0m
+2026-11-08T16:19:44.3677318Z [36;1m      if [ -f "${pkg_dir}package.json" ]; then[0m
+2026-11-08T16:19:44.3677486Z [36;1m        pkg_name=$(basename "$pkg_dir")[0m
+2026-11-08T16:19:44.3677667Z [36;1m        mkdir -p "${VENDORED_SNAPSHOT}/${pkg_name}"[0m
+2026-11-08T16:19:44.3677906Z [36;1m        cp "${pkg_dir}package.json" "${VENDORED_SNAPSHOT}/${pkg_name}/package.json"[0m
+2026-11-08T16:19:44.3678212Z [36;1m      fi[0m
+2026-11-08T16:19:44.3678414Z [36;1m    done[0m
+2026-11-08T16:19:44.3678565Z [36;1m    echo "📸 Snapshotted vendored package metadata"[0m
+2026-11-08T16:19:44.3678735Z [36;1m  fi[0m
+2026-11-08T16:19:44.3678838Z [36;1m[0m
+2026-11-08T16:19:44.3678973Z [36;1m  # Install with pinned versions for consistency.[0m
+2026-11-08T16:19:44.3679209Z [36;1m  # lru-cache is an explicit transitive dep of @octokit/auth-app required for[0m
+2026-11-08T16:19:44.3679582Z [36;1m  # GitHub App token minting; pin it here so npm always hoists a specific version[0m
+2026-11-08T16:19:44.3679836Z [36;1m  # even if a prior cached node_modules state is missing it.[0m
+2026-11-08T16:19:44.3680012Z [36;1m  #[0m
+2026-11-08T16:19:44.3680186Z [36;1m  # Retry with exponential backoff to survive transient npm registry errors[0m
+2026-11-08T16:19:44.3680459Z [36;1m  # (e.g. 403 Forbidden from CDN/rate-limit on safe-buffer, undici, etc.).[0m
+2026-11-08T16:19:44.3680663Z [36;1m  NPM_PACKAGES=([0m
+2026-11-08T16:19:44.3680797Z [36;1m    @octokit/rest@20.0.2[0m
+2026-11-08T16:19:44.3680953Z [36;1m    @octokit/plugin-retry@6.0.1[0m
+2026-11-08T16:19:44.3681121Z [36;1m    @octokit/plugin-paginate-rest@9.1.5[0m
+2026-11-08T16:19:44.3681282Z [36;1m    @octokit/auth-app@6.0.3[0m
+2026-11-08T16:19:44.3681424Z [36;1m    lru-cache@10.4.3[0m
+2026-11-08T16:19:44.3681577Z [36;1m  )[0m
+2026-11-08T16:19:44.3681697Z [36;1m  NPM_MAX_RETRIES=3[0m
+2026-11-08T16:19:44.3681990Z [36;1m  NPM_BACKOFF=5  # seconds; doubles each retry (5, 10)[0m
+2026-11-08T16:19:44.3682175Z [36;1m  npm_installed=false[0m
+2026-11-08T16:19:44.3682303Z [36;1m[0m
+2026-11-08T16:19:44.3682453Z [36;1m  for (( attempt=1; attempt<=NPM_MAX_RETRIES; attempt++ )); do[0m
+2026-11-08T16:19:44.3682643Z [36;1m    npm_output=$(mktemp)[0m
+2026-11-08T16:19:44.3682775Z [36;1m[0m
+2026-11-08T16:19:44.3682975Z [36;1m    if npm install --no-save --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then[0m
+2026-11-08T16:19:44.3683211Z [36;1m      rm -f "$npm_output"[0m
+2026-11-08T16:19:44.3683361Z [36;1m      npm_installed=true[0m
+2026-11-08T16:19:44.3683496Z [36;1m      break[0m
+2026-11-08T16:19:44.3683613Z [36;1m    fi[0m
+2026-11-08T16:19:44.3683719Z [36;1m[0m
+2026-11-08T16:19:44.3683832Z [36;1m    npm_err=$(cat "$npm_output")[0m
+2026-11-08T16:19:44.3683983Z [36;1m    rm -f "$npm_output"[0m
+2026-11-08T16:19:44.3684201Z [36;1m    echo "::warning::npm install attempt $attempt/$NPM_MAX_RETRIES failed (see logs)"[0m
+2026-11-08T16:19:44.3684450Z [36;1m    echo "::group::npm stderr (attempt $attempt)"[0m
+2026-11-08T16:19:44.3684622Z [36;1m    echo "$npm_err"[0m
+2026-11-08T16:19:44.3684754Z [36;1m    echo "::endgroup::"[0m
+2026-11-08T16:19:44.3684886Z [36;1m[0m
+2026-11-08T16:19:44.3685047Z [36;1m    # On peer-dep / ERESOLVE failures, also try --legacy-peer-deps[0m
+2026-11-08T16:19:44.3685323Z [36;1m    if echo "$npm_err" | grep -qiE 'ERESOLVE|peer dep|Could not resolve dependency'; then[0m
+2026-11-08T16:19:44.3685642Z [36;1m      echo "::warning::Detected peer dependency conflict, retrying with --legacy-peer-deps"[0m
+2026-11-08T16:19:44.3685879Z [36;1m      npm_output=$(mktemp)[0m
+2026-11-08T16:19:44.3686145Z [36;1m      if npm install --no-save --legacy-peer-deps --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then[0m
+2026-11-08T16:19:44.3686414Z [36;1m        rm -f "$npm_output"[0m
+2026-11-08T16:19:44.3686553Z [36;1m        npm_installed=true[0m
+2026-11-08T16:19:44.3686698Z [36;1m        break[0m
+2026-11-08T16:19:44.3686816Z [36;1m      fi[0m
+2026-11-08T16:19:44.3686948Z [36;1m      npm_err_legacy=$(cat "$npm_output")[0m
+2026-11-08T16:19:44.3687111Z [36;1m      rm -f "$npm_output"[0m
+2026-11-08T16:19:44.3687318Z [36;1m      echo "::warning::npm install with --legacy-peer-deps failed (see logs)"[0m
+2026-11-08T16:19:44.3687552Z [36;1m      echo "::group::npm stderr (--legacy-peer-deps)"[0m
+2026-11-08T16:19:44.3687727Z [36;1m      echo "$npm_err_legacy"[0m
+2026-11-08T16:19:44.3687871Z [36;1m      echo "::endgroup::"[0m
+2026-11-08T16:19:44.3688101Z [36;1m    fi[0m
+2026-11-08T16:19:44.3688213Z [36;1m[0m
+2026-11-08T16:19:44.3688346Z [36;1m    if [ "$attempt" -lt "$NPM_MAX_RETRIES" ]; then[0m
+2026-11-08T16:19:44.3688548Z [36;1m      echo "::notice::Waiting ${NPM_BACKOFF}s before retry..."[0m
+2026-11-08T16:19:44.3688736Z [36;1m      sleep "$NPM_BACKOFF"[0m
+2026-11-08T16:19:44.3688890Z [36;1m      NPM_BACKOFF=$((NPM_BACKOFF * 2))[0m
+2026-11-08T16:19:44.3689108Z [36;1m    fi[0m
+2026-11-08T16:19:44.3689215Z [36;1m  done[0m
+2026-11-08T16:19:44.3689319Z [36;1m[0m
+2026-11-08T16:19:44.3689448Z [36;1m  if [ "$npm_installed" != "true" ]; then[0m
+2026-11-08T16:19:44.3689658Z [36;1m    echo "::error::npm install failed after $NPM_MAX_RETRIES attempts"[0m
+2026-11-08T16:19:44.3689851Z [36;1m    exit 1[0m
+2026-11-08T16:19:44.3689962Z [36;1m  fi[0m
+2026-11-08T16:19:44.3690068Z [36;1m[0m
+2026-11-08T16:19:44.3690232Z [36;1m  # Restore vendored package metadata that npm may have overwritten[0m
+2026-11-08T16:19:44.3690491Z [36;1m  if [ -n "${VENDORED_SNAPSHOT:-}" ] && [ -d "${VENDORED_SNAPSHOT}" ]; then[0m
+2026-11-08T16:19:44.3690721Z [36;1m    for pkg_backup in "${VENDORED_SNAPSHOT}"/*/; do[0m
+2026-11-08T16:19:44.3690903Z [36;1m      pkg_name=$(basename "$pkg_backup")[0m
+2026-11-08T16:19:44.3691101Z [36;1m      if [ -f "node_modules/${pkg_name}/package.json" ] && \[0m
+2026-11-08T16:19:44.3691302Z [36;1m         [ -f "${pkg_backup}package.json" ]; then[0m
+2026-11-08T16:19:44.3691530Z [36;1m        cp "${pkg_backup}package.json" "node_modules/${pkg_name}/package.json"[0m
+2026-11-08T16:19:44.3691729Z [36;1m      fi[0m
+2026-11-08T16:19:44.3691997Z [36;1m    done[0m
+2026-11-08T16:19:44.3692121Z [36;1m    rm -rf "${VENDORED_SNAPSHOT}"[0m
+2026-11-08T16:19:44.3692316Z [36;1m    echo "📸 Restored vendored package metadata"[0m
+2026-11-08T16:19:44.3692478Z [36;1m  fi[0m
+2026-11-08T16:19:44.3692585Z [36;1m[0m
+2026-11-08T16:19:44.3692712Z [36;1m  echo "✅ @octokit dependencies installed"[0m
+2026-11-08T16:19:44.3692867Z [36;1mfi[0m
+2026-11-08T16:19:44.3692976Z [36;1m[0m
+2026-11-08T16:19:44.3693140Z [36;1m# Restore original package.json if we stripped file: deps earlier,[0m
+2026-11-08T16:19:44.3693370Z [36;1m# so downstream steps see an unmodified workspace.[0m
+2026-11-08T16:19:44.3693595Z [36;1mif [ "$STRIPPED_PKG_JSON" = "true" ] && [ -f "package.json.bak" ]; then[0m
+2026-11-08T16:19:44.3693809Z [36;1m  mv "package.json.bak" "package.json"[0m
+2026-11-08T16:19:44.3693967Z [36;1mfi[0m
+2026-11-08T16:19:44.3694068Z [36;1m[0m
+2026-11-08T16:19:44.3694176Z [36;1mcleanup_vendor_aliases[0m
+2026-11-08T16:19:44.3694309Z [36;1mtrap - EXIT[0m
+2026-11-08T16:19:44.3734759Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-08T16:19:44.3734942Z env:
+2026-11-08T16:19:44.3735093Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:44.3735320Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:44.3735551Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:44.3735762Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:44.3735965Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:44.3736170Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:44.3736348Z ##[endgroup]
+2026-11-08T16:19:44.3811735Z 📦 Installing @octokit dependencies in /home/runner/work/Workflows/Workflows/.github/scripts...
+2026-11-08T16:19:44.5566086Z 📸 Snapshotted vendored package metadata
+2026-11-08T16:19:46.6784456Z 
+2026-11-08T16:19:46.6785039Z added 66 packages, changed 1 package, and audited 70 packages in 2s
+2026-11-08T16:19:46.6785311Z 
+2026-11-08T16:19:46.6785441Z 2 packages are looking for funding
+2026-11-08T16:19:46.6785676Z   run `npm fund` for details
+2026-11-08T16:19:46.6801022Z 
+2026-11-08T16:19:46.6801330Z 2 moderate severity vulnerabilities
+2026-11-08T16:19:46.6801523Z 
+2026-11-08T16:19:46.6801621Z To address all issues possible, run:
+2026-11-08T16:19:46.6801968Z   npm audit fix --force
+2026-11-08T16:19:46.6802500Z 
+2026-11-08T16:19:46.6802580Z Some issues need review, and may require choosing
+2026-11-08T16:19:46.6802755Z a different dependency.
+2026-11-08T16:19:46.6802838Z 
+2026-11-08T16:19:46.6802893Z Run `npm audit` for details.
+2026-11-08T16:19:46.7318962Z 📸 Restored vendored package metadata
+2026-11-08T16:19:46.7319196Z ✅ @octokit dependencies installed
+2026-11-08T16:19:46.7370107Z ##[end-action id=__self.__run;outcome=success;conclusion=success;duration_ms=2376]
+2026-11-08T16:19:46.7372707Z ##[start-action display=Export NODE_PATH for shared deps;id=__self.__run_2]
+2026-11-08T16:19:46.7388122Z ##[group]Run set -euo pipefail
+2026-11-08T16:19:46.7388311Z [36;1mset -euo pipefail[0m
+2026-11-08T16:19:46.7388452Z [36;1mINSTALL_DIR=""[0m
+2026-11-08T16:19:46.7388591Z [36;1mif [ -z "$INSTALL_DIR" ]; then[0m
+2026-11-08T16:19:46.7388773Z [36;1m  INSTALL_DIR="${GITHUB_WORKSPACE}/.github/scripts"[0m
+2026-11-08T16:19:46.7388943Z [36;1mfi[0m
+2026-11-08T16:19:46.7389096Z [36;1mif [ -d "${INSTALL_DIR}/node_modules" ]; then[0m
+2026-11-08T16:19:46.7389274Z [36;1m  if [ -n "${NODE_PATH:-}" ]; then[0m
+2026-11-08T16:19:46.7389491Z [36;1m    echo "NODE_PATH=${INSTALL_DIR}/node_modules:${NODE_PATH}" >> "$GITHUB_ENV"[0m
+2026-11-08T16:19:46.7389700Z [36;1m  else[0m
+2026-11-08T16:19:46.7389862Z [36;1m    echo "NODE_PATH=${INSTALL_DIR}/node_modules" >> "$GITHUB_ENV"[0m
+2026-11-08T16:19:46.7390046Z [36;1m  fi[0m
+2026-11-08T16:19:46.7390161Z [36;1melse[0m
+2026-11-08T16:19:46.7390388Z [36;1m  echo "::notice::setup-api-client: ${INSTALL_DIR}/node_modules not found; skipping NODE_PATH export."[0m
+2026-11-08T16:19:46.7390644Z [36;1mfi[0m
+2026-11-08T16:19:46.7429381Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-08T16:19:46.7429565Z env:
+2026-11-08T16:19:46.7429716Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7429952Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:46.7430187Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7430394Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7430599Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7430807Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:46.7430982Z ##[endgroup]
+2026-11-08T16:19:46.7483921Z ##[end-action id=__self.__run_2;outcome=success;conclusion=success;duration_ms=11]
+2026-11-08T16:19:46.7487595Z ##[start-action display=Export load balancer tokens;id=__self.export-tokens]
+2026-11-08T16:19:46.7498222Z ##[group]Run set -euo pipefail
+2026-11-08T16:19:46.7498615Z [36;1mset -euo pipefail[0m
+2026-11-08T16:19:46.7498742Z [36;1m[0m
+2026-11-08T16:19:46.7498854Z [36;1mtoken_count=0[0m
+2026-11-08T16:19:46.7498981Z [36;1mavailable_tokens=""[0m
+2026-11-08T16:19:46.7499110Z [36;1m[0m
+2026-11-08T16:19:46.7499229Z [36;1m# Export a variable to GITHUB_ENV[0m
+2026-11-08T16:19:46.7499453Z [36;1m# Note: Empty values are intentionally not counted as available tokens[0m
+2026-11-08T16:19:46.7499659Z [36;1mexport_var() {[0m
+2026-11-08T16:19:46.7499787Z [36;1m  local name="$1"[0m
+2026-11-08T16:19:46.7499918Z [36;1m  local value="${2-}"[0m
+2026-11-08T16:19:46.7500062Z [36;1m  if [ -z "${value}" ]; then[0m
+2026-11-08T16:19:46.7500206Z [36;1m    return 0[0m
+2026-11-08T16:19:46.7500325Z [36;1m  fi[0m
+2026-11-08T16:19:46.7500433Z [36;1m[0m
+2026-11-08T16:19:46.7500572Z [36;1m  # Handle multiline values (like private keys)[0m
+2026-11-08T16:19:46.7500755Z [36;1m  if [[ "${value}" == *$'\n'* ]]; then[0m
+2026-11-08T16:19:46.7500903Z [36;1m    {[0m
+2026-11-08T16:19:46.7501018Z [36;1m      echo "${name}<<EOF"[0m
+2026-11-08T16:19:46.7501163Z [36;1m      printf '%s\n' "${value}"[0m
+2026-11-08T16:19:46.7501313Z [36;1m      echo "EOF"[0m
+2026-11-08T16:19:46.7501444Z [36;1m    } >>"${GITHUB_ENV}"[0m
+2026-11-08T16:19:46.7501575Z [36;1m  else[0m
+2026-11-08T16:19:46.7501998Z [36;1m    printf '%s=%s\n' "${name}" "${value}" >>"${GITHUB_ENV}"[0m
+2026-11-08T16:19:46.7502175Z [36;1m  fi[0m
+2026-11-08T16:19:46.7502284Z [36;1m[0m
+2026-11-08T16:19:46.7502403Z [36;1m  token_count=$((token_count + 1))[0m
+2026-11-08T16:19:46.7502570Z [36;1m  if [ -n "$available_tokens" ]; then[0m
+2026-11-08T16:19:46.7502750Z [36;1m    available_tokens="${available_tokens},${name}"[0m
+2026-11-08T16:19:46.7502917Z [36;1m  else[0m
+2026-11-08T16:19:46.7503118Z [36;1m    available_tokens="${name}"[0m
+2026-11-08T16:19:46.7503254Z [36;1m  fi[0m
+2026-11-08T16:19:46.7503360Z [36;1m[0m
+2026-11-08T16:19:46.7503482Z [36;1m  if [ "${INPUT_VERBOSE}" = "true" ]; then[0m
+2026-11-08T16:19:46.7503651Z [36;1m    echo "  ✅ ${name} exported"[0m
+2026-11-08T16:19:46.7503790Z [36;1m  fi[0m
+2026-11-08T16:19:46.7503894Z [36;1m}[0m
+2026-11-08T16:19:46.7503997Z [36;1m[0m
+2026-11-08T16:19:46.7504132Z [36;1mecho "🔐 Exporting tokens to environment..."[0m
+2026-11-08T16:19:46.7504291Z [36;1m[0m
+2026-11-08T16:19:46.7504438Z [36;1m# Try to extract from JSON secrets first (requires jq)[0m
+2026-11-08T16:19:46.7504668Z [36;1mif [ -n "${INPUT_SECRETS:-}" ] && [ "${INPUT_SECRETS}" != "null" ]; then[0m
+2026-11-08T16:19:46.7504885Z [36;1m  if ! command -v jq >/dev/null 2>&1; then[0m
+2026-11-08T16:19:46.7505167Z [36;1m    echo "::warning::'jq' is not installed; falling back to individual token inputs instead of parsing JSON secrets."[0m
+2026-11-08T16:19:46.7505474Z [36;1m    # Fall back to individual inputs when jq is unavailable[0m
+2026-11-08T16:19:46.7505684Z [36;1m    SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"[0m
+2026-11-08T16:19:46.7505881Z [36;1m    ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"[0m
+2026-11-08T16:19:46.7506062Z [36;1m    OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"[0m
+2026-11-08T16:19:46.7506268Z [36;1m    AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"[0m
+2026-11-08T16:19:46.7506481Z [36;1m    WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"[0m
+2026-11-08T16:19:46.7506710Z [36;1m    WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7506940Z [36;1m    KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"[0m
+2026-11-08T16:19:46.7507157Z [36;1m    KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7507365Z [36;1m    GH_APP_ID="${INPUT_GH_APP_ID:-}"[0m
+2026-11-08T16:19:46.7507554Z [36;1m    GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7507740Z [36;1m    APP_1_ID="${INPUT_APP_1_ID:-}"[0m
+2026-11-08T16:19:46.7507919Z [36;1m    APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7508099Z [36;1m    APP_2_ID="${INPUT_APP_2_ID:-}"[0m
+2026-11-08T16:19:46.7508279Z [36;1m    APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7508443Z [36;1m  else[0m
+2026-11-08T16:19:46.7508568Z [36;1m    # Parse JSON secrets using jq[0m
+2026-11-08T16:19:46.7508724Z [36;1m    extract_secret() {[0m
+2026-11-08T16:19:46.7508865Z [36;1m      local key="$1"[0m
+2026-11-08T16:19:46.7509064Z [36;1m      echo "${INPUT_SECRETS}" | jq -r ".${key} // empty" 2>/dev/null || echo ""[0m
+2026-11-08T16:19:46.7509261Z [36;1m    }[0m
+2026-11-08T16:19:46.7509367Z [36;1m[0m
+2026-11-08T16:19:46.7509514Z [36;1m    SERVICE_BOT_PAT=$(extract_secret "SERVICE_BOT_PAT")[0m
+2026-11-08T16:19:46.7509723Z [36;1m    ACTIONS_BOT_PAT=$(extract_secret "ACTIONS_BOT_PAT")[0m
+2026-11-08T16:19:46.7509922Z [36;1m    OWNER_PR_PAT=$(extract_secret "OWNER_PR_PAT")[0m
+2026-11-08T16:19:46.7510146Z [36;1m    AGENTS_AUTOMATION_PAT=$(extract_secret "AGENTS_AUTOMATION_PAT")[0m
+2026-11-08T16:19:46.7510385Z [36;1m    WORKFLOWS_APP_ID=$(extract_secret "WORKFLOWS_APP_ID")[0m
+2026-11-08T16:19:46.7510631Z [36;1m    WORKFLOWS_APP_PRIVATE_KEY=$(extract_secret "WORKFLOWS_APP_PRIVATE_KEY")[0m
+2026-11-08T16:19:46.7510880Z [36;1m    KEEPALIVE_APP_ID=$(extract_secret "KEEPALIVE_APP_ID")[0m
+2026-11-08T16:19:46.7511118Z [36;1m    KEEPALIVE_APP_PRIVATE_KEY=$(extract_secret "KEEPALIVE_APP_PRIVATE_KEY")[0m
+2026-11-08T16:19:46.7511431Z [36;1m    GH_APP_ID=$(extract_secret "GH_APP_ID")[0m
+2026-11-08T16:19:46.7511630Z [36;1m    GH_APP_PRIVATE_KEY=$(extract_secret "GH_APP_PRIVATE_KEY")[0m
+2026-11-08T16:19:46.7511967Z [36;1m    APP_1_ID=$(extract_secret "APP_1_ID")[0m
+2026-11-08T16:19:46.7512160Z [36;1m    APP_1_PRIVATE_KEY=$(extract_secret "APP_1_PRIVATE_KEY")[0m
+2026-11-08T16:19:46.7512357Z [36;1m    APP_2_ID=$(extract_secret "APP_2_ID")[0m
+2026-11-08T16:19:46.7512623Z [36;1m    APP_2_PRIVATE_KEY=$(extract_secret "APP_2_PRIVATE_KEY")[0m
+2026-11-08T16:19:46.7512793Z [36;1m  fi[0m
+2026-11-08T16:19:46.7512898Z [36;1melse[0m
+2026-11-08T16:19:46.7513027Z [36;1m  # Fall back to individual inputs[0m
+2026-11-08T16:19:46.7513204Z [36;1m  SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"[0m
+2026-11-08T16:19:46.7513393Z [36;1m  ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"[0m
+2026-11-08T16:19:46.7513571Z [36;1m  OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"[0m
+2026-11-08T16:19:46.7513774Z [36;1m  AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"[0m
+2026-11-08T16:19:46.7513986Z [36;1m  WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"[0m
+2026-11-08T16:19:46.7514208Z [36;1m  WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7514431Z [36;1m  KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"[0m
+2026-11-08T16:19:46.7514655Z [36;1m  KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7514865Z [36;1m  GH_APP_ID="${INPUT_GH_APP_ID:-}"[0m
+2026-11-08T16:19:46.7515049Z [36;1m  GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7515228Z [36;1m  APP_1_ID="${INPUT_APP_1_ID:-}"[0m
+2026-11-08T16:19:46.7515410Z [36;1m  APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7515587Z [36;1m  APP_2_ID="${INPUT_APP_2_ID:-}"[0m
+2026-11-08T16:19:46.7515759Z [36;1m  APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7515920Z [36;1mfi[0m
+2026-11-08T16:19:46.7516031Z [36;1m[0m
+2026-11-08T16:19:46.7516193Z [36;1m# Export GITHUB_TOKEN (GH_TOKEN is the same value, only count once)[0m
+2026-11-08T16:19:46.7516409Z [36;1mif [ -n "${INPUT_GITHUB_TOKEN:-}" ]; then[0m
+2026-11-08T16:19:46.7516598Z [36;1m  export_var "GITHUB_TOKEN" "${INPUT_GITHUB_TOKEN}"[0m
+2026-11-08T16:19:46.7516797Z [36;1m  # GH_TOKEN is exported but not double-counted[0m
+2026-11-08T16:19:46.7517008Z [36;1m  printf '%s=%s\n' "GH_TOKEN" "${INPUT_GITHUB_TOKEN}" >>"${GITHUB_ENV}"[0m
+2026-11-08T16:19:46.7517195Z [36;1mfi[0m
+2026-11-08T16:19:46.7517303Z [36;1m[0m
+2026-11-08T16:19:46.7517411Z [36;1m# Export PATs[0m
+2026-11-08T16:19:46.7517574Z [36;1mexport_var "SERVICE_BOT_PAT" "${SERVICE_BOT_PAT:-}"[0m
+2026-11-08T16:19:46.7517777Z [36;1mexport_var "ACTIONS_BOT_PAT" "${ACTIONS_BOT_PAT:-}"[0m
+2026-11-08T16:19:46.7517977Z [36;1mexport_var "OWNER_PR_PAT" "${OWNER_PR_PAT:-}"[0m
+2026-11-08T16:19:46.7518190Z [36;1mexport_var "AGENTS_AUTOMATION_PAT" "${AGENTS_AUTOMATION_PAT:-}"[0m
+2026-11-08T16:19:46.7518382Z [36;1m[0m
+2026-11-08T16:19:46.7518498Z [36;1m# Export App credentials[0m
+2026-11-08T16:19:46.7518674Z [36;1mexport_var "WORKFLOWS_APP_ID" "${WORKFLOWS_APP_ID:-}"[0m
+2026-11-08T16:19:46.7518912Z [36;1mexport_var "WORKFLOWS_APP_PRIVATE_KEY" "${WORKFLOWS_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7519164Z [36;1mexport_var "KEEPALIVE_APP_ID" "${KEEPALIVE_APP_ID:-}"[0m
+2026-11-08T16:19:46.7519401Z [36;1mexport_var "KEEPALIVE_APP_PRIVATE_KEY" "${KEEPALIVE_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7519625Z [36;1mexport_var "GH_APP_ID" "${GH_APP_ID:-}"[0m
+2026-11-08T16:19:46.7519819Z [36;1mexport_var "GH_APP_PRIVATE_KEY" "${GH_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7520018Z [36;1mexport_var "APP_1_ID" "${APP_1_ID:-}"[0m
+2026-11-08T16:19:46.7520210Z [36;1mexport_var "APP_1_PRIVATE_KEY" "${APP_1_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7520403Z [36;1mexport_var "APP_2_ID" "${APP_2_ID:-}"[0m
+2026-11-08T16:19:46.7520592Z [36;1mexport_var "APP_2_PRIVATE_KEY" "${APP_2_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:46.7520769Z [36;1m[0m
+2026-11-08T16:19:46.7520964Z [36;1m# Output summary[0m
+2026-11-08T16:19:46.7521129Z [36;1mecho "token_count=${token_count}" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:19:46.7521350Z [36;1mecho "available_tokens=${available_tokens}" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:19:46.7521539Z [36;1m[0m
+2026-11-08T16:19:46.7521656Z [36;1minstall_dir="${INPUT_INSTALL_DIR:-}"[0m
+2026-11-08T16:19:46.7521962Z [36;1mif [ -z "$install_dir" ]; then[0m
+2026-11-08T16:19:46.7522210Z [36;1m  install_dir="${GITHUB_WORKSPACE}/.github/scripts"[0m
+2026-11-08T16:19:46.7522379Z [36;1mfi[0m
+2026-11-08T16:19:46.7522492Z [36;1msetup_contract="$([0m
+2026-11-08T16:19:46.7522644Z [36;1m  AVAILABLE_TOKENS="${available_tokens}" \[0m
+2026-11-08T16:19:46.7522812Z [36;1m  TOKEN_COUNT="${token_count}" \[0m
+2026-11-08T16:19:46.7522965Z [36;1m  INSTALL_DIR="${install_dir}" \[0m
+2026-11-08T16:19:46.7523115Z [36;1m  node <<'NODE'[0m
+2026-11-08T16:19:46.7523247Z [36;1mconst fs = require('node:fs');[0m
+2026-11-08T16:19:46.7523405Z [36;1mconst path = require('node:path');[0m
+2026-11-08T16:19:46.7523548Z [36;1m[0m
+2026-11-08T16:19:46.7523692Z [36;1mconst installDir = process.env.INSTALL_DIR || '';[0m
+2026-11-08T16:19:46.7523903Z [36;1mconst tokenNames = (process.env.AVAILABLE_TOKENS || '')[0m
+2026-11-08T16:19:46.7524081Z [36;1m  .split(',')[0m
+2026-11-08T16:19:46.7524213Z [36;1m  .map((value) => value.trim())[0m
+2026-11-08T16:19:46.7524364Z [36;1m  .filter(Boolean);[0m
+2026-11-08T16:19:46.7524510Z [36;1mconst tokenSet = new Set(tokenNames);[0m
+2026-11-08T16:19:46.7524670Z [36;1mconst appPairs = [[0m
+2026-11-08T16:19:46.7524859Z [36;1m  ['WORKFLOWS_APP', 'WORKFLOWS_APP_ID', 'WORKFLOWS_APP_PRIVATE_KEY'],[0m
+2026-11-08T16:19:46.7525110Z [36;1m  ['KEEPALIVE_APP', 'KEEPALIVE_APP_ID', 'KEEPALIVE_APP_PRIVATE_KEY'],[0m
+2026-11-08T16:19:46.7525334Z [36;1m  ['GH_APP', 'GH_APP_ID', 'GH_APP_PRIVATE_KEY'],[0m
+2026-11-08T16:19:46.7525519Z [36;1m  ['APP_1', 'APP_1_ID', 'APP_1_PRIVATE_KEY'],[0m
+2026-11-08T16:19:46.7525697Z [36;1m  ['APP_2', 'APP_2_ID', 'APP_2_PRIVATE_KEY'],[0m
+2026-11-08T16:19:46.7525853Z [36;1m];[0m
+2026-11-08T16:19:46.7525972Z [36;1mconst authModes = [];[0m
+2026-11-08T16:19:46.7526120Z [36;1mif (tokenSet.has('GITHUB_TOKEN')) {[0m
+2026-11-08T16:19:46.7526325Z [36;1m  authModes.push({ source: 'GITHUB_TOKEN', mode: 'github-token' });[0m
+2026-11-08T16:19:46.7526515Z [36;1m}[0m
+2026-11-08T16:19:46.7526636Z [36;1mfor (const name of tokenNames) {[0m
+2026-11-08T16:19:46.7526795Z [36;1m  if (name.endsWith('_PAT')) {[0m
+2026-11-08T16:19:46.7526969Z [36;1m    authModes.push({ source: name, mode: 'pat' });[0m
+2026-11-08T16:19:46.7527134Z [36;1m  }[0m
+2026-11-08T16:19:46.7527246Z [36;1m}[0m
+2026-11-08T16:19:46.7527389Z [36;1mfor (const [source, idName, keyName] of appPairs) {[0m
+2026-11-08T16:19:46.7527600Z [36;1m  if (tokenSet.has(idName) && tokenSet.has(keyName)) {[0m
+2026-11-08T16:19:46.7527779Z [36;1m    authModes.push({[0m
+2026-11-08T16:19:46.7527919Z [36;1m      source,[0m
+2026-11-08T16:19:46.7528050Z [36;1m      mode: 'github-app',[0m
+2026-11-08T16:19:46.7528211Z [36;1m      credential_names: [idName, keyName],[0m
+2026-11-08T16:19:46.7528364Z [36;1m    });[0m
+2026-11-08T16:19:46.7528472Z [36;1m  }[0m
+2026-11-08T16:19:46.7528580Z [36;1m}[0m
+2026-11-08T16:19:46.7528683Z [36;1m[0m
+2026-11-08T16:19:46.7528832Z [36;1mconst moduleDir = path.join(installDir, 'node_modules');[0m
+2026-11-08T16:19:46.7529099Z [36;1mconst hasModule = (name) => fs.existsSync(path.join(moduleDir, ...name.split('/')));[0m
+2026-11-08T16:19:46.7529335Z [36;1mconst contract = {[0m
+2026-11-08T16:19:46.7529492Z [36;1m  schema: 'workflows-api-client-setup/v1',[0m
+2026-11-08T16:19:46.7529719Z [36;1m  token_count: Number.parseInt(process.env.TOKEN_COUNT || '0', 10) || 0,[0m
+2026-11-08T16:19:46.7529941Z [36;1m  available_token_names: tokenNames,[0m
+2026-11-08T16:19:46.7530102Z [36;1m  auth_modes: authModes,[0m
+2026-11-08T16:19:46.7530245Z [36;1m  dependency_state: {[0m
+2026-11-08T16:19:46.7530495Z [36;1m    node_path_ready: fs.existsSync(moduleDir),[0m
+2026-11-08T16:19:46.7530687Z [36;1m    octokit_rest_ready: hasModule('@octokit/rest'),[0m
+2026-11-08T16:19:46.7530906Z [36;1m    octokit_auth_app_ready: hasModule('@octokit/auth-app'),[0m
+2026-11-08T16:19:46.7531110Z [36;1m    lru_cache_ready: hasModule('lru-cache'),[0m
+2026-11-08T16:19:46.7531267Z [36;1m  },[0m
+2026-11-08T16:19:46.7531374Z [36;1m};[0m
+2026-11-08T16:19:46.7531568Z [36;1mprocess.stdout.write(JSON.stringify(contract));[0m
+2026-11-08T16:19:46.7531739Z [36;1mNODE[0m
+2026-11-08T16:19:46.7531932Z [36;1m)"[0m
+2026-11-08T16:19:46.7532095Z [36;1mprintf 'setup_contract=%s\n' "$setup_contract" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:19:46.7532284Z [36;1m[0m
+2026-11-08T16:19:46.7532389Z [36;1mecho ""[0m
+2026-11-08T16:19:46.7532511Z [36;1mecho "📊 Token Setup Summary:"[0m
+2026-11-08T16:19:46.7532680Z [36;1mecho "  Total tokens exported: ${token_count}"[0m
+2026-11-08T16:19:46.7532895Z [36;1mecho "  Setup contract schema: workflows-api-client-setup/v1"[0m
+2026-11-08T16:19:46.7533109Z [36;1mif [ "${INPUT_VERBOSE}" = "true" ]; then[0m
+2026-11-08T16:19:46.7533281Z [36;1m  echo "  Available: ${available_tokens}"[0m
+2026-11-08T16:19:46.7533460Z [36;1m  echo "  Setup contract: ${setup_contract}"[0m
+2026-11-08T16:19:46.7533613Z [36;1mfi[0m
+2026-11-08T16:19:46.7533718Z [36;1m[0m
+2026-11-08T16:19:46.7533838Z [36;1m# Warn if no tokens were exported[0m
+2026-11-08T16:19:46.7534003Z [36;1mif [ "${token_count}" -eq 0 ]; then[0m
+2026-11-08T16:19:46.7534199Z [36;1m  echo "::warning::No tokens were exported! API calls may fail."[0m
+2026-11-08T16:19:46.7534430Z [36;1m  echo "::warning::Ensure secrets are passed to this action."[0m
+2026-11-08T16:19:46.7534613Z [36;1mfi[0m
+2026-11-08T16:19:46.7566770Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-08T16:19:46.7566946Z env:
+2026-11-08T16:19:46.7567099Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7567325Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:46.7567549Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7567750Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7567957Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7568161Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:46.7568398Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:19:46.7568604Z   INPUT_SECRETS: 
+2026-11-08T16:19:46.7570170Z   INPUT_GITHUB_TOKEN: ***
+2026-11-08T16:19:46.7570363Z   INPUT_SERVICE_BOT_PAT: ***
+2026-11-08T16:19:46.7570505Z   INPUT_ACTIONS_BOT_PAT: 
+2026-11-08T16:19:46.7570781Z   INPUT_OWNER_PR_PAT: ***
+2026-11-08T16:19:46.7570916Z   INPUT_AGENTS_AUTOMATION_PAT: 
+2026-11-08T16:19:46.7571052Z   INPUT_WORKFLOWS_APP_ID: 
+2026-11-08T16:19:46.7571193Z   INPUT_WORKFLOWS_APP_PRIVATE_KEY: 
+2026-11-08T16:19:46.7571337Z   INPUT_KEEPALIVE_APP_ID: 
+2026-11-08T16:19:46.7571474Z   INPUT_KEEPALIVE_APP_PRIVATE_KEY: 
+2026-11-08T16:19:46.7571611Z   INPUT_GH_APP_ID: 
+2026-11-08T16:19:46.7571734Z   INPUT_GH_APP_PRIVATE_KEY: 
+2026-11-08T16:19:46.7571933Z   INPUT_APP_1_ID: 
+2026-11-08T16:19:46.7572051Z   INPUT_APP_1_PRIVATE_KEY: 
+2026-11-08T16:19:46.7572178Z   INPUT_APP_2_ID: 
+2026-11-08T16:19:46.7572293Z   INPUT_APP_2_PRIVATE_KEY: 
+2026-11-08T16:19:46.7572422Z   INPUT_INSTALL_DIR: 
+2026-11-08T16:19:46.7572593Z   INPUT_VERBOSE: false
+2026-11-08T16:19:46.7572719Z ##[endgroup]
+2026-11-08T16:19:46.7618298Z 🔐 Exporting tokens to environment...
+2026-11-08T16:19:46.7831161Z 
+2026-11-08T16:19:46.7831454Z 📊 Token Setup Summary:
+2026-11-08T16:19:46.7831624Z   Total tokens exported: 3
+2026-11-08T16:19:46.7831939Z   Setup contract schema: workflows-api-client-setup/v1
+2026-11-08T16:19:46.7850863Z ##[end-action id=__self.export-tokens;outcome=success;conclusion=success;duration_ms=36]
+2026-11-08T16:19:46.7901916Z ##[group]Run repos=$(python scripts/list_registered_consumer_repos.py --separator ',')
+2026-11-08T16:19:46.7902275Z [36;1mrepos=$(python scripts/list_registered_consumer_repos.py --separator ',')[0m
+2026-11-08T16:19:46.7902565Z [36;1mecho "list=${repos}" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:19:46.7902744Z [36;1mecho "Extracted repos: ${repos}"[0m
+2026-11-08T16:19:46.7937648Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:19:46.7937784Z env:
+2026-11-08T16:19:46.7937936Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7938276Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:46.7938506Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7938708Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7938910Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.7939114Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:46.7939382Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:19:46.7940869Z   GITHUB_TOKEN: ***
+2026-11-08T16:19:46.7942435Z   GH_TOKEN: ***
+2026-11-08T16:19:46.7942606Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:19:46.7942921Z   OWNER_PR_PAT: ***
+2026-11-08T16:19:46.7943039Z ##[endgroup]
+2026-11-08T16:19:46.8316622Z Extracted repos: stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic
+2026-11-08T16:19:46.8337881Z ##[group]Run node <<'NODE'
+2026-11-08T16:19:46.8338055Z [36;1mnode <<'NODE'[0m
+2026-11-08T16:19:46.8338184Z [36;1mconst fs = require('fs');[0m
+2026-11-08T16:19:46.8338363Z [36;1mconst pick = (value) => String(value || '').trim();[0m
+2026-11-08T16:19:46.8338580Z [36;1mlet planId = pick(process.env.EXPECTED_PLAN_ID_RAW);[0m
+2026-11-08T16:19:46.8338817Z [36;1mlet planScope = pick(process.env.EXPECTED_PLAN_SCOPE_RAW);[0m
+2026-11-08T16:19:46.8339064Z [36;1mlet scopeBaseSha = pick(process.env.EXPECTED_SCOPE_BASE_SHA_RAW);[0m
+2026-11-08T16:19:46.8339321Z [36;1mlet sourceCommit = pick(process.env.EXPECTED_SOURCE_COMMIT_RAW);[0m
+2026-11-08T16:19:46.8339567Z [36;1mconst rawJson = pick(process.env.IMMUTABLE_HANDOFF_JSON);[0m
+2026-11-08T16:19:46.8339760Z [36;1mif (rawJson) {[0m
+2026-11-08T16:19:46.8339881Z [36;1m  try {[0m
+2026-11-08T16:19:46.8340013Z [36;1m    const parsed = JSON.parse(rawJson);[0m
+2026-11-08T16:19:46.8340241Z [36;1m    if (parsed.plan_id != null) planId = pick(parsed.plan_id);[0m
+2026-11-08T16:19:46.8340487Z [36;1m    if (parsed.plan_scope != null) planScope = pick(parsed.plan_scope);[0m
+2026-11-08T16:19:46.8340764Z [36;1m    if (parsed.scope_base_sha != null) scopeBaseSha = pick(parsed.scope_base_sha);[0m
+2026-11-08T16:19:46.8341063Z [36;1m    if (parsed.source_commit != null) sourceCommit = pick(parsed.source_commit);[0m
+2026-11-08T16:19:46.8341281Z [36;1m  } catch (error) {[0m
+2026-11-08T16:19:46.8341492Z [36;1m    throw new Error(`immutable_handoff_json is not valid JSON: ${error.message}`);[0m
+2026-11-08T16:19:46.8341707Z [36;1m  }[0m
+2026-11-08T16:19:46.8341955Z [36;1m}[0m
+2026-11-08T16:19:46.8342151Z [36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_plan_id=${planId}\n`);[0m
+2026-11-08T16:19:46.8342468Z [36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_plan_scope=${planScope}\n`);[0m
+2026-11-08T16:19:46.8342797Z [36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_scope_base_sha=${scopeBaseSha}\n`);[0m
+2026-11-08T16:19:46.8343137Z [36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_source_commit=${sourceCommit}\n`);[0m
+2026-11-08T16:19:46.8343368Z [36;1mNODE[0m
+2026-11-08T16:19:46.8376954Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:19:46.8377091Z env:
+2026-11-08T16:19:46.8377248Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8377477Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:46.8377704Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8377911Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8378119Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8378328Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:46.8378688Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:19:46.8380258Z   GITHUB_TOKEN: ***
+2026-11-08T16:19:46.8381520Z   GH_TOKEN: ***
+2026-11-08T16:19:46.8381688Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:19:46.8382130Z   OWNER_PR_PAT: ***
+2026-11-08T16:19:46.8382522Z   IMMUTABLE_HANDOFF_JSON: {"plan_id":"sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4","plan_scope":"full","scope_base_sha":"","source_commit":"bbfc6ae604c8e8c4021138c5efe964a368482957"}
+2026-11-08T16:19:46.8382942Z   EXPECTED_PLAN_ID_RAW: 
+2026-11-08T16:19:46.8383077Z   EXPECTED_PLAN_SCOPE_RAW: 
+2026-11-08T16:19:46.8383225Z   EXPECTED_SCOPE_BASE_SHA_RAW: 
+2026-11-08T16:19:46.8383365Z   EXPECTED_SOURCE_COMMIT_RAW: 
+2026-11-08T16:19:46.8383502Z ##[endgroup]
+2026-11-08T16:19:46.8661304Z ##[group]Run node <<'NODE'
+2026-11-08T16:19:46.8661472Z [36;1mnode <<'NODE'[0m
+2026-11-08T16:19:46.8661606Z [36;1mconst fs = require('fs');[0m
+2026-11-08T16:19:46.8661919Z [36;1mconst prefix = 'sync/workflows-';[0m
+2026-11-08T16:19:46.8662087Z [36;1mconst raw = [[0m
+2026-11-08T16:19:46.8662234Z [36;1m  process.env.INPUT_ACTIVE_SYNC_HASH,[0m
+2026-11-08T16:19:46.8662401Z [36;1m  process.env.INPUT_SYNC_HASH,[0m
+2026-11-08T16:19:46.8662567Z [36;1m  process.env.DISPATCH_ACTIVE_SYNC_HASH,[0m
+2026-11-08T16:19:46.8662740Z [36;1m  process.env.DISPATCH_SYNC_HASH,[0m
+2026-11-08T16:19:46.8662936Z [36;1m].map((value) => String(value || '').trim()).find(Boolean) || '';[0m
+2026-11-08T16:19:46.8663202Z [36;1mconst selector = raw.startsWith(prefix) ? raw.slice(prefix.length) : raw;[0m
+2026-11-08T16:19:46.8663500Z [36;1mconst namedSelectors = new Set(['candidate', 'campaign', 'delivery', 'dev-tool']);[0m
+2026-11-08T16:19:46.8663791Z [36;1mconst legacyHash = /^[0-9a-f]{12,64}$/i.test(selector);[0m
+2026-11-08T16:19:46.8664019Z [36;1mif (selector && !namedSelectors.has(selector) && !legacyHash) {[0m
+2026-11-08T16:19:46.8664218Z [36;1m  throw new Error([0m
+2026-11-08T16:19:46.8664427Z [36;1m    'active sync selector must be candidate, campaign, delivery, dev-tool, ' +[0m
+2026-11-08T16:19:46.8664650Z [36;1m    'or a legacy hex hash',[0m
+2026-11-08T16:19:46.8664791Z [36;1m  );[0m
+2026-11-08T16:19:46.8664900Z [36;1m}[0m
+2026-11-08T16:19:46.8665081Z [36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `selector=${selector}\n`);[0m
+2026-11-08T16:19:46.8665397Z [36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${selector === 'candidate'}\n`);[0m
+2026-11-08T16:19:46.8665732Z [36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `campaign=${selector === 'campaign'}\n`);[0m
+2026-11-08T16:19:46.8665964Z [36;1mNODE[0m
+2026-11-08T16:19:46.8699587Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:19:46.8699726Z env:
+2026-11-08T16:19:46.8699874Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8700105Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:46.8700341Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8700548Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8700752Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8700958Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:46.8701205Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:19:46.8702970Z   GITHUB_TOKEN: ***
+2026-11-08T16:19:46.8704276Z   GH_TOKEN: ***
+2026-11-08T16:19:46.8704443Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:19:46.8704711Z   OWNER_PR_PAT: ***
+2026-11-08T16:19:46.8704836Z   INPUT_ACTIVE_SYNC_HASH: candidate
+2026-11-08T16:19:46.8704983Z   INPUT_SYNC_HASH: 
+2026-11-08T16:19:46.8705104Z   DISPATCH_ACTIVE_SYNC_HASH: 
+2026-11-08T16:19:46.8705239Z   DISPATCH_SYNC_HASH: 
+2026-11-08T16:19:46.8705374Z ##[endgroup]
+2026-11-08T16:19:46.8987663Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+2026-11-08T16:19:46.8987996Z with:
+2026-11-08T16:19:46.8988354Z   github-token: ***
+2026-11-08T16:19:46.8988600Z   script: const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
+await run({ github, context, core });
+
+2026-11-08T16:19:46.8988869Z   debug: false
+2026-11-08T16:19:46.8988992Z   user-agent: actions/github-script
+2026-11-08T16:19:46.8989144Z   result-encoding: json
+2026-11-08T16:19:46.8989268Z   retries: 0
+2026-11-08T16:19:46.8989401Z   retry-exempt-status-codes: 400,401,403,404,422
+2026-11-08T16:19:46.8989562Z env:
+2026-11-08T16:19:46.8989706Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8989936Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:19:46.8990164Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8990374Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8990604Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:19:46.8990812Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:19:46.8991056Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:19:46.8992628Z   GITHUB_TOKEN: ***
+2026-11-08T16:19:46.8994000Z   GH_TOKEN: ***
+2026-11-08T16:19:46.8994164Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:19:46.8994423Z   OWNER_PR_PAT: ***
+2026-11-08T16:19:46.8994542Z   REPOS_INPUT: all
+2026-11-08T16:19:46.8994667Z   AUTO_MERGE_INPUT: false
+2026-11-08T16:19:46.8994798Z   DRY_RUN_INPUT: true
+2026-11-08T16:19:46.8994927Z   ACTIVE_SYNC_HASH_INPUT: candidate
+2026-11-08T16:19:46.8995169Z   EXPECTED_PLAN_ID_INPUT: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:19:46.8995425Z   EXPECTED_PLAN_SCOPE_INPUT: full
+2026-11-08T16:19:46.8995571Z   EXPECTED_SCOPE_BASE_SHA_INPUT: 
+2026-11-08T16:19:46.8995769Z   EXPECTED_SOURCE_COMMIT_INPUT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:19:46.8996094Z   CANARY_BASELINE_EVIDENCE_JSON: {"schema":"workflows.consumer-sync-canary-evidence/v1","version":1,"results":[]}
+2026-11-08T16:19:46.8996374Z   CLEANUP_BRANCHES_INPUT: false
+2026-11-08T16:19:46.8996516Z   EVIDENCE_ONLY_INPUT: true
+2026-11-08T16:19:46.8996690Z   CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
+2026-11-08T16:19:46.8996934Z   CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
+2026-11-08T16:19:46.8997209Z   TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+2026-11-08T16:19:46.8997474Z   TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
+2026-11-08T16:19:46.8997675Z   REVIEW_RESOLUTION_JSON: 
+2026-11-08T16:19:46.8997823Z   EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+2026-11-08T16:19:46.8998019Z   MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin
+2026-11-08T16:19:46.8998243Z   SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-premerge-report.json
+2026-11-08T16:19:46.8999153Z   REGISTERED_REPOS_INPUT: stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic
+2026-11-08T16:19:46.8999999Z ##[endgroup]
+2026-11-08T16:19:46.9857581Z Token registry initialized with 3 tokens
+2026-11-08T16:19:47.7730518Z Selected token: SERVICE_BOT_PAT (5000 remaining, 100.0% capacity)
+2026-11-08T16:19:47.7737411Z Registered consumer repos: stranske/Travel-Plan-Permission, stranske/Template, stranske/Counter_Risk, stranske/Pension-Data, stranske/Inv-Man-Intake, stranske/Ready, stranske/trip-planner, stranske/Manager-Database, stranske/Portable-Alpha-Extension-Model, stranske/Trend_Model_Project, stranske/learning-management-system, stranske/Fine-Art-Archive, stranske/Orchestrator, stranske/Doc-Lineage, stranske/Deliverable-Render, stranske/Manager-Mosaic
+2026-11-08T16:19:47.7739057Z Processing repos: stranske/Travel-Plan-Permission, stranske/trip-planner, stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:19:47.7739516Z Auto-merge: false, Dry run: true
+2026-11-08T16:19:47.7739730Z Evidence only: true
+2026-11-08T16:19:47.7739912Z Prepare only: false
+2026-11-08T16:19:47.7740098Z Resolution only: false
+2026-11-08T16:19:47.7740308Z Candidate evidence authorized: false
+2026-11-08T16:19:47.7740564Z Reviewer policy: minimum=1, quiet=7m, max=15m
+2026-11-08T16:19:47.7740819Z Cleanup stale sync branches: false
+2026-11-08T16:19:47.7741058Z Cleanup merged/stale PR branches: false
+2026-11-08T16:19:47.7741213Z 
+2026-11-08T16:19:47.7741303Z Target sync hash: candidate
+2026-11-08T16:19:47.7741898Z Expected plan identity: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4 @ bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:19:47.7742337Z 
+2026-11-08T16:19:47.7742430Z === stranske/Travel-Plan-Permission ===
+2026-11-08T16:19:49.3354121Z 
+2026-11-08T16:19:49.3354602Z Processing active PR #1734: chore: sync workflow templates
+2026-11-08T16:19:49.3354853Z Branch: sync/workflows-candidate
+2026-11-08T16:19:49.3355007Z Created: 2026-11-08T16:18:50Z
+2026-11-08T16:19:51.1018415Z GET /repos/stranske/Travel-Plan-Permission/branches/main/protection - 404 with id 2008:207FBA:11665E2:39592DC:6AF0A126 in 190ms
+2026-11-08T16:19:51.1019808Z Branch protection unavailable for stranske/Travel-Plan-Permission@main (404); checking active repository and organization rulesets
+2026-11-08T16:19:51.4707217Z Ruleset required checks: Gate / gate
+2026-11-08T16:19:51.6026666Z GET /repos/stranske/Travel-Plan-Permission/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 2008:207FBA:1166887:3959BDE:6AF0A127 in 132ms
+2026-11-08T16:19:51.6041016Z stranske/Travel-Plan-Permission@cb2532b17eb2: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+2026-11-08T16:19:51.7866829Z Checks (rulesets): 1 gating, 1 failed, 0 pending
+2026-11-08T16:19:53.3062960Z 
+2026-11-08T16:19:53.3063447Z === stranske/trip-planner ===
+2026-11-08T16:19:54.6758549Z 
+2026-11-08T16:19:54.6758936Z Processing active PR #2014: chore: sync workflow templates
+2026-11-08T16:19:54.6759179Z Branch: sync/workflows-candidate
+2026-11-08T16:19:54.6759333Z Created: 2026-11-08T16:18:39Z
+2026-11-08T16:19:56.6835114Z GET /repos/stranske/trip-planner/branches/main/protection - 404 with id 2008:207FBA:11681E1:395EF41:6AF0A12C in 198ms
+2026-11-08T16:19:56.6835608Z Branch protection unavailable for stranske/trip-planner@main (404); checking active repository and organization rulesets
+2026-11-08T16:19:57.0383269Z Ruleset required checks: Gate / gate
+2026-11-08T16:19:57.2445544Z GET /repos/stranske/trip-planner/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 2008:207FBA:1168496:395F807:6AF0A12D in 206ms
+2026-11-08T16:19:57.2452075Z stranske/trip-planner@d28328ad24c0: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+2026-11-08T16:19:57.4243459Z Checks (rulesets): 1 gating, 1 failed, 0 pending
+2026-11-08T16:19:58.9844993Z 
+2026-11-08T16:19:58.9845279Z === stranske/Portable-Alpha-Extension-Model ===
+2026-11-08T16:20:00.3286268Z 
+2026-11-08T16:20:00.3286750Z Processing active PR #2486: chore: sync workflow templates
+2026-11-08T16:20:00.3287010Z Branch: sync/workflows-candidate
+2026-11-08T16:20:00.3287165Z Created: 2026-11-08T13:36:19Z
+2026-11-08T16:20:01.5074152Z GET /repos/stranske/Portable-Alpha-Extension-Model/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 2008:207FBA:1169A0D:3963FC2:6AF0A131 in 149ms
+2026-11-08T16:20:01.5076520Z stranske/Portable-Alpha-Extension-Model@a7f1b40ebd8f: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+2026-11-08T16:20:01.7655379Z Checks (branch-protection): 2 gating, 2 failed, 0 pending
+2026-11-08T16:20:03.3337841Z seal: stranske/Travel-Plan-Permission#1734 pending(dry-run)
+2026-11-08T16:20:03.3345472Z seal: stranske/trip-planner#2014 pending(dry-run)
+2026-11-08T16:20:03.3346840Z seal: stranske/Portable-Alpha-Extension-Model#2486 pending(dry-run)
+2026-11-08T16:20:03.3348164Z canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=3
+2026-11-08T16:20:03.3349008Z 
+2026-11-08T16:20:03.3349178Z === Summary ===
+2026-11-08T16:20:03.3349981Z [
+2026-11-08T16:20:03.3350163Z   {
+2026-11-08T16:20:03.3350339Z     "owner": "stranske",
+2026-11-08T16:20:03.3350570Z     "repo": "Travel-Plan-Permission",
+2026-11-08T16:20:03.3350811Z     "pr": 1734,
+2026-11-08T16:20:03.3351011Z     "branch": "sync/workflows-candidate",
+2026-11-08T16:20:03.3351300Z     "head_sha": "cb2532b17eb2f1949384645e4258c865c7b810bb",
+2026-11-08T16:20:03.3351583Z     "delivery_generation": "a478e45c16b6",
+2026-11-08T16:20:03.3352069Z     "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:03.3352451Z     "plan_scope": "full",
+2026-11-08T16:20:03.3352655Z     "scope_base_sha": "",
+2026-11-08T16:20:03.3352914Z     "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:03.3353445Z     "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+2026-11-08T16:20:03.3353935Z     "campaign_no_change_evidence_json": "",
+2026-11-08T16:20:03.3354187Z     "delivery_lane": "sync",
+2026-11-08T16:20:03.3354400Z     "continuation_lane": "",
+2026-11-08T16:20:03.3354625Z     "delivery_disposition": "awaiting-sealed-gate",
+2026-11-08T16:20:03.3354803Z     "blocker_owner": "ci",
+2026-11-08T16:20:03.3354985Z     "next_command": "rerun-after-generated-delivery-seal-gate",
+2026-11-08T16:20:03.3355185Z     "review_finding_disposition": {
+2026-11-08T16:20:03.3355346Z       "schema": "sync-finding-evaluation/v1",
+2026-11-08T16:20:03.3355507Z       "binding": {
+2026-11-08T16:20:03.3355662Z         "repository": "stranske/Travel-Plan-Permission",
+2026-11-08T16:20:03.3355833Z         "pr": 1734,
+2026-11-08T16:20:03.3355985Z         "head_sha": "cb2532b17eb2f1949384645e4258c865c7b810bb",
+2026-11-08T16:20:03.3356203Z         "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:03.3356481Z         "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:03.3356727Z         "delivery_generation": "a478e45c16b6"
+2026-11-08T16:20:03.3356876Z       },
+2026-11-08T16:20:03.3356985Z       "raw_active_count": 0,
+2026-11-08T16:20:03.3357125Z       "blocked": false,
+2026-11-08T16:20:03.3357252Z       "errors": [],
+2026-11-08T16:20:03.3357373Z       "findings": [],
+2026-11-08T16:20:03.3357495Z       "aggregates": {
+2026-11-08T16:20:03.3357616Z         "blocking": 0,
+2026-11-08T16:20:03.3357743Z         "nonblocking": 0,
+2026-11-08T16:20:03.3357870Z         "unknown": 0,
+2026-11-08T16:20:03.3358024Z         "by_disposition": {
+2026-11-08T16:20:03.3358159Z           "shared-source": 0,
+2026-11-08T16:20:03.3358303Z           "sync-caused": 0,
+2026-11-08T16:20:03.3358436Z           "unrelated": 0,
+2026-11-08T16:20:03.3358571Z           "unknown": 0
+2026-11-08T16:20:03.3358690Z         }
+2026-11-08T16:20:03.3358795Z       },
+2026-11-08T16:20:03.3358910Z       "disposition_thread_ids": {
+2026-11-08T16:20:03.3359055Z         "shared-source": [],
+2026-11-08T16:20:03.3359196Z         "sync-caused": [],
+2026-11-08T16:20:03.3359325Z         "unrelated": [],
+2026-11-08T16:20:03.3359450Z         "unknown": []
+2026-11-08T16:20:03.3359564Z       },
+2026-11-08T16:20:03.3359678Z       "blocking_thread_ids": [],
+2026-11-08T16:20:03.3359828Z       "nonblocking_thread_ids": [],
+2026-11-08T16:20:03.3359976Z       "unknown_thread_ids": [],
+2026-11-08T16:20:03.3360118Z       "unrelated_handoffs": []
+2026-11-08T16:20:03.3370871Z     },
+2026-11-08T16:20:03.3371006Z     "review_state": "clear",
+2026-11-08T16:20:03.3371155Z     "review_resolution_thread_ids": [],
+2026-11-08T16:20:03.3371482Z     "review_resolution_would_resolve_thread_ids": [],
+2026-11-08T16:20:03.3371661Z     "review_resolution_errors": [],
+2026-11-08T16:20:03.3371981Z     "consumer_declared_contexts": {
+2026-11-08T16:20:03.3372230Z       "state": "none",
+2026-11-08T16:20:03.3372357Z       "passed": [],
+2026-11-08T16:20:03.3372477Z       "failed": [],
+2026-11-08T16:20:03.3372597Z       "pending": [],
+2026-11-08T16:20:03.3372728Z       "never_started": [],
+2026-11-08T16:20:03.3372867Z       "also_required": []
+2026-11-08T16:20:03.3372994Z     },
+2026-11-08T16:20:03.3373109Z     "conversation_resolution": {
+2026-11-08T16:20:03.3373250Z       "ok": true,
+2026-11-08T16:20:03.3373374Z       "unresolved_count": 0,
+2026-11-08T16:20:03.3373517Z       "unresolved_outdated_count": 0,
+2026-11-08T16:20:03.3373667Z       "unresolved_thread_ids": []
+2026-11-08T16:20:03.3373800Z     },
+2026-11-08T16:20:03.3373912Z     "seal_pending": true,
+2026-11-08T16:20:03.3374050Z     "check_status": "seal_pending",
+2026-11-08T16:20:03.3374204Z     "raw_check_status": "checks_failed",
+2026-11-08T16:20:03.3374365Z     "status": "dry_run_seal",
+2026-11-08T16:20:03.3374511Z     "review_mode": "integration-only"
+2026-11-08T16:20:03.3374665Z   },
+2026-11-08T16:20:03.3374765Z   {
+2026-11-08T16:20:03.3374874Z     "owner": "stranske",
+2026-11-08T16:20:03.3375006Z     "repo": "trip-planner",
+2026-11-08T16:20:03.3375136Z     "pr": 2014,
+2026-11-08T16:20:03.3375269Z     "branch": "sync/workflows-candidate",
+2026-11-08T16:20:03.3375447Z     "head_sha": "d28328ad24c067105331778111b5b5947009a202",
+2026-11-08T16:20:03.3375631Z     "delivery_generation": "a478e45c16b6",
+2026-11-08T16:20:03.3375868Z     "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:03.3376106Z     "plan_scope": "full",
+2026-11-08T16:20:03.3376237Z     "scope_base_sha": "",
+2026-11-08T16:20:03.3376408Z     "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:03.3376748Z     "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+2026-11-08T16:20:03.3377063Z     "campaign_no_change_evidence_json": "",
+2026-11-08T16:20:03.3377225Z     "delivery_lane": "sync",
+2026-11-08T16:20:03.3377366Z     "continuation_lane": "",
+2026-11-08T16:20:03.3377526Z     "delivery_disposition": "awaiting-sealed-gate",
+2026-11-08T16:20:03.3377701Z     "blocker_owner": "ci",
+2026-11-08T16:20:03.3377883Z     "next_command": "rerun-after-generated-delivery-seal-gate",
+2026-11-08T16:20:03.3378085Z     "review_finding_disposition": {
+2026-11-08T16:20:03.3378251Z       "schema": "sync-finding-evaluation/v1",
+2026-11-08T16:20:03.3378410Z       "binding": {
+2026-11-08T16:20:03.3378546Z         "repository": "stranske/trip-planner",
+2026-11-08T16:20:03.3378703Z         "pr": 2014,
+2026-11-08T16:20:03.3378851Z         "head_sha": "d28328ad24c067105331778111b5b5947009a202",
+2026-11-08T16:20:03.3379066Z         "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:03.3379348Z         "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:03.3379594Z         "delivery_generation": "a478e45c16b6"
+2026-11-08T16:20:03.3379745Z       },
+2026-11-08T16:20:03.3379857Z       "raw_active_count": 0,
+2026-11-08T16:20:03.3379999Z       "blocked": false,
+2026-11-08T16:20:03.3380126Z       "errors": [],
+2026-11-08T16:20:03.3380245Z       "findings": [],
+2026-11-08T16:20:03.3380369Z       "aggregates": {
+2026-11-08T16:20:03.3380488Z         "blocking": 0,
+2026-11-08T16:20:03.3380617Z         "nonblocking": 0,
+2026-11-08T16:20:03.3380747Z         "unknown": 0,
+2026-11-08T16:20:03.3380872Z         "by_disposition": {
+2026-11-08T16:20:03.3381010Z           "shared-source": 0,
+2026-11-08T16:20:03.3381147Z           "sync-caused": 0,
+2026-11-08T16:20:03.3381284Z           "unrelated": 0,
+2026-11-08T16:20:03.3381411Z           "unknown": 0
+2026-11-08T16:20:03.3381528Z         }
+2026-11-08T16:20:03.3381632Z       },
+2026-11-08T16:20:03.3381750Z       "disposition_thread_ids": {
+2026-11-08T16:20:03.3382159Z         "shared-source": [],
+2026-11-08T16:20:03.3382297Z         "sync-caused": [],
+2026-11-08T16:20:03.3382511Z         "unrelated": [],
+2026-11-08T16:20:03.3382636Z         "unknown": []
+2026-11-08T16:20:03.3382756Z       },
+2026-11-08T16:20:03.3382868Z       "blocking_thread_ids": [],
+2026-11-08T16:20:03.3383012Z       "nonblocking_thread_ids": [],
+2026-11-08T16:20:03.3383159Z       "unknown_thread_ids": [],
+2026-11-08T16:20:03.3383301Z       "unrelated_handoffs": []
+2026-11-08T16:20:03.3383436Z     },
+2026-11-08T16:20:03.3383545Z     "review_state": "clear",
+2026-11-08T16:20:03.3383685Z     "review_resolution_thread_ids": [],
+2026-11-08T16:20:03.3383862Z     "review_resolution_would_resolve_thread_ids": [],
+2026-11-08T16:20:03.3384040Z     "review_resolution_errors": [],
+2026-11-08T16:20:03.3384187Z     "consumer_declared_contexts": {
+2026-11-08T16:20:03.3384327Z       "state": "none",
+2026-11-08T16:20:03.3384447Z       "passed": [],
+2026-11-08T16:20:03.3384562Z       "failed": [],
+2026-11-08T16:20:03.3384689Z       "pending": [],
+2026-11-08T16:20:03.3384817Z       "never_started": [],
+2026-11-08T16:20:03.3384958Z       "also_required": []
+2026-11-08T16:20:03.3385082Z     },
+2026-11-08T16:20:03.3385205Z     "conversation_resolution": {
+2026-11-08T16:20:03.3385344Z       "ok": true,
+2026-11-08T16:20:03.3385466Z       "unresolved_count": 0,
+2026-11-08T16:20:03.3385609Z       "unresolved_outdated_count": 0,
+2026-11-08T16:20:03.3385782Z       "unresolved_thread_ids": []
+2026-11-08T16:20:03.3385914Z     },
+2026-11-08T16:20:03.3386021Z     "seal_pending": true,
+2026-11-08T16:20:03.3386160Z     "check_status": "seal_pending",
+2026-11-08T16:20:03.3386312Z     "raw_check_status": "checks_failed",
+2026-11-08T16:20:03.3386459Z     "status": "dry_run_seal",
+2026-11-08T16:20:03.3386606Z     "review_mode": "integration-only"
+2026-11-08T16:20:03.3386748Z   },
+2026-11-08T16:20:03.3386850Z   {
+2026-11-08T16:20:03.3386958Z     "owner": "stranske",
+2026-11-08T16:20:03.3387111Z     "repo": "Portable-Alpha-Extension-Model",
+2026-11-08T16:20:03.3387274Z     "pr": 2486,
+2026-11-08T16:20:03.3387404Z     "branch": "sync/workflows-candidate",
+2026-11-08T16:20:03.3387591Z     "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+2026-11-08T16:20:03.3387780Z     "delivery_generation": "a478e45c16b6",
+2026-11-08T16:20:03.3388012Z     "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:03.3388241Z     "plan_scope": "full",
+2026-11-08T16:20:03.3388371Z     "scope_base_sha": "",
+2026-11-08T16:20:03.3388542Z     "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:03.3388872Z     "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+2026-11-08T16:20:03.3389175Z     "campaign_no_change_evidence_json": "",
+2026-11-08T16:20:03.3389332Z     "delivery_lane": "sync",
+2026-11-08T16:20:03.3389475Z     "continuation_lane": "",
+2026-11-08T16:20:03.3389637Z     "delivery_disposition": "awaiting-sealed-gate",
+2026-11-08T16:20:03.3389807Z     "blocker_owner": "ci",
+2026-11-08T16:20:03.3389982Z     "next_command": "rerun-after-generated-delivery-seal-gate",
+2026-11-08T16:20:03.3390186Z     "review_finding_disposition": {
+2026-11-08T16:20:03.3390348Z       "schema": "sync-finding-evaluation/v1",
+2026-11-08T16:20:03.3390505Z       "binding": {
+2026-11-08T16:20:03.3390670Z         "repository": "stranske/Portable-Alpha-Extension-Model",
+2026-11-08T16:20:03.3390851Z         "pr": 2486,
+2026-11-08T16:20:03.3391008Z         "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+2026-11-08T16:20:03.3391222Z         "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:03.3391495Z         "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:03.3391738Z         "delivery_generation": "a478e45c16b6"
+2026-11-08T16:20:03.3392016Z       },
+2026-11-08T16:20:03.3392129Z       "raw_active_count": 0,
+2026-11-08T16:20:03.3392359Z       "blocked": false,
+2026-11-08T16:20:03.3392487Z       "errors": [],
+2026-11-08T16:20:03.3392609Z       "findings": [],
+2026-11-08T16:20:03.3392803Z       "aggregates": {
+2026-11-08T16:20:03.3392926Z         "blocking": 0,
+2026-11-08T16:20:03.3393052Z         "nonblocking": 0,
+2026-11-08T16:20:03.3393179Z         "unknown": 0,
+2026-11-08T16:20:03.3393310Z         "by_disposition": {
+2026-11-08T16:20:03.3393448Z           "shared-source": 0,
+2026-11-08T16:20:03.3393585Z           "sync-caused": 0,
+2026-11-08T16:20:03.3393716Z           "unrelated": 0,
+2026-11-08T16:20:03.3393841Z           "unknown": 0
+2026-11-08T16:20:03.3393963Z         }
+2026-11-08T16:20:03.3394067Z       },
+2026-11-08T16:20:03.3394181Z       "disposition_thread_ids": {
+2026-11-08T16:20:03.3394328Z         "shared-source": [],
+2026-11-08T16:20:03.3394464Z         "sync-caused": [],
+2026-11-08T16:20:03.3394592Z         "unrelated": [],
+2026-11-08T16:20:03.3394713Z         "unknown": []
+2026-11-08T16:20:03.3394831Z       },
+2026-11-08T16:20:03.3394945Z       "blocking_thread_ids": [],
+2026-11-08T16:20:03.3395088Z       "nonblocking_thread_ids": [],
+2026-11-08T16:20:03.3395238Z       "unknown_thread_ids": [],
+2026-11-08T16:20:03.3395378Z       "unrelated_handoffs": []
+2026-11-08T16:20:03.3395512Z     },
+2026-11-08T16:20:03.3395617Z     "review_state": "clear",
+2026-11-08T16:20:03.3395757Z     "review_resolution_thread_ids": [],
+2026-11-08T16:20:03.3395928Z     "review_resolution_would_resolve_thread_ids": [],
+2026-11-08T16:20:03.3396102Z     "review_resolution_errors": [],
+2026-11-08T16:20:03.3396249Z     "consumer_declared_contexts": {
+2026-11-08T16:20:03.3396388Z       "state": "none",
+2026-11-08T16:20:03.3396512Z       "passed": [],
+2026-11-08T16:20:03.3396631Z       "failed": [],
+2026-11-08T16:20:03.3396751Z       "pending": [],
+2026-11-08T16:20:03.3396875Z       "never_started": [],
+2026-11-08T16:20:03.3397006Z       "also_required": []
+2026-11-08T16:20:03.3397130Z     },
+2026-11-08T16:20:03.3397243Z     "conversation_resolution": {
+2026-11-08T16:20:03.3397389Z       "ok": true,
+2026-11-08T16:20:03.3397507Z       "unresolved_count": 0,
+2026-11-08T16:20:03.3397648Z       "unresolved_outdated_count": 0,
+2026-11-08T16:20:03.3397801Z       "unresolved_thread_ids": []
+2026-11-08T16:20:03.3397935Z     },
+2026-11-08T16:20:03.3398045Z     "seal_pending": true,
+2026-11-08T16:20:03.3398178Z     "check_status": "seal_pending",
+2026-11-08T16:20:03.3398329Z     "raw_check_status": "checks_failed",
+2026-11-08T16:20:03.3398480Z     "status": "dry_run_seal",
+2026-11-08T16:20:03.3398629Z     "review_mode": "integration-only"
+2026-11-08T16:20:03.3398768Z   }
+2026-11-08T16:20:03.3398869Z ]
+2026-11-08T16:20:03.3420483Z ##[notice]Canary evidence is incomplete or unsafe: missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope
+2026-11-08T16:20:03.3426053Z 
+2026-11-08T16:20:03.3426141Z Merged: 0
+2026-11-08T16:20:03.3426273Z Stale closed: 0
+2026-11-08T16:20:03.3426431Z Leftover branches deleted: 0
+2026-11-08T16:20:03.3426595Z Failed: 0
+2026-11-08T16:20:03.3426708Z Pending: 0
+2026-11-08T16:20:03.3426850Z Ready (not auto-merged): 0
+2026-11-08T16:20:03.3558874Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+2026-11-08T16:20:03.3559099Z with:
+2026-11-08T16:20:03.3559218Z   retention-days: 30
+2026-11-08T16:20:03.3559360Z   name: sync-canary-evidence-premerge
+2026-11-08T16:20:03.3559616Z   path: artifacts/sync-pr-premerge-report.json
+artifacts/sync-canary-evidence.json
+
+2026-11-08T16:20:03.3559858Z   if-no-files-found: error
+2026-11-08T16:20:03.3559996Z   compression-level: 6
+2026-11-08T16:20:03.3560119Z   overwrite: false
+2026-11-08T16:20:03.3560246Z   include-hidden-files: false
+2026-11-08T16:20:03.3560385Z   archive: true
+2026-11-08T16:20:03.3560500Z env:
+2026-11-08T16:20:03.3560651Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:03.3560886Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:20:03.3561122Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:03.3561448Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:03.3561658Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:03.3562079Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:20:03.3562326Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:20:03.3563856Z   GITHUB_TOKEN: ***
+2026-11-08T16:20:03.3565146Z   GH_TOKEN: ***
+2026-11-08T16:20:03.3565333Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:20:03.3565608Z   OWNER_PR_PAT: ***
+2026-11-08T16:20:03.3565728Z ##[endgroup]
+2026-11-08T16:20:03.4437725Z Multiple search paths detected. Calculating the least common ancestor of all paths
+2026-11-08T16:20:03.4438989Z The least common ancestor is /home/runner/work/Workflows/Workflows/artifacts. This will be the root directory of the artifact
+2026-11-08T16:20:03.4439567Z With the provided path, there will be 2 files uploaded
+2026-11-08T16:20:03.4442118Z Artifact name is valid!
+2026-11-08T16:20:03.4442363Z Root directory input is valid!
+2026-11-08T16:20:03.8042079Z Uploading artifact: sync-canary-evidence-premerge.zip
+2026-11-08T16:20:03.8097855Z Beginning upload of artifact content to blob storage
+2026-11-08T16:20:04.0553701Z Uploaded bytes 2746
+2026-11-08T16:20:04.1165460Z Finished uploading artifact content to blob storage!
+2026-11-08T16:20:04.1166148Z SHA256 digest of uploaded artifact is 85c76e5abcd223e06c1bccdf0ae9809173863b73b60d2df4e9c52a9cbdb03835
+2026-11-08T16:20:04.1166537Z Finalizing artifact upload
+2026-11-08T16:20:04.6579048Z Artifact sync-canary-evidence-premerge successfully finalized. Artifact ID 13625215414
+2026-11-08T16:20:04.6579493Z Artifact sync-canary-evidence-premerge has been successfully uploaded! Final size is 2746 bytes. Artifact ID is 13625215414
+2026-11-08T16:20:04.6582292Z Artifact download URL: https://github.com/stranske/Workflows/actions/runs/42499282783/artifacts/13625215414
+2026-11-08T16:20:04.6691709Z ##[group]Run node <<'NODE'
+2026-11-08T16:20:04.6692148Z [36;1mnode <<'NODE'[0m
+2026-11-08T16:20:04.6692286Z [36;1mconst fs = require('fs');[0m
+2026-11-08T16:20:04.6692432Z [36;1mconst {[0m
+2026-11-08T16:20:04.6692565Z [36;1m  validateCanaryEvidence,[0m
+2026-11-08T16:20:04.6692759Z [36;1m} = require('./.github/scripts/sync_pr_merge_contract.js');[0m
+2026-11-08T16:20:04.6692958Z [36;1mconst evidence = JSON.parse([0m
+2026-11-08T16:20:04.6693175Z [36;1m  fs.readFileSync('artifacts/sync-canary-evidence.json', 'utf8'),[0m
+2026-11-08T16:20:04.6693379Z [36;1m);[0m
+2026-11-08T16:20:04.6693508Z [36;1mconst canaryConfig = JSON.parse([0m
+2026-11-08T16:20:04.6693710Z [36;1m  fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),[0m
+2026-11-08T16:20:04.6693907Z [36;1m);[0m
+2026-11-08T16:20:04.6694070Z [36;1mconst expectedCanaries = (canaryConfig.canaries || [])[0m
+2026-11-08T16:20:04.6694293Z [36;1m  .map((entry) => String(entry.repo || '').trim())[0m
+2026-11-08T16:20:04.6694496Z [36;1m  .filter(Boolean);[0m
+2026-11-08T16:20:04.6694697Z [36;1mconst rows = Array.isArray(evidence) ? evidence : evidence.results;[0m
+2026-11-08T16:20:04.6694971Z [36;1mconst validation = validateCanaryEvidence(rows, expectedCanaries);[0m
+2026-11-08T16:20:04.6695263Z [36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `authorized=${validation.ok}\n`);[0m
+2026-11-08T16:20:04.6695500Z [36;1mif (!validation.ok) {[0m
+2026-11-08T16:20:04.6695645Z [36;1m  console.log([0m
+2026-11-08T16:20:04.6695867Z [36;1m    `Pre-merge canary evidence remains incomplete: ${validation.errors.join(', ')}`,[0m
+2026-11-08T16:20:04.6696097Z [36;1m  );[0m
+2026-11-08T16:20:04.6696212Z [36;1m} else {[0m
+2026-11-08T16:20:04.6696413Z [36;1m  console.log(`Validated complete pre-merge evidence for ${validation.plan_id}`);[0m
+2026-11-08T16:20:04.6696638Z [36;1m}[0m
+2026-11-08T16:20:04.6696745Z [36;1mNODE[0m
+2026-11-08T16:20:04.6735444Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:20:04.6735589Z env:
+2026-11-08T16:20:04.6735747Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:04.6736108Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:20:04.6736340Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:04.6736558Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:04.6736770Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:04.6736983Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:20:04.6737233Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:20:04.6738707Z   GITHUB_TOKEN: ***
+2026-11-08T16:20:04.6739998Z   GH_TOKEN: ***
+2026-11-08T16:20:04.6740183Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:20:04.6740455Z   OWNER_PR_PAT: ***
+2026-11-08T16:20:04.6740581Z ##[endgroup]
+2026-11-08T16:20:04.6986649Z Pre-merge canary evidence remains incomplete: missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope
+2026-11-08T16:20:04.7062871Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+2026-11-08T16:20:04.7063190Z with:
+2026-11-08T16:20:04.7063622Z   github-token: ***
+2026-11-08T16:20:04.7064039Z   script: const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
+await run({ github, context, core });
+
+2026-11-08T16:20:04.7076659Z   debug: false
+2026-11-08T16:20:04.7076859Z   user-agent: actions/github-script
+2026-11-08T16:20:04.7077097Z   result-encoding: json
+2026-11-08T16:20:04.7077297Z   retries: 0
+2026-11-08T16:20:04.7077462Z   retry-exempt-status-codes: 400,401,403,404,422
+2026-11-08T16:20:04.7077634Z env:
+2026-11-08T16:20:04.7077856Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:04.7078188Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:20:04.7078432Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:04.7078658Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:04.7078895Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:04.7079116Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:20:04.7079376Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:20:04.7080818Z   GITHUB_TOKEN: ***
+2026-11-08T16:20:04.7082406Z   GH_TOKEN: ***
+2026-11-08T16:20:04.7082588Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:20:04.7082864Z   OWNER_PR_PAT: ***
+2026-11-08T16:20:04.7082987Z   REPOS_INPUT: all
+2026-11-08T16:20:04.7083115Z   AUTO_MERGE_INPUT: true
+2026-11-08T16:20:04.7083247Z   DRY_RUN_INPUT: false
+2026-11-08T16:20:04.7083382Z   ACTIVE_SYNC_HASH_INPUT: candidate
+2026-11-08T16:20:04.7083636Z   EXPECTED_PLAN_ID_INPUT: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:20:04.7083901Z   EXPECTED_PLAN_SCOPE_INPUT: full
+2026-11-08T16:20:04.7084063Z   EXPECTED_SCOPE_BASE_SHA_INPUT: 
+2026-11-08T16:20:04.7084271Z   EXPECTED_SOURCE_COMMIT_INPUT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:20:04.7084615Z   CANARY_BASELINE_EVIDENCE_JSON: {"schema":"workflows.consumer-sync-canary-evidence/v1","version":1,"results":[]}
+2026-11-08T16:20:04.7084906Z   CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: 
+2026-11-08T16:20:04.7085066Z   CANDIDATE_EVIDENCE_AUTHORIZED: false
+2026-11-08T16:20:04.7085229Z   CANDIDATE_ARTIFACT_RESULT: success
+2026-11-08T16:20:04.7085386Z   PREPARE_ONLY_INPUT: true
+2026-11-08T16:20:04.7085527Z   CLEANUP_BRANCHES_INPUT: true
+2026-11-08T16:20:04.7085720Z   CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
+2026-11-08T16:20:04.7085976Z   CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
+2026-11-08T16:20:04.7086264Z   TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+2026-11-08T16:20:04.7086537Z   TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
+2026-11-08T16:20:04.7086900Z   REVIEW_RESOLUTION_JSON: 
+2026-11-08T16:20:04.7087063Z   EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+2026-11-08T16:20:04.7087261Z   MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin
+2026-11-08T16:20:04.7087494Z   SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
+2026-11-08T16:20:04.7088422Z   REGISTERED_REPOS_INPUT: stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic
+2026-11-08T16:20:04.7089301Z ##[endgroup]
+2026-11-08T16:20:04.7767362Z Token registry initialized with 3 tokens
+2026-11-08T16:20:05.4607540Z Selected token: SERVICE_BOT_PAT (5000 remaining, 100.0% capacity)
+2026-11-08T16:20:05.4614086Z Registered consumer repos: stranske/Travel-Plan-Permission, stranske/Template, stranske/Counter_Risk, stranske/Pension-Data, stranske/Inv-Man-Intake, stranske/Ready, stranske/trip-planner, stranske/Manager-Database, stranske/Portable-Alpha-Extension-Model, stranske/Trend_Model_Project, stranske/learning-management-system, stranske/Fine-Art-Archive, stranske/Orchestrator, stranske/Doc-Lineage, stranske/Deliverable-Render, stranske/Manager-Mosaic
+2026-11-08T16:20:05.4615188Z Processing repos: stranske/Travel-Plan-Permission, stranske/trip-planner, stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:20:05.4615484Z Auto-merge: true, Dry run: false
+2026-11-08T16:20:05.4615634Z Evidence only: false
+2026-11-08T16:20:05.4615759Z Prepare only: true
+2026-11-08T16:20:05.4615885Z Resolution only: false
+2026-11-08T16:20:05.4616026Z Candidate evidence authorized: false
+2026-11-08T16:20:05.4616196Z Reviewer policy: minimum=1, quiet=7m, max=15m
+2026-11-08T16:20:05.4616368Z Cleanup stale sync branches: true
+2026-11-08T16:20:05.4616527Z Cleanup merged/stale PR branches: true
+2026-11-08T16:20:05.4616631Z 
+2026-11-08T16:20:05.4616692Z Target sync hash: candidate
+2026-11-08T16:20:05.4617023Z Expected plan identity: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4 @ bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:20:05.4617293Z 
+2026-11-08T16:20:05.4617364Z === stranske/Travel-Plan-Permission ===
+2026-11-08T16:20:07.1978443Z 
+2026-11-08T16:20:07.1979000Z Processing active PR #1734: chore: sync workflow templates
+2026-11-08T16:20:07.1979298Z Branch: sync/workflows-candidate
+2026-11-08T16:20:07.1979472Z Created: 2026-11-08T16:18:50Z
+2026-11-08T16:20:08.9958160Z GET /repos/stranske/Travel-Plan-Permission/branches/main/protection - 404 with id 200B:2DD680:1286EA9:3CC3217:6AF0A138 in 214ms
+2026-11-08T16:20:08.9959644Z Branch protection unavailable for stranske/Travel-Plan-Permission@main (404); checking active repository and organization rulesets
+2026-11-08T16:20:09.3540045Z Ruleset required checks: Gate / gate
+2026-11-08T16:20:09.4853027Z GET /repos/stranske/Travel-Plan-Permission/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 200B:2DD680:1287253:3CC3ED3:6AF0A139 in 131ms
+2026-11-08T16:20:09.4867754Z stranske/Travel-Plan-Permission@cb2532b17eb2: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+2026-11-08T16:20:09.6874276Z Checks (rulesets): 1 gating, 1 failed, 0 pending
+2026-11-08T16:20:13.2967420Z DELETE /repos/stranske/Travel-Plan-Permission/issues/1734/labels/sync%3Adelivery-ready - 404 with id 200B:2DD680:12888D0:3CC8624:6AF0A13C in 403ms
+2026-11-08T16:20:17.7521660Z seal: stranske/Travel-Plan-Permission#1734 gate rerun run=42499248323
+2026-11-08T16:20:17.7522136Z 
+2026-11-08T16:20:17.7522236Z === stranske/trip-planner ===
+2026-11-08T16:20:19.4079454Z 
+2026-11-08T16:20:19.4080004Z Processing active PR #2014: chore: sync workflow templates
+2026-11-08T16:20:19.4080260Z Branch: sync/workflows-candidate
+2026-11-08T16:20:19.4080427Z Created: 2026-11-08T16:18:39Z
+2026-11-08T16:20:21.3491965Z GET /repos/stranske/trip-planner/branches/main/protection - 404 with id 200B:2DD680:128BC1E:3CD2C1B:6AF0A145 in 197ms
+2026-11-08T16:20:21.3492744Z Branch protection unavailable for stranske/trip-planner@main (404); checking active repository and organization rulesets
+2026-11-08T16:20:21.7006522Z Ruleset required checks: Gate / gate
+2026-11-08T16:20:21.8410599Z GET /repos/stranske/trip-planner/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 200B:2DD680:128BFBD:3CD3849:6AF0A145 in 140ms
+2026-11-08T16:20:21.8417113Z stranske/trip-planner@d28328ad24c0: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+2026-11-08T16:20:22.0176978Z Checks (rulesets): 1 gating, 1 failed, 0 pending
+2026-11-08T16:20:25.5469855Z DELETE /repos/stranske/trip-planner/issues/2014/labels/sync%3Adelivery-ready - 404 with id 200B:2DD680:128D4B2:3CD7B00:6AF0A149 in 410ms
+2026-11-08T16:20:29.9572666Z seal: stranske/trip-planner#2014 gate rerun run=42499234261
+2026-11-08T16:20:29.9572912Z 
+2026-11-08T16:20:29.9573002Z === stranske/Portable-Alpha-Extension-Model ===
+2026-11-08T16:20:31.9107090Z 
+2026-11-08T16:20:31.9107781Z Processing active PR #2486: chore: sync workflow templates
+2026-11-08T16:20:31.9108161Z Branch: sync/workflows-candidate
+2026-11-08T16:20:31.9108413Z Created: 2026-11-08T13:36:19Z
+2026-11-08T16:20:33.4162626Z GET /repos/stranske/Portable-Alpha-Extension-Model/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 200B:2DD680:129062E:3CE1D08:6AF0A151 in 138ms
+2026-11-08T16:20:33.4164472Z stranske/Portable-Alpha-Extension-Model@a7f1b40ebd8f: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+2026-11-08T16:20:33.6577697Z Checks (branch-protection): 2 gating, 2 failed, 0 pending
+2026-11-08T16:20:36.9982581Z DELETE /repos/stranske/Portable-Alpha-Extension-Model/issues/2486/labels/sync%3Adelivery-ready - 404 with id 200B:2DD680:1291987:3CE5C0C:6AF0A154 in 354ms
+2026-11-08T16:20:41.1257261Z seal: stranske/Portable-Alpha-Extension-Model#2486 gate rerun run=42499254645
+2026-11-08T16:20:41.1262284Z seal: stranske/Travel-Plan-Permission#1734 sealed
+2026-11-08T16:20:41.1270614Z seal: stranske/trip-planner#2014 sealed
+2026-11-08T16:20:41.1272390Z seal: stranske/Portable-Alpha-Extension-Model#2486 sealed
+2026-11-08T16:20:41.1274217Z canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=3
+2026-11-08T16:20:41.1274920Z 
+2026-11-08T16:20:41.1275006Z === Summary ===
+2026-11-08T16:20:41.1275533Z [
+2026-11-08T16:20:41.1275795Z   {
+2026-11-08T16:20:41.1276005Z     "owner": "stranske",
+2026-11-08T16:20:41.1276217Z     "repo": "Travel-Plan-Permission",
+2026-11-08T16:20:41.1276436Z     "pr": 1734,
+2026-11-08T16:20:41.1276627Z     "branch": "sync/workflows-candidate",
+2026-11-08T16:20:41.1276902Z     "head_sha": "cb2532b17eb2f1949384645e4258c865c7b810bb",
+2026-11-08T16:20:41.1277135Z     "delivery_generation": "a478e45c16b6",
+2026-11-08T16:20:41.1277378Z     "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:41.1277621Z     "plan_scope": "full",
+2026-11-08T16:20:41.1277833Z     "scope_base_sha": "",
+2026-11-08T16:20:41.1278080Z     "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:41.1278582Z     "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+2026-11-08T16:20:41.1279042Z     "campaign_no_change_evidence_json": "",
+2026-11-08T16:20:41.1279292Z     "delivery_lane": "sync",
+2026-11-08T16:20:41.1279513Z     "continuation_lane": "",
+2026-11-08T16:20:41.1279762Z     "delivery_disposition": "awaiting-sealed-gate",
+2026-11-08T16:20:41.1280030Z     "blocker_owner": "ci",
+2026-11-08T16:20:41.1280314Z     "next_command": "rerun-after-generated-delivery-seal-gate",
+2026-11-08T16:20:41.1280617Z     "review_finding_disposition": {
+2026-11-08T16:20:41.1280863Z       "schema": "sync-finding-evaluation/v1",
+2026-11-08T16:20:41.1281113Z       "binding": {
+2026-11-08T16:20:41.1281559Z         "repository": "stranske/Travel-Plan-Permission",
+2026-11-08T16:20:41.1281960Z         "pr": 1734,
+2026-11-08T16:20:41.1282181Z         "head_sha": "cb2532b17eb2f1949384645e4258c865c7b810bb",
+2026-11-08T16:20:41.1282504Z         "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:41.1282921Z         "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:41.1283295Z         "delivery_generation": "a478e45c16b6"
+2026-11-08T16:20:41.1283527Z       },
+2026-11-08T16:20:41.1283704Z       "raw_active_count": 0,
+2026-11-08T16:20:41.1283907Z       "blocked": false,
+2026-11-08T16:20:41.1284105Z       "errors": [],
+2026-11-08T16:20:41.1284286Z       "findings": [],
+2026-11-08T16:20:41.1284474Z       "aggregates": {
+2026-11-08T16:20:41.1284667Z         "blocking": 0,
+2026-11-08T16:20:41.1284830Z         "nonblocking": 0,
+2026-11-08T16:20:41.1284959Z         "unknown": 0,
+2026-11-08T16:20:41.1285087Z         "by_disposition": {
+2026-11-08T16:20:41.1285234Z           "shared-source": 0,
+2026-11-08T16:20:41.1285496Z           "sync-caused": 0,
+2026-11-08T16:20:41.1285634Z           "unrelated": 0,
+2026-11-08T16:20:41.1285764Z           "unknown": 0
+2026-11-08T16:20:41.1285883Z         }
+2026-11-08T16:20:41.1285991Z       },
+2026-11-08T16:20:41.1286109Z       "disposition_thread_ids": {
+2026-11-08T16:20:41.1286257Z         "shared-source": [],
+2026-11-08T16:20:41.1286391Z         "sync-caused": [],
+2026-11-08T16:20:41.1286521Z         "unrelated": [],
+2026-11-08T16:20:41.1286647Z         "unknown": []
+2026-11-08T16:20:41.1286760Z       },
+2026-11-08T16:20:41.1286874Z       "blocking_thread_ids": [],
+2026-11-08T16:20:41.1287021Z       "nonblocking_thread_ids": [],
+2026-11-08T16:20:41.1287169Z       "unknown_thread_ids": [],
+2026-11-08T16:20:41.1287309Z       "unrelated_handoffs": []
+2026-11-08T16:20:41.1287445Z     },
+2026-11-08T16:20:41.1287557Z     "review_state": "clear",
+2026-11-08T16:20:41.1287694Z     "review_resolution_thread_ids": [],
+2026-11-08T16:20:41.1287880Z     "review_resolution_would_resolve_thread_ids": [],
+2026-11-08T16:20:41.1288085Z     "review_resolution_errors": [],
+2026-11-08T16:20:41.1288235Z     "consumer_declared_contexts": {
+2026-11-08T16:20:41.1288374Z       "state": "none",
+2026-11-08T16:20:41.1288496Z       "passed": [],
+2026-11-08T16:20:41.1288610Z       "failed": [],
+2026-11-08T16:20:41.1288730Z       "pending": [],
+2026-11-08T16:20:41.1288853Z       "never_started": [],
+2026-11-08T16:20:41.1288982Z       "also_required": []
+2026-11-08T16:20:41.1289109Z     },
+2026-11-08T16:20:41.1289222Z     "conversation_resolution": {
+2026-11-08T16:20:41.1289361Z       "ok": true,
+2026-11-08T16:20:41.1289481Z       "unresolved_count": 0,
+2026-11-08T16:20:41.1289621Z       "unresolved_outdated_count": 0,
+2026-11-08T16:20:41.1289772Z       "unresolved_thread_ids": []
+2026-11-08T16:20:41.1289911Z     },
+2026-11-08T16:20:41.1290018Z     "seal_pending": true,
+2026-11-08T16:20:41.1290155Z     "check_status": "seal_pending",
+2026-11-08T16:20:41.1290316Z     "raw_check_status": "checks_failed",
+2026-11-08T16:20:41.1290487Z     "status": "delivery_sealed_checks_pending",
+2026-11-08T16:20:41.1290649Z     "gate_request": {
+2026-11-08T16:20:41.1290770Z       "mode": "rerun",
+2026-11-08T16:20:41.1290889Z       "status": 201,
+2026-11-08T16:20:41.1291014Z       "run_id": 42499248323
+2026-11-08T16:20:41.1291139Z     },
+2026-11-08T16:20:41.1291253Z     "review_mode": "integration-only"
+2026-11-08T16:20:41.1291399Z   },
+2026-11-08T16:20:41.1291561Z   {
+2026-11-08T16:20:41.1291714Z     "owner": "stranske",
+2026-11-08T16:20:41.1291963Z     "repo": "trip-planner",
+2026-11-08T16:20:41.1292094Z     "pr": 2014,
+2026-11-08T16:20:41.1292220Z     "branch": "sync/workflows-candidate",
+2026-11-08T16:20:41.1292405Z     "head_sha": "d28328ad24c067105331778111b5b5947009a202",
+2026-11-08T16:20:41.1292583Z     "delivery_generation": "a478e45c16b6",
+2026-11-08T16:20:41.1292814Z     "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:41.1293131Z     "plan_scope": "full",
+2026-11-08T16:20:41.1293265Z     "scope_base_sha": "",
+2026-11-08T16:20:41.1293438Z     "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:41.1293766Z     "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+2026-11-08T16:20:41.1294069Z     "campaign_no_change_evidence_json": "",
+2026-11-08T16:20:41.1294228Z     "delivery_lane": "sync",
+2026-11-08T16:20:41.1294364Z     "continuation_lane": "",
+2026-11-08T16:20:41.1294524Z     "delivery_disposition": "awaiting-sealed-gate",
+2026-11-08T16:20:41.1294693Z     "blocker_owner": "ci",
+2026-11-08T16:20:41.1294870Z     "next_command": "rerun-after-generated-delivery-seal-gate",
+2026-11-08T16:20:41.1295069Z     "review_finding_disposition": {
+2026-11-08T16:20:41.1295251Z       "schema": "sync-finding-evaluation/v1",
+2026-11-08T16:20:41.1295404Z       "binding": {
+2026-11-08T16:20:41.1295547Z         "repository": "stranske/trip-planner",
+2026-11-08T16:20:41.1295703Z         "pr": 2014,
+2026-11-08T16:20:41.1295924Z         "head_sha": "d28328ad24c067105331778111b5b5947009a202",
+2026-11-08T16:20:41.1296139Z         "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:41.1296408Z         "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:41.1296654Z         "delivery_generation": "a478e45c16b6"
+2026-11-08T16:20:41.1296801Z       },
+2026-11-08T16:20:41.1296914Z       "raw_active_count": 0,
+2026-11-08T16:20:41.1297052Z       "blocked": false,
+2026-11-08T16:20:41.1297175Z       "errors": [],
+2026-11-08T16:20:41.1297295Z       "findings": [],
+2026-11-08T16:20:41.1297420Z       "aggregates": {
+2026-11-08T16:20:41.1297543Z         "blocking": 0,
+2026-11-08T16:20:41.1297665Z         "nonblocking": 0,
+2026-11-08T16:20:41.1297798Z         "unknown": 0,
+2026-11-08T16:20:41.1297919Z         "by_disposition": {
+2026-11-08T16:20:41.1298067Z           "shared-source": 0,
+2026-11-08T16:20:41.1298204Z           "sync-caused": 0,
+2026-11-08T16:20:41.1298340Z           "unrelated": 0,
+2026-11-08T16:20:41.1298467Z           "unknown": 0
+2026-11-08T16:20:41.1298586Z         }
+2026-11-08T16:20:41.1298690Z       },
+2026-11-08T16:20:41.1298809Z       "disposition_thread_ids": {
+2026-11-08T16:20:41.1298953Z         "shared-source": [],
+2026-11-08T16:20:41.1299086Z         "sync-caused": [],
+2026-11-08T16:20:41.1299220Z         "unrelated": [],
+2026-11-08T16:20:41.1299347Z         "unknown": []
+2026-11-08T16:20:41.1299461Z       },
+2026-11-08T16:20:41.1299577Z       "blocking_thread_ids": [],
+2026-11-08T16:20:41.1299720Z       "nonblocking_thread_ids": [],
+2026-11-08T16:20:41.1299869Z       "unknown_thread_ids": [],
+2026-11-08T16:20:41.1300013Z       "unrelated_handoffs": []
+2026-11-08T16:20:41.1300141Z     },
+2026-11-08T16:20:41.1300254Z     "review_state": "clear",
+2026-11-08T16:20:41.1300393Z     "review_resolution_thread_ids": [],
+2026-11-08T16:20:41.1300568Z     "review_resolution_would_resolve_thread_ids": [],
+2026-11-08T16:20:41.1300746Z     "review_resolution_errors": [],
+2026-11-08T16:20:41.1300895Z     "consumer_declared_contexts": {
+2026-11-08T16:20:41.1301034Z       "state": "none",
+2026-11-08T16:20:41.1301161Z       "passed": [],
+2026-11-08T16:20:41.1301277Z       "failed": [],
+2026-11-08T16:20:41.1301393Z       "pending": [],
+2026-11-08T16:20:41.1301524Z       "never_started": [],
+2026-11-08T16:20:41.1301654Z       "also_required": []
+2026-11-08T16:20:41.1301953Z     },
+2026-11-08T16:20:41.1302069Z     "conversation_resolution": {
+2026-11-08T16:20:41.1302209Z       "ok": true,
+2026-11-08T16:20:41.1302330Z       "unresolved_count": 0,
+2026-11-08T16:20:41.1302472Z       "unresolved_outdated_count": 0,
+2026-11-08T16:20:41.1302623Z       "unresolved_thread_ids": []
+2026-11-08T16:20:41.1302758Z     },
+2026-11-08T16:20:41.1302869Z     "seal_pending": true,
+2026-11-08T16:20:41.1303001Z     "check_status": "seal_pending",
+2026-11-08T16:20:41.1303255Z     "raw_check_status": "checks_failed",
+2026-11-08T16:20:41.1303422Z     "status": "delivery_sealed_checks_pending",
+2026-11-08T16:20:41.1303587Z     "gate_request": {
+2026-11-08T16:20:41.1303709Z       "mode": "rerun",
+2026-11-08T16:20:41.1303827Z       "status": 201,
+2026-11-08T16:20:41.1303954Z       "run_id": 42499234261
+2026-11-08T16:20:41.1304078Z     },
+2026-11-08T16:20:41.1304192Z     "review_mode": "integration-only"
+2026-11-08T16:20:41.1304336Z   },
+2026-11-08T16:20:41.1304435Z   {
+2026-11-08T16:20:41.1304540Z     "owner": "stranske",
+2026-11-08T16:20:41.1304695Z     "repo": "Portable-Alpha-Extension-Model",
+2026-11-08T16:20:41.1304853Z     "pr": 2486,
+2026-11-08T16:20:41.1304979Z     "branch": "sync/workflows-candidate",
+2026-11-08T16:20:41.1305166Z     "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+2026-11-08T16:20:41.1305348Z     "delivery_generation": "a478e45c16b6",
+2026-11-08T16:20:41.1305581Z     "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:41.1305815Z     "plan_scope": "full",
+2026-11-08T16:20:41.1305949Z     "scope_base_sha": "",
+2026-11-08T16:20:41.1306196Z     "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:41.1306526Z     "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+2026-11-08T16:20:41.1306827Z     "campaign_no_change_evidence_json": "",
+2026-11-08T16:20:41.1306988Z     "delivery_lane": "sync",
+2026-11-08T16:20:41.1307124Z     "continuation_lane": "",
+2026-11-08T16:20:41.1307286Z     "delivery_disposition": "awaiting-sealed-gate",
+2026-11-08T16:20:41.1307455Z     "blocker_owner": "ci",
+2026-11-08T16:20:41.1307633Z     "next_command": "rerun-after-generated-delivery-seal-gate",
+2026-11-08T16:20:41.1307831Z     "review_finding_disposition": {
+2026-11-08T16:20:41.1307991Z       "schema": "sync-finding-evaluation/v1",
+2026-11-08T16:20:41.1308146Z       "binding": {
+2026-11-08T16:20:41.1308310Z         "repository": "stranske/Portable-Alpha-Extension-Model",
+2026-11-08T16:20:41.1308493Z         "pr": 2486,
+2026-11-08T16:20:41.1308644Z         "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+2026-11-08T16:20:41.1308867Z         "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+2026-11-08T16:20:41.1309134Z         "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+2026-11-08T16:20:41.1309375Z         "delivery_generation": "a478e45c16b6"
+2026-11-08T16:20:41.1309522Z       },
+2026-11-08T16:20:41.1309632Z       "raw_active_count": 0,
+2026-11-08T16:20:41.1309769Z       "blocked": false,
+2026-11-08T16:20:41.1309891Z       "errors": [],
+2026-11-08T16:20:41.1310009Z       "findings": [],
+2026-11-08T16:20:41.1310135Z       "aggregates": {
+2026-11-08T16:20:41.1310254Z         "blocking": 0,
+2026-11-08T16:20:41.1310376Z         "nonblocking": 0,
+2026-11-08T16:20:41.1310511Z         "unknown": 0,
+2026-11-08T16:20:41.1310635Z         "by_disposition": {
+2026-11-08T16:20:41.1310775Z           "shared-source": 0,
+2026-11-08T16:20:41.1310915Z           "sync-caused": 0,
+2026-11-08T16:20:41.1311049Z           "unrelated": 0,
+2026-11-08T16:20:41.1311182Z           "unknown": 0
+2026-11-08T16:20:41.1311300Z         }
+2026-11-08T16:20:41.1311403Z       },
+2026-11-08T16:20:41.1311518Z       "disposition_thread_ids": {
+2026-11-08T16:20:41.1311661Z         "shared-source": [],
+2026-11-08T16:20:41.1311930Z         "sync-caused": [],
+2026-11-08T16:20:41.1312077Z         "unrelated": [],
+2026-11-08T16:20:41.1312202Z         "unknown": []
+2026-11-08T16:20:41.1312316Z       },
+2026-11-08T16:20:41.1312430Z       "blocking_thread_ids": [],
+2026-11-08T16:20:41.1312573Z       "nonblocking_thread_ids": [],
+2026-11-08T16:20:41.1312722Z       "unknown_thread_ids": [],
+2026-11-08T16:20:41.1312863Z       "unrelated_handoffs": []
+2026-11-08T16:20:41.1312996Z     },
+2026-11-08T16:20:41.1313109Z     "review_state": "clear",
+2026-11-08T16:20:41.1313251Z     "review_resolution_thread_ids": [],
+2026-11-08T16:20:41.1313512Z     "review_resolution_would_resolve_thread_ids": [],
+2026-11-08T16:20:41.1313687Z     "review_resolution_errors": [],
+2026-11-08T16:20:41.1313837Z     "consumer_declared_contexts": {
+2026-11-08T16:20:41.1313978Z       "state": "none",
+2026-11-08T16:20:41.1314105Z       "passed": [],
+2026-11-08T16:20:41.1314219Z       "failed": [],
+2026-11-08T16:20:41.1314334Z       "pending": [],
+2026-11-08T16:20:41.1314462Z       "never_started": [],
+2026-11-08T16:20:41.1314590Z       "also_required": []
+2026-11-08T16:20:41.1314717Z     },
+2026-11-08T16:20:41.1314828Z     "conversation_resolution": {
+2026-11-08T16:20:41.1314964Z       "ok": true,
+2026-11-08T16:20:41.1315085Z       "unresolved_count": 0,
+2026-11-08T16:20:41.1315226Z       "unresolved_outdated_count": 0,
+2026-11-08T16:20:41.1315377Z       "unresolved_thread_ids": []
+2026-11-08T16:20:41.1315516Z     },
+2026-11-08T16:20:41.1315623Z     "seal_pending": true,
+2026-11-08T16:20:41.1315757Z     "check_status": "seal_pending",
+2026-11-08T16:20:41.1315911Z     "raw_check_status": "checks_failed",
+2026-11-08T16:20:41.1316079Z     "status": "delivery_sealed_checks_pending",
+2026-11-08T16:20:41.1316319Z     "gate_request": {
+2026-11-08T16:20:41.1316441Z       "mode": "rerun",
+2026-11-08T16:20:41.1316563Z       "status": 201,
+2026-11-08T16:20:41.1316689Z       "run_id": 42499254645
+2026-11-08T16:20:41.1316813Z     },
+2026-11-08T16:20:41.1316928Z     "review_mode": "integration-only"
+2026-11-08T16:20:41.1317073Z   }
+2026-11-08T16:20:41.1317174Z ]
+2026-11-08T16:20:41.3318248Z 
+2026-11-08T16:20:41.3318531Z Merged: 0
+2026-11-08T16:20:41.3318731Z Stale closed: 0
+2026-11-08T16:20:41.3318948Z Leftover branches deleted: 0
+2026-11-08T16:20:41.3319104Z Failed: 0
+2026-11-08T16:20:41.3319212Z Pending: 0
+2026-11-08T16:20:41.3319337Z Ready (not auto-merged): 0
+2026-11-08T16:20:41.3491456Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+2026-11-08T16:20:41.3491678Z with:
+2026-11-08T16:20:41.3492198Z   github-token: ***
+2026-11-08T16:20:41.3494686Z   script: const fs = require('fs');
+const { createTokenAwareRetry } = require(
+  './.github/scripts/github-api-with-retry.js'
+);
+const { withRetry } = await createTokenAwareRetry({
+  github,
+  core,
+  env: process.env,
+  task: 'maint-71-refresh-stale-candidate-bases',
+  capabilities: ['actions:write'],
+});
+const {
+  candidateRefreshDecision,
+} = require('./.github/scripts/sync_pr_merge_contract.js');
+const report = JSON.parse(
+  fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+);
+const decision = candidateRefreshDecision({ report });
+if (!decision.eligible) {
+  core.notice(`Candidate refresh not required: ${decision.errors.join(', ')}`);
+  return;
+}
+const { dispatchCandidateRefreshFromReport } = require('./.github/scripts/maint71_merge_sync_prs.js');
+const config = JSON.parse(fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'));
+await dispatchCandidateRefreshFromReport({ withRetry, context, core, report,
+  trustedActors: String(process.env.TRUSTED_SYNC_ACTORS || '').split(',').filter(Boolean),
+  expectedCanaries: (config.canaries || []).map((entry) => entry.repo) });
+fs.writeFileSync('artifacts/sync-pr-merge-report.json', JSON.stringify(report, null, 2));
+
+2026-11-08T16:20:41.3496779Z   debug: false
+2026-11-08T16:20:41.3496912Z   user-agent: actions/github-script
+2026-11-08T16:20:41.3497066Z   result-encoding: json
+2026-11-08T16:20:41.3497191Z   retries: 0
+2026-11-08T16:20:41.3497328Z   retry-exempt-status-codes: 400,401,403,404,422
+2026-11-08T16:20:41.3497490Z env:
+2026-11-08T16:20:41.3497636Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:41.3497874Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:20:41.3498106Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:41.3498318Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:41.3498529Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:41.3498743Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:20:41.3499118Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:20:41.3500509Z   GITHUB_TOKEN: ***
+2026-11-08T16:20:41.3501902Z   GH_TOKEN: ***
+2026-11-08T16:20:41.3502086Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:20:41.3502349Z   OWNER_PR_PAT: ***
+2026-11-08T16:20:41.3502541Z   TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+2026-11-08T16:20:41.3502759Z ##[endgroup]
+2026-11-08T16:20:41.4112247Z Token registry initialized with 3 tokens
+2026-11-08T16:20:42.1084447Z Selected token: SERVICE_BOT_PAT (4989 remaining, 99.8% capacity)
+2026-11-08T16:20:42.1108457Z ##[notice]Candidate refresh not required: candidate report has no stable base refresh request
+2026-11-08T16:20:42.1243228Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+2026-11-08T16:20:42.1243605Z with:
+2026-11-08T16:20:42.1243789Z   retention-days: 30
+2026-11-08T16:20:42.1244019Z   name: sync-pr-merge-and-canary-evidence
+2026-11-08T16:20:42.1244554Z   path: artifacts/sync-pr-merge-report.json
+artifacts/sync-canary-evidence.json
+artifacts/sync-campaign-commit-authorization.json
+
+2026-11-08T16:20:42.1245081Z   if-no-files-found: warn
+2026-11-08T16:20:42.1245292Z   compression-level: 6
+2026-11-08T16:20:42.1245486Z   overwrite: false
+2026-11-08T16:20:42.1245689Z   include-hidden-files: false
+2026-11-08T16:20:42.1245905Z   archive: true
+2026-11-08T16:20:42.1246088Z env:
+2026-11-08T16:20:42.1246316Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:42.1246698Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:20:42.1247079Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:42.1247451Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:42.1247792Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:42.1248131Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:20:42.1248552Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:20:42.1251050Z   GITHUB_TOKEN: ***
+2026-11-08T16:20:42.1253411Z   GH_TOKEN: ***
+2026-11-08T16:20:42.1253699Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:20:42.1254143Z   OWNER_PR_PAT: ***
+2026-11-08T16:20:42.1254345Z ##[endgroup]
+2026-11-08T16:20:42.2175550Z Multiple search paths detected. Calculating the least common ancestor of all paths
+2026-11-08T16:20:42.2202397Z The least common ancestor is /home/runner/work/Workflows/Workflows/artifacts. This will be the root directory of the artifact
+2026-11-08T16:20:42.2212429Z With the provided path, there will be 2 files uploaded
+2026-11-08T16:20:42.2232494Z Artifact name is valid!
+2026-11-08T16:20:42.2232748Z Root directory input is valid!
+2026-11-08T16:20:42.5590753Z Uploading artifact: sync-pr-merge-and-canary-evidence.zip
+2026-11-08T16:20:42.5612558Z Beginning upload of artifact content to blob storage
+2026-11-08T16:20:42.8184376Z Uploaded bytes 2781
+2026-11-08T16:20:42.8810355Z Finished uploading artifact content to blob storage!
+2026-11-08T16:20:42.8811002Z SHA256 digest of uploaded artifact is d67ceadb45199abccca45080874daba2e58c972b73c3046ca1c3a551c2f693ea
+2026-11-08T16:20:42.8811439Z Finalizing artifact upload
+2026-11-08T16:20:43.4038684Z Artifact sync-pr-merge-and-canary-evidence successfully finalized. Artifact ID 13624384809
+2026-11-08T16:20:43.4039139Z Artifact sync-pr-merge-and-canary-evidence has been successfully uploaded! Final size is 2781 bytes. Artifact ID is 13624384809
+2026-11-08T16:20:43.4042227Z Artifact download URL: https://github.com/stranske/Workflows/actions/runs/42499282783/artifacts/13624384809
+2026-11-08T16:20:43.4163252Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+2026-11-08T16:20:43.4163479Z with:
+2026-11-08T16:20:43.4163843Z   github-token: ***
+2026-11-08T16:20:43.4165463Z   script: const fs = require('fs');
+const { createTokenAwareRetry } = require(
+  './.github/scripts/github-api-with-retry.js'
+);
+const { withRetry } = await createTokenAwareRetry({
+  github,
+  core,
+  env: process.env,
+  task: 'maint-71-promote-canary-evidence',
+  capabilities: ['actions:write'],
+});
+const { dispatchCanaryPromotion } = require(
+  './.github/scripts/maint71_merge_sync_prs.js'
+);
+const report = JSON.parse(
+  fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+);
+const evidence = JSON.parse(
+  fs.readFileSync('artifacts/sync-canary-evidence.json', 'utf8'),
+);
+const canaryConfig = JSON.parse(
+  fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
+);
+// The helper preserves the exact-head prepared/recovered gate
+// and records every dispatch disposition in the summary.
+await dispatchCanaryPromotion({
+  report, evidence,
+  expectedCanaries: canaryConfig.canaries.map((entry) => entry.repo),
+  withRetry, context, core,
+});
+
+2026-11-08T16:20:43.4167195Z   debug: false
+2026-11-08T16:20:43.4167328Z   user-agent: actions/github-script
+2026-11-08T16:20:43.4167487Z   result-encoding: json
+2026-11-08T16:20:43.4167615Z   retries: 0
+2026-11-08T16:20:43.4167759Z   retry-exempt-status-codes: 400,401,403,404,422
+2026-11-08T16:20:43.4167924Z env:
+2026-11-08T16:20:43.4168073Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:43.4168315Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:20:43.4168548Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:43.4168765Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:43.4168976Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:43.4169199Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:20:43.4169447Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:20:43.4170954Z   GITHUB_TOKEN: ***
+2026-11-08T16:20:43.4172451Z   GH_TOKEN: ***
+2026-11-08T16:20:43.4172624Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:20:43.4172895Z   OWNER_PR_PAT: ***
+2026-11-08T16:20:43.4173024Z ##[endgroup]
+2026-11-08T16:20:43.4793047Z Token registry initialized with 3 tokens
+2026-11-08T16:20:44.2813198Z Selected token: SERVICE_BOT_PAT (4989 remaining, 99.8% capacity)
+2026-11-08T16:20:44.2880698Z ##[notice]promote: blocked held: missing_or_mixed_source_commit, missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope, missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope, stranske/Travel-Plan-Permission: candidate was not prepared or recovered, stranske/trip-planner: candidate was not prepared or recovered, stranske/Portable-Alpha-Extension-Model: candidate was not prepared or recovered; canaries green 0/3; drainable UNKNOWN (unmeasurable); missing 3 (drainable 3): stranske/Travel-Plan-Permission=delivery_sealed_checks_pending drainable-by-rerun run 42499248323, stranske/trip-planner=delivery_sealed_checks_pending drainable-by-rerun run 42499234261, stranske/Portable-Alpha-Extension-Model=delivery_sealed_checks_pending drainable-by-rerun run 42499254645; Canary promotion <unbound>: held; missing_or_mixed_source_commit, missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope, missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope, stranske/Travel-Plan-Permission: candidate was not prepared or recovered, stranske/trip-planner: candidate was not prepared or recovered, stranske/Portable-Alpha-Extension-Model: candidate was not prepared or recovered
+2026-11-08T16:20:44.3001200Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+2026-11-08T16:20:44.3001427Z with:
+2026-11-08T16:20:44.3001563Z   name: sync-pr-rate-limit-incidents
+2026-11-08T16:20:44.3001736Z   path: artifacts/rate-limit-incidents.ndjson
+2026-11-08T16:20:44.3002053Z   if-no-files-found: ignore
+2026-11-08T16:20:44.3002194Z   retention-days: 14
+2026-11-08T16:20:44.3002349Z   compression-level: 6
+2026-11-08T16:20:44.3002520Z   overwrite: false
+2026-11-08T16:20:44.3002699Z   include-hidden-files: false
+2026-11-08T16:20:44.3002847Z   archive: true
+2026-11-08T16:20:44.3002963Z env:
+2026-11-08T16:20:44.3003118Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:44.3003354Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:20:44.3003594Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:44.3003807Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:44.3004042Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:20:44.3004272Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:20:44.3004528Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:20:44.3005957Z   GITHUB_TOKEN: ***
+2026-11-08T16:20:44.3007214Z   GH_TOKEN: ***
+2026-11-08T16:20:44.3007395Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:20:44.3007666Z   OWNER_PR_PAT: ***
+2026-11-08T16:20:44.3007790Z ##[endgroup]
+2026-11-08T16:20:44.3871004Z No files were found with the provided path: artifacts/rate-limit-incidents.ndjson. No artifacts will be uploaded.
+2026-11-08T16:20:44.3989590Z Post job cleanup.
+2026-11-08T16:20:44.4867901Z Post job cleanup.
+2026-11-08T16:20:44.5388617Z [command]/usr/bin/git version
+2026-11-08T16:20:44.5418924Z git version 2.56.0
+2026-11-08T16:20:44.5439103Z Temporarily overriding HOME='/home/runner/work/_temp/97f36804-0396-475f-b0dd-8e86f0e90cd6' before making global git config changes
+2026-11-08T16:20:44.5439822Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-08T16:20:44.5442396Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows
+2026-11-08T16:20:44.5467640Z Removing SSH command configuration
+2026-11-08T16:20:44.5471274Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-08T16:20:44.5496940Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-08T16:20:44.5704699Z Removing HTTP extra header
+2026-11-08T16:20:44.5707690Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-08T16:20:44.5732242Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-08T16:20:44.5936303Z Removing includeIf entries pointing to credentials config files
+2026-11-08T16:20:44.5939969Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-08T16:20:44.5966796Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-08T16:20:44.6298411Z Cleaning up orphan processes
+

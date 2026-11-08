@@ -547,18 +547,3 @@ is optional or mandatory. The original requirements remain in every review.
 Verbose logs do not create new acceptance criteria. Raw and decoded assets are
 retained for evaluate and compare executions without changing the result or
 publication lifecycle.
-
-
-### Exact immutable-main acceptance receipts
-
-An optional `acceptance_ref` (full 40-character SHA) on `selftest-ci.yml` manual
-dispatch selects only the issue-4557 exact acceptance job. Empty input preserves
-normal Selftest behavior. The job refuses a revision outside published main,
-a revision lacking the required subscription ancestor, or one predating the
-merged PR 4551 fixture repairs. It resolves Python from the selected revision's
-`ci-python-versions.env`, installs that revision's lock and editable project,
-and runs exactly `node --test .github/scripts/__tests__/*.test.js` (600s bound)
-and `python3 -m pytest -q tests/` (1800s bound). The 50-minute job retains complete
-logs and per-command checkout, interpreter, runner, UTC, duration, exit-code and
-SHA-256 receipts as `issue-4557-exact-main-acceptance` for 30 days. This opt-in
-mode is evidence collection and does not replace normal PR or merge gates.

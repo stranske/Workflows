@@ -1,0 +1,45 @@
+{
+  "checked_at": "2026-11-08T21:18:11.932521+00:00",
+  "blobs": [
+    {
+      "name": "source",
+      "repository": "stranske/Workflows",
+      "revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "path": "templates/consumer-repo/tools/subscription_llm.py",
+      "api": {
+        "encoding": "utf-8",
+        "sha": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+        "display_url": "https://github.com/stranske/Workflows/blob/0a06f1976db1dd7eb12853f493a3371ee4736bcf/templates/consumer-repo/tools/subscription_llm.py",
+        "display_title": "subscription_llm.py"
+      },
+      "size": 7087,
+      "git_blob_sha": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+      "sha256": "ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca"
+    },
+    {
+      "name": "consumer",
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "revision": "1ff9e11cd51a456333c626cb354543b63202bef6",
+      "path": "tools/subscription_llm.py",
+      "api": {
+        "encoding": "utf-8",
+        "sha": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+        "display_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/blob/1ff9e11cd51a456333c626cb354543b63202bef6/tools/subscription_llm.py",
+        "display_title": "subscription_llm.py"
+      },
+      "size": 7087,
+      "git_blob_sha": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+      "sha256": "ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca"
+    }
+  ],
+  "comparison_argv": [
+    "cmp",
+    "docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt",
+    "docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "",
+  "consumer_main_receipt": "4558-consumer-main.json",
+  "consumer_merge_receipt": "4558-consumer-pr.json"
+}

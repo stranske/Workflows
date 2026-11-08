@@ -1588,3 +1588,208 @@ wrapper guard (one failed attempt; [raw log](runtime-4550/4557-harness-api-guard
 Only that printed failure was repaired, using `setup-api-client` and
 `createTokenAwareRetry`; the same hosted guard subsequently passed. No local
 test command, formatter, broad-suite fallback, or consumer mutation was run.
+## Independent hosted continuation — checked 2026-11-08T21:11:36Z
+
+Before code changes in this continuation: retain the existing acceptance commands
+and bounds (Node 600s, Python 1800s), and the original stop rule: stop at the first
+unresolved step after three failed attempts at that step or 60 minutes from
+20:46:00Z (deadline 21:46:00Z), whichever occurs first. Do not reset that deadline.
+Read-only API calls are bounded to 120s; local diagnostic tests and formatting
+are bounded to 180s. No local full-suite result substitutes for supported-runner
+acceptance. The supported runner is GitHub Actions `ubuntu-latest`, as confirmed
+by all 17 jobs of Selftest CI run 42486833507 (retained in
+`runtime-4550/4558-reference-{run,jobs}.json`); Node 24 and the repository-selected
+Python will be required for exact acceptance. Changes to the protected workflow
+are outside this run's permissions. Historical sandbox logs remain diagnostic
+leads, and changes to their named files require reproducing the failure remotely.
+
+Verified revision selection: published main
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`, observed through GitHub's branch API,
+is the actual merge of PR 4551 (merged 20:54:56Z). The required ancestor is its
+merge base in `4558-ancestor-compare.json` (ahead 48, behind 0). The repaired head
+`154858c48424d7aa30c9edaf22ee3edb90066c5d` is its second parent. GitHub's comparison
+in `4558-repair-compare.json` reports identical whole-tree identity
+`68219aa38f5e5c94e2a8f70c6dc343f17eeb3a84` and no file differences. All nine changed
+source/test files also have per-file before/repair/merge blob receipts and exit-0
+`git diff --exit-code` comparisons in `4558-revision-selection.json`.
+
+`tests/scripts/test_issue_4369_acceptance_revision.py` independently replays the
+retained proof and rejects substituted main/head/merge identities, an unmerged or
+draft PR, divergent ancestry, and an altered repair tree. The bounded command
+`python3 -m pytest -q tests/scripts/test_issue_4369_acceptance_revision.py -m 'not slow'`
+exited 0: **13 passed in 1.11s**. This verifies selection, not full-suite acceptance.
+PR 4551's exact-head Gate and Python matrix checks are successful; its post-merge
+verifier was still running at observation, so no verifier PASS is inferred.
+
+- [x] Inspect issue 4550, PR 4551 and published main; retain required-ancestor and
+  exact salvaged-fix inclusion evidence for the immutable source revision.
+- [x] Identify the supported non-local runner and record commands, bounds and the
+  existing stop rule before this continuation's code changes.
+- [ ] Both exact suites exit 0 on the same selected immutable main revision.
+
+### Consumer merge, byte comparison and finite observation
+
+Consumer PR 2486 is actually merged, at
+`1ff9e11cd51a456333c626cb354543b63202bef6` (20:48:24Z), also the consumer's
+published main when read in this continuation. Receipts:
+[`4558-consumer-pr.json`](runtime-4550/4558-consumer-pr.json),
+[`4558-consumer-main.json`](runtime-4550/4558-consumer-main.json), and
+[`4558-consumer-merge.json`](runtime-4550/4558-consumer-merge.json).
+This supersedes the older unmerged observation; it does not alter that history.
+
+The final template at selected Workflows revision
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf` and the consumer file at that actual
+merge both have Git blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`, size 7087,
+and SHA-256 `ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca`.
+Fetched bytes independently reproduce GitHub's blob IDs. The source payload is
+also byte-identical to the previously recorded frozen producer revision
+`bbfc6ae604c8e8c4021138c5efe964a368482957`.
+
+```console
+cmp docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt
+```
+
+Exit **0**, with empty stdout/stderr. The exact argv, both revision/path/blob
+identities, byte hashes and API receipts are retained in
+[`4558-byte-comparison.json`](runtime-4550/4558-byte-comparison.json).
+
+Maint 68 run 42499084007 retained source `bbfc6ae604c8e8c4021138c5efe964a368482957`,
+plan `sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4`,
+and candidate `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`. Its reconciliation job
+128788230378 dispatched Maint 71 candidate reconciliation at 16:19:17Z.
+The following Maint 71 run 42499282783 reports the same source, plan and candidate
+for PR 2486. The retained dispatch log, following-run metadata and target report
+establish this producer-to-candidate relationship beyond timing alone:
+`4558-maint68-42499084007-dispatch.log`, `4558-first-following-run.json`, and
+`4558-first-following-target.json`. Final Maint 71 run 42521606142 retains the
+same binding and a `merged` terminal handoff in `4557-maint71-target.json`.
+Its complete job log is `4558-maint71-42521606142.log`; the actual merge SHA
+comes from the fresh consumer PR API receipt, not a candidate SHA.
+
+**Automation-origin acceptance remains unproved.** Both Maint 68 and Maint 71
+run metadata say `workflow_dispatch`; that event alone cannot distinguish a
+human dispatch from automation. The producer's own start has no retained causal
+upstream dispatch receipt. A nearby scheduled Maint 82 run is not sufficient
+proof. No Maint 68, Maint 71 or Maint 82 dispatch was performed in this
+continuation. The automation-started-chain task remains unchecked.
+
+Applicable exact-head findings: the final Maint 71 report binds both result rows
+and its terminal handoff to candidate `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`,
+source `bbfc6ae604c8e8c4021138c5efe964a368482957`, the plan above and generation
+`a478e45c16b6`. Its active count is 0, all blocking/nonblocking/unknown counts are
+0, errors and findings are empty, and conversation resolution has no unresolved
+threads. Discussion 4434491702 is excluded and absent. This does not claim that
+its old PR 2454 thread was resolved. The fresh PR 2486 thread read is also empty
+(`4558-consumer-threads.json`). A preceding `branch_delete_failed` result reports
+cleanup after merge; the terminal `merged` handoff and fresh GitHub PR state
+establish delivery without treating cleanup as a payload failure.
+
+The complete fresh issue-4369 comment observation is retained in
+[`4558-issue-4369-comments.json`](runtime-4550/4558-issue-4369-comments.json).
+Boundary: **2026-11-08 21:18:11 UTC**. Page 1 (`per_page=100`) returned all 49
+comments; explicit page 2 returned 0. The observation ended after both reads.
+The last scoped sync-core recurrence remains comment 6649911684, created
+2026-11-05T04:45:07Z, round `20261105T044440Z`; no scoped recurrence was observed
+after regeneration through that boundary. Later opener/closer/verifier comments
+do not constitute a sync-core recurrence.
+
+- [x] Retain the exit-0 final source/actual consumer-main merged-byte comparison.
+- [x] Record the applicable exact-head finding dispositions, excluding discussion
+  4434491702, and the complete issue-comment observation through an explicit UTC
+  boundary.
+- [ ] Prove the retained Maint 68 start was caused by automation, rather than
+  inferring it from timing, the `auto` run name or `workflow_dispatch`.
+
+### Continuation checks and publication limit
+
+The targeted command
+`python3 -m pytest -q tests/scripts/test_issue_4369_acceptance_revision.py tests/scripts/test_issue_4369_delivery_lifecycle.py tests/scripts/test_issue_4369_downstream_evidence.py -m 'not slow'`
+exited **0**, **68 passed in 1.56s** (`4558-revision-tests.log`). Ruff on the new
+test file and `git diff --check` also exited 0. No production runtime code or
+protected workflow was changed.
+
+Black formatted the new Python test with line length 100. The required full
+repository selection first failed with the runner's local-socket PermissionError
+(`4558-black-default.log`). A one-worker attempt timed out at 180s, exit 124
+(`4558-black-one-worker.log`); its partial file count is not a pass. Using the
+same temporary 50ms event-loop heartbeat described earlier in this report, the
+unchanged formatter selection then exited **0**, **978 files would be left
+unchanged** (`4558-black-supported.log`):
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4558-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Staging the new test and receipts with `git add` exited **128**:
+`fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system`.
+The implementation and evidence remain workspace changes; no local commit or
+push is claimed.
+
+Selftest acceptance run 42523162606 was already dispatched at 21:02:43Z, before
+this continuation. Its harness revision is
+`c914fffc1f15c15ed526d622c82840e1722c8d29`; this is distinct from the selected
+published-main checkout. Job 128860888586, runner `GitHub Actions 1004686100`
+(`ubuntu-latest`), passed the publication and fixture-repair binding guards and
+entered the exact-command step at 21:05:24Z. It is still in progress at this
+observation; no acceptance artifact or completed suite result was available.
+Receipts: `4558-acceptance-{run,jobs}.json`. Pending execution is not a failed
+attempt, and no runtime failure was used to justify a repair.
+
+The GitHub connector can return artifact metadata and a download reference, but
+cannot expose ZIP members to this workspace. A bounded archive transfer to `/tmp`
+failed with `URLError`; direct `gh` connectivity also failed. Complete exact-suite
+logs and interpreter/exit-code receipts under this evidence directory therefore
+remain pending. Historical restricted-runner failures are not substituted.
+
+Final focused recheck after reducing the ancestry receipt to its relevant graph
+metadata: **68 passed in 1.21s**, exit 0; no Python code changed after the passing
+repository Black check. A GitHub blob-write fallback for the verified test source
+was rejected by automatic approval review with `MCP tool call requires approval,
+but approval policy is never`. No blob, remote commit or branch update succeeded.
+
+Handoff observation: **2026-11-08 21:22:26 UTC**. Selftest run 42523162606 is
+still in progress. First unresolved acceptance step: complete supported-runner
+suite receipts on the selected main revision. The three-attempt/60-minute stop
+rule has not tripped; no pending job is counted as a failed attempt. This
+continuation cannot publish its verified test/evidence changes or transfer the
+ZIP evidence with the available permissions and network access. The concrete
+blocker comment is retained as `4558-publication-blocker-comment.md`; posting it
+and adding `needs-human` to PR 4558 were both rejected by automatic approval
+review with the same approval-policy message. Neither remote mutation succeeded.
+PR 4558 was finally verified open and ready (`draft=false`) at
+`c914fffc1f15c15ed526d622c82840e1722c8d29`. No PR was created or changed.
+
+
+### Reconciled writer and verification state — 2026-11-08T21:26Z
+
+The independent keepalive workflow 42522829787 finished and published commit
+`0535d764737066c67bdca8b113d15b1d223b553f`. Its trusted completion receipt binds
+the original reservation to that observed head and `completion_incomplete=false`.
+The preceding continuation narrative records that worker's historical environment
+and failed direct publication attempts; the bot subsequently published its work.
+The primary agent preserved that commit as `safety/issue-4557-native-0535d764`
+and reconciled both writers' append-only observations. The independent worker's
+proxy revision-proof test is removed from the final PR scope: this issue requests
+operational full-suite receipts and names no such local test. Its reported extra
+checks are historical worker activity, not validation commands run by the primary
+agent and not evidence that the exact full suites passed.
+
+The temporary Selftest executor and its CI-catalog additions are also removed
+from the final PR. The actual run remains pinned to executor commit
+`c914fffc1f15c15ed526d622c82840e1722c8d29`, testing main checkout
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`. Removing the temporary executor
+avoids leaving acceptance-only dispatches available for normal Selftest CI
+selection or concurrency. No verifier selector or unrelated source was changed.
+
+**Upstream verification is not PASS.** Run 42522535899 completed successfully
+as an Actions job, but its retained provider result is OpenAI
+`UNVERIFIABLE_INPUT` (`Failed to parse JSON response: ValidationError`) and
+Anthropic `CONCERNS`. The terminal disposition is `needs-human`; the retained
+incomplete event is nonretryable and names `recover_existing_evaluation`.
+See [source verification](runtime-4550/4557-source-verification.json),
+[terminal disposition](runtime-4550/4557-verifier-terminal-disposition.ndjson),
+and [follow-up ledger](runtime-4550/4557-verifier-followup-ledger.ndjson).
+The report evaluates original issue 4550, including its full-suite and consumer
+acceptance deferred to issue 4557. No passing verdict, release, source-issue
+closure, or cleared verification gate is inferred. The supported exact-command
+run is retained as diagnosis on the merged candidate while this gate is unmet.
