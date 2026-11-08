@@ -1,11 +1,6 @@
 # Issue 4484 focused validation
 
-Latest continuation: the reconciliation tool compares candidate evidence types as well as values, and
-the batch runner rejects malformed receipt fields as well as unreadable JSON.
-Applying the ledger correction remains blocked by the read-only ledger.
-Workflow acceptance remains incomplete.
-Successful consumer lint and classification remain distinct from consumer merge,
-which has not been established. See the final section for current checks and blockers.
+Latest acceptance (2026-11-08): the authorized ledger correction is applied and validates. The bounded full workflow suite completed with 3,643 passed and 9 explicitly skipped, zero failures, and exactly 3,652 collected and terminal nodes. The live Health68 execution probe passed. Earlier restrictions and failed results below are retained historical evidence, superseded by this dated acceptance.
 
 Check date: 2026-11-06. Interpreter: /opt/anaconda3/bin/python3.
 
@@ -1311,3 +1306,12 @@ No commit or push occurred, and no alternate Git metadata writer was used. The
 source fix, regression tests and updated validation document remain in the
 workspace. Completion requires an authorized ledger/Git writer, historical commit
 availability and successful workflow acceptance; guarded merge remains held.
+
+
+## Issue4534 native acceptance — 2026-11-08
+
+Applied the existing reconciliation tool output to `.agents/issue-4484-ledger.yml` on an unrestricted native checkout of `1a7a3c7de40b62af2839cb138e8d2abfe72fc766`. The original ledger was retained; the tool candidate comparison and `scripts/ledger_validate.py` both exited zero. Historical completion records, original fragment records and earlier failed-suite evidence remain preserved.
+
+`/opt/anaconda3/bin/python3 -m scripts.validate_workflow_test_batches --output <receipt-directory>` exited zero: 35 whole-file batches; 3,652 collected and terminal nodes; 3,643 passed, 9 skipped; no missing, extra, duplicate or borrowed results. Each child retained its existing 110-second bound; no security or privacy changes were needed. GitHub credentials were passed privately to the child environment. The live Health68 probe passed in batch16. Six skips require the Actions Ubuntu Bash4/GNU-find environment; three are existing workflow-update privilege conditions. None is counted as a pass.
+
+The portable summary and hashes of all native batch receipts/logs are retained in [issue-4534-acceptance.json](issue-4534-acceptance.json). Full original receipts/logs remain in the task artifact directory `lane-followthrough-20261108/workflow-batches`. Travel-Plan-Permission#1716 is now independently confirmed merged at merge commit `71d6359516d9796b8ec586549779c34afc778d98`; no historical source shipment was reopened.
