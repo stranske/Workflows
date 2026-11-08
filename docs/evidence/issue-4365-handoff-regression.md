@@ -1,5 +1,78 @@
 # Issue #4365: handoff regression verification
 
+## Context and failed-handoff recovery check — 2026-11-08
+
+Reconciled the recent #4538 commits before editing. #4447 and #4451 are still
+closed and unmerged; #4463's replacement implementation is already on main.
+The first seven task checkboxes and the first three acceptance checkboxes are
+verified by inspection and the lifecycle suite (the third acceptance condition
+is satisfied through explicit dispatch, without depending on label events).
+The full-gate and live-acceptance tasks remain incomplete. Updating #4538's PR
+body was rejected: `MCP tool call requires approval, but approval policy is never`.
+
+Pre-edit acceptance command, checked on 2026-11-08:
+
+```sh
+timeout 60s node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js .github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js
+```
+
+Baseline: **107 passed, 0 failed**. Expected observation: legacy closed issues
+enter verification and explicitly continue to completion; a failed handoff for
+a different closing PR retains ownership without posting completion, and a
+successful retry verifies the new PR/head and completes. Stop rule: one baseline
+and one post-edit attempt, each capped at 60 seconds; one corrective rerun only
+after investigating a named failure. Full gates each receive one 300-second
+attempt; timeout is incomplete. Mutation checks receive one 60-second attempt
+per defect/surface, followed by restoration and the acceptance command.
+
+The executable lifecycle tests now consume the actual `Determine context`
+outputs in both the initial run and continuation. The mock API tracks issue
+state, and a new source/template regression exercises reopening, denial of the
+new PR's verifier dispatch, preserved ownership, and successful retry. No
+workflow or transition helper changes were needed.
+
+Post-edit lifecycle suite: **109 passed, 0 failed**. Python handoff suite:
+`timeout 60s python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -m 'not slow'`
+reports **66 passed**, Python 3.14.10.
+
+Temporarily restored each reported defect in each source/template helper:
+label-only closed-state completion and lost continuation (`verify` mapping to
+`auto`). All four attempts exited 1 and failed the named regression
+`issue 4365: failed new handoff after reopening retains ownership until retry completes`
+on the mutated surface. Restoring both helpers and rerunning the acceptance
+command reported **109 passed, 0 failed**; byte comparisons and
+`git diff --exit-code` confirmed that neither helper retains a mutation.
+Acceptance checkbox five is therefore also verified.
+
+Full gates remain incomplete:
+
+- `timeout 300s node --test .github/scripts/__tests__/*.test.js`: exit **124**;
+  summary **115 passed, 6 failed, 20 cancelled**. A focused diagnostic using
+  `--test-isolation=none` for `agents-verifier-context.test.js` and
+  `generated-delivery-seal-action.test.js` reported **199 passed, 18 failed**,
+  including `spawnSync git EPERM` and the missing `delivery_not_sealed:staging`
+  assertion. No unrelated implementation or test was changed.
+- `timeout 300s python3 -m pytest -q tests/ -m 'not slow'`: exit **124**, about
+  6% progress, including a failure indicator without a final failure summary.
+- `git diff --check`: passed. Staging the JavaScript test failed with
+  `.git/index.lock: Read-only file system`, so no commit could be created.
+
+Reconciliation: tasks 1–7 and acceptance criteria 1–3 and 5 are verified;
+tasks 8–9 and acceptance criteria 4 and 6 remain incomplete. The PR-body update,
+`needs-human` label, and results comment were blocked by the runner's approval
+policy. Final readback confirmed #4538 is open with `draft=false`. The test and
+evidence changes remain available locally for a runner with Git write access.
+
+Live inspection of [Maint 71 run 42440308776](https://github.com/stranske/Workflows/actions/runs/42440308776)
+found consumer #2454 still at generated head
+`b36b8ebf242bde649f6e31edc2cc915ad49d7421`, source
+`c2ac6f38d6f2ce73f000158fa6f729bfece82092`, generation `4017589cec3c`.
+Its report has `review_state=clear`, `raw_active_count=0`, and `findings=[]`,
+but `review_reassessment` was skipped. Both original review threads remain
+outdated and unresolved; #4365's last sync-core bump still names
+`d6f4831035dd` / `20261106T115526Z`. The unchanged head and absent new bump do
+not establish live acceptance, so those checkboxes remain unchecked.
+
 ## Delayed continuation acceptance check — 2026-11-08
 
 Before this round's test edits, ran:

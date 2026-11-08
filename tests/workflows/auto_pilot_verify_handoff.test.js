@@ -141,6 +141,7 @@ for (const [surface, workflowPath] of SURFACES) {
       labelCreateRaces: new Set(seed.labelCreateRaces || []),
       prLabels: new Map(Object.entries(seed.prLabels || {}).map(([k, v]) => [Number(k), new Set(v)])),
       issueLabels: new Set(seed.issueLabels || ['agents:auto-pilot']),
+      issueState: seed.issueState || 'open',
       timeline: seed.timeline || [],
       dispatchError: seed.dispatchError || null,
       dispatchCreatesRun: seed.dispatchCreatesRun !== false,
@@ -204,7 +205,7 @@ for (const [surface, workflowPath] of SURFACES) {
               data: {
                 number: params.issue_number,
                 title: 'Issue',
-                state: 'open',
+                state: world.issueState,
                 labels: [...world.issueLabels].map((n) => ({ name: n })),
               },
             };
@@ -564,10 +565,15 @@ for (const [surface, workflowPath] of SURFACES) {
   });
 
   async function completeClosedIssue(world) {
+    world.issueState = 'closed';
+    const initialContext = await runStep('Determine context', { world });
+    assert.equal(initialContext.outcome, 'success');
+    assert.equal(initialContext.outputs.should_continue, 'true');
+    assert.equal(initialContext.outputs.issue_number, String(ISSUE));
     const disposition = determineNextStep({
-      issueState: 'closed',
-      hasVerify: world.issueLabels.has('verify:evaluate'),
-      verifyHandoffBound: world.issueLabels.has('verify:pr-handoff'),
+      issueState: initialContext.outputs.issue_state,
+      hasVerify: initialContext.outputs.has_verify,
+      verifyHandoffBound: initialContext.outputs.verify_handoff_bound,
     });
     assert.equal(disposition.nextStep, 'verify', 'historical labels cannot select done');
 
@@ -590,9 +596,13 @@ for (const [surface, workflowPath] of SURFACES) {
 
     // A new workflow run has no verify_step outputs. It must revalidate the
     // actual dispatched PR/head run, rather than inheriting same-run evidence.
+    const continuationContext = await runStep('Determine context', { world });
+    assert.equal(continuationContext.outcome, 'success');
+    assert.equal(continuationContext.outputs.should_continue, 'true');
     const done = await runDone(world, {
+      ISSUE_NUMBER: continuationContext.outputs.issue_number,
       VERIFY_HANDOFF: '',
-      VERIFY_HANDOFF_BOUND: world.issueLabels.has('verify:pr-handoff') ? 'true' : 'false',
+      VERIFY_HANDOFF_BOUND: continuationContext.outputs.verify_handoff_bound,
     });
     assert.equal(done.outcome, 'success', done.failures.join('; ') || done.error?.message);
     assert.equal(world.issueLabels.has('agents:auto-pilot'), false);
@@ -637,6 +647,50 @@ for (const [surface, workflowPath] of SURFACES) {
     await completeClosedIssue(world);
     const verifier = world.dispatches.filter((d) => d.workflow_id === 'agents-verifier.yml');
     assert.equal(verifier.length, 1, 'old PR verifier run cannot satisfy the new closure');
+    assert.deepEqual(verifier[0].inputs, {
+      pr_number: String(PR + 1), pr_head_sha: OTHER_HEAD, mode: 'evaluate',
+    });
+  });
+
+  test(`${surface}: issue 4365: failed new handoff after reopening retains ownership until retry completes`, async () => {
+    const world = createWorld({ prs: [mergedPr(PR, ISSUE)] });
+    await completeClosedIssue(world);
+
+    world.issueState = 'open';
+    world.issueLabels.add('agents:auto-pilot');
+    const reopened = await runStep('Determine context', { world });
+    assert.equal(reopened.outputs.issue_state, 'open');
+    assert.equal(reopened.outputs.verify_handoff_bound, 'true');
+    world.issueState = 'closed';
+    world.prs.unshift(mergedPr(PR + 1, ISSUE, { head: OTHER_HEAD }));
+    world.dispatchError = 'verifier dispatch denied';
+    world.dispatches = [];
+    world.comments = [];
+    world.removed = [];
+    world.labelWrites = [];
+
+    const reclosed = await runStep('Determine context', { world });
+    const disposition = determineNextStep({
+      issueState: reclosed.outputs.issue_state,
+      hasVerify: reclosed.outputs.has_verify,
+      verifyHandoffBound: reclosed.outputs.verify_handoff_bound,
+    });
+    assert.equal(disposition.nextStep, 'verify');
+    const failed = await runVerify(world);
+    assert.equal(failed.outcome, 'failure');
+    assert.notEqual(failed.outputs.verify_handoff, 'found');
+    assert.equal(redispatchFires(disposition.nextStep, failed), false);
+    assert.deepEqual(world.dispatches, []);
+    assert.deepEqual(handoffLabelWrites(world), []);
+    assert.equal(completionPosted(world), false);
+    assert.equal(ownershipRemoved(world), false);
+    assert.ok(world.issueLabels.has('agents:auto-pilot'));
+    assert.equal(world.runs.length, 1, 'only the previous closure has a verifier run');
+
+    world.dispatchError = null;
+    await completeClosedIssue(world);
+    const verifier = world.dispatches.filter((d) => d.workflow_id === 'agents-verifier.yml');
+    assert.equal(verifier.length, 1);
     assert.deepEqual(verifier[0].inputs, {
       pr_number: String(PR + 1), pr_head_sha: OTHER_HEAD, mode: 'evaluate',
     });
