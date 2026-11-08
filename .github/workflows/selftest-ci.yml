@@ -56,7 +56,6 @@ jobs:
 
       - name: Replay path classifier against recent merged PRs
         env:
-          GH_TOKEN: ${{ github.token }}
           PATH_CLASSIFIER_REPLAY: '1'
         run: node --test .github/scripts/__tests__/path-classifier-replay.test.js
 
@@ -329,7 +328,6 @@ jobs:
       - name: Require published main and delivered fixture fixes
         env:
           ACCEPTANCE_REF: ${{ inputs.acceptance_ref }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/issue-4557"
@@ -337,10 +335,31 @@ jobs:
           test "$(git rev-parse HEAD)" = "$ACCEPTANCE_REF"
           git merge-base --is-ancestor HEAD origin/main
           git merge-base --is-ancestor b21fae85fe4f79e72c4133c29a3814b9d5950c3a HEAD
-          gh api repos/stranske/Workflows/pulls/4551 > "$RUNNER_TEMP/issue-4557/fixture-pr.json"
-          jq -e '.merged == true' "$RUNNER_TEMP/issue-4557/fixture-pr.json"
-          fixes=$(jq -r '.merge_commit_sha' "$RUNNER_TEMP/issue-4557/fixture-pr.json")
-          git merge-base --is-ancestor "$fixes" HEAD
+      - uses: ./.github/actions/setup-api-client
+        with:
+          github_token: ${{ github.token }}
+      - name: Bind delivered fixture repair revision
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const { execFileSync } = require('node:child_process');
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core, env: process.env,
+              task: 'issue-4557-acceptance', capabilities: ['pulls:read'],
+            });
+            const { data } = await withRetry((client) => client.rest.pulls.get({
+              owner: 'stranske', repo: 'Workflows', pull_number: 4551,
+            }));
+            fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'issue-4557/fixture-pr.json'),
+              JSON.stringify(data, null, 2) + '\n');
+            if (!data.merged || !/^[0-9a-f]{40}$/.test(data.merge_commit_sha || '')) {
+              throw new Error('PR 4551 fixture repairs must be merged before acceptance');
+            }
+            execFileSync('git', ['merge-base', '--is-ancestor', data.merge_commit_sha, 'HEAD']);
       - name: Resolve repository Python selection
         id: python
         run: |
