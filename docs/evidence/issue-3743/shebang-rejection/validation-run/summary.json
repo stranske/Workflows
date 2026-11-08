@@ -1,0 +1,246 @@
+{
+  "role": "Current validation receipts for full-repository Black, focused Ruff, strict template completeness, and git diff --check. Historical README.md, summary.json, proof.tar.gz, path-lookup/, and replay-validation/ are earlier receipts. acceptance-run/ retains the eight-case pytest and replay commands.",
+  "check_date": "2026-11-06",
+  "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
+  "interpreters": {
+    "python": {
+      "path": "/opt/anaconda3/bin/python3",
+      "version": "3.12.2 | packaged by conda-forge | (main, Feb 16 2024, 20:54:21) [Clang 16.0.6 ]"
+    },
+    "black": {
+      "path": "/opt/anaconda3/bin/black",
+      "exit": 0,
+      "stdout": "black, 26.10.1 (compiled: yes)\nPython (CPython) 3.12.2\n",
+      "stderr": ""
+    },
+    "ruff": {
+      "path": "/opt/anaconda3/bin/ruff",
+      "exit": 0,
+      "stdout": "ruff 0.17.1\n",
+      "stderr": ""
+    }
+  },
+  "measured_file_counts": {
+    "workflows_directory_yml": 130,
+    "template_directory_yml": 35,
+    "manifest_workflow_targets": 35,
+    "strict_validation_inputs": 166,
+    "black_files": 928,
+    "ruff_files": 15
+  },
+  "commands": {
+    "black": {
+      "argv": [
+        "/opt/anaconda3/bin/black",
+        "--check",
+        "--line-length",
+        "100",
+        "--exclude",
+        "(\\.workflows-lib|node_modules)",
+        "."
+      ],
+      "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
+      "exit": 0,
+      "stopped": null,
+      "duration_seconds": 1.466,
+      "env_overrides": {
+        "BLACK_NUM_WORKERS": "1",
+        "BLACK_CACHE_DIR": "/tmp/shebang-rejection-validation-black-cache"
+      },
+      "stdout": "",
+      "stderr": "Warning: Python 3.12 cannot parse code formatted for Python 3.13. To fix this: run Black with Python 3.13, set --target-version to py312, or use --fast to skip the safety check. Black's safety check verifies equivalence by parsing the AST, which fails when the running Python is older than the target version.\nAll done! \u2728 \ud83c\udf70 \u2728\n928 files would be left unchanged.\n"
+    },
+    "ruff": {
+      "argv": [
+        "/opt/anaconda3/bin/ruff",
+        "check",
+        "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py",
+        "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py",
+        "docs/evidence/issue-3743/shebang-rejection/compare_matched.py",
+        "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py",
+        "docs/evidence/issue-3743/shebang-rejection/replay.py",
+        "docs/evidence/issue-3743/shebang-rejection/verify_archives.py",
+        "scripts/check_deliberate_break.py",
+        "templates/consumer-repo/scripts/check_deliberate_break.py",
+        "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+        "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
+        "tests/scripts/test_shebang_rejection_acceptance_run.py",
+        "tests/scripts/test_shebang_rejection_archive_bindings.py",
+        "tests/scripts/test_shebang_rejection_matched_comparison.py",
+        "tests/scripts/test_shebang_rejection_replay.py",
+        "tests/scripts/test_shebang_rejection_validation_run.py"
+      ],
+      "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
+      "exit": 0,
+      "stopped": null,
+      "duration_seconds": 0.077,
+      "env_overrides": {},
+      "stdout": "All checks passed!\n",
+      "stderr": ""
+    },
+    "template": {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "scripts/validate_template_completeness.py",
+        "--workflows-dir",
+        ".github/workflows",
+        "--template-dir",
+        "templates/consumer-repo/.github/workflows",
+        "--manifest",
+        ".github/sync-manifest.yml",
+        "--source",
+        "sync-manifest",
+        "--strict"
+      ],
+      "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
+      "exit": 0,
+      "stopped": null,
+      "duration_seconds": 0.127,
+      "env_overrides": {
+        "GITHUB_STEP_SUMMARY": "/tmp/shebang-rejection-validation/template-summary.md"
+      },
+      "stdout": "\u2705 All consumer workflows are properly templated and manifested\n",
+      "stderr": ""
+    },
+    "diffcheck": {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4472__closer",
+      "exit": 0,
+      "stopped": null,
+      "duration_seconds": 0.041,
+      "env_overrides": {},
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "historical_unchanged": true,
+  "historical_sha256": {
+    "docs/evidence/issue-3743/shebang-rejection/README.md": {
+      "kind": "file",
+      "sha256": "8db08c1b204bfa908f2292f352b300c366bdd47f53a28c737a7f30ab33f4f52e",
+      "bytes": 3688,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/coverage.ini": {
+      "kind": "file",
+      "sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "bytes": 94,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay.py": {
+      "kind": "file",
+      "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "bytes": 6406,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/summary.json": {
+      "kind": "file",
+      "sha256": "c4f78b1edef8812eba7f3cf8ce205aab744b3a6498efdbf661c3e3c4463e3e3f",
+      "bytes": 4382,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/proof.tar.gz": {
+      "kind": "file",
+      "sha256": "83bf8bec764c0630a08c661876eaf7a24b5a7b27e1ee2875f6f96565ff281fae",
+      "bytes": 381289,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/path-lookup": {
+      "kind": "tree",
+      "sha256": "edfb8f5c3f0933b667f39c373538db3ba83ff8bd0034d429d6730c78d899d794",
+      "bytes": 482049,
+      "files": 2
+    },
+    "docs/evidence/issue-3743/shebang-rejection/replay-validation": {
+      "kind": "tree",
+      "sha256": "c5df11c0efee942ccec6f934437165d4c618bd7a8efa6926c744ce07b304cad8",
+      "bytes": 865895,
+      "files": 3
+    },
+    "docs/evidence/issue-3743/shebang-rejection/pre-change-record.json": {
+      "kind": "file",
+      "sha256": "987d35ea935db2ecc8cd0339c8619c50763ce18600b42a98340a9524c5c05dc7",
+      "bytes": 2880,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/main-acceptance-map.json": {
+      "kind": "file",
+      "sha256": "074da0915ae48f483eb059c32ba94c6fb1f0f22b3f9cc55a9df94a34610879e4",
+      "bytes": 46893,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py": {
+      "kind": "file",
+      "sha256": "55d99e9bf551115eb5768222eb6e0056b34eb3122039737a230a0a6d18c0abbc",
+      "bytes": 30547,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py": {
+      "kind": "file",
+      "sha256": "94473ffbd863b5435811d06d5ec13e991f06cb9539b101b0d14fb0ac2aa748c2",
+      "bytes": 20037,
+      "files": 1
+    },
+    "docs/evidence/issue-3743/shebang-rejection/acceptance-run": {
+      "kind": "tree",
+      "sha256": "2af143745bb8f3341c3141d80ea25296268282f9c39fb26f9051d479b478b592",
+      "bytes": 1315709,
+      "files": 111
+    },
+    "scripts/check_deliberate_break.py": {
+      "kind": "file",
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981,
+      "files": 1
+    },
+    "templates/consumer-repo/scripts/check_deliberate_break.py": {
+      "kind": "file",
+      "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "bytes": 45981,
+      "files": 1
+    },
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py": {
+      "kind": "file",
+      "sha256": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+      "bytes": 2093,
+      "files": 1
+    },
+    "tests/scripts/test_shebang_rejection_replay.py": {
+      "kind": "file",
+      "sha256": "01a515e7157d8aa54dcc548473f734e65409d87b354cf463686a44196e350a0d",
+      "bytes": 7056,
+      "files": 1
+    },
+    "tests/scripts/test_shebang_rejection_acceptance_run.py": {
+      "kind": "file",
+      "sha256": "068d378b80e686c14dff3a35c77db02f224bc2344f403b7b51015b4012bc0f31",
+      "bytes": 7948,
+      "files": 1
+    },
+    "tests/scripts/test_shebang_rejection_acceptance_inspection.py": {
+      "kind": "file",
+      "sha256": "f340def8a4a268ed9aeaf24aff366441285603d0622f89950a67d6d7e0c06c4d",
+      "bytes": 7398,
+      "files": 1
+    }
+  },
+  "production_helpers": {
+    "equal_each_other": true,
+    "root_equals_origin_main": true,
+    "template_equals_origin_main": true,
+    "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "bytes": 45981
+  },
+  "template_documentation": "Health 70 (.github/workflows/health-70-validate-sync-manifest.yml) documents scripts/validate_template_completeness.py --workflows-dir .github/workflows --template-dir templates/consumer-repo/.github/workflows --manifest .github/sync-manifest.yml --source sync-manifest --strict. docs/orchestrator/consumer-sync-contract-map.md also documents --strict --source sync-manifest. Health 73 documents --strict with the script defaults for those paths.",
+  "runner_adaptations": [
+    "BLACK_NUM_WORKERS=1 selects Black's thread-pool scheduler so the full-repository check completes.",
+    "Black writes the unchanged-file count to stderr; the measured count reads both streams.",
+    "BLACK_CACHE_DIR is under /tmp because the default user cache may be unwritable.",
+    "GITHUB_STEP_SUMMARY points at /tmp because the inherited runner summary path may be read-only.",
+    "The copied step summary drops the validator's trailing blank line so git diff --check accepts it."
+  ]
+}

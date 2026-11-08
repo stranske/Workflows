@@ -2112,6 +2112,18 @@ plan ID mismatch establishes lack of ownership, not supersession: Maint 71 repor
 transient Maint 82 continuation bound to the owning plan, source, scope and head. Stale-PR cleanup is likewise restricted to the selected plan.
 This prevents a delayed prior campaign from closing a newer candidate or delivery.
 
+The handoff follows the refresh. When a candidate carries the expected plan but
+a different source commit, consistently in its sync metadata and delivery record,
+and a successful `Maint 68 canary … source=<that commit>` run on the default
+branch produced it for that consumer, Maint 71 reports `delivery_handoff_repin`
+(`source-repinned`, owner `maint-82`, next command
+`rerun-with-repinned-handoff`) with the refreshed source instead of
+`delivery_contract_blocked`. Maint 82 retains that newer record for the PR and
+pins the next candidate continuation to the refreshed source, so an accepted
+refresh that moved past the handoff is re-bound on the following run rather
+than refused until the daily compile re-pins it. An inconsistent candidate, or
+one no Maint 68 run produced, stays `delivery_contract_blocked`.
+
 Active non-outdated findings remain visible and pass the shared relevance
 contract above; unknown and shared/sync-caused findings block. When a shared source
 repair proves a finding obsolete on the current generated head, an authenticated
@@ -2204,6 +2216,24 @@ It records `verdict=PASS`, `status=completed`, `coverage=complete`,
 a substantive rationale, the existing targeted request URL and originating
 completion URL, and nonempty `validation` entries containing command,
 `exit_code=0` and `negative_control=failed-before-fix`.
+
+When the originating reviewer is out of capacity (Copilot most months), its
+finding must not latch. If the targeted reassessment request has stood for
+`finding_verification_fallback.unanswered_reassessment_minutes` (policy) and
+the originating reviewer has posted nothing in that thread since the request,
+the result may record `reviewer_unanswered=true` with
+`originating_completion_url=null`; Maint 71 then accepts it without an
+originating completion. A reviewer answer in the thread after the request
+refuses this path (`originating_reviewer_answered`), an earlier assessment
+refuses it (`reassessment_window_open`), and every other binding, validation,
+freshness and re-read check above still applies.
+
+The window counts from the FIRST trusted reassessment request in that thread for
+the same repository, PR, thread and originating reviewer, on any head. A canary
+whose base moves is refreshed every hour or two, and a window measured from the
+current head's request could never elapse (trip-planner#1957, 2026-11-06). The
+current head still needs its own bound request, and the assessment itself stays
+exact-head. A reviewer answer after that first request refuses the path.
 
 Pass the normal resolution proof with
 `acceptance_mode=independent-verification` and
@@ -2889,6 +2919,11 @@ require a completed general review. It requests only an exact finding answer,
 never edits, resolution, sealing or merge, and grants no reviewer acceptance.
 The CodeRabbit profile uses this finding-only conversation path instead of a
 full-review command. Existing Codex disposition/retry preconditions are unchanged.
+A profile may also list `reassessment_review_request` logins; with the initial
+in-thread request, Maint 71 asks those accounts for a review once, best effort
+(the result reports `review_requested`). The Copilot profile uses this because
+Copilot re-reviews only on request; its failure never blocks, since the thread
+drains through the unanswered-reassessment window.
 
 
 If the originating provider reports a terminal failure instead of completing
@@ -3049,7 +3084,11 @@ for `ruff`, `black`, `mypy`, `pytest`, `coverage`, `isort`, and `docformatter`.
 The matching `pyproject.toml`, consumer template, integration template, and
 direct `requirements.lock` pins must move in the same Workflows PR. Maint 52
 also updates managed `.pre-commit-config.yaml` hook revisions and direct tool pins in a consumer's `requirements-dev.lock` when that
-additional generated lockfile exists.
+additional generated lockfile exists. When `.github/workflows/pages-wasm-demo.yml`
+exists, the same apply rewrites quoted exact pins of those managed tools in that
+workflow, and the dev-tool commit stages the file. That keeps the WASM
+contract-test install on the development pytest pin. Other consumer-owned
+workflows stay untouched, and Maint 68 still does not copy this workflow.
 
 Direct pin replacement is not lock regeneration. Maint 52 applies
 `sync_dev_dependencies.py --apply --pre-commit --resolve-locks` before publishing
@@ -3127,11 +3166,15 @@ Consumer alignment must not wait for unrelated PyPI freshness. The
 exist, but continues syncing the canonical pins from Workflows. The
 `maint-auto-update-pypi-versions.yml` workflow is the sole source-proposal lane:
 it batches routine updates into one Monday UTC PR and accepts a reviewed manual
-security override when needed. Its source proposal requires a classic
-`OWNER_PR_PAT` with `repo` and `workflow` scopes to update
-`.github/workflows/autofix-versions.env`; the default Actions token cannot push
-that workflow-owned file. The workflow checks the token scope before editing
-pins and fails closed if it is absent. Maint 50 reports freshness but never creates a
+security override when needed. Updating
+`.github/workflows/autofix-versions.env` needs workflow-write credentials, which
+the default Actions token lacks. The lane mints the Workflows App token
+(`WORKFLOWS_APP_ID` / `WORKFLOWS_APP_PRIVATE_KEY`, with `contents`,
+`pull-requests` and `workflows: write`) and uses it for checkout, push and the
+proposal PR. `OWNER_PR_PAT` is a fallback only when that token cannot be
+minted, and must then be a classic PAT with `repo` and `workflow` scopes, which
+the workflow checks before editing pins. With neither credential it fails
+closed. Maint 50 reports freshness but never creates a
 competing issue or proposal. Each consumer wave records the settled Workflows
 source commit so propagation can be traced back to the validated source change.
 
@@ -3296,8 +3339,29 @@ closes any open alert so a recovered incident cannot remain as a stale red issue
   Skipped consumers show `(custom gate, never overwritten)` before the comparison,
   including an explicit `matches` when aligned. `gate triggers: all match` appears
   only after every in-scope consumer, including skipped consumers, matches.
-  Unreadable or invalid Gates are reported as unknown and prevent all-match. These
-  lines do not fail Health 68, create an alert, or authorize overwriting a Gate.
+  Unreadable or invalid Gates are reported as unknown and prevent all-match.
+  Unknown lines also appear in logs, JSON, and the step summary when read preflight
+  fails before consumer trees can be fetched, including when no read credential
+  is available. The comparison lines do not fail Health 68, create an alert,
+  or authorize overwriting a Gate.
+- For WF#4082's post-campaign observation, obtain the final campaign merge's
+  `mergedAt` from current PR metadata, then run
+  `python3 scripts/measure_gate_cancellations.py --merge "$FINAL_CAMPAIGN_MERGED_AT" --output /tmp/gate-observation.json`
+  with that verified timestamp in `FINAL_CAMPAIGN_MERGED_AT`.
+  Invalid, timezone-free, or fractional-second merge timestamps exit with a CLI
+  usage error before any consumer reads or output-file creation.
+  The collector reads every registered consumer with authenticated `gh run list --all`
+  so disabling Gate after the interval does not hide its historical runs,
+  paginates with `--limit 1000`, and splits saturated date windows to avoid
+  silently accepting truncated results. It retains raw runs and commands, counts
+  each cancelled `pull_request` run with a distinct same-repository, same-head
+  sibling within five seconds, and divides by all Gate runs in the half-open
+  interval `[mergedAt, mergedAt + 48 hours)`. Its total read budget is 110 seconds.
+  Runs outside that interval are excluded before checking their final conclusion.
+  Pending intervals report their exact end time. Failed reads, incomplete in-interval runs,
+  saturated one-second windows, and an empty denominator cannot pass. This
+  diagnostic does not establish the final merge timestamp or replace live drift
+  readback; its caller must verify campaign disposition first.
 - The uploaded `consumer-sync-drift-report` artifact uses
   `workflows-consumer-sync-drift/v1` and includes safe
   `token_diagnostics` (`workflows-drift-token-selection/v1`) so permission or
@@ -3544,6 +3608,45 @@ Coordinated negative subjects use shared descriptor-aware URL tokens and a bound
 
 ### Stable canary refresh clock
 
+Review-blocked canaries route each active synced-file finding to the latest
+merged Workflows PR in that manifest source path's history, including when newer
+changes were direct commits. The lookup paginates past direct commits; only a
+path with no merged source PR falls back to a comment on its newest commit.
+Existing authenticated-writer markers suppress duplicate comments on retries.
+Each comment links the consumer thread; the original finding remains blocking.
+
+Maint 71 counts stale producer observations independently of overlapping check
+and review blockers. A bound review snapshot does not suppress the stale count:
+an old review-blocked canary contributes to both `review_blocked` and `stale`.
+Healthy green canaries and expected pre-seal Gate holds retain their existing
+age exemptions.
+An unreadable live default-branch tip does not erase known blocker counts or
+the held plan from the summary. Refresh for that plan stays blocked, including
+requests from its siblings, and the live-tip read error still fails the run.
+
+Full-scope report refreshes retain the verified campaign source commit and pass
+its expected plan ID to Maint 68. The in-loop stable refresh does the same
+when the canary carries that sha256 plan and source, including when current
+main has moved ahead; mixed campaign sources refuse before dispatch. An
+immutable-identity block may request
+`refresh-candidate-from-exact-plan` only with a complete full-scope campaign
+tuple and a freshly authenticated candidate for the same compiled plan. Mixed
+plan/source requests refuse before dispatch. A later same-payload Maint 68
+success retires an older failure or cancellation, so that stale non-success
+does not hold a new recovery key for the rest of the six-hour window. A
+guarded success that skipped `Authorize canary payload mutation` is not that
+delivery: it does not consume the recovery key. A non-success newer than every
+authorizing success still holds. The refresh step persists
+`canary_refresh.refresh_dispatched`, `held_plans`, and `drainable` in the merge
+report after dispatch. It also emits a `candidate refresh receipt:` line in
+the refresh step's logs and summary, binding those counts to `source_commit`
+and `plan_id`. This line remains observable when the workflow uploaded its
+report artifact before refresh; the earlier artifact lacks the new accounting.
+A held or failed dispatch emits no success receipt. This receipt is not
+production completion. Confirm the next Maint 71 run reaches the review/seal
+path without an identity mismatch.
+
+
 Maint 71 uses `STALE_CANARY_HOURS = 6` against the producer's
 `head_observed_at` to recover blocked or non-mergeable canaries. Green,
 mergeable canaries follow the normal exact-head merge and campaign evidence
@@ -3552,7 +3655,10 @@ successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
 reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
-most one configured-candidate refresh per invocation. Full-scope refresh keeps
+most one configured-candidate refresh per invocation. A consumed recovery for
+one canary's payload/head or live tip/head does not suppress a sibling's new
+recovery key in that plan; active writers still hold the entire candidate set.
+Full-scope refresh keeps
 its existing **rendered delivery digest** identity across source SHAs.
 `scripts/consumer_delivery_digest.py:delivery_digest` hashes full delivery intent
 for refresh, Maint 68 preparation, and the seal writer.
@@ -3642,7 +3748,15 @@ tip/head pair as a SHA-256 `refresh_key` (`drift=` in the title). The live branc
 API supplies the tip, cached once per behind consumer per run. Unknown tip/head,
 diff, configuration, or bounded history evidence fails closed. Active canary or
 promotion writers hold refresh across all plans. Failed producer retries use
-`CANARY_REFRESH_DEBOUNCE_MS` (six hours). Source-delta, dry-run, other-branch or
+`CANARY_REFRESH_DEBOUNCE_MS` (six hours). One infrastructure failure per plan,
+source, and candidate set does not. The guard classifies it from that run's
+`actions.listJobsForWorkflowRunAttempt` jobs: `Prepare sync from manifest` failed
+and no `Sync <repo>` job started (rate limit, or a runner or transport failure
+before any consumer job). A second consecutive infrastructure failure for the
+same key keeps the six-hour debounce, as does any run whose consumer sync jobs
+ran and failed. `canaryRefreshDiagnostics` records each classified run as
+`infrastructure` or `consumer` without native error text. Missing job evidence
+keeps the six-hour hold. Source-delta, dry-run, other-branch or
 subset runs cannot supply full-set success. No canary uses `pulls.updateBranch`.
 Producer success never substitutes for passing consumer CI, settled review,
 valid signatures or an exact-head sealed Gate before promotion/merge.
@@ -3749,3 +3863,15 @@ Each stage repeats the native check inventories and head/linkage reads. A presen
 failed, pending or unknown required context remains blocking. Generated delivery
 PRs and their final merge guard continue to require their own exact-head checks;
 this no-change fallback does not apply to them.
+
+### Maint 71 inventory when REST is exhausted
+
+Maint 71 retries PR inventory through the separately budgeted GraphQL interface
+when REST reports primary rate-limit exhaustion after credential rotation. The
+fallback paginates every open PR and retrieves the latest closed stable candidate
+and delivery heads needed for recovery. It preserves exact PR/head/base identity,
+author, lifecycle body and labels; an incomplete identity or label inventory is an
+error, never an empty or ready result. Permission errors and secondary limits do
+not invoke this fallback. Subsequent delivery operations retain their existing
+required checks, source/plan bindings and merge guards; inventory fallback alone
+does not authorize a merge or claim that REST-only operations are available.

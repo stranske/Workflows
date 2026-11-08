@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/focused.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "env_overrides": {},
+  "exit": 0,
+  "stdout": "........                                                                 [100%]\n8 passed in 0.88s\n",
+  "stderr": "",
+  "timeout_seconds": 120,
+  "duration_seconds": 2.71
+}

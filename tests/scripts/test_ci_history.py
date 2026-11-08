@@ -1,8 +1,72 @@
+import io
 import json
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
-from scripts import ci_history
+from scripts import ci_history, sync_core_shipment_finding
+
+
+@pytest.mark.parametrize(
+    "reintroduce_redefinition", [False, True], ids=["shipped-source", "duplicate-record"]
+)
+@pytest.mark.parametrize("regular_package", [False, True], ids=["namespace", "regular"])
+@pytest.mark.parametrize(
+    "mypy_target", ["scripts", "scripts/ci_history.py"], ids=["package-target", "file-target"]
+)
+def test_ci_history_typechecks_in_consumer_layout(
+    tmp_path: Path, reintroduce_redefinition: bool, regular_package: bool, mypy_target: str
+) -> None:
+    """Package and file targets accept the fix and reject the duplicate annotation."""
+    package = tmp_path / "scripts"
+    package.mkdir()
+    # Sync ships these modules without __init__.py; consumers may supply their own.
+    if regular_package:
+        (package / "__init__.py").write_text("", encoding="utf-8")
+    source_dir = Path(ci_history.__file__).parent
+    for name in ("ci_history.py", "ci_metrics.py"):
+        shutil.copyfile(source_dir / name, package / name)
+
+    if reintroduce_redefinition:
+        script = package / "ci_history.py"
+        source = script.read_text(encoding="utf-8")
+        assert "failure_record: dict[str, Any]" in source
+        script.write_text(source.replace("failure_record", "record"), encoding="utf-8")
+
+    config = tmp_path / "pyproject.toml"
+    config.write_text(
+        "[tool.mypy]\nexplicit_package_bases = true\nnamespace_packages = true\n",
+        encoding="utf-8",
+    )
+    # Resolve scripts.* from the consumer checkout, not the Workflows checkout.
+    # A subprocess also keeps mypy's global state out of the rest of the test suite.
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--config-file",
+            str(config),
+            "--cache-dir",
+            str(tmp_path / "mypy-cache"),
+            "--no-incremental",
+            mypy_target,
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    if reintroduce_redefinition:
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert 'Name "record" already defined' in result.stdout
+        assert "[no-redef]" in result.stdout
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Success: no issues found" in result.stdout
 
 
 def test_truthy_accepts_common_values() -> None:
@@ -176,3 +240,233 @@ def test_build_classification_payload_counts_statuses() -> None:
     assert payload["counts"] == {"failure": 2, "error": 1}
     assert payload["timestamp"].endswith("Z")
     assert payload["entries"][0]["nodeid"] == "a"
+
+
+@pytest.mark.parametrize(
+    "reintroduce_redefinition",
+    [False, True],
+    ids=["fixed-source", "reintroduced-redefinition"],
+)
+def test_ci_history_type_checks_under_consumer_mypy(
+    tmp_path: Path, reintroduce_redefinition: bool
+) -> None:
+    """Consumers type-check this synced script; Workflows' own mypy covers only src/.
+
+    2026-11-07: a second ``record: dict[str, Any]`` annotation in main() raised mypy
+    ``no-redef`` and turned trip-planner's typecheck-mypy red on its sync canary.
+
+    Acceptance: the fixed source passes; reintroducing the duplicate annotation
+    reproduces the original diagnostic and fails this named gate.
+    """
+    # This named acceptance gate must fail, rather than skip, when mypy is missing.
+    # mypy is a required development dependency and runs through the test interpreter.
+    script = Path(__file__).resolve().parents[2] / "scripts" / "ci_history.py"
+    target = script
+    if reintroduce_redefinition:
+        # Mutate a disposable copy so parallel suites never see a broken checkout.
+        target = tmp_path / "ci_history.py"
+        source = script.read_text(encoding="utf-8")
+        assert "failure_record: dict[str, Any]" in source
+        target.write_text(source.replace("failure_record", "record"), encoding="utf-8")
+
+    # Consumers run mypy with their own (near-default) config; Workflows' pyproject relaxes
+    # checks that consumers enforce, so use an empty config rather than this repo's.
+    config = tmp_path / "mypy.ini"
+    config.write_text("[mypy]\n")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--config-file",
+            str(config),
+            "--no-incremental",
+            "--ignore-missing-imports",
+            "--follow-imports=silent",
+            "--no-error-summary",
+            "--cache-dir",
+            str(tmp_path / ".mypy_cache"),
+            str(target),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if reintroduce_redefinition:
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert 'Name "record" already defined' in result.stdout
+        assert "[no-redef]" in result.stdout
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+
+
+_SYNC_CORE_EVIDENCE_DIR = (
+    Path(__file__).resolve().parents[2] / "evidence" / "issue-4508" / "sync-core-clearance"
+)
+
+
+@pytest.mark.parametrize(
+    ("log_text", "expect_reported"),
+    [
+        (
+            'scripts/ci_history.py:152: error: Name "record" already defined on line 119  '
+            "[no-redef]\n##[error]Process completed with exit code 1.\n",
+            True,
+        ),
+        (
+            "2026-11-07T01:44:32.3461098Z scripts/ci_history.py:152: error: "
+            'Name "record" already defined on line 119  [no-redef]\n',
+            True,
+        ),
+        (
+            # Raw Actions logs may colorize spans mid-diagnostic; strip before match.
+            "2026-11-07T01:44:32.3461098Z scripts/ci_history.py:152: error: "
+            'Name "record" already defined on line 119  \x1b[0m[no-redef]\n',
+            True,
+        ),
+        ("Success: no issues found in 1 source file\n", False),
+        (
+            "2026-11-07T02:12:31.5934134Z Success: no issues found in 484 source files\n",
+            False,
+        ),
+        (
+            "2026-11-07T02:12:31.6535303Z \x1b[36;1mset -euo pipefail\x1b[0m\n"
+            "2026-11-07T02:12:31.5934134Z Success: no issues found in 484 source files\n",
+            False,
+        ),
+        (
+            'scripts/other.py:10: error: Name "record" already defined on line 1  [no-redef]\n',
+            False,
+        ),
+    ],
+    ids=[
+        "sanitized-original-evidence",
+        "gha-timestamp-prefixed-red",
+        "ansi-interrupted-fingerprint",
+        "clean-success",
+        "gha-timestamp-prefixed-green",
+        "ansi-neighbor-green",
+        "unrelated-no-redef",
+    ],
+)
+def test_sync_core_no_redef_finding_classifier(log_text: str, expect_reported: bool) -> None:
+    """Agent-verifiable half of sync-core clearance via production classifier."""
+    assert (
+        sync_core_shipment_finding.reports_ci_history_record_no_redef(log_text) is expect_reported
+    )
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "expect_reported"),
+    [
+        ("typecheck-mypy-red.log", True),
+        ("typecheck-mypy-green.log", False),
+    ],
+    ids=["pinned-red-evidence", "pinned-green-regenerated-head"],
+)
+def test_sync_core_classifier_on_pinned_trip_planner_logs(
+    fixture_name: str, expect_reported: bool
+) -> None:
+    """Classify real trip-planner#1957 typecheck-mypy excerpts for sync-core clearance.
+
+    Red: original Evidence job 128260180158 (head 041bd22f043a) still reports the
+    verbatim fingerprint under a GHA timestamp prefix. Green: regenerated head
+    948406465cf7 job 128267659502 succeeds without that finding — the
+    agent-verifiable half of the remaining #4508 acceptance criterion before the
+    live sync-core round. Fixtures keep neighboring ANSI-colored Actions lines so
+    raw-log classification matches downloaded job archives.
+    """
+    log_path = _SYNC_CORE_EVIDENCE_DIR / fixture_name
+    log_text = log_path.read_text(encoding="utf-8")
+    assert log_text.strip(), f"empty evidence fixture: {log_path}"
+    assert "\x1b[" in log_text, "fixtures must retain ANSI from live Actions logs"
+    assert (
+        sync_core_shipment_finding.reports_ci_history_record_no_redef(log_text) is expect_reported
+    )
+    normalized = sync_core_shipment_finding.normalize_job_log(log_text)
+    if expect_reported:
+        assert sync_core_shipment_finding.CI_HISTORY_RECORD_NO_REDEF_FINDING in normalized
+        # Raw job logs retain the GHA timestamp prefix ahead of the fingerprint.
+        assert "Z scripts/ci_history.py:152:" in normalized
+    else:
+        assert "ci_history.py" not in normalized
+        assert "[no-redef]" not in normalized
+        assert "Success: no issues found" in normalized
+
+
+def test_sync_core_shipment_finding_cli_on_pinned_logs() -> None:
+    """CLI mirrors classifier exits: red still-reported, green cleared."""
+    red = _SYNC_CORE_EVIDENCE_DIR / "typecheck-mypy-red.log"
+    green = _SYNC_CORE_EVIDENCE_DIR / "typecheck-mypy-green.log"
+    assert sync_core_shipment_finding.main([str(red)]) == 1
+    assert sync_core_shipment_finding.main([str(green)]) == 0
+
+
+def test_sync_core_shipment_finding_cli_stdin_clears_green(monkeypatch, capsys) -> None:
+    """Agents can pipe downloaded Actions job logs through stdin ('-')."""
+    green = (_SYNC_CORE_EVIDENCE_DIR / "typecheck-mypy-green.log").read_text(encoding="utf-8")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(green))
+    assert sync_core_shipment_finding.main(["-"]) == 0
+    assert "cleared:" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "reintroduce_redefinition",
+    [False, True],
+    ids=["cleared-for-sync-core", "emits-sync-core-finding"],
+)
+def test_ci_history_clears_sync_core_no_redef_finding(
+    tmp_path: Path, reintroduce_redefinition: bool
+) -> None:
+    """Local proxy for the live sync-core clearance acceptance criterion (#4508).
+
+    Mirror reusable-10-ci-python's consumer gate (trip-planner mypy knobs + ``.``
+    target with ``--exclude .workflows-lib``). Fixed source must not emit the
+    verbatim sync-core fingerprint; reintroducing the duplicate annotation must.
+    """
+    package = tmp_path / "scripts"
+    package.mkdir()
+    source_dir = Path(ci_history.__file__).parent
+    for name in ("ci_history.py", "ci_metrics.py"):
+        shutil.copyfile(source_dir / name, package / name)
+
+    if reintroduce_redefinition:
+        script = package / "ci_history.py"
+        source = script.read_text(encoding="utf-8")
+        assert "failure_record: dict[str, Any]" in source
+        script.write_text(source.replace("failure_record", "record"), encoding="utf-8")
+
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.mypy]\nexplicit_package_bases = true\nnamespace_packages = true\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--config-file",
+            "pyproject.toml",
+            "--exclude",
+            ".workflows-lib",
+            "--cache-dir",
+            str(tmp_path / "mypy-cache"),
+            "--no-incremental",
+            ".",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    combined = result.stdout + result.stderr
+
+    if reintroduce_redefinition:
+        assert result.returncode != 0, combined
+        assert sync_core_shipment_finding.reports_ci_history_record_no_redef(combined), combined
+    else:
+        assert result.returncode == 0, combined
+        assert not sync_core_shipment_finding.reports_ci_history_record_no_redef(combined), combined
+        assert "[no-redef]" not in combined
+        assert 'Name "record" already defined' not in combined

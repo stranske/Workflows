@@ -1,0 +1,244 @@
+{
+  "collectedAt": "2026-11-06T23:09:05.507Z",
+  "source": "Authenticated connected GitHub fetch_pr and paginated list_pr_changed_filenames; gh unavailable",
+  "campaign": [
+    {
+      "repo": "stranske/Counter_Risk",
+      "pr": 1178,
+      "url": "https://github.com/stranske/Counter_Risk/pull/1178",
+      "headSha": "ef4eab34fd00991721e105da3fa709f9c2eaf5be",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:16Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "pr": 101,
+      "url": "https://github.com/stranske/Deliverable-Render/pull/101",
+      "headSha": "9b0f192802ba6f0cd9bdac152fd03377b472d2a1",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:21Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "pr": 138,
+      "url": "https://github.com/stranske/Doc-Lineage/pull/138",
+      "headSha": "e270e1b586fcb82db93e28891bf29a57f558b4a8",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:24Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 832,
+      "url": "https://github.com/stranske/Fine-Art-Archive/pull/832",
+      "headSha": "594688593acb8f31a36f68695c9864d55c02b63e",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:29Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 1037,
+      "url": "https://github.com/stranske/Inv-Man-Intake/pull/1037",
+      "headSha": "ffeaf3afb2928c0ffe3e03c1e16b2aa2bc39cbd9",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:34Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "pr": 116,
+      "url": "https://github.com/stranske/Manager-Mosaic/pull/116",
+      "headSha": "338e00b835e007fee9a68de8c7ce0fcf2d66ddb6",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:39Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "pr": 732,
+      "url": "https://github.com/stranske/Orchestrator/pull/732",
+      "headSha": "57efe3a51cce3d6412ca9a69464b5614113370dd",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:43Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   # ALSO ON PUSH TO MAIN, and the reason is an incident rather than a preference.\n   #\n   # This workflow used to run on `pull_request` only. On 2026-08-24 its PR run was held at"
+    },
+    {
+      "repo": "stranske/Pension-Data",
+      "pr": 979,
+      "url": "https://github.com/stranske/Pension-Data/pull/979",
+      "headSha": "85562e99d80956514cfdc2e836478a9f24726e98",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:48Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2390,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2390",
+      "headSha": "09298cf6b2e719b90ad661ea62553f4504d5dd96",
+      "state": "open",
+      "merged": false,
+      "isDraft": false,
+      "mergedAt": null,
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -16,7 +16,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Ready",
+      "pr": 633,
+      "url": "https://github.com/stranske/Ready/pull/633",
+      "headSha": "5e341751ff4b79186f5c32e288711a060ae04e18",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T14:51:47Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "pr": 1682,
+      "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1682",
+      "headSha": "0532bbda4779cef5902005bb45b8607401fb5f16",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:57Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 6112,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6112",
+      "headSha": "d9bb77745d0d7edd5da4b23d37e0f330d7859576",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:56:04Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "pr": 775,
+      "url": "https://github.com/stranske/learning-management-system/pull/775",
+      "headSha": "677a6ca74735cbefce61f9fbd7447c1ee65f9f6b",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:56:09Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "pr": 1921,
+      "url": "https://github.com/stranske/trip-planner/pull/1921",
+      "headSha": "a784569e22ebd401af22a6739e25bdb85e3e621e",
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:56:14Z",
+      "files": [
+        ".github/workflows/pr-00-gate.yml"
+      ],
+      "additions": 1,
+      "deletions": 1,
+      "oneLineRemoval": true,
+      "patch": "@@ -29,7 +29,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+    }
+  ]
+}

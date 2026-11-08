@@ -93,7 +93,7 @@ on:
         required: false
         type: string
       bridge_agent:
-        description: "Agent key passed to the reusable bridge workflow (default codex)"
+        description: "Agent key passed to the reusable bridge workflow (default route-weights chooser / codex)"
         required: false
         type: string
       bridge_draft_pr:
@@ -213,13 +213,24 @@ jobs:
           fi
 
           # Preserve an empty input so preflight can choose the default agent.
+          # Control suffixes match bridge_preflight controlLabelSuffixes. A label
+          # such as agents:formatted must not become bridge_agent: that output
+          # wins over the validated agent_key and would drop agent:cursor.
           if command -v jq >/dev/null 2>&1 && [ -f "$GITHUB_EVENT_PATH" ]; then
             event_agent=$(jq -r '
+              def control: [
+                "keepalive","formatted","optimize","allow-change","apply-suggestions",
+                "debug","format","sync-failed","sync-required","auto-pilot",
+                "auto-pilot-pause","auto-pilot-failed","activated","decompose","paused",
+                "needs-attention","rate-limited","retry"
+              ];
               [
                 .issue.labels[]?.name
-                | select(test("^agents?:[A-Za-z0-9-]+$"))
-                | sub("^agents?:(?<key>[A-Za-z0-9-]+)$"; "\(.key)")
-                | select(. != "keepalive")
+                | ascii_downcase
+                | select(test("^agents?:[a-z0-9-]+$"))
+                | sub("^agents?:"; "")
+                | . as $key
+                | select(control | index($key) | not)
               ][0] // empty
             ' "$GITHUB_EVENT_PATH" 2>/dev/null || echo '')
             if [ -n "$event_agent" ]; then

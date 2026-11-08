@@ -1,0 +1,11 @@
+2026-11-07T01:44:25.8534003Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-07T01:44:25.8534391Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-07T01:44:25.8534774Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-07T01:44:25.8535099Z ##[endgroup]
+2026-11-07T01:44:32.3461098Z scripts/ci_history.py:152: error: Name "record" already defined on line 119  [no-redef]
+2026-11-07T01:44:41.8696339Z tests/baseline/test_planner_routing_baseline.py:100: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+2026-11-07T01:44:49.3516262Z Found 1 error in 1 file (checked 484 source files)
+2026-11-07T01:44:49.4191077Z ##[error]Process completed with exit code 1.
+2026-11-07T01:44:49.4244247Z ##[group]Run set -euo pipefail
+2026-11-07T01:44:49.4244582Z [36;1mset -euo pipefail[0m
+2026-11-07T01:44:49.4244905Z [36;1mecho "outcome=${MYPY_OUTCOME}" >> "${GITHUB_OUTPUT}"[0m

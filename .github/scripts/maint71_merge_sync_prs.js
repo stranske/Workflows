@@ -27,6 +27,8 @@ const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requ
 // Share the fleet's existing exhausted-primary-limit policy with Gate readers.
 function isPrimaryRateLimitExhausted(error) {
   const retryHelpers = require('./github-api-with-retry');
+  const message = String(error?.message || error?.response?.data?.message || '');
+  if (/secondary rate limit|abuse/i.test(message)) return false;
   return typeof retryHelpers.isRateLimitError === 'function'
     && typeof retryHelpers.isSecondaryRateLimitError === 'function'
     && retryHelpers.isRateLimitError(error)
@@ -62,6 +64,28 @@ function canaryRecoveryKey(canary, state) {
   if (canary.mergeable_state === 'behind') return canaryDriftKey(canary);
   return require('crypto').createHash('sha256')
     .update(`${canary.owner}/${canary.repo}:${state.delivery_digest || state.sha}:${canary.head_sha}`).digest('hex');
+}
+
+function isFullCampaignPlan(plan) {
+  return plan?.plan_scope === 'full'
+    && /^sha256:[a-f0-9]{64}$/.test(plan.plan_id || '')
+    && /^[a-f0-9]{40}$/.test(plan.source_commit || '')
+    && !plan.scope_base_sha;
+}
+
+// Full-scope recovery must keep the immutable handoff. A verified sha256 plan
+// and source are that handoff; anything else stays on the legacy main read.
+function campaignBoundRefreshPlan(canary) {
+  if (!canary) return null;
+  if (canary.refresh_plan?.plan_scope === 'source-delta') return canary.refresh_plan;
+  if (isFullCampaignPlan(canary.refresh_plan)) return canary.refresh_plan;
+  if (canary.refresh_plan) return canary.refresh_plan;
+  if (canary.plan_scope && canary.plan_scope !== 'full') return null;
+  if (canary.scope_base_sha) return null;
+  if (!isFullCampaignPlan({ plan_scope: 'full', plan_id: canary.plan_id,
+    scope_base_sha: '', source_commit: canary.source_commit })) return null;
+  return refreshPlanContext({ planId: canary.plan_id, planScope: 'full',
+    scopeBaseSha: '', sourceSha: canary.source_commit });
 }
 
 function refreshPlanContext({ planId = '', planScope = 'full', scopeBaseSha = '', sourceSha = '', plan } = {}) {
@@ -199,23 +223,76 @@ function refreshReceiptDiagnostic(run, receipt = {}, reason = receipt.reason) {
   if (['full', 'source-delta'].includes(receipt.plan_scope)) result.plan_scope = receipt.plan_scope;
   return result;
 }
+function syncJobStarted(job) {
+  if (!job || typeof job.name !== 'string' || !/^Sync \S/.test(job.name)) return false;
+  if (job.conclusion === 'skipped' || job.status === 'skipped' || job.conclusion == null) return false;
+  if (job.conclusion === 'cancelled') {
+    const steps = Array.isArray(job.steps) ? job.steps : [];
+    const executed = steps.some(step => step && step.conclusion && step.conclusion !== 'skipped');
+    const runner = (typeof job.runner_name === 'string' && job.runner_name !== '') || Number(job.runner_id) > 0;
+    return executed || runner;
+  }
+  return job.status === 'in_progress' || ['success', 'failure', 'timed_out', 'action_required'].includes(job.conclusion);
+}
+
+// Job evidence already read by the guard. Prepare dying before any Sync job
+// starts is infrastructure (rate limit, runner, or transport). A Sync job that
+// actually ran is a consumer failure and keeps the six-hour debounce.
+function canaryRefreshFailureClass(run) {
+  if (!run || run.status !== 'completed' || run.conclusion !== 'failure') return null;
+  const jobs = Array.isArray(run.refresh_jobs) ? run.refresh_jobs : Array.isArray(run.jobs) ? run.jobs : null;
+  if (!jobs) return null;
+  const prepareFailed = jobs.some(job => job?.name === 'Prepare sync from manifest' && job.conclusion === 'failure'
+    && job.status !== 'queued' && job.status !== 'in_progress' && job.status !== 'waiting');
+  const syncStarted = jobs.some(syncJobStarted);
+  if (prepareFailed && !syncStarted) return 'infrastructure';
+  if (syncStarted) return 'consumer';
+  return null;
+}
+
+function canaryRefreshFailureRows(runs) {
+  const rows = [];
+  for (const run of runs) {
+    const classification = canaryRefreshFailureClass(run);
+    if (classification !== 'infrastructure' && classification !== 'consumer') continue;
+    const row = { classification };
+    if (Number.isSafeInteger(run.id) && run.id > 0) row.run_id = run.id;
+    const attempt = Number(run.run_attempt);
+    if (Number.isSafeInteger(attempt) && attempt > 0) row.run_attempt = attempt;
+    rows.push(row);
+  }
+  return rows;
+}
+
 function canaryRefreshDiagnostics(state) {
   const runs = Array.isArray(state.runs) ? state.runs : [];
   const unknown = runs.filter(run => run.refresh_unknown);
+  const failureClassification = canaryRefreshFailureRows(runs);
   return { schema: 'workflows.canary-refresh-diagnostics/v1',
     state: ['unknown', 'success', 'unseen', 'writer-active', ...ACTIVE_SYNC_STATES,
       'failure', 'cancelled', 'timed_out', 'action_required', 'completed', 'sealed-cycle'].includes(state.state)
       ? state.state : 'unknown', eligible: state.eligible === true,
     inventory: { observed: runs.length, native_receipts: runs.filter(run => run.refresh_receipt).length,
       unknown: unknown.length, potential_overwrites: runs.filter(run => run.refresh_potential_overwrite).length,
-      confirmed_not_started: runs.filter(run => run.refresh_not_started).length },
+      confirmed_not_started: runs.filter(run => run.refresh_not_started).length,
+      infrastructure_failures: failureClassification.filter(row => row.classification === 'infrastructure').length,
+      consumer_failures: failureClassification.filter(row => row.classification === 'consumer').length },
+    failure_classification: failureClassification.slice(0, 8),
+    omitted_failure_classifications: Math.max(0, failureClassification.length - 8),
     blocking_receipt: unknown.find(run => run.id === state.run_id)?.refresh_receipt || null,
     refusals: unknown.slice(0, 8).map(run => run.refresh_receipt || refreshReceiptDiagnostic(run)),
     omitted_refusals: Math.max(0, unknown.length - 8) };
 }
 async function reportCanaryRefreshDiagnostics({ core, state }) {
-  if (state.refresh_plan?.plan_scope !== 'source-delta') return;
-  const encoded = JSON.stringify(canaryRefreshDiagnostics(state));
+  // Source-delta always prints (native refusal inventory). Full/auto canary
+  // refreshes only print when a failure was classified, so Maint 68 live logs
+  // can show why an infrastructure miss did not debounce the next attempt.
+  const diagnostic = canaryRefreshDiagnostics(state);
+  const scoped = state.refresh_plan?.plan_scope === 'source-delta';
+  const classified = diagnostic.inventory.infrastructure_failures > 0
+    || diagnostic.inventory.consumer_failures > 0;
+  if (!scoped && !classified) return;
+  const encoded = JSON.stringify(diagnostic);
   core.notice(`canary-refresh-diagnostics: ${encoded}`);
   await core.summary.addRaw(`\nCanary refresh diagnostics\n\n\`\`\`json\n${encoded}\n\`\`\`\n`).write();
 }
@@ -258,8 +335,30 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const active = matching.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status));
   const writer = runs.find((run) => !run.refresh_ignore_current_writer && ACTIVE_SYNC_STATES.includes(run.status)
     && /^Maint 68 (canary|promote) /.test(run.display_title || ''));
-  const recent = matching.find((run) => run.status === 'completed' && run.conclusion !== 'success'
-    && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS);
+  // A later same-payload success means the producer ran past an older failure
+  // or cancellation. That stale non-success must not hold a new recovery key
+  // for the rest of the debounce window. A non-success newer than every
+  // matching success still holds, including an unkeyed failure for a new head.
+  const observedAt = (run) => Date.parse(run.updated_at || run.created_at);
+  const newestSuccessAt = matching.reduce((latest, run) => {
+    if (run.refresh_not_started || run.status !== 'completed' || run.conclusion !== 'success') return latest;
+    const at = observedAt(run);
+    return Number.isFinite(at) && at > latest ? at : latest;
+  }, 0);
+  const recentCandidates = matching.filter((run) => {
+    const at = observedAt(run);
+    return run.status === 'completed' && run.conclusion !== 'success'
+      && Number.isFinite(at) && at > newestSuccessAt
+      && now - at < CANARY_REFRESH_DEBOUNCE_MS;
+  });
+  // `matching` is one (plan, source, candidates) key. A single infrastructure
+  // failure in that key does not debounce the next attempt. A second consecutive
+  // infrastructure failure falls back to this same six-hour hold so an outage
+  // cannot dispatch on every observation. Consumer-job failures always hold.
+  const infrastructureFailures = recentCandidates.filter(run => canaryRefreshFailureClass(run) === 'infrastructure');
+  const exemptInfrastructure = infrastructureFailures.length === 1;
+  const recent = recentCandidates.find(run => !exemptInfrastructure
+    || canaryRefreshFailureClass(run) !== 'infrastructure');
   const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
   const prior = active || writer || unknown || successful || recent;
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
@@ -269,6 +368,45 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
       : recent ? recent.conclusion || 'completed' : 'unseen',
     run_id: prior?.id,
     debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
+}
+
+async function listCanaryRefreshAttemptJobs(client, params) {
+  const actions = client.rest?.actions;
+  if (typeof actions?.listJobsForWorkflowRunAttempt !== 'function') return null;
+  const jobs = [];
+  for (let page = 1; page <= 10; page++) {
+    const response = await actions.listJobsForWorkflowRunAttempt({ ...params, per_page: 100, page });
+    const data = response?.data && typeof response.data === 'object' ? response.data : response;
+    const chunk = data?.jobs;
+    if (!Array.isArray(chunk)) return null;
+    jobs.push(...chunk);
+    if (chunk.length < 100) return jobs;
+    if (Number.isSafeInteger(data.total_count) && jobs.length >= data.total_count) return jobs;
+  }
+  // A truncated job list could hide a Sync job and look like infrastructure.
+  return null;
+}
+
+async function attachCanaryRefreshFailureEvidence({ runs, withRetry, location, now }) {
+  for (const run of runs) {
+    if (run.status !== 'completed' || run.conclusion !== 'failure') continue;
+    if (Array.isArray(run.refresh_jobs) || Array.isArray(run.jobs)) continue;
+    const at = Date.parse(run.updated_at || run.created_at);
+    if (!Number.isFinite(at) || now - at >= CANARY_REFRESH_DEBOUNCE_MS) continue;
+    const title = String(run.display_title || '').trim().replace(/\s+/g, ' ');
+    if (!/^Maint 68 canary (?:full|auto|source-delta)\s+source=[a-f0-9]{40} candidates=\S+ dry=false(?: drift=[a-f0-9]{64})?(?: guard=delivery-v1)?$/.test(title)) continue;
+    const runId = Number(run.id);
+    const attempt = Number(run.run_attempt || 1);
+    if (!Number.isSafeInteger(runId) || runId <= 0 || !Number.isSafeInteger(attempt) || attempt < 1) continue;
+    try {
+      const jobs = await withRetry(client => listCanaryRefreshAttemptJobs(client, {
+        ...location, run_id: runId, attempt_number: attempt,
+      }));
+      if (Array.isArray(jobs)) run.refresh_jobs = jobs;
+    } catch {
+      // Unreadable job evidence keeps the six-hour debounce. Do not echo native error text.
+    }
+  }
 }
 
 async function readCanaryRefreshState({ withRetry, context, expectedCanaries, driftKey = '',
@@ -389,12 +527,18 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     }
     // A guarded producer can succeed after queueing, without delivery. Its
     // explicit authorization step is the receipt, not the run conclusion.
+    // A skipped authorization must not consume the recovery key: the next
+    // Maint 68 guard would otherwise see a success and refuse the mutation
+    // the canaries are still waiting on.
     if (run.status === 'completed' && run.conclusion === 'success'
       && String(run.display_title).endsWith(' guard=delivery-v1')) {
       const jobs = await withRetry(client => client.paginate(client.rest.actions.listJobsForWorkflowRun,
         { ...location, run_id: run.id, per_page: 100 }));
       if (!jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
-        && step.conclusion === 'success'))) continue;
+        && step.conclusion === 'success'))) {
+        run.refresh_not_started = true;
+        continue;
+      }
     }
     run.source_commit = match[1];
     if (payload) {
@@ -418,6 +562,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
       if (sameRefreshPlan(run.refresh_plan, refreshPlan)) run.delivery_digest = payload?.digest;
     }
   }
+  await attachCanaryRefreshFailureEvidence({ runs: observed, withRetry, location, now });
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,
     defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, refreshPlan, now });
   if (refreshPlan.plan_scope === 'source-delta' && !payload) {
@@ -537,9 +682,14 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
     inputs: { phase: 'canary', delivery_scope: 'full', scope_head_sha: state.sha,
       repos: state.candidates.join(','), dry_run: 'false', force: 'false',
       cleanup_branches: String(cleanupBranches),
+      ...(state.refresh_plan?.plan_id ? { expected_plan_id: state.refresh_plan.plan_id } : {}),
       ...(state.refresh_plan?.plan_scope === 'source-delta' ? {
         delivery_scope: 'source-delta', scope_base_sha: state.refresh_plan.scope_base_sha,
         scope_head_sha: state.refresh_plan.source_commit, expected_plan_id: state.refresh_plan.plan_id,
+      } : {}),
+      ...(isFullCampaignPlan(state.refresh_plan) ? {
+        scope_head_sha: state.refresh_plan.source_commit,
+        expected_plan_id: state.refresh_plan.plan_id,
       } : {}),
       ...(state.drift_key ? { refresh_key: state.drift_key } : {}) },
   }));
@@ -551,8 +701,10 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
 async function dispatchCandidateRefreshFromReport({ report, withRetry, context, core, expectedCanaries,
   trustedActors = [] }) {
   const rows = (Array.isArray(report?.results) ? report.results : []).filter(row =>
-    row.status === 'stable_base_refresh_required'
-    && row.next_command === 'dispatch-maint-68-phase-canary-no-filter');
+    (row.status === 'stable_base_refresh_required'
+      && row.next_command === 'dispatch-maint-68-phase-canary-no-filter')
+    || (row.status === 'delivery_contract_blocked'
+      && row.next_command === 'refresh-candidate-from-exact-plan'));
   if (!rows.length) return { eligible: false, state: 'no-refresh-request', dispatched: false };
   const allowed = new Set(expectedCanaries), requests = [], freshCanaries = [];
   const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
@@ -574,17 +726,24 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
       || record?.repository !== repository) throw new Error('canary_refresh_report_native_subject_changed');
     const request = await verifiedCanaryRefreshPlan({ owner: row.owner, repo: row.repo,
       pr, record, metadata, withRetry });
-    if (!sameRefreshPlan(request, row)) throw new Error('canary_refresh_report_scope_changed');
-    requests.push(request);
+    if (row.status === 'delivery_contract_blocked') {
+      // The native candidate is authenticated above, but is bound to the wrong
+      // source. Only a complete full-scope campaign tuple may request recovery.
+      const desired = row.refresh_plan;
+      if (!desired || desired.plan_scope !== 'full' || request.plan_scope !== 'full'
+        || !/^sha256:[a-f0-9]{64}$/.test(desired.plan_id || '')
+        || !/^[a-f0-9]{40}$/.test(desired.source_commit || '')
+        || desired.plan_id !== request.plan_id) throw new Error('canary_refresh_report_scope_changed');
+      requests.push(refreshPlanContext({ planId: desired.plan_id, planScope: desired.plan_scope,
+        scopeBaseSha: desired.scope_base_sha, sourceSha: desired.source_commit }));
+    } else {
+      if (!sameRefreshPlan(request, row)) throw new Error('canary_refresh_report_scope_changed');
+      requests.push(request);
+    }
     freshCanaries.push({ owner: row.owner, repo: row.repo, head_sha: pr.head.sha,
       mergeable_state: pr.mergeable_state, default_branch: pr.base.repo.default_branch });
   }
-  if (requests.every(request => request.plan_scope === 'full')) {
-    return dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries,
-      cleanupBranches: report.inputs.cleanup_branches });
-  }
-  if (requests.some(request => request.plan_scope !== 'source-delta'
-    || !sameRefreshPlan(request, requests[0]))) throw new Error('canary_refresh_mixed_report_plans');
+  if (requests.some(request => !sameRefreshPlan(request, requests[0]))) throw new Error('canary_refresh_mixed_report_plans');
   const request = requests[0];
   const inputs = { sourceSha: request.source_commit, planId: request.plan_id,
     planScope: request.plan_scope, scopeBaseSha: request.scope_base_sha };
@@ -595,12 +754,32 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
     state = await readCanaryRefreshState({ withRetry, context, expectedCanaries, ...inputs,
       driftKey: canaryRecoveryKey(recovery, state) });
   }
-  return dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState: state,
+  const refresh = await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries, refreshState: state,
     cleanupBranches: report.inputs.cleanup_branches });
+  if (refresh.dispatched) {
+    const prior = report.canary_refresh || {};
+    report.canary_refresh = { ...prior,
+      refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
+      drainable: (prior.drainable || 0) + rows.length,
+      held_plans: [...new Set([...(prior.held_plans || []), request.plan_id])] };
+    // The workflow may have uploaded the report before this recovery step.
+    // Keep dispatch evidence visible in this step's logs and summary as well.
+    const counts = report.canary_refresh;
+    const line = `candidate refresh receipt: source_commit=${request.source_commit} plan_id=${request.plan_id} `
+      + `refresh_dispatched=${counts.refresh_dispatched} held_plans=${counts.held_plans.join(',')} drainable=${counts.drainable}`;
+    core.notice(line);
+    await core.summary.addRaw(`${line}\n`).write();
+  }
+  return refresh;
 }
 
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
 // Only a successful producer observation resets the clock; comments do not.
+function canaryObservationIsStale(canary, now) {
+  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
+  return Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000;
+}
+
 function canaryNeedsRefresh(canary, now = Date.now()) {
   if (canary.mergeable_state === 'behind') return 'behind';
   if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) {
@@ -612,8 +791,7 @@ function canaryNeedsRefresh(canary, now = Date.now()) {
   // mergeability still goes through that path's existing fail-closed gates.
   if (['ready', 'success'].includes(canary.check_status) && canary.mergeable !== false
     && !['dirty', 'blocked', 'unknown', 'draft'].includes(canary.mergeable_state)) return null;
-  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
-  if (Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000) return 'stale';
+  if (canaryObservationIsStale(canary, now)) return 'stale';
   return null;
 }
 
@@ -814,19 +992,30 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
     const origin = thread.comments?.nodes?.[0]?.url;
     if (!origin || !thread.id) throw new Error('canary_review_thread_link_missing');
     const location = { owner: context.repo.owner, repo: context.repo.repo };
-    const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
-      ...location, sha: context.payload.repository?.default_branch || 'main',
-      path: source.sourcePath, per_page: 1,
-    }));
-    if (!commits[0]?.sha) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
-    const commit = commits[0].sha;
-    const prs = await withRetry((client) => client.paginate(
-      client.rest.repos.listPullRequestsAssociatedWithCommit,
-      { ...location, commit_sha: commit, per_page: 100 },
-    ));
-    const latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
-      `${location.owner}/${location.repo}`)
-      .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+    let commit;
+    let latest;
+    // Direct source commits have no PR association. Walk this path's history
+    // until its latest merged PR is found, retaining the newest commit only
+    // as a fallback when the entire path history has no merged source PR.
+    for (let page = 1; ; page++) {
+      const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
+        ...location, sha: context.payload.repository?.default_branch || 'main',
+        path: source.sourcePath, per_page: 100, page,
+      }));
+      commit ||= commits[0]?.sha;
+      for (const entry of commits) {
+        const prs = await withRetry((client) => client.paginate(
+          client.rest.repos.listPullRequestsAssociatedWithCommit,
+          { ...location, commit_sha: entry.sha, per_page: 100 },
+        ));
+        latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
+          `${location.owner}/${location.repo}`)
+          .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+        if (latest) break;
+      }
+      if (latest || commits.length < 100) break;
+    }
+    if (!commit) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
     const marker = `<!-- maint71-canary-upstream:${canary.owner}/${canary.repo}:${thread.id} -->`;
     const comments = await withRetry((client) => client.paginate(
       latest ? client.rest.issues.listComments : client.rest.repos.listCommentsForCommit,
@@ -857,13 +1046,16 @@ async function refreshStableCanaries({
   const counts = { red: 0, drainable: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
   // Preserve every held plan's reasons, but refresh the full candidate set once.
   const plans = new Map();
+  const unreadableTipPlans = new Set();
   const errors = [];
   for (const canary of canaries) {
     try {
       await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
     } catch (error) {
       errors.push(`canary_refresh_tip_unreadable:${canary.owner}/${canary.repo}:${error.message}`);
-      continue;
+      // Keep known blockers visible even when branch drift cannot be read.
+      // A sibling must not dispatch this plan using an incomplete live-tip read.
+      unreadableTipPlans.add(canary.plan_id);
     }
     if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) counts.red++;
     if (canary.expected_preseal_gate_hold && !canaryHasBlockingReviewDebt(canary)) counts.drainable++;
@@ -876,8 +1068,9 @@ async function refreshStableCanaries({
     await core.summary.addRaw(`${sealLine}\n`).write();
     if (canaryHasBlockingReviewDebt(canary)) counts.review_blocked++;
     const reason = canaryNeedsRefresh(canary, now);
-    if (reason && canaryNeedsRefresh({ ...canary, mergeable_state: '', mergeable: false,
-      check_status: '', active_review_thread_count: 0 }, now) === 'stale') counts.stale++;
+    // Age accounting is independent of review classification. Reclassifying a
+    // synthetic zero-thread row would invalidate its bound review snapshot.
+    if (reason && !canary.expected_preseal_gate_hold && canaryObservationIsStale(canary, now)) counts.stale++;
     canary.refresh_reason = reason;
     if (!reason) continue;
     if (!canary.plan_id) {
@@ -904,34 +1097,48 @@ async function refreshStableCanaries({
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      for (const [plan, rows] of plans) {
+      refreshPlans: for (const [plan, rows] of plans) {
+        if (unreadableTipPlans.has(plan)) continue;
         const recovery = rows.find(row => row.mergeable_state === 'behind') || rows[0];
-        const request = recovery.refresh_plan;
+        const request = campaignBoundRefreshPlan(recovery);
         if (rows.some(row => row.plan_scope === 'source-delta' || row.refresh_plan?.plan_scope === 'source-delta')
           && (!request || request.plan_scope !== 'source-delta'
             || rows.some(row => !sameRefreshPlan(row.refresh_plan, request)))) {
           throw new Error('canary_refresh_scoped_native_binding_missing_or_mixed');
         }
+        if (request?.plan_scope === 'full'
+          && rows.some(row => !sameRefreshPlan(campaignBoundRefreshPlan(row), request))) {
+          throw new Error('canary_refresh_mixed_report_plans');
+        }
         const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
           scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan } : {};
-        const reusable = recovery.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
-          ? null : refreshState);
-        const baseState = reusable || await readCanaryRefreshState({
-          withRetry, context, expectedCanaries, now, ...inputs });
-        const recoveryKey = canaryRecoveryKey(recovery, baseState);
-        const state = baseState.drift_key === recoveryKey ? baseState
-          : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
-            ...inputs, driftKey: recoveryKey });
-        const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
-          expectedCanaries, refreshState: state, now, cleanupBranches });
-        if (!refresh.dispatched) continue;
-        counts.refresh_dispatched++;
-        core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
-          rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
-          '; completion awaits a successful Maint 68 run');
-        // Stable candidate branches have one writer even before REST exposes
-        // this newly requested run. Other held plans remain for a later pass.
-        break;
+        // A consumed recovery belongs to one payload/head (or live tip/head).
+        // Check siblings too, preserving behind priority and one producer write.
+        for (const candidate of [recovery, ...rows.filter(row => row !== recovery)]) {
+          const fullAligned = (state) => request?.plan_scope === 'full'
+            && state?.sha === request.source_commit && sameRefreshPlan(state.refresh_plan, request);
+          const reusable = request?.plan_scope === 'full'
+            ? (fullAligned(candidate.refresh_state) ? candidate.refresh_state
+              : fullAligned(refreshState) ? refreshState : null)
+            : (candidate.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
+              ? null : refreshState));
+          const baseState = reusable || await readCanaryRefreshState({
+            withRetry, context, expectedCanaries, now, ...inputs });
+          const recoveryKey = canaryRecoveryKey(candidate, baseState);
+          const state = baseState.drift_key === recoveryKey ? baseState
+            : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
+              ...inputs, driftKey: recoveryKey });
+          const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
+            expectedCanaries, refreshState: state, now, cleanupBranches });
+          if (!refresh.dispatched) continue;
+          counts.refresh_dispatched++;
+          core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
+            rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
+            '; completion awaits a successful Maint 68 run');
+          // Stable candidate branches have one writer even before REST exposes
+          // this newly requested run. Other held plans remain for a later pass.
+          break refreshPlans;
+        }
       }
     }
   } catch (error) {
@@ -1925,6 +2132,24 @@ async function runReviewReassessment({
       `https://github.com/${request.repository}/pull/${request.pr}#discussion_r`)) {
     throw new Error('Reassessment request lacks durable URL, ID or timestamp');
   }
+  // A reviewer that only re-reviews on request (Copilot) gets a best-effort review
+  // request beside the in-thread request. It is never required: when the reviewer is
+  // out of capacity the thread drains through the unanswered-reassessment window.
+  let reviewRequested = null;
+  const reviewRequestLogins = Array.isArray(profile.reassessment_review_request)
+    ? profile.reassessment_review_request.filter((login) => typeof login === 'string' && login) : [];
+  if (!found && !dispositionOnly && !retryFailed && !nativeConversation && reviewRequestLogins.length) {
+    try {
+      await withRetry((client) => client.rest.pulls.requestReviewers({
+        owner, repo, pull_number: request.pr, reviewers: reviewRequestLogins,
+      }), { maxRetries: 0 });
+      reviewRequested = true;
+    } catch (error) {
+      rethrowPrimaryRateLimit(error);
+      console.log(`Best-effort review request to ${reviewRequestLogins.join(',')} failed: ${error.message}`);
+      reviewRequested = false;
+    }
+  }
   let task = null;
   let taskReused = false;
   let taskSuppressed = false;
@@ -2009,6 +2234,7 @@ async function runReviewReassessment({
     request_url: comment.html_url,
     requested_at: comment.created_at,
     writer: comment.user?.login || '',
+    ...(reviewRequested === null ? {} : { review_requested: reviewRequested }),
     ...(task ? {
       task_status: taskReused ? `${taskKind}_task_reused` : `${taskKind}_task_requested`,
       task_id: task.id, task_url: task.html_url, task_requested_at: task.created_at,
@@ -2338,10 +2564,25 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
   // head can turn target_missing into a false terminal state or expose its live
   // branch to cleanup. Open inventories are normally one page, but correctness
   // cannot depend on that being true.
-  const open = await withRetry((client) => client.paginate(
-    client.rest.pulls.list,
-    { owner, repo, state: 'open', per_page: 100 },
-  ));
+  let open;
+  try {
+    open = await withRetry((client) => client.paginate(
+      client.rest.pulls.list,
+      { owner, repo, state: 'open', per_page: 100 },
+    ));
+  } catch (error) {
+    if (!isPrimaryRateLimitExhausted(error)) throw error;
+    try {
+      return await listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed });
+    } catch (fallbackError) {
+      try {
+        error.graphqlFallbackError = String(fallbackError.message || fallbackError);
+      } catch (_ignored) {
+        console.error(`GraphQL fallback unavailable: ${fallbackError.message || fallbackError}`);
+      }
+      throw error;
+    }
+  }
   if (!includeClosed) return { open, closed: [] };
 
   // Merged recovery needs only the reusable candidate and delivery heads. Query
@@ -2359,6 +2600,68 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
       per_page: 1,
     }));
     if (response?.data?.[0]) closed.push(response.data[0]);
+  }
+  return { open, closed };
+}
+
+// REST and GraphQL have separate resource budgets. Token rotation alone cannot
+// recover an exhausted user REST allowance. Keep this adapter's REST-shaped
+// output so the exact-plan, review and merge guards below remain unchanged.
+async function listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed }) {
+  const query = `query($owner:String!,$repo:String!,$states:[PullRequestState!]!,$head:String,$after:String){
+    repository(owner:$owner,name:$repo){pullRequests(first:100,states:$states,headRefName:$head,
+      after:$after,orderBy:{field:UPDATED_AT,direction:DESC}){pageInfo{hasNextPage endCursor} nodes{
+        id number title body url state isDraft createdAt updatedAt closedAt mergedAt
+        headRefName headRefOid baseRefName baseRefOid author{login} headRepositoryOwner{login}
+        repository{nameWithOwner name owner{login}}
+        headRepository{nameWithOwner name owner{login}}
+        labels(first:100){pageInfo{hasNextPage} nodes{name}}
+    }}}}`;
+  async function collect(states, head = null, latestOnly = false) {
+    const rows = [];
+    let after = null;
+    do {
+      const data = await withRetry((client) => client.graphql(query, {
+        owner, repo, states, head, after,
+      }), { rateResource: 'graphql' });
+      const page = data?.repository?.pullRequests;
+      if (!page || !Array.isArray(page.nodes) || !page.pageInfo) {
+        throw new Error('GraphQL PR inventory incomplete');
+      }
+      for (const pr of page.nodes) {
+        if (!pr || !pr.author?.login || pr.labels?.pageInfo?.hasNextPage) {
+          throw new Error('GraphQL PR identity or label inventory incomplete');
+        }
+        const headOwner = pr.headRepositoryOwner?.login || pr.headRepository?.owner?.login;
+        if (latestOnly && !headOwner) throw new Error('GraphQL closed PR head owner unavailable');
+        if (latestOnly && headOwner.toLowerCase() !== owner.toLowerCase()) continue;
+        const repository = (r) => r ? {
+          full_name: r.nameWithOwner, name: r.name, owner: { login: r.owner.login },
+        } : null;
+        rows.push({
+          number: pr.number, node_id: pr.id, title: pr.title, body: pr.body,
+          html_url: pr.url, state: pr.state === 'OPEN' ? 'open' : 'closed',
+          draft: pr.isDraft, created_at: pr.createdAt, updated_at: pr.updatedAt,
+          closed_at: pr.closedAt, merged_at: pr.mergedAt, user: { login: pr.author.login },
+          head: { ref: pr.headRefName, sha: pr.headRefOid, repo: repository(pr.headRepository) },
+          base: { ref: pr.baseRefName, sha: pr.baseRefOid, repo: repository(pr.repository) },
+          labels: pr.labels.nodes,
+        });
+        if (latestOnly) return rows;
+      }
+      if (page.pageInfo.hasNextPage && (!page.pageInfo.endCursor || page.pageInfo.endCursor === after)) {
+        throw new Error('GraphQL PR inventory cursor did not advance');
+      }
+      after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    } while (after);
+    return rows;
+  }
+  const open = await collect(['OPEN']);
+  const closed = [];
+  if (includeClosed) {
+    for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
+      closed.push(...await collect(['CLOSED', 'MERGED'], branch, true));
+    }
   }
   return { open, closed };
 }
@@ -2919,6 +3222,7 @@ async function run({ github, context, core }) {
     syncBranchForHash,
     syncSelectorForRepository,
     validateCanaryEvidence,
+    refreshedSourceRepin,
     validateExpectedCandidateIdentity,
     validateSourceDeltaEvidenceBinding,
   } = require('./sync_pr_merge_contract.js');
@@ -3496,7 +3800,8 @@ async function run({ github, context, core }) {
     const native = nativeRefreshInputs.get(canary);
     if (!native) throw new Error('canary_refresh_native_context_missing');
     const nativePlan = await verifiedCanaryRefreshPlan(native);
-    const request = nativePlan.plan_scope === 'source-delta' ? nativePlan : null;
+    const request = nativePlan.plan_scope === 'source-delta' || isFullCampaignPlan(nativePlan)
+      ? nativePlan : null;
     if (request) canary.refresh_plan = request;
     Object.assign(canary, { plan_scope: nativePlan.plan_scope, scope_base_sha: nativePlan.scope_base_sha });
     const key = request ? JSON.stringify([request.plan_id, request.plan_scope,
@@ -3593,6 +3898,23 @@ async function run({ github, context, core }) {
   const canaryEvidence = [];
   const stableCanaries = [];
   
+  let canaryRefreshRunsCache = null;
+  async function listCanaryRefreshRuns() {
+    if (canaryRefreshRunsCache) return canaryRefreshRunsCache;
+    try {
+      const { data } = await withRetry((client) => client.rest.actions.listWorkflowRuns({
+        owner: context.repo.owner, repo: context.repo.repo,
+        workflow_id: 'maint-68-sync-consumer-repos.yml', status: 'success', per_page: 100,
+      }));
+      canaryRefreshRunsCache = Array.isArray(data?.workflow_runs) ? data.workflow_runs : [];
+    } catch (error) {
+      rethrowPrimaryRateLimit(error);
+      console.log(`Unable to list Maint 68 canary runs for source re-pin: ${String(error?.message || error)}`);
+      canaryRefreshRunsCache = [];
+    }
+    return canaryRefreshRunsCache;
+  }
+
   function syncMetadata(pr) {
     const match = String(pr.body || '').match(
       /<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/,
@@ -4683,6 +5005,53 @@ async function run({ github, context, core }) {
           repository: `${owner}/${repo}`,
         });
         if (!identity.ok) {
+          // Workflows#4466: a consistent other source produced by a successful Maint 68 canary run is an
+          // accepted refresh; hand the refreshed source back to Maint 82 so the next run's expected
+          // identity matches, instead of refusing until the daily compile re-pins by accident.
+          const repin = refreshedSourceRepin({
+            metadata,
+            deliveryRecord: selection.deliveryRecord,
+            identityErrors: identity.errors,
+            expectedPlanId,
+            expectedPlanScope,
+            expectedScopeBaseSha,
+            expectedSourceCommit,
+            repository: `${owner}/${repo}`,
+            branch: pr.head.ref,
+            refreshRuns: await listCanaryRefreshRuns(),
+            // the runs live in THIS repository (Workflows), so its default branch is the one that counts
+            defaultBranch: context.payload?.repository?.default_branch || 'main',
+          });
+          if (repin) {
+            console.log(`Candidate source refreshed by Maint 68 run ${repin.refresh_run_id}: re-pinning the campaign handoff `
+              + `${repin.repinned_from.slice(0, 12)} -> ${repin.source_commit.slice(0, 12)}`);
+            results.push({
+              owner,
+              repo,
+              pr: pr.number,
+              branch: pr.head.ref,
+              head_sha: pr.head.sha,
+              delivery_generation: selection.deliveryRecord?.generation || '',
+              status: 'delivery_handoff_repin',
+              delivery_disposition: 'source-repinned',
+              blocker_owner: 'maint-82',
+              next_command: 'rerun-with-repinned-handoff',
+              delivery_reason: 'candidate_source_refreshed',
+              plan_id: repin.plan_id,
+              plan_scope: repin.plan_scope,
+              scope_base_sha: repin.scope_base_sha,
+              source_commit: repin.source_commit,
+              repinned_from: repin.repinned_from,
+              refresh_run_id: repin.refresh_run_id,
+              // The baseline evidence input is validated against the OLD expected source and would be
+              // rejected on the next run; the re-pinned continuation starts without it and Maint 71's
+              // normal evidence path (candidate_evidence_required -> Maint 68) reacquires it for the
+              // refreshed source when a no-change canary needs it.
+              canary_baseline_evidence_json: '',
+              identity_errors: identity.errors,
+            });
+            continue;
+          }
           console.log(`Candidate immutable identity mismatch: ${identity.errors.join(', ')}`);
           results.push({
             owner,
@@ -4695,6 +5064,8 @@ async function run({ github, context, core }) {
             blocker_owner: 'maint-68',
             next_command: 'refresh-candidate-from-exact-plan',
             delivery_reason: 'candidate_immutable_identity_mismatch',
+            refresh_plan: refreshPlanContext({ planId: expectedPlanId, planScope: expectedPlanScope,
+              scopeBaseSha: expectedScopeBaseSha, sourceSha: expectedSourceCommit }),
             identity_errors: identity.errors,
           });
           continue;
@@ -5770,8 +6141,10 @@ async function run({ github, context, core }) {
         });
       }
     } catch (e) {
-      console.log(`✗ Error processing ${repo}: ${e.message}`);
-      results.push({ owner, repo, status: 'error', error: e.message });
+      const message = e.graphqlFallbackError
+        ? `${e.message}; GraphQL fallback unavailable: ${e.graphqlFallbackError}` : e.message;
+      console.log(`✗ Error processing ${repo}: ${message}`);
+      results.push({ owner, repo, status: 'error', error: message });
 
       // A primary rate-limit error that reaches this outer catch is always
       // terminal: withRetry already tried token rotation and found no

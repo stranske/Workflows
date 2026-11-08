@@ -152,7 +152,8 @@ test('redispatch map preserves current workflow force_step contract', () => {
   assert.equal(redispatchForceStep('capability-check'), 'auto');
   assert.equal(redispatchForceStep('create-pr'), 'auto');
   assert.equal(redispatchForceStep('monitor-pr'), 'auto');
-  assert.equal(redispatchForceStep('verify'), 'auto');
+  // Only dispatched after a confirmed PR/head verify handoff (issue #4366).
+  assert.equal(redispatchForceStep('verify'), 'done');
 });
 
 test('a handoff from an earlier closure cannot complete a reopened issue closed by another PR', () => {

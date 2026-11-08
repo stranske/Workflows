@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+    "-q",
+    "-o",
+    "addopts="
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "attempt": 1,
+  "limit_seconds": 120,
+  "exit": 0,
+  "stdout": "........                                                                 [100%]\n8 passed in 0.15s\n",
+  "stderr": "",
+  "stopped": null,
+  "duration_seconds": 0.859
+}

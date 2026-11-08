@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "-m",
+    "pytest",
+    "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
+    "tests/scripts/test_shebang_rejection_acceptance_run.py",
+    "tests/scripts/test_shebang_rejection_archive_bindings.py",
+    "tests/scripts/test_shebang_rejection_matched_comparison.py",
+    "tests/scripts/test_shebang_rejection_replay.py",
+    "tests/scripts/test_shebang_rejection_validation_run.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/archive-integrity-validation/companions.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "env_overrides": {},
+  "exit": 0,
+  "stdout": "...................................................                      [100%]\n51 passed in 43.77s\n",
+  "stderr": "",
+  "timeout_seconds": 180,
+  "duration_seconds": 45.523
+}

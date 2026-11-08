@@ -945,13 +945,14 @@ function hasIntakeRunner(agentConfig = {}) {
 function getAgentPoolState(routeWeights, agent, row) {
   const key = String(agent || '').trim().toLowerCase();
   const candidates = [
+    // The published capacity snapshot is authoritative over legacy row hints.
+    routeWeights?.capacity?.[key]?.state,
+    typeof routeWeights?.capacity?.[key] === 'string' ? routeWeights.capacity[key] : undefined,
     row?.pool_state,
     row?.poolState,
     row?.capacity?.state,
     row?.capacity_state,
     row?.state,
-    routeWeights?.capacity?.[key]?.state,
-    typeof routeWeights?.capacity?.[key] === 'string' ? routeWeights.capacity[key] : undefined,
     routeWeights?.pools?.[key]?.state,
     typeof routeWeights?.pools?.[key] === 'string' ? routeWeights.pools[key] : undefined,
     routeWeights?.pool_capacity?.[key]?.state,
@@ -962,7 +963,7 @@ function getAgentPoolState(routeWeights, agent, row) {
       return candidate.trim().toLowerCase();
     }
   }
-  // Until Orchestrator#645 publishes capacity in schema v2, treat every pool as ok.
+  // Older exports and agents without a capacity entry retain the ok assumption.
   return 'ok';
 }
 

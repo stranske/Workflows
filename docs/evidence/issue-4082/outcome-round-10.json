@@ -1,0 +1,612 @@
+{
+  "health68": {
+    "checked_at": "2026-11-07T03:07:05.255194+00:00",
+    "command": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+      "scripts/check_consumer_sync_drift.py",
+      "--repos",
+      "stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic",
+      "--summary",
+      "/tmp/issue-4082-round10/summary.md",
+      "--report-json",
+      "/tmp/issue-4082-round10/drift.json"
+    ],
+    "stop_rule": "One real-input Health 68 attempt, 110 seconds, no retries. Do not repair expected missing authentication or networking. Collector disabled-workflow regression uses fixtures and is not live observation evidence.",
+    "repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/Template",
+      "stranske/Counter_Risk",
+      "stranske/Pension-Data",
+      "stranske/Inv-Man-Intake",
+      "stranske/Ready",
+      "stranske/trip-planner",
+      "stranske/Manager-Database",
+      "stranske/Portable-Alpha-Extension-Model",
+      "stranske/Trend_Model_Project",
+      "stranske/learning-management-system",
+      "stranske/Fine-Art-Archive",
+      "stranske/Orchestrator",
+      "stranske/Doc-Lineage",
+      "stranske/Deliverable-Render",
+      "stranske/Manager-Mosaic"
+    ],
+    "handoff_exists": false,
+    "exit_code": 1,
+    "elapsed_seconds": 0.287,
+    "stdout": "::error::No usable GitHub token available for consumer repo contents reads\ngate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)\ngate triggers: stranske/Template unknown (Gate/tree unavailable)\ngate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)\ngate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)\ngate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)\ngate triggers: stranske/Ready unknown (Gate/tree unavailable)\ngate triggers: stranske/trip-planner unknown (Gate/tree unavailable)\ngate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)\ngate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)\ngate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)\ngate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)\ngate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)\ngate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)\ngate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)\ngate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)\ngate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)\n",
+    "stderr": ""
+  },
+  "cli_reads": {
+    "checked_at": "2026-11-07T03:08:00.539493+00:00",
+    "stop_rule": "One attempt per command, timeout 10s, four concurrent reads (maximum 12 batches / 120s); no retries.",
+    "elapsed_seconds": 0.718,
+    "results": [
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "1178",
+          "-R",
+          "stranske/Counter_Risk",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "1178",
+          "-R",
+          "stranske/Counter_Risk"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "101",
+          "-R",
+          "stranske/Deliverable-Render",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "101",
+          "-R",
+          "stranske/Deliverable-Render"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "138",
+          "-R",
+          "stranske/Doc-Lineage",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "138",
+          "-R",
+          "stranske/Doc-Lineage"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "832",
+          "-R",
+          "stranske/Fine-Art-Archive",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "832",
+          "-R",
+          "stranske/Fine-Art-Archive"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "1037",
+          "-R",
+          "stranske/Inv-Man-Intake",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "1037",
+          "-R",
+          "stranske/Inv-Man-Intake"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "116",
+          "-R",
+          "stranske/Manager-Mosaic",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "116",
+          "-R",
+          "stranske/Manager-Mosaic"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "732",
+          "-R",
+          "stranske/Orchestrator",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "732",
+          "-R",
+          "stranske/Orchestrator"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "979",
+          "-R",
+          "stranske/Pension-Data",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "979",
+          "-R",
+          "stranske/Pension-Data"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "2390",
+          "-R",
+          "stranske/Portable-Alpha-Extension-Model",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "2390",
+          "-R",
+          "stranske/Portable-Alpha-Extension-Model"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "633",
+          "-R",
+          "stranske/Ready",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "633",
+          "-R",
+          "stranske/Ready"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "1682",
+          "-R",
+          "stranske/Travel-Plan-Permission",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "1682",
+          "-R",
+          "stranske/Travel-Plan-Permission"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "6112",
+          "-R",
+          "stranske/Trend_Model_Project",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "6112",
+          "-R",
+          "stranske/Trend_Model_Project"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "775",
+          "-R",
+          "stranske/learning-management-system",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "775",
+          "-R",
+          "stranske/learning-management-system"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "1921",
+          "-R",
+          "stranske/trip-planner",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "1921",
+          "-R",
+          "stranske/trip-planner"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "view",
+          "4084",
+          "-R",
+          "stranske/Workflows",
+          "--json",
+          "state,isDraft,headRefOid,mergedAt"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "pr",
+          "diff",
+          "4084",
+          "-R",
+          "stranske/Workflows"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Travel-Plan-Permission/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Template/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Counter_Risk/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Pension-Data/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Inv-Man-Intake/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Ready/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/trip-planner/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Manager-Database/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Portable-Alpha-Extension-Model/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Trend_Model_Project/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/learning-management-system/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Fine-Art-Archive/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Orchestrator/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Doc-Lineage/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Deliverable-Render/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      },
+      {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Manager-Mosaic/contents/.github/workflows/pr-00-gate.yml",
+          "--jq",
+          ".sha"
+        ],
+        "exit_code": 1,
+        "stderr": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+      }
+    ]
+  }
+}

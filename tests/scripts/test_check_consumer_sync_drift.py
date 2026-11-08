@@ -1,16 +1,296 @@
 import base64
 import json
+import os
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from scripts import check_consumer_sync_drift
+from scripts.list_registered_consumer_repos import extract_repos
 from scripts.sync_manifest_compiler import (
+    CompiledManifest,
     ManifestEntry,
     SkipRepo,
     compile_manifest,
 )
+
+
+def test_registered_gate_cli_preserves_unknowns_without_read_access(tmp_path: Path) -> None:
+    """Exercise Health 68's real inputs and entry point, without mocked configuration."""
+    root = Path(__file__).resolve().parents[2]
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in check_consumer_sync_drift.TOKEN_ENV_ORDER
+    }
+    registered = subprocess.run(
+        [sys.executable, "scripts/list_registered_consumer_repos.py", "--separator=,"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=True,
+    ).stdout.strip()
+    repos = registered.split(",")
+    assert repos and all("/" in repo for repo in repos)
+    report_path = tmp_path / "report.json"
+    summary_path = tmp_path / "summary.md"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/check_consumer_sync_drift.py",
+            "--repos",
+            registered,
+            "--summary",
+            str(summary_path),
+            "--report-json",
+            str(report_path),
+        ],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    report_text = report_path.read_text(encoding="utf-8")
+    report = json.loads(report_text)
+    assert report["repos"] == repos
+    assert report["repo_count"] == len(repos)
+    assert report["errors"] == ["No GitHub token available for cross-repo reads"]
+    assert report["token_diagnostics"]["error"] == "no_token_candidates"
+    gate = next(
+        entry
+        for entry in compile_manifest(root / ".github/sync-manifest.yml", repo_root=root).section(
+            "workflows"
+        )
+        if entry.target == ".github/workflows/pr-00-gate.yml"
+    )
+    # Custom skip_repos Gates remain visible; only include_repos narrows FYI scope.
+    expected = [
+        f"gate triggers: {repo} unknown (Gate/tree unavailable)"
+        for repo in repos
+        if not gate.include_repos or repo in gate.include_repos
+    ]
+    assert expected
+    assert report["gate_triggers"] == expected
+    summary = summary_path.read_text(encoding="utf-8")
+    assert [line for line in result.stdout.splitlines() if line.startswith("gate triggers:")] == (
+        expected
+    )
+    for line in expected:
+        assert line in summary
+    assert "gate triggers: all match" not in result.stdout + result.stderr + report_text + summary
+
+
+@pytest.mark.parametrize("failed_probe", ["repo", "contents", "credentials"])
+def test_read_preflight_reports_unavailable_reads(tmp_path, monkeypatch, capsys, failed_probe):
+    """An unavailable GitHub read must produce evidence, without an uncaught exception."""
+
+    class Response:
+        status_code = 200
+
+    class Session:
+        def __init__(self):
+            self.headers = {}
+
+        def get(self, url):
+            assert failed_probe != "credentials", "Missing credentials must not issue API requests"
+            if failed_probe == "repo" or "/contents/" in url:
+                raise check_consumer_sync_drift.requests.ConnectionError("private request details")
+            return Response()
+
+    args = SimpleNamespace(
+        repos="owner/repo,owner/custom",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries="unused.json",
+        report_json=str(tmp_path / "report.json"),
+        summary=str(tmp_path / "summary.md"),
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    source = tmp_path / "gate.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened, synchronize]\n", encoding="utf-8")
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        sync_mode="create_only",
+        skip_repos=(SkipRepo(repo="owner/custom", reason="Custom Gate"),),
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_: set())
+    monkeypatch.setattr(check_consumer_sync_drift, "probe_targets", lambda *_: ["gate.yml"])
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "token_candidates",
+        lambda: (
+            []
+            if failed_probe == "credentials"
+            else [{"source": "test-source", "token": "test-value"}]
+        ),
+    )
+    select = check_consumer_sync_drift.select_read_token
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "select_read_token",
+        lambda **kwargs: select(**kwargs, session_factory=Session),
+    )
+
+    assert check_consumer_sync_drift.main() == 1
+    report_text = Path(args.report_json).read_text(encoding="utf-8")
+    report = json.loads(report_text)
+    assert report["status"] == "drift"
+    assert report["counts"]["errors"] == 1
+    diagnostics = report["token_diagnostics"]
+    assert diagnostics["selected_source"] == ""
+    if failed_probe == "credentials":
+        assert diagnostics["error"] == "no_token_candidates"
+        assert diagnostics["attempted_sources"] == []
+        assert diagnostics["rejected"] == []
+    else:
+        assert diagnostics["error"] == "no_usable_token"
+        assert "ConnectionError" in diagnostics["rejected"][0]["reason"]
+        assert ("/contents/" in diagnostics["rejected"][0]["reason"]) == (
+            failed_probe == "contents"
+        )
+    output = capsys.readouterr().out
+    expected = [
+        f"gate triggers: {repo} unknown (Gate/tree unavailable)"
+        for repo in ("owner/repo", "owner/custom")
+    ]
+    assert report["gate_triggers"] == expected
+    summary = Path(args.summary).read_text(encoding="utf-8")
+    for line in expected:
+        assert line in output
+        assert line in summary
+    assert "gate triggers: all match" not in output + report_text + summary
+    for private_detail in ("private request details", "test-value", '"token":'):
+        assert private_detail not in output + report_text + summary
+
+
+@pytest.mark.parametrize("failed_request", ["repo", "tree", "sync_pr"])
+def test_post_selection_request_failure_produces_sanitized_report(
+    tmp_path, monkeypatch, capsys, failed_request
+) -> None:
+    """Post-selection request failures must produce sanitized reports and visible uncertainty without uncaught exceptions."""
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            # For repo metadata, return default_branch
+            # For tree, return tree data
+            # For pulls, return []
+            return {"default_branch": "main", "tree": [], "truncated": False}
+
+    class FailingSession:
+        def __init__(self):
+            self.headers = {}
+            self.call_count = 0
+
+        def get(self, url):
+            self.call_count += 1
+            if failed_request == "repo" and "repos/owner/repo" in url and "/git/trees/" not in url:
+                raise check_consumer_sync_drift.requests.ConnectionError(
+                    "private connection details"
+                )
+            if failed_request == "tree" and "/git/trees/main" in url:
+                raise check_consumer_sync_drift.requests.Timeout("private timeout details")
+            if failed_request == "sync_pr" and "/pulls" in url:
+                raise check_consumer_sync_drift.requests.RequestException("private request details")
+            return Response()
+
+    args = SimpleNamespace(
+        repos="owner/repo",
+        manifest=str(tmp_path / "manifest.yml"),
+        canaries="unused.json",
+        report_json=str(tmp_path / "report.json"),
+        summary=str(tmp_path / "summary.md"),
+    )
+    Path(args.manifest).write_text("version: 1\n", encoding="utf-8")
+    source = tmp_path / "gate.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened, synchronize]\n", encoding="utf-8")
+    entry = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        sync_mode="create_only",
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (entry,) if section == "workflows" else (),
+        removals=(),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_: set())
+    monkeypatch.setattr(check_consumer_sync_drift, "probe_targets", lambda *_: ["gate.yml"])
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "token_candidates",
+        lambda: [{"source": "test-source", "token": "test-value"}],
+    )
+    select = check_consumer_sync_drift.select_read_token
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "select_read_token",
+        lambda **kwargs: select(**kwargs, session_factory=FailingSession),
+    )
+
+    check_consumer_sync_drift.main()
+    report_path = Path(args.report_json)
+    assert report_path.exists()
+    report_text = report_path.read_text(encoding="utf-8")
+    report = json.loads(report_text)
+    summary_path = Path(args.summary)
+    assert summary_path.exists()
+    summary = summary_path.read_text(encoding="utf-8")
+
+    output = capsys.readouterr().out
+
+    # For repo and tree failures, errors should be in the errors set
+    # For sync_pr failures, errors should be in sync_remediation.lookup_errors
+    if failed_request in ("repo", "tree"):
+        assert report["errors"]
+        # Tree failures prevent gate trigger verification
+        assert report["gate_triggers"] == [
+            "gate triggers: owner/repo unknown (Gate/tree unavailable)"
+        ]
+        assert "gate triggers: all match" not in output + report_text + summary
+    else:
+        # sync_pr failures are in sync_remediation.lookup_errors
+        assert report["sync_remediation"]["lookup_errors"]
+        # The tree is fetched successfully but is empty, so gate is still unavailable
+        assert report["gate_triggers"] == [
+            "gate triggers: owner/repo unknown (Gate/tree unavailable)"
+        ]
+        assert "gate triggers: all match" not in output + report_text + summary
+
+    # Errors are sanitized - no private details or tokens in any output
+    for exc_detail in (
+        "private connection details",
+        "private timeout details",
+        "private request details",
+        "test-value",
+        '"token":',
+    ):
+        assert exc_detail not in report_text
+        assert exc_detail not in summary
+        assert exc_detail not in output
+
+    # Gate trigger lines are present in all outputs
+    for line in report["gate_triggers"]:
+        assert line in output
+        assert line in summary
 
 
 def test_comparable_lines_ignores_leading_comment_and_blank_headers() -> None:
@@ -626,6 +906,119 @@ def test_main_keeps_unreadable_blob_cache_scoped_to_each_repo(
     assert report["gate_triggers"] == [
         f"gate triggers: {unreadable_repo} unknown (Gate unreadable)"
     ]
+
+
+@pytest.mark.parametrize("template_drift", [False, True])
+@pytest.mark.parametrize("trigger_difference", ["extra", "missing", "both", "matching"])
+def test_registered_gate_scan_preserves_create_only_and_manifest_exceptions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+    template_drift: bool,
+    trigger_difference: str,
+) -> None:
+    """Fleet trigger reporting must not make consumer-owned Gate policy actionable."""
+    root = Path(__file__).resolve().parents[2]
+    manifest = root / ".github/sync-manifest.yml"
+    registered = extract_repos(root / ".github/workflows/maint-68-sync-consumer-repos.yml")
+    compiled = compile_manifest(manifest, repo_root=root)
+    gate = next(
+        entry
+        for entry in compiled.section("workflows")
+        if entry.target == ".github/workflows/pr-00-gate.yml"
+    )
+    # Keep the real compiled Gate policy and source; unrelated files are outside this test.
+    selected = CompiledManifest(
+        version=compiled.version,
+        manifest_sha256=compiled.manifest_sha256,
+        sections={"workflows": [gate]},
+        removals=[],
+    )
+    source = Path(gate.resolved_source).read_text(encoding="utf-8")
+    custom_gate = (
+        "on:\n  pull_request:\n"
+        "    types: [opened, synchronize, reopened, ready_for_review, labeled]\n"
+        "jobs:\n  consumer-policy:\n    runs-on: ubuntu-latest\n    steps: []\n"
+    )
+    if trigger_difference in {"missing", "both"}:
+        # Missing synchronize must remain visible alone and alongside extra labeled.
+        custom_gate = custom_gate.replace("synchronize, ", "", 1)
+    if trigger_difference in {"missing", "matching"}:
+        custom_gate = custom_gate.replace(", labeled", "", 1)
+    contents = dict.fromkeys(registered, custom_gate)
+    if not template_drift:
+        contents["stranske/Template"] = source
+    shas = {
+        repo: check_consumer_sync_drift.git_blob_hash(text.encode("utf-8"))
+        for repo, text in contents.items()
+    }
+    args = SimpleNamespace(
+        repos=",".join(registered),
+        manifest=str(manifest),
+        canaries=str(root / "config/consumer_sync_canaries.json"),
+        report_json=str(tmp_path / "report.json"),
+        summary=str(tmp_path / "summary.md"),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: selected)
+    monkeypatch.setattr(
+        check_consumer_sync_drift, "select_read_token", lambda **_kwargs: (object(), {})
+    )
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda _session, repo: ({gate.target: {"type": "blob", "sha": shas[repo]}}, None),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_args: ([], None))
+    reads = []
+
+    def read_blob(_session, repo, sha):
+        assert sha == shas[repo]
+        reads.append(repo)
+        return contents[repo]
+
+    monkeypatch.setattr(check_consumer_sync_drift, "remote_blob_text", read_blob)
+
+    assert check_consumer_sync_drift.main() == int(template_drift)
+    report = json.loads(Path(args.report_json).read_text(encoding="utf-8"))
+    assert report["repos"] == registered
+    assert report["drift"] == ([f"stranske/Template: {gate.target}"] if template_drift else [])
+    assert report["unmeasured_create_only"] == sorted(
+        f"{repo}: {gate.target}"
+        for repo in registered
+        if repo not in {"stranske/Template", "stranske/Manager-Database"}
+    )
+    assert report["skipped"] == [
+        f"stranske/Manager-Database: {gate.target} ({gate.skip_repos[0].reason})"
+    ]
+    if trigger_difference == "matching":
+        # Trigger equality does not require replacing consumer jobs with the template.
+        # Template still follows overwrite policy even when its triggers already match.
+        expected_lines = [
+            "gate triggers: stranske/Manager-Database (custom gate, never overwritten) matches",
+            "gate triggers: all match",
+        ]
+    else:
+        expected_lines = [
+            f"gate triggers: {repo}"
+            + (" (custom gate, never overwritten)" if repo == "stranske/Manager-Database" else "")
+            + (" extra=[]" if trigger_difference == "missing" else " extra=['labeled']")
+            + (" missing=['synchronize']" if trigger_difference in {"missing", "both"} else "")
+            for repo in registered
+            if repo != "stranske/Template" or template_drift
+        ]
+    assert report["gate_triggers"] == expected_lines
+    assert sorted(reads) == sorted(
+        repo for repo in registered if repo != "stranske/Template" or template_drift
+    ), "Every differing Gate must be read once, including skipped and create-only consumers"
+    output = capsys.readouterr().out
+    summary = Path(args.summary).read_text(encoding="utf-8")
+    for line in expected_lines:
+        assert line in output and line in summary
+    if trigger_difference != "matching":
+        assert (
+            "gate triggers: all match" not in output + summary + Path(args.report_json).read_text()
+        )
 
 
 def test_manifest_skip_reason_honors_include_repos() -> None:
@@ -1383,6 +1776,11 @@ def test_main_writes_actionable_reports_for_early_preflight_failures(tmp_path, m
     manifest = tmp_path / "manifest.yml"
     manifest.write_text("version: 1\n", encoding="utf-8")
     args.manifest = str(manifest)
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64}, section=lambda _section: ()
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _path: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_args: set())
     monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [])
     assert check_consumer_sync_drift.main() == 1
     report = json.loads(report_path.read_text(encoding="utf-8"))

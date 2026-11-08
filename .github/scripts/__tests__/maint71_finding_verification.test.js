@@ -395,3 +395,91 @@ test('retain all originating top-level feedback and skip only unresolvable commi
     assert.equal(validate(f.finish()).reason, 'reviewer_changed_after_verification');
   }
 });
+
+// Owner decision 2026-11-06: a reviewer out of capacity (Copilot most months) must not latch its
+// findings. After a targeted request has stood for the policy window with no answer in the thread,
+// the independent assessment stands on its own; every other binding still applies.
+function unansweredFixture({ windowMinutes = 120, completedAt = '2026-10-04T03:01:00Z' } = {}) {
+  const f = fixture();
+  f.args.thread.comments.nodes.pop(); // no originating completion
+  f.args.policy.finding_verification_fallback.unanswered_reassessment_minutes = windowMinutes;
+  f.result.reviewer_unanswered = true;
+  f.result.originating_completion_url = null;
+  f.result.completed_at = completedAt;
+  f.args.comment.created_at = '2026-10-04T03:02:00Z';
+  f.args.now = Date.parse('2026-10-04T03:03:00Z');
+  return f;
+}
+
+test('an unanswered targeted request clears through the independent assessment after the window', () => {
+  const f = unansweredFixture();
+  assert.deepEqual(validate(f.finish()).ok, true);
+});
+
+test('the unanswered path refuses while the reassessment window is still open', () => {
+  const f = unansweredFixture({ completedAt: '2026-10-04T02:30:00Z' });
+  f.args.comment.created_at = '2026-10-04T02:31:00Z';
+  f.args.now = Date.parse('2026-10-04T02:32:00Z');
+  assert.equal(validate(f.finish()).reason, 'reassessment_window_open');
+});
+
+test('the unanswered path refuses once the originating reviewer answers in the thread', () => {
+  const f = unansweredFixture();
+  f.args.thread.comments.nodes.push({ url: 'answer', author: { login: 'origin' },
+    createdAt: '2026-10-04T01:30:00Z', body: 'Still broken.' });
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+});
+
+test('without the policy window or the attestation flag a completion is still required', () => {
+  const noWindow = unansweredFixture();
+  delete noWindow.args.policy.finding_verification_fallback.unanswered_reassessment_minutes;
+  assert.equal(validate(noWindow.finish()).reason, 'originating_completion_missing');
+  const noFlag = unansweredFixture();
+  delete noFlag.result.reviewer_unanswered;
+  assert.equal(validate(noFlag.finish()).reason, 'originating_completion_missing');
+  const urlKept = unansweredFixture();
+  urlKept.result.originating_completion_url = 'completion';
+  assert.equal(validate(urlKept.finish()).reason, 'originating_completion_missing');
+});
+
+test('checked-in policy gives Copilot a reassessment request and a review request, and a bounded window', () => {
+  const policy = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../config/consumer_sync_review_policy.json'), 'utf8'));
+  const copilot = policy.reviewers.find((profile) => profile.id === 'copilot');
+  assert.match(copilot.reassessment_comment, /^@[A-Za-z0-9-]+(?:\s+[A-Za-z0-9-]+)*$/);
+  assert.deepEqual(copilot.reassessment_review_request, ['copilot-pull-request-reviewer[bot]']);
+  const minutes = policy.finding_verification_fallback.unanswered_reassessment_minutes;
+  assert.ok(Number.isFinite(minutes) && minutes > 0 && minutes <= 24 * 60, String(minutes));
+});
+
+
+test('the unanswered window counts from the first request on the thread, across head changes', () => {
+  // trip-planner#1957 (2026-11-06): the canary is rebased every hour or two, so a window
+  // measured from the current head's request never elapses. An earlier request on a
+  // previous head starts the reviewer's clock; the current head still needs its own request.
+  const f = unansweredFixture({ completedAt: '2026-10-04T02:30:00Z' });
+  f.args.comment.created_at = '2026-10-04T02:31:00Z';
+  f.args.now = Date.parse('2026-10-04T02:32:00Z');
+  const current = f.args.thread.comments.nodes[1];
+  current.createdAt = '2026-10-04T02:20:00Z';
+  // without an earlier request the window (from 02:20) is still open
+  assert.equal(validate(f.finish()).reason, 'reassessment_window_open');
+  const earlierBinding = { ...JSON.parse(current.body.match(/<!-- maint71-review-(?:reassessment|disposition):v1 (.*?) -->/)[1]),
+    head_sha: 'f'.repeat(40) };
+  f.args.thread.comments.nodes.splice(1, 0, { url: 'earlier-request', author: { login: 'stranske' },
+    createdAt: '2026-10-04T00:20:00Z',
+    body: `<!-- maint71-review-reassessment:v1 ${JSON.stringify(earlierBinding)} -->` });
+  assert.equal(validate(f.finish()).ok, true);
+  // an originating answer after the FIRST request still refuses the path
+  f.args.thread.comments.nodes.push({ url: 'answer', author: { login: 'origin' },
+    createdAt: '2026-10-04T01:00:00Z', body: 'Still broken on the old head.' });
+  assert.equal(validate(f.finish()).reason, 'originating_reviewer_answered');
+  // an untrusted author cannot start the clock
+  f.args.thread.comments.nodes.pop();
+  f.args.thread.comments.nodes[1].author.login = 'someone-else';
+  assert.equal(validate(f.finish()).reason, 'reassessment_window_open');
+  // a request bound to a different thread cannot start this thread's clock
+  f.args.thread.comments.nodes[1].author.login = 'stranske';
+  const foreign = JSON.parse(f.args.thread.comments.nodes[1].body.match(/v1 (.*?) -->/)[1]);
+  f.args.thread.comments.nodes[1].body = `<!-- maint71-review-reassessment:v1 ${JSON.stringify({ ...foreign, thread_id: 'OTHER' })} -->`;
+  assert.equal(validate(f.finish()).reason, 'reassessment_window_open');
+});

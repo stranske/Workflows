@@ -82,6 +82,7 @@ const {
   validateCanaryEvidence,
   validateExpectedCandidateIdentity,
   validateSourceDeltaEvidenceBinding,
+  refreshedSourceRepin,
 } = require('../sync_pr_merge_contract');
 const { assertRuntimeAcMergeAllowed } = require('../runtime_ac_merge_guard');
 const {
@@ -2619,6 +2620,7 @@ test('buildMergeReport provides machine-readable summary counts', () => {
     merged: 0,
     merge_failed: 0,
     delivery_contract_blocked: 0,
+    delivery_handoff_repin: 0,
     delivery_plan_handoff: 0,
     evidence_recovered: 0,
     error: 0,
@@ -4296,4 +4298,118 @@ test('canary packet provenance must match its row even with zero review debt', (
     }
     assert.equal(packet.reviewThreads.length, count);
   }
+});
+
+
+test('refreshedSourceRepin re-pins only a canary-phase candidate produced by a successful Maint 68 run', () => {
+  const refreshed = 'c'.repeat(40);
+  const expected = 'e'.repeat(40);
+  const metadata = { plan_id: 'sha256:' + 'a'.repeat(64), plan_scope: 'full', source_commit: refreshed,
+    source_sha: refreshed, sync_phase: 'canary', consumer_repo: 'stranske/Ready' };
+  const deliveryRecord = { plan_id: metadata.plan_id, source_commit: refreshed };
+  const errors = ['metadata_source_commit_mismatch', 'metadata_source_sha_mismatch', 'delivery_source_commit_mismatch'];
+  const run = (overrides = {}) => ({ id: 7, status: 'completed', conclusion: 'success', head_branch: 'main',
+    display_title: `Maint 68 canary full source=${refreshed} candidates=* dry=false`, ...overrides });
+  const base = { metadata, deliveryRecord, identityErrors: errors, expectedPlanId: metadata.plan_id,
+    expectedPlanScope: 'full', expectedScopeBaseSha: '', expectedSourceCommit: expected,
+    repository: 'stranske/Ready', branch: 'sync/workflows-candidate', refreshRuns: [run()], defaultBranch: 'main' };
+  assert.deepEqual(refreshedSourceRepin(base), { plan_id: metadata.plan_id, plan_scope: 'full', scope_base_sha: '',
+    source_commit: refreshed, repinned_from: expected, refresh_run_id: 7 });
+  // a promoted delivery PR is never re-pinned by a canary run
+  assert.equal(refreshedSourceRepin({ ...base, branch: 'sync/workflows-delivery' }), null);
+  assert.equal(refreshedSourceRepin({ ...base, branch: 'refs/heads/sync/workflows-delivery' }), null);
+  // a candidate outside the canary phase is not
+  assert.equal(refreshedSourceRepin({ ...base, metadata: { ...metadata, sync_phase: 'promote' } }), null);
+  // any identity error beyond the three source fields keeps the block
+  assert.equal(refreshedSourceRepin({ ...base, identityErrors: [...errors, 'metadata_plan_id_mismatch'] }), null);
+  // an inconsistent candidate (record disagrees with metadata) keeps the block
+  assert.equal(refreshedSourceRepin({ ...base, deliveryRecord: { ...deliveryRecord, source_commit: 'f'.repeat(40) } }), null);
+  // the producing run must be successful, on the source default branch, and cover this consumer
+  assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ conclusion: 'failure' })] }), null);
+  assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ head_branch: 'master' })] }), null);
+  assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ display_title: `Maint 68 canary full source=${refreshed} candidates=stranske/trip-planner dry=false` })] }), null);
+  assert.equal(refreshedSourceRepin({ ...base, defaultBranch: 'master', refreshRuns: [run({ head_branch: 'master' })] }).refresh_run_id, 7);
+});
+
+test('Maint71 falls back to paginated GraphQL on exhausted REST without changing PR identity', async () => {
+  const calls = [];
+  const node = (number, state = 'OPEN') => ({
+    id: `PR_${number}`, number, title: 'sync', body: 'bound plan', url: `https://github.com/o/r/pull/${number}`,
+    state, isDraft: false, headRefName: 'sync/workflows-candidate', headRefOid: 'a'.repeat(40),
+    baseRefName: 'main', baseRefOid: 'b'.repeat(40), author: {login:'stranske'},
+    repository: {nameWithOwner:'stranske/Ready',name:'Ready',owner:{login:'stranske'}},
+    headRepository: {nameWithOwner:'stranske/Ready',name:'Ready',owner:{login:'stranske'}},
+    labels: {pageInfo:{hasNextPage:false},nodes:[{name:'sync:delivery-staging'}]},
+  });
+  const client = {
+    rest:{pulls:{list(){}}},
+    paginate: async () => {throw Object.assign(new Error('API rate limit exceeded'), {
+      status:403, response:{headers:{'x-ratelimit-remaining':'0'}}});},
+    graphql: async (_q, vars) => {
+      calls.push(vars);
+      const nodes = vars.states[0] === 'OPEN' ? [node(vars.after ? 2 : 1)] : [node(3,'MERGED')];
+      return {repository:{pullRequests:{nodes,pageInfo:{hasNextPage:vars.states[0]==='OPEN' && !vars.after,endCursor:'page2'}}}};
+    },
+  };
+  const resources = [];
+  const result = await listMaint71PullRequests({owner:'stranske',repo:'Ready',includeClosed:true,
+    withRetry:async (fn, options) => {resources.push(options?.rateResource);return fn(client);}});
+  assert.deepEqual(result.open.map(p=>p.number),[1,2]);
+  assert.equal(result.closed.length,2);
+  assert.equal(result.open[0].head.sha,'a'.repeat(40));
+  assert.equal(result.open[0].user.login,'stranske');
+  assert.equal(result.open[0].labels[0].name,'sync:delivery-staging');
+  assert.equal(result.closed[0].state,'closed');
+  assert.deepEqual(resources.slice(1),['graphql','graphql','graphql','graphql']);
+  assert.deepEqual(calls.slice(2).map(v=>v.head),['sync/workflows-candidate','sync/workflows-delivery']);
+});
+
+test('Maint71 does not disguise REST permission errors as rate-limit fallback', async () => {
+  let graphqlCalled=false;
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw Object.assign(new Error('Forbidden'),{status:403});},
+    graphql:async()=>{graphqlCalled=true;}};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}),/Forbidden/);
+  assert.equal(graphqlCalled,false);
+});
+
+test('Maint71 excludes secondary 429 and preserves primary identity when GraphQL also fails', async () => {
+  let calls=0;
+  const primary=Object.assign(new Error('API rate limit exceeded'),{status:403,response:{headers:{'x-ratelimit-remaining':'0'}}});
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary;},
+    graphql:async()=>{calls++;throw new Error('secondary rate limit');}};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}),
+    error=>error===primary && error.message==='API rate limit exceeded' && error.graphqlFallbackError==='secondary rate limit');
+  assert.equal(calls,1);
+  calls=0;
+  client.paginate=async()=>{throw Object.assign(new Error('secondary rate limit'),{status:429});};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,0);
+  client.paginate=async()=>{throw Object.assign(new Error('API rate limit exceeded'),{status:429,response:{headers:{'x-ratelimit-remaining':'0'}}});};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,1);
+});
+
+test('Maint71 rejects incomplete GraphQL inventories and skips foreign closed heads', async () => {
+  const primary=()=>Object.assign(new Error('API rate limit exceeded'),{status:403,response:{headers:{'x-ratelimit-remaining':'0'}}});
+  const pr={number:1,author:{login:'stranske'},labels:{pageInfo:{hasNextPage:false},nodes:[]},headRepositoryOwner:{login:'stranske'}};
+  for(const broken of [{...pr,author:null},{...pr,labels:{pageInfo:{hasNextPage:true},nodes:[]}}]){
+    let calls=0;
+    const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary();},graphql:async()=>{calls++;return {repository:{pullRequests:{nodes:[broken],pageInfo:{hasNextPage:false}}}};}};
+    await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+    assert.equal(calls,1);
+  }
+  let calls=0;
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary();},graphql:async(_q,v)=>{
+    calls++;
+    if(v.states[0]==='OPEN')return {repository:{pullRequests:{nodes:[],pageInfo:{hasNextPage:false}}}};
+    const node={...pr,headRepositoryOwner:{login:v.after?'stranske':'fork-owner'}};
+    return {repository:{pullRequests:{nodes:[node],pageInfo:{hasNextPage:!v.after,endCursor:'next'}}}};
+  }};
+  const result=await listMaint71PullRequests({owner:'stranske',repo:'Ready',includeClosed:true,withRetry:fn=>fn(client)});
+  assert.equal(result.closed.length,2);
+  assert.equal(calls,5);
+  calls=0;
+  client.graphql=async()=>{calls++;return {repository:{pullRequests:{nodes:[pr],pageInfo:{hasNextPage:true,endCursor:'same'}}}};};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,2);
 });

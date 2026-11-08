@@ -1,0 +1,66 @@
+{
+  "tests/scripts/test_shebang_rejection_matched_comparison.py": {
+    "sha256": "fda4a767ca7f3134914633564929026d118f06d5b064da0fda804360e03ae154",
+    "bytes": 16089
+  },
+  "docs/evidence/issue-3743/shebang-rejection/compare_matched.py": {
+    "sha256": "840ba69d31ef5d86ec0ecc98dbf075e9dbc3093a9f30985a54e5fd78c6a7f968",
+    "bytes": 27201
+  },
+  "docs/evidence/issue-3743/shebang-rejection/replay.py": {
+    "sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+    "bytes": 6406
+  },
+  "docs/evidence/issue-3743/shebang-rejection/coverage.ini": {
+    "sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+    "bytes": 94
+  },
+  "docs/evidence/issue-3743/shebang-rejection/verify_archives.py": {
+    "sha256": "d0037af6dd8ac64a2c33c89d1192722f5271b0122e5acc8cc565f927bccaff63",
+    "bytes": 14065
+  },
+  "docs/evidence/issue-3743/shebang-rejection/matched-comparison/summary.json": {
+    "sha256": "e9133fb74248c02478b334851e454315a3d87cbe168d52109ad5198399d43459",
+    "bytes": 136015
+  },
+  "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline-command.json": {
+    "sha256": "165c1016cfc71803963da6e9466666db2f99ddff60ce0bb3444134ae9cc40a58",
+    "bytes": 1465
+  },
+  "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate-command.json": {
+    "sha256": "bd23ff342506ce42fda3bc3be02c519163281a8d78239eacf82e15ff32e18f02",
+    "bytes": 1537
+  },
+  "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline.xml": {
+    "sha256": "4b8527d4fadba66dd2d184b94252a7983163cdd117b9d0169d8f8510cdf0103a",
+    "bytes": 53909
+  },
+  "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate.xml": {
+    "sha256": "34bc18f33f872463b3dd0388a100d4102c516da593b42225bc2f838e2a82849c",
+    "bytes": 55115
+  },
+  "docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline.json": {
+    "sha256": "63eb227060b2bbdb1ec592b2e601ac636b10dd09f790056a5a76eb0f94c8ec25",
+    "bytes": 95457
+  },
+  "docs/evidence/issue-3743/shebang-rejection/matched-comparison/candidate.json": {
+    "sha256": "0221ebd7db29b235478eba96d1b3e86ab3d65bf2fa7923021af1f516ca199969",
+    "bytes": 95434
+  },
+  "docs/evidence/issue-3743/shebang-rejection/matched-comparison/comparison.json": {
+    "sha256": "d3befbc8b4b5a665b5cfa684f6b35e674035dfb453035c06ee88d8959692566d",
+    "bytes": 122121
+  },
+  "scripts/check_deliberate_break.py": {
+    "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "bytes": 45981
+  },
+  "templates/consumer-repo/scripts/check_deliberate_break.py": {
+    "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "bytes": 45981
+  },
+  "tests/scripts/test_check_deliberate_break_shebang_rejection.py": {
+    "sha256": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+    "bytes": 2093
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "scope": "Local required-command startup and warning-policy validation, not hosted or main delivery",
+  "base_revision": "a678142249d1c588458635ee358640d9a70c8343",
+  "tested_source": "Base revision plus pyproject.toml and new runtime-test overlay identified by SHA256 below; not a committed revision",
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+  "python_version": "3.14.10",
+  "pytest_version": "9.2.0",
+  "langsmith_version": "0.14.17",
+  "overlay_sha256": {
+    "pyproject.toml": "e1f898756f77dc093ffb63adb9d0100f1f04f88b74f7c69598382f0b2dcf9ade",
+    "tests/test_followup_pytest_runtime.py": "878187b6910a15d1e2519affed85f74edf021f4e5d10c027416b70c1c2c416f3",
+    "scripts/langchain/followup_issue_generator.py": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+    "tests/test_followup_issue_generator.py": "ff4395d0b4803c16dea2caed573f548dda1137d38a2b68bca9050b4b9fce791c"
+  },
+  "startup_before": {
+    "command": "python -m pytest tests/test_followup_issue_generator.py -q -m \"not slow\"",
+    "exit_code": 3,
+    "output": "Error while loading plugin \"pytest11\".\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/pytest_plugin.py:15: in <module>\n    from langsmith.testing._internal import _get_test_suite_name\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/testing/__init__.py:3: in <module>\n    from langsmith.testing._internal import (\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/testing/_internal.py:32: in <module>\n    from langsmith import client as ls_client\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/client.py:946: in <module>\n    class Client:\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/client.py:4062: in Client\n    @_deprecated(\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/_internal/_beta_decorator.py:92: in decorator\n    if asyncio.iscoroutinefunction(func):\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/asyncio/coroutines.py:23: in iscoroutinefunction\n    warnings._deprecated(\"asyncio.iscoroutinefunction\",\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/_py_warnings.py:833: in _deprecated\n    _wm.warn(msg, DeprecationWarning, stacklevel=3)\nE   DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead\n"
+  },
+  "policy_red": {
+    "command": "python -m pytest -p no:langsmith_plugin tests/test_followup_pytest_runtime.py -q -m \"not slow\"",
+    "exit_code": 1,
+    "output": "F....                                                                    [100%]\n=================================== FAILURES ===================================\n__________ test_langsmith_plugin_coroutine_deprecation_allows_startup __________\n\nrepository_warning_policy = None\n\n    def test_langsmith_plugin_coroutine_deprecation_allows_startup(repository_warning_policy):\n>       warnings.warn_explicit(\n            COROUTINE_DEPRECATION,\n            DeprecationWarning,\n            filename=\"langsmith/_internal/_beta_decorator.py\",\n            lineno=92,\n            module=LANGSMITH_MODULE,\n        )\nE       DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead\n\ntests/test_followup_pytest_runtime.py:25: DeprecationWarning\n=========================== short test summary info ============================\nFAILED tests/test_followup_pytest_runtime.py::test_langsmith_plugin_coroutine_deprecation_allows_startup - DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead\n1 failed, 4 passed in 0.48s\n"
+  },
+  "policy_red_note": "Expected deprecation error under the original strict configuration; this is a startup-policy regression, not an assertion-failing historical mutation receipt. Four unrelated-warning protections already pass.",
+  "required_python_green": {
+    "command": "PYTEST_ADDOPTS=\"-m 'not slow'\" python -m pytest tests/test_followup_issue_generator.py -q",
+    "exit_code": 0,
+    "output": "........................................................................ [ 36%]\n........................................................................ [ 72%]\n.......................................................                  [100%]\n199 passed in 0.64s\n"
+  },
+  "policy_green": {
+    "command": "python -m pytest tests/test_followup_pytest_runtime.py -q -m \"not slow\"",
+    "exit_code": 0,
+    "output": ".....                                                                    [100%]\n5 passed in 0.58s\n"
+  },
+  "focused_coverage_green": {
+    "command": "python -m pytest tests/test_followup_issue_generator.py tests/test_followup_pytest_runtime.py tests/scripts/test_audit_followup_mutations.py -q -m \"not slow\" --cov=scripts.langchain.followup_issue_generator --cov-report=term-missing --cov-report=json:/tmp/issue-3956-startup-coverage.json",
+    "exit_code": 0,
+    "output": "........................................................................ [ 28%]\n........................................................................ [ 56%]\n........................................................................ [ 85%]\n.....................................                                    [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                                            Stmts   Miss Branch BrPart   Cover   Missing\n--------------------------------------------------------------------------------------------\nscripts/langchain/followup_issue_generator.py     851      0    386      1  99.92%   124->126\n--------------------------------------------------------------------------------------------\nTOTAL                                             851      0    386      1  99.92%\nCoverage JSON written to file /tmp/issue-3956-startup-coverage.json\n253 passed in 1.07s\n"
+  },
+  "coverage_target": {
+    "summary": {
+      "covered_lines": 851,
+      "num_statements": 851,
+      "percent_covered": 99.91915925626516,
+      "percent_covered_display": "99.92",
+      "missing_lines": 0,
+      "excluded_lines": 9,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100.00",
+      "num_branches": 386,
+      "num_partial_branches": 1,
+      "covered_branches": 385,
+      "missing_branches": 1,
+      "percent_branches_covered": 99.74093264248705,
+      "percent_branches_covered_display": "99.74"
+    },
+    "missing_lines": [],
+    "missing_branches": [
+      [
+        124,
+        126
+      ]
+    ]
+  },
+  "node_green": {
+    "command": "node --test .github/scripts/__tests__/agents-pr-meta-update-body.test.js",
+    "exit_code": 0,
+    "output": "\u2714 .github/scripts/__tests__/agents-pr-meta-update-body.test.js (3181.300393ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 3190.591664\n"
+  },
+  "node_cases_green": {
+    "command": "node --test --test-isolation=none .github/scripts/__tests__/agents-pr-meta-update-body.test.js",
+    "exit_code": 0,
+    "output_summary": "\u2139 tests 173\n\u2139 suites 0\n\u2139 pass 173\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 3138.923841"
+  },
+  "retained_audit": {
+    "revision": "db91da15d7c44e34dca7d4f3d74e5cae62fff62c",
+    "rerun_revision": "a9fb48a0c90308a13c8f09ac01ac57d9dc309a45",
+    "source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+    "test_sha256": "ff4395d0b4803c16dea2caed573f548dda1137d38a2b68bca9050b4b9fce791c",
+    "added_functions": 35,
+    "collected_added_cases": 45,
+    "python_receipts": 50,
+    "node_receipts": 2,
+    "problems": [],
+    "complete": true
+  },
+  "limitations": [
+    "The overlay has no committed revision because Git metadata is read-only.",
+    "PR #4401 remains open, ready for review and unmerged at 9eaf43313c0e57ef964e4171f645985dca5742b8.",
+    "Main 00f43f81e51c4f8b9a057ac51f7e3c2d870d7769 still contains the helper.",
+    "No new hosted measurements or comparable hosted baseline; ranking provenance remains unrecoverable."
+  ],
+  "publication_blockers": {
+    "stage_exit_code": 128,
+    "stage_error": ".git/index.lock: Read-only file system",
+    "required_black_exit_code": 1,
+    "required_black_error": "PermissionError at multiprocessing forkserver socket",
+    "single_worker_black_exit_code": 130,
+    "single_worker_black_note": "Interrupted without completed result",
+    "github_comment": "MCP tool call requires approval, but approval policy is never",
+    "github_needs_human_label": "MCP tool call requires approval, but approval policy is never"
+  }
+}

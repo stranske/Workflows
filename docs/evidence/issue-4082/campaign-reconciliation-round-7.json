@@ -1,0 +1,390 @@
+{
+  "checked_at": "2026-11-07 02:36:01 UTC",
+  "source": "Authenticated connected GitHub metadata and complete paginated patches; CLI failures retained separately",
+  "campaign": [
+    {
+      "repo": "Counter_Risk",
+      "number": 1178,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:16Z",
+      "head_sha": "ef4eab34fd00991721e105da3fa709f9c2eaf5be",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Deliverable-Render",
+      "number": 101,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:21Z",
+      "head_sha": "9b0f192802ba6f0cd9bdac152fd03377b472d2a1",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Doc-Lineage",
+      "number": 138,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:24Z",
+      "head_sha": "e270e1b586fcb82db93e28891bf29a57f558b4a8",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Fine-Art-Archive",
+      "number": 832,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:29Z",
+      "head_sha": "594688593acb8f31a36f68695c9864d55c02b63e",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Inv-Man-Intake",
+      "number": 1037,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:34Z",
+      "head_sha": "ffeaf3afb2928c0ffe3e03c1e16b2aa2bc39cbd9",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Manager-Mosaic",
+      "number": 116,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:39Z",
+      "head_sha": "338e00b835e007fee9a68de8c7ce0fcf2d66ddb6",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Orchestrator",
+      "number": 732,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:43Z",
+      "head_sha": "57efe3a51cce3d6412ca9a69464b5614113370dd",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   # ALSO ON PUSH TO MAIN, and the reason is an incident rather than a preference.\n   #\n   # This workflow used to run on `pull_request` only. On 2026-08-24 its PR run was held at"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Pension-Data",
+      "number": 979,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:48Z",
+      "head_sha": "85562e99d80956514cfdc2e836478a9f24726e98",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Portable-Alpha-Extension-Model",
+      "number": 2390,
+      "state": "open",
+      "merged": false,
+      "draft": false,
+      "merged_at": null,
+      "head_sha": "09298cf6b2e719b90ad661ea62553f4504d5dd96",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -16,7 +16,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Ready",
+      "number": 633,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T14:51:47Z",
+      "head_sha": "5e341751ff4b79186f5c32e288711a060ae04e18",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Travel-Plan-Permission",
+      "number": 1682,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:55:57Z",
+      "head_sha": "0532bbda4779cef5902005bb45b8607401fb5f16",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "Trend_Model_Project",
+      "number": 6112,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:56:04Z",
+      "head_sha": "d9bb77745d0d7edd5da4b23d37e0f330d7859576",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "learning-management-system",
+      "number": 775,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:56:09Z",
+      "head_sha": "677a6ca74735cbefce61f9fbd7447c1ee65f9f6b",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    },
+    {
+      "repo": "trip-planner",
+      "number": 1921,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "merged_at": "2026-10-18T07:56:14Z",
+      "head_sha": "a784569e22ebd401af22a6739e25bdb85e3e621e",
+      "changed_files": 1,
+      "additions": 1,
+      "deletions": 1,
+      "metadata_refs_present": true,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -29,7 +29,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "only_removes_labeled": true
+    }
+  ],
+  "default_branch_trigger_reads": [
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "sha": "79a73d7fd15adf745b75da3ef6aeb570b9d815c6",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Template",
+      "sha": "d4b43ef5cfe5a169c8579198dbbe3783903039e8",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Counter_Risk",
+      "sha": "39ff6f11599f0ef993c40ffc55d2ac436762ee27",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Pension-Data",
+      "sha": "0659bb07dcffa9a08793ac61f1cbffe12313830e",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "sha": "9eaddd79c58035036cb7964dc7f9c5bf1adccbf9",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Ready",
+      "sha": "5ac041d511833f5d87276bd12aaf3c18582d8e3f",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "sha": "a808b30e237e07727b71e5a707e270238e623036",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Manager-Database",
+      "sha": "24262bc8f766516d0ce16cfa5cf0c876a8740906",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "sha": "360a1f67cd01729a25ae6faab74bece95c64e424",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "sha": "59b7aff4b75b1efc89ed6e41d45bf89790228774",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "sha": "00a8437c5bb900750948cc5d0abd23918f7669c2",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Fine-Art-Archive",
+      "sha": "eaf1add1de8a38d0b78216252ab903ce7aa01762",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "sha": "2b5d7e87c6350ba3d38d10d0a69b2b345a90aa40",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "sha": "8613070eb284b2a2600ec87c40e5b1bcd7361bda",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "sha": "038d547b2d78635787a5f2025e3f2f136f70697f",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "sha": "4a380372b74f78f7090e7e35819956ccd1defb7a",
+      "trigger_list": "[opened, synchronize, reopened, ready_for_review]",
+      "source": "authenticated connected GitHub default-branch file read"
+    }
+  ],
+  "final_campaign_merge": null,
+  "observation_completion_time": null,
+  "observation_status": "Final merge timestamp undetermined: PAEM#2390 remains open. Default-branch trigger equality does not establish campaign PR merge.",
+  "numerator": null,
+  "denominator": null,
+  "percentage": null
+}

@@ -146,7 +146,34 @@ def main() -> int:
     try:
         metrics, from_file = _load_metrics(junit_path, metrics_path)
     except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
+        timestamp = (
+            _dt.datetime.now(_dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        )
+        failure_record: dict[str, Any] = {
+            "timestamp": timestamp,
+            "status": "observed-failure",
+            "reason": "file-not-found",
+            "error": str(exc),
+            "junit_path": str(junit_path),
+            "metrics_path": str(metrics_path),
+        }
+        github_meta = {
+            key.lower(): os.environ[key]
+            for key in ("GITHUB_RUN_ID", "GITHUB_RUN_NUMBER", "GITHUB_SHA", "GITHUB_REF")
+            if os.environ.get(key)
+        }
+        if github_meta:
+            failure_record["github"] = github_meta
+        failure_record["regression_evidence"] = {
+            "observed_failure": True,
+            "file_not_found": str(exc),
+            "shallow_history_suspected": True,
+            "regression_identified": "shallow-history-fetch",
+        }
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        with history_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(failure_record, sort_keys=True) + "\n")
+        print(f"Observed failure recorded: {exc} (wrote record to {history_path})", file=sys.stderr)
         return 1
 
     record = _build_history_record(

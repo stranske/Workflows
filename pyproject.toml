@@ -41,7 +41,7 @@ dev = [
     "pytest==9.2.0",
     "anyio>=4.15.1",  # pytest 9.2 plugin startup with warnings treated as errors.
     "pytest-cov==7.1.0",
-    "coverage==7.17.1",
+    "coverage==7.17.2",
     "pytest-xdist==3.8.0",
     "httpx==0.28.1",  # Native SDK MockTransport regression tests.
     "openai==2.48.0",  # Direct native SDK imports in inert Verify transport tests.
@@ -200,6 +200,9 @@ markers = [
 ]
 filterwarnings = [
     "error",
+    # LangSmith's optional pytest plugin still calls this API on Python 3.14.
+    # Keep the exception bound to that decorator; application warnings stay errors.
+    "ignore:'asyncio[.]iscoroutinefunction' is deprecated and slated for removal in Python 3[.]16; use inspect[.]iscoroutinefunction[(][)] instead:DeprecationWarning:langsmith[.]_internal[.]_beta_decorator$",
 ]
 
 [tool.coverage.run]

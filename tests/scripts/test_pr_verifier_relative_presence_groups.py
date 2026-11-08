@@ -68,9 +68,7 @@ def test_relative_presence_keeps_every_classifier_and_floor_dispatch(monkeypatch
         assert not kwargs  # The caller must not opt out of any helper checks.
         calls.append(args)
 
-    monkeypatch.setattr(
-        delivery, "test_component_availability_preserves_bare_sibling_and_passive_actor", capture
-    )
+    monkeypatch.setattr(delivery, "_assert_component_availability_floor", capture)
     for arguments, _ in _rows():
         delivery.test_component_relative_presence_preserves_parent_actual_floor(**arguments)
     assert len(calls) == len(set(calls)) == 648 * 4
@@ -109,7 +107,7 @@ def test_component_helper_executes_all_body_comment_floor_states(monkeypatch, mi
 
     monkeypatch.setattr(delivery.verifier, "prompt_coverage", observe_prompt)
     monkeypatch.setattr(delivery.verifier, "_apply_coverage_floor", observe_floor)
-    delivery.test_component_availability_preserves_bare_sibling_and_passive_actor(
+    delivery._assert_component_availability_floor(
         "record",
         "active",
         "the PR body",

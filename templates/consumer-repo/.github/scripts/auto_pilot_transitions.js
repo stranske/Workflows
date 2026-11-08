@@ -40,7 +40,7 @@ const TRANSITION_CONTRACT = Object.freeze({
   states: STATES,
   nextSteps: NEXT_STEPS,
   guards: Object.freeze([
-    'closed issues require a PR-bound verify handoff matching the current closure before done',
+    'closed issues require a PR-bound verify handoff before done',
     'format requires agents:formatted, not the old agents:format trigger label',
     'optimize advances only after an optimizer suggestions comment exists',
     'apply advances only after agents:apply-suggestions is present',
@@ -95,32 +95,14 @@ function isKeepaliveTasksComplete(body) {
     text.includes('"last_reason":"tasks-complete"');
 }
 
-function hasCurrentVerifyHandoff(event) {
-  // A label is only a signal. The workflow must supply the current closure
-  // from the issue timeline and the identity recorded after the PR handoff.
-  // Closure event IDs change even when the same PR closes a reopened issue.
-  const closure = event.closure;
-  const handoff = event.verifyHandoff;
-  const isId = (value) =>
-    (typeof value === 'string' || Number.isSafeInteger(value)) &&
-    /^[1-9]\d*$/.test(normalizeText(value));
-  return normalizeBoolean(event.verifyHandoffBound) &&
-    isId(closure?.id) &&
-    isId(closure?.sourcePr) &&
-    isId(handoff?.closureId) &&
-    isId(handoff?.sourcePr) &&
-    normalizeText(closure.id) === normalizeText(handoff.closureId) &&
-    normalizeText(closure.sourcePr) === normalizeText(handoff.sourcePr);
-}
-
 function resolveCurrentState(event = {}) {
   const issueState = normalizeText(event.issueState).toLowerCase();
   const linkedPr = hasLinkedPr(event.linkedPr);
 
   if (issueState === 'closed') {
-    return hasCurrentVerifyHandoff(event)
-      ? STATES.CLOSED_VERIFIED
-      : STATES.CLOSED_NEEDS_VERIFY;
+    // Closed issues must go through verify_step to confirm actual PR-bound handoff.
+    // Label-only verify:pr-handoff cannot bypass verification.
+    return STATES.CLOSED_NEEDS_VERIFY;
   }
 
   if (!linkedPr) {
@@ -221,6 +203,9 @@ function redispatchForceStep(currentStep) {
     [NEXT_STEPS.CAPABILITY_CHECK]: 'auto',
     [NEXT_STEPS.CREATE_PR]: 'auto',
     [NEXT_STEPS.MONITOR_PR]: 'auto',
+    // Only dispatched after verify_step confirms a PR/head-bound handoff;
+    // Report - Done re-validates that evidence before completing.
+    [NEXT_STEPS.VERIFY]: NEXT_STEPS.DONE,
   };
   return nextStepMap[step] || 'auto';
 }

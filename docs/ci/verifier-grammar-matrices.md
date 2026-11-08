@@ -3,9 +3,59 @@
 Issue #3904 changes test design, not production verifier behavior or delivery gates.
 The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 
-The historical #3904 counts and experiments below describe that delivery.
-For the current additional reduction, see [#4258](#issue-4258-alias-products);
-the JSON inventory and projection tests reflect the current 31,368 cases.
+## Follow-up: passive aliases and component availability
+
+The retained inventory now has 29,777 destination cases. The passive-alias
+classifier retains 420 cases (formerly 600), and component availability retains
+702 (formerly 1,350). Both still assert required channels and required options.
+Their classifier inputs omit `missing`, which affects retrieval state only.
+The JSON records that historical axis under `floor_only_dimensions` so original
+counts remain auditable without emitting duplicate classifier rows.
+
+Shared criterion builders feed `test_passive_aliases_real_floor` (120 cases) and
+`test_component_availability_real_floor` (24 cases). They retain both channel
+directions, mandatory/optional/prohibited governors, independent artifact duties,
+and absent/unavailable retrieval. The passive matrix also retains human AND/OR
+and product AND/OR options. Each case checks all four body/comment presence sets
+with artifacts present. The audit compares every emitted classifier outcome with
+the actual floor dispatch for both missing states. Alias spelling, agent placement,
+availability wording, destination aliases, order and coordination remain crossed
+in the classifier matrices; the floor witnesses use canonical wording.
+
+These families run 576 full prompt/floor checks instead of 7,800. Comma-attachment
+and relative-presence regressions still use the complete shared assertion helper,
+including every original classifier assertion and all four floor presence sets.
+Other per-row floor exceptions remain unchanged. These are execution counts,
+not measured hosted timings; the broader task and runtime evidence remain open.
+
+Validate these changes with:
+
+```sh
+pytest tests/scripts/test_pr_verifier_grammar_inventory.py tests/scripts/test_pr_verifier_relative_presence_groups.py tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_body_overall_integration.py -q -m "not slow"
+```
+
+## PR #4456: body-clause classifier/floor split
+
+Against main `7b92760527da7c9a7a5282005009b75f7d01cd2e`, this PR changes
+only the body-clause tests and their inventory audit. Both
+`_required_evidence_channels` and `_required_evidence_options` are asserted for
+all 107 wording cases × two checklist prefixes × four comment positions
+(856 classifier cases). `test_body_clause_matrix_controls_real_coverage_floor`
+retains one witness for each of six distinct required-channel outcomes, crossed
+with present/absent/unavailable and body/comments/artifacts (54 cases, formerly
+963). This saves 909 floor executions; the destination inventory falls from
+31,370 to 30,461 cases. These counts do not establish a hosted runtime speedup.
+
+The inventory marks this floor test `integration_floor_split`; it is an explicit
+exception to the unchanged Cartesian dimensions outside the matrix JSON. The
+audit verifies the emitted outcomes against the full wording corpus, exact
+status/channel values and the 54-case product. Other classifier/floor families,
+production code, CI and the matrix JSON remain unchanged from current main.
+Per-row floor checks elsewhere remain intact; this is no claim of a global split.
+Issue #3904 stays open for the broader reductions and evidence work.
+
+The following sections record earlier deliveries (#3904 and #4258). Their counts
+are historical; the JSON inventory and the current split above describe this PR.
 
 ## Retained regression map
 
@@ -34,7 +84,7 @@ test and the section-boundary regressions described below. The 338 unchanged
 functions retain every original combination, so no independence assumption or
 semantic/lexical decomposition is applied to them. For the 18 bounded functions,
 join on `function` with `verifier-grammar-matrices.json` for the explicit semantic
-dimensions and lexical interactions. The two focused tests in
+dimensions and lexical interactions. The focused tests in
 `tests/scripts/test_pr_verifier_grammar_inventory.py` check the inventory against
 the actual decorators and verify that every declared semantic and lexical
 projection has an emitted case. They enumerate only bounded witnesses, without
@@ -180,22 +230,93 @@ acceptance for issue #3904.
 
 ## Controlled hosted comparison
 
+`scripts/gate_runtime_evidence.py` reads downloaded Gate runtime artifacts and
+job JSON without dispatching workflows. Its source and focused tests are restored
+from pre-reduction commit `d5c12fec48816701c24635dcc83ce1032d88c4b2` for #4462.
+The reader requires an explicit `success` job conclusion to report green jobs.
+Every compared after-runtime must have valid wall timestamps before the
+ten-minute target can be evaluated; incomplete walls yield an `UNKNOWN` target
+status and no slowest-job measurement. JSON keeps unknown measurements as null,
+and Markdown renders them as `UNKNOWN`.
+
+Controlled phase timing also requires measured startup, pytest, summary/post-test,
+collection, controller, worker and scoped JUnit intervals in both arms. Missing
+phases, invalid resource clocks (including booleans, negative or nonfinite values),
+unknown CPU models and incomplete cache flags populate `timing_gaps` with explicit
+`UNKNOWN` diagnostics and withhold `timing_controlled`. All worker clocks must be
+valid before worker extrema or an in-pytest reporting remainder can be measured;
+real zero durations remain valid. Job-wall target status remains independent of
+these finer phase measurements.
+
+Scoped JUnit worker time requires exact scheduled-versus-observed case counts
+for each of the three files, with finite nonnegative durations for every row.
+Zero scheduled cases and zero observed rows measure zero; unknown scheduling,
+missing or extra rows, unreadable XML and invalid timings remain unknown.
+Coverage deltas require explicit executed-line and branch lists with valid
+integer entries; absent or malformed lists cannot establish zero branch loss.
+The aggregate `verifier_branch_loss` is null when an active coverage comparison
+is unavailable (or no comparison is available), false only for available loss-free
+comparisons, and true when any available comparison proves a loss. Markdown names
+each unavailable runtime's branch comparison as `UNKNOWN`.
+
+Pass `--repo /path/to/checkout` to verify source identity. `build_report` checks
+the common tested SHA for every runtime against the verifier, lock, pytest
+configuration, Gate inputs and reusable pytest invocation. Missing identity or
+invocation markers and differing inputs withhold configuration/control claims.
+Only full lowercase hexadecimal 40- or 64-character object IDs reach Git.
+The CLI's omitted, matching and mismatched repository identity paths are tested.
+This reader validation does not establish hosted timing or Python 3.12/3.13
+acceptance; retain those execution receipts separately.
+Report metadata lists the actual uploaded runtime versions and separately lists
+explicit ACTIVE coverage probes for each arm. Missing coverage probes render
+as UNKNOWN; a listed runtime does not establish that the requested matrix is
+complete. Python 3.12/3.13 receipts are never labeled as the current Gate matrix.
+
+```bash
+python -m pytest tests/scripts/test_gate_runtime_evidence.py --cov=scripts.gate_runtime_evidence --cov-report=term-missing -q -m 'not slow'
+python scripts/gate_runtime_evidence.py --help
+```
+
 `maint-88-verifier-runtime-comparison.yml` is a finite manual experiment for #3904,
-not a new PR gate or recurring benchmark service. After normal review/merge, dispatch
-it once from the reviewed harness commit. It runs Python 3.12 and 3.13 on standard
-`ubuntu-latest` runners. Within each job, both arms share the exact interpreter,
-installed dependency set, four loadgroup workers, markers, coverage configuration,
-commands and runner. The common dependency lock is taken from candidate
-`999ffe5fa00ac9c8ae8a807447f053277032b670`; baseline source is
-`2f9eb2de718d1a561bce6fc0bff46fe8b9867905`. No moving merge ref or `main` supplies
-measured source. The harness refuses unequal production verifier bytes or unequal
-pytest/coverage configuration. This isolates the original test-design change under
-a common candidate environment; it does not compare each historical installation.
+not a new PR gate or recurring benchmark service. The #4462 continuation explicitly
+requests the Python 3.12/3.13 experiment on the reviewed PR #4527 source pair.
+Dispatch once from the validated harness/workflow commit and retain its identity.
+Within each job, both arms share the exact interpreter, installed dependency set,
+four loadgroup workers, markers, coverage configuration, commands and runner.
+The workflow passes explicit `prepare --baseline` and `--candidate` IDs:
+baseline PR base `00f43f81e51c4f8b9a057ac51f7e3c2d870d7769` and reviewed
+candidate `8c0afc3ef0263cf85949b6167435ceabed5dd2a3`. The candidate's common
+lock is byte-identical to the baseline lock. No moving merge ref or `main`
+supplies measured source. The harness refuses unequal production verifier bytes
+or unequal pytest/coverage configuration. This isolates the test-design change
+under a common candidate environment; it does not compare historical installations.
+
+To prepare a different reviewed source pair, pass both `--baseline FULL_COMMIT_ID`
+and `--candidate FULL_COMMIT_ID` to the harness's `prepare` command. Each must be
+a full lowercase 40- or 64-character hexadecimal ID naming a commit already
+available in the checkout. Branches, abbreviated IDs, revision expressions and
+non-commit objects are rejected before extraction. Omitting both arguments retains
+the historical defaults (`2f9eb2de718d1a561bce6fc0bff46fe8b9867905` and
+`999ffe5fa00ac9c8ae8a807447f053277032b670`). Selection is recorded in the existing manifest;
+`run` consumes that manifest and refuses source-selection arguments. The same
+verifier/configuration identity checks and common candidate lock remain required.
+These arguments do not update the protected workflow's fetches or runtime matrix.
+
+Before either arm executes, `run` rehashes the three scoped test files, production
+verifier, pytest/coverage configuration and dependency lock in both prepared arms.
+Missing files, missing manifest hashes or changed bytes produce a failed
+`result.json` receipt without running pytest. The same six inputs are checked
+again after both arms finish. `source_integrity` retains the observed hashes and
+gaps at each boundary; changed inputs fail the measurement and leave
+`verifier_coverage: null` with an UNKNOWN diagnostic, while preserving raw JUnit,
+coverage and console artifacts. These checks cover the six manifest inputs;
+they do not assert that every imported file or the entire checkout is unchanged.
 
 No artifact or dependency cache restore runs. Each arm starts in a fresh source
 archive with pytest cache disabled, bytecode writes disabled, and its own temporary
-directory. OS page-cache effects are not controlled; Python 3.12 runs baseline first
-and Python 3.13 runs candidate first. These are one pair per interpreter, not repeated
+directory. OS page-cache effects are not controlled. The harness runs baseline first
+on Python 3.12 and candidate first on other versions, so the scheduled
+versions use opposite arm orders. These are one pair per interpreter, not repeated
 trials sufficient to estimate variability. Dependency installation is outside the
 timed arms. This experiment therefore cannot claim that removing the former
 423-second artifact-discovery stall caused a test-execution speedup.
@@ -210,6 +331,36 @@ line/branch fails the measurement job; no coverage threshold or required Gate is
 changed. Retain and adjudicate losses rather than treating aggregate percentage
 equality as equivalence. Passing this experiment does not establish all removed
 lexical tuples equivalent, all required jobs under ten minutes, or closure of #3904.
+
+The harness also requires observed passing JUnit cases in each of the three scoped
+suites in both arms. Missing/empty scope, skipped cases, failures, errors or
+conflicting case outcomes cannot certify successful scoped execution, even when
+the process reports exit zero. Per-suite outcome counts are retained in the arm
+receipts and `outcome_comparison` records the decision and gaps. Unreadable JUnit
+leaves an UNKNOWN diagnostic while both arms and their raw artifacts are retained.
+Every declared `tests`, `failures`, `errors` and `skipped` total on a JUnit suite
+or enclosing suite group must match its descendant case rows. Invalid counters
+or mismatches leave outcomes and timing UNKNOWN and fail the measurement, even
+when all scoped suites have some passing rows and pytest reports exit zero.
+This detects inconsistent or truncated reports; matching declared totals alone
+do not prove that every intended test was collected.
+JUnit outcome accounting is independent of timing validity. Each suite retains
+`timed_cases`, `untimed_cases` and `timing_status`; absent, invalid, negative or
+nonfinite durations and overflowing sums produce `worker_seconds: null`, never
+zero or a partial sum. Explicit finite zero remains measured. The separate
+`timing_comparison` requires known worker time in every scoped suite in both
+arms; incomplete timing fails the measurement without erasing passing outcomes
+or relaxing existing exit/package/coverage checks. Known JUnit worker time alone
+does not establish controlled hosted phases or a wall-time speedup.
+Coverage comparison validates explicit executed-line/branch lists before taking
+set differences, including integer types and negative branch exits. Both JSON
+receipts must explicitly declare boolean `meta.branch_coverage: true`; missing
+metadata, disabled branch mode and truthy non-boolean values cannot establish a
+branch comparison even when both executed-branch lists are empty. Missing,
+unreadable or malformed coverage leaves `verifier_coverage: null` with a
+`coverage_error` UNKNOWN diagnostic and fails the job. These checks establish
+receipt validity; they do not supply missing hosted measurements or assert
+equivalence of deliberately removed parameter rows.
 
 Local checks before review:
 

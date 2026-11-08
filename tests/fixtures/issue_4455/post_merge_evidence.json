@@ -1,0 +1,446 @@
+{
+  "schema": "issue-4455-post-merge-evidence/v1",
+  "observed_at": "2026-11-07T05:55:11Z",
+  "collection": {
+    "transport": "Connected GitHub API; local gh commands failed to connect to api.github.com",
+    "pull_request_url": "https://api.github.com/repos/stranske/Workflows/pulls/4443",
+    "recent_runs_url": "https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100",
+    "recent_runs_selection": "First three returned rows with path .github/workflows/maint-71-merge-sync-prs.yml; API order retained",
+    "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/41958285569",
+    "job_id": 127018407721,
+    "job_url": "https://github.com/stranske/Workflows/actions/runs/41958285569/job/127018407721",
+    "report_selection": "Last emitted Portable-Alpha-Extension-Model#2454 result, 2026-11-05T03:00:38Z; selected fields retained",
+    "comments_url": "https://api.github.com/repos/stranske/Workflows/issues/4364/comments?per_page=100",
+    "comments_returned": 39,
+    "comments_projection": "id, html_url, created_at and sync-core classification for all comments; full body retained only for sync-core marker comments"
+  },
+  "fix_pr": {
+    "number": 4443,
+    "html_url": "https://github.com/stranske/Workflows/pull/4443",
+    "merged": true,
+    "merged_at": "2026-11-05T02:46:26Z",
+    "merge_commit_sha": "81e575a008db219b8b63761014025d182d095128",
+    "base": {
+      "ref": "main",
+      "repo": "stranske/Workflows"
+    }
+  },
+  "recent_runs": [
+    {
+      "id": 42344355901,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42344355901",
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T05:49:47Z",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 42344354188,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42344354188",
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T05:49:46Z",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 42344311965,
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42344311965",
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "head_branch": "main",
+      "created_at": "2026-11-07T05:49:06Z",
+      "status": "completed",
+      "conclusion": "failure"
+    }
+  ],
+  "verified_run": {
+    "id": 41958285569,
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/41958285569",
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "head_sha": "81e575a008db219b8b63761014025d182d095128",
+    "head_branch": "main",
+    "created_at": "2026-11-05T02:55:16Z",
+    "updated_at": "2026-11-05T03:00:45Z",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "consumer_report": {
+    "owner": "stranske",
+    "repo": "Portable-Alpha-Extension-Model",
+    "pr": 2454,
+    "head_sha": "3512f549a602be0cf61b7873f39bf07acf2d6924",
+    "source_commit": "81e575a008db219b8b63761014025d182d095128",
+    "status": "stable_base_refresh_required",
+    "review_finding_disposition": {
+      "schema": "sync-finding-evaluation/v1",
+      "binding": {
+        "repository": "stranske/Portable-Alpha-Extension-Model",
+        "pr": 2454,
+        "head_sha": "3512f549a602be0cf61b7873f39bf07acf2d6924",
+        "source_commit": "81e575a008db219b8b63761014025d182d095128",
+        "plan_id": "sha256:23484ac56ea0e4238e98869058028038c683aa60d2adbdfd27d9161d459d3dba",
+        "delivery_generation": "23484ac56ea0"
+      },
+      "raw_active_count": 6,
+      "blocked": true,
+      "errors": [],
+      "findings": [
+        {
+          "thread_id": "PRRT_kwDOO15QxM6yXhei",
+          "path": ".github/scripts/auto_pilot_transitions.js",
+          "author": "copilot-pull-request-reviewer",
+          "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491631",
+          "disposition": "unknown",
+          "errors": [
+            "classification_missing_or_stale"
+          ]
+        },
+        {
+          "thread_id": "PRRT_kwDOO15QxM6yXhew",
+          "path": ".github/workflows/agents-auto-pilot.yml",
+          "author": "copilot-pull-request-reviewer",
+          "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+          "disposition": "unknown",
+          "errors": [
+            "classification_missing_or_stale"
+          ]
+        },
+        {
+          "thread_id": "PRRT_kwDOO15QxM6yXhe9",
+          "path": "tools/llm_registry.py",
+          "author": "copilot-pull-request-reviewer",
+          "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491667",
+          "disposition": "unknown",
+          "errors": [
+            "classification_missing_or_stale"
+          ]
+        },
+        {
+          "thread_id": "PRRT_kwDOO15QxM6yXhe_",
+          "path": ".github/scripts/auto_pilot_transitions.js",
+          "author": "copilot-pull-request-reviewer",
+          "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491675",
+          "disposition": "unknown",
+          "errors": [
+            "classification_missing_or_stale"
+          ]
+        },
+        {
+          "thread_id": "PRRT_kwDOO15QxM6yXhfL",
+          "path": "config/model_registry.json",
+          "author": "copilot-pull-request-reviewer",
+          "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491693",
+          "disposition": "unknown",
+          "errors": [
+            "classification_missing_or_stale"
+          ]
+        },
+        {
+          "thread_id": "PRRT_kwDOO15QxM6yXhfS",
+          "path": "tools/subscription_llm.py",
+          "author": "copilot-pull-request-reviewer",
+          "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+          "disposition": "unknown",
+          "errors": [
+            "classification_missing_or_stale"
+          ]
+        }
+      ],
+      "aggregates": {
+        "blocking": 6,
+        "nonblocking": 0,
+        "unknown": 6,
+        "by_disposition": {
+          "shared-source": 0,
+          "sync-caused": 0,
+          "unrelated": 0,
+          "unknown": 6
+        }
+      },
+      "disposition_thread_ids": {
+        "shared-source": [],
+        "sync-caused": [],
+        "unrelated": [],
+        "unknown": [
+          "PRRT_kwDOO15QxM6yXhei",
+          "PRRT_kwDOO15QxM6yXhew",
+          "PRRT_kwDOO15QxM6yXhe9",
+          "PRRT_kwDOO15QxM6yXhe_",
+          "PRRT_kwDOO15QxM6yXhfL",
+          "PRRT_kwDOO15QxM6yXhfS"
+        ]
+      },
+      "blocking_thread_ids": [
+        "PRRT_kwDOO15QxM6yXhei",
+        "PRRT_kwDOO15QxM6yXhew",
+        "PRRT_kwDOO15QxM6yXhe9",
+        "PRRT_kwDOO15QxM6yXhe_",
+        "PRRT_kwDOO15QxM6yXhfL",
+        "PRRT_kwDOO15QxM6yXhfS"
+      ],
+      "nonblocking_thread_ids": [],
+      "unknown_thread_ids": [
+        "PRRT_kwDOO15QxM6yXhei",
+        "PRRT_kwDOO15QxM6yXhew",
+        "PRRT_kwDOO15QxM6yXhe9",
+        "PRRT_kwDOO15QxM6yXhe_",
+        "PRRT_kwDOO15QxM6yXhfL",
+        "PRRT_kwDOO15QxM6yXhfS"
+      ],
+      "unrelated_handoffs": []
+    }
+  },
+  "issue_comments": [
+    {
+      "id": 6568616429,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6568616429",
+      "created_at": "2026-11-02T03:51:39Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `3e13566a73e9` (round 20261102T035116Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491943",
+      "sync_core": true
+    },
+    {
+      "id": 6568616683,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6568616683",
+      "created_at": "2026-11-02T03:51:40Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/trip-planner#1957 head `e1075176de36` (round 20261102T035116Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489049",
+      "sync_core": true
+    },
+    {
+      "id": 6583449903,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6583449903",
+      "created_at": "2026-11-02T17:14:52Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `128edded1e54` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434482074, https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491654",
+      "sync_core": true
+    },
+    {
+      "id": 6583453416,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6583453416",
+      "created_at": "2026-11-02T17:15:02Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `e1d8a8ed8a87` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491943",
+      "sync_core": true
+    },
+    {
+      "id": 6587415143,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6587415143",
+      "created_at": "2026-11-02T20:15:00Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/trip-planner#1957 head `0a5873df007f` (round 20261102T201439Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489049",
+      "sync_core": true
+    },
+    {
+      "id": 6588614159,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6588614159",
+      "created_at": "2026-11-02T21:13:58Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `c485222f949a` (round 20261102T211340Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491943",
+      "sync_core": true
+    },
+    {
+      "id": 6597298888,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6597298888",
+      "created_at": "2026-11-03T06:46:24Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `021a094497a1` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434482074, https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491654",
+      "sync_core": true
+    },
+    {
+      "id": 6597302063,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6597302063",
+      "created_at": "2026-11-03T06:46:37Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/trip-planner#1957 head `66242eb3268c` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489049",
+      "sync_core": true
+    },
+    {
+      "id": 6604745749,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6604745749",
+      "created_at": "2026-11-03T13:12:16Z",
+      "sync_core": false
+    },
+    {
+      "id": 6623203427,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623203427",
+      "created_at": "2026-11-04T05:15:30Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `f36c82cd6a83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434482074, https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491654",
+      "sync_core": true
+    },
+    {
+      "id": 6623205564,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623205564",
+      "created_at": "2026-11-04T05:15:39Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `7e233b3c1e83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491943",
+      "sync_core": true
+    },
+    {
+      "id": 6623206655,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623206655",
+      "created_at": "2026-11-04T05:15:44Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/trip-planner#1957 head `ecff077a0504` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489049",
+      "sync_core": true
+    },
+    {
+      "id": 6623827321,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623827321",
+      "created_at": "2026-11-04T06:00:22Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `c1add4c24991` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434482074, https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491654",
+      "sync_core": true
+    },
+    {
+      "id": 6623829810,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6623829810",
+      "created_at": "2026-11-04T06:00:32Z",
+      "body": "<!-- sync-core/v1 handoff fp=bb5be2b6f3d9 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `58e7e3bdfe8b` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491943",
+      "sync_core": true
+    },
+    {
+      "id": 6624182362,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624182362",
+      "created_at": "2026-11-04T06:23:37Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624190714,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624190714",
+      "created_at": "2026-11-04T06:24:08Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624656486,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624656486",
+      "created_at": "2026-11-04T06:54:35Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624669577,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624669577",
+      "created_at": "2026-11-04T06:55:28Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624700064,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624700064",
+      "created_at": "2026-11-04T06:57:14Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624710302,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624710302",
+      "created_at": "2026-11-04T06:57:48Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624738456,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624738456",
+      "created_at": "2026-11-04T06:59:18Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624738707,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624738707",
+      "created_at": "2026-11-04T06:59:19Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624791648,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624791648",
+      "created_at": "2026-11-04T07:02:29Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624806774,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624806774",
+      "created_at": "2026-11-04T07:03:28Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624807819,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624807819",
+      "created_at": "2026-11-04T07:03:32Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624825962,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624825962",
+      "created_at": "2026-11-04T07:04:41Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624837807,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624837807",
+      "created_at": "2026-11-04T07:05:25Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624872852,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624872852",
+      "created_at": "2026-11-04T07:07:36Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624937710,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624937710",
+      "created_at": "2026-11-04T07:11:31Z",
+      "sync_core": false
+    },
+    {
+      "id": 6624975526,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6624975526",
+      "created_at": "2026-11-04T07:13:32Z",
+      "sync_core": false
+    },
+    {
+      "id": 6625030538,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625030538",
+      "created_at": "2026-11-04T07:16:36Z",
+      "sync_core": false
+    },
+    {
+      "id": 6625096526,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625096526",
+      "created_at": "2026-11-04T07:20:37Z",
+      "sync_core": false
+    },
+    {
+      "id": 6625150289,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625150289",
+      "created_at": "2026-11-04T07:23:56Z",
+      "sync_core": false
+    },
+    {
+      "id": 6625289380,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625289380",
+      "created_at": "2026-11-04T07:31:57Z",
+      "sync_core": false
+    },
+    {
+      "id": 6625345214,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625345214",
+      "created_at": "2026-11-04T07:35:25Z",
+      "sync_core": false
+    },
+    {
+      "id": 6625608454,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625608454",
+      "created_at": "2026-11-04T07:51:26Z",
+      "sync_core": false
+    },
+    {
+      "id": 6625669889,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6625669889",
+      "created_at": "2026-11-04T07:55:10Z",
+      "sync_core": false
+    },
+    {
+      "id": 6648353643,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6648353643",
+      "created_at": "2026-11-05T02:51:14Z",
+      "sync_core": false
+    },
+    {
+      "id": 6648421213,
+      "html_url": "https://github.com/stranske/Workflows/issues/4364#issuecomment-6648421213",
+      "created_at": "2026-11-05T02:55:59Z",
+      "sync_core": false
+    }
+  ]
+}

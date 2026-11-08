@@ -1,0 +1,541 @@
+{
+  "checked_at": "2026-11-07 03:36:48 UTC",
+  "scope": "WF#4082",
+  "transport": "Connected GitHub reads; supplemental, not authenticated runner gh/Health 68 acceptance",
+  "campaign": [
+    {
+      "repo": "stranske/Counter_Risk",
+      "pr": 1178,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:16Z",
+      "head_sha": "ef4eab34fd00991721e105da3fa709f9c2eaf5be",
+      "url": "https://github.com/stranske/Counter_Risk/pull/1178",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "pr": 101,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:21Z",
+      "head_sha": "9b0f192802ba6f0cd9bdac152fd03377b472d2a1",
+      "url": "https://github.com/stranske/Deliverable-Render/pull/101",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "pr": 138,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:24Z",
+      "head_sha": "e270e1b586fcb82db93e28891bf29a57f558b4a8",
+      "url": "https://github.com/stranske/Doc-Lineage/pull/138",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Fine-Art-Archive",
+      "pr": 832,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:29Z",
+      "head_sha": "594688593acb8f31a36f68695c9864d55c02b63e",
+      "url": "https://github.com/stranske/Fine-Art-Archive/pull/832",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "pr": 1037,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:34Z",
+      "head_sha": "ffeaf3afb2928c0ffe3e03c1e16b2aa2bc39cbd9",
+      "url": "https://github.com/stranske/Inv-Man-Intake/pull/1037",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "pr": 116,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:39Z",
+      "head_sha": "338e00b835e007fee9a68de8c7ce0fcf2d66ddb6",
+      "url": "https://github.com/stranske/Manager-Mosaic/pull/116",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "pr": 732,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:43Z",
+      "head_sha": "57efe3a51cce3d6412ca9a69464b5614113370dd",
+      "url": "https://github.com/stranske/Orchestrator/pull/732",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -13,7 +13,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   # ALSO ON PUSH TO MAIN, and the reason is an incident rather than a preference.\n   #\n   # This workflow used to run on `pull_request` only. On 2026-08-24 its PR run was held at"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Pension-Data",
+      "pr": 979,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:48Z",
+      "head_sha": "85562e99d80956514cfdc2e836478a9f24726e98",
+      "url": "https://github.com/stranske/Pension-Data/pull/979",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2390,
+      "state": "open",
+      "draft": false,
+      "merged": false,
+      "merged_at": null,
+      "head_sha": "09298cf6b2e719b90ad661ea62553f4504d5dd96",
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2390",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -16,7 +16,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Ready",
+      "pr": 633,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T14:51:47Z",
+      "head_sha": "5e341751ff4b79186f5c32e288711a060ae04e18",
+      "url": "https://github.com/stranske/Ready/pull/633",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "pr": 1682,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:55:57Z",
+      "head_sha": "0532bbda4779cef5902005bb45b8607401fb5f16",
+      "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1682",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "pr": 6112,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:56:04Z",
+      "head_sha": "d9bb77745d0d7edd5da4b23d37e0f330d7859576",
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6112",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "pr": 775,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:56:09Z",
+      "head_sha": "677a6ca74735cbefce61f9fbd7447c1ee65f9f6b",
+      "url": "https://github.com/stranske/learning-management-system/pull/775",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -30,7 +30,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "pr": 1921,
+      "state": "closed",
+      "draft": false,
+      "merged": true,
+      "merged_at": "2026-10-18T07:56:14Z",
+      "head_sha": "a784569e22ebd401af22a6739e25bdb85e3e621e",
+      "url": "https://github.com/stranske/trip-planner/pull/1921",
+      "changed_files": 1,
+      "patches": [
+        {
+          "filename": ".github/workflows/pr-00-gate.yml",
+          "patch": "@@ -29,7 +29,7 @@ name: Gate\n \n on:\n   pull_request:\n-    types: [opened, synchronize, reopened, ready_for_review, labeled]\n+    types: [opened, synchronize, reopened, ready_for_review]\n   workflow_dispatch:\n \n concurrency:"
+        }
+      ],
+      "exact_one_line_removal": true,
+      "metadata_refs": true,
+      "source_marker": true
+    }
+  ],
+  "readback": [
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "sha": "79a73d7fd15adf745b75da3ef6aeb570b9d815c6",
+      "source": "https://github.com/stranske/Travel-Plan-Permission/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Template",
+      "sha": "d4b43ef5cfe5a169c8579198dbbe3783903039e8",
+      "source": "https://github.com/stranske/Template/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Counter_Risk",
+      "sha": "39ff6f11599f0ef993c40ffc55d2ac436762ee27",
+      "source": "https://github.com/stranske/Counter_Risk/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Pension-Data",
+      "sha": "0659bb07dcffa9a08793ac61f1cbffe12313830e",
+      "source": "https://github.com/stranske/Pension-Data/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "sha": "9eaddd79c58035036cb7964dc7f9c5bf1adccbf9",
+      "source": "https://github.com/stranske/Inv-Man-Intake/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Ready",
+      "sha": "5ac041d511833f5d87276bd12aaf3c18582d8e3f",
+      "source": "https://github.com/stranske/Ready/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "sha": "a808b30e237e07727b71e5a707e270238e623036",
+      "source": "https://github.com/stranske/trip-planner/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Manager-Database",
+      "sha": "24262bc8f766516d0ce16cfa5cf0c876a8740906",
+      "source": "https://github.com/stranske/Manager-Database/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "sha": "360a1f67cd01729a25ae6faab74bece95c64e424",
+      "source": "https://github.com/stranske/Portable-Alpha-Extension-Model/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "sha": "59b7aff4b75b1efc89ed6e41d45bf89790228774",
+      "source": "https://github.com/stranske/Trend_Model_Project/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "sha": "00a8437c5bb900750948cc5d0abd23918f7669c2",
+      "source": "https://github.com/stranske/learning-management-system/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Fine-Art-Archive",
+      "sha": "eaf1add1de8a38d0b78216252ab903ce7aa01762",
+      "source": "https://github.com/stranske/Fine-Art-Archive/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "sha": "2b5d7e87c6350ba3d38d10d0a69b2b345a90aa40",
+      "source": "https://github.com/stranske/Orchestrator/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "sha": "8613070eb284b2a2600ec87c40e5b1bcd7361bda",
+      "source": "https://github.com/stranske/Doc-Lineage/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "sha": "038d547b2d78635787a5f2025e3f2f136f70697f",
+      "source": "https://github.com/stranske/Deliverable-Render/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "sha": "4a380372b74f78f7090e7e35819956ccd1defb7a",
+      "source": "https://github.com/stranske/Manager-Mosaic/blob/main/.github/workflows/pr-00-gate.yml",
+      "types": [
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review"
+      ],
+      "error": false
+    }
+  ],
+  "paem_labels": [
+    "automerge",
+    "autofix",
+    "agents:keepalive",
+    "agent:auto"
+  ],
+  "health_4084": {
+    "head_sha": "9be36f8556928608485acdd7d1cec6fef1bc69a6",
+    "merged_at": "2026-10-18T06:29:45Z"
+  },
+  "observation": {
+    "status": "not_collected",
+    "reason": "PAEM#2390 remains open; final campaign merge timestamp not established. Runner gh networking unavailable.",
+    "numerator": null,
+    "denominator": null,
+    "percentage": null
+  },
+  "health_68_outcome": {
+    "checked_at": "2026-11-07T03:33:41.066540+00:00",
+    "command": [
+      "python",
+      "scripts/check_consumer_sync_drift.py",
+      "--repos",
+      "stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic",
+      "--summary",
+      "/tmp/issue-4082-round13/summary.md",
+      "--report-json",
+      "/tmp/issue-4082-round13/drift.json"
+    ],
+    "stop_rule": "One attempt; 110 seconds maximum; no retries for unavailable networking.",
+    "exit_code": 1,
+    "stdout": "::error::No usable GitHub token available for consumer repo contents reads\ngate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)\ngate triggers: stranske/Template unknown (Gate/tree unavailable)\ngate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)\ngate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)\ngate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)\ngate triggers: stranske/Ready unknown (Gate/tree unavailable)\ngate triggers: stranske/trip-planner unknown (Gate/tree unavailable)\ngate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)\ngate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)\ngate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)\ngate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)\ngate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)\ngate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)\ngate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)\ngate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)\ngate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)\n",
+    "stderr": "",
+    "duration_seconds": 0.515
+  },
+  "runner_gh_reads": {
+    "checked_at": "2026-11-07T03:35:38.130062+00:00",
+    "stop_rule": "one attempt per command, ten seconds each, at most eight concurrent reads",
+    "attempted_commands": 46,
+    "successful_commands": 0,
+    "errors": [
+      "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    ],
+    "raw_evidence": "/tmp/issue-4082-round13/cli-reads.json"
+  },
+  "validation": {
+    "baseline": "192 passed in 20.50s",
+    "after": "196 passed in 21.60s",
+    "command": "python -m pytest tests/scripts/test_check_consumer_sync_drift.py tests/scripts/test_measure_gate_cancellations.py tests/workflows/test_gate_trigger_contract.py tests/workflows/test_consumer_sync_create_only_evidence.py -q -m 'not slow'",
+    "focused_black": "passed",
+    "ruff": "passed",
+    "repository_black": "interrupted without a result (exit 130); not a pass"
+  },
+  "publication": {
+    "staging": "git add failed: .git/index.lock is on a read-only filesystem",
+    "committed": false,
+    "remote_updates": "PR checklist, issue comment, and needs-human label rejected: MCP tool call requires approval, but approval policy is never",
+    "prepared_pr_body": "/tmp/issue-4082-round13/pr-body.md",
+    "prepared_issue_comment": "/tmp/issue-4082-round13/issue-comment.md"
+  }
+}

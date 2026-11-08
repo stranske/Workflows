@@ -1,0 +1,131 @@
+{
+  "schema": "workflows.issue-4426-contract-3998/v1",
+  "retrieved_on": "2026-11-06",
+  "retrieval_command": "gh issue view 3998 --repo stranske/Workflows --json title,body,state,number,closedAt,createdAt,url",
+  "issue": {
+    "number": 3998,
+    "title": "Raise test coverage toward 90% (autopilot round 2, lane D, low blast radius only)",
+    "state": "CLOSED",
+    "url": "https://github.com/stranske/Workflows/issues/3998",
+    "created_at": "2026-10-17T01:44:12Z",
+    "closed_at": "2026-11-03T15:22:19Z",
+    "body_path": "docs/evidence/issue-4426/issue-3998.body.md",
+    "body_sha256": "33b9720780242f03406f5a77c0062cb97ff161598bfe2fc337d2034dd1bf0e08"
+  },
+  "format_document": {
+    "cited_path": "docs/AGENT_ISSUE_FORMAT.md",
+    "resolved_path": "templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md",
+    "root_path_present": false,
+    "resolution": "The docs sync section defaults to the template source tree (scripts/sync_manifest_compiler.py TEMPLATE_SOURCE_SECTIONS). The manifest entry for docs/AGENT_ISSUE_FORMAT.md does not set source_tree, so the cited path resolves to templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md. docs/AGENT_ISSUE_FORMAT.md is absent at the repository root.",
+    "sha256": "77aa6980fa432c5f5f69a2d7999bcd76e2f9e6e79f987902ddfc212f26df107c",
+    "binding_quotes": [
+      "### 1. Tasks must name a real, verified file / function / path",
+      "### 2. Acceptance Criteria must include at least one named, observable test gate",
+      "#### The deliberate-break pattern (recommended worked form)",
+      "### 4. Non-Goals must forbid scaffold-only / partial-completion-claimed-as-done"
+    ]
+  },
+  "baseline_definition": {
+    "opening_snapshot_verbatim": "Workflows reads 82.29% blended line+branch in CI; reaching 90% needs about 4488 more covered statements+branches.",
+    "opening_blended_line_branch_percent": 82.29,
+    "statements_plus_branches_to_reach_90_percent": 4488,
+    "judgment_verbatim": "\"Uncovered units\" here come from the repository's whole CI run (every test file together). One test module's own suite can already cover more than CI's count shows for that module, and CI's figure is the one this PR is judged on: if your baseline differs, say so in the PR body and use CI's number.",
+    "accounting": "Uncovered units are statements plus branches from the repository's whole CI run, every test file together. A single test module can cover more than CI shows for that module. When a local baseline differs, the PR must say so and use CI's number."
+  },
+  "ranking_method": {
+    "order_verbatim": "The target order below is the Orchestrator's own ranking (escaped defects, then churn, then uncovered mass -- unchanged).",
+    "selection_rule_verbatim": "Pick the next target by the repo's own coverage-gap ranking (escaped-defect priority, then\n   churn, then uncovered mass), not by file size.",
+    "sort_keys": [
+      "escaped_defect_signals",
+      "churn",
+      "uncovered_statements_and_branches"
+    ],
+    "not_by": "file size",
+    "producer": "Orchestrator coverage-autopilot ranking embedded in issue #3998. coverage-autopilot.py is not in this repository; the issue text is the preserved ranking input.",
+    "targets": [
+      {
+        "rank": 1,
+        "path": "scripts/sync_test_dependencies.py",
+        "uncovered_statements_and_branches": 6,
+        "escaped_defect_signals": 15,
+        "churn": 16
+      },
+      {
+        "rank": 2,
+        "path": "scripts/langchain/issue_pr_context.py",
+        "uncovered_statements_and_branches": 30,
+        "escaped_defect_signals": 7,
+        "churn": 9
+      },
+      {
+        "rank": 3,
+        "path": "scripts/langchain/verifier_config.py",
+        "uncovered_statements_and_branches": 16,
+        "escaped_defect_signals": 6,
+        "churn": 8
+      },
+      {
+        "rank": 4,
+        "path": "tools/langchain_client.py",
+        "uncovered_statements_and_branches": 29,
+        "escaped_defect_signals": 6,
+        "churn": 7
+      },
+      {
+        "rank": 5,
+        "path": "scripts/langchain/task_validator.py",
+        "uncovered_statements_and_branches": 36,
+        "escaped_defect_signals": 5,
+        "churn": 8
+      },
+      {
+        "rank": 6,
+        "path": "scripts/langchain/pr_verifier.py",
+        "uncovered_statements_and_branches": 281,
+        "escaped_defect_signals": 4,
+        "churn": 8
+      }
+    ],
+    "listed_uncovered_statements_and_branches": 398
+  },
+  "coverage_exception": {
+    "goal_verbatim": "The goal is to improve the code, not a metric.",
+    "verbatim": "If you measure this repo at or above 90% before\nstarting, say so in a comment on this issue and close it without opening a PR -- do not\nmanufacture a fix just because a round was requested.",
+    "threshold_percent": 90,
+    "required_action": "If repository coverage is at least 90% before the round starts, comment on issue #3998 and close it without opening a PR. Do not manufacture a fix because a round was requested."
+  },
+  "exclusion_requirements": {
+    "non_goals_verbatim": "No refactors, no exclusions or threshold changes, no files outside the targets, no padding: if a listed target cannot be meaningfully tested (dead code, an external service you cannot fake), say so in the PR body and take the next one.",
+    "allowed_skip_reasons": [
+      "dead code",
+      "an external service you cannot fake"
+    ],
+    "disallowed_skip_reason": "Inability to obtain a terminal local receipt does not satisfy #3998. A skip must say why that target cannot be meaningfully tested.",
+    "reserved_files_verbatim": "Other lanes own other files; do not touch these (in flight or reserved): `scripts/aggregate_agent_metrics.py`, `scripts/check_consumer_sync_drift.py`, `scripts/langchain/followup_issue_generator.py`, `scripts/runner_lib/core.py`.",
+    "reserved_files": [
+      "scripts/aggregate_agent_metrics.py",
+      "scripts/check_consumer_sync_drift.py",
+      "scripts/langchain/followup_issue_generator.py",
+      "scripts/runner_lib/core.py"
+    ],
+    "production_change_rule_verbatim": "Touch only tests, plus a minimal production fix when a test finds a real bug.",
+    "blast_radius_verbatim": "Low blast radius only -- test-only or tightly-scoped fixes, no refactors.",
+    "one_pr_verbatim": "One PR per logical chunk of work.",
+    "forbids": [
+      "refactors",
+      "coverage exclusions",
+      "threshold changes",
+      "files outside the listed targets",
+      "padding"
+    ]
+  },
+  "numerical_rule": {
+    "scope_verbatim": "Cover as many of these as you can cover FULLY in this one PR, in order, with discriminating tests; stop when about 180 units are covered or the list is exhausted.",
+    "acceptance_verbatim": "The PR's Gate coverage shows the targets' uncovered statements+branches down by about 180 or more, or the PR body explains each target that could not be meaningfully covered.",
+    "unit": "uncovered statements+branches",
+    "about_units": 180,
+    "replacement_forbidden": "The original numerical rule remains about 180 uncovered statements and branches. This record does not replace it with another threshold."
+  },
+  "deliberate_break_rule_verbatim": "Every new test must FAIL when the code it covers is deliberately broken and PASS when\n   reverted -- run that break-and-revert for real and report it, don't assert it.",
+  "negative_cache_warning_verbatim": "Watch for the negative-cache pattern (cache.get(key) is None used as a 'not yet cached' check, which can't tell 'never queried' from 'queried and got nothing')"
+}

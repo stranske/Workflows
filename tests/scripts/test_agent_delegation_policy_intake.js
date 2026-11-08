@@ -43,6 +43,114 @@ const mockRegistryAgents = {
   },
 };
 
+for (const [copy, policy] of [
+  ['source', require('../../.github/scripts/agent_delegation_policy.js')],
+  ['template', require('../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js')],
+]) {
+  test(`${copy}: top pool shed and next exhausted -> highest remaining ok agent`, async () => {
+    const document = {
+      schema: 'orchestrator.route-weights/v1',
+      generated_at: now,
+      capacity_schema: 'orchestrator.route-weights-capacity/v1',
+      capacity: {
+        claude: { state: 'shed' },
+        cursor: { state: 'exhausted' },
+        codex: { state: 'ok' },
+      },
+      task_types: {
+        implement: {
+          evidence_ok: true,
+          ranking: [
+            { agent: 'codex', posterior: 0.62 },
+            { agent: 'claude', posterior: 0.88 },
+            { agent: 'cursor', posterior: 0.76 },
+          ],
+        },
+      },
+    };
+    const fetched = await policy.fetchRouteWeights({
+      now,
+      fetchImpl: async () => ({ status: 200, json: async () => document }),
+    });
+    assert.deepEqual(fetched, document);
+    const decision = policy.chooseAgentForIntake('implement', fetched, mockRegistryAgents, { now });
+    assert.deepEqual(decision, {
+      agent: 'codex', posterior: 0.62, poolState: 'ok', pool_state: 'ok',
+      delegationSource: 'route_weights', reason: 'route-weights',
+    });
+  });
+
+  for (const schema of ['orchestrator.route-weights/v1', 'orchestrator.route-weights/v2']) {
+    for (const [capacityName, capacity] of [
+      ['absent', undefined],
+      ['empty', {}],
+      ['partial', { codex: { state: 'shed' } }],
+    ]) {
+      test(`${copy}: ${schema} ${capacityName} capacity still picks by posterior`, async () => {
+        const document = {
+          schema,
+          generated_at: now,
+          ...(capacity === undefined ? {} : { capacity }),
+          task_types: {
+            implement: {
+              evidence_ok: true,
+              // Deliberately unsorted: the static default and first row both lose.
+              ranking: [
+                { agent: 'codex', posterior: 0.61 },
+                { agent: 'cursor', posterior: 0.72 },
+                { agent: 'claude', posterior: 0.84 },
+              ],
+            },
+          },
+        };
+        const fetched = await policy.fetchRouteWeights({
+          now,
+          fetchImpl: async () => ({ status: 200, json: async () => document }),
+        });
+        assert.deepEqual(fetched, document);
+        const decision = policy.chooseAgentForIntake('implement', fetched, mockRegistryAgents, { now });
+        assert.equal(decision.agent, 'claude');
+        assert.equal(decision.posterior, 0.84);
+        assert.equal(decision.poolState, 'ok');
+        assert.equal(decision.delegationSource, 'route_weights');
+      });
+    }
+
+    for (const state of ['shed', 'exhausted', 'unknown']) {
+      test(`${copy}: ${schema} published ${state} capacity overrides ranking ok hints`, async () => {
+        const document = {
+          schema,
+          generated_at: now,
+          capacity_schema: 'orchestrator.route-weights-capacity/v1',
+          capacity: {
+            claude: { state, window: '5h+weekly', observed_at: 1792152000 },
+            cursor: { state: 'ok', window: 'monthly', observed_at: 1792152000 },
+          },
+          task_types: {
+            implement: {
+              evidence_ok: true,
+              ranking: [
+                { agent: 'claude', posterior: 0.88, pool_state: 'ok' },
+                { agent: 'cursor', posterior: 0.76 },
+              ],
+            },
+          },
+        };
+        const fetched = await policy.fetchRouteWeights({
+          now,
+          fetchImpl: async () => ({ status: 200, json: async () => document }),
+        });
+        assert.deepEqual(fetched, document);
+        const decision = policy.chooseAgentForIntake('implement', fetched, mockRegistryAgents, { now });
+        assert.equal(decision.agent, 'cursor');
+        assert.equal(decision.posterior, 0.76);
+        assert.equal(decision.poolState, 'ok');
+        assert.equal(decision.delegationSource, 'route_weights');
+      });
+    }
+  }
+}
+
 for (const [copy, chooseIntake] of [
   ['source', chooseAgentForIntake],
   ['template', require('../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js').chooseAgentForIntake],
@@ -268,16 +376,21 @@ const workflows = [
   ['templates/consumer-repo/.github/workflows/agents-issue-intake.yml', 'check', 'agent'],
 ];
 
-async function executeStep(workflow, { input = '', labels, failure } = {}) {
+async function executeStep(workflow, { input = '', labels, failure, routeWeights } = {}) {
   const [file, id] = workflow;
+  const policy = file.startsWith('templates/')
+    ? require('../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js')
+    : { chooseAgentForIntake };
   const outputs = {};
   const warnings = [];
   const failures = [];
+  const summaryTables = [];
+  let summaryWrites = 0;
   let fetches = 0;
   const summary = {
     addHeading() { return this; },
-    addTable() { return this; },
-    async write() {},
+    addTable(rows) { summaryTables.push(rows); return this; },
+    async write() { summaryWrites += 1; },
   };
   const core = {
     summary,
@@ -309,6 +422,7 @@ async function executeStep(workflow, { input = '', labels, failure } = {}) {
         fetches += 1;
         if (failure === 'fetch') throw new Error('export unavailable');
         if (failure === 'null-export') return null;
+        if (routeWeights) return routeWeights;
         return {
           schema: 'orchestrator.route-weights/v2',
           generated_at: new Date().toISOString(),
@@ -319,7 +433,7 @@ async function executeStep(workflow, { input = '', labels, failure } = {}) {
       },
       chooseAgentForIntake(...args) {
         if (failure === 'chooser') throw new Error('chooser error');
-        return chooseAgentForIntake(...args);
+        return policy.chooseAgentForIntake(...args);
       },
     };
     throw new Error(`Unexpected require: ${name}`);
@@ -328,7 +442,7 @@ async function executeStep(workflow, { input = '', labels, failure } = {}) {
   await new AsyncFunction('require', 'process', 'context', 'core', 'github', 'console', stepScript(file, id))(
     stubRequire, { env: { DEFAULT_AGENT: input, INPUT_ISSUE: '' } }, context, core, {}, { log() {} },
   );
-  return { outputs, warnings, failures, fetches };
+  return { outputs, warnings, failures, fetches, summaryTables, summaryWrites };
 }
 
 for (const workflow of workflows) {
@@ -339,7 +453,35 @@ for (const workflow of workflows) {
     assert.equal(result.fetches, 1);
     assert.deepEqual(result.failures, []);
     assert.deepEqual(result.warnings, []);
+    assert.equal(result.summaryWrites, 1);
+    assert.deepEqual(result.summaryTables[0][1], ['claude', '0.9', 'ok', 'claude']);
   });
+
+  for (const state of ['ok', 'shed', 'exhausted']) {
+    test(`${file}: ${state} top pool selects and summarizes the eligible default`, async () => {
+      const result = await executeStep(workflow, {
+        input: '  ',
+        routeWeights: {
+          schema: 'orchestrator.route-weights/v1',
+          generated_at: new Date().toISOString(),
+          capacity_schema: 'orchestrator.route-weights-capacity/v1',
+          capacity: { codex: { state }, claude: { state: 'ok' } },
+          task_types: { implement: { evidence_ok: true, ranking: [
+            { agent: 'claude', posterior: 0.8 },
+            { agent: 'codex', posterior: 0.95 },
+          ] } },
+        },
+      });
+      const selected = state === 'ok' ? 'codex' : 'claude';
+      const posterior = state === 'ok' ? '0.95' : '0.8';
+      assert.equal(result.outputs[output], selected);
+      assert.equal(result.fetches, 1);
+      assert.deepEqual(result.failures, []);
+      assert.deepEqual(result.warnings, []);
+      assert.equal(result.summaryWrites, 1);
+      assert.deepEqual(result.summaryTables[0][1], [selected, posterior, 'ok', selected]);
+    });
+  }
 
   test(`${file}: explicit input bypasses the chooser`, async () => {
     const result = await executeStep(workflow, { input: 'claude', failure: 'require' });

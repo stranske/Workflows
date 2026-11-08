@@ -1,0 +1,756 @@
+"""Shared LLM slot and model-registry resolution helpers.
+
+The registry records model facts separately from explicit workload-profile
+selection decisions. Runtime selection never manufactures quality or cost scores.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+ENV_MODEL_REGISTRY_CONFIG = "LANGCHAIN_MODEL_REGISTRY_CONFIG"
+ENV_SLOT_CONFIG = "LANGCHAIN_SLOT_CONFIG"
+
+PROVIDER_OPENAI = "openai"
+PROVIDER_ANTHROPIC = "anthropic"
+PROVIDER_GITHUB = "github-models"
+DEFAULT_SELECTION_PROFILE = "verifier-balanced"
+
+DEFAULT_SLOT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "llm_slots.json"
+DEFAULT_MODEL_REGISTRY_CONFIG_PATH = (
+    Path(__file__).resolve().parent.parent / "config" / "model_registry.json"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ModelRegistryEntry:
+    provider: str
+    model: str
+    blocked: bool
+    lifecycle: str = "unknown"
+    legacy_bundled_slot_pin: bool = False
+    # Retained as optional compatibility attributes for callers migrating from v1.
+    # They are deliberately not inputs to model selection.
+    quality: dict[str, float] | None = None
+    cost_score: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SelectionDecision:
+    profile: str
+    provider: str
+    model: str
+    status: str
+    review_by: str
+    evidence_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SlotDefinition:
+    name: str
+    provider: str
+    model: str
+
+
+@dataclass(frozen=True, slots=True)
+class NativeCapacityFacts:
+    """Reviewed exact-model facts; transport implementations remain code-owned."""
+
+    provider: str
+    model: str
+    transport: str
+    api_root: str
+    count_endpoint: str
+    max_input_tokens: int | None
+    max_context_tokens: int
+    max_output_tokens: int
+    provenance: str
+
+
+class NativeCapacityUnavailable(ValueError):  # noqa: N818 - public compatibility exception
+    """A registered model deliberately has no optional native-capacity contract."""
+
+
+def native_capacity_facts_for(provider: str, model: str) -> NativeCapacityFacts:
+    """Exact native-capacity lookup, separate from legacy selection/filtering.
+
+    A registered model without optional facts raises NativeCapacityUnavailable.
+    Malformed or incomplete facts raise ValueError in every profile.
+    No aliases, inferred model families, SDK imports or arbitrary endpoints come
+    from configuration. Optional facts do not select or promote a model. Invalid
+    JSON, duplicate keys/identities or incomplete selected facts deny execution.
+    """
+    if type(provider) is not str or type(model) is not str:
+        raise ValueError("invalid exact native capacity identity")
+
+    def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate native capacity registry JSON key")
+            result[key] = value
+        return result
+
+    def reject_constant(_value: str) -> object:
+        raise ValueError("non-finite native capacity registry JSON number")
+
+    path = _registry_path()
+    if path is None:
+        raise ValueError("native capacity registry unreadable or malformed")
+    try:
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=unique_object,
+            parse_constant=reject_constant,
+        )
+    except (AttributeError, OSError, UnicodeError, ValueError) as exc:
+        raise ValueError("native capacity registry unreadable or malformed") from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != "2.0.0":
+        raise ValueError("unsupported native capacity registry schema")
+    models = payload.get("models")
+    if not isinstance(models, list):
+        raise ValueError("native capacity registry models must be a list")
+    seen = set()
+    selected = None
+    for row in models:
+        if not isinstance(row, dict):
+            raise ValueError("malformed native capacity registry model entry")
+        key = (row.get("provider"), row.get("model_id"))
+        if any(type(value) is not str or not value or value != value.strip() for value in key):
+            raise ValueError("malformed exact registry model identity")
+        if key[0] not in {PROVIDER_OPENAI, PROVIDER_ANTHROPIC, PROVIDER_GITHUB}:
+            raise ValueError("noncanonical native capacity registry provider")
+        if key in seen:
+            raise ValueError("duplicate exact registry model identity")
+        seen.add(key)
+        if key == (provider, model):
+            selected = row
+    if selected is None or selected.get("blocked", False) is not False:
+        raise ValueError("unregistered or blocked exact native capacity model")
+    if "native_capacity" not in selected:
+        raise NativeCapacityUnavailable("exact-model native capacity facts unavailable")
+    facts = selected.get("native_capacity")
+    if not isinstance(facts, dict):
+        raise ValueError("exact-model native capacity facts unavailable")
+    # This finite allowlist binds data to implemented SDK protocols. Config
+    # cannot choose a Python type, URL, counter method or input-count policy.
+    protocols = {
+        "openai": (
+            "openai-responses",
+            "https://api.openai.com/v1",
+            "https://api.openai.com/v1/responses/input_tokens",
+            "documented",
+        ),
+        "anthropic": (
+            "anthropic-messages",
+            "https://api.anthropic.com",
+            "https://api.anthropic.com/v1/messages/count_tokens",
+            "models-api",
+        ),
+    }
+    protocol = protocols.get(provider)
+    if (
+        protocol is None
+        or tuple(
+            facts.get(name)
+            for name in ("transport", "api_root", "count_endpoint", "input_limit_source")
+        )
+        != protocol
+    ):
+        raise ValueError("unsupported native capacity provider/transport metadata")
+    required = {
+        "transport",
+        "api_root",
+        "count_endpoint",
+        "input_limit_source",
+        "max_context_tokens",
+        "max_output_tokens",
+        "provenance",
+        "as_of",
+        "source_urls",
+    }
+    if provider == "openai":
+        required.add("max_input_tokens")
+    if set(facts) != required:
+        raise ValueError("missing or unknown native capacity facts")
+    limits = ["max_context_tokens", "max_output_tokens"]
+    if provider == "openai":
+        limits.append("max_input_tokens")
+    if any(type(facts[name]) is not int or facts[name] <= 0 for name in limits):
+        raise ValueError("native capacity limits must be positive integers")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]*", model):
+        raise ValueError("invalid exact native capacity model identifier")
+    as_of = facts["as_of"]
+    try:
+        if type(as_of) is not str or date.fromisoformat(as_of).isoformat() != as_of:
+            raise ValueError("invalid date")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("native capacity provenance date invalid") from exc
+    if provider == "openai":
+        sources = [f"https://developers.openai.com/api/docs/models/{model}"]
+        provenance = f"openai-exact-model-docs:{as_of}"
+    else:
+        slug = model.removeprefix("claude-")
+        sources = [
+            f"https://platform.claude.com/docs/en/models/{slug}/overview",
+            "https://platform.claude.com/docs/en/api/http/models",
+        ]
+        provenance = f"anthropic-exact-model-api+{slug}-docs:{as_of}"
+    if facts["source_urls"] != sources or facts["provenance"] != provenance:
+        raise ValueError("native capacity official exact-model provenance mismatch")
+    return NativeCapacityFacts(
+        provider=provider,
+        model=model,
+        transport=protocol[0],
+        api_root=protocol[1],
+        count_endpoint=protocol[2],
+        max_input_tokens=facts.get("max_input_tokens"),
+        max_context_tokens=facts["max_context_tokens"],
+        max_output_tokens=facts["max_output_tokens"],
+        provenance=provenance,
+    )
+
+
+def normalize_provider(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"github", "github_models", "github-models"}:
+        return PROVIDER_GITHUB
+    if normalized in {"anthropic", "claude"}:
+        return PROVIDER_ANTHROPIC
+    if normalized == PROVIDER_OPENAI:
+        return PROVIDER_OPENAI
+    return None
+
+
+def _configured_path(
+    env_name: str, default: Path, *, empty_uses_default: bool = False
+) -> Path | None:
+    configured = os.environ.get(env_name)
+    if configured is None:
+        return default
+    configured = configured.strip()
+    if configured:
+        return Path(configured)
+    return default if empty_uses_default else None
+
+
+def _registry_path() -> Path | None:
+    return _configured_path(
+        ENV_MODEL_REGISTRY_CONFIG,
+        DEFAULT_MODEL_REGISTRY_CONFIG_PATH,
+        empty_uses_default=True,
+    )
+
+
+def _slot_path() -> Path | None:
+    return _configured_path(ENV_SLOT_CONFIG, DEFAULT_SLOT_CONFIG_PATH)
+
+
+def _load_object(path: Path | None, *, label: str) -> dict[str, object] | None:
+    if path is None:
+        logger.warning("Cannot load %s: explicit configuration is empty", label)
+        return None
+    if not path.is_file():
+        logger.warning("Cannot load %s: %s is not a file", label, path)
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        logger.warning("Could not read %s %s", label, path)
+        return None
+    if not isinstance(payload, dict):
+        logger.warning("Invalid %s format in %s; expected object", label, path)
+        return None
+    return payload
+
+
+def _slot_entries(payload: dict[str, object], path: Path) -> list[dict[str, object]]:
+    raw_slots = payload.get("slots", [])
+    if not isinstance(raw_slots, list):
+        logger.warning("Invalid slot config format in %s; expected slots list", path)
+        return []
+    slots: list[dict[str, object]] = []
+    for raw_slot in raw_slots:
+        if isinstance(raw_slot, dict):
+            slots.append(raw_slot)
+        else:
+            logger.warning("Ignoring invalid slot entry in %s; expected object", path)
+    return slots
+
+
+def load_model_registry() -> list[ModelRegistryEntry]:
+    path = _registry_path()
+    payload = _load_object(path, label="model registry")
+    if payload is None:
+        return []
+    raw_models = payload.get("models", [])
+    if not isinstance(raw_models, list):
+        logger.warning("Invalid model registry format in %s; expected models list", path)
+        return []
+
+    entries: list[ModelRegistryEntry] = []
+    for raw_entry in raw_models:
+        if not isinstance(raw_entry, dict):
+            logger.warning("Ignoring invalid model registry entry in %s; expected object", path)
+            continue
+        provider = normalize_provider(str(raw_entry.get("provider", "")))
+        model = str(raw_entry.get("model_id", "")).strip()
+        if not provider or not model:
+            continue
+        entries.append(
+            ModelRegistryEntry(
+                provider=provider,
+                model=model,
+                blocked=bool(raw_entry.get("blocked", False)),
+                lifecycle=str(raw_entry.get("lifecycle", "unknown")).strip().lower(),
+                legacy_bundled_slot_pin=bool(raw_entry.get("legacy_bundled_slot_pin", False)),
+            )
+        )
+    return entries
+
+
+def load_selection_decisions() -> list[SelectionDecision]:
+    path = _registry_path()
+    payload = _load_object(path, label="model registry")
+    if payload is None:
+        return []
+    raw_selections = payload.get("selections", [])
+    if not isinstance(raw_selections, list):
+        logger.warning("Invalid model registry format in %s; expected selections list", path)
+        return []
+
+    decisions: list[SelectionDecision] = []
+    for raw in raw_selections:
+        if not isinstance(raw, dict):
+            continue
+        provider = normalize_provider(str(raw.get("provider", "")))
+        profile = str(raw.get("profile", "")).strip()
+        model = str(raw.get("model_id", "")).strip()
+        evidence = raw.get("evidence_ids", [])
+        if not provider or not profile or not model or not isinstance(evidence, list):
+            continue
+        decisions.append(
+            SelectionDecision(
+                profile=profile,
+                provider=provider,
+                model=model,
+                status=str(raw.get("status", "")).strip().lower(),
+                review_by=str(raw.get("review_by", "")).strip(),
+                evidence_ids=tuple(
+                    item.strip() for item in evidence if isinstance(item, str) and item.strip()
+                ),
+            )
+        )
+    return decisions
+
+
+def retired_selection_keys() -> set[tuple[str, str | None]]:
+    """(profile, provider) pairs whose selection was retired and not re-selected.
+
+    A selection_history entry with ``superseded_by: "retired"`` retires that provider for
+    the profile (GitHub Models, 2026-10-31). Consumer slot files are create-only, so a
+    stale slot can still name it; runtime must refuse it even with an explicit model pin.
+    """
+    payload = _load_object(_registry_path(), label="model registry")
+    if payload is None:
+        return set()
+    history = payload.get("selection_history", [])
+    if not isinstance(history, list):
+        return set()
+    retired = {
+        (str(raw.get("profile", "")).strip(), normalize_provider(str(raw.get("provider", ""))))
+        for raw in history
+        if isinstance(raw, dict) and raw.get("superseded_by") == "retired"
+    }
+    active = {(decision.profile, decision.provider) for decision in load_selection_decisions()}
+    return retired - active
+
+
+def _model_registry_format_valid() -> bool:
+    payload = _load_object(_registry_path(), label="model registry")
+    return bool(
+        payload is not None
+        and isinstance(payload.get("models"), list)
+        and isinstance(payload.get("selections"), list)
+    )
+
+
+def registry_entry_for(
+    provider: str, model: str, registry: list[ModelRegistryEntry] | None = None
+) -> ModelRegistryEntry | None:
+    entries = registry if registry is not None else load_model_registry()
+    normalized_provider = normalize_provider(provider)
+    normalized_model = model.strip()
+    return next(
+        (
+            entry
+            for entry in entries
+            if entry.provider == normalized_provider and entry.model == normalized_model
+        ),
+        None,
+    )
+
+
+def is_model_blocked(
+    provider: str, model: str, registry: list[ModelRegistryEntry] | None = None
+) -> bool:
+    entry = registry_entry_for(provider, model, registry=registry)
+    return bool(entry and entry.blocked)
+
+
+def select_model_for_profile(
+    *,
+    provider: str,
+    profile: str = DEFAULT_SELECTION_PROFILE,
+    registry: list[ModelRegistryEntry] | None = None,
+    decisions: list[SelectionDecision] | None = None,
+) -> str | None:
+    """Resolve the one explicit reviewed decision for provider/profile."""
+    entries = registry if registry is not None else load_model_registry()
+    selections = decisions if decisions is not None else load_selection_decisions()
+    normalized_provider = normalize_provider(provider)
+    normalized_profile = profile.strip() or DEFAULT_SELECTION_PROFILE
+    matches = [
+        decision
+        for decision in selections
+        if decision.provider == normalized_provider and decision.profile == normalized_profile
+    ]
+    if len(matches) != 1:
+        if matches:
+            logger.warning(
+                "Ambiguous model selections for %s/%s; expected exactly one",
+                normalized_provider,
+                normalized_profile,
+            )
+        return None
+    decision = matches[0]
+    if not decision.evidence_ids:
+        logger.warning(
+            "Model selection %s/%s has no evidence; refusing to use it",
+            normalized_provider,
+            normalized_profile,
+        )
+        return None
+    entry = registry_entry_for(decision.provider, decision.model, registry=entries)
+    if entry is None or entry.blocked or entry.lifecycle != "current":
+        return None
+    if decision.status not in {"provisional", "approved"}:
+        return None
+    return decision.model
+
+
+def select_model_for_tier(
+    *,
+    provider: str,
+    tier: str,
+    registry: list[ModelRegistryEntry] | None = None,
+    **_ignored: object,
+) -> str | None:
+    """Compatibility adapter for v1 callers; tiers no longer rank models."""
+    logger.warning(
+        "quality tier %s is deprecated; resolving profile %s",
+        tier,
+        DEFAULT_SELECTION_PROFILE,
+    )
+    return select_model_for_profile(provider=provider, registry=registry)
+
+
+def configured_model_for_provider(
+    provider: str,
+    *,
+    fallback: str = "",
+    profile: str = DEFAULT_SELECTION_PROFILE,
+    tier: str | None = None,
+    registry: list[ModelRegistryEntry] | None = None,
+) -> str:
+    # Preserve the compatibility keyword while selection remains profile-based.
+    del tier
+    normalized_provider = normalize_provider(provider)
+    entries = registry if registry is not None else load_model_registry()
+    # An explicit slot config is an execution allowlist, including when its
+    # path is missing or malformed. Never broaden execution because a
+    # configured allowlist cannot be read or does not contain this provider.
+    if ENV_SLOT_CONFIG in os.environ:
+        if not _load_positional_slots():
+            return ""
+        for slot in _effective_slots():
+            if (
+                slot.provider == normalized_provider
+                and slot.model
+                and not is_model_blocked(slot.provider, slot.model, registry=entries)
+            ):
+                return slot.model
+        return ""
+
+    selected = select_model_for_profile(provider=provider, profile=profile, registry=entries)
+    if selected:
+        return selected
+    if fallback and not is_model_blocked(provider, fallback, registry=entries):
+        return fallback
+    return ""
+
+
+def default_slots(*, github_default_model: str = "") -> list[SlotDefinition]:
+    """Build no-slot-config defaults from registry decisions, never version constants.
+
+    GitHub Models is not a default slot (owner decision 2026-10-31): auto-select falls back
+    only between OpenAI and Anthropic. ``github_default_model`` is kept for callers' signatures.
+    """
+    del github_default_model
+    slots: list[SlotDefinition] = []
+    for index, provider in enumerate((PROVIDER_OPENAI, PROVIDER_ANTHROPIC), start=1):
+        model = select_model_for_profile(provider=provider)
+        slots.append(SlotDefinition(name=f"slot{index}", provider=provider, model=model or ""))
+    return slots
+
+
+def load_slot_config(*, github_default_model: str = "") -> list[SlotDefinition]:
+    """Usable configured slots, retired selections excluded (positions are not exposed)."""
+    return [
+        slot
+        for _position, _profile, slot, retired in _load_positional_slots(
+            github_default_model=github_default_model
+        )
+        if not retired
+    ]
+
+
+def _load_positional_slots(
+    *, github_default_model: str = ""
+) -> list[tuple[int, str, SlotDefinition, bool]]:
+    """(configured position, profile, slot, retired) for every slot the config yields.
+
+    Positions are the 1-based index of the entry in the slot file, so environment
+    overrides (``LANGCHAIN_SLOT<n>_*``) keep addressing the slot the operator numbered
+    even when an earlier entry is skipped. Retired selections are kept as positional
+    placeholders: an override may replace one, and only the effective selection after
+    overrides is rejected when retired (Workflows#4367).
+    """
+    path = _slot_path()
+    payload = _load_object(path, label="slot config")
+    fallback_slots = default_slots(github_default_model=github_default_model)
+    if payload is None:
+        # An unreadable or missing explicitly configured slot file must fail
+        # closed. Only an unconfigured default path permits default slots.
+        if ENV_SLOT_CONFIG in os.environ:
+            return []
+        return _positional_defaults(fallback_slots)
+
+    registry = load_model_registry()
+    # Keep the type and fail-closed contract explicit even though a non-null
+    # payload normally implies a configured path.
+    if path is None:
+        logger.warning("Cannot load slot config: configured path is unavailable")
+        return []
+    slot_entries = _slot_entries(payload, path)
+    if not _model_registry_format_valid() and any(
+        str(entry.get("provider", "")).strip()
+        and not str(entry.get("model", "")).strip()
+        and str(
+            entry.get("profile") or entry.get("quality_tier") or entry.get("tier") or ""
+        ).strip()
+        for entry in slot_entries
+    ):
+        return [] if ENV_SLOT_CONFIG in os.environ else _positional_defaults(fallback_slots)
+
+    slots: list[tuple[int, str, SlotDefinition, bool]] = []
+    fallback_by_provider = {slot.provider: slot for slot in fallback_slots}
+    retired = retired_selection_keys()
+    for idx, entry in enumerate(slot_entries, start=1):
+        provider = normalize_provider(str(entry.get("provider", "")))
+        explicit_model = str(entry.get("model", "")).strip()
+        configured_profile = str(entry.get("profile") or "").strip()
+        profile = configured_profile or DEFAULT_SELECTION_PROFILE
+        # Missing/unknown providers cannot form a slot identity (including a
+        # retired placeholder). Reject early so every SlotDefinition call below
+        # receives a str — consumer mypy rejects str | None (Workflows#4485).
+        if provider is None:
+            continue
+        if (profile, provider) in retired:
+            name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
+            slots.append(
+                (
+                    idx,
+                    profile,
+                    SlotDefinition(name=name, provider=provider, model=explicit_model),
+                    True,
+                )
+            )
+            continue
+        model = ""
+        if provider:
+            model = (
+                select_model_for_profile(provider=provider, profile=profile, registry=registry)
+                or ""
+            )
+        explicit_entry = (
+            registry_entry_for(provider, explicit_model, registry=registry)
+            if provider and explicit_model
+            else None
+        )
+        if (
+            provider
+            and explicit_model
+            and not configured_profile
+            and explicit_entry
+            and not (explicit_entry.blocked or explicit_entry.lifecycle != "current")
+            # Only registry-marked bundled OpenAI legacy pins yield to the
+            # reviewed selection. Preserve other current pins and explicit files.
+            and not (
+                provider == PROVIDER_OPENAI
+                and explicit_entry.legacy_bundled_slot_pin
+                and ENV_SLOT_CONFIG not in os.environ
+            )
+        ):
+            model = explicit_model
+        elif provider and explicit_model and explicit_model != model:
+            # A caller-supplied slot file is an allowlist and must fail closed.
+            # The known legacy bundled OpenAI pins are advisory; other current
+            # bundled pins were handled above.
+            if ENV_SLOT_CONFIG in os.environ:
+                logger.warning(
+                    "Skipping unresolved slot model pin %s/%s; reviewed %s selection is %s",
+                    provider,
+                    explicit_model,
+                    profile,
+                    model or "unavailable",
+                )
+                continue
+            logger.debug(
+                "Ignoring advisory bundled slot model pin %s/%s; reviewed %s selection before fallback is %s",
+                provider,
+                explicit_model,
+                profile,
+                model or "unavailable",
+            )
+        if provider and configured_profile and not model:
+            logger.warning(
+                "Skipping slot with unresolved reviewed profile: %s/%s",
+                configured_profile,
+                provider,
+            )
+            continue
+        if provider and not model:
+            fallback_slot = fallback_by_provider.get(provider)
+            model = fallback_slot.model if fallback_slot else ""
+        if not provider or not model:
+            continue
+        if is_model_blocked(provider, model, registry=registry):
+            logger.warning("Skipping blocked LLM model in slot config: %s/%s", provider, model)
+            continue
+        name = str(entry.get("name") or f"slot{idx}").strip() or f"slot{idx}"
+        slots.append(
+            (idx, profile, SlotDefinition(name=name, provider=provider, model=model), False)
+        )
+    # A present slot file is an allowlist.  If every configured slot is
+    # unusable, fail closed instead of broadening execution to default providers.
+    return slots
+
+
+def _positional_defaults(
+    slots: list[SlotDefinition],
+) -> list[tuple[int, str, SlotDefinition, bool]]:
+    return [
+        (idx, DEFAULT_SELECTION_PROFILE, slot, False) for idx, slot in enumerate(slots, start=1)
+    ]
+
+
+def apply_slot_env_overrides(
+    slots: list[SlotDefinition],
+    *,
+    env_model_name: str = "LANGCHAIN_MODEL",
+    env_slot_prefix: str = "LANGCHAIN_SLOT",
+    positions: list[int] | None = None,
+    profiles: list[str] | None = None,
+    retired_flags: list[bool] | None = None,
+) -> list[SlotDefinition]:
+    """Apply ``<prefix><n>_PROVIDER/_MODEL`` overrides.
+
+    ``positions`` gives each slot's configured position (default: its list index), so a
+    skipped entry never shifts which slot an override addresses. With ``profiles``, a
+    retired (profile, provider) selection is rejected AFTER overrides, so an override can
+    neither reintroduce a retired provider nor be dropped because its slot was retired.
+    """
+    registry = load_model_registry()
+    retired = retired_selection_keys() if profiles is not None else set()
+    updated: list[SlotDefinition] = []
+    for index, slot in enumerate(slots):
+        idx = positions[index] if positions is not None else index + 1
+        profile = profiles[index] if profiles is not None else DEFAULT_SELECTION_PROFILE
+        slot_retired = bool(retired_flags[index]) if retired_flags is not None else False
+        provider_override = normalize_provider(os.environ.get(f"{env_slot_prefix}{idx}_PROVIDER"))
+        model_override = os.environ.get(f"{env_slot_prefix}{idx}_MODEL")
+        if idx == 1:
+            model_override = model_override or os.environ.get(env_model_name)
+        provider = provider_override or slot.provider
+        if slot_retired and provider_override and not model_override:
+            # A retired slot's model belongs to the retired provider (e.g. ``openai/gpt-5`` on
+            # GitHub Models); a provider-only override takes the reviewed model for the new one.
+            model = (
+                select_model_for_profile(provider=provider, profile=profile, registry=registry)
+                or ""
+            )
+        else:
+            model = (model_override or slot.model).strip()
+        chosen: SlotDefinition | None = SlotDefinition(
+            name=slot.name, provider=provider, model=model
+        )
+        if is_model_blocked(provider, model, registry=registry):
+            logger.warning("Skipping blocked LLM slot override: %s/%s", provider, model)
+            override_requested = provider_override is not None or model_override is not None
+            chosen = (
+                slot
+                if override_requested
+                and not slot_retired
+                and not is_model_blocked(slot.provider, slot.model, registry=registry)
+                else None
+            )
+        if chosen is None:
+            continue
+        if profiles is not None and (profile, chosen.provider) in retired:
+            logger.warning("Skipping slot for retired selection: %s/%s", profile, chosen.provider)
+            continue
+        if not chosen.provider or not chosen.model:
+            continue
+        updated.append(chosen)
+    return updated
+
+
+def _effective_slots(
+    *,
+    github_default_model: str = "",
+    env_model_name: str = "LANGCHAIN_MODEL",
+    env_slot_prefix: str = "LANGCHAIN_SLOT",
+) -> list[SlotDefinition]:
+    positional = _load_positional_slots(github_default_model=github_default_model)
+    return apply_slot_env_overrides(
+        [slot for _p, _prof, slot, _r in positional],
+        env_model_name=env_model_name,
+        env_slot_prefix=env_slot_prefix,
+        positions=[p for p, _prof, _slot, _r in positional],
+        profiles=[prof for _p, prof, _slot, _r in positional],
+        retired_flags=[r for _p, _prof, _slot, r in positional],
+    )
+
+
+def resolve_slots(
+    *,
+    github_default_model: str = "",
+    env_model_name: str = "LANGCHAIN_MODEL",
+    env_slot_prefix: str = "LANGCHAIN_SLOT",
+) -> list[SlotDefinition]:
+    return _effective_slots(
+        github_default_model=github_default_model,
+        env_model_name=env_model_name,
+        env_slot_prefix=env_slot_prefix,
+    )

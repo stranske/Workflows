@@ -53,6 +53,10 @@ def test_maint52_stages_managed_precommit_repairs():
     text = WORKFLOW.read_text(encoding="utf-8")
 
     assert "if [ -f .pre-commit-config.yaml ]; then git add .pre-commit-config.yaml; fi" in text
+    assert (
+        "if [ -f .github/workflows/pages-wasm-demo.yml ]; "
+        "then git add .github/workflows/pages-wasm-demo.yml; fi"
+    ) in text
 
 
 def test_maint52_regenerates_transitive_requirements_before_publishing():
