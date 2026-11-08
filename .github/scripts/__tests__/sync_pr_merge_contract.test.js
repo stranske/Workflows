@@ -4371,3 +4371,45 @@ test('Maint71 does not disguise REST permission errors as rate-limit fallback', 
   await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}),/Forbidden/);
   assert.equal(graphqlCalled,false);
 });
+
+test('Maint71 excludes secondary 429 and preserves primary identity when GraphQL also fails', async () => {
+  let calls=0;
+  const primary=Object.assign(new Error('API rate limit exceeded'),{status:403,response:{headers:{'x-ratelimit-remaining':'0'}}});
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary;},
+    graphql:async()=>{calls++;throw new Error('secondary rate limit');}};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}),
+    error=>error===primary && error.message==='API rate limit exceeded' && error.graphqlFallbackError==='secondary rate limit');
+  assert.equal(calls,1);
+  calls=0;
+  client.paginate=async()=>{throw Object.assign(new Error('secondary rate limit'),{status:429});};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,0);
+  client.paginate=async()=>{throw Object.assign(new Error('API rate limit exceeded'),{status:429,response:{headers:{'x-ratelimit-remaining':'0'}}});};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,1);
+});
+
+test('Maint71 rejects incomplete GraphQL inventories and skips foreign closed heads', async () => {
+  const primary=()=>Object.assign(new Error('API rate limit exceeded'),{status:403,response:{headers:{'x-ratelimit-remaining':'0'}}});
+  const pr={number:1,author:{login:'stranske'},labels:{pageInfo:{hasNextPage:false},nodes:[]},headRepositoryOwner:{login:'stranske'}};
+  for(const broken of [{...pr,author:null},{...pr,labels:{pageInfo:{hasNextPage:true},nodes:[]}}]){
+    let calls=0;
+    const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary();},graphql:async()=>{calls++;return {repository:{pullRequests:{nodes:[broken],pageInfo:{hasNextPage:false}}}};}};
+    await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+    assert.equal(calls,1);
+  }
+  let calls=0;
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary();},graphql:async(_q,v)=>{
+    calls++;
+    if(v.states[0]==='OPEN')return {repository:{pullRequests:{nodes:[],pageInfo:{hasNextPage:false}}}};
+    const node={...pr,headRepositoryOwner:{login:v.after?'stranske':'fork-owner'}};
+    return {repository:{pullRequests:{nodes:[node],pageInfo:{hasNextPage:!v.after,endCursor:'next'}}}};
+  }};
+  const result=await listMaint71PullRequests({owner:'stranske',repo:'Ready',includeClosed:true,withRetry:fn=>fn(client)});
+  assert.equal(result.closed.length,2);
+  assert.equal(calls,5);
+  calls=0;
+  client.graphql=async()=>{calls++;return {repository:{pullRequests:{nodes:[pr],pageInfo:{hasNextPage:true,endCursor:'same'}}}};};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,2);
+});

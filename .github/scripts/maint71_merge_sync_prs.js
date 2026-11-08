@@ -27,6 +27,8 @@ const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requ
 // Share the fleet's existing exhausted-primary-limit policy with Gate readers.
 function isPrimaryRateLimitExhausted(error) {
   const retryHelpers = require('./github-api-with-retry');
+  const message = String(error?.message || error?.response?.data?.message || '');
+  if (/secondary rate limit|abuse/i.test(message)) return false;
   return typeof retryHelpers.isRateLimitError === 'function'
     && typeof retryHelpers.isSecondaryRateLimitError === 'function'
     && retryHelpers.isRateLimitError(error)
@@ -2573,7 +2575,11 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
     try {
       return await listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed });
     } catch (fallbackError) {
-      error.message += `; GraphQL fallback unavailable: ${fallbackError.message || fallbackError}`;
+      try {
+        error.graphqlFallbackError = String(fallbackError.message || fallbackError);
+      } catch (_ignored) {
+        console.error(`GraphQL fallback unavailable: ${fallbackError.message || fallbackError}`);
+      }
       throw error;
     }
   }
@@ -2606,7 +2612,7 @@ async function listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeC
     repository(owner:$owner,name:$repo){pullRequests(first:100,states:$states,headRefName:$head,
       after:$after,orderBy:{field:UPDATED_AT,direction:DESC}){pageInfo{hasNextPage endCursor} nodes{
         id number title body url state isDraft createdAt updatedAt closedAt mergedAt
-        headRefName headRefOid baseRefName baseRefOid author{login}
+        headRefName headRefOid baseRefName baseRefOid author{login} headRepositoryOwner{login}
         repository{nameWithOwner name owner{login}}
         headRepository{nameWithOwner name owner{login}}
         labels(first:100){pageInfo{hasNextPage} nodes{name}}
@@ -2626,6 +2632,9 @@ async function listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeC
         if (!pr || !pr.author?.login || pr.labels?.pageInfo?.hasNextPage) {
           throw new Error('GraphQL PR identity or label inventory incomplete');
         }
+        const headOwner = pr.headRepositoryOwner?.login || pr.headRepository?.owner?.login;
+        if (latestOnly && !headOwner) throw new Error('GraphQL closed PR head owner unavailable');
+        if (latestOnly && headOwner.toLowerCase() !== owner.toLowerCase()) continue;
         const repository = (r) => r ? {
           full_name: r.nameWithOwner, name: r.name, owner: { login: r.owner.login },
         } : null;
@@ -6132,8 +6141,10 @@ async function run({ github, context, core }) {
         });
       }
     } catch (e) {
-      console.log(`✗ Error processing ${repo}: ${e.message}`);
-      results.push({ owner, repo, status: 'error', error: e.message });
+      const message = e.graphqlFallbackError
+        ? `${e.message}; GraphQL fallback unavailable: ${e.graphqlFallbackError}` : e.message;
+      console.log(`✗ Error processing ${repo}: ${message}`);
+      results.push({ owner, repo, status: 'error', error: message });
 
       // A primary rate-limit error that reaches this outer catch is always
       // terminal: withRetry already tried token rotation and found no
