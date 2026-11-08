@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
   actions: write
   models: read

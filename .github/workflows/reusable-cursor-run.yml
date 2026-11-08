@@ -212,6 +212,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
   actions: write
   models: read
@@ -918,10 +919,18 @@ jobs:
             echo "::warning::Shared model table unavailable at this workflows_ref; the cursor CLI default model runs unpinned."
           fi
 
+      - name: Record Cursor starting commit
+        id: cursor_base
+        if: always() && steps.capability_evidence.outcome != 'failure'
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Run Cursor
         id: run_cursor
         if: always() && steps.capability_evidence.outcome != 'failure'
         env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+          WORKFLOWS_TOKEN: ''
           PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing == 'true' || steps.cursor_cli_preflight.outputs.ready != 'true' }}
           PREFLIGHT_ERROR: >-
             ${{ steps.preflight.outputs.error || steps.cursor_cli_preflight.outputs.error || 'Cursor CLI preflight failed: setup did not complete' }}
@@ -1088,9 +1097,73 @@ jobs:
             exit "$status"
           fi
 
+      - name: Check target PR before pushing
+        id: target_pr
+        if: always() && steps.capability_evidence.outcome != 'failure'
+        uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          START_SHA: ${{ steps.cursor_base.outputs.sha }}
+        with:
+          script: |
+            core.setOutput('push_allowed', 'false');
+            const prNumber = Number(process.env.PR_NUMBER);
+            if (!Number.isInteger(prNumber) || prNumber <= 0) {
+              core.notice('skipped: no target PR; blocking=no_target_pr drainable=none');
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const { data: pull } = await github.rest.pulls.get({
+              owner, repo, pull_number: prNumber,
+            });
+            if (pull.state === 'open') {
+              core.info('blocking=none drainable=push_existing_pr');
+              core.setOutput('push_allowed', 'true');
+              return;
+            }
+
+            const outcome = 'skipped: target PR merged/closed mid-run';
+            core.setOutput('outcome', outcome);
+            core.notice(`${outcome}; blocking=target_pr_closed drainable=source_issue_comment`);
+            const { stdout } = await exec.getExecOutput('git', [
+              'rev-list', '--reverse', `${process.env.START_SHA}..HEAD`,
+            ]);
+            const shas = stdout.trim().split(/\s+/).filter(Boolean);
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const marker = `<!-- cursor-target-closed:${prNumber}:${context.runId} -->`;
+            const body = [
+              marker,
+              outcome,
+              '',
+              `Target PR: #${prNumber}`,
+              `Run: ${runUrl}`,
+              '',
+              'Unpushed commits created during this run:',
+              ...(shas.length ? shas.map(sha => `- \`${sha}\``) : ['- None.']),
+            ].join('\n');
+            await core.summary.addRaw(body).write();
+            const { extractIssueNumberFromPull } = require(
+              './.workflows-lib/.github/scripts/source_context.js'
+            );
+            const issueNumber = extractIssueNumberFromPull(pull);
+            if (!issueNumber) {
+              core.warning('No unambiguous source issue; unpushed commits retained in the run summary.');
+              return;
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: issueNumber, per_page: 100,
+            });
+            if (!comments.some(comment => comment.body?.includes(marker))) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber, body,
+              });
+            }
+
       - name: Commit and push changes
         id: commit
-        if: always() && steps.capability_evidence.outcome != 'failure'
+        if: >-
+          always() && steps.capability_evidence.outcome != 'failure' &&
+          steps.target_pr.outputs.push_allowed == 'true'
         env:
           PUSH_TOKEN: ${{ steps.auth_token.outputs.push_token || '' }}
           PUSH_ALLOWED: ${{ steps.auth_token.outputs.push_allowed }}
@@ -1394,6 +1467,7 @@ jobs:
         id: llm_analysis
         if: >-
           always() &&
+          steps.target_pr.outputs.push_allowed == 'true' &&
           steps.analyze_session.outputs.session-available == 'true' &&
           inputs.pr_number != ''
         env:

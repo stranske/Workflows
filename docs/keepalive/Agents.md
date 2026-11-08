@@ -177,6 +177,22 @@ validate them with its disposable Git regression tests. A checkpoint with only
 excluded artifacts creates no commit; unpushed existing commits retain their
 existing push path.
 
+### Cursor target PR lifecycle
+
+Cursor's agent step clears `GH_TOKEN`, `GITHUB_TOKEN` and `WORKFLOWS_TOKEN`;
+the keepalive prompt restricts agents to committing on the checked-out PR branch.
+The workflow re-reads the target PR after Cursor exits and permits its existing
+push step only for an open PR. A merged or closed target produces
+`skipped: target PR merged/closed mid-run`, skips all workflow pushes, and posts
+one source-issue comment per run with the new unpushed commit SHAs and run URL.
+The source issue is resolved by `source_context.js`; ambiguous or missing sources
+leave the evidence in the run summary with a warning. No target PR means no push;
+a failed state lookup also withholds push permission. The workflow requires
+`issues: write` for the source-issue comment. Token clearing is not a credential
+sandbox, and the post-run read does not prevent a later concurrent merge.
+Issue #4562's production acceptance still requires a mid-run merge observation
+and 14 days without new orphan slug-branch PRs after deployment.
+
 ### Hosted agent startup recovery
 
 The pinned Cursor archive is installed in `runner.temp/agent-cli/cursor` and
