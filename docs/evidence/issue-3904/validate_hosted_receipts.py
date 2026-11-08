@@ -62,12 +62,15 @@ def validate(archive, metadata):
         raise ValueError("workflow_sha must be a full lowercase 40- or 64-character commit ID")
     runtime = result.get("python")
     runtime_match = (
-        re.fullmatch(r"([0-9]+\.[0-9]+)\.[0-9]+", runtime) if isinstance(runtime, str) else None
+        re.fullmatch(r"([0-9]+\.[0-9]+)\.[0-9]+(?: [^\r\n]+)?", runtime)
+        if isinstance(runtime, str)
+        else None
     )
     if runtime_match is None:
         raise ValueError("Python runtime must be a full major.minor.patch version")
-    if artifact.get("name") != f"verifier-runtime-{runtime_match[1]}":
-        raise ValueError("artifact name does not match recorded Python runtime")
+    run_id = artifact["workflow_run"]["id"]
+    if artifact.get("name") != f"verifier-runtime-{runtime_match[1]}-{run_id}":
+        raise ValueError("artifact name does not match recorded Python runtime and workflow run")
     if "phase_plugin_sha256" in result:
         for arm in PAIR:
             phases = result["arms"][arm].get("phases")

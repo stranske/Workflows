@@ -170,7 +170,7 @@ def hosted_archive(tmp_path, monkeypatch):
             "artifacts": [
                 {
                     "id": 123,
-                    "name": f"verifier-runtime-{'.'.join(python_version.split('.')[:2])}",
+                    "name": f"verifier-runtime-{'.'.join(python_version.split('.')[:2])}-456",
                     "digest": f"sha256:{validator.digest(archive.read_bytes())}",
                     "workflow_run": {"id": 456, "head_sha": workflow_sha},
                 }
@@ -183,7 +183,15 @@ def hosted_archive(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("workflow_sha", ["a" * 40, "b" * 64])
 @pytest.mark.parametrize("phase_enabled", [False, True])
-@pytest.mark.parametrize("python_version", ["3.12.16", "3.13.18"])
+@pytest.mark.parametrize(
+    "python_version",
+    [
+        "3.12.16",
+        "3.13.18",
+        "3.12.16 (main, Oct 26 2026, 14:19:33) [GCC 15.2.0]",
+        "3.13.18 (main, Oct 26 2026, 14:19:33) [GCC 15.2.0]",
+    ],
+)
 def test_valid_legacy_and_phase_archives(
     hosted_archive, workflow_sha, phase_enabled, python_version
 ):
@@ -526,13 +534,29 @@ def test_artifact_name_is_required(hosted_archive):
     assert git_calls == []
 
 
+@pytest.mark.parametrize("phase_enabled", [False, True])
+@pytest.mark.parametrize("python_version", ["3.12.16", "3.13.18"])
+@pytest.mark.parametrize("suffix", ["", "-457", "-0456", "-456-extra"])
+def test_artifact_name_must_match_recorded_run(
+    hosted_archive, phase_enabled, python_version, suffix
+):
+    """Use the pinned workflow's runtime/run name without accepting a different run."""
+    build, git_calls = hosted_archive
+    archive, metadata = build(phase_enabled=phase_enabled, python_version=python_version)
+    minor_version = ".".join(python_version.split(".")[:2])
+    metadata["artifacts"][0]["name"] = f"verifier-runtime-{minor_version}{suffix}"
+    with pytest.raises(ValueError, match="artifact name.*Python runtime"):
+        validator.validate(archive, metadata)
+    assert git_calls == []
+
+
 @pytest.mark.parametrize("python_version", ["3.12.16", "3.13.18"])
 def test_swapped_runtime_artifact_rejected(hosted_archive, python_version):
     """The two retained runtime labels are not interchangeable."""
     build, git_calls = hosted_archive
     archive, metadata = build(python_version=python_version)
     other_version = "3.13" if python_version.startswith("3.12.") else "3.12"
-    metadata["artifacts"][0]["name"] = f"verifier-runtime-{other_version}"
+    metadata["artifacts"][0]["name"] = f"verifier-runtime-{other_version}-456"
     with pytest.raises(ValueError, match="artifact name.*Python runtime"):
         validator.validate(archive, metadata)
     assert git_calls == []

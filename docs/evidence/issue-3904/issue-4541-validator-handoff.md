@@ -1,5 +1,59 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Hosted runtime and artifact-name format correction
+
+The live artifact metadata for runs 42401537967 and 42421935858 names all four
+archives `verifier-runtime-<major.minor>-<run_id>`, matching the pinned workflow.
+The retained original 3.13 archive records
+`3.13.18 (main, Oct 26 2026, 14:19:33) [GCC 15.2.0]`, matching the harness's
+`sys.version` output. The validator previously rejected both formats: it
+required a bare version and an artifact name without the run suffix. Fixtures
+had reproduced those incorrect assumptions.
+
+The validator now accepts a full version with optional single-line build
+details and requires the exact runtime/run artifact name. Valid legacy and
+phase-enabled controls use the actual name format, with eight additional build
+detail cases; sixteen new controls reject missing, wrong, padded and extra run
+suffixes before Git. The build-detail controls reproduced eight failures before
+the runtime correction. Immutable source selections, dependency lock, phase
+instrumentation and retained archives are unchanged.
+
+Verification with installed Python 3.14.10:
+
+```text
+python3 -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+509 passed in 17.98s
+
+python3 -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 11.64s
+
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-4541-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+970 files would be left unchanged.
+```
+
+Both touched Python files were formatted individually with Black at line length
+100; Ruff and `git diff --check` pass. A serial Black check honoring the current
+configuration populated the cache before the required CLI check passed. All
+five marker-specific options assertions remain in the unchanged integration
+file. The requested Anaconda interpreter remains absent.
+
+The retained original 3.13 ZIP now passes its GitHub digest and corrected
+runtime/name checks, then stops at the unavailable immutable harness source
+`8142060267fce57561d25735aa2e7c5f457ade14:scripts/measure_verifier_runtime.py`.
+The selected candidate object and three other local ZIPs are still absent.
+These fixture results do not establish four-archive validation. Historical
+uploads and exclusive overhead remain explicitly UNKNOWN.
+
+Staging the source and test failed with `.git/index.lock: Read-only file
+system`; no commit or push was possible. PRs #4535 and #4542 were checked open
+and ready. PR #4535 remains at `f3325610782d7d8d57fbd9659cfae8b1e12fe10e`
+with 13 active unresolved review threads. The exact-head expected-check reporter
+returns UNKNOWN because native-gh cannot reach GitHub; successful connector
+Gate/guard statuses do not prove complete expected/required checks. Publishing
+the concrete blocker comment on #4535 and adding `needs-human` to #4542 were
+rejected with `MCP tool call requires approval, but approval policy is never`.
+No remote branch, review thread, acceptance checkbox or merge state was changed.
+
 ## Archive and metadata identity regression continuation
 
 Added 10 regression cases across legacy and phase-enabled archives. They reject
