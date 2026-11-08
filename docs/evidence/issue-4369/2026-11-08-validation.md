@@ -355,3 +355,95 @@ The concrete blocker comment and `needs-human` label were subsequently attempted
 automatic approval review rejected both with the same approval-policy message.
 No remote mutation succeeded. A final read reconfirmed PR 4539 is open and ready
 (`draft=false`) at `b7b2dce63b01716118cbef1a0c1305ca5b24c430`.
+
+## Follow-up validation at incoming head 7ecb85ac
+
+Added `test_claude_config_dir_changes_are_observed_by_existing_client` to the
+existing test module. The same client must observe configured auth (`True`), a
+switch to an empty configured directory despite default auth (`False`), removal
+of the override (`True`), removal of default auth (`False`), and restoration of
+the configured directory (`True`). The shared fixture exercises both source and
+consumer template, isolates HOME/auth, mocks CLI discovery, and forbids real CLI
+execution. Both production copies retain the existing fix and remain identical;
+no distribution scope or protected file changed.
+
+Checks executed on 2026-11-08:
+
+| Command | Exit | Observed result |
+| --- | --- | --- |
+| Baseline `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | `28 passed, 50444 deselected in 22.35s` |
+| After change: `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | `30 passed, 50444 deselected in 7.54s`; measured wall time 10.20 seconds |
+| `python3 -m pytest -q tests/test_subscription_llm.py tests/workflows/test_subscription_llm_credential_canary.py -m 'not slow'` | 0 | `42 passed in 0.74s` |
+| `python3 -m ruff check tests/test_subscription_llm.py` | 0 | `All checks passed!` |
+| `black --line-length 100 tests/test_subscription_llm.py` | 0 | `1 file left unchanged` |
+| `black --check --line-length 100 tests/test_subscription_llm.py` | 0 | `1 file would be left unchanged` |
+| Plain repository Black check | 1 | Forkserver `listener.bind()` raised `PermissionError: [Errno 1] Operation not permitted` |
+| Repository Black check with one worker and a 120-second timeout | 124 | Timed out; reported `968 files would be left unchanged` after aborting |
+| Repository Black check with the temporary scheduling workaround below | 0 | `968 files would be left unchanged` |
+| `git diff --check` | 0 | No whitespace errors |
+| Production `git diff --exit-code` and source/template `cmp` | 0 | Fix retained with exact template parity |
+| `timeout -k 5s 300s node --test .github/scripts/__tests__/*.test.js` | 130 | Interrupted; captured summary: 140 tests, 114 passed, 6 failed, 20 cancelled; included `spawnSync python3 EPERM` and unresolved-promise diagnostics |
+| `timeout -k 5s 600s python3 -m pytest -q tests/` | 130 | Interrupted after an observed failure near 6%; no final suite summary |
+| `python3 -m pytest -q tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading -m 'not slow'` | 1 | `1 failed in 0.82s`: expected `##`, received `## H` |
+
+The broad suites started against the incoming source fix before this iteration's
+test edit. Neither passed. The isolated truncation failure reproduces the prior
+report's unrelated blocker; without a broad-suite summary, this is not an
+identification of every failure in that run. No unrelated test was edited,
+disabled, or excluded to obtain a passing gate.
+
+The successful formatting check used the same temporary scheduling workaround
+documented above: `BLACK_NUM_WORKERS=1`, a `/tmp/issue-4369-black-runtime`
+`sitecustomize.py` that schedules a no-op callback every 0.05 seconds on Black's
+normal event loop, and the unchanged full-repository CLI selection:
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+The new regression also received an isolated negative control. A temporary
+mirror contained the unchanged test module and both production modules. Only
+inside that mirror, the fixed path expression was replaced with
+`home = Path.home() / ".claude"` and then restored. Every state used:
+
+```console
+python3 -m pytest -q tests/test_subscription_llm.py -k claude_config_dir_changes_are_observed_by_existing_client -m 'not slow'
+```
+
+| Mirror state | Exit | Observed output |
+| --- | --- | --- |
+| Fixed | 0 | `2 passed, 28 deselected, 13 warnings in 0.78s` |
+| Pre-fix path logic | 1 | `2 failed, 28 deselected, 13 warnings in 0.53s` |
+| Restored | 0 | `2 passed, 28 deselected, 13 warnings in 0.51s` |
+
+Both `[source]` and `[template]` cases failed at the empty-directory assertion:
+`AssertionError: assert True is False`. The temporary mirror did not include the
+repository warning configuration, hence the plugin deprecation warnings. This
+additional proof did not mutate production files or replace the earlier
+full-repository pre-fix/deliberate-break receipts.
+
+Read-only GitHub checks reconfirmed the historical delivery evidence above:
+Maint 68 job 127073790362 generated consumer head
+`99d10a9838cecfb4327a2735d8f3723e393e413e` from source
+`d77a8e3ad93aaf4339fff0180bafa1264e3ec7c0`; the following Maint 71 job
+127075733924 reported four active findings, excluding discussion 4434491702.
+The scoped thread is outdated and unresolved. All fetched issue 4369 comments
+still place the last scoped sync-core recurrence at comment 6649911684, round
+`20261105T044440Z`, before that regeneration. Consumer PR 2454 is open and ready
+at `b36b8ebf242bde649f6e31edc2cc915ad49d7421`. These are observations of the
+previously delivered production repair, not a new deployment by this run.
+
+The targeted selection and all three required credential behaviors are verified
+locally. Updating those two acceptance checkboxes on PR 4539 was attempted only
+after the checks passed. Automatic approval review rejected the update with
+`MCP tool call requires approval, but approval policy is never`; no remote
+checkbox changed. Full-source-gate acceptance remains pending.
+
+`git add tests/test_subscription_llm.py` exited 128 because `.git/index.lock`
+cannot be created on the read-only filesystem. No commit or push is claimed;
+publication requires writable git metadata. PR 4539 was read as open and ready
+(`draft=false`) at `7ecb85ac3b233b95d20fefadff5317a89546b820`.
+
+Posting the concrete blocker comment and adding `needs-human` were also
+attempted. Automatic approval review rejected both with the same approval-policy
+message. No remote mutation succeeded.

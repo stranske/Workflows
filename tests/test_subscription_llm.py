@@ -55,6 +55,35 @@ def test_claude_config_dir_available_with_credentials(
     assert (claude_client.available() is True,) == (True,)
 
 
+def test_claude_config_dir_changes_are_observed_by_existing_client(
+    claude_client, monkeypatch, tmp_path
+):
+    default = Path.home() / ".claude"
+    default.mkdir(parents=True)
+    (default / ".credentials.json").touch()
+    configured = tmp_path / "configured"
+    configured.mkdir()
+    (configured / ".credentials.json").touch()
+    empty = tmp_path / "empty"
+    empty.mkdir()
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(configured))
+    assert claude_client.available() is True
+
+    # Switching directories must not reuse either the earlier auth or the default.
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(empty))
+    assert claude_client.available() is False
+
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR")
+    assert claude_client.available() is True
+
+    (default / ".credentials.json").unlink()
+    assert claude_client.available() is False
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(configured))
+    assert claude_client.available() is True
+
+
 @pytest.mark.parametrize("default_auth_exists", (False, True))
 @pytest.mark.parametrize("config_name", ("custom-claude", "custom claude"))
 def test_claude_config_dir_invocation_uses_configured_directory(
