@@ -2113,3 +2113,65 @@ or branch update was created. The required `needs-human` label and blocker
 comment on source PR **4551** were also attempted and rejected for the same
 approval-policy reason. Changes remain local and uncommitted; the run cannot
 satisfy the commit requirement or publish the blocker through GitHub.
+
+### Production refresh blocker replay, 2026-11-08 14:14 UTC
+
+Reviewed commits through `2571ae7b91538b535c1b817c3c92c468e3d80ccf` before
+continuing. The existing checked tasks remain supported; the final delivery task
+and both pending acceptance criteria remain unchecked. A PR-body reconciliation
+update preserving those checkboxes was attempted and rejected by automatic
+approval review: `MCP tool call requires approval, but approval policy is never`.
+
+The new JavaScript regression
+`.github/scripts/__tests__/maint71-delivery-receipts.test.js` replays both retained
+Maint 71 reports, **42485792262** and **42485974523**, through the actual
+`dispatchCandidateRefreshFromReport` helper. Each reproduces
+`canary_refresh_report_subject_unknown` before any API operation: the
+Travel-Plan-Permission and trip-planner rows have no PR number or head SHA.
+This verifies the runtime blocker rather than inferring its cause from logs.
+The selected sealed/prepared consumer alone requests no refresh. Four additional
+cases copy its well-formed PR/head into the missing repositories and verify that
+native repository identity checks still reject them. No live dispatch, merge,
+source repair or expanded consumer shipment is performed by these tests.
+
+The **8 new tests**, together with the existing Maint 71 module, report
+**233 passed, 0 failed, 0 skipped**, exit **0**, under an explicit 60-second
+external bound. Node is **v24.22.2** at
+`/opt/hostedtoolcache/node/24.22.2/x64/bin/node`. The command uses
+`--test-isolation=none` so individual cases are visible in this runner; the
+ordinary isolated invocation reported only the file-level result and is not
+counted as eight case results. Complete output, command, source revision,
+working-tree test digest, timing and exit code are retained in
+[the replay log](runtime-4550/missing-canary-production-replay.log) and
+[runtime receipt](runtime-4550/missing-canary-production-replay.json).
+No Python file changed. This focused run does not satisfy full-suite acceptance.
+
+The [fresh observation](runtime-4550/missing-canary-live-observation.json)
+retains all **49** issue comments and their creation/update times from the final
+short REST page, with the same ordered IDs as the independent all-pages
+connector. No scoped recurrence is observed through **2026-11-08T14:12:00Z**;
+the last scoped comment remains **6649911684**. Historical discussion
+**4434491702** is still resolved and outdated, with disposition **4505043101**.
+All **39** workflow runs in **13:57:36Z–14:09:35Z** fit on the retained short
+page; none is a new Maint 68 or Maint 71 delivery run. The similarly named
+Maint 71 Auto Fix Integration run is not counted as delivery reconciliation.
+
+The frozen template at `9acdde6d5f0731bf968a6766d83f2b47db8375a3` and
+consumer PR **2486** head `653f443b52ec179c6680ee369be06ed3e3ce2617` still
+recompute to blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. Consumer main
+`0543dc9732eab0ad12227308749566a937581eea` still contains the different blob
+`c889fd8064806a9c0f932f7c1dc09762896afe67`. Source PR **4551** and consumer
+PR **2486** remain open and non-draft. Final merged delivery remains false.
+
+The CLI read probe again failed with `error connecting to api.github.com`;
+the connector has no workflow-dispatch operation. The missing-canary recovery
+needs an owner decision under the existing frozen-plan and finite-shipment
+rules; repeating the same failing campaign does not create missing subjects.
+Staging the meaningful JavaScript change failed with exit **128** because
+`.git/index.lock` is read-only. No commit or push succeeded. These changes and
+receipts remain local; no protected workflow file was edited.
+
+The additive `needs-human` label and prepared blocker comment on PR **4551**
+were also rejected by automatic approval review with
+`MCP tool call requires approval, but approval policy is never`. Neither was
+published, and no alternate mutation transport was used.
