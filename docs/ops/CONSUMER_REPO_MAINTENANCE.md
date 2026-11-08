@@ -3795,8 +3795,11 @@ and no `Sync <repo>` job started (rate limit, or a runner or transport failure
 before any consumer job). A second consecutive infrastructure failure for the
 same key keeps the six-hour debounce, as does any run whose consumer sync jobs
 ran and failed. `canaryRefreshDiagnostics` records each classified run as
-`infrastructure` or `consumer` without native error text. Missing job evidence
-keeps the six-hour hold. Source-delta, dry-run, other-branch or
+`infrastructure` or `consumer` without native error text. A cancelled run whose
+jobs show no `Sync <repo>` job started, or whose receipt says it never started, is
+not an attempt and never holds the next refresh; the stable-writer queue replaces
+pending Maint 68 runs, and such a run is reported as `cancelled_before_sync`.
+Missing job evidence keeps the six-hour hold. Source-delta, dry-run, other-branch or
 subset runs cannot supply full-set success. No canary uses `pulls.updateBranch`.
 Producer success never substitutes for passing consumer CI, settled review,
 valid signatures or an exact-head sealed Gate before promotion/merge.

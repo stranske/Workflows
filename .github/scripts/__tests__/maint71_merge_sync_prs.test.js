@@ -2831,6 +2831,32 @@ test('a consumer-failed canary refresh still debounces for six hours', () => {
   assert.equal(decide([insideWindow]).eligible, false);
 });
 
+test('a cancelled refresh that never started a Sync job does not debounce the next attempt', () => {
+  // 2026-11-07 01:39Z: the stable writer queue replaced a Maint 68 refresh before it ran; the guard
+  // then printed "refresh: skipped (cancelled)" and the canaries needed force=true to move.
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const replaced = producerRun({ id: 31, conclusion: 'cancelled', jobs: [
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'cancelled' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+  ] });
+  const state = decide([replaced]);
+  assert.equal(state.eligible, true);
+  assert.equal(state.state, 'unseen');
+  const diagnostic = canaryRefreshDiagnostics(state);
+  assert.equal(diagnostic.inventory.cancelled_before_sync, 1);
+  assert.deepEqual(diagnostic.failure_classification, [{ classification: 'not_started', run_id: 31 }]);
+  assert.equal(decide([{ ...producerRun({ id: 32, conclusion: 'cancelled' }), refresh_not_started: true }]).eligible, true,
+    'a run with a not-started receipt is not an attempt either');
+  const startedThenCancelled = producerRun({ id: 33, conclusion: 'cancelled', jobs: [
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+    { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'cancelled', runner_id: 7 },
+  ] });
+  assert.equal(decide([startedThenCancelled]).eligible, false, 'a Sync job that ran keeps the six-hour hold');
+  const unreadable = producerRun({ id: 34, conclusion: 'cancelled' });
+  assert.equal(decide([unreadable]).eligible, false, 'without job evidence a cancelled run still holds');
+});
+
 test('a second consecutive infrastructure failure debounces for the same plan, source and candidates', () => {
   const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
     candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
