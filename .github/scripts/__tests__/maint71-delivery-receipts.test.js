@@ -8,7 +8,7 @@ const {
   confirmExactHeadSyncFindingGate, dispatchCandidateRefreshFromReport,
   repositoryConversationGate, verifiedCanaryRefreshPlan,
 } = require('../maint71_merge_sync_prs');
-const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
+const { parseDeliveryRecord, formatDeliveryRecord } = require('../sync_pr_lease_contract');
 const { evaluateSyncFindingDispositions } = require('../sync_pr_merge_contract');
 
 const evidence = path.join(__dirname, '../../../docs/evidence/issue-4369/runtime-4550');
@@ -90,6 +90,78 @@ function replay(report, withRetry) {
       notice() {},
       summary: { addRaw() { return this; }, async write() {} },
     },
+  });
+}
+
+// Counterfactual base-refresh requests for the retained candidate. These are
+// offline reads, not evidence that this sealed candidate needs a refresh.
+function refreshSubject() {
+  const fixture = nativeFixture();
+  const report = read('maint71-42485974523-sync-pr-merge-report.json');
+  report.results = report.results.filter(row => `${row.owner}/${row.repo}` === selectedRepository);
+  Object.assign(report.results[0], {
+    status: 'stable_base_refresh_required',
+    next_command: 'dispatch-maint-68-phase-canary-no-filter',
+  });
+  return { ...fixture, report };
+}
+
+function nativeReportReader(fixture) {
+  const calls = [];
+  const client = { rest: {
+    pulls: { get: async request => {
+      calls.push(['pull', request]);
+      return { data: fixture.pr };
+    } },
+    repos: { getCommit: async request => {
+      calls.push(['commit', request]);
+      if (request.repo === fixture.repo) return { data: fixture.nativeHead };
+      throw new Error('verified-source-history-boundary');
+    } },
+  } };
+  return { calls, withRetry: operation => operation(client) };
+}
+
+test('the retained report tuple reaches source history only after native verification', async () => {
+  const fixture = refreshSubject();
+  const before = structuredClone(fixture.report);
+  const reader = nativeReportReader(fixture);
+  await assert.rejects(replay(fixture.report, reader.withRetry), {
+    message: 'verified-source-history-boundary',
+  });
+  assert.deepEqual(reader.calls.map(([kind]) => kind), ['pull', 'commit', 'commit']);
+  assert.deepEqual(reader.calls[2][1], {
+    owner: 'stranske', repo: 'Workflows', ref: fixture.record.source_commit,
+  });
+  assert.deepEqual(fixture.report, before);
+});
+
+for (const [field, substitute] of [
+  ['source_commit', '0'.repeat(40)],
+  ['plan_id', `sha256:${'0'.repeat(64)}`],
+  ['scope_base_sha', '0'.repeat(40)],
+  ['plan_scope', 'full'],
+]) {
+  test(`matching report and PR-body ${field} cannot replace the signed payload identity`, async () => {
+    const fixture = refreshSubject();
+    const row = fixture.report.results[0];
+    row[field] = fixture.metadata[field] = substitute;
+    if (field === 'source_commit') fixture.metadata.source_sha = substitute;
+    if (field === 'source_commit' || field === 'plan_id') fixture.record[field] = substitute;
+    if (field === 'plan_scope') row.scope_base_sha = fixture.metadata.scope_base_sha = '';
+    fixture.pr.body = `<!-- workflows-consumer-sync:v1 ${JSON.stringify(fixture.metadata)} -->\n${formatDeliveryRecord(fixture.record)}`;
+    // All mutable copies agree; the native signed commit is unchanged. The
+    // refusal must occur before reading source history or attempting a write.
+    assert.equal(row[field], fixture.metadata[field]);
+    const before = structuredClone(fixture.report);
+    const reader = nativeReportReader(fixture);
+    await assert.rejects(replay(fixture.report, reader.withRetry), error =>
+      error.message.startsWith('canary_refresh_native_scope_mismatch'));
+    assert.deepEqual(reader.calls, [
+      ['pull', { owner: fixture.owner, repo: fixture.repo, pull_number: fixture.pr.number }],
+      ['commit', { owner: fixture.owner, repo: fixture.repo, ref: fixture.pr.head.sha }],
+    ]);
+    assert.deepEqual(fixture.report, before);
   });
 }
 

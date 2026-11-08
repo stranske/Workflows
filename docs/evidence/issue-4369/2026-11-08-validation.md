@@ -2379,3 +2379,60 @@ review rejected the PR-body update, additive `needs-human` label and concrete
 blocker comment with `MCP tool call requires approval, but approval policy is
 never`; none was published. No protected file or consumer payload was edited.
 The test change and evidence remain local for the automation writer.
+
+### Signed source identity replay, 2026-11-08 15:02 UTC
+
+Reviewed the recent commits through incoming revision
+`69c8345dd1fd5744d0fd5312a7ef55c88dc66f7e` and the live PR body.
+Progress remains **7/10**: neither final merged delivery nor combined full-suite
+acceptance has new completion evidence. The PR-body reconciliation update,
+preserving those marks, was rejected by automatic approval review:
+`MCP tool call requires approval, but approval policy is never`.
+
+Five new JavaScript regressions exercise the production
+`dispatchCandidateRefreshFromReport` adapter with the retained native consumer
+head. A positive control reaches the frozen source-history read after native
+verification. Four counterfactuals change source, plan, scope base, or scope
+consistently across the report and PR-body metadata (including the delivery
+record where applicable), while retaining the original signed commit. All four
+are refused with `canary_refresh_native_scope_mismatch` before source-history
+reads or dispatch. The report remains unchanged after each refusal. These
+offline base-refresh requests do not claim that the sealed candidate needs
+refreshing or that any consumer was changed.
+
+The changed module reports **26 passed**, and the related Maint 71 merge and
+scoped-refresh modules report **225** and **86 passed**, respectively: **337
+passed, 0 failed, 0 skipped**, all exit **0**. Each module ran directly with
+Node **v24.22.2** under a **60-second** subprocess bound. Exact commands,
+interpreter, timings, incoming revision, working-tree test digest and log hashes
+are in [native-tuple-tests.json](runtime-4550/native-tuple-tests.json);
+complete outputs are `runtime-4550/native-tuple-tests-{1,2,3}.log`.
+These focused results do not satisfy the combined full-suite criterion.
+No Python or protected workflow file changed; `git diff --check` passes.
+
+The [fresh observation](runtime-4550/native-tuple-live-observation.json)
+retains all **49** issue comments with bodies and timestamps from one short REST
+page; ordered IDs match the independent all-pages connector. No scoped
+recurrence appears through **2026-11-08T15:00:50Z**. Discussion **4434491702**
+remains resolved and outdated, with worker disposition **4505043101**.
+All **37** workflow runs in **14:48:19Z–15:00:28Z** fit on a single page;
+none is a new Maint 68 or Maint 71 delivery run. Source PR **4551** and consumer
+PR **2486** remain open and non-draft.
+
+Fresh immutable payload reads recompute frozen source template and consumer
+candidate to blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`.
+Consumer main `0543dc9732eab0ad12227308749566a937581eea` still has blob
+`c889fd8064806a9c0f932f7c1dc09762896afe67`; candidate
+`653f443b52ec179c6680ee369be06ed3e3ce2617` remains unmerged.
+The two missing canary subjects in the retained causal Maint 71 reports still
+require an authorized frozen-plan recovery. The connector exposes no workflow
+dispatch operation, and the CLI cannot connect to GitHub.
+
+Staging the meaningful JavaScript test change failed with exit **128**:
+`.git/index.lock: Read-only file system`. No commit or push succeeded.
+The patch and evidence remain local for an authorized writer.
+
+Automatic approval review also rejected the additive `needs-human` label and
+prepared blocker comment on PR **4551** with
+`MCP tool call requires approval, but approval policy is never`. Neither was
+published, and no alternate mutation transport was used.
