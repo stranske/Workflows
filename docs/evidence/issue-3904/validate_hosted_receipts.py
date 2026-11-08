@@ -39,6 +39,7 @@ def git(*args):
 
 
 def validate(archive, metadata):
+    """Reconcile a runtime archive with its retained GitHub metadata and Git sources."""
     raw = archive.read_bytes()
     archive_hash = digest(raw)
     matching = [a for a in metadata["artifacts"] if a["digest"] == f"sha256:{archive_hash}"]
@@ -47,12 +48,26 @@ def validate(archive, metadata):
     with zipfile.ZipFile(archive) as z:
         assert len(z.namelist()) == len(set(z.namelist())), "duplicate archive members"
         members = {name: z.read(name) for name in z.namelist() if not name.endswith("/")}
+    required_members = {"result.json", "manifest.json"}
+    for arm in PAIR:
+        required_members.update((f"{arm}/pytest-junit.xml", f"{arm}/coverage.json", f"{arm}.log"))
+    missing_members = sorted(required_members - members.keys())
+    if missing_members:
+        raise ValueError(f"missing required archive members: {', '.join(missing_members)}")
     result, manifest = (json.loads(members[name]) for name in ("result.json", "manifest.json"))
     workflow_sha = manifest.get("workflow_sha")
     if not isinstance(workflow_sha, str) or not re.fullmatch(
         r"(?:[0-9a-f]{40}|[0-9a-f]{64})", workflow_sha
     ):
         raise ValueError("workflow_sha must be a full lowercase 40- or 64-character commit ID")
+    runtime = result.get("python")
+    runtime_match = (
+        re.fullmatch(r"([0-9]+\.[0-9]+)\.[0-9]+", runtime) if isinstance(runtime, str) else None
+    )
+    if runtime_match is None:
+        raise ValueError("Python runtime must be a full major.minor.patch version")
+    if artifact.get("name") != f"verifier-runtime-{runtime_match[1]}":
+        raise ValueError("artifact name does not match recorded Python runtime")
     assert result["manifest"] == manifest
     assert manifest["workflow_sha"] == artifact["workflow_run"]["head_sha"]
     assert manifest["dependency_lock"] == "candidate/requirements.lock"
@@ -239,7 +254,7 @@ def validate(archive, metadata):
 if __name__ == "__main__":
     print(
         json.dumps(
-            validate(Path(sys.argv[1]), json.loads(Path(sys.argv[2]).read_text())),
+            validate(Path(sys.argv[1]), json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))),
             indent=2,
             allow_nan=False,
         )

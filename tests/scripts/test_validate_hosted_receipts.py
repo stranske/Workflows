@@ -44,7 +44,14 @@ def hosted_archive(tmp_path, monkeypatch):
 
     monkeypatch.setattr(validator, "git", git)
 
-    def build(*, phase_enabled=False, workflow_sha="a" * 40, mutate=None):
+    def build(
+        *,
+        phase_enabled=False,
+        workflow_sha="a" * 40,
+        python_version="3.13.18",
+        missing_members=(),
+        mutate=None,
+    ):
         manifest = {
             "workflow_sha": workflow_sha,
             "dependency_lock": "candidate/requirements.lock",
@@ -57,7 +64,7 @@ def hosted_archive(tmp_path, monkeypatch):
         }
         result = {
             "manifest": manifest,
-            "python": "3.13.fixture",
+            "python": python_version,
             "source_integrity": {
                 "verified": True,
                 **{
@@ -153,6 +160,8 @@ def hosted_archive(tmp_path, monkeypatch):
             mutate(result, members)
         members["manifest.json"] = json.dumps(manifest).encode()
         members["result.json"] = json.dumps(result).encode()
+        for path in missing_members:
+            del members[path]
         archive = tmp_path / "verifier-runtime.zip"
         with zipfile.ZipFile(archive, "w") as zipped:
             for path, raw in members.items():
@@ -161,6 +170,7 @@ def hosted_archive(tmp_path, monkeypatch):
             "artifacts": [
                 {
                     "id": 123,
+                    "name": f"verifier-runtime-{'.'.join(python_version.split('.')[:2])}",
                     "digest": f"sha256:{validator.digest(archive.read_bytes())}",
                     "workflow_run": {"id": 456, "head_sha": workflow_sha},
                 }
@@ -173,11 +183,21 @@ def hosted_archive(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("workflow_sha", ["a" * 40, "b" * 64])
 @pytest.mark.parametrize("phase_enabled", [False, True])
-def test_valid_legacy_and_phase_archives(hosted_archive, workflow_sha, phase_enabled):
+@pytest.mark.parametrize("python_version", ["3.12.16", "3.13.18"])
+def test_valid_legacy_and_phase_archives(
+    hosted_archive, workflow_sha, phase_enabled, python_version
+):
     build, git_calls = hosted_archive
-    summary = validator.validate(*build(phase_enabled=phase_enabled, workflow_sha=workflow_sha))
+    summary = validator.validate(
+        *build(
+            phase_enabled=phase_enabled,
+            workflow_sha=workflow_sha,
+            python_version=python_version,
+        )
+    )
     assert summary["verified"] is True
     assert summary["workflow_sha"] == workflow_sha
+    assert summary["python"] == python_version
     assert git_calls
     assert len(summary["unuploaded_inherited_entries_UNKNOWN"]) == 4
     assert "exclusive overhead stays UNKNOWN" in summary["limitations"]
@@ -259,3 +279,71 @@ def test_phase_plugin_rejects_unavailable_or_incomplete_phases(hosted_archive, a
 
     with pytest.raises((AssertionError, ValueError)):
         validator.validate(*build(phase_enabled=True, mutate=damage_phases))
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        "result.json",
+        "manifest.json",
+        "baseline/pytest-junit.xml",
+        "candidate/pytest-junit.xml",
+        "baseline/coverage.json",
+        "candidate/coverage.json",
+        "baseline.log",
+        "candidate.log",
+    ],
+)
+def test_required_archive_members_rejected_before_git(hosted_archive, member):
+    """Report missing inputs explicitly even when the archive digest matches."""
+    build, git_calls = hosted_archive
+    with pytest.raises(ValueError, match=f"missing required archive members:.*{member}"):
+        validator.validate(*build(missing_members=(member,)))
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("python_version", ["3.12.16", "3.13.18"])
+@pytest.mark.parametrize("name", [None, 123, "", "verifier-runtime-3.14", "verifier-runtime-3.130"])
+def test_artifact_name_must_match_recorded_runtime(hosted_archive, python_version, name):
+    """A matching digest cannot establish a different runtime's receipt."""
+    build, git_calls = hosted_archive
+    archive, metadata = build(python_version=python_version)
+    metadata["artifacts"][0]["name"] = name
+    with pytest.raises(ValueError, match="artifact name.*Python runtime"):
+        validator.validate(archive, metadata)
+    assert git_calls == []
+
+
+def test_artifact_name_is_required(hosted_archive):
+    """Missing metadata names cannot silently bypass the runtime check."""
+    build, git_calls = hosted_archive
+    archive, metadata = build()
+    del metadata["artifacts"][0]["name"]
+    with pytest.raises(ValueError, match="artifact name.*Python runtime"):
+        validator.validate(archive, metadata)
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("python_version", ["3.12.16", "3.13.18"])
+def test_swapped_runtime_artifact_rejected(hosted_archive, python_version):
+    """The two retained runtime labels are not interchangeable."""
+    build, git_calls = hosted_archive
+    archive, metadata = build(python_version=python_version)
+    other_version = "3.13" if python_version.startswith("3.12.") else "3.12"
+    metadata["artifacts"][0]["name"] = f"verifier-runtime-{other_version}"
+    with pytest.raises(ValueError, match="artifact name.*Python runtime"):
+        validator.validate(archive, metadata)
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("python_version", [None, True, 313, "", "3.13", "3.13.18\n"])
+def test_malformed_recorded_runtime_rejected(hosted_archive, python_version):
+    """Malformed runtime fields fail clearly before any immutable-source lookup."""
+    build, git_calls = hosted_archive
+
+    def change_runtime(result, members):
+        result["python"] = python_version
+
+    with pytest.raises(ValueError, match="Python runtime must be.*major.minor.patch"):
+        validator.validate(*build(mutate=change_runtime))
+    assert git_calls == []
