@@ -1971,3 +1971,58 @@ its gates or claim overall completion.
 Verified IDs for this round: **T2, T3, T4, T6, T7, A1, A2, A4**.
 
 Publication reconciliation: the bot published `e925444af29e451ad4c8278943c2a618680ace26` during this readback. Its appended report and collector files are preserved by the merge; this round adds only Markdown and JSON receipts. The historical publication-blocker statements above describe that worker before the bot published its files.
+
+## Keepalive round 3: producer inventory replay — 2026-11-08
+
+The first unchecked task remains blocked by the retained non-PASS upstream
+verification disposition. The [readback receipt](runtime-4550/4558-round3-readback.json)
+reconfirms that PR 4551 is merged at the selected immutable revision
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`. Live main is
+`34e923fe7c4dd99d24de003464f9b1adfe20bb6d`, whose parent is that revision.
+Issue 4550 now reads closed; that lifecycle state does not clear the retained
+judge findings. Run 42522535899 still has Actions conclusion `success`, which
+does not establish a passing assessment. No new provider evaluation was attempted.
+
+This round advances the pending producer observation with a scoped change to
+[observe-maint68.js](observe-maint68.js): it can replay unfiltered workflow-specific
+run inventories in addition to repository-wide inventories. Workflow-specific
+pages avoid the repository-wide 1,000-run search cap. The caller supplies a
+positive numeric workflow ID, every page must use that same endpoint, and every
+row must match both that ID and the Maint 68 workflow path. The result identifies
+its inventory scope. Event filters, mismatched rows, changed endpoints and
+incomplete pagination are rejected. A dispatch remains `UNKNOWN`; the checker
+never certifies a causal delivery chain.
+
+The GitHub connector rejects workflow-specific run-list URLs, including the
+numeric endpoint, and a bounded read-only `gh api` fallback could not connect.
+Consequently the live observation uses the existing repository-wide endpoint;
+workflow-specific replay is covered by synthetic tests, not claimed as a live
+transport success. The [retained native-field projection](runtime-4550/4558-round3-origin-inventory.json)
+contains 109 runs on pages of 100 and 9, with stable totals and unique IDs, from
+21:45:56Z through **2026-11-08T22:10:00Z**. The
+[replay result](runtime-4550/4558-round3-origin-observation.json) confirms complete
+pagination and **zero Maint 68 producers**, with `chain_acceptance=false`.
+There is no qualifying next producer for which to collect downstream causal
+receipts in that interval.
+
+Validation: the unchanged baseline had 11 passing tests.
+`node tests/scripts/test_issue_4369_origin_observation.js` now exits **0**, with
+**20 passed**, covering empty and paginated producer inventories, identity and
+endpoint mismatches, forbidden event filters, and incomplete pagination alongside
+the prior refusal cases. The [complete test log](runtime-4550/4558-round3-origin-tests.log)
+is retained. The collector CLI exits **0** against the live inventory, and
+`git diff --check` passes. No Python, workflow or consumer payload file changed.
+
+The original 21:46:00Z acceptance deadline remains expired; this readback does not
+reset it. No full suite, provider retry, Maint 68/71 dispatch or merge was performed.
+No acceptance task is newly complete. The previously retained suite and byte
+comparison evidence remains operative. PR 4558 was observed open and ready
+(`draft=false`) at `56acd961cb982d0ac7a81b69036626275dc7c979`.
+
+Publication is blocked: staging the explicit JavaScript, test and receipt paths
+exited **128** because `.git/index.lock` cannot be created on the read-only
+filesystem. No commit or push succeeded. Automatic approval review rejected both
+the blocker comment and `needs-human` label with `MCP tool call requires approval,
+but approval policy is never`; neither remote mutation succeeded. The
+[retained blocker comment](runtime-4550/4558-round3-publication-blocker.md) and
+implementation remain available for the authorized repository writer.

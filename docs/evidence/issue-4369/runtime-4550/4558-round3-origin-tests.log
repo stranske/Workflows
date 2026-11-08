@@ -1,0 +1,28 @@
+✔ workflow-specific inventory supports empty and paginated producer observations (2.103062ms)
+✔ refuse missing workflow identity (0.320354ms)
+✔ refuse invalid workflow identity (0.152095ms)
+✔ refuse changed page endpoint (0.217753ms)
+✔ refuse wrong row workflow identity (0.18261ms)
+✔ refuse missing row workflow identity (0.245213ms)
+✔ refuse wrong workflow path (0.188549ms)
+✔ refuse event-filtered producer inventory (0.194598ms)
+✔ refuse incomplete producer pagination (0.240086ms)
+✔ empty inventory and exact page boundary require terminal empty pages (1.161689ms)
+✔ bot actor and auto title do not authenticate a dispatch or a complete chain (0.186666ms)
+✔ scheduled producer is an automation lead, not a delivery-chain acceptance (0.112066ms)
+✔ refuse filtered endpoint (0.122581ms)
+✔ refuse wrong repository (0.104655ms)
+✔ refuse missing page (0.082703ms)
+✔ refuse changing total (0.179575ms)
+✔ refuse duplicate run (0.106037ms)
+✔ refuse outside bounds (0.132025ms)
+✔ refuse missing run (0.093759ms)
+✔ refuse search cap (0.075502ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11.875422

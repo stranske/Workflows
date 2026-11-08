@@ -3,13 +3,24 @@
 // Read-only replay of bounded REST /actions/runs pages. This collects leads;
 // workflow_dispatch, actor names and run titles never authenticate the caller.
 const fs = require('node:fs');
+const MAINT68 = '.github/workflows/maint-68-sync-consumer-repos.yml';
 
-function observe({ start, end, pages }) {
+function observe({ start, end, pages, workflow_id }) {
   const lower = Date.parse(start), upper = Date.parse(end);
   if (!Number.isFinite(lower) || !Number.isFinite(upper) || lower > upper) {
     throw new Error('invalid observation bounds');
   }
   if (!Array.isArray(pages) || !pages.length) throw new Error('missing inventory pages');
+  if (workflow_id !== undefined
+    && (!Number.isSafeInteger(workflow_id) || workflow_id <= 0)) {
+    throw new Error('invalid producer workflow identity');
+  }
+  // A workflow-specific inventory avoids the repository-wide search cap. Bind
+  // every page and row to the same explicit workflow identity; filters that
+  // could hide a producer event remain forbidden.
+  const endpoint = workflow_id === undefined
+    ? '/repos/stranske/Workflows/actions/runs'
+    : `/repos/stranske/Workflows/actions/workflows/${workflow_id}/runs`;
   const total = pages[0].body.total_count;
   if (!Number.isSafeInteger(total) || total < 0 || total >= 1000) {
     throw new Error('inventory count is invalid or reaches the REST search limit');
@@ -18,7 +29,7 @@ function observe({ start, end, pages }) {
   for (const [index, page] of pages.entries()) {
     const url = new URL(page.url);
     if (url.origin !== 'https://api.github.com'
-      || url.pathname !== '/repos/stranske/Workflows/actions/runs'
+      || url.pathname !== endpoint
       || url.searchParams.size !== 3
       || url.searchParams.get('created') !== `${start}..${end}`
       || url.searchParams.get('per_page') !== '100'
@@ -37,6 +48,10 @@ function observe({ start, end, pages }) {
         || typeof run.path !== 'string' || typeof run.event !== 'string') {
         throw new Error('invalid, duplicate or out-of-bounds run');
       }
+      if (workflow_id !== undefined
+        && (run.workflow_id !== workflow_id || run.path !== MAINT68)) {
+        throw new Error('producer workflow identity changed');
+      }
       ids.add(run.id);
       runs.push(run);
     }
@@ -46,9 +61,11 @@ function observe({ start, end, pages }) {
   if (runs.length !== total || pages.length !== Math.floor(total / 100) + 1) {
     throw new Error('inventory pagination is incomplete');
   }
-  const producers = runs.filter(run => run.path === '.github/workflows/maint-68-sync-consumer-repos.yml')
+  const producers = runs.filter(run => run.path === MAINT68)
     .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id - b.id);
   return { start, end, total_count: total, pagination_complete: true,
+    inventory_scope: workflow_id === undefined ? 'repository' : 'producer',
+    ...(workflow_id === undefined ? {} : { workflow_id }),
     producers: producers.map(run => ({ id: run.id, created_at: run.created_at,
       event: run.event, automation_origin: run.event === 'schedule' ? 'schedule' : 'UNKNOWN' })),
     chain_acceptance: false };
