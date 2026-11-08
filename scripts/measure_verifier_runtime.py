@@ -175,7 +175,7 @@ def prepare(
         "workflow_sha": os.environ.get("GITHUB_SHA"),
         "workflow_sha256": sha(repo / ".github/workflows/maint-88-verifier-runtime-comparison.yml"),
         "dependency_lock": "candidate/requirements.lock",
-        "cache_policy": "No actions/cache or artifact restore; fresh arm directories, pytest cache provider disabled, bytecode writes disabled. OS page cache is uncontrolled; arm order is recorded in result.json (baseline first on Python 3.12, candidate first otherwise), not within-version replicated.",
+        "cache_policy": "No actions/cache or artifact restore; fresh arm directories, pytest cache provider disabled, bytecode writes disabled. OS page cache is uncontrolled; arm order is recorded in result.json (baseline first on Python 3.13, candidate first otherwise), not within-version replicated.",
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
@@ -448,7 +448,7 @@ def run(output: Path) -> int:
         print(json.dumps({"result": str(output / "result.json"), "source_integrity": integrity}))
         return 1
     initial_packages = packages()
-    order = ["baseline", "candidate"] if sys.version_info.minor == 12 else ["candidate", "baseline"]
+    order = ["baseline", "candidate"] if sys.version_info.minor == 13 else ["candidate", "baseline"]
     result = {
         "manifest": manifest,
         "python": sys.version,
