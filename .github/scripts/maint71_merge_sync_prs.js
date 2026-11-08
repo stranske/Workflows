@@ -258,7 +258,10 @@ function canaryRefreshFailureClass(run) {
 function canaryRefreshFailureRows(runs) {
   const rows = [];
   for (const run of runs) {
-    const classification = canaryRefreshFailureClass(run);
+    // Job evidence may be unreadable while a receipt already proves the run never started.
+    const classification = canaryRefreshFailureClass(run)
+      || (run?.status === 'completed' && run.conclusion === 'cancelled' && run.refresh_not_started
+        ? 'not_started' : null);
     if (!['infrastructure', 'consumer', 'not_started'].includes(classification)) continue;
     const row = { classification };
     if (Number.isSafeInteger(run.id) && run.id > 0) row.run_id = run.id;

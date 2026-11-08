@@ -2855,6 +2855,31 @@ test('a cancelled refresh that never started a Sync job does not debounce the ne
   assert.equal(decide([startedThenCancelled]).eligible, false, 'a Sync job that ran keeps the six-hour hold');
   const unreadable = producerRun({ id: 34, conclusion: 'cancelled' });
   assert.equal(decide([unreadable]).eligible, false, 'without job evidence a cancelled run still holds');
+  const receiptOnly = decide([{ ...producerRun({ id: 35, conclusion: 'cancelled' }), refresh_not_started: true }]);
+  assert.equal(canaryRefreshDiagnostics(receiptOnly).inventory.cancelled_before_sync, 1,
+    'a receipt-backed cancelled run is counted even without job evidence');
+});
+
+test('the guard reads cancelled-run jobs through listJobsForWorkflowRunAttempt', async () => {
+  const cancelled = producerRun({ id: 36, conclusion: 'cancelled', run_attempt: 3 });
+  const calls = [];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [cancelled] } }),
+    listJobsForWorkflowRunAttempt: async params => {
+      calls.push(params);
+      return { data: { total_count: 2, jobs: [
+        { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'cancelled' },
+        { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+      ] } };
+    },
+  } });
+  const state = await readCanaryRefreshState(api);
+  // Asserted outside the mock: the attachment step swallows API errors.
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].run_id, cancelled.id);
+  assert.equal(calls[0].attempt_number, 3);
+  assert.equal(state.eligible, true);
+  assert.equal(canaryRefreshDiagnostics(state).inventory.cancelled_before_sync, 1);
 });
 
 test('a second consecutive infrastructure failure debounces for the same plan, source and candidates', () => {
