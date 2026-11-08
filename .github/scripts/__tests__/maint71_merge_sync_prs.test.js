@@ -682,6 +682,34 @@ function refreshCanary(overrides = {}) {
     ...overrides };
 }
 
+test('a canary with no candidate PR requests a full canary run instead of failing the lane', async () => {
+  // 2026-11-08 13:36Z: a single-consumer source-delta plan opened a candidate only in one canary; the
+  // other canaries' rows carried no PR, and the refresh request threw canary_refresh_report_subject_unknown.
+  const { dispatchCandidateRefreshFromReport } = require('../maint71_merge_sync_prs');
+  const api = refreshHarness();
+  const missing = (repo) => ({ owner: 'stranske', repo, branch: 'sync/workflows-candidate',
+    status: 'stable_base_refresh_required', next_command: 'dispatch-maint-68-phase-canary-no-filter',
+    reason: 'candidate_pr_and_no_change_evidence_missing' });
+  const call = (report) => dispatchCandidateRefreshFromReport({ report, withRetry: api.withRetry,
+    context: api.context, core: api.core, expectedCanaries: api.expectedCanaries, trustedActors: ['stranske'] });
+  const report = { inputs: { sync_hash: 'candidate', cleanup_branches: true },
+    results: [missing('Ready'), missing('Template')] };
+  const result = await call(report);
+  assert.equal(result.missing_candidates, 2);
+  assert.equal(api.dispatches.length, 1);
+  const { inputs } = api.dispatches[0];
+  assert.equal(inputs.phase, 'canary');
+  assert.equal(inputs.delivery_scope, 'full');
+  assert.deepEqual(inputs.repos.split(',').sort(), ['stranske/Ready', 'stranske/Template']);
+  assert.equal(report.canary_refresh.drainable, 2);
+  assert.ok(api.notices.some(n => n.includes('no candidate PR for stranske/Ready, stranske/Template')));
+  // Any other row without a native subject still fails closed.
+  const foreign = { ...report, results: [{ ...missing('Ready'), owner: 'someone' }] };
+  await assert.rejects(call(foreign), /canary_refresh_report_subject_unknown/);
+  const otherReason = { ...report, results: [{ ...missing('Ready'), reason: 'something_else' }] };
+  await assert.rejects(call(otherReason), /canary_refresh_report_subject_unknown/);
+});
+
 function refreshHarness(overrides = {}) {
   const dispatches = [], comments = [], summaries = [], failures = [], reads = [], notices = [];
   const manifestEntries = require('../sync_pr_merge_contract').parseManifestSyncedSourceEntries(`

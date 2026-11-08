@@ -3686,6 +3686,14 @@ A held or failed dispatch emits no success receipt. This receipt is not
 production completion. Confirm the next Maint 71 run reaches the review/seal
 path without an identity mismatch.
 
+A canary row with no candidate PR (`candidate_pr_and_no_change_evidence_missing`,
+for example after a subset or source-delta plan opened a candidate in only one
+canary) has no native subject to derive a plan from. When every refresh row is of
+that shape, Maint 71 requests one full, unfiltered canary run from the default
+branch through the same refresh guard (debounce, active writer, unchanged digest)
+and prints `candidate refresh: no candidate PR for <repos>`. Any other row without
+an authenticated subject still fails with `canary_refresh_report_subject_unknown`.
+
 
 Maint 71 uses `STALE_CANARY_HOURS = 6` against the producer's
 `head_observed_at` to recover blocked or non-mergeable canaries. Green,
