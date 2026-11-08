@@ -1,0 +1,25 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-vv",
+    "tests/scripts/test_check_deliberate_break.py",
+    "-m",
+    "not slow",
+    "-x"
+  ],
+  "revision": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec",
+  "started_at": "2026-11-08T08:26:30.458262+00:00",
+  "python": "/tmp/workflows-4369-venv/bin/python3\n3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "node": "v24.22.2",
+  "working_tree_changes": [
+    "docs/CONTRIBUTING.md"
+  ],
+  "timeout_seconds": 90,
+  "exit_code": 124,
+  "timed_out": true,
+  "duration_seconds": 90.013,
+  "finished_at": "2026-11-08T08:28:00.519126+00:00",
+  "log_sha256": "0c27e62e75dd82f15130cb6838e68d27d6c91b34cf76bd4899d87fbdb9ddeee4"
+}

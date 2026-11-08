@@ -1,0 +1,20 @@
+{
+  "revision": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec",
+  "main_ancestor": "e9516d152196e29110c8f581cc942b91aa708cf9",
+  "files_sha256": {
+    "scripts/setup_validation_env.py": "f08741937f39c9c675d221ec34151f5bf7f2324ed9eb82bfaf84dd1a934ebfcd",
+    "tests/scripts/test_setup_validation_env.py": "6d6f4a9206ecee6ef90b2b50b8717794eceb53958716258e49be723c04befff8",
+    "docs/CONTRIBUTING.md": "a9ccf8375fe176a9a69cb52cc73ca6f4ee3be74ae9f291c1078f0008becc96c9",
+    "pyproject.toml": "3147eeb9bc2853fdad215c0c010c373abcdd33db1093588f459ae560b57d6b5c",
+    "tests/test_subscription_llm.py": "73686a3ec775ceed43e55e938a013b1aa8f362742a44a03a64b2d81c8d2ba643",
+    "tools/subscription_llm.py": "ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca",
+    "templates/consumer-repo/tools/subscription_llm.py": "ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca"
+  },
+  "uncommitted_implementation": [
+    "scripts/setup_validation_env.py",
+    "tests/scripts/test_setup_validation_env.py",
+    "docs/CONTRIBUTING.md"
+  ],
+  "git_add_exit": 128,
+  "git_add_error": "fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system"
+}
