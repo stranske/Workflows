@@ -23,21 +23,23 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
+import re
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import agent_model_table as amt  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from scripts import agent_model_table as amt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ORCHESTRATOR_COPY = "src/model_table.py"
 BEGIN_MARK = '\nTABLE_JSON = r"""'
 END_MARK = '\n"""  # END AGENT MODEL TABLE'
-RAW_URL = "https://raw.githubusercontent.com/stranske/Orchestrator/{ref}/" + ORCHESTRATOR_COPY
+RAW_HOST = "raw.githubusercontent.com"
+RAW_PATH = "/stranske/Orchestrator/{ref}/" + ORCHESTRATOR_COPY
+REF_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,199}")
 HOSTED_RUNNERS = {
     "codex": ".github/workflows/reusable-codex-run.yml",
     "claude": ".github/workflows/reusable-claude-run.yml",
@@ -183,12 +185,23 @@ def load_orchestrator_copy(path: str | None, ref: str) -> tuple[dict[str, Any], 
             return _parse_copy(Path(path).read_text(encoding="utf-8"), path), path
         except OSError as exc:
             raise CannotCompare(f"{path}: {exc}") from exc
-    url = RAW_URL.format(ref=ref)
+    if not REF_PATTERN.fullmatch(ref) or ".." in ref:
+        raise CannotCompare(f"invalid Orchestrator ref {ref!r}")
+    path_part = RAW_PATH.format(ref=ref)
+    url = f"https://{RAW_HOST}{path_part}"
+    # Fixed HTTPS host; only the validated ref varies, so no other scheme or host is reachable.
+    connection = http.client.HTTPSConnection(RAW_HOST, timeout=30)
     try:
-        with urllib.request.urlopen(url, timeout=30) as response:  # noqa: S310 - fixed https host
-            return _parse_copy(response.read().decode("utf-8"), url), url
-    except (urllib.error.URLError, TimeoutError) as exc:
+        connection.request("GET", path_part)
+        response = connection.getresponse()
+        body = response.read().decode("utf-8")
+        if response.status != 200:
+            raise CannotCompare(f"{url}: HTTP {response.status}")
+        return _parse_copy(body, url), url
+    except (OSError, http.client.HTTPException) as exc:
         raise CannotCompare(f"{url}: {exc}") from exc
+    finally:
+        connection.close()
 
 
 def run(

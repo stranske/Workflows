@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import copy
 import json
-import sys
 from pathlib import Path
 
 import pytest
+from scripts import agent_model_table as amt
+from scripts import check_model_tables as cmt
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import agent_model_table as amt  # noqa: E402
-import check_model_tables as cmt  # noqa: E402
 
 TABLE_PATH = ROOT / ".github" / "agents" / "model-table.json"
 
