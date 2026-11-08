@@ -215,8 +215,14 @@ is empty. Substituting the row's identity cannot renew another delivery's eviden
 
 Required checks, approvals, security, delivery integrity and branch protection
 remain independent gates. GitHub may still require all conversations resolved
-after the relevance contract accepts an unrelated handoff. A refused merge is
-reported as `merge_blocked_repository_policy` when GitHub names that condition;
+after the relevance contract accepts an unrelated handoff. Maint 71 reads the
+applicable active branch rules and legacy protection when unresolved threads
+remain, including outdated conversations. Both fleet preparation and the final
+exact-head boundary refuse before merge when resolution is required. Unknown
+policy reads retain an explicit retry action; a resolved inventory needs no
+policy read. The drain is the worker's evidence-backed disposition and truthful
+thread resolution, never treating `isOutdated` as `isResolved`. A refused merge is
+also reported as `merge_blocked_repository_policy` when GitHub names comments or conversations;
 there is no admin bypass or automatic resolution. This correction neither clears
 the existing shared-code blockers nor adds a campaign #1836 prerequisite, opens
 a campaign, or authorizes any consumer message or modification.
@@ -225,7 +231,27 @@ Maint82 retains its bounded ten-minute continuation sweep: consumer CI completio
 does not yet provide a native event wakeup for every delivery stage. The local
 worker follows active CI in the same run; the sweep is recovery and does not
 license dormant actionable work. Closed campaigns stay closed.
-Maint 82 compares active Maint 71 continuation titles after collapsing whitespace, because native run names may contain a newline before the continuation key. It preserves exact continuation-key matching and candidate/delivery priority; a successful exact continuation key is consumed in the observed run history. A new material-state/due handoff key or a failed attempt remains eligible. Completed delivery does not count as an active writer for candidate priority.
+Maint 82 compares active Maint 71 continuation titles after collapsing whitespace,
+because native run names may contain a newline before the continuation key.
+Successful native completions wake Maint 82 and are read back by exact run ID
+if absent from the bounded history page. Successful exact-key acknowledgments
+are persisted in the existing campaign marker for as long as that key remains
+queued. They survive process restarts and workflow-history eviction; replaced
+or terminal intents retire their acknowledgments. Only successful canonical
+Maint 71 runs on the default branch can supply them. Failed attempts and new
+material-state/due keys remain eligible. Acknowledged rows are removed before
+lane selection so they cannot starve a newer due key. The same observed history
+is reused for active-writer checks. Completed delivery does not count as an
+active writer for candidate priority.
+
+Maint 68 checks frozen source identity before honoring `force`. An unbound
+refresh of an existing same-plan signed candidate inherits that candidate's
+source and requests an exact-plan replay before any consumer mutation. Every
+downstream job in the replay therefore uses the frozen source; tooling revision
+is reported separately. An explicit expected-plan/source tuple remains the
+supported recovery input, including correction of a wrongly bound candidate.
+`force` bypasses the content-digest guard only. It cannot implicitly select a
+new release source merely because Workflows main advanced.
 
 
 ## Post-merge verifier security boundary

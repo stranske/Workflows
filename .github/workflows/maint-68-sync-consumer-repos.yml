@@ -355,17 +355,40 @@ jobs:
         env:
           SOURCE_COMMIT: ${{ steps.scope_request.outputs.source_commit }}
           EXPECTED_PLAN_ID: ${{ inputs.expected_plan_id || '' }}
+          EXPLICIT_SOURCE_COMMIT: ${{ inputs.scope_head_sha || '' }}
           PLAN_ID: ${{ steps.manifest.outputs.plan_id }}
           PLAN_SCOPE: ${{ steps.manifest.outputs.plan_scope }}
           SCOPE_BASE_SHA: ${{ steps.manifest.outputs.scope_base_sha }}
           REFRESH_KEY: ${{ inputs.refresh_key || '' }}
           FORCE: ${{ inputs.force || false }}
+          REQUESTED_REPOS: ${{ inputs.repos || '' }}
+          CLEANUP_BRANCHES: ${{ inputs.cleanup_branches }}
         with:
           github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
             if (process.env.EXPECTED_PLAN_ID && (!/^sha256:[a-f0-9]{64}$/.test(process.env.EXPECTED_PLAN_ID)
                 || process.env.EXPECTED_PLAN_ID !== process.env.PLAN_ID)) {
               throw new Error('Requested immutable recovery plan differs from the actual compiled plan');
+            }
+            const { preserveFrozenCanaryRefresh, readCanaryRefreshState, reportCanaryRefreshDiagnostics } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
+            const { createTokenAwareRetry } = require('./.delivery-tools/.github/scripts/github-api-with-retry');
+            const { withRetry } = await createTokenAwareRetry({
+              github, core, env: {}, tokenRegistry: { isInitialized: () => false },
+              task: 'maint68-scoped-refresh',
+            });
+            const config = require('./config/consumer_sync_canaries.json');
+            const binding = await preserveFrozenCanaryRefresh({ withRetry, context, core,
+              expectedCanaries: config.canaries.map(row => row.repo),
+              requestedRepos: process.env.REQUESTED_REPOS,
+              planId: process.env.PLAN_ID, planScope: process.env.PLAN_SCOPE,
+              scopeBaseSha: process.env.SCOPE_BASE_SHA, sourceCommit: process.env.SOURCE_COMMIT,
+              expectedPlanId: process.env.EXPECTED_PLAN_ID, force: process.env.FORCE === 'true',
+              explicitSourceCommit: process.env.EXPLICIT_SOURCE_COMMIT,
+              cleanupBranches: process.env.CLEANUP_BRANCHES !== 'false', refreshKey: process.env.REFRESH_KEY,
+            });
+            if (binding.redirected) {
+              core.setOutput('allowed', 'false');
+              return;
             }
             if (process.env.FORCE === 'true') {
               const line = 'refresh: forced (digest guard bypassed)';
@@ -374,13 +397,6 @@ jobs:
               core.setOutput('allowed', 'true');
               return;
             }
-            const { readCanaryRefreshState, reportCanaryRefreshDiagnostics } = require('./.delivery-tools/.github/scripts/maint71_merge_sync_prs');
-            const { createTokenAwareRetry } = require('./.delivery-tools/.github/scripts/github-api-with-retry');
-            const { withRetry } = await createTokenAwareRetry({
-              github, core, env: {}, tokenRegistry: { isInitialized: () => false },
-              task: 'maint68-scoped-refresh',
-            });
-            const config = require('./config/consumer_sync_canaries.json');
             const state = await readCanaryRefreshState({
               withRetry, context,
               expectedCanaries: config.canaries.map(row => row.repo),

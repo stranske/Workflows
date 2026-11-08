@@ -532,7 +532,60 @@ function preparedDeliveryContinuation(record = {}) {
   return continuation;
 }
 
-function planMaint71Continuations(records = [], { now = new Date().toISOString() } = {}) {
+function hasContinuationAcknowledgment(acknowledgments = [], intent = {}) {
+  return cleanArray(acknowledgments).some(ack => ack.lane === intent.lane
+    && ack.key === intent.continuation_key && cleanInteger(ack.run_id));
+}
+
+// Retain success receipts for every still-queued key, independently of Actions
+// history retention. Materially replaced/terminal intents retire their receipts.
+function mergeContinuationAcknowledgments(previous = [], runs = [], intents = [],
+  { repository = 'stranske/Workflows', defaultBranch = 'main' } = {}) {
+  const queued = new Set(cleanArray(intents).map(intent => `${intent.lane}:${intent.continuation_key}`));
+  const receipts = new Map(cleanArray(previous)
+    .filter(ack => queued.has(`${ack.lane}:${ack.key}`) && cleanInteger(ack.run_id))
+    .map(ack => [`${ack.lane}:${ack.key}`, ack]));
+  for (const run of cleanArray(runs)) {
+    if (run.status !== 'completed' || run.conclusion !== 'success'
+      || run.repository?.full_name !== repository || run.head_branch !== defaultBranch
+      || String(run.path || '').split('@')[0] !== '.github/workflows/maint-71-merge-sync-prs.yml'
+      || !['workflow_dispatch', 'repository_dispatch', 'schedule'].includes(run.event)
+      || !cleanInteger(run.id) || !cleanInteger(run.run_attempt)
+      || !Number.isFinite(Date.parse(run.updated_at))) continue;
+    const title = cleanString(run.display_title).replace(/\s+/g, ' ');
+    const match = title.match(/^Merge Sync PRs \[(candidate|campaign|delivery|dev-tool)\] ([\w-]{1,128})$/);
+    if (!match || !queued.has(`${match[1]}:${match[2]}`)) continue;
+    const ack = { lane: match[1], key: match[2], run_id: run.id,
+      run_attempt: run.run_attempt, completed_at: run.updated_at };
+    receipts.set(`${ack.lane}:${ack.key}`, ack);
+  }
+  return [...receipts.values()];
+}
+
+function queuedMaint71Intents(records = []) {
+  return excludeOwnerBlockedRecords(records).map(normalizeDeliveryHandoff).filter(Boolean)
+    .map(record => preparedDeliveryContinuation(record))
+    .filter(next => next.class === 'transient')
+    .map(next => ({ lane: next.lane, continuation_key: next.key }));
+}
+
+async function observeMaint71Runs({ read, owner, repo, workflowRun }) {
+  const { data } = await read(client => client.rest.actions.listWorkflowRuns({
+    owner, repo, workflow_id: 'maint-71-merge-sync-prs.yml', per_page: 40 }));
+  if (!Array.isArray(data?.workflow_runs)) throw new Error('maint71_history_unknown; drainable=retry-actions-read');
+  const runs = data.workflow_runs;
+  // A native workflow_run event carries the exact completion even after a
+  // burst of other jobs has pushed it out of the bounded history page.
+  if (cleanInteger(workflowRun?.id) && !runs.some(run => run.id === workflowRun.id)) {
+    const response = await read(client => client.rest.actions.getWorkflowRun({
+      owner, repo, run_id: workflowRun.id }));
+    if (response?.data?.id !== workflowRun.id) throw new Error('maint71_completion_identity_changed');
+    runs.push(response.data);
+  }
+  return runs;
+}
+
+function planMaint71Continuations(records = [], { now = new Date().toISOString(), acknowledgments = [] } = {}) {
   const nowMs = Date.parse(now);
   if (!Number.isFinite(nowMs)) throw new Error(`invalid continuation time: ${now}`);
   const handoffs = excludeOwnerBlockedRecords(records)
@@ -546,6 +599,8 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
   for (const record of handoffs) {
     const continuation = preparedDeliveryContinuation(record);
     if (continuation.class !== 'transient') continue;
+    if (hasContinuationAcknowledgment(acknowledgments,
+      { lane: continuation.lane, continuation_key: continuation.key })) continue;
     if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
     if (deliveryActive && continuation.lane === 'candidate') continue;
     const dueMs = Date.parse(continuation.resume_after || record.observed_at);
@@ -946,6 +1001,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     },
     source_review_history: sourceReviewHistory,
     delivery_handoffs: deliveryHandoffs,
+    continuation_acknowledgments: cleanArray(previousState.continuation_acknowledgments),
     items,
   };
 }
@@ -1292,6 +1348,7 @@ function compactStateForMarker(state = {}) {
       .map(compactSourceReviewHistoryEntry)
       .filter(Boolean),
     delivery_handoffs: cleanArray(state.delivery_handoffs).slice(0, DEFAULT_MAX_DELIVERY_HANDOFFS),
+    continuation_acknowledgments: cleanArray(state.continuation_acknowledgments),
     marker_item_filter: 'actionable-claimed-blocked-unpublished',
     items: markerItems.map(compactQueueItemForMarker),
   };
@@ -2085,6 +2142,7 @@ async function runCampaign({
   ignoredPaths = DEFAULT_IGNORED_PATHS,
   currentSyncHash = '',
   deliveryHandoffRecords = [],
+  observeContinuations = false,
   now = new Date().toISOString(),
 } = {}) {
   if (!github || !context?.repo) {
@@ -2096,6 +2154,10 @@ async function runCampaign({
   const withRetry = retryHelpers.withRetry;
   const campaignOwner = context.repo.owner;
   const campaignRepo = context.repo.repo;
+  const maint71Runs = observeContinuations ? await observeMaint71Runs({
+    read: withRetry, owner: campaignOwner, repo: campaignRepo,
+    workflowRun: context.payload?.workflow_run,
+  }) : [];
   const repoEntries = parseCsv(repos)
     .map((entry) => normaliseRepoEntry(entry, campaignOwner))
     .filter((entry) => entry && !isOwnerExcludedRepository(entry.fullName));
@@ -2165,6 +2227,12 @@ async function runCampaign({
   state.handoff_verification_blocked_keys = [...new Set([
     ...verifiedIncoming.blockedKeys, ...closureReconciliation.blockedKeys,
   ])];
+  state.continuation_acknowledgments = mergeContinuationAcknowledgments(
+    previousState.continuation_acknowledgments, maint71Runs,
+    queuedMaint71Intents(state.delivery_handoffs), {
+      repository: `${campaignOwner}/${campaignRepo}`,
+      defaultBranch: context.payload?.repository?.default_branch || 'main',
+    });
   if (errors.length) {
     state.errors = errors.slice(0, 20);
   }
@@ -2227,10 +2295,13 @@ async function runCampaign({
     core.setOutput('campaign_issue_url', campaignIssue?.html_url || '');
   }
 
-  return { state, issue: campaignIssue, body };
+  return { state, issue: campaignIssue, body, maint71Runs };
 }
 
 module.exports = {
+  hasContinuationAcknowledgment,
+  mergeContinuationAcknowledgments,
+  observeMaint71Runs,
   CAMPAIGN_SCHEMA,
   CAMPAIGN_MARKER,
   CAMPAIGN_TITLE,
