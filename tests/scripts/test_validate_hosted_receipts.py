@@ -436,6 +436,30 @@ def test_phase_plugin_requires_phases_in_both_arms(hosted_archive, arms):
         validator.validate(*build(phase_enabled=True, mutate=remove_phases))
 
 
+@pytest.mark.parametrize("retained_evidence", ["summaries", "receipts", "both"])
+@pytest.mark.parametrize("missing_arm", [None, "baseline", "candidate"])
+def test_phase_archive_cannot_fall_back_to_legacy_without_probe_declaration(
+    hosted_archive, retained_evidence, missing_arm
+):
+    """Removing the declaration cannot turn remaining phase evidence into legacy data."""
+    build, git_calls = hosted_archive
+
+    def remove_declaration(result, members):
+        del result["phase_plugin_sha256"]
+        for arm in validator.PAIR:
+            if retained_evidence == "receipts" or arm == missing_arm:
+                del result["arms"][arm]["phases"]
+        if retained_evidence == "summaries":
+            for path in list(members):
+                if "/phase-clocks/" in path:
+                    del members[path]
+                    del result["artifact_sha256"][path]
+
+    with pytest.raises(ValueError, match="phase measurements require phase_plugin_sha256"):
+        validator.validate(*build(phase_enabled=True, mutate=remove_declaration))
+    assert git_calls == []
+
+
 @pytest.mark.parametrize("arm", ["baseline", "candidate"])
 @pytest.mark.parametrize(
     "field, value",

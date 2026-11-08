@@ -1,5 +1,50 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Phase declaration and legacy fallback boundary
+
+Reviewed the recent keepalive commits and live PR state before editing. The
+four-archive revalidation and PR #4535 delivery tasks are still checked despite
+missing verification. Reopening those checkboxes was rejected by automatic
+approval review: `MCP tool call requires approval, but approval policy is never`.
+
+The validator now rejects phase summaries or raw phase-clock receipts without
+`phase_plugin_sha256` before Git. Previously, removing that declaration could
+validate an instrumented archive with either arm's summary missing, or classify
+raw phase receipts without summaries as legacy UNKNOWN. Nine regression cases
+reproduced the missing refusal before the guard. Genuine legacy controls still
+pass and retain UNKNOWN for phases, historical uploads and exclusive overhead.
+
+Using installed Python 3.14.10, the three focused suites pass with **534 passed
+in 22.03s**; the unchanged integration suite passes with **2054 passed in
+13.39s** and all five marker-specific options assertions retained. Both runs
+used `-m 'not slow'`. Ruff and `git diff --check` pass. The required Anaconda
+interpreter remains absent, so its exact acceptance commands are unverified.
+
+Black formatted both touched Python files at line length 100. After a serial
+check populated the writable cache (the threaded CLI stalled), the required
+repository-wide command passed without changing formatting rules or exclusions:
+
+```text
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-4541-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+970 files would be left unchanged.
+```
+
+The original 3.13 ZIP matches live GitHub artifact metadata but fails independent
+validation at the missing immutable harness source. The other three ZIPs and
+the candidate Git object remain absent locally. Four-archive validation remains
+unverified; the original source pair and dependency lock are unchanged.
+
+Staging failed with `.git/index.lock: Read-only file system`; no commit or push
+was possible. Publishing #4535's retained proposed body, the blocker comment
+and the `needs-human` label was rejected by the same approval policy. #4535
+still has 13 active unresolved review threads at
+`f3325610782d7d8d57fbd9659cfae8b1e12fe10e`. Its exact-head expected-check reporter
+returns UNKNOWN because native-gh cannot reach GitHub. No acceptance checkbox,
+remote disposition or merge was completed.
+
+Final readback confirms both #4535 and #4542 remain open with `draft=false` at
+their unchanged heads.
+
 ## Immutable source and dependency-lock regression continuation
 
 Reviewed the seven recent keepalive commits before continuing. The source guards

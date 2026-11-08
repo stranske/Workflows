@@ -71,6 +71,12 @@ def validate(archive, metadata):
     run_id = artifact["workflow_run"]["id"]
     if artifact.get("name") != f"verifier-runtime-{runtime_match[1]}-{run_id}":
         raise ValueError("artifact name does not match recorded Python runtime and workflow run")
+    phase_prefixes = tuple(f"{arm}/phase-clocks/" for arm in PAIR)
+    if "phase_plugin_sha256" not in result and (
+        any("phases" in result["arms"][arm] for arm in PAIR)
+        or any(path.startswith(phase_prefixes) for path in members)
+    ):
+        raise ValueError("phase measurements require phase_plugin_sha256")
     if "phase_plugin_sha256" in result:
         for arm in PAIR:
             phases = result["arms"][arm].get("phases")
