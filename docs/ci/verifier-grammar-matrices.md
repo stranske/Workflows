@@ -278,8 +278,10 @@ python scripts/gate_runtime_evidence.py --help
 ```
 
 `maint-88-verifier-runtime-comparison.yml` is a finite manual experiment for #3904,
-not a new PR gate or recurring benchmark service. The #4462 continuation explicitly
-requests the Python 3.12/3.13 experiment on the reviewed PR #4527 source pair.
+not a new PR gate or recurring benchmark service. It runs on Python 3.13 (the
+baseline runtime) and 3.14 over the reviewed PR #4527 source pair. The #4462
+continuation's original Python 3.12 receipts stay under `docs/evidence/issue-3904/`
+as history; the owner retired the 3.12 arm on 2026-11-08.
 Dispatch once from the validated harness/workflow commit and retain its identity.
 Within each job, both arms share the exact interpreter, installed dependency set,
 four loadgroup workers, markers, coverage configuration, commands and runner.
@@ -315,7 +317,7 @@ they do not assert that every imported file or the entire checkout is unchanged.
 No artifact or dependency cache restore runs. Each arm starts in a fresh source
 archive with pytest cache disabled, bytecode writes disabled, and its own temporary
 directory. OS page-cache effects are not controlled. The harness runs baseline first
-on Python 3.12 and candidate first on other versions, so the scheduled
+on Python 3.13 and candidate first on other versions, so the scheduled
 versions use opposite arm orders. These are one pair per interpreter, not repeated
 trials sufficient to estimate variability. Dependency installation is outside the
 timed arms. This experiment therefore cannot claim that removing the former

@@ -775,7 +775,7 @@ def test_hosted_comparison_selects_reviewed_sources_and_requested_runtimes():
         (root / ".github/workflows/maint-88-verifier-runtime-comparison.yml").read_text()
     )
     job = workflow["jobs"]["compare"]
-    assert job["strategy"]["matrix"]["python"] == ["3.12", "3.13"]
+    assert job["strategy"]["matrix"]["python"] == ["3.13", "3.14"]
     steps = job["steps"]
     prepare = next(step["run"] for step in steps if step["name"] == "Prepare immutable arms")
     args = shlex.split(prepare)
