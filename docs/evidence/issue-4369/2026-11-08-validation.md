@@ -2048,3 +2048,68 @@ still running, is retained as `runtime-4550/supported-exact-selftest-02fbe3f74.j
 No final status for the whole manual Selftest run is inferred from that snapshot.
 The canonical Python jobs still use configured marker filters, so the exact
 unfiltered Python requirement and combined suite review thread remain open.
+
+### Causal delivery replay and fresh observation, 14:01 UTC
+
+The delivery task remains incomplete. The new executable replay in
+`tests/scripts/test_issue_4369_delivery_lifecycle.py` binds the successful
+Maint 68 producer **42485644055** to consumer PR **2486**, its frozen source,
+plan and generation, the actual dispatch notice, and following Maint 71
+**42485792262**. The following run was created at **13:36:44Z**, before the
+producer's **13:36:45.1929598Z** dispatch completion notice and **13:36:48Z**
+completion. Selecting only runs created after producer completion would miss
+this causal successor.
+
+Both that report and retry **42485974523** have finding dispositions bound to
+the selected repository, PR, exact head, source, plan and generation, with no
+active findings and discussion **4434491702** excluded. Twelve negative cases
+substitute each binding coordinate in each report. Deliberately removing the
+binding comparison produces **12 failures**, exit **1**; restoring it produces
+**47 passed**, exit **0**, across both downstream evidence modules. The new
+module contributes **18** cases. Raw output and interpreter/revision/timing
+metadata are retained in [the validation receipt](runtime-4550/delivery-lifecycle-validation.json),
+[passing log](runtime-4550/delivery-lifecycle-tests.log), and
+[deliberate-break log](runtime-4550/delivery-lifecycle-binding-red.log).
+Ruff on the new module passes. The required repository-wide Black check exits
+**0**, with **975 files unchanged**, using the previously documented external
+event-loop heartbeat workaround and one worker. The ordinary one-worker check
+stalled and its bounded replay exited **124**. Formatter behavior, file selection
+and checks were preserved; [the passing output](runtime-4550/delivery-lifecycle-black.log)
+and runtime-hook digest are retained in the validation receipt.
+
+The replay also recomputes Git blob hashes from retained immutable bytes and
+compares the final consumer template with the root source and consumer
+candidate. Those bytes agree; consumer main still differs. A successful sealed
+candidate check and a prospective `merge_commit_sha` on an open PR do not prove
+merged delivery. The retry report remains **campaign_prepared**, **merged=0**,
+with two missing canary subjects and its campaign commit step skipped.
+
+The [fresh observation](runtime-4550/delivery-lifecycle-refresh.json) retains
+all **167** workflow runs on both pages for **13:36:40Z–13:57:36Z**, without an
+event filter. It includes the two causal Maint 71 runs and no later replacement
+in that interval. Its complete short REST comment page contains **49** comments;
+the ordered IDs agree with the connector's independent all-pages read. There is
+no later scoped sync-core recurrence through **2026-11-08T13:58:02Z**; collection
+completed at **13:58:53Z**. Discussion **4434491702** remains resolved and outdated.
+Consumer PR **2486** and source PR **4551** remain open and non-draft in this
+snapshot. The consumer head remains
+`653f443b52ec179c6680ee369be06ed3e3ce2617`, and consumer main remains
+`0543dc9732eab0ad12227308749566a937581eea`.
+
+The connector provides no workflow-dispatch operation. A current read-only CLI
+probe exits **1** with `error connecting to api.github.com`; its command and
+output are retained in the fresh observation. Repeating the same failed
+Maint 71 campaign cannot supply missing canary subjects. Owner action is needed
+to resolve that lifecycle blocker while preserving the selected frozen payload,
+required checks and exact-head merge guards. No workflow file was edited, no
+additional consumer was enrolled, and no merge bypass was attempted. The final
+consumer-delivery task and combined full-suite acceptance remain unchecked.
+
+Local staging failed with `Unable to create .../.git/index.lock: Read-only file
+system`. A GitHub connector tree-creation attempt to prepare an expected-head,
+non-forced update from `bfc163b5742e1a4b88048ad4128ec08f42461951` was rejected:
+`MCP tool call requires approval, but approval policy is never`. No tree, commit
+or branch update was created. The required `needs-human` label and blocker
+comment on source PR **4551** were also attempted and rejected for the same
+approval-policy reason. Changes remain local and uncommitted; the run cannot
+satisfy the commit requirement or publish the blocker through GitHub.
