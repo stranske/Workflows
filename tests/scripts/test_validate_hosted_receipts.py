@@ -224,6 +224,72 @@ def test_valid_legacy_and_phase_archives(
 
 
 @pytest.mark.parametrize("phase_enabled", [False, True])
+def test_changed_archive_rejected_before_git(hosted_archive, phase_enabled):
+    """Readable ZIP bytes must still match the retained GitHub artifact digest."""
+    build, git_calls = hosted_archive
+    archive, metadata = build(phase_enabled=phase_enabled)
+    with zipfile.ZipFile(archive, "a") as zipped:
+        zipped.writestr("extra.log", b"added after upload\n")
+
+    with pytest.raises(AssertionError, match="archive differs from GitHub artifact digest"):
+        validator.validate(archive, metadata)
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+def test_ambiguous_artifact_identity_rejected_before_git(hosted_archive, phase_enabled):
+    """Two metadata rows with the same digest cannot select an artifact identity."""
+    build, git_calls = hosted_archive
+    archive, metadata = build(phase_enabled=phase_enabled)
+    metadata["artifacts"].append({**metadata["artifacts"][0], "id": 124})
+
+    with pytest.raises(AssertionError, match="archive differs from GitHub artifact digest"):
+        validator.validate(archive, metadata)
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+def test_duplicate_archive_members_rejected_before_git(hosted_archive, phase_enabled):
+    """Even an authenticated ZIP must not choose between duplicate manifests."""
+    build, git_calls = hosted_archive
+    archive, metadata = build(phase_enabled=phase_enabled)
+    with zipfile.ZipFile(archive, "a") as zipped:
+        manifest = zipped.read("manifest.json")
+        with pytest.warns(UserWarning, match="Duplicate name: 'manifest.json'"):
+            zipped.writestr("manifest.json", manifest)
+    metadata["artifacts"][0]["digest"] = f"sha256:{validator.digest(archive.read_bytes())}"
+
+    with pytest.raises(AssertionError, match="duplicate archive members"):
+        validator.validate(archive, metadata)
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+def test_result_manifest_identity_must_match_archive_manifest(hosted_archive, phase_enabled):
+    """The embedded result cannot identify a different workflow from the manifest."""
+    build, git_calls = hosted_archive
+
+    def replace_result_identity(result, members):
+        result["manifest"] = {**result["manifest"], "workflow_sha": "b" * 40}
+
+    with pytest.raises(AssertionError):
+        validator.validate(*build(phase_enabled=phase_enabled, mutate=replace_result_identity))
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+def test_workflow_identity_must_match_retained_metadata(hosted_archive, phase_enabled):
+    """A valid commit ID and digest cannot bypass GitHub's recorded workflow head."""
+    build, git_calls = hosted_archive
+    archive, metadata = build(phase_enabled=phase_enabled)
+    metadata["artifacts"][0]["workflow_run"]["head_sha"] = "b" * 40
+
+    with pytest.raises(AssertionError):
+        validator.validate(archive, metadata)
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
 @pytest.mark.parametrize("arm", ["baseline", "candidate"])
 def test_uploaded_historical_log_is_verified_instead_of_unknown(hosted_archive, phase_enabled, arm):
     """Only unavailable inherited logs qualify for the explicit UNKNOWN exception."""

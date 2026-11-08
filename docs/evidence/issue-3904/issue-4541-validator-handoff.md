@@ -1,5 +1,46 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Archive and metadata identity regression continuation
+
+Added 10 regression cases across legacy and phase-enabled archives. They reject
+changed outer ZIP bytes, duplicate manifest members even with a matching outer
+digest, ambiguous matching artifact metadata, divergent result/manifest workflow
+identities, and a workflow identity differing from the retained metadata. Every
+case verifies rejection before Git. These are fixture controls, not revalidation
+of the four hosted archives; the validator and runtime instrumentation are unchanged.
+
+Verification with installed Python 3.14.10:
+
+```text
+python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+485 passed in 22.91s
+
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 11.75s
+
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-4541-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+970 files would be left unchanged.
+```
+
+The touched test was formatted with Black at line length 100. Ruff and
+`git diff --check` pass, and all five marker-specific options assertions remain
+unchanged. The repository-wide CLI formatting check passed after a serial cache
+warmup honoring the configured exclusions; the first uncached CLI invocation
+stalled and was interrupted.
+
+Staging the test failed with `.git/index.lock: Read-only file system`, so no
+commit or push was possible. The requested Anaconda interpreter, three archives
+and immutable harness/candidate Git objects remain absent. No acceptance checkbox
+was changed. Historical uploads and exclusive overhead remain UNKNOWN.
+
+PR #4535 remains open and ready at the previously recorded head, with 13 active
+unresolved review threads. The expected-check reporter returns UNKNOWN because
+the shell cannot reach GitHub; successful connector Gate/guard statuses alone do
+not establish all required checks. The connector rejected the retained proposed
+body update, blocker comment and source issue #4541's `needs-human` label with
+`MCP tool call requires approval, but approval policy is never`. No guarded merge
+or source write to PR #4535 occurred.
+
 ## Historical upload UNKNOWN boundary continuation
 
 Added 16 regression cases across both arms and legacy/phase-enabled archives.
