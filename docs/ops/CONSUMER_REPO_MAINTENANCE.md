@@ -1730,6 +1730,15 @@ generation. Source observation times are ordered across the whole PR, not
 only within one generation.
 A retained nonterminal record whose live open PR moved to a new head is also
 withheld from continuation until its owner publishes a matching handoff.
+For a trusted same-repository dev-tool PR on the same generated branch, Maint 82
+also persists a scoped current-head reconciliation request. It preserves the old
+handoff identity and grants no seal, merge, or source authority. Maint 71 reads
+and validates the replacement through its normal native path. Forks, drafts,
+unknown identities, and full-sync source changes do not gain this wake-up.
+The request key binds head, consumer base, and mergeability; successful native
+receipts remain acknowledged while that request is queued. Fresh matching
+handoffs and closure retire it. Maint 82 dispatches one due writer per sweep and
+leaves all other intents durable while a Maint 71 writer is active or queued.
 `campaign_prepared` delivery records are stored as terminal evidence but
 schedule campaign authorization; Maint 82 therefore verifies their live open
 PR and reconciles closure before scheduling that continuation.
