@@ -1,5 +1,72 @@
 # Issue #4365: handoff regression verification
 
+## Delayed continuation acceptance check — 2026-11-08
+
+Before this round's test edits, ran:
+
+```sh
+timeout 60s node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js .github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js
+```
+
+Baseline: **101 passed, 0 failed**. Stop rule: one baseline and one post-edit
+attempt, each limited to 60 seconds; investigate any named failure before one
+corrective rerun. Full gates have one 180-second attempt each; timeout remains
+incomplete. Expected additional observation: after an old handoff schedules
+`done`, reopening and closing with a different PR must make that delayed
+continuation refuse completion, preserve `agents:auto-pilot`, and require
+`verify` for the new PR. A fresh successful handoff must then complete normally.
+
+Rechecked GitHub metadata: #4447 and #4451 remain closed and unmerged; #4538 is
+open with `draft=false`. Local `origin/main` includes the replacement contract
+from #4463 (`7ab99d09`) and the explicit verifier-mode guard from #4537
+(`c2ac6f38`). The prior helper/tests are preserved as regressions; no superseded
+completion shortcut or workflow change is required for this test extension.
+
+Results after adding six source/template cases:
+
+- [x] The acceptance command above reports **107 passed, 0 failed**, including
+  after restoring both helper files from temporary mutations.
+- [x] New cases execute the actual verifier, continuation, and completion steps.
+  They reject delayed completion when the closing PR changes, the head changes,
+  or both change; ownership survives refusal and a fresh handoff completes.
+- [x] Restoring label-only closed-state selection separately in each helper
+  makes `issue 4365: delayed done after reopening rejects a different PR and
+  head` fail. Restoring lost continuation (`verify` redispatches `auto`) also
+  fails that named test separately on each surface. All four experiments exit 1;
+  the corresponding three cases fail and the other surface's three pass.
+  `git diff --exit-code` on both helpers confirms no mutation remains.
+- [x] `timeout 60s python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -m 'not slow'`:
+  **66 passed**, Python 3.14.10, with normal plugin loading.
+- [ ] Full Node gate: `timeout 180s node --test .github/scripts/__tests__/*.test.js`
+  exits **124**, summary **115 passed, 6 failed, 20 cancelled**. The two initially
+  failing files, `agents-verifier-context.test.js` and
+  `generated-delivery-seal-action.test.js`, report **199 passed, 18 failed** in a
+  focused diagnostic run, including child-process `EPERM` and missing
+  `delivery_not_sealed:staging`. No unrelated tests were changed or disabled.
+- [ ] Full Python gate: `timeout 180s python3 -m pytest -q tests/ -m 'not slow'`
+  exits **124**, progress about 2%, without a final summary.
+- [ ] Commit: staging the JavaScript test and this evidence file fails with
+  `.git/index.lock: Read-only file system`. The changes remain uncommitted.
+
+Fresh live inspection found [Maint 71 run 42438994831](https://github.com/stranske/Workflows/actions/runs/42438994831)
+reporting consumer #2454 at the same generated head
+`b36b8ebf242bde649f6e31edc2cc915ad49d7421`, source
+`c2ac6f38d6f2ce73f000158fa6f729bfece82092`, generation `4017589cec3c`.
+The head-bound report has `review_state=clear`, `raw_active_count=0`,
+`findings=[]`, and `status=campaign_prepared`; its `review_reassessment` job was
+skipped. Both original threads remain outdated and unresolved. Issue #4365's
+last sync-core bump still identifies `d6f4831035dd` / `20261106T115526Z`.
+This adds current operational evidence but does not establish explicit
+reassessment or live acceptance of the original findings. No workflow edit or
+consumer branch modification was required or performed.
+
+The PR #4538 checklist update, `needs-human` label, and results/blocker comment
+were each rejected with `MCP tool call requires approval, but approval policy is
+never`. No remote checkbox, label, or comment changed. A writable Git runner
+must commit the test/evidence changes and complete the full source gates;
+explicit live finding reassessment remains a separate pending acceptance check.
+PR #4538 was verified open with `draft=false`.
+
 ## Current acceptance check — 2026-11-08
 
 The historical notes below describe earlier attempts, not current deployment.

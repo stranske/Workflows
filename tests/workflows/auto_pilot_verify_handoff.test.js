@@ -642,6 +642,69 @@ for (const [surface, workflowPath] of SURFACES) {
     });
   });
 
+  for (const [scenario, newPr, newHead] of [
+    ['a different PR and head', PR + 1, OTHER_HEAD],
+    ['a different PR with the same head', PR + 1, HEAD],
+    ['the same PR with a different head', PR, OTHER_HEAD],
+  ]) {
+    test(`${surface}: issue 4365: delayed done after reopening rejects ${scenario}`, async () => {
+      const world = createWorld({
+        prs: [mergedPr(PR, ISSUE)],
+        issueLabels: ['agents:auto-pilot', 'verify:evaluate'],
+      });
+      const verify = await runVerify(world);
+      assert.equal(verify.outcome, 'success', verify.failures.join('; '));
+      assert.equal(verify.outputs.verify_handoff, 'found');
+      assert.equal(redispatchFires('verify', verify), true);
+      const redispatch = await runStep('Re-dispatch for next step', {
+        world,
+        env: { CURRENT_STEP: 'verify' },
+      });
+      assert.equal(redispatch.outcome, 'success', redispatch.failures.join('; '));
+      const delayed = world.dispatches.find((d) => d.workflow_id === 'agents-auto-pilot.yml');
+      assert.equal(delayed.inputs.force_step, 'done');
+      assert.equal(completionPosted(world), false);
+
+      // Reopen and close again while the previous closure's continuation waits.
+      // Keep its handoff labels and verifier run, including when only one part
+      // of the PR/head identity changes.
+      assert.equal(determineNextStep({
+        issueState: 'open', linkedPr: String(PR),
+        hasVerify: true, verifyHandoffBound: true,
+      }).nextStep, 'monitor-pr');
+      if (newPr === PR) world.prs[0] = mergedPr(newPr, ISSUE, { head: newHead });
+      else world.prs.unshift(mergedPr(newPr, ISSUE, { head: newHead }));
+      assert.equal(determineNextStep({
+        issueState: 'closed', hasVerify: true, verifyHandoffBound: true,
+      }).nextStep, 'verify');
+
+      // A forced continuation bypasses state selection, so the reporter itself
+      // must reject the old run. No verify outputs survive into this execution.
+      assert.equal(determineNextStep({
+        issueState: 'closed', forceStep: delayed.inputs.force_step,
+      }).nextStep, 'done');
+      const staleDone = await runDone(world, {
+        VERIFY_HANDOFF: '',
+        VERIFY_HANDOFF_BOUND: world.issueLabels.has('verify:pr-handoff') ? 'true' : 'false',
+      });
+      assert.equal(staleDone.outcome, 'failure');
+      assert.match(staleDone.failures.join('; '), /verification handoff missing/);
+      assert.equal(completionPosted(world), false);
+      assert.equal(ownershipRemoved(world), false);
+      assert.equal(world.issueLabels.has('agents:auto-pilot'), true);
+      assert.equal(world.runs.length, 1, 'refused completion cannot invent verification');
+
+      // The refused old continuation must not prevent the new closure completing.
+      world.dispatches = [];
+      await completeClosedIssue(world);
+      const verifier = world.dispatches.filter((d) => d.workflow_id === 'agents-verifier.yml');
+      assert.equal(verifier.length, 1, 'new closure requires its own verifier dispatch');
+      assert.deepEqual(verifier[0].inputs, {
+        pr_number: String(newPr), pr_head_sha: newHead, mode: 'evaluate',
+      });
+    });
+  }
+
   test(`${surface}: routing: failed verify retains ownership and does not re-dispatch done`, async () => {
     const world = createWorld({ prs: [mergedPr(PR, ISSUE)], dispatchError: 'denied' });
     const verify = await runVerify(world);
