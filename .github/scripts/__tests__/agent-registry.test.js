@@ -234,7 +234,7 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
   assert.equal(profile.agent, 'codex');
   assert.equal(profile.model, 'gpt-6.1-sol');
   assert.equal(profile.reasoning_effort, 'high');
-  assert.equal(profile.fallback_model, 'gpt-5.5');
+  assert.equal(profile.fallback_model, 'gpt-5.6-terra');
   assert.equal(profile.runner, 'reusable-codex-run');
 });
 
