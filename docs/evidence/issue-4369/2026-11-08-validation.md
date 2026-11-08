@@ -2026,3 +2026,33 @@ the blocker comment and `needs-human` label with `MCP tool call requires approva
 but approval policy is never`; neither remote mutation succeeded. The
 [retained blocker comment](runtime-4550/4558-round3-publication-blocker.md) and
 implementation remain available for the authorized repository writer.
+
+## Round 3 CI repair: offline URL validation — 2026-11-08
+
+Pre-code check date: 2026-11-08T23:01:44Z. Outcome: the API-wrapper guard
+must exit 0 on this PR's real changed-file inventory while the offline producer
+replay retains its strict URL binding. Acceptance command:
+`/opt/anaconda3/bin/python3 scripts/check_api_wrapper_guard.py --base-ref main`.
+Focused validation: the guard's Python test module and the producer replay's
+JavaScript test file, each bounded to two minutes. Stop at the first unresolved
+step after three failed attempts or 60 minutes, whichever occurs first; this
+bounded CI repair does not restart the expired full acceptance campaign.
+
+The command reproduced the exact CI failure: `observe-maint68.js:31` was flagged
+for its literal API origin. Inspection shows the collector only reads frozen JSON
+with `fs.readFileSync`; it makes no network calls. The existing guard already
+exempts named offline provenance validators. Add this specific offline validator
+to that list, preserving the literal origin check and all network-client rules.
+Blocking/drainable pair: blocking=1 (CI guard false positive), drainable=1
+(the named offline-validator exemption). No new gate or lock is created.
+
+Repair validation: the acceptance command exits 0; the focused command
+`/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_check_api_wrapper_guard.py`
+exits 0 (39 passed in 0.59s). `node tests/scripts/test_issue_4369_origin_observation.js`
+exits 0 (20 passed); replay of `4558-round3-origin-inventory.json` exits 0 and
+still reports complete pagination, zero producers and `chain_acceptance=false`.
+`git diff --check` exits 0. No acceptance ID is newly completed by this lint
+repair. No full suite was run locally, no dependency pin changed, and no
+Maint 68/71 workflow was dispatched. Existing upstream verification and producer
+origin gaps remain unresolved. Publication in this round supersedes the earlier
+round's historical inability to stage; that historical receipt remains intact.
