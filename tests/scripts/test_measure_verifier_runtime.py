@@ -189,7 +189,12 @@ def test_real_arms_keep_one_environment_and_preserve_coverage(tmp_path, monkeypa
     assert result["verifier_coverage"]["baseline_lines"] > 0
     assert result["verifier_coverage"]["candidate_branches"] > 0
     assert not result["verifier_coverage"]["lost_lines"]
-    assert len(result["artifact_sha256"]) == 6
+    assert len(result["artifact_sha256"]) == 18
+    assert all(row["phases"]["available"] for row in result["arms"].values())
+    assert (
+        result["phase_plugin_sha256"]
+        == measure.hashlib.sha256(measure.PHASE_PLUGIN.encode()).hexdigest()
+    )
     assert result["source_integrity"]["verified"] is True
     for phase in ("before", "after"):
         receipt = result["source_integrity"][phase]
@@ -785,3 +790,80 @@ def test_hosted_comparison_selects_reviewed_sources_and_requested_runtimes():
     execute = next(step for step in steps if step["name"].startswith("Run both arms"))
     assert execute["run"] == "python scripts/measure_verifier_runtime.py run --output measurement"
     assert "continue-on-error" not in execute
+
+
+def _phase_receipts(arm):
+    for role in ("controller", "gw0", "gw1", "gw2", "gw3"):
+        path = arm / "phase-clocks" / f"{role}.json"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "role": role,
+                    "clock": "time.monotonic",
+                    "boundaries": {
+                        "session_start": 1,
+                        "session_end": 20,
+                        "collection_start": 2,
+                        "collection_end": 4,
+                        "loop_start": 2,
+                        "loop_end": 17,
+                        "coverage_reporting_start": 15,
+                        "coverage_reporting_end": 17,
+                        "reporting_start": 17,
+                        "reporting_end": 20,
+                    },
+                }
+            )
+        )
+
+
+def test_phases_measure_reporting_directly_despite_overlapping_clocks(tmp_path):
+    _phase_receipts(tmp_path)
+    phases = measure.execution_phases(tmp_path)
+    assert phases["available"]
+    assert "overlap" in phases["overlap_note"]
+    assert phases["processes"]["controller"]["coverage_reporting"]["seconds"] == 2
+    for process in phases["processes"].values():
+        assert process["reporting"] == {"start": 17, "end": 20, "seconds": 3}
+        assert process["collection"]["seconds"] == 2
+        assert process["controller_worker_loop"]["seconds"] == 15
+
+
+@pytest.mark.parametrize("clock", [None, True, -1, "2", float("nan"), float("inf"), 25])
+def test_phases_withhold_missing_invalid_and_reversed_boundaries(tmp_path, clock):
+    _phase_receipts(tmp_path)
+    path = tmp_path / "phase-clocks/gw2.json"
+    receipt = json.loads(path.read_text())
+    receipt["boundaries"]["reporting_start"] = clock
+    path.write_text(json.dumps(receipt))
+    phases = measure.execution_phases(tmp_path)
+    assert not phases["available"]
+    assert phases["processes"]["gw2"]["reporting"] is None
+    assert phases["processes"]["gw1"]["reporting"]["seconds"] == 3
+
+
+@pytest.mark.parametrize("contents", [None, "{", "null", "[]", '{"role":"gw1"}'])
+def test_phases_missing_receipt_is_unknown_without_inferred_remainder(tmp_path, contents):
+    _phase_receipts(tmp_path)
+    path = tmp_path / "phase-clocks/controller.json"
+    if contents is None:
+        path.unlink()
+    else:
+        path.write_text(contents)
+    phases = measure.execution_phases(tmp_path)
+    assert not phases["available"]
+    assert all(value is None for value in phases["processes"]["controller"].values())
+    assert phases["processes"]["gw0"]["session"]["seconds"] == 19
+
+
+def test_missing_coverage_reporting_boundary_remains_unknown(tmp_path):
+    _phase_receipts(tmp_path)
+    path = tmp_path / "phase-clocks/controller.json"
+    receipt = json.loads(path.read_text())
+    del receipt["boundaries"]["coverage_reporting_end"]
+    path.write_text(json.dumps(receipt))
+    phases = measure.execution_phases(tmp_path)
+    assert not phases["available"]
+    assert phases["processes"]["controller"]["coverage_reporting"] is None
+    assert phases["processes"]["controller"]["reporting"]["seconds"] == 3

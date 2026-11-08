@@ -60,6 +60,8 @@ jobs:
             measurement/baseline/coverage.json
             measurement/baseline/coverage.xml
             measurement/baseline/pytest-junit.xml
+            measurement/baseline/phase-clocks/*.json
             measurement/candidate/coverage.json
             measurement/candidate/coverage.xml
             measurement/candidate/pytest-junit.xml
+            measurement/candidate/phase-clocks/*.json

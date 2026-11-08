@@ -1,0 +1,81 @@
+{
+  "verified": true,
+  "artifact_id": 13586268339,
+  "archive_sha256": "a233e756308c0305182671a169abefb090464eb7ba50192e57e69336f1484e2e",
+  "run_id": 42401537967,
+  "workflow_sha": "8142060267fce57561d25735aa2e7c5f457ade14",
+  "python": "3.12.16 (main, Oct 26 2026, 02:48:44) [GCC 15.2.0]",
+  "coverage": {
+    "lost_lines": [],
+    "lost_branches": [],
+    "baseline_lines": 2144,
+    "candidate_lines": 2144,
+    "baseline_branches": 759,
+    "candidate_branches": 759
+  },
+  "outcomes": {
+    "baseline": {
+      "tests.scripts.test_pr_verifier_delivery_destinations": {
+        "cases": 30461,
+        "passed": 30461,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 1865.8499999999249
+      },
+      "tests.scripts.test_pr_verifier_prompt_coverage": {
+        "cases": 3813,
+        "passed": 3813,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 377.6559999999995
+      },
+      "tests.scripts.test_pr_verifier_body_overall_integration": {
+        "cases": 1994,
+        "passed": 1994,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 36.97000000000032
+      }
+    },
+    "candidate": {
+      "tests.scripts.test_pr_verifier_delivery_destinations": {
+        "cases": 29777,
+        "passed": 29777,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 1797.9569999999812
+      },
+      "tests.scripts.test_pr_verifier_prompt_coverage": {
+        "cases": 3813,
+        "passed": 3813,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 382.43700000000104
+      },
+      "tests.scripts.test_pr_verifier_body_overall_integration": {
+        "cases": 2054,
+        "passed": 2054,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 37.70900000000023
+      }
+    }
+  },
+  "source_manifests_verified_against_git": true,
+  "uploaded_hashes_verified": true,
+  "unuploaded_inherited_entries_UNKNOWN": [
+    "baseline/docs/evidence/issue-3743/runtime-probes/candidate.log",
+    "baseline/docs/evidence/issue-3743/runtime-probes/baseline.log",
+    "candidate/docs/evidence/issue-3743/runtime-probes/candidate.log",
+    "candidate/docs/evidence/issue-3743/runtime-probes/baseline.log"
+  ],
+  "packages_unchanged_reported_by_harness": true,
+  "phase_measurement": "UNKNOWN: original run has no phase probe",
+  "limitations": "One pair per runtime; no causal speedup inference. Concurrent process intervals overlap; unavailable exclusive overhead stays UNKNOWN."
+}

@@ -1,0 +1,23 @@
+{
+  "artifacts": [
+    {
+      "id": 13593659835,
+      "name": "verifier-runtime-3.13-42421935858",
+      "size_in_bytes": 1525165,
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13593659835",
+      "archive_download_url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13593659835/zip",
+      "expired": false,
+      "created_at": "2026-11-07T22:56:22Z",
+      "expires_at": "2026-12-07T22:56:21Z",
+      "updated_at": "2026-11-07T22:56:22Z",
+      "digest": "sha256:441a35e21b4399db1f8c6b3db76f8d3a68706517e14c088b9be6da103cf750ba",
+      "workflow_run": {
+        "id": 42421935858,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "closer-r2/issue-4462",
+        "head_sha": "43fc63febb0522b610a78f9dcac3e3c610937727"
+      }
+    }
+  ]
+}
