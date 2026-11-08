@@ -788,9 +788,30 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
       && row.next_command === 'refresh-candidate-from-exact-plan'));
   if (!rows.length) return { eligible: false, state: 'no-refresh-request', dispatched: false };
   const allowed = new Set(expectedCanaries), requests = [], freshCanaries = [];
+  // A canary with no candidate PR (a subset or source-delta plan never opened one) has no native
+  // subject to derive a plan from. Its drain is the row's own next_command: a full, unfiltered canary
+  // run from the default branch, behind the same refresh guard. Throwing here instead latched the
+  // candidate lane (2026-11-08 13:36Z, canary_refresh_report_subject_unknown on two rows like this).
+  const missing = rows.filter(row => row.status === 'stable_base_refresh_required'
+    && row.reason === 'candidate_pr_and_no_change_evidence_missing'
+    && row.pr === undefined && row.head_sha === undefined && allowed.has(`${row.owner}/${row.repo}`));
+  const subjects = rows.filter(row => !missing.includes(row));
+  if (!subjects.length) {
+    const names = missing.map(row => `${row.owner}/${row.repo}`).join(', ');
+    core.notice(`candidate refresh: no candidate PR for ${names}; requesting a full canary run`);
+    const refresh = await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries,
+      cleanupBranches: report.inputs?.cleanup_branches });
+    if (refresh.dispatched) {
+      const prior = report.canary_refresh || {};
+      report.canary_refresh = { ...prior,
+        refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
+        drainable: (prior.drainable || 0) + missing.length };
+    }
+    return { ...refresh, missing_candidates: missing.length };
+  }
   const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
   const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
-  for (const row of rows) {
+  for (const row of subjects) {
     const repository = `${row.owner}/${row.repo}`;
     if (!allowed.has(repository) || !Number.isSafeInteger(row.pr) || row.pr < 1
       || !/^[a-f0-9]{40}$/.test(row.head_sha || '')) throw new Error('canary_refresh_report_subject_unknown');
@@ -841,7 +862,7 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
     const prior = report.canary_refresh || {};
     report.canary_refresh = { ...prior,
       refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
-      drainable: (prior.drainable || 0) + rows.length,
+      drainable: (prior.drainable || 0) + subjects.length + missing.length,
       held_plans: [...new Set([...(prior.held_plans || []), request.plan_id])] };
     // The workflow may have uploaded the report before this recovery step.
     // Keep dispatch evidence visible in this step's logs and summary as well.
