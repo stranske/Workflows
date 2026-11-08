@@ -18,7 +18,24 @@ Every output verifies immutable source manifests and uploaded hashes, retaining
 unuploaded entries, original-run phases and exclusive overhead remain UNKNOWN.
 
 Integration target: #4535 head `f3325610782d7d8d57fbd9659cfae8b1e12fe10e`.
-Only this task's #4542 branch is writable; the other branch's writer is retained.
+Integrated #4535 by a non-rewriting merge on #4542, retaining this branch's
+validator and proposed-body conflict resolutions. No write to #4535's branch.
+The two exact commands now pass on the combined source:
+
+```text
+/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q
+629 passed in 30.03s
+
+/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py
+2054 passed in 13.37s
+```
+
+No marker exclusions. The integration file is byte-identical to the retained
+branch; all five marker-specific options assertions remain. Full transcripts
+are retained as `issue-4541-integrated-focused.txt` and
+`issue-4541-integrated-integration.txt`. No dependency pins changed.
+Delivery is still pending exact-head checks, active-thread dispositions and
+review floor. The canonical #4535 writer is retained; its branch is untouched.
 The earlier entries below are historical reports from other environments and do
 not describe current interpreter availability, Git availability or acceptance.
 

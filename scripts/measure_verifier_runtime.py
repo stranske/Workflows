@@ -29,6 +29,80 @@ SUITES = (
 VERIFIER = "scripts/langchain/pr_verifier.py"
 SOURCE_INPUTS = (*SUITES, VERIFIER, "pyproject.toml", "requirements.lock")
 
+# External to both immutable arms; each process records only its own clock.
+PHASE_PLUGIN = r"""import json
+import os
+import time
+from pathlib import Path
+
+import pytest
+
+_clocks = {}
+_role = None
+
+
+def _mark(name):
+    _clocks[name] = time.monotonic()
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_sessionstart(session):
+    global _role
+    _role = getattr(session.config, "workerinput", {}).get("workerid", "controller")
+    _mark("session_start")
+    yield
+    # pytest-cov writes coverage reports inside runtestloop, before sessionfinish.
+    # Measure the actual reporting method separately, without attributing the
+    # overlapping loop remainder to reporting.
+    cov = session.config.pluginmanager.getplugin("_cov")
+    if _role == "controller" and cov is not None and cov.cov_controller is not None:
+        summary = cov.cov_controller.summary
+
+        def measured_summary(*args, **kwargs):
+            _mark("coverage_reporting_start")
+            try:
+                return summary(*args, **kwargs)
+            finally:
+                _mark("coverage_reporting_end")
+
+        cov.cov_controller.summary = measured_summary
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_collection(session):
+    _mark("collection_start")
+    yield
+    _mark("collection_end")
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_runtestloop(session):
+    _mark("loop_start")
+    yield
+    _mark("loop_end")
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_sessionfinish(session, exitstatus):
+    _mark("reporting_start")
+    yield
+    _mark("reporting_end")
+    _mark("session_end")
+    directory = Path(os.environ["VERIFIER_PHASE_DIR"])
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"{_role}.json").write_text(json.dumps({
+        "role": _role, "pid": os.getpid(), "clock": "time.monotonic",
+        "boundaries": _clocks,
+    }, indent=2) + "\n")
+"""
+
+
+def _write_phase_plugin(tmpdir: Path) -> Path:
+    plugin_dir = tmpdir / "phase_plugin"
+    plugin_dir.mkdir()
+    (plugin_dir / "verifier_phase_probe.py").write_text(PHASE_PLUGIN)
+    return plugin_dir
+
 
 def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -121,6 +195,8 @@ def command() -> list[str]:
         "no:cacheprovider",
         "-p",
         "no:rerunfailures",
+        "-p",
+        "verifier_phase_probe",
         "--cov",
         "--cov-config=pyproject.toml",
         "--cov-report=json:coverage.json",
@@ -277,6 +353,51 @@ def coverage_comparison(before: dict, after: dict) -> dict:
     }
 
 
+def execution_phases(arm: Path) -> dict:
+    """Read local process intervals, never subtract overlapping process clocks."""
+    processes, gaps = {}, []
+    for role in ("controller", "gw0", "gw1", "gw2", "gw3"):
+        try:
+            receipt = json.loads((arm / "phase-clocks" / f"{role}.json").read_text())
+            if receipt["role"] != role or receipt["clock"] != "time.monotonic":
+                raise ValueError("clock identity mismatch")
+            clocks = receipt["boundaries"]
+            if not isinstance(clocks, dict):
+                raise ValueError("missing boundaries")
+        except (OSError, ValueError, KeyError, TypeError):
+            clocks = {}
+        intervals = {}
+        labels = [
+            ("session", "session"),
+            ("collection", "collection"),
+            ("controller_worker_loop", "loop"),
+            ("reporting", "reporting"),
+        ]
+        if role == "controller":
+            labels.append(("coverage_reporting", "coverage_reporting"))
+        for label, prefix in labels:
+            start, end = clocks.get(f"{prefix}_start"), clocks.get(f"{prefix}_end")
+            valid = all(
+                type(v) in (int, float) and math.isfinite(v) and v >= 0 for v in (start, end)
+            )
+            if valid and end >= start:
+                intervals[label] = {"start": start, "end": end, "seconds": end - start}
+            else:
+                intervals[label] = None
+                gaps.append(f"{role} {label} UNKNOWN")
+        processes[role] = intervals
+    return {
+        "available": not gaps,
+        "gaps": gaps,
+        "processes": processes,
+        "overlap_note": "Controller session and loop overlap worker sessions and collection; "
+        "worker intervals overlap each other. Session includes reporting. "
+        "Reporting measures pytest_sessionfinish hooks (JUnit/terminal); coverage_reporting measures pytest-cov summary inside the loop, "
+        "not all per-test report handling. No intervals are additive across "
+        "processes; startup, teardown outside hooks and exclusive overhead are UNKNOWN.",
+    }
+
+
 def packages() -> list[dict]:
     return json.loads(
         subprocess.check_output([sys.executable, "-m", "pip", "list", "--format=json"])
@@ -336,6 +457,7 @@ def run(output: Path) -> int:
         "order": order,
         "arms": {},
         "source_integrity": integrity,
+        "phase_plugin_sha256": hashlib.sha256(PHASE_PLUGIN.encode()).hexdigest(),
     }
     for name in order:
         arm = output / name
@@ -346,6 +468,9 @@ def run(output: Path) -> int:
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         env["TMPDIR"] = str(output / f"tmp-{name}")
         Path(env["TMPDIR"]).mkdir(exist_ok=False)
+        plugin_dir = _write_phase_plugin(output / f"tmp-{name}")
+        env["PYTHONPATH"] = f"{plugin_dir}:{arm}"
+        env["VERIFIER_PHASE_DIR"] = str(arm / "phase-clocks")
         started = time.perf_counter()
         with (output / f"{name}.log").open("w") as console:
             proc = subprocess.run(
@@ -361,6 +486,7 @@ def run(output: Path) -> int:
             "exit_code": proc.returncode,
             "wall_seconds": time.perf_counter() - started,
         }
+        row["phases"] = execution_phases(arm)
         if (arm / "pytest-junit.xml").is_file():
             try:
                 row["junit"] = junit(arm / "pytest-junit.xml")
@@ -389,7 +515,20 @@ def run(output: Path) -> int:
         str(p.relative_to(output)): sha(p)
         for p in output.rglob("*")
         if p.is_file()
-        and p.name in {"coverage.json", "pytest-junit.xml", "baseline.log", "candidate.log"}
+        and p.name
+        in {
+            "coverage.json",
+            "coverage.xml",
+            "pytest-junit.xml",
+            "baseline.log",
+            "candidate.log",
+            "controller.json",
+            "gw0.json",
+            "gw1.json",
+            "gw2.json",
+            "gw3.json",
+        }
+        and not any(part.startswith("tmp-") for part in p.relative_to(output).parts)
     }
     (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(
