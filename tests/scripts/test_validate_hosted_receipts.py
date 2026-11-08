@@ -299,6 +299,47 @@ def test_workflow_identity_must_match_retained_metadata(hosted_archive, phase_en
 
 @pytest.mark.parametrize("phase_enabled", [False, True])
 @pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("field", ["commit", "tree", "sha256"])
+def test_archive_cannot_replace_immutable_source_pair(hosted_archive, phase_enabled, arm, field):
+    """A matching artifact digest cannot authenticate a substituted source revision."""
+    build, _ = hosted_archive
+
+    def substitute_source(result, members):
+        source = result["manifest"]["arms"][arm]
+        if field == "sha256":
+            path = validator.SUITES[0]
+            source[field][path] = "e" * 64
+            # Keep both reported integrity boundaries consistent with the forgery.
+            # Rejection must come from the independent Git source comparison.
+            for boundary in ("before", "after"):
+                result["source_integrity"][boundary]["sha256"][arm][path] = "e" * 64
+        else:
+            source[field] = "e" * 40
+
+    with pytest.raises(AssertionError):
+        validator.validate(*build(phase_enabled=phase_enabled, mutate=substitute_source))
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+@pytest.mark.parametrize(
+    "dependency_lock", ["baseline/requirements.lock", "candidate/pyproject.toml"]
+)
+def test_archive_cannot_replace_candidate_dependency_lock(
+    hosted_archive, phase_enabled, dependency_lock
+):
+    """The retained experiment uses the candidate lock for both immutable arms."""
+    build, git_calls = hosted_archive
+
+    def substitute_lock(result, members):
+        result["manifest"]["dependency_lock"] = dependency_lock
+
+    with pytest.raises(AssertionError):
+        validator.validate(*build(phase_enabled=phase_enabled, mutate=substitute_lock))
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
 def test_uploaded_historical_log_is_verified_instead_of_unknown(hosted_archive, phase_enabled, arm):
     """Only unavailable inherited logs qualify for the explicit UNKNOWN exception."""
     build, _ = hosted_archive

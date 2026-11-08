@@ -1,5 +1,54 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Immutable source and dependency-lock regression continuation
+
+Reviewed the seven recent keepalive commits before continuing. The source guards
+and their regression tests are implemented, but the checked tasks for four-archive
+revalidation and PR #4535 delivery overstate the evidence. Attempting to reopen
+those two task checkboxes in PR #4542 was rejected with
+`MCP tool call requires approval, but approval policy is never`.
+
+Added 16 regression cases across legacy and phase-enabled archives. They reject
+substituted arm commits, trees and source hashes, including forged source hashes
+whose reported before/after integrity summaries agree with the substitution.
+They also reject replacing the candidate dependency lock before Git. These
+controls preserve the independent immutable-source check; they do not establish
+that any unavailable hosted archive has passed validation.
+
+```text
+python3 -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+525 passed in 19.10s
+
+python3 -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 11.57s
+
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-4541-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+970 files would be left unchanged.
+```
+
+Black formatted the touched Python file at line length 100. A serial check
+using the configured source selection populated the writable cache before the
+required CLI check passed. Ruff and `git diff --check` also pass. Staging the
+test and this handoff failed with `.git/index.lock: Read-only file system`, so
+these changes remain uncommitted and no push was possible.
+
+The integration file is unchanged and retains all five marker-specific options
+assertions. The requested Anaconda interpreter remains absent. The original
+3.13 ZIP matches the live GitHub artifact digest but still fails the independent
+harness source lookup at `8142060267fce57561d25735aa2e7c5f457ade14`.
+Three local ZIPs and the immutable candidate object remain unavailable. The
+connector returned an artifact download reference, but its host cannot resolve
+from this shell. Historical uploads and exclusive overhead remain UNKNOWN.
+
+PR #4535 remains open and ready at the unchanged
+`f3325610782d7d8d57fbd9659cfae8b1e12fe10e`, with 13 active unresolved review
+threads. The exact-head expected-check reporter again returns UNKNOWN because
+native-gh cannot reach GitHub. Successful connector Gate/guard statuses do not
+prove complete expected/required checks. Publishing the retained proposed body,
+posting the concrete blocker comment, and adding `needs-human` to PR #4542 were
+each rejected by the same approval policy. No remote branch, thread disposition,
+acceptance checkbox or merge state changed.
+
 ## Hosted runtime and artifact-name format correction
 
 The live artifact metadata for runs 42401537967 and 42421935858 names all four
