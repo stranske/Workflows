@@ -138,10 +138,21 @@ for(const surface of autopilotSurfaces)test(`${surface}: actual ordinary context
 for(const surface of autopilotSurfaces)test(`${surface}: ordinary pause/human guards and format wakeup remain intact`,async()=>{
  const source=read(surface);assert.match(script(step(source,'Determine context')),/labels\.includes\('needs-human'\)/);assert.match(script(step(source,'Determine context')),/labels\.includes\('agents:auto-pilot-pause'\)/);
  assert.equal(permits(condition(step(source,'Execute step - Format (inline)')),{'steps.next.outputs.next_step':'format'}),true);
- const calls=[],github={rest:{issues:{get:async()=>({data:{labels:[{name:'agents:auto-pilot-pause'}]}}),removeLabel:async args=>{calls.push(['remove',args]);return {data:{}};},createComment:async args=>{calls.push(['comment',args]);return {data:{}};}},
-  repos:{get:async()=>({data:{default_branch:'main'}})},actions:{createWorkflowDispatch:async args=>{calls.push(['dispatch',args]);return {data:{}};}}}};
- await run(step(source,'Clear pause and redispatch format step'),name=>{assert.equal(name,'./.github/scripts/github-api-with-retry.js');return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github)})};},{github,env:{ISSUE_NUMBER:'9'}});
+ const wakeup=async priorComments=>{
+  const calls=[],github={rest:{issues:{get:async()=>({data:{state:'open',labels:[{name:'agents:auto-pilot'},{name:'agents:auto-pilot-pause'}]}}),listComments:Symbol('listComments'),removeLabel:async args=>{calls.push(['remove',args]);return {data:{}};},createComment:async args=>{calls.push(['comment',args]);return {data:{}};}},
+   repos:{get:async()=>({data:{default_branch:'main'}})},actions:{createWorkflowDispatch:async args=>{calls.push(['dispatch',args]);return {data:{}};}}},
+   paginate:async()=>priorComments,graphql:async()=>({repository:{issue:{closedByPullRequestsReferences:{nodes:[]}}}})};
+  await run(step(source,'Clear pause and redispatch format step'),name=>{
+   if(name==='./workflows-lib/.github/scripts/autopilot_format_retry_budget.js')return require('../autopilot_format_retry_budget.js');
+   assert.equal(name,'./.github/scripts/github-api-with-retry.js');return {createTokenAwareRetry:async()=>({withRetry:fn=>fn(github)})};},{github,env:{ISSUE_NUMBER:'9'}});
+  return calls;
+ };
+ const calls=await wakeup([]);
  assert.equal(calls.filter(([name])=>name==='remove').length,1);assert.deepEqual(calls.find(([name])=>name==='dispatch')[1].inputs,{issue_number:'9',force_step:'format'});
+ const {MAX_FORMAT_RETRIES}=require('../autopilot_format_retry_budget.js');
+ const spent=Array.from({length:MAX_FORMAT_RETRIES},(_,i)=>({body:'Auto-pilot format retry scheduled',created_at:`2026-11-08T00:0${i}:00Z`,user:{login:'github-actions[bot]',type:'Bot'}}));
+ const capped=await wakeup(spent);
+ assert.equal(capped.filter(([name])=>name==='dispatch').length,0);assert.equal(capped.filter(([name])=>name==='remove').length,0);
 });
 const legacyActivation='<!-- agent-activation-marker -->\nAgent worker (codex) activated for branch `codex/issue-9`.\n\n@codex start\n**Focus on this task first:** `task-1` — Exact single task\n\nImplement **only** this task in your first commit.\nEnsure the code compiles and existing tests pass before moving on.\nThe keepalive loop will assign subsequent tasks after this one is complete.';
 for(const surface of beltSurfaces)test(`${surface}: actual ordinary Belt create/update payload remains exact without correction APIs`,async()=>{

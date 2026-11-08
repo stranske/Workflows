@@ -1347,6 +1347,14 @@ runtime_fetched:
     # No consumer-delivered workflow reads this module from the copy-synced tree,
     # and no script/tool imports it (grep: zero importers), so dropping it from
     # copy-sync is safe.
+  - source: .github/scripts/autopilot_format_retry_budget.js
+    delivery: runtime
+    description: "Auto-pilot format-pause wakeup retry budget. Runtime-fetched only."
+    # Runtime-fetch evidence: the `format-pause-wakeup` job in
+    # templates/consumer-repo/.github/workflows/agents-auto-pilot.yml (and the
+    # root copy) sparse-checks out this single file from stranske/Workflows
+    # into `workflows-lib/` and requires it from there, so the retry bound is
+    # the same in every consumer and never skews with a copied file.
 
 excluded:
 
