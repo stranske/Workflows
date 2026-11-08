@@ -466,7 +466,7 @@ for (const [surface, workflowPath] of SURFACES) {
   });
 
   test(`${surface}: verify: exact PR/head existing run is reused without a new dispatch`, async () => {
-    const world = createWorld({ prs: [mergedPr(PR, ISSUE)], runs: [prTargetRun(PR, HEAD)] });
+    const world = createWorld({ prs: [mergedPr(PR, ISSUE)], runs: [dispatchRun(PR, HEAD)] });
     const result = await runVerify(world);
     assert.equal(result.outputs.verify_handoff, 'found');
     assert.equal(world.dispatches.length, 0);
@@ -509,12 +509,25 @@ for (const [surface, workflowPath] of SURFACES) {
   });
 
   test(`${surface}: done: exact PR/head runs complete and release ownership`, async () => {
-    for (const run of [prTargetRun(PR, HEAD), dispatchRun(PR, HEAD)]) {
+    for (const run of [dispatchRun(PR, HEAD)]) {
       const world = createWorld({ prs: [mergedPr(PR, ISSUE)], runs: [run] });
       const result = await runDone(world, { VERIFY_HANDOFF: '', VERIFY_HANDOFF_BOUND: 'true' });
       assert.equal(result.outcome, 'success', `${run.event}: ${result.failures.join('; ')}`);
       assert.equal(ownershipRemoved(world), true);
       assert.equal(completionPosted(world), true);
+    }
+  });
+
+  test(`${surface}: no-op PR label runs cannot authorize verifier handoff or completion`, async () => {
+    for (const status of ['queued', 'in_progress', 'completed']) {
+      const world = createWorld({prs:[mergedPr(PR, ISSUE)], runs:[prTargetRun(PR,HEAD,{status})],
+        dispatchError:'denied',knownLabels:['verify:evaluate','verify:pr-handoff']});
+      const result = await runStep('Execute step - Verify',{world});
+      assert.equal(result.outcome,'failure');
+      assert.equal(handoffLabelWrites(world).length,0);
+      const done = await runDone(world,{VERIFY_HANDOFF:'',VERIFY_HANDOFF_BOUND:'true'});
+      assert.equal(done.outcome,'failure');
+      assert.equal(completionPosted(world),false);
     }
   });
 

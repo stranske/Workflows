@@ -412,11 +412,17 @@ def test_handoff_dispatches_verifier_before_recording_markers(workflow: Path) ->
 
 
 def test_handoff_existing_verifier_run_authorizes_without_dispatch(workflow: Path) -> None:
+    run = _verifier_run(head_sha=MERGED_HEAD_SHA)
+    run.update(
+        event="workflow_dispatch",
+        pull_requests=[],
+        display_title=f"Verifier PR #555 head={MERGED_HEAD_SHA} mode=evaluate",
+    )
     result = _run_verify(
         [_matching_pr(555)],
         workflow,
         dispatch_unavailable=True,
-        existing_runs=[_verifier_run(head_sha=MERGED_HEAD_SHA)],
+        existing_runs=[run],
     )
 
     assert result["scriptError"] is None
@@ -617,3 +623,19 @@ process.stdout.write(JSON.stringify({outputs,failures}));
     result = json.loads(completed.stdout)
     assert result["outputs"]["should_run"] == ("true" if matches_head else "false")
     assert bool(result["failures"]) is not matches_head
+
+
+@pytest.mark.parametrize("status", ["queued", "in_progress", "completed"])
+def test_noop_label_run_cannot_authorize_handoff(workflow: Path, status: str) -> None:
+    run = _verifier_run(head_sha=MERGED_HEAD_SHA, status=status)
+    result = _run_verify(
+        [_matching_pr(555)],
+        workflow,
+        pr_labels=("verify:evaluate",),
+        dispatch_unavailable=True,
+        existing_runs=[run],
+    )
+    assert len(result["dispatchCalls"]) == 1
+    assert result["outputs"].get("verify_handoff") != "found"
+    assert result["labelsAdded"] == []
+    assert result["failures"]
