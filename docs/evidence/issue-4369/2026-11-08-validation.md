@@ -976,3 +976,431 @@ run. Both complete source-gate results remain unknown for this checkout.
 
 - [ ] Record successful results for both exact full-source gate commands on merge commit `9acdde6d5f0731bf968a6766d83f2b47db8375a3` or its identified main descendant.
 - [x] Preserve the credential fix and existing isolated regression coverage.
+
+## Validation-runtime follow-up for issue 4548 / PR 4549
+
+The first outstanding task is implemented in `scripts/setup_validation_env.py`,
+with six regressions in `tests/scripts/test_setup_validation_env.py`. The helper
+reads the Python floor, runtime dependencies and development extras from
+`pyproject.toml`, creates a virtual environment, resolves those dependencies with
+that environment's pip, and verifies `defusedxml`, `mypy.api` and `pytest` imports
+before reporting readiness. Creation, installation or import failure stops setup.
+The contributor setup instructions now use this helper and the supported floor.
+No credential implementation, workflow or consumer template was changed.
+
+Provisioning command (exit 0; complete output in
+[`runtime-4548/setup.log`](runtime-4548/setup.log)):
+
+```console
+python3 scripts/setup_validation_env.py /tmp/workflows-4369-venv --system-site-packages
+```
+
+The explicit reuse option shares the runner's preinstalled packages. Pip still
+resolves every runtime/dev requirement from `pyproject.toml`; no dependency or
+version check is skipped. This repository declares `packages = []`, so an
+editable distribution build is unnecessary for its test environment. An initial
+editable-install dry run with build isolation disabled failed because the base
+interpreter lacks setuptools; the helper installs dependencies directly instead
+of modifying project pins or requiring a build backend for this package-free repo.
+`python3 -m pip check` in the provisioned environment also exits 0.
+
+Runtime: `/tmp/workflows-4369-venv/bin/python3`, **Python 3.14.10**, pytest
+**9.2.0**, defusedxml **0.7.1**, mypy **2.4.1**; Node **v24.22.2**. The import
+preflight succeeded before collecting the focused or full Python suite.
+
+Checkout revision: `4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec`, descended from
+main `e9516d152196e29110c8f581cc942b91aa708cf9`, which is a verified descendant
+of merge `9acdde6d5f0731bf968a6766d83f2b47db8375a3`. Credential source, template
+and `tests/test_subscription_llm.py` match that merge byte-for-byte. These runs
+include the uncommitted setup helper, six new tests and contributor instructions;
+they are not receipts for a published implementation commit. File hashes and
+that distinction are retained in
+[`runtime-4548/workspace.json`](runtime-4548/workspace.json).
+
+The focused command `python3 -m pytest -q tests/ -k claude_config_dir` exits
+**0** in **36.919 seconds** (pytest: `44 passed, 50467 deselected in 31.23s`).
+Its existing fixtures use temporary empty credential files, isolated HOME/auth
+variables and mocked CLI discovery/subprocess execution. Complete output and
+the revision/interpreter/start/exit/duration/hash receipt are
+[`focused.log`](runtime-4548/focused.log) and
+[`focused.json`](runtime-4548/focused.json).
+The helper's targeted suite exits **0**, `6 passed`, with complete
+[`helper-tests.log`](runtime-4548/helper-tests.log) and
+[`helper-tests.json`](runtime-4548/helper-tests.json).
+
+Black formatted both new Python files; Ruff on both passes. The required
+repository-wide Black check exits **0**, `973 files would be left unchanged`:
+
+```console
+black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+As in earlier receipts, this sandbox prevents Black's multiprocessing forkserver
+from binding its local socket. The successful invocation uses
+`BLACK_NUM_WORKERS=1` and an external `/tmp` startup hook that wraps Black's
+`maybe_use_uvloop()` with a recurring `loop.call_later(0.05, heartbeat)` callback.
+The callback only schedules itself, allowing thread-completion callbacks to be
+serviced. Formatter logic, file selection and checks are unchanged. Output is
+retained in [`black.log`](runtime-4548/black.log). The ordinary one-worker
+invocation without this scheduling workaround was interrupted (exit 130).
+
+Staging the meaningful source change failed (exit **128**):
+
+```text
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+```
+
+The requested commit cannot be created under this run's read-only `.git` mount.
+No successful local commit or remote publication is claimed.
+
+### Downstream observation
+
+Live GitHub reads are summarized with exact identifiers in
+[`runtime-4548/downstream.json`](runtime-4548/downstream.json). The observation
+time is recorded there. Consumer PR
+[Portable-Alpha-Extension-Model#2454](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454)
+merged at **2026-11-08T04:40:31Z**, at head
+`9c85282d05359ddc468d0881ec6b09269ac592a2`. It is closed and non-draft.
+Discussion [4434491702](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702)
+is now **resolved and outdated**, with worker disposition comment **4505043101**
+at **04:39:05Z**. This supersedes earlier historical open/unresolved observations
+in this report. The consumer file has configured-directory lookup, but retains
+the older direct `Path(...)` implementation rather than PR 4539's final directory
+normalization helper. PR 4539 merged later, at **05:02:26Z**.
+
+The latest inspected Maint 68 run before that merge,
+[42449080092](https://github.com/stranske/Workflows/actions/runs/42449080092),
+started at **05:01:05Z**. Prepare job **128634207522** explicitly reports source
+`7e377b7ad8cc06e506393218bc7459ba47757f01` (the merge's first parent), with plan
+`sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da`.
+Its consumer sync job was **skipped**, despite overall run success. The following
+Maint 71 run
+[42451203202](https://github.com/stranske/Workflows/actions/runs/42451203202),
+job **128640606057**, starts at **05:32:56Z** on workflow revision
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`, but reports
+`Portable-Alpha-Extension-Model: no_prs`. It does not provide an active-finding
+evaluation for a regenerated head containing the final merged payload.
+
+The workflow-dispatch inventory for **04:40–07:30Z** and schedule inventory for
+**03:40–08:30Z** were complete (23 and 58 results, respectively). Neither shows
+a later Maint 68 regeneration. This inventory is bounded to those events/times,
+not a claim that every possible trigger was inspected.
+
+All issue 4369 comments were fetched through the recorded observation time.
+The last scoped sync-core recurrence remains comment **6649911684**, round
+`20261105T044440Z`, consumer `39a3dc939133`; the last recurrence for any consumer
+is **6650145104**, round `20261105T050113Z`. No newer sync-core recurrence was
+present in that read. This establishes the observation only. Final downstream
+acceptance remains pending a Maint 68/71 pair bound to the final merged payload;
+the earlier consumer merge and resolved discussion do not establish that pair.
+
+### Verified checklist for this follow-up
+
+- [x] Provision supported Python from the declared runtime/dev dependencies and verify imports before collection.
+- [x] Execute all three requested commands on the identified descendant checkout and retain raw output, revision, interpreter, exit codes and timings.
+- [x] Identify the observed full-gate failure/stall tests and reproduce them on the pre-PR-4539 parent.
+- [ ] Inspect a Maint 68 regeneration containing the final merged changes and its following Maint 71 disposition; that pair is still missing from the inspected evidence.
+- [x] Focused credential-directory acceptance: exit zero within 120 seconds with isolated fixtures.
+- [ ] Both complete source gates exit zero with complete raw logs.
+- [ ] Final merged payload has a bound Maint 68/71 consumer-delivery receipt.
+
+### Reproducible full-gate findings
+
+The full Python run reports a failure at the 3,234th collected test:
+`tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading`.
+The named reproducer is:
+
+```console
+python3 -m pytest -q tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading -m 'not slow'
+```
+
+It exits **1** on this checkout in **3.073 seconds** (pytest: 1.00s), and exits
+**1** on a `git archive` extraction of pre-PR-4539 first parent
+`7e377b7ad8cc06e506393218bc7459ba47757f01` (pytest: 0.97s). Both report the
+identical assertion at line 121: `_truncate_section("## Heading", "body", 1,
+suffix="\n[truncated]")` returns `"## H"` where the test expects `"##"`.
+Both the named test file and `scripts/langchain/issue_pr_context.py` are unchanged
+between that parent and this checkout. This is a demonstrated pre-existing
+failure, unrelated to credential-directory resolution. No repair or test-policy
+change was made. Raw results: [`python-failure-current.log`](runtime-4548/python-failure-current.log),
+[`python-failure-current.json`](runtime-4548/python-failure-current.json), and
+[`python-failure-baseline.log`](runtime-4548/python-failure-baseline.log).
+
+The exact full Node command stops emitting file-level progress after
+`keepalive-instruction-template.test.js`. A diagnostic with process isolation
+disabled locates the stalled boundary in
+`.github/scripts/__tests__/keepalive-loop.test.js`:
+`exit-zero quota classification yields to actual productivity (../keepalive_loop.js)`.
+Its synchronous `replayCompletion()` helper launches Python via `spawnSync`
+without a child timeout, so a Node test timeout alone cannot reliably bound it.
+A test-name-filtered reproduction times out on both this checkout (**50.009s**,
+including the 5-second termination grace) and the pre-merge parent (**45.007s**).
+The source and consumer `keepalive_loop.js` and this test file are byte-identical
+between those revisions. The baseline extraction reuses this runner's installed
+Node dependencies; the named test does not depend on git metadata.
+
+```console
+node --test --test-isolation=none --test-reporter=spec --test-name-pattern='^exit-zero quota classification yields to actual productivity' .github/scripts/__tests__/keepalive-loop.test.js
+```
+
+This establishes a pre-existing runtime stall at the named test boundary in
+this sandbox; it does not establish its root cause or a failure on hosted CI.
+The diagnostic selection and isolation option apply only to the separate
+reproducer. The full-source command uses its original selection and options.
+Raw diagnostic logs and revision/timing receipts are
+[`node-named-current.json`](runtime-4548/node-named-current.json),
+[`node-named-baseline.json`](runtime-4548/node-named-baseline.json),
+[`node-direct-diagnostic.log`](runtime-4548/node-direct-diagnostic.log), and
+[`node-baseline-diagnostic.log`](runtime-4548/node-baseline-diagnostic.log).
+The filtered reproductions produce empty stdout before timing out; their
+corresponding `.log` files are retained too. No test is disabled in the full gate.
+
+Updating PR 4549's verified environment task and focused-test acceptance
+checkboxes was attempted after validation. Automatic approval review rejected
+the mutation: `MCP tool call requires approval, but approval policy is never`.
+No remote checkbox update succeeded. The latest read shows PR 4549 open and
+ready (`draft=false`) at `4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec`.
+
+The full Python output later stops progressing after **3,589** outcomes (including
+the truncation failure). Matching the retained collection inventory to the raw
+progress output identifies the next test as
+`tests/scripts/test_llm_client_shared.py::test_subscription_pipe_renders_each_execution_mode[codex-ainvoke]`.
+A separate verbose invocation of that exact node collects one test and stalls
+there on both this checkout and the pre-merge parent. Both terminate at a
+45-second bound (exit **124**). `tests/scripts/test_llm_client_shared.py` and
+`scripts/langchain/_llm_client.py` are unchanged between the revisions. This
+records another pre-existing runtime blocker under this environment; it does
+not establish whether the cause is in asyncio, an optional dependency, or the
+sandbox. No workaround is injected into the tests and no test is disabled.
+The verbose raw logs are
+[`python-stall-current.log`](runtime-4548/python-stall-current.log) and
+[`python-stall-baseline.log`](runtime-4548/python-stall-baseline.log).
+
+The blocker comment and additive `needs-human` label were also attempted on
+PR 4549. Automatic approval review rejected each for the same
+`MCP tool call requires approval, but approval policy is never` reason. No
+comment or label was published. A directory-local `.gitignore` exception keeps
+the complete raw `.log` files eligible for staging by an authorized runner.
+
+The collection inventory used to map quiet progress to named tests is retained
+without modification as [`collection.log.gz`](runtime-4548/collection.log.gz)
+(`python3 -m pytest --collect-only -q tests/`: 50,511 tests collected). These
+baseline comparisons use archived source files with the same installed packages;
+they do not claim to have rerun the entire baseline gate or to reproduce a
+hosted-CI environment.
+
+The exact full Node command reached its **600-second** bound, exit **124**,
+with wall duration **600.018s**. It did not emit a complete suite summary. Its
+complete captured stdout/stderr through termination is retained as
+[`node-full.log`](runtime-4548/node-full.log), with expanded command, revision,
+interpreter, UTC timestamps, exit, timeout and SHA-256 in
+[`node-full.json`](runtime-4548/node-full.json). This is a failed validation
+attempt, not a full-source pass or evidence that every Node test ran.
+
+### Final gate receipts for this follow-up
+
+The exact full Python command reached its **900-second** bound, exit **124**,
+with wall duration **900.067s**. Its last emitted progress remains at 6%, after
+3,589 outcomes including the reproduced truncation failure. There is no complete
+suite summary and no claim that the remaining tests executed. Complete captured
+stdout/stderr through termination is [`python-full.log`](runtime-4548/python-full.log),
+with revision/interpreter/UTC start/exit/duration/hash in
+[`python-full.json`](runtime-4548/python-full.json).
+
+All commands below use the supported environment and identified descendant
+checkout described above. The full commands retain their original selection;
+timeout limits are imposed by the external process supervisor, which terminates
+the process group and records exit 124. The six new setup tests and contributor
+instructions are still uncommitted; these receipts do not identify a published
+new head.
+
+| Command | Exit | Wall duration | Captured outcome |
+| --- | --- | --- | --- |
+| `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | 36.919s | 44 passed, 50467 deselected |
+| `node --test .github/scripts/__tests__/*.test.js` | 124 | 600.018s | Timed out without a suite summary; named pre-merge runtime stall reproduced separately |
+| `python3 -m pytest -q tests/` | 124 | 900.067s | Pre-existing assertion failure followed by reproduced async-test stall; no suite summary |
+
+The report therefore advances environment provisioning and focused acceptance,
+and completes the requested execution/triage receipts. **Neither full-source
+acceptance nor final merged-payload downstream acceptance is satisfied.** The
+pre-existing truncation defect and environment-specific stalls are handed off as
+findings; this validation task does not initiate another credential repair.
+The local source/test implementation requires a runner with writable git
+metadata to commit it. Remote checkbox/comment/label attempts were rejected as
+recorded above, and PR 4549 was last read open and non-draft.
+
+Final issue-comment observation time: **2026-11-08T08:36:47Z**. The final
+all-comments read still contains no later scoped sync-core recurrence than
+comment 6649911684; the downstream JSON retains that observation and the final
+open/non-draft source PR snapshot. Every completed raw-log receipt hash and every
+artifact link added in this follow-up was checked after the full gates terminated.
+
+## Downstream observation replay — 2026-11-08T08:58:31Z
+
+The next iteration retains a fresh, independently replayable observation in
+[`runtime-4548/downstream-observation.json`](runtime-4548/downstream-observation.json).
+The new [seven evidence tests](../../../tests/scripts/test_issue_4369_downstream_evidence.py)
+verify the complete bounded run inventories, frozen source identity, immediate
+following-run selection, skipped consumer delivery, Git blob hashes of both
+retained file bodies, worker disposition chronology, and issue-comment inspection.
+These tests validate the observation; passing them does not complete delivery.
+
+The GitHub connector returned **64 schedule runs** for 03:40:00–08:58:07Z and
+**30 workflow_dispatch runs** for 05:02:26–08:58:07Z, each matching its API
+`total_count` in a single page of capacity 100. Every returned run is retained,
+including unrelated workflows. No Maint 68 regeneration after the final source
+merge appears in those bounded collections. Other events and later times are
+outside this observation.
+
+The last observed [Maint 68 run 42449080092](https://github.com/stranske/Workflows/actions/runs/42449080092)
+started at 05:01:05Z with frozen source
+`7e377b7ad8cc06e506393218bc7459ba47757f01`. Prepare job **128634207522** records
+plan `sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da`.
+Consumer delivery job **128634442339** was **skipped**. Its overall success and
+05:02:31Z completion do not make its payload include the 05:02:26Z source merge
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`.
+
+Among all Maint 71 runs in those inventories, the immediately following run is
+[42451203202](https://github.com/stranske/Workflows/actions/runs/42451203202),
+starting at 05:32:56Z. Job **128640606057** reports
+`Portable-Alpha-Extension-Model: no_prs`. Its workflow revision equals the source
+merge SHA, but that is not a regenerated consumer head or an exact-head finding
+disposition. The receipt retains the relevant prepare and consumer-report log
+excerpts with run/job links.
+
+PR [Portable-Alpha-Extension-Model#2454](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454)
+is merged and non-draft at head `9c85282d05359ddc468d0881ec6b09269ac592a2`.
+Its `tools/subscription_llm.py` Git blob is
+`c889fd8064806a9c0f932f7c1dc09762896afe67`, while the final source template blob
+is `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. The tests recompute both Git blob
+IDs from the retained complete bytes. The consumer has configured-directory
+lookup but lacks final directory normalization. Discussion **4434491702** is
+resolved and outdated; worker disposition **4505043101** predates PR 4539's
+merge and does not establish delivery of its final payload.
+
+All **49 issue 4369 comments** returned by the connector's all-pages reader are
+retained through **2026-11-08T08:58:31Z**. No newer sync-core recurrence was
+present: the last scoped finding remains comment **6649911684**, round
+`20261105T044440Z`; the last any-consumer recurrence remains **6650145104**,
+round `20261105T050113Z`. The connector omits REST creation timestamps, so the
+tests explicitly use the recorded sync-core round instead of inventing one.
+
+Validation on checkout `d2d1d63781faa52747a6e39badfe63bdace9761c`, Python 3.14.10:
+
+```console
+python3 -m pytest -q tests/scripts/test_issue_4369_downstream_evidence.py tests/scripts/test_issue_4455_post_merge_evidence.py tests/scripts/test_setup_validation_env.py -m 'not slow'
+23 passed in 0.58s
+```
+
+Ruff on the new test and `git diff --check` both pass. No workflow, credential
+implementation, consumer template, or remote PR state was changed. No incomplete
+task or acceptance checkbox is marked complete: the final-payload Maint 68/71
+pair is still absent, and the earlier full-gate failures remain as recorded above.
+
+The required repository-wide Black check exits **0**, `974 files would be left
+unchanged`. The default invocation first failed with a forkserver socket
+`PermissionError`; the ordinary one-worker attempt stalled and was interrupted
+(exit 130). The successful command uses the same scheduling workaround described
+above: an external startup hook adds only a recurring 50ms event-loop callback,
+with formatter logic and selection unchanged.
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue4369-observation-black timeout -k 5s 90s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Staging all three scoped files exits **128** because `.git` remains read-only:
+
+```text
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+```
+
+No commit or push succeeded. The blocker comment and additive `needs-human`
+label on PR 4549 were each rejected by automatic approval review:
+`MCP tool call requires approval, but approval policy is never`. Neither mutation
+was published. The local test and evidence files are prepared for a runner with
+writable Git metadata; the downstream acceptance remains pending live delivery.
+
+## Complete-trigger observation — 2026-11-08T09:22:40Z
+
+Recent commits `d2d1d637` and `243c207b` were reconciled against PR 4549's body
+before further work. Its first three task checkboxes and focused acceptance are
+already checked; the final downstream task and both remaining acceptance
+criteria correctly remain unchecked. The prior observation covered only
+`schedule` and `workflow_dispatch`. Maint 71 also accepts
+`repository_dispatch`, so that observation alone could not exclude another
+top-level Maint 71 run from its immediate-following-run selection.
+
+The new [complete-trigger receipt](runtime-4548/downstream-observation-complete.json)
+preserves the original receipt separately and collects every supported top-level
+trigger over the same **03:40:00–09:21:48Z** interval: **69 schedule**,
+**64 workflow_dispatch**, and **28 repository_dispatch** runs. Every collection
+fits one page of 100 and equals its API `total_count`; unrelated runs are retained.
+The repository-dispatch collection includes Maint 71 run **42444842270** at
+03:57:48Z, before the final source merge. `workflow_call` runs inside the caller
+and is not a separate top-level run event. Workflow-specific inventory endpoints
+were rejected by the connector as unsupported; the retained repository run
+collections use supported GET endpoints instead.
+
+Across all three collections, the latest Maint 68 is still **42449080092**,
+source `7e377b7ad8cc06e506393218bc7459ba47757f01`, with skipped consumer delivery.
+The immediately following Maint 71 remains **42451203202**, source
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`, reporting `no_prs`. Their historical
+job/log excerpts are carried forward from the original receipt; no new log read
+or regenerated consumer disposition is claimed.
+
+A fresh consumer branch read binds `main` to merge commit
+`0543dc9732eab0ad12227308749566a937581eea`, the merge of PR 2454's head
+`9c85282d05359ddc468d0881ec6b09269ac592a2`. Fetching
+`tools/subscription_llm.py` at that exact default-branch SHA yields the same
+retained older file bytes and Git blob `c889fd8064806a9c0f932f7c1dc09762896afe67`.
+It still differs from the merged source template blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. The previously observed resolution
+of discussion **4434491702** therefore remains insufficient to establish final
+payload delivery.
+
+The REST issue-comments read returns **49** comments in one page, with actual
+creation/update timestamps. Through observation **2026-11-08T09:22:40Z**, the last
+scoped sync-core recurrence is still comment **6649911684**, created
+**2026-11-05T04:45:07Z** (handoff round `20261105T044440Z`); the last any-consumer
+recurrence is **6650145104**, created **2026-11-05T05:01:44Z**. No newer scoped
+recurrence was present. This is bounded observation, not downstream acceptance.
+
+The evidence tests now replay both historical and complete-trigger receipts.
+Three added checks derive required trigger coverage from the authored workflows,
+bind the consumer default branch to its exact payload, and verify REST comment
+chronology. On checkout `243c207b67a97724ced22e9ac7918029da8bfca2`, Python 3.14.10:
+
+```console
+python3 -m pytest -q tests/scripts/test_issue_4369_downstream_evidence.py tests/scripts/test_issue_4455_post_merge_evidence.py tests/scripts/test_setup_validation_env.py -m 'not slow'
+33 passed in 1.13s
+```
+
+Ruff and the targeted Black formatter pass. No protected workflow, credential
+code, or consumer template was edited. Full-gate acceptance remains pending on
+the earlier retained failures; no full-gate rerun or passing result is implied
+by these focused evidence tests.
+
+After formatting, the same focused command passes again: **33 passed in 1.10s**;
+Ruff and `git diff --check` pass. Staging the three scoped files exits **128**:
+
+```text
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+```
+
+No commit or push succeeded. The prepared blocker comment and additive
+`needs-human` label were each rejected by automatic approval review:
+`MCP tool call requires approval, but approval policy is never`. Neither was
+published. A final metadata read verifies PR 4549 remains **open**, **non-draft**,
+at `243c207b67a97724ced22e9ac7918029da8bfca2`. No task checkbox was advanced.
+
+The required repository-wide Black CLI initially exits **1** when the sandbox
+rejects the multiprocessing forkserver socket. The documented one-worker
+event-loop heartbeat workaround reaches `973 files would be left unchanged` but
+times out at 90 seconds, exit **124**. The targeted post-format Black check exits
+**0**. These outcomes do not constitute a passing repository-wide gate.
+One bounded 60-second retry of the same full selection also exits **124**,
+reporting `571 files would be left unchanged` after aborting. No repository-wide
+formatting pass or commit is claimed.
+
+The complete-trigger JSON contains **161 run rows** and **49 comments**; its
+SHA-256 is `e2f938c97c715b11aee66ec06d5af9fc09217ffb9b58fd95fec484a39f8a878a`.

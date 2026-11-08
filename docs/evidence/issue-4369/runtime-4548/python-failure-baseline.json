@@ -1,0 +1,19 @@
+{
+  "revision": "7e377b7ad8cc06e506393218bc7459ba47757f01",
+  "cwd": "/tmp/issue4369-before",
+  "command": [
+    "/tmp/workflows-4369-venv/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading",
+    "-m",
+    "not slow"
+  ],
+  "python": "3.14.10",
+  "pytest": "9.2.0",
+  "exit_code": 1,
+  "pytest_duration_seconds": 0.97,
+  "wall_duration_seconds": null,
+  "log_sha256": "dd2ec4d2c16fd19633483e94c699244affee5565e09a66310efe955601b42ed2"
+}

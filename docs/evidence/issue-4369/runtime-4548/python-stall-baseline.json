@@ -1,0 +1,22 @@
+{
+  "revision": "7e377b7ad8cc06e506393218bc7459ba47757f01",
+  "command": [
+    "timeout",
+    "-k",
+    "5s",
+    "45s",
+    "/tmp/workflows-4369-venv/bin/python3",
+    "-m",
+    "pytest",
+    "-vv",
+    "tests/scripts/test_llm_client_shared.py::test_subscription_pipe_renders_each_execution_mode[codex-ainvoke]",
+    "-m",
+    "not slow"
+  ],
+  "cwd": "/tmp/issue4369-before",
+  "python": "3.14.10",
+  "exit_code": 124,
+  "timeout_seconds": 45,
+  "wall_duration_seconds": null,
+  "log_sha256": "2e165529e598f028ca6b8b6730a0d76cc91ad30a23b537e02a0dae0876423c32"
+}

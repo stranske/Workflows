@@ -1,0 +1,322 @@
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ task progress snapshot preserves actionable checklist identity across check changes (12.449768ms)
+✔ task progress snapshot changes identity when task membership changes (1.201063ms)
+✔ CodeRabbit release notes do not inflate unchecked keepalive checklist progress (1.0435ms)
+✔ marker-less CodeRabbit Bug Fixes notes do not inflate keepalive progress (2.490753ms)
+✔ resolvePrNumber accepts base-defined pull_request_target events (0.97974ms)
+✔ resolvePrNumber recovers an empty workflow_run association by head SHA (0.464368ms)
+✔ countCheckboxes tallies checked and unchecked tasks (0.648792ms)
+✔ countCheckboxes handles alternate list markers (0.257ms)
+✔ countCheckboxes handles numbered lists with parentheses (0.316751ms)
+✔ parseConfig reads JSON config snippets and normalizes values (1.324685ms)
+✔ parseConfig reads key/value config blocks (1.314606ms)
+✔ parseConfig ignores inline comments in key/value config blocks (0.77606ms)
+✔ normaliseConfig preserves verifier_agent / progress_review_threshold / complete_gate_failure_rounds (0.187591ms)
+✔ evaluateKeepaliveLoop waits when agent label is missing (13.923792ms)
+✔ evaluateKeepaliveLoop skips when keepalive is disabled (5.175589ms)
+✔ evaluateKeepaliveLoop skips a paused PR even on a green Gate with work remaining (#2267) (4.686105ms)
+✔ evaluateKeepaliveLoop skips a needs-human PR until the label is cleared (#2267) (6.147845ms)
+✔ evaluateKeepaliveLoop stops when tasks are complete and verification is done (5.177343ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ deterministic failing gate refuses tasks-complete and supplies failure to next round (220.569292ms)
+✔ deterministic extraction rejects a missing interpreter (../keepalive_loop) (6.251349ms)
+✔ deterministic extraction rejects a missing interpreter (../../../templates/consumer-repo/.github/scripts/keepalive_loop) (26.816659ms)
+✔ deterministic evidence requires current head and live source commands (725.0019ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ deterministic verification reads live issue commands instead of completed PR criteria (214.326068ms)
+✔ deterministic verification falls back to PR criteria only without a linked issue (102.187158ms)
+✔ deterministic verification refuses completion when the linked issue cannot be fetched (4.621324ms)
+✔ deterministic gate summary renders inside the automated status block (0.86192ms)
+✔ deterministic CLI results publish a non-zero summary (pass) (640.470189ms)
+✔ deterministic CLI results publish a non-zero summary (fail) (529.03665ms)
+✔ deterministic gate failure unchecks only its acceptance criterion (0.455661ms)
+✔ deterministic results survive running and completion state JSON (227.729797ms)
+✔ deterministic gates are rechecked before summary grants completion (113.68555ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (before, -) (5.685352ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (before, *) (4.253657ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (before, +) (3.849111ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (before, 1.) (5.333825ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (before, 1)) (4.209114ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (after, -) (5.536604ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (after, *) (4.183075ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (after, +) (3.850293ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (after, 1.) (4.445335ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (after, 1)) (4.946672ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (unmanaged, -) (5.083968ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (unmanaged, *) (4.982158ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (unmanaged, +) (5.758929ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (unmanaged, 1.) (4.878023ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches unchecked work outside summary (unmanaged, 1)) (4.312437ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop does not complete an outside task matching completed summary text (4.505547ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop counts collapsible reviewer work after refresh (before) (4.138702ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop counts collapsible reviewer work after refresh (after) (3.788998ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop counts outside work after a fenced HTML comment opener (4.134545ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop retains nested blockquoted outside tasks through metadata refresh (4.322145ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop requires outside work to be checked after metadata refresh (11.648071ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop resumes a reopened outside task despite saved completion (7.357325ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop ignores outside examples and metrics but counts visible duplicate work (7.829868ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop excludes checked-in PR template controls (../../../.github/PULL_REQUEST_TEMPLATE.md, managed=false) (8.346303ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop excludes checked-in PR template controls (../../../.github/PULL_REQUEST_TEMPLATE.md, managed=true) (7.294268ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop excludes checked-in PR template controls (../../../templates/consumer-repo/.github/PULL_REQUEST_TEMPLATE.md, managed=false) (7.514498ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop excludes checked-in PR template controls (../../../templates/consumer-repo/.github/PULL_REQUEST_TEMPLATE.md, managed=true) (8.234393ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop ignores quoted fenced examples but counts quoted reviewer work (4.222959ms)
+✔ updateKeepaliveLoopSummary retains outside work in live task counts (10.016033ms)
+✔ updateKeepaliveLoopSummary refuses stale completion when outside work was added (1.915338ms)
+✔ updateKeepaliveLoopSummary revokes existing automerge on visible outstanding work (stop) (1.880073ms)
+✔ updateKeepaliveLoopSummary revokes existing automerge on visible outstanding work (run) (1.69156ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop stops when round budget is exhausted (3.311597ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop grants a forced recovery lease across the round budget (3.780894ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop grants a forced recovery lease after verification exhaustion (3.761988ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop uses a forced lease to repair an exhausted complete Gate (4.828761ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop stops at max iterations even when productive with tasks remaining (3.182586ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop stops at max iterations before fixable gate failures (3.985125ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop falls back to default budget for invalid max iterations (14.920706ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop triggers progress review without file changes (3.028368ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop triggers fix mode when gate fails with test failures (4.040298ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop uses normal prompt when tasks remain (3.753923ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop honors prompt scenario overrides from config (4.766434ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop dispatches fix when gate fails with lint failures (3.845565ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop bypasses gate fix after consecutive fix rounds exhausted (3.86999ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop waits when gate is pending (3.060958ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop treats cancelled gate as transient wait (3.201091ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop bypasses rate limit cancelled gate (4.159582ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop bypasses rate limit cancelled gate from logs (4.152558ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop force_retry bypasses cancelled gate (4.599423ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop rate limit bypass takes precedence over force_retry (3.945921ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop force_retry bypasses failed gate (3.742021ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop overridePrNumber takes precedence (3.707677ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop runs when ready (3.994322ms)
+✔ updateKeepaliveLoopSummary increments iteration and clears failures on success (2.143765ms)
+✔ updateKeepaliveLoopSummary migrates legacy state to the selected App writer (1.440511ms)
+✔ updateKeepaliveLoopSummary reuses a summary written by the selected PAT user (1.967676ms)
+✔ updateKeepaliveLoopSummary recovers trusted state past an untrusted summary writer (1.60024ms)
+✔ updateKeepaliveLoopSummary ignores status-only checklist metrics for reconciliation (1.601592ms)
+✔ updateKeepaliveLoopSummary reuses cached PR data for labels and body (1.469265ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop invalidates cache and emits cache metrics (2.682782ms)
+✔ updateKeepaliveLoopSummary logs timeout warning near expiration (4.091894ms)
+✔ updateKeepaliveLoopSummary logs timeout warning at 80 percent usage (1.673206ms)
+✔ updateKeepaliveLoopSummary uses workflow_run payload start time for warnings (1.318894ms)
+✔ updateKeepaliveLoopSummary does not warn before 80 percent usage (1.347798ms)
+✔ updateKeepaliveLoopSummary treats percent warning ratio inputs as percentages (1.408301ms)
+✔ updateKeepaliveLoopSummary logs timeout warning when elapsed_ms crosses 80 percent (1.505951ms)
+✔ updateKeepaliveLoopSummary reads timeout override from workflow inputs payload (1.434901ms)
+✔ updateKeepaliveLoopSummary honors timeout warning overrides (1.487038ms)
+✔ updateKeepaliveLoopSummary tracks attempt history across rounds (1.031788ms)
+✔ updateKeepaliveLoopSummary stores attempted task focus (1.1511ms)
+✔ updateKeepaliveLoopSummary marks verification when verifier succeeds (1.196237ms)
+✔ updateKeepaliveLoopSummary writes step summary for agent runs (1.223696ms)
+✔ updateKeepaliveLoopSummary emits metrics output for keepalive runs (1.164085ms)
+✔ updateKeepaliveLoopSummary appends metrics record when path provided (1.383866ms)
+✔ updateKeepaliveLoopSummary appends metrics record in GitHub Actions workspace by default (1.869863ms)
+✔ updateKeepaliveLoopSummary resets failure count on transient errors (1.815291ms)
+✔ updateKeepaliveLoopSummary uses state iteration when inputs have stale value (1.335926ms)
+✔ updateKeepaliveLoopSummary suppresses first missing-agent-label PR comment (1.262418ms)
+✔ updateKeepaliveLoopSummary does NOT count wait states as failures (1.275352ms)
+✔ updateKeepaliveLoopSummary marks deferred rate limit cancellations as transient (1.735101ms)
+✔ updateKeepaliveLoopSummary routes repeated actual failures to automation retry (1.580322ms)
+✔ updateKeepaliveLoopSummary applies automerge label on tasks-complete (#2270) (1.294719ms)
+✔ updateKeepaliveLoopSummary does not re-add automerge when already present (#2270 idempotent) (1.082442ms)
+✔ updateKeepaliveLoopSummary does not apply automerge on a non-success stop (#2270) (1.157031ms)
+✔ updateKeepaliveLoopSummary does not treat skipped runs as agent failures (1.031046ms)
+✔ updateKeepaliveLoopSummary does not consume authority ledger when agent execution never started (131.023842ms)
+✔ summary input without exact job evidence cannot reopen or ordinarily retry a consumed authority receipt (9.250031ms)
+✔ non-authority failed summary does not record recovery owner when attempt is not current (2.08208ms)
+✔ later failed retries retain an earlier attempt recovery pair for its delayed reporter (3.943317ms)
+✔ updateKeepaliveLoopSummary sends preflight auth failures without a runner exit to independent challenge (3.04002ms)
+✔ a scheduled recheck that reproduces auth failure records a terminal human action (3.515387ms)
+✔ failed authority confirmation preserves the challenge and hard label (7.005338ms)
+✔ transient confirmation conflict retries the same consumed receipt without a new grant (2.560143ms)
+✔ a two-phase terminal transition reuses a newly created summary comment (2.293295ms)
+✔ a failed hard label write keeps the authority challenge automation-owned (2.454646ms)
+✔ a failed terminal state write leaves a durable actionable pending transition (3.040691ms)
+✔ a forged sweep claim cannot confirm an authority challenge (2.167088ms)
+✔ a reproduced generic auth failure remains automation-owned (1.939413ms)
+✔ a forced recheck with a different auth boundary stays automation-owned (2.360971ms)
+✔ renewing an authority challenge never removes its existing soft label (2.161719ms)
+✔ authority evidence persists only an allowlisted safe projection (13.127726ms)
+✔ a successful authority recheck clears the automation challenge with or without a signed force claim (3.080535ms)
+✔ a recovered authority challenge retains automation ownership until its soft label is removed (1.759538ms)
+✔ updateKeepaliveLoopSummary routes resource failures to automation retry (1.340063ms)
+✔ updateKeepaliveLoopSummary defaults recovery dispatches to the consolidated followups workflow (4.129785ms)
+✔ automation-owned terminal stops dispatch exactly one forced recovery lease (5.532506ms)
+✔ a consumed forced recovery lease survives later ordinary wakeups (4.573705ms)
+✔ an operator guard defers rather than consumes a forced recovery lease (4.44324ms)
+✔ a failed bounded dispatch defers without adding a sticky retry label (2.614374ms)
+✔ updateKeepaliveLoopSummary routes logic failures to automation retry (1.192728ms)
+✔ selectEscalationDisposition never presumes a human authority boundary (0.184435ms)
+✔ updateKeepaliveLoopSummary formats codex failure details in summary (1.405867ms)
+✔ updateKeepaliveLoopSummary does NOT add needs-human on tasks-complete (1.157653ms)
+✔ updateKeepaliveLoopSummary clears stale human-blocker labels on tasks-complete (1.205121ms)
+✔ a successful terminal migrates and clears legacy automation attention state (1.110444ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop extracts agent type from agent:* labels (3.884217ms)
+✔ buildTaskAppendix formats scope, tasks, and acceptance criteria (0.223086ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop includes taskAppendix in result (4.87067ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop normalizes bullet tasks into checkboxes (4.015141ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop converts all lists to checkboxes (4.053122ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop routes to verification prompt when tasks complete (3.082769ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop stops when verification already done (4.982498ms)
+✔ buildTaskAppendix includes reconciliation warning when state.needs_task_reconciliation is true (0.21924ms)
+✔ buildTaskAppendix omits reconciliation warning when state.needs_task_reconciliation is false (0.19807ms)
+✔ extractSourceSection extracts source links from PR body (0.355024ms)
+✔ extractSourceSection returns null when no source section (0.153928ms)
+✔ extractSourceSection returns null for source section without links (0.200604ms)
+✔ extractSourceSection captures source context with agent subsections (0.158797ms)
+✔ extractSourceSection supports nested heading levels (0.158165ms)
+✔ extractSourceSection handles indented headings (0.146163ms)
+✔ buildTaskAppendix includes Source Context when prBody has source links (0.191908ms)
+✔ buildTaskAppendix omits Source Context when prBody has no source section (0.194423ms)
+✔ buildTaskAppendix highlights attempted tasks and suggests next task (0.30487ms)
+✔ buildTaskAppendix does not suggest status-metric checklist items as next task (0.220351ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop stops with no-checklists when only status metrics/placeholders exist (3.281551ms)
+✔ markAgentRunning updates summary comment with running status (0.895263ms)
+✔ markAgentRunning migrates legacy state to the selected App writer (0.470909ms)
+✔ markAgentRunning reuses a running summary written by the selected PAT user (0.339475ms)
+✔ markAgentRunning creates comment when none exists (0.360945ms)
+✔ markAgentRunning omits owner attempt when no run ID is available (0.641308ms)
+✔ markAgentRunning records suggested focus task in state (0.629657ms)
+Analyzing 2 commits against 4 unchecked tasks
+Found 1 potential task completion(s): 1 high, 0 medium confidence
+✔ analyzeTaskCompletion identifies high-confidence matches (3.512362ms)
+Analyzing 1 commits against 2 unchecked tasks
+Found 2 potential task completion(s): 1 high, 1 medium confidence
+✔ analyzeTaskCompletion parses numbered checklist items (0.73333ms)
+Analyzing 1 commits against 1 unchecked tasks
+Found 1 potential task completion(s): 1 high, 0 medium confidence
+✔ analyzeTaskCompletion matches issue link tasks using PR metadata (0.724604ms)
+Analyzing 1 commits against 3 unchecked tasks
+Found 1 potential task completion(s): 1 high, 0 medium confidence
+✔ analyzeTaskCompletion matches explicit file creation tasks (0.745723ms)
+Analyzing 1 commits against 2 unchecked tasks
+No clear task matches found in commits
+✔ analyzeTaskCompletion returns empty for unrelated commits (0.593819ms)
+Analyzing 1 commits against 2 unchecked tasks
+Found 1 potential task completion(s): 1 high, 0 medium confidence
+✔ analyzeTaskCompletion uses lowered 35% threshold with file match (0.592216ms)
+Analyzing 1 commits against 1 unchecked tasks
+Found 1 potential task completion(s): 0 high, 1 medium confidence
+✔ analyzeTaskCompletion gives medium confidence for 25% keyword match with file match (0.501186ms)
+Analyzing 1 commits against 1 unchecked tasks
+Found 1 potential task completion(s): 0 high, 1 medium confidence
+✔ analyzeTaskCompletion uses synonym expansion for better matching (2.154385ms)
+Skipping task analysis: missing repo context.
+✔ analyzeTaskCompletion skips when repo context is missing (0.327031ms)
+LLM analysis found 3 completed task(s)
+Analyzing 0 commits against 3 unchecked tasks
+No clear task matches found in commits
+Auto-checked task: Create `src/trend_analysis/stages/__init__.py` pac... (LLM session analysis)
+Auto-checked task: Add "quoted" task name... (LLM session analysis)
+Updated PR body, checked 2 task(s)
+✔ autoReconcileTasks handles tasks with backticks and special characters (2.902553ms)
+LLM analysis found 2 completed task(s)
+Analyzing 0 commits against 2 unchecked tasks
+No clear task matches found in commits
+Auto-checked task: Ship first numbered task... (LLM session analysis)
+Auto-checked task: Ship second numbered task... (LLM session analysis)
+Updated PR body, checked 2 task(s)
+✔ autoReconcileTasks checks numbered checklist items (1.233304ms)
+Analyzing 1 commits against 2 unchecked tasks
+Found 2 potential task completion(s): 1 high, 1 medium confidence
+Commit analysis found 1 additional task(s)
+Auto-checked task: Add step summary output to keepalive loop... (100% keyword match (6 words), file match)
+Updated PR body, checked 1 task(s)
+✔ autoReconcileTasks updates PR body for high-confidence matches (1.165317ms)
+Skipping reconciliation: missing repo context or PR number.
+✔ autoReconcileTasks skips when repo context is missing (0.602445ms)
+Analyzing 1 commits against 2 unchecked tasks
+No clear task matches found in commits
+No high-confidence task matches to auto-check
+✔ autoReconcileTasks skips when no high-confidence matches (0.702042ms)
+✔ normaliseChecklistSection converts all bullets to checkboxes (0.318435ms)
+✔ normaliseChecklistSection preserves existing checkboxes (0.177592ms)
+✔ normaliseChecklistSection handles numbered lists (0.155521ms)
+✔ normaliseChecklistSection preserves non-list content (0.14957ms)
+✔ updateKeepaliveLoopSummary displays LLM provider analysis details (2.027267ms)
+✔ updateKeepaliveLoopSummary shows fallback warning for OpenAI provider (1.122446ms)
+✔ updateKeepaliveLoopSummary shows regex fallback warning (1.080909ms)
+✔ updateKeepaliveLoopSummary prints policy_version when exploration delegation fires (1.11353ms)
+✔ updateKeepaliveLoopSummary replaces exploration policy versions and clears them on ranking rounds (2.530948ms)
+✔ seeded exploration policy_version reaches the keepalive summary (../keepalive_loop) (37.298231ms)
+✔ seeded exploration policy_version reaches the keepalive summary (../../../templates/consumer-repo/.github/scripts/keepalive_loop) (42.614964ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop resolves agent:auto via delegation policy with delegationSource (7.550806ms)
+Error checking CI logs: github.rest.actions.listWorkflowRunsForRepo is not a function
+✔ evaluateKeepaliveLoop disables dispatch for multiple concrete agent labels (6.443649ms)
+✔ marker-less summary retains real keepalive progress (../keepalive_loop) (1.143176ms)
+✔ marker-less summary retains real keepalive progress (../../../templates/consumer-repo/.github/scripts/keepalive_loop) (0.825321ms)
+✔ classifyCompletion covers provider quota, HTTP 429, failure and clean success (0.775889ms)
+✖ exit-zero quota classification yields to actual productivity (../keepalive_loop.js) (116289.36023ms)

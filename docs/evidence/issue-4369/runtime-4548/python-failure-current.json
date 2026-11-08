@@ -1,0 +1,25 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading",
+    "-m",
+    "not slow"
+  ],
+  "revision": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec",
+  "started_at": "2026-11-08T08:30:32.492179+00:00",
+  "python": "/tmp/workflows-4369-venv/bin/python3\n3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "node": "v24.22.2",
+  "working_tree_changes": [
+    "docs/CONTRIBUTING.md",
+    "docs/evidence/issue-4369/2026-11-08-validation.md"
+  ],
+  "timeout_seconds": 60,
+  "exit_code": 1,
+  "timed_out": false,
+  "duration_seconds": 3.073,
+  "finished_at": "2026-11-08T08:30:35.610787+00:00",
+  "log_sha256": "05950c00bbc4c5d44be1ab6ee9a363ebd0b710bc54548d86ef379dd0219b187b"
+}

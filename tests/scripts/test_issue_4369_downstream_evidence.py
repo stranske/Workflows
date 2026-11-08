@@ -1,0 +1,219 @@
+"""Replay the bounded delivery observation without promoting it to acceptance."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+import pytest
+import yaml
+
+ROOT = Path(__file__).resolve().parents[2]
+EVIDENCE = ROOT / "docs/evidence/issue-4369/runtime-4548/downstream-observation.json"
+MAINT68 = ".github/workflows/maint-68-sync-consumer-repos.yml"
+MAINT71 = ".github/workflows/maint-71-merge-sync-prs.yml"
+DISCUSSION = "4434491702"
+
+
+@pytest.fixture(
+    scope="module", params=[EVIDENCE, EVIDENCE.with_stem("downstream-observation-complete")]
+)
+def receipt(request: pytest.FixtureRequest) -> dict:
+    return json.loads(request.param.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def complete_receipt() -> dict:
+    return json.loads(EVIDENCE.with_stem("downstream-observation-complete").read_text())
+
+
+def utc(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    assert parsed.utcoffset() is not None
+    return parsed
+
+
+def runs(receipt: dict) -> list[dict]:
+    return [run for page in receipt["collection"]["run_inventories"] for run in page["runs"]]
+
+
+def test_inventory_preserves_bounded_event_collections(receipt: dict) -> None:
+    inventories = receipt["collection"]["run_inventories"]
+    events = {"schedule", "workflow_dispatch"}
+    if receipt["schema"] == "issue-4369/downstream-observation/v2":
+        events.add("repository_dispatch")
+    assert {page["event"] for page in inventories} == events
+    assert len(inventories) == len(events)
+    for page in inventories:
+        query = parse_qs(urlparse(page["url"]).query)
+        assert query == {
+            "event": [page["event"]],
+            "per_page": ["100"],
+            "created": [f'{page["start"]}..{page["end"]}'],
+        }
+        # An unfiltered single page is complete only when it contains the total.
+        # Keeping interleaved workflows prevents cherry-picking a historical run.
+        assert len(page["runs"]) == page["total_count"] < 100
+        assert utc(page["end"]) < utc(receipt["observed_at"])
+        assert utc(page["start"]) <= utc(receipt["source_pr"]["merged_at"])
+        for run in page["runs"]:
+            assert run["event"] == page["event"]
+            assert utc(page["start"]) <= utc(run["created_at"]) <= utc(page["end"])
+    inventory = runs(receipt)
+    assert len({run["id"] for run in inventory}) == len(inventory)
+    assert any(run["path"] not in {MAINT68, MAINT71} for run in inventory)
+
+
+def test_latest_producer_is_not_a_regeneration_of_the_merged_fix(receipt: dict) -> None:
+    producers = [run for run in runs(receipt) if run["path"] == MAINT68]
+    latest = max(producers, key=lambda run: utc(run["created_at"]))
+    assert latest == receipt["maint68"]["run"]
+    source = receipt["source_pr"]
+    assert source["merged"] is True
+    assert source["merge_commit_sha"] == "9acdde6d5f0731bf968a6766d83f2b47db8375a3"
+    assert latest["head_sha"] == receipt["maint68"]["source_sha"]
+    assert latest["head_sha"] != source["merge_commit_sha"]
+    assert utc(latest["created_at"]) < utc(source["merged_at"])
+    # Completion after the source merge does not change a producer's frozen SHA.
+    assert utc(source["merged_at"]) < utc(latest["updated_at"])
+
+
+def test_successful_prepare_did_not_execute_consumer_delivery(receipt: dict) -> None:
+    producer = receipt["maint68"]
+    assert producer["run"]["conclusion"] == "success"
+    jobs = producer["jobs"]
+    assert all(job["run_id"] == producer["run"]["id"] for job in jobs)
+    prepare = next(job for job in jobs if job["id"] == producer["prepare_job_id"])
+    assert prepare["conclusion"] == "success"
+    delivery = [job for job in jobs if job["name"].startswith("Sync ")]
+    assert len(delivery) == 1
+    assert delivery[0]["conclusion"] == "skipped"
+    excerpts = "\n".join(producer["log_excerpts"])
+    assert f'SOURCE_COMMIT: {producer["source_sha"]}' in excerpts
+    assert f'Compiled 280 copy entries and 17 removals as {producer["plan_id"]}' in excerpts
+
+
+def test_immediately_following_janitor_has_no_consumer_disposition(receipt: dict) -> None:
+    producer = receipt["maint68"]["run"]
+    following = receipt["following_maint71"]
+    candidates = [
+        run
+        for run in runs(receipt)
+        if run["path"] == MAINT71 and utc(run["created_at"]) > utc(producer["updated_at"])
+    ]
+    assert len(candidates) == 3
+    assert min(candidates, key=lambda run: utc(run["created_at"])) == following["run"]
+    assert following["run"]["id"] == 42451203202
+    assert following["run"]["head_sha"] == receipt["source_pr"]["merge_commit_sha"]
+    assert following["consumer_status"] == "no_prs"
+    excerpts = "\n".join(following["log_excerpts"])
+    assert '"owner": "stranske"' in excerpts
+    assert '"repo": "Portable-Alpha-Extension-Model"' in excerpts
+    assert '"status": "no_prs"' in excerpts
+    # This has no consumer head or finding inventory to bind to the new payload.
+    assert "review_finding_disposition" not in following
+
+
+def test_retained_payload_bytes_prove_the_consumer_has_the_older_implementation(
+    receipt: dict,
+) -> None:
+    source, consumer = (receipt["payloads"][key] for key in ("source", "consumer"))
+    assert source["ref"] == receipt["source_pr"]["merge_commit_sha"]
+    assert consumer["ref"] == receipt["consumer_pr"]["head_sha"]
+    for payload in (source, consumer):
+        content = payload["content"].encode("utf-8")
+        git_object = f"blob {len(content)}\0".encode("ascii") + content
+        assert hashlib.sha1(git_object).hexdigest() == payload["sha"]
+        assert 'os.environ.get("CLAUDE_CONFIG_DIR"' in payload["content"]
+    assert source["sha"] != consumer["sha"]
+    normalization = "Path(config_dir).expanduser().resolve()"
+    assert normalization in source["content"]
+    assert normalization not in consumer["content"]
+    assert utc(receipt["consumer_pr"]["merged_at"]) < utc(receipt["source_pr"]["merged_at"])
+
+
+def test_worker_resolution_predates_final_source_delivery(receipt: dict) -> None:
+    thread = receipt["thread"]
+    assert thread["id"] == "PRRT_kwDOO15QxM6yXhfS"
+    assert thread["is_resolved"] is thread["is_outdated"] is True
+    original, disposition = thread["comments"]
+    assert str(original["database_id"]) == DISCUSSION
+    assert disposition["database_id"] == 4505043101
+    assert disposition["author"] != original["author"]
+    assert receipt["consumer_pr"]["head_sha"] in disposition["body"]
+    assert utc(disposition["created_at"]) < utc(receipt["source_pr"]["merged_at"])
+    assert receipt["consumer_pr"]["merged"] is True
+    assert receipt["consumer_pr"]["draft"] is False
+
+
+def test_complete_comment_observation_has_no_later_scoped_sync_core_recurrence(
+    receipt: dict,
+) -> None:
+    comments = receipt["issue_comments"]
+    assert len(comments) == receipt["collection"]["comments"]["returned"]
+    assert len({comment["id"] for comment in comments}) == len(comments)
+    sync = [c for c in comments if c["body"].startswith("<!-- sync-core/v1 handoff ")]
+    scoped = [c for c in sync if f"#discussion_r{DISCUSSION}" in c["body"]]
+    assert max(scoped, key=lambda comment: comment["id"])["id"] == 6649911684
+    assert max(sync, key=lambda comment: comment["id"])["id"] == 6650145104
+    for comment in sync:
+        # The connector omits REST creation times. Use the explicit handoff round,
+        # not a fabricated timestamp, and preserve every comment body for replay.
+        round_stamp = re.search(r"\(round (\d{8}T\d{6}Z)\)", comment["body"])
+        assert round_stamp is not None
+        round_time = datetime.strptime(round_stamp[1], "%Y%m%dT%H%M%SZ").replace(
+            tzinfo=utc(receipt["observed_at"]).tzinfo
+        )
+        assert round_time < utc(receipt["source_pr"]["merged_at"])
+    assert receipt["final_delivery_acceptance"] is False
+    assert len(receipt["pending_reasons"]) == 3
+
+
+def test_complete_inventory_covers_all_top_level_workflow_triggers(complete_receipt: dict) -> None:
+    events = set()
+    for path in (MAINT68, MAINT71):
+        workflow = yaml.load((ROOT / path).read_text(), Loader=yaml.BaseLoader)
+        # workflow_call executes inside a caller's run; it has no separate
+        # top-level run inventory. Include all other authored entry points.
+        events.update(set(workflow["on"]) - {"workflow_call"})
+    inventories = complete_receipt["collection"]["run_inventories"]
+    assert {page["event"] for page in inventories} == events
+    assert len({(page["start"], page["end"]) for page in inventories}) == 1
+    # The newly collected trigger contains a real Maint 71 run. Omitting it
+    # could otherwise make the immediate-following-run selection incomplete.
+    dispatch = next(page for page in inventories if page["event"] == "repository_dispatch")
+    assert any(run["path"] == MAINT71 for run in dispatch["runs"])
+
+
+def test_default_branch_still_contains_the_pre_final_payload(complete_receipt: dict) -> None:
+    main = complete_receipt["consumer_default_branch"]
+    consumer = complete_receipt["consumer_pr"]
+    payload = complete_receipt["payloads"]["consumer"]
+    assert main["head_sha"] == consumer["merge_commit_sha"]
+    assert main["retained_content"] == "payloads.consumer.content"
+    assert main["sha"] == payload["sha"]
+    assert main["path"] == payload["path"]
+    assert parse_qs(urlparse(main["payload_url"]).query) == {"ref": [main["head_sha"]]}
+    assert main["sha"] != complete_receipt["payloads"]["source"]["sha"]
+
+
+def test_rest_comments_bound_nonrecurrence_to_actual_creation_times(complete_receipt: dict) -> None:
+    collection = complete_receipt["collection"]["comments"]
+    comments = complete_receipt["issue_comments"]
+    assert parse_qs(urlparse(collection["url"]).query) == {"per_page": ["100"]}
+    assert collection["page"] == 1
+    assert len(comments) == collection["returned"] < collection["per_page"]
+    for comment in comments:
+        assert utc(comment["created_at"]) <= utc(comment["updated_at"])
+        assert utc(comment["updated_at"]) < utc(complete_receipt["observed_at"])
+    sync = [comment for comment in comments if comment["body"].startswith("<!-- sync-core/v1 ")]
+    scoped = [comment for comment in sync if f"#discussion_r{DISCUSSION}" in comment["body"]]
+    assert max(scoped, key=lambda comment: utc(comment["created_at"]))["id"] == 6649911684
+    assert all(
+        utc(comment["created_at"]) < utc(complete_receipt["source_pr"]["merged_at"])
+        for comment in sync
+    )

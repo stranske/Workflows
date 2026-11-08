@@ -1,0 +1,18 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-isolation=none",
+    "--test-reporter=spec",
+    "--test-name-pattern=^exit-zero quota classification yields to actual productivity",
+    ".github/scripts/__tests__/keepalive-loop.test.js"
+  ],
+  "revision": "7e377b7ad8cc06e506393218bc7459ba47757f01",
+  "cwd": "/tmp/issue4369-before",
+  "started_at": "2026-11-08T08:27:27.927228+00:00",
+  "timeout_seconds": 45,
+  "exit_code": 124,
+  "timed_out": true,
+  "duration_seconds": 45.007,
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
