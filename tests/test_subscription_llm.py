@@ -116,6 +116,42 @@ def test_claude_config_dir_invocation_uses_configured_directory(
     assert calls == [("claude", str(config))]
 
 
+@pytest.mark.parametrize("path_kind", ("relative", "tilde"))
+def test_claude_config_dir_invocation_resolves_path_before_changing_directory(
+    claude_client, monkeypatch, tmp_path, path_kind
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
+    if path_kind == "relative":
+        configured = "../custom claude"
+        config = tmp_path / "custom claude"
+    else:
+        configured = "~/custom claude"
+        config = Path.home() / "custom claude"
+    config.mkdir(parents=True)
+    (config / ".credentials.json").touch()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", configured)
+    transport = sys.modules[type(claude_client).__module__]
+    calls = []
+
+    def run_cli(command, **options):
+        child_config = Path(options["env"]["CLAUDE_CONFIG_DIR"])
+        assert Path(options["cwd"]) != workspace
+        assert child_config.is_absolute()
+        assert child_config == config
+        assert (child_config / ".credentials.json").is_file()
+        calls.append(command[0])
+        return SimpleNamespace(returncode=0, stdout='{"result": "fixture analysis"}')
+
+    monkeypatch.setattr(transport.subprocess, "run", run_cli)
+
+    assert claude_client.available() is True
+    assert claude_client.invoke("fixture prompt").content == "fixture analysis"
+    assert calls == ["claude"]
+    assert transport.os.environ["CLAUDE_CONFIG_DIR"] == configured
+
+
 @pytest.mark.parametrize("default_auth_exists", (False, True))
 @pytest.mark.parametrize("config_state", ("missing", "empty", "directory-entry"))
 def test_claude_config_dir_unavailable_without_credentials(

@@ -490,8 +490,10 @@ now resolved by code changes in this branch.)
 | `node --test .github/scripts/__tests__/*.test.js` | 0 | 11.84s (wall: 11381ms) | 3655 passed, 0 failed, 1 skipped, 0 todo, 33 suites |
 | `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | 16.14s (wall: 13.08s pytest) | 30 passed, 50444 deselected |
 
-Both required source-gate commands completed successfully within the 120-second
-bound. The `claude_config_dir` selection now includes 30 tests (28 original + 2 new).
+The JavaScript source gate and the targeted Python selection completed successfully
+within the 120-second bound. The full Python source gate is absent from this
+table, so these results do not establish that both required source gates passed.
+The `claude_config_dir` selection now includes 30 tests (28 original + 2 new).
 
 ### Isolated credential regression verification
 
@@ -511,6 +513,165 @@ All 30 tests in the `claude_config_dir` selection pass.
   in downstream consumer runs (Maint 68 job 127073790362, Maint 71 job 127075733924).
   This branch does not re-deliver that fix; it strengthens the regression coverage.
 
-- **This branch's delivery**: Addresses CodeRabbit review threads on relative path
-  resolution and markdown formatting, plus records complete source-gate validation
-  results demonstrating both gates pass on the current codebase.
+- **This branch's changes**: Addresses CodeRabbit review threads on relative path
+  resolution and markdown formatting. The recorded JavaScript pass and targeted
+  Python pass leave the full Python source gate pending.
+
+## Relative child-directory continuation at incoming head 6c6b8dfa (2026-11-08)
+
+The first unchecked acceptance criterion remains the two full source gates. The
+latest incoming report incorrectly described a targeted Python selection as the
+full Python gate; the statements above are corrected. No acceptance checkbox is
+advanced on that evidence.
+
+Inspection also found an incomplete fix on the scoped credential path: the
+incoming `_has_subscription_auth()` expands and resolves `CLAUDE_CONFIG_DIR`,
+but `build_environment()` forwards its original spelling. Claude starts with a
+temporary `cwd`, so a relative directory can pass availability and then point to
+a different location in the child. A literal `~` similarly needs expansion before
+being passed through the environment.
+
+Both production copies now normalize the child's configured directory before
+the cwd changes, using the same expansion/resolution as availability. The parent
+environment is left intact. Existing absolute paths and unset-directory behavior
+are retained. The existing `template_sync: exact` manifest entry already covers
+this source/template pair; its ownership and distribution scope are unchanged.
+The auxiliary-analysis contract in `docs/keepalive/Agents.md` documents this
+normalization. The incoming conditional directory assignment was also expressed
+as a conditional expression to satisfy Ruff SIM108 in these touched files.
+
+The new regression,
+`test_claude_config_dir_invocation_resolves_path_before_changing_directory`,
+runs against source and template with `../custom claude` and `~/custom claude`.
+It creates only an empty credential file in a temporary directory, mocks CLI
+discovery and execution, and verifies availability plus an absolute, readable
+child credential path despite the different child cwd. It also checks that the
+parent's configured spelling is preserved. No Claude invocation or subscription
+is used.
+
+### Observed red/green proof
+
+Before the child-environment fix:
+
+```console
+python3 -m pytest -q tests/test_subscription_llm.py -k claude_config_dir_invocation_resolves_path_before_changing_directory -m 'not slow'
+```
+
+Exit 1, with these failures:
+
+```text
+FAILED tests/test_subscription_llm.py::test_claude_config_dir_invocation_resolves_path_before_changing_directory[source-relative]
+FAILED tests/test_subscription_llm.py::test_claude_config_dir_invocation_resolves_path_before_changing_directory[source-tilde]
+FAILED tests/test_subscription_llm.py::test_claude_config_dir_invocation_resolves_path_before_changing_directory[template-relative]
+FAILED tests/test_subscription_llm.py::test_claude_config_dir_invocation_resolves_path_before_changing_directory[template-tilde]
+4 failed, 30 deselected in 0.91s
+```
+
+Each failure is the child path's `is_absolute()` assertion; availability already
+passed, demonstrating the parent/child mismatch rather than missing CLI auth.
+
+After the child-environment fix:
+
+| Command | Exit | Observed output |
+| --- | --- | --- |
+| `python3 -m pytest -q tests/test_subscription_llm.py tests/workflows/test_subscription_llm_credential_canary.py -m 'not slow'` | 0 | `46 passed in 2.23s` |
+| `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | `34 passed, 50444 deselected in 19.10s` |
+
+These are focused results. Full-source gates, publication, and live delivery of
+this continuation are recorded separately below and remain pending until their
+own evidence exists.
+
+### Formatting and publication boundary
+
+The final focused rerun after the Ruff adjustment exited 0:
+`46 passed in 1.92s`. Ruff on both production copies and the test module,
+`git diff --check`, and exact source/template byte comparison all passed.
+
+The default multi-file Black attempt cannot start its multiprocessing forkserver
+in this runtime (`PermissionError: [Errno 1] Operation not permitted`). A plain
+one-worker attempt also timed out after 30 seconds, reporting unchanged files
+while aborting. The workaround already described earlier in this report was
+recreated outside the repository: a startup hook wraps Black's loop factory and
+schedules a heartbeat every 0.05 seconds, with `BLACK_NUM_WORKERS=1` selecting
+Black's thread executor. It does not change file selection or formatting checks.
+
+The following command exited 0, reporting **968 files would be left unchanged**:
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Formatting the three touched Python files with the same runtime exited 0:
+`3 files left unchanged`. The later Ruff adjustment is a single line already
+accepted by the repository-wide check.
+
+Staging the five changed files with `git add` exited 128:
+
+```text
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+```
+
+No commit or push succeeded. This session's filesystem permissions make git
+metadata read-only, and its approval policy does not permit escalation. The
+source, tests, contract note, and this report remain reviewable working-tree
+changes. No protected workflow or security-sensitive file was edited.
+
+### Live evidence re-read for the original repair
+
+Read-only GitHub requests during this continuation re-confirmed successful
+Maint 68 run **41975139516**, source
+`d77a8e3ad93aaf4339fff0180bafa1264e3ec7c0`, and its job **127073790362** creating
+consumer commit `99d10a9838cecfb4327a2735d8f3723e393e413e`. The following Maint 71
+run **41976239018**, job **127075733924**, reports that same source/head/plan.
+Its `review_finding_disposition` lists discussions 4434491631, 4434491646,
+4434491667 and 4434491675, excluding **4434491702**. Other findings still block
+the consumer delivery.
+
+The scoped thread **PRRT_kwDOO15QxM6yXhfS** is currently outdated and unresolved.
+Consumer PR **2454** is open and ready at
+`b36b8ebf242bde649f6e31edc2cc915ad49d7421`. All 46 fetched issue 4369 comments
+still place the last scoped sync-core recurrence before that original
+regeneration (comment 6649911684, round `20261105T044440Z`); the last recurrence
+across any consumer is round `20261105T050113Z`.
+
+These observations concern the previously merged repair, not this continuation's
+unpublished path-normalization change. Its own merge, Maint 68 regeneration,
+following Maint 71 evidence and post-delivery sync-core observation remain
+**pending**. Source PR **4539** was read as open and ready at incoming head
+`6c6b8dfaa832f97ec9a0b8960d2cdf73ecbb58f9`, with no active non-outdated unresolved
+review threads. No remote readiness change is claimed.
+
+### Full-source gate outcomes for this continuation
+
+Initial unbounded invocations of the exact two gate commands did not finish and
+were interrupted (exit 130). Final bounded invocations used the fixed child
+environment; the Python run additionally enabled diagnostic stack dumps without
+changing test selection:
+
+```console
+timeout -k 5s 180s node --test .github/scripts/__tests__/*.test.js
+PYTHONUNBUFFERED=1 timeout -k 5s 300s python3 -m pytest -q tests/ -o faulthandler_timeout=45
+```
+
+Both exited **124**. The JavaScript run's cancellation summary reports 114 passed,
+6 failed and 20 cancelled, not a successful gate. Its output includes
+`Error: spawnSync python3 EPERM` in `maint68-scoped-receipt.test.js` at line 14.
+Running that file alone with
+`timeout -k 5s 30s node --test .github/scripts/__tests__/maint68-scoped-receipt.test.js`
+independently exited **1** with the same EPERM and `0 passed, 1 failed` in about
+0.21 seconds. This reproduces a subprocess permission blocker independently of
+the full-suite timeout; the unrelated test was not edited or disabled.
+
+The Python run timed out after five minutes near **2%**, with no failure or
+completion summary. Its partial passing progress does not establish a full-suite
+pass. No timeout/diagnostic setting changes were committed to the repository.
+
+Both source-gate acceptance and live verification of this continuation remain
+**unchecked**. The verified source/test changes are ready for a runner with
+writable git metadata and the subprocess capabilities needed by the full gates.
+
+Posting the prepared blocker comment to PR 4539 and adding `needs-human` were
+attempted after the concrete changes and validation were prepared. Automatic
+approval review rejected both actions with
+`MCP tool call requires approval, but approval policy is never`. Neither remote
+mutation succeeded; no PR checkbox or readiness state was changed.

@@ -51,10 +51,7 @@ def analysis_model(agent: str) -> str:
 def _has_subscription_auth(agent: str) -> bool:
     if agent == "claude":
         config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
-        if config_dir:
-            home = Path(config_dir).expanduser().resolve()
-        else:
-            home = Path.home() / ".claude"
+        home = Path(config_dir).expanduser().resolve() if config_dir else Path.home() / ".claude"
         return (
             bool(os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"))
             or (home / ".credentials.json").is_file()
@@ -87,7 +84,11 @@ class SubscriptionClient:
             if self.agent == "claude"
             else {"CODEX_HOME"}
         )
-        return {key: value for key, value in environ.items() if key in allowed}
+        env = {key: value for key, value in environ.items() if key in allowed}
+        if self.agent == "claude" and env.get("CLAUDE_CONFIG_DIR"):
+            # Resolve before the CLI starts in its unrelated temporary cwd.
+            env["CLAUDE_CONFIG_DIR"] = str(Path(env["CLAUDE_CONFIG_DIR"]).expanduser().resolve())
+        return env
 
     def build_command(self) -> list[str]:
         """Build argv independently of prompt text and the parent environment."""
