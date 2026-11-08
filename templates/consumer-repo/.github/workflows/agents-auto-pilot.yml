@@ -2463,11 +2463,9 @@ jobs:
               // The verifier exposes its explicit PR/head inputs in run-name.
               const dispatchBound = run.event === 'workflow_dispatch' &&
                 run.display_title === `Verifier PR #${linkedPr.number} head=${headSha} mode=evaluate`;
-              const prBound = run.event === 'pull_request_target' &&
-                (run.pull_requests || []).some((pr) =>
-                  pr.number === linkedPr.number && pr.head?.sha === headSha
-                );
-              if (!dispatchBound && !prBound) return false;
+              // Label-triggered runs can skip the verifier job entirely. Only
+              // an explicitly correlated evaluate dispatch proves the mode.
+              if (!dispatchBound) return false;
               return ['queued', 'in_progress'].includes(run.status) ||
                 (run.status === 'completed' && run.conclusion === 'success');
             }
@@ -4201,11 +4199,9 @@ jobs:
               if (!run || !headSha) return false;
               const dispatchBound = run.event === 'workflow_dispatch' &&
                 run.display_title === `Verifier PR #${prNumber} head=${headSha} mode=evaluate`;
-              const prBound = run.event === 'pull_request_target' &&
-                (run.pull_requests || []).some((pr) =>
-                  pr.number === prNumber && pr.head?.sha === headSha
-                );
-              if (!dispatchBound && !prBound) return false;
+              // Label-triggered runs can skip the verifier job entirely. Only
+              // an explicitly correlated evaluate dispatch proves the mode.
+              if (!dispatchBound) return false;
               return ['queued', 'in_progress'].includes(run.status) ||
                 (run.status === 'completed' && run.conclusion === 'success');
             }
