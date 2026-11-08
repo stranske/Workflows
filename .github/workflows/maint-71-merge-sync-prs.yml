@@ -840,6 +840,7 @@ jobs:
                 client_payload: { continuation_completion_run_id: context.runId },
               });
             } catch (error) {
+              // # best-effort: notification grants no authority; the durable Maint 82 sweep reads terminal run state independently.
               core.warning('Completion wake unavailable; drainable=existing-Maint82-sweep');
             }
 
