@@ -1,0 +1,53 @@
+[
+  {
+    "id": "PRRT_kwDOO15QxM6yXhfS",
+    "is_resolved": true,
+    "is_outdated": true,
+    "path": "tools/subscription_llm.py",
+    "line": null,
+    "diff_side": "RIGHT",
+    "start_line": null,
+    "start_diff_side": null,
+    "original_line": 55,
+    "original_start_line": null,
+    "resolved_by": {
+      "login": "stranske",
+      "name": "stranske",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+      "id": null
+    },
+    "comments": [
+      {
+        "id": "PRRC_kwDOO15QxM8AAAABCFD5Ng",
+        "database_id": 4434491702,
+        "body": "[P2] Claude's credential check ignores `CLAUDE_CONFIG_DIR`, even though that variable is passed to the child CLI. When subscription credentials exist only in the configured directory, `available()` rejects the client before Claude can read them. Resolve the credentials file relative to the configured directory when present.",
+        "created_at": "2026-11-01T05:10:47Z",
+        "updated_at": "2026-11-01T05:10:47Z",
+        "author": {
+          "login": "copilot-pull-request-reviewer",
+          "name": "copilot-pull-request-reviewer",
+          "email": null,
+          "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+          "id": null
+        },
+        "viewer_did_author": false
+      },
+      {
+        "id": "PRRC_kwDOO15QxM8AAAABDIWAnQ",
+        "database_id": 4505043101,
+        "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 51-56 resolve the credentials directory from CLAUDE_CONFIG_DIR, then check .credentials.json there; lines 80-83 preserve that variable in the child environment.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/tools/subscription_llm.py . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+        "created_at": "2026-11-08T04:39:05Z",
+        "updated_at": "2026-11-08T04:39:05Z",
+        "author": {
+          "login": "stranske",
+          "name": "stranske",
+          "email": null,
+          "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+          "id": null
+        },
+        "viewer_did_author": true
+      }
+    ]
+  }
+]

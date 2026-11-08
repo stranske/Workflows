@@ -1,0 +1,22 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_issue_pr_context.py",
+    "tests/scripts/test_llm_client_shared.py",
+    "-m",
+    "not slow"
+  ],
+  "revision": "db04a2ad4d12738143108beb20520a24c9d6adfb",
+  "uncommitted_changes": true,
+  "tested_patch_sha256": "c74f2c951d9aac0483c264888632467a2fe6f10c21085c9bd269836042980f8c",
+  "started_at_utc": "2026-11-08T11:09:12.268155+00:00",
+  "finished_at_utc": "2026-11-08T11:09:19.513130+00:00",
+  "wall_seconds": 7.245,
+  "exit_code": 0,
+  "timed_out": false,
+  "timeout_seconds": 60,
+  "log_sha256": "7068e86e645b1cf0d80753d7a78c46181262d934578e10db3119b5b8b2d7fcea"
+}

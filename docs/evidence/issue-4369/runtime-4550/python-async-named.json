@@ -1,0 +1,21 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_llm_client_shared.py::test_subscription_pipe_renders_each_execution_mode[codex-ainvoke]",
+    "-m",
+    "not slow"
+  ],
+  "revision": "db04a2ad4d12738143108beb20520a24c9d6adfb",
+  "uncommitted_changes": true,
+  "tested_patch_sha256": "c74f2c951d9aac0483c264888632467a2fe6f10c21085c9bd269836042980f8c",
+  "started_at_utc": "2026-11-08T11:21:00.841757+00:00",
+  "finished_at_utc": "2026-11-08T11:21:03.613282+00:00",
+  "wall_seconds": 2.772,
+  "exit_code": 0,
+  "timed_out": false,
+  "timeout_seconds": 15,
+  "log_sha256": "55959fc1472819f6afa14ec7e2cd60f6887676356b23f7aa50cb38bbbd9285ee"
+}

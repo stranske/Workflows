@@ -1,0 +1,26 @@
+{
+  "revision": "db04a2ad4d12738143108beb20520a24c9d6adfb",
+  "required_ancestor": "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+  "ancestor_verified": true,
+  "uncommitted_test_changes": true,
+  "python": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+  "python_version": "3.14.10",
+  "node": "v24.22.2",
+  "source_template_git_blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+  "source_template_sha256": "ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca",
+  "consumer_merge_revision": "0543dc9732eab0ad12227308749566a937581eea",
+  "consumer_payload_git_blob": "c889fd8064806a9c0f932f7c1dc09762896afe67",
+  "scoped_discussion": 4434491702,
+  "discussion_resolved": true,
+  "discussion_outdated": true,
+  "maint68_dispatch_exit": 1,
+  "maint68_dispatch_error": "error connecting to api.github.com",
+  "git_commit_error": ".git/index.lock: Read-only file system",
+  "remote_comment_error": "MCP tool call requires approval, but approval policy is never",
+  "remote_label_error": "MCP tool call requires approval, but approval policy is never",
+  "black": {
+    "exit_code": 0,
+    "files_unchanged": 974,
+    "command": "BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4550-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' ."
+  }
+}

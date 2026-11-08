@@ -1404,3 +1404,145 @@ formatting pass or commit is claimed.
 
 The complete-trigger JSON contains **161 run rows** and **49 comments**; its
 SHA-256 is `e2f938c97c715b11aee66ec06d5af9fc09217ffb9b58fd95fec484a39f8a878a`.
+
+## Issue 4550: assertion and runtime fixture repairs
+
+This working tree starts at `db04a2ad4d12738143108beb20520a24c9d6adfb`, a verified
+descendant of `b21fae85fe4f79e72c4133c29a3814b9d5950c3a`. Python is
+`/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3` (3.14.10); Node is v24.22.2.
+The installed validation dependencies include pytest 9.2.0, mypy 2.4.1,
+defusedxml 0.7.1, Black 26.10.1 and langchain-core 1.5.3.
+[Workspace metadata](runtime-4550/workspace.json) and the
+[tested patch](runtime-4550/tested-changes.patch) identify the local changes.
+The patch SHA-256 is
+`c74f2c951d9aac0483c264888632467a2fe6f10c21085c9bd269836042980f8c`.
+These are uncommitted changes, not a published revision.
+
+The truncation failure is an assertion defect. The documented fallback allows
+four characters per estimated token, so `"## H"` fits a one-token budget.
+The regression now explicitly selects that fallback and checks negative, zero,
+one- and two-token budgets against exact results and the budget invariant.
+A separate deterministic tokenizer fixture counts each character as a token,
+proving that the partial heading follows the selected estimator instead of
+hard-coding either `"##"` or four characters into production behavior.
+
+The two runtime stalls have a reproduced sandbox cause: sending on a newly
+created local socket pair raises `PermissionError`, errno 1. A minimal Node
+`spawnSync` reproduction returns promptly without input, but times out after
+five seconds when Python reads JSON from piped stdin. Passing the same fixture
+as an argv element with ignored stdin succeeds. `replayCompletion` now uses
+that transport, checks spawn errors and imposes a 15-second SIGKILL bound.
+Classification, persistence, productivity reconciliation, source/template
+evaluation and all existing assertions still execute.
+
+For the async stall, the diagnostic stack shows the worker idle in
+`concurrent.futures.thread._worker` while the main thread waits in
+`selectors.select`. Even a minimal `asyncio.to_thread` call stalls in this
+environment: the worker cannot wake the loop through its socket pair.
+The execution-mode test now uses an `asyncio.Runner`, a 50 ms timer wake-up and
+a 10-second coroutine deadline. This preserves real LangChain execution and
+the existing process-boundary fixture. No production adapter change is
+justified by this diagnosis, and no test is excluded or disabled.
+
+Verified local results:
+
+| Command / selection | Exit | Result |
+| --- | --- | --- |
+| `python3 -m pytest -q tests/scripts/test_issue_pr_context.py -m 'not slow'` | 0 | 55 passed in 0.57s |
+| Exact named truncation test, external 15s bound | 0 | 4 cases passed in 0.66s; [raw log](runtime-4550/python-truncation-named.log), [receipt](runtime-4550/python-truncation-named.json) |
+| `python3 -m pytest -q tests/scripts/test_llm_client_shared.py -m 'not slow' -o faulthandler_timeout=15`, external 60s bound | 0 | 141 passed in 3.06s |
+| Both changed Python test modules together, external 60s bound | 0 | 196 passed in 4.00s; [raw log](runtime-4550/python-targeted.log), [receipt](runtime-4550/python-targeted.json) |
+| Targeted `--cov=scripts.langchain.issue_pr_context --cov-report=term-missing -m 'not slow'` | 0 | 55 passed; script coverage 90.57%; [raw log](runtime-4550/python-context-coverage.log), [receipt](runtime-4550/python-context-coverage.json) |
+| Both named Node productivity variants, external 60s and child 15s bounds | 0 | 2 passed; [raw log](runtime-4550/node-targeted.log), [receipt](runtime-4550/node-targeted.json) |
+| `node --test .github/scripts/__tests__/keepalive-loop.test.js`, external 60s bound | 0 | File passes in 3.85s |
+| Exact `codex-ainvoke` node, external 15s bound | 0 | 1 passed in 0.95s; [raw log](runtime-4550/python-async-named.log), [receipt](runtime-4550/python-async-named.json) |
+| Ruff on both changed Python test modules; `git diff --check` | 0 | Pass |
+| Repository-wide Black check with the documented runtime workaround | 0 | 974 files would be left unchanged |
+
+Black formatted both edited Python files at line length 100 before the check.
+Its plain repository invocation first failed because the sandbox denies the
+multiprocessing forkserver socket. A one-worker retry without a heartbeat
+timed out. The successful check used the same temporary scheduling-only
+workaround documented above, under `/tmp/issue-4550-black-runtime`; formatting
+rules, safety checks and repository selection were unchanged.
+
+Both exact complete-suite commands were started with external process-group
+limits (Node: 600 seconds; Python: 900 seconds). Their complete captured output
+and final receipts are retained under `runtime-4550`.
+
+| Complete-suite command | Exit | Wall time | Result |
+| --- | --- | --- | --- |
+| `node --test .github/scripts/__tests__/*.test.js` | 124 | 600.017s | At the bound: 144 file-level results, 133 pass, 9 fail, 2 cancelled; [raw log](runtime-4550/node-full.log), [receipt](runtime-4550/node-full.json) |
+| `python3 -m pytest -q tests/` | 124 | 900.065s | Timed out near 98% with reported failure markers and no final traceback/summary; [raw log](runtime-4550/python-full.log), [receipt](runtime-4550/python-full.json) |
+
+Full-suite acceptance remains pending; targeted results do not establish it.
+A separate reproduction of `vendored-glob-security.test.js` fails with sandbox
+`spawnSync ... EPERM`. The full Node log also identifies cancelled
+`verifier-correction-artifacts.test.js` and `verifier-correction-coding.test.js`
+at termination. Unrelated tests are not repaired by this focused change.
+The Python log's failure progress markers do not identify individual failures
+without a completed summary; no unsupported root cause or passing remainder is
+inferred from them. Both logs are complete captured output through their
+supervisor's termination, rather than proof that every test finished.
+
+### Current consumer and comment observations
+
+Consumer PR 2454 is merged at
+`0543dc9732eab0ad12227308749566a937581eea`. Its inspected file blob is
+`c889fd8064806a9c0f932f7c1dc09762896afe67`, retained as
+[consumer-payload.txt](runtime-4550/consumer-payload.txt). Final source/template
+blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2` differs: the consumer lacks the
+later relative-directory normalization and guarded availability logic.
+The final template blob is identical at source commit
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3` and this checkout.
+
+[Discussion 4434491702](runtime-4550/scoped-review-thread.json) is resolved and
+outdated, with the owner's explicit disposition on consumer head
+`9c85282d05359ddc468d0881ec6b09269ac592a2`. That historical disposition does
+not prove delivery of the later final payload.
+
+The [schedule inventory](runtime-4550/schedule-inventory.json) (26 of 26 rows)
+and [manual-dispatch inventory](runtime-4550/workflow-dispatch-inventory.json)
+(13 of 13 rows) contain no Maint 68 or Maint 71 run in the queried window
+2026-11-08T08:58:07Z through 2026-11-08T11:10:00Z. Each inventory fits in its
+single page of capacity 100. Other trigger classes are outside these queries.
+
+The attempted authorized Maint 68 dispatch selected only
+`stranske/Portable-Alpha-Extension-Model`, `phase=canary`,
+`delivery_scope=source-delta`, base
+`7e377b7ad8cc06e506393218bc7459ba47757f01`, head
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`, `force=true`, and
+`cleanup_branches=false`, using the workflow on `main`. This is the exact
+commit range introducing the final subscription payload; it avoids unrelated
+later source changes. The GitHub connector has no workflow-dispatch method,
+so `gh workflow run` was used. It exited 1 with `error connecting to
+api.github.com`; no dispatch or subsequent Maint 71 delivery is claimed.
+
+A fresh [all-pages issue-comment observation](runtime-4550/issue-4369-comments.json)
+records **49 comments**, observed through **2026-11-08T11:24:53Z**. The last
+scoped recurrence remains comment **6649911684**, round `20261105T044440Z`,
+consumer head `39a3dc939133`. No later comment reports the scoped recurrence.
+This is a bounded observation, not a prediction or final-delivery receipt.
+
+### Publication blocker and local checklist
+
+After successful focused validation and repository formatting, `git add` exits
+128 because `.git/index.lock` cannot be created on the read-only filesystem.
+No commit or push succeeded. Automatic approval review also rejected the
+prepared blocker comment and additive `needs-human` label with
+`MCP tool call requires approval, but approval policy is never`. Neither was
+published, and PR checkboxes were not changed. No protected file was edited.
+The final PR metadata read confirms PR 4551 remains open and non-draft at
+`db04a2ad4d12738143108beb20520a24c9d6adfb`.
+
+The following marks describe verified working-tree implementation only:
+
+- [x] Resolve the truncation assertion mismatch while preserving small-budget tests.
+- [x] Diagnose and bound Node replay execution; both productivity variants pass.
+- [x] Diagnose the async fixture stall; all execution modes and the exact named node pass.
+- [ ] Both complete suites exit zero on a published recorded revision.
+- [ ] Obtain the final-payload Maint 68/71 consumer-delivery receipt.
+
+An authorized runner must publish the three changed test files and evidence,
+complete the gates in an environment supporting their IPC, and execute the
+selected delivery lifecycle before the remaining acceptance can be claimed.

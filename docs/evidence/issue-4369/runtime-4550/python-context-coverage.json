@@ -1,0 +1,23 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_issue_pr_context.py",
+    "--cov=scripts.langchain.issue_pr_context",
+    "--cov-report=term-missing",
+    "-m",
+    "not slow"
+  ],
+  "revision": "db04a2ad4d12738143108beb20520a24c9d6adfb",
+  "uncommitted_changes": true,
+  "tested_patch_sha256": "c74f2c951d9aac0483c264888632467a2fe6f10c21085c9bd269836042980f8c",
+  "started_at_utc": "2026-11-08T11:15:44.521458+00:00",
+  "finished_at_utc": "2026-11-08T11:15:46.391154+00:00",
+  "wall_seconds": 1.87,
+  "exit_code": 0,
+  "timed_out": false,
+  "timeout_seconds": 60,
+  "log_sha256": "ddf0296c5f9aa4b9567cf6d10256db34a0186ba4ba32af154093232f8f4da6dd"
+}

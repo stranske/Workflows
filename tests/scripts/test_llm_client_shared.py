@@ -322,7 +322,17 @@ def test_subscription_pipe_renders_each_execution_mode(subscription_process, ope
         return await chain.abatch(inputs, config=config)
 
     if operation.startswith("a"):
-        responses = asyncio.run(run_async())
+        with asyncio.Runner() as runner:
+            loop = runner.get_loop()
+
+            def heartbeat():
+                # Restricted runners may deny asyncio's socketpair send when
+                # the real LangChain executor finishes. A timer wakes the loop
+                # without replacing the executor or the subscription adapter.
+                loop.call_later(0.05, heartbeat)
+
+            heartbeat()
+            responses = runner.run(asyncio.wait_for(run_async(), timeout=10))
     elif operation == "stream":
         responses = list(chain.stream(inputs[0], config=config))
     else:
