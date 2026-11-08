@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 import yaml
+from scripts.sync_manifest_compiler import compile_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs/evidence/issue-4369/runtime-4548/downstream-observation.json"
@@ -34,6 +35,12 @@ def complete_receipt() -> dict:
 @pytest.fixture(scope="module")
 def refreshed_receipt() -> dict:
     path = ROOT / "docs/evidence/issue-4369/runtime-4550/downstream-refresh.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def followup_receipt() -> dict:
+    path = ROOT / "docs/evidence/issue-4369/runtime-4550/downstream-followup.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -335,3 +342,137 @@ def test_refreshed_comment_observation_and_historical_thread_disposition(
     assert utc(disposition["created_at"]) < utc(
         refreshed_receipt["collection"]["run_inventory"]["start"]
     )
+
+
+def test_followup_binds_the_frozen_manifest_to_the_root_and_template_payloads(
+    followup_receipt: dict, tmp_path: Path
+) -> None:
+    payloads = followup_receipt["payloads"]
+    source, template, manifest, consumer = (
+        payloads[key] for key in ("source", "template", "manifest", "consumer")
+    )
+    frozen = followup_receipt["dispatch"]["inputs"]["scope_head_sha"]
+    assert re.fullmatch(r"[0-9a-f]{40}", frozen)
+    for key, payload in payloads.items():
+        content = payload["content"].encode("utf-8")
+        git_object = f"blob {len(content)}\0".encode("ascii") + content
+        assert hashlib.sha1(git_object).hexdigest() == payload["sha"]
+        repository = followup_receipt["consumer_repository" if key == "consumer" else "repository"]
+        assert payload["repository"] == repository
+        ref = followup_receipt["consumer_default_branch"]["sha"] if key == "consumer" else frozen
+        assert payload["ref"] == ref
+        assert payload["url"] == f'https://github.com/{repository}/blob/{ref}/{payload["path"]}'
+
+    assert template["path"] == f'templates/consumer-repo/{source["path"]}'
+    assert source["content"] == template["content"]
+    assert source["sha"] == template["sha"] != consumer["sha"]
+    # Compile the selected entry from the retained immutable manifest against
+    # its retained bytes. Historical evidence must not depend on today's files.
+    raw_manifest = yaml.safe_load(manifest["content"])
+    selected = [entry for entry in raw_manifest["scripts"] if entry["source"] == source["path"]]
+    assert len(selected) == 1
+    for payload in (source, template):
+        path = tmp_path / payload["path"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload["content"].encode("utf-8"))
+    manifest_path = tmp_path / manifest["path"]
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        yaml.safe_dump({"version": raw_manifest["version"], "scripts": selected}),
+        encoding="utf-8",
+    )
+    (entry,) = compile_manifest(manifest_path).all_entries()
+    assert entry.source_tree == "root"
+    assert entry.resolved_source == source["path"]
+    assert entry.target == consumer["path"] == "tools/subscription_llm.py"
+    assert entry.delivery == "copy"
+    assert entry.template_sync == "exact"
+    assert (
+        entry.content_sha256 == "sha256:" + hashlib.sha256(source["content"].encode()).hexdigest()
+    )
+    repo = followup_receipt["consumer_repository"]
+    assert not entry.include_repos or repo in entry.include_repos
+    assert repo not in {rule.repo for rule in entry.skip_repos}
+
+
+def test_followup_inventory_does_not_confuse_other_maint71_workflows_with_delivery(
+    followup_receipt: dict,
+) -> None:
+    inventory = followup_receipt["collection"]["run_inventory"]
+    (page,) = inventory["pages"]
+    assert page["page"] == 1
+    assert len(page["runs"]) == page["total_count"] < inventory["per_page"]
+    assert parse_qs(urlparse(page["url"]).query) == {
+        "per_page": [str(inventory["per_page"])],
+        "page": ["1"],
+        "created": [f'{inventory["start"]}..{inventory["end"]}'],
+    }
+    assert len({run["id"] for run in page["runs"]}) == page["total_count"]
+    assert (
+        utc(inventory["start"]) < utc(inventory["end"]) < utc(followup_receipt["observed_at_utc"])
+    )
+    assert all(
+        utc(inventory["start"]) <= utc(run["created_at"]) <= utc(inventory["end"])
+        for run in page["runs"]
+    )
+    assert not any(run["path"] in {MAINT68, MAINT71} for run in page["runs"])
+    assert any(
+        run["path"] == ".github/workflows/maint-71-auto-fix-integration.yml" for run in page["runs"]
+    )
+    dispatch = followup_receipt["dispatch"]
+    assert dispatch["workflow"] == MAINT68
+    assert dispatch["inputs"]["repos"] == followup_receipt["consumer_repository"]
+    assert dispatch["exit_code"] != 0
+    assert "error connecting to api.github.com" in dispatch["output"]
+    assert dispatch["maint71_dispatched"] is False
+    assert "run_id" not in dispatch
+    assert followup_receipt["final_delivery_acceptance"] is False
+
+
+def test_followup_rest_comment_pages_agree_with_the_all_pages_connector(
+    followup_receipt: dict,
+) -> None:
+    collection = followup_receipt["collection"]["comments"]
+    (page,) = collection["pages"]
+    assert page["page"] == 1
+    assert parse_qs(urlparse(page["url"]).query) == {
+        "per_page": [str(collection["per_page"])],
+        "page": ["1"],
+    }
+    assert urlparse(page["url"]).path == "/repos/stranske/Workflows/issues/4369/comments"
+    comments = page["comments"]
+    assert len(comments) < collection["per_page"]
+    ids = [comment["id"] for comment in comments]
+    connector = collection["all_pages_connector"]
+    assert ids == connector["ids"]
+    assert len(set(ids)) == connector["returned"] == len(comments)
+    through = utc(collection["observed_through_utc"])
+    assert through <= utc(followup_receipt["observed_at_utc"])
+    assert all(
+        utc(comment["created_at"]) <= utc(comment["updated_at"]) <= through for comment in comments
+    )
+    scoped = [
+        comment
+        for comment in comments
+        if comment["body"].startswith("<!-- sync-core/v1 ")
+        and re.search(rf"#discussion_r{DISCUSSION}(?!\d)", comment["body"])
+    ]
+    last = max(scoped, key=lambda comment: utc(comment["created_at"]))
+    assert last["id"] == 6649911684
+    assert utc(last["created_at"]) < utc(followup_receipt["collection"]["run_inventory"]["start"])
+
+
+def test_followup_thread_resolution_still_predates_the_final_payload_observation(
+    followup_receipt: dict,
+) -> None:
+    thread = followup_receipt["thread"]
+    assert thread["is_resolved"] is thread["is_outdated"] is True
+    original, disposition = thread["comments"]
+    assert str(original["database_id"]) == DISCUSSION
+    assert disposition["database_id"] == 4505043101
+    assert "9c85282d05359ddc468d0881ec6b09269ac592a2" in disposition["body"]
+    assert utc(disposition["created_at"]) < utc(
+        followup_receipt["collection"]["run_inventory"]["start"]
+    )
+    assert "following_maint71" not in followup_receipt
+    assert followup_receipt["final_delivery_acceptance"] is False

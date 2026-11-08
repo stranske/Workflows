@@ -1636,3 +1636,94 @@ Automatic approval review rejected both the prepared blocker comment on PR
 4551 and the additive `needs-human` label with `MCP tool call requires approval,
 but approval policy is never`. Neither was published. These external mutations
 were not retried through another transport.
+
+## Issue 4550: frozen source binding and downstream follow-up at 12:05 UTC
+
+This iteration starts at `e5e6aeb00c3cfb183ce59027365483ff1f1462d9`, verified
+to descend from `b21fae85fe4f79e72c4133c29a3814b9d5950c3a`. Four new tests in
+`tests/scripts/test_issue_4369_downstream_evidence.py` exercise the fresh
+[follow-up receipt](runtime-4550/downstream-followup.json), SHA-256
+`f519bf79feff157b5e7219ef017a5bdadc6cff52d61bab9ed9ccb34580763457`.
+
+The new source-binding regression closes a gap in the previous observation:
+the manifest selects root-owned `tools/subscription_llm.py`, whereas the older
+receipt retained only its consumer template. This receipt retains the complete
+root file, template and manifest at frozen source commit
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`, fetched independently by exact ref.
+The test recomputes all Git blob identities, binds each URL/repository/ref/path,
+and compiles the selected entry from that retained manifest against those
+retained bytes in a temporary directory. It verifies copy delivery, exact
+template parity, the consumer target, and repository eligibility. Historical
+proof does not depend on the current checkout's source or manifest contents.
+
+Both source copies have blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`.
+The consumer default branch remains at
+`0543dc9732eab0ad12227308749566a937581eea`, with the older payload blob
+`c889fd8064806a9c0f932f7c1dc09762896afe67`. Replacing just the retained root
+payload with the older consumer content and its valid blob identity makes the
+new binding test fail, exit **1**; see the
+[deliberate-break log](runtime-4550/downstream-binding-red.log). The receipt was
+restored in `finally`, after which all **25 evidence tests pass**, exit **0**,
+in **0.59s**; see the [raw log](runtime-4550/downstream-followup-tests.log).
+The pre-edit baseline was **21 passed**, exit **0**, in **0.58s**.
+
+The unfiltered run inventory contains **43 unique runs**, all on its short final
+page of capacity 100, from **2026-11-08T11:42:44Z through 12:03:28Z**. It includes
+`maint-71-auto-fix-integration.yml`, but contains no
+`maint-68-sync-consumer-repos.yml` or `maint-71-merge-sync-prs.yml` run. A new
+test distinguishes these workflow paths explicitly. This extends the earlier
+observation; it does not claim the complete lifetime of either workflow.
+
+The same authorized single-consumer Maint 68 command documented above was
+retried with the unchanged immutable range, `phase=canary`,
+`delivery_scope=source-delta`, `force=true` and `cleanup_branches=false`.
+It exited **1**, reporting `error connecting to api.github.com`. No producer
+run ID was received and no Maint 71 dispatch was attempted without that
+handoff. The GitHub connector provides read access but no workflow-dispatch
+method. Final delivery remains **pending**, and no remaining task checkbox
+is advanced.
+
+The fresh REST comment page retains all **49 comments**, with full bodies and
+real creation/update timestamps. Its short final page proves completeness;
+the exact comment IDs independently agree with the all-pages connector. There
+is **no later scoped sync-core recurrence through 2026-11-08T12:03:28Z**, the
+UTC boundary recorded before the REST collection. The last scoped recurrence
+remains comment **6649911684**, round `20261105T044440Z`.
+Discussion **4434491702** remains **resolved and outdated**, with historical
+owner disposition **4505043101** on head
+`9c85282d05359ddc468d0881ec6b09269ac592a2`. Neither that historical resolution
+nor the finite nonrecurrence observation is a following Maint 71 finding
+disposition for the final payload.
+
+Validation commands and results:
+
+```console
+python3 -m pytest -q tests/scripts/test_issue_4369_downstream_evidence.py -m 'not slow'
+python3 -m ruff check tests/scripts/test_issue_4369_downstream_evidence.py
+git diff --check
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4550-followup-black-runtime timeout -k 5s 120s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+All four commands exit **0**. Black reports **974 files unchanged** in the
+[formatter log](runtime-4550/downstream-followup-black-supported.log). As in
+the earlier observation, the plain required Black invocation exits **1** at
+the sandbox's forbidden forkserver socket. A single-worker retry without the
+heartbeat reaches its **45s** bound, exit **124**, with no emitted output
+([log](runtime-4550/downstream-followup-black.log)). The successful retry uses
+the previously documented 50 ms event-loop heartbeat from a temporary
+`sitecustomize.py`; formatter rules, safe mode and file selection are unchanged.
+The complete Node and Python suites were not rerun, and their prior nonzero
+results remain unresolved.
+
+After validation, staging the test and evidence files exits **128** because
+`.git/index.lock` cannot be created on the read-only filesystem. No commit or
+push succeeded. PR **4551** was read as **open and non-draft** at
+`e5e6aeb00c3cfb183ce59027365483ff1f1462d9`. No protected workflow or security
+file was changed. A runner with writable Git metadata and GitHub dispatch
+access must publish these local changes and complete the selected Maint 68/71
+lifecycle before final delivery can be claimed.
+
+Automatic approval review rejected the prepared blocker comment on PR 4551
+and additive `needs-human` label with `MCP tool call requires approval, but
+approval policy is never`. Neither was published, and no alternative mutation
+transport was used.

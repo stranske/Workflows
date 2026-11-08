@@ -1,0 +1,340 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_followup_binds_the_frozen_manifest_to_the_root_and_template_payloads ___
+
+followup_receipt = {'schema': 'issue-4369/downstream-followup/v1', 'observed_at_utc': '2026-11-08T12:05:26Z', 'checkout_revision': 'e5e6aeb00c3cfb183ce59027365483ff1f1462d9', 'repository': 'stranske/Workflows', ...}
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-1/test_followup_binds_the_frozen0')
+
+    def test_followup_binds_the_frozen_manifest_to_the_root_and_template_payloads(
+        followup_receipt: dict, tmp_path: Path
+    ) -> None:
+        payloads = followup_receipt["payloads"]
+        source, template, manifest, consumer = (
+            payloads[key] for key in ("source", "template", "manifest", "consumer")
+        )
+        frozen = followup_receipt["dispatch"]["inputs"]["scope_head_sha"]
+        assert re.fullmatch(r"[0-9a-f]{40}", frozen)
+        for key, payload in payloads.items():
+            content = payload["content"].encode("utf-8")
+            git_object = f"blob {len(content)}\0".encode("ascii") + content
+            assert hashlib.sha1(git_object).hexdigest() == payload["sha"]
+            repository = followup_receipt["consumer_repository" if key == "consumer" else "repository"]
+            assert payload["repository"] == repository
+            ref = followup_receipt["consumer_default_branch"]["sha"] if key == "consumer" else frozen
+            assert payload["ref"] == ref
+            assert payload["url"] == f'https://github.com/{repository}/blob/{ref}/{payload["path"]}'
+    
+        assert template["path"] == f'templates/consumer-repo/{source["path"]}'
+>       assert source["content"] == template["content"]
+E       assert '"""Read-only...ient.model)\n' == '"""Read-only...ient.model)\n'
+E         
+E         Skipping 1428 identical leading characters in diff, use -v to show
+E           :
+E         -         if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+E         +         home = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
+E         -             return True
+E         ? ----               ^^^^
+E         +         return (
+E         ?                ^
+E         +             bool(os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"))
+E         -         try:
+E         -             config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+E         -             home = (
+E         -                 Path(config_dir).expanduser().resolve() if config_dir else Path.home() / ".claude"
+E         -             )
+E         -             return (home / ".credentials.json").is_file()
+E         ?              -----
+E         +             or (home / ".credentials.json").is_file()
+E         ?             +
+E         +         )
+E         -         except (OSError, RuntimeError):
+E         -             return False
+E               home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+E               try:
+E                   auth = json.loads((home / "auth.json").read_text(encoding="utf-8"))
+E               except (OSError, ValueError):
+E                   return False
+E               return auth.get("auth_mode") == "chatgpt" and bool(
+E                   (auth.get("tokens") or {}).get("access_token")
+E               )
+E           
+E           
+E           @dataclass(frozen=True)
+E           class SubscriptionClient:
+E               agent: str
+E               model: str
+E           
+E               def available(self) -> bool:
+E                   return bool(shutil.which(self.agent)) and _has_subscription_auth(self.agent)
+E           
+E               def build_environment(self, environ: Mapping[str, str]) -> dict[str, str]:
+E                   """Filter the child environment without reading auth or launching a CLI."""
+E                   # Do not pass GitHub, tracing, API-provider or other job credentials to
+E                   # the analysis child. Subscription auth stays in the existing CLI store.
+E                   allowed = {"PATH", "HOME", "TMPDIR", "TEMP", "SYSTEMROOT", "NO_COLOR"}
+E                   allowed.update(
+E                       {"CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR"}
+E                       if self.agent == "claude"
+E                       else {"CODEX_HOME"}
+E                   )
+E         -         env = {key: value for key, value in environ.items() if key in allowed}
+E         ?           ---
+E         +         return {key: value for key, value in environ.items() if key in allowed}
+E         ?         + +++
+E         -         if self.agent == "claude" and env.get("CLAUDE_CONFIG_DIR"):
+E         -             # Resolve before the CLI starts in its unrelated temporary cwd.
+E         -             env["CLAUDE_CONFIG_DIR"] = str(Path(env["CLAUDE_CONFIG_DIR"]).expanduser().resolve())
+E         -         return env
+E           
+E               def build_command(self) -> list[str]:
+E                   """Build argv independently of prompt text and the parent environment."""
+E                   if self.agent == "codex":
+E                       command = [
+E                           "codex",
+E                           "exec",
+E                           "--json",
+E                           "--ignore-user-config",
+E                           "--ephemeral",
+E                           "--sandbox",
+E                           "read-only",
+E                           "--skip-git-repo-check",
+E                           "--model",
+E                           self.model,
+E                           "-c",
+E                           'approval_policy="never"',
+E                           "-c",
+E                           'forced_login_method="chatgpt"',
+E                           "-c",
+E                           'model_reasoning_effort="low"',
+E                           "-c",
+E                           'web_search="disabled"',
+E                       ]
+E                       for feature in _CODEX_DISABLED_FEATURES:
+E                           command.extend(["--disable", feature])
+E                       command.append("-")
+E                   elif self.agent == "claude":
+E                       command = [
+E                           "claude",
+E                           "-p",
+E                           "--model",
+E                           self.model,
+E                           "--output-format",
+E                           "json",
+E                           "--tools",
+E                           "",
+E                           "--strict-mcp-config",
+E                           "--mcp-config",
+E                           '{"mcpServers":{}}',
+E                           "--setting-sources",
+E                           "",
+E                           "--no-session-persistence",
+E                       ]
+E                   else:
+E                       raise ValueError("Unsupported subscription analysis agent")
+E                   return command
+E           
+E               def invoke(self, prompt: str, **_kwargs: Any) -> SimpleNamespace:
+E                   if not self.available():
+E                       raise RuntimeError(f"{self.agent} subscription CLI/auth unavailable")
+E                   # Empty cwd limits workspace discovery; it does not deny absolute-path reads.
+E                   # Prompt input is stdin-only. Capability controls above require runtime proof.
+E                   with tempfile.TemporaryDirectory(prefix="workflows-analysis-") as scratch:
+E                       command = self.build_command()
+E                       env = self.build_environment(os.environ)
+E                       result = subprocess.run(
+E                           command,
+E                           input=prompt,
+E                           capture_output=True,
+E                           text=True,
+E                           env=env,
+E                           cwd=scratch,
+E                           timeout=90,
+E                           check=False,
+E                           shell=False,
+E                       )
+E                   if result.returncode:
+E                       raise RuntimeError(f"{self.agent} analysis CLI exited {result.returncode}")
+E                   if self.agent == "claude":
+E                       data = json.loads(result.stdout)
+E                       if data.get("is_error"):
+E                           raise RuntimeError("Claude analysis returned an error")
+E                       content = data.get("result")
+E                   else:
+E                       messages = []
+E                       for line in result.stdout.splitlines():
+E                           event = json.loads(line)
+E                           item = event.get("item") or {}
+E                           if event.get("type") == "item.completed" and item.get("type") == "agent_message":
+E                               messages.append(item.get("text"))
+E                       content = messages[-1] if messages else None
+E                   if not isinstance(content, str) or not content.strip():
+E                       raise RuntimeError("Subscription analysis returned no final message")
+E                   return SimpleNamespace(content=content)
+E           
+E           
+E           def build_subscription_client() -> SimpleNamespace | None:
+E               agent = os.environ.get(MODE_ENV, "")
+E               if agent not in {"codex", "claude"}:
+E                   raise ValueError("Subscription analysis mode must name codex or claude")
+E               client = SubscriptionClient(agent=agent, model=analysis_model(agent))
+E               if not client.available():
+E                   raise RuntimeError("Subscription analysis CLI/auth unavailable; no API fallback")
+E               return SimpleNamespace(client=client, provider=agent, provider_label=agent, model=client.model)
+
+tests/scripts/test_issue_4369_downstream_evidence.py:367: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_issue_4369_downstream_evidence.py::test_followup_binds_the_frozen_manifest_to_the_root_and_template_payloads - assert '"""Read-only...ient.model)\n' == '"""Read-only...ient.model)\n'
+  
+  Skipping 1428 identical leading characters in diff, use -v to show
+    :
+  -         if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+  +         home = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")))
+  -             return True
+  ? ----               ^^^^
+  +         return (
+  ?                ^
+  +             bool(os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"))
+  -         try:
+  -             config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+  -             home = (
+  -                 Path(config_dir).expanduser().resolve() if config_dir else Path.home() / ".claude"
+  -             )
+  -             return (home / ".credentials.json").is_file()
+  ?              -----
+  +             or (home / ".credentials.json").is_file()
+  ?             +
+  +         )
+  -         except (OSError, RuntimeError):
+  -             return False
+        home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+        try:
+            auth = json.loads((home / "auth.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        return auth.get("auth_mode") == "chatgpt" and bool(
+            (auth.get("tokens") or {}).get("access_token")
+        )
+    
+    
+    @dataclass(frozen=True)
+    class SubscriptionClient:
+        agent: str
+        model: str
+    
+        def available(self) -> bool:
+            return bool(shutil.which(self.agent)) and _has_subscription_auth(self.agent)
+    
+        def build_environment(self, environ: Mapping[str, str]) -> dict[str, str]:
+            """Filter the child environment without reading auth or launching a CLI."""
+            # Do not pass GitHub, tracing, API-provider or other job credentials to
+            # the analysis child. Subscription auth stays in the existing CLI store.
+            allowed = {"PATH", "HOME", "TMPDIR", "TEMP", "SYSTEMROOT", "NO_COLOR"}
+            allowed.update(
+                {"CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR"}
+                if self.agent == "claude"
+                else {"CODEX_HOME"}
+            )
+  -         env = {key: value for key, value in environ.items() if key in allowed}
+  ?           ---
+  +         return {key: value for key, value in environ.items() if key in allowed}
+  ?         + +++
+  -         if self.agent == "claude" and env.get("CLAUDE_CONFIG_DIR"):
+  -             # Resolve before the CLI starts in its unrelated temporary cwd.
+  -             env["CLAUDE_CONFIG_DIR"] = str(Path(env["CLAUDE_CONFIG_DIR"]).expanduser().resolve())
+  -         return env
+    
+        def build_command(self) -> list[str]:
+            """Build argv independently of prompt text and the parent environment."""
+            if self.agent == "codex":
+                command = [
+                    "codex",
+                    "exec",
+                    "--json",
+                    "--ignore-user-config",
+                    "--ephemeral",
+                    "--sandbox",
+                    "read-only",
+                    "--skip-git-repo-check",
+                    "--model",
+                    self.model,
+                    "-c",
+                    'approval_policy="never"',
+                    "-c",
+                    'forced_login_method="chatgpt"',
+                    "-c",
+                    'model_reasoning_effort="low"',
+                    "-c",
+                    'web_search="disabled"',
+                ]
+                for feature in _CODEX_DISABLED_FEATURES:
+                    command.extend(["--disable", feature])
+                command.append("-")
+            elif self.agent == "claude":
+                command = [
+                    "claude",
+                    "-p",
+                    "--model",
+                    self.model,
+                    "--output-format",
+                    "json",
+                    "--tools",
+                    "",
+                    "--strict-mcp-config",
+                    "--mcp-config",
+                    '{"mcpServers":{}}',
+                    "--setting-sources",
+                    "",
+                    "--no-session-persistence",
+                ]
+            else:
+                raise ValueError("Unsupported subscription analysis agent")
+            return command
+    
+        def invoke(self, prompt: str, **_kwargs: Any) -> SimpleNamespace:
+            if not self.available():
+                raise RuntimeError(f"{self.agent} subscription CLI/auth unavailable")
+            # Empty cwd limits workspace discovery; it does not deny absolute-path reads.
+            # Prompt input is stdin-only. Capability controls above require runtime proof.
+            with tempfile.TemporaryDirectory(prefix="workflows-analysis-") as scratch:
+                command = self.build_command()
+                env = self.build_environment(os.environ)
+                result = subprocess.run(
+                    command,
+                    input=prompt,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    cwd=scratch,
+                    timeout=90,
+                    check=False,
+                    shell=False,
+                )
+            if result.returncode:
+                raise RuntimeError(f"{self.agent} analysis CLI exited {result.returncode}")
+            if self.agent == "claude":
+                data = json.loads(result.stdout)
+                if data.get("is_error"):
+                    raise RuntimeError("Claude analysis returned an error")
+                content = data.get("result")
+            else:
+                messages = []
+                for line in result.stdout.splitlines():
+                    event = json.loads(line)
+                    item = event.get("item") or {}
+                    if event.get("type") == "item.completed" and item.get("type") == "agent_message":
+                        messages.append(item.get("text"))
+                content = messages[-1] if messages else None
+            if not isinstance(content, str) or not content.strip():
+                raise RuntimeError("Subscription analysis returned no final message")
+            return SimpleNamespace(content=content)
+    
+    
+    def build_subscription_client() -> SimpleNamespace | None:
+        agent = os.environ.get(MODE_ENV, "")
+        if agent not in {"codex", "claude"}:
+            raise ValueError("Subscription analysis mode must name codex or claude")
+        client = SubscriptionClient(agent=agent, model=analysis_model(agent))
+        if not client.available():
+            raise RuntimeError("Subscription analysis CLI/auth unavailable; no API fallback")
+        return SimpleNamespace(client=client, provider=agent, provider_label=agent, model=client.model)
+1 failed in 0.53s
