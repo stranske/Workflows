@@ -56,10 +56,11 @@ def test_claude_config_dir_available_with_credentials(
 
 
 @pytest.mark.parametrize("default_auth_exists", (False, True))
+@pytest.mark.parametrize("config_name", ("custom-claude", "custom claude"))
 def test_claude_config_dir_invocation_uses_configured_directory(
-    claude_client, monkeypatch, tmp_path, default_auth_exists
+    claude_client, monkeypatch, tmp_path, default_auth_exists, config_name
 ):
-    config = tmp_path / "custom-claude"
+    config = tmp_path / config_name
     config.mkdir()
     (config / ".credentials.json").touch()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))

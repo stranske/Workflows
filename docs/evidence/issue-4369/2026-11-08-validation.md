@@ -276,3 +276,82 @@ policy is never`. No remote mutation succeeded. The PR body's unchecked state
 therefore remains unchanged despite the local targeted-test and historical live
 evidence above. The local test and report changes require publication by a runner
 with writable git metadata, plus successful outstanding source/formatting gates.
+
+## Follow-up validation at incoming head b7b2dce6
+
+Reviewed the recent commits before continuing. `6f88dce5` made the credential
+regressions selectable and isolated; `b7ab20aa` integrated main; `b7b2dce6`
+extended unset-directory invocation checks. The remaining source behavior was
+already fixed in both production copies. No workflow or protected file needed
+changes.
+
+This follow-up parameterizes the configured-directory invocation regression over
+`custom-claude` and `custom claude`. For both production copies, with and without
+default credentials, availability must admit the configured credentials, the
+inert child must receive the exact directory string, and removing configured
+credentials must prevent a second invocation. This adds four cases without
+launching Claude or changing production code.
+
+Checks executed on 2026-11-08:
+
+| Command | Exit | Output |
+| --- | --- | --- |
+| Baseline `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | `24 passed, 50444 deselected in 27.63s` |
+| After change: `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | `28 passed, 50444 deselected in 11.45s` |
+| `python3 -m pytest -q tests/test_subscription_llm.py tests/workflows/test_subscription_llm_credential_canary.py -m 'not slow'` | 0 | `40 passed in 1.04s` |
+| `python3 -m ruff check tests/test_subscription_llm.py` | 0 | `All checks passed!` |
+| `black --line-length 100 tests/test_subscription_llm.py` | 0 | `1 file left unchanged` |
+| Repository Black check with one worker | 124 | Timed out after 180 seconds; `968 files would be left unchanged` |
+| Repository Black check with the scheduling workaround below | 0 | `968 files would be left unchanged` |
+| `git diff --check` | 0 | No whitespace errors |
+| `git diff --exit-code -- tools/subscription_llm.py templates/consumer-repo/tools/subscription_llm.py` and `cmp` of those files | 0 | Production fix retained, with exact template parity |
+| `timeout -k 5s 300s node --test .github/scripts/__tests__/*.test.js` | 124 | Timed out; partial summary: 140 tests, 114 pass, 6 fail, 20 cancelled; diagnostics included `spawnSync python3 EPERM` and `Promise resolution is still pending but the event loop has already resolved` |
+| `timeout -k 5s 600s python3 -m pytest -q tests/` | 124 | Timed out near 6% after an observed failure; no final suite summary |
+| `python3 -m pytest -q tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading -m 'not slow'` | 1 | `1 failed in 0.80s`: expected `##`, received `## H` |
+
+The successful full-repository formatting command was:
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+As in the earlier successful check, the temporary `sitecustomize.py` wraps
+`black.concurrency.maybe_use_uvloop()` to schedule an empty callback every 0.05
+seconds. Black's file selection, formatting, safe checks, and reporting remain
+unchanged. The hook is outside the repository and is not part of the change.
+
+Reconciliation: the first and fourth acceptance criteria are verified by the
+targeted command and assertions. Updating those two PR checkboxes was attempted
+before editing tests. Automatic approval review rejected the update with
+`MCP tool call requires approval, but approval policy is never`; the remote body
+therefore remains unchanged. The earlier pre-fix and deliberate-break receipts
+remain applicable historical evidence; this iteration did not repeat mutations.
+
+Read-only live checks reconfirmed Maint 68 job 127073790362's generated consumer
+head `99d10a9838cecfb4327a2735d8f3723e393e413e`, its fixed credential-path code,
+and the following Maint 71 job 127075733924's four active findings, excluding
+discussion 4434491702. The scoped thread is still outdated and unresolved. The
+last scoped sync-core recurrence remains comment 6649911684, round
+`20261105T044440Z`, preceding that regeneration. The current consumer PR is open
+and ready at `b36b8ebf242bde649f6e31edc2cc915ad49d7421`; source PR 4539 was read
+as open and ready at incoming head `b7b2dce6`. These are observations of the
+previously delivered production fix, not a new consumer delivery by this run.
+
+Staging the Python change again exited 128 because `.git/index.lock` cannot be
+created on the read-only filesystem. No commit or push is claimed. Publication
+requires a runner with writable git metadata.
+
+The Python gate's observed failure was mapped against an unchanged
+`python3 -m pytest --collect-only -q tests/` collection (exit 0, 50,472 tests) and
+then reproduced with the isolated command above. It concerns section truncation,
+outside this credential-directory task. The broad run subsequently stopped
+making progress after 3,572 outcomes, before
+`tests/scripts/test_llm_client_shared.py::test_subscription_pipe_renders_each_execution_mode[codex-ainvoke]`
+in collection order. This is a diagnostic observation, not a claim that all
+remaining tests ran or that that next test is defective. No unrelated source or
+test was changed to make a gate pass.
+
+The concrete blocker comment and `needs-human` label were subsequently attempted;
+automatic approval review rejected both with the same approval-policy message.
+No remote mutation succeeded. A final read reconfirmed PR 4539 is open and ready
+(`draft=false`) at `b7b2dce63b01716118cbef1a0c1305ca5b24c430`.
