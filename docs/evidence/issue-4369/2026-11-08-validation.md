@@ -1234,3 +1234,88 @@ all-comments read still contains no later scoped sync-core recurrence than
 comment 6649911684; the downstream JSON retains that observation and the final
 open/non-draft source PR snapshot. Every completed raw-log receipt hash and every
 artifact link added in this follow-up was checked after the full gates terminated.
+
+## Downstream observation replay — 2026-11-08T08:58:31Z
+
+The next iteration retains a fresh, independently replayable observation in
+[`runtime-4548/downstream-observation.json`](runtime-4548/downstream-observation.json).
+The new [seven evidence tests](../../../tests/scripts/test_issue_4369_downstream_evidence.py)
+verify the complete bounded run inventories, frozen source identity, immediate
+following-run selection, skipped consumer delivery, Git blob hashes of both
+retained file bodies, worker disposition chronology, and issue-comment inspection.
+These tests validate the observation; passing them does not complete delivery.
+
+The GitHub connector returned **64 schedule runs** for 03:40:00–08:58:07Z and
+**30 workflow_dispatch runs** for 05:02:26–08:58:07Z, each matching its API
+`total_count` in a single page of capacity 100. Every returned run is retained,
+including unrelated workflows. No Maint 68 regeneration after the final source
+merge appears in those bounded collections. Other events and later times are
+outside this observation.
+
+The last observed [Maint 68 run 42449080092](https://github.com/stranske/Workflows/actions/runs/42449080092)
+started at 05:01:05Z with frozen source
+`7e377b7ad8cc06e506393218bc7459ba47757f01`. Prepare job **128634207522** records
+plan `sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da`.
+Consumer delivery job **128634442339** was **skipped**. Its overall success and
+05:02:31Z completion do not make its payload include the 05:02:26Z source merge
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`.
+
+Among all Maint 71 runs in those inventories, the immediately following run is
+[42451203202](https://github.com/stranske/Workflows/actions/runs/42451203202),
+starting at 05:32:56Z. Job **128640606057** reports
+`Portable-Alpha-Extension-Model: no_prs`. Its workflow revision equals the source
+merge SHA, but that is not a regenerated consumer head or an exact-head finding
+disposition. The receipt retains the relevant prepare and consumer-report log
+excerpts with run/job links.
+
+PR [Portable-Alpha-Extension-Model#2454](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454)
+is merged and non-draft at head `9c85282d05359ddc468d0881ec6b09269ac592a2`.
+Its `tools/subscription_llm.py` Git blob is
+`c889fd8064806a9c0f932f7c1dc09762896afe67`, while the final source template blob
+is `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. The tests recompute both Git blob
+IDs from the retained complete bytes. The consumer has configured-directory
+lookup but lacks final directory normalization. Discussion **4434491702** is
+resolved and outdated; worker disposition **4505043101** predates PR 4539's
+merge and does not establish delivery of its final payload.
+
+All **49 issue 4369 comments** returned by the connector's all-pages reader are
+retained through **2026-11-08T08:58:31Z**. No newer sync-core recurrence was
+present: the last scoped finding remains comment **6649911684**, round
+`20261105T044440Z`; the last any-consumer recurrence remains **6650145104**,
+round `20261105T050113Z`. The connector omits REST creation timestamps, so the
+tests explicitly use the recorded sync-core round instead of inventing one.
+
+Validation on checkout `d2d1d63781faa52747a6e39badfe63bdace9761c`, Python 3.14.10:
+
+```console
+python3 -m pytest -q tests/scripts/test_issue_4369_downstream_evidence.py tests/scripts/test_issue_4455_post_merge_evidence.py tests/scripts/test_setup_validation_env.py -m 'not slow'
+23 passed in 0.58s
+```
+
+Ruff on the new test and `git diff --check` both pass. No workflow, credential
+implementation, consumer template, or remote PR state was changed. No incomplete
+task or acceptance checkbox is marked complete: the final-payload Maint 68/71
+pair is still absent, and the earlier full-gate failures remain as recorded above.
+
+The required repository-wide Black check exits **0**, `974 files would be left
+unchanged`. The default invocation first failed with a forkserver socket
+`PermissionError`; the ordinary one-worker attempt stalled and was interrupted
+(exit 130). The successful command uses the same scheduling workaround described
+above: an external startup hook adds only a recurring 50ms event-loop callback,
+with formatter logic and selection unchanged.
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue4369-observation-black timeout -k 5s 90s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Staging all three scoped files exits **128** because `.git` remains read-only:
+
+```text
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+```
+
+No commit or push succeeded. The blocker comment and additive `needs-human`
+label on PR 4549 were each rejected by automatic approval review:
+`MCP tool call requires approval, but approval policy is never`. Neither mutation
+was published. The local test and evidence files are prepared for a runner with
+writable Git metadata; the downstream acceptance remains pending live delivery.
