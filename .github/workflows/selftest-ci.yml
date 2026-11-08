@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      acceptance_ref:
+        description: Immutable main SHA for issue 4557 exact full-suite receipts (empty uses normal CI).
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -18,6 +23,7 @@ concurrency:
 jobs:
   classify:
     name: classify changed paths
+    if: ${{ !inputs.acceptance_ref }}
     runs-on: ubuntu-latest
     outputs:
       is_docs_only: ${{ steps.classify.outputs.is-docs-only || 'false' }}
@@ -132,7 +138,7 @@ jobs:
     # and the intentionally separate autofix/PyPI slow compatibility matrix.
     name: Python Tests
     needs: [classify, python-ci, autofix-compatibility]
-    if: ${{ always() }}
+    if: ${{ always() && !inputs.acceptance_ref }}
     runs-on: ubuntu-latest
     steps:
       - name: Require the applicable Python checks
@@ -230,7 +236,7 @@ jobs:
   # are excluded. The production settlement and both sinks execute in the tests.
   verifier-settlement-smoke:
     name: verifier settlement failed-upload trace
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && !inputs.acceptance_ref
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -282,7 +288,7 @@ jobs:
 
   gate-tracker-replay:
     name: Gate tracker replay receipt
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.acceptance_ref }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -308,3 +314,106 @@ jobs:
           path: artifacts/gate-tracker-replay/
           if-no-files-found: error
           retention-days: 14
+
+  exact-main-acceptance:
+    name: exact main full-suite acceptance
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.acceptance_ref != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.acceptance_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require published main and delivered fixture fixes
+        env:
+          ACCEPTANCE_REF: ${{ inputs.acceptance_ref }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/issue-4557"
+          [[ "$ACCEPTANCE_REF" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$ACCEPTANCE_REF"
+          git merge-base --is-ancestor HEAD origin/main
+          git merge-base --is-ancestor b21fae85fe4f79e72c4133c29a3814b9d5950c3a HEAD
+          gh api repos/stranske/Workflows/pulls/4551 > "$RUNNER_TEMP/issue-4557/fixture-pr.json"
+          jq -e '.merged == true' "$RUNNER_TEMP/issue-4557/fixture-pr.json"
+          fixes=$(jq -r '.merge_commit_sha' "$RUNNER_TEMP/issue-4557/fixture-pr.json")
+          git merge-base --is-ancestor "$fixes" HEAD
+      - name: Resolve repository Python selection
+        id: python
+        run: |
+          source .github/workflows/ci-python-versions.env
+          echo "version=$CI_PYTHON_VERSION" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ steps.python.outputs.version }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+      - name: Install selected revision dependencies
+        timeout-minutes: 5
+        run: python3 -m pip install -r requirements.lock -e '.[app,dev]'
+      - name: Run only the two exact acceptance commands
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python3 - <<'PYTHON'
+          import datetime
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import signal
+          import subprocess
+          import sys
+          import time
+
+          output = Path(os.environ["RUNNER_TEMP"]) / "issue-4557"
+          checkout = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          context = {
+              "checkout_sha": checkout,
+              "runner": {key: os.environ.get(key) for key in (
+                  "RUNNER_NAME", "RUNNER_OS", "RUNNER_ARCH", "ImageOS", "ImageVersion",
+                  "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_WORKFLOW_SHA")},
+              "interpreters": {key: os.path.realpath(shutil.which(key)) for key in ("node", "python3")},
+              "python_executable": sys.executable,
+          }
+          receipts = []
+          for name, command, bound in (
+              ("node", "node --test .github/scripts/__tests__/*.test.js", 600),
+              ("python", "python3 -m pytest -q tests/", 1800),
+          ):
+              started = datetime.datetime.now(datetime.timezone.utc).isoformat()
+              clock = time.monotonic()
+              log = output / (name + "-full.log")
+              with log.open("wb") as stream:
+                  process = subprocess.Popen(["bash", "-c", command], stdout=stream,
+                                             stderr=subprocess.STDOUT, start_new_session=True)
+                  timed_out = False
+                  try:
+                      code = process.wait(timeout=bound)
+                  except subprocess.TimeoutExpired:
+                      timed_out = True
+                      os.killpg(process.pid, signal.SIGKILL)
+                      process.wait()
+                      code = 124
+              receipt = dict(context, command=command, bound_seconds=bound, started_at=started,
+                             completed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                             wall_seconds=time.monotonic() - clock, exit_code=code,
+                             timed_out=timed_out, log_sha256=hashlib.sha256(log.read_bytes()).hexdigest())
+              (output / (name + "-full.json")).write_text(json.dumps(receipt, indent=2) + "\n")
+              receipts.append(receipt)
+              print(f"{name}: exit={code}, sha={checkout}, wall={receipt['wall_seconds']:.3f}s", flush=True)
+          sys.exit(0 if all(row["exit_code"] == 0 for row in receipts) else 1)
+          PYTHON
+      - name: Retain complete acceptance receipts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: issue-4557-exact-main-acceptance
+          path: ${{ runner.temp }}/issue-4557/
+          retention-days: 30
+          if-no-files-found: error

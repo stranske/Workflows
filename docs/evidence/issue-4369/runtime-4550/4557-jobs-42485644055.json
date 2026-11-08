@@ -1,0 +1,190 @@
+[
+  {
+    "id": 128746974432,
+    "run_id": 42485644055,
+    "workflow_name": "Maint 68 canary source-delta  source=9acdde6d5f0731bf968a6766d83f2b47db8375a3 candidates=stranske/Portable-Alpha-Extension-Model dry=false  guard=delivery-v1",
+    "head_branch": "main",
+    "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42485644055",
+    "run_attempt": 1,
+    "node_id": "CR_kwDOQprj9M8AAAAd-ers4A",
+    "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+    "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128746974432",
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42485644055/job/128746974432",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-11-08T13:35:38Z",
+    "started_at": "2026-11-08T13:35:40Z",
+    "completed_at": "2026-11-08T13:36:28Z",
+    "name": "Sync stranske/Portable-Alpha-Extension-Model",
+    "steps": [
+      {
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 1,
+        "started_at": "2026-11-08T13:35:41Z",
+        "completed_at": "2026-11-08T13:35:43Z"
+      },
+      {
+        "name": "Compute result artifact name",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 2,
+        "started_at": "2026-11-08T13:35:43Z",
+        "completed_at": "2026-11-08T13:35:43Z"
+      },
+      {
+        "name": "Mint Workflows App commit token",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 3,
+        "started_at": "2026-11-08T13:35:43Z",
+        "completed_at": "2026-11-08T13:35:44Z"
+      },
+      {
+        "name": "Checkout Workflows",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 4,
+        "started_at": "2026-11-08T13:35:44Z",
+        "completed_at": "2026-11-08T13:35:47Z"
+      },
+      {
+        "name": "Clone consumer repo",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 5,
+        "started_at": "2026-11-08T13:35:47Z",
+        "completed_at": "2026-11-08T13:35:53Z"
+      },
+      {
+        "name": "Record exact consumer base",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 6,
+        "started_at": "2026-11-08T13:35:53Z",
+        "completed_at": "2026-11-08T13:35:53Z"
+      },
+      {
+        "name": "Download manifest",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 7,
+        "started_at": "2026-11-08T13:35:53Z",
+        "completed_at": "2026-11-08T13:35:54Z"
+      },
+      {
+        "name": "Setup Python",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 8,
+        "started_at": "2026-11-08T13:35:54Z",
+        "completed_at": "2026-11-08T13:35:54Z"
+      },
+      {
+        "name": "Install dependencies",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 9,
+        "started_at": "2026-11-08T13:35:54Z",
+        "completed_at": "2026-11-08T13:35:58Z"
+      },
+      {
+        "name": "Detect and apply changes",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 10,
+        "started_at": "2026-11-08T13:35:58Z",
+        "completed_at": "2026-11-08T13:35:58Z"
+      },
+      {
+        "name": "Check for required labels",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 11,
+        "started_at": "2026-11-08T13:35:58Z",
+        "completed_at": "2026-11-08T13:36:07Z"
+      },
+      {
+        "name": "Check for existing sync PR",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 12,
+        "started_at": "2026-11-08T13:36:07Z",
+        "completed_at": "2026-11-08T13:36:08Z"
+      },
+      {
+        "name": "Create sync PR",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 13,
+        "started_at": "2026-11-08T13:36:08Z",
+        "completed_at": "2026-11-08T13:36:23Z"
+      },
+      {
+        "name": "Dry run summary",
+        "status": "completed",
+        "conclusion": "skipped",
+        "number": 14,
+        "started_at": "2026-11-08T13:36:23Z",
+        "completed_at": "2026-11-08T13:36:23Z"
+      },
+      {
+        "name": "Write sync result artifact",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 15,
+        "started_at": "2026-11-08T13:36:23Z",
+        "completed_at": "2026-11-08T13:36:23Z"
+      },
+      {
+        "name": "Upload sync result artifact",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 16,
+        "started_at": "2026-11-08T13:36:23Z",
+        "completed_at": "2026-11-08T13:36:25Z"
+      },
+      {
+        "name": "Post Setup Python",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 30,
+        "started_at": "2026-11-08T13:36:25Z",
+        "completed_at": "2026-11-08T13:36:25Z"
+      },
+      {
+        "name": "Post Checkout Workflows",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 31,
+        "started_at": "2026-11-08T13:36:25Z",
+        "completed_at": "2026-11-08T13:36:25Z"
+      },
+      {
+        "name": "Post Mint Workflows App commit token",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 32,
+        "started_at": "2026-11-08T13:36:25Z",
+        "completed_at": "2026-11-08T13:36:25Z"
+      },
+      {
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 33,
+        "started_at": "2026-11-08T13:36:25Z",
+        "completed_at": "2026-11-08T13:36:26Z"
+      }
+    ],
+    "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128746974432",
+    "labels": [
+      "ubuntu-latest"
+    ],
+    "runner_id": 1004673758,
+    "runner_name": "GitHub Actions 1004673758",
+    "runner_group_id": 0,
+    "runner_group_name": "GitHub Actions"
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "changes_count": 2,
+  "consumer_head_sha": "0543dc9732eab0ad12227308749566a937581eea",
+  "dry_run": false,
+  "expected_branch": "sync/workflows-candidate",
+  "force": false,
+  "has_changes": true,
+  "outcomes": {
+    "create_pr": "success",
+    "labels": "success",
+    "sync": "success"
+  },
+  "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+  "plan_scope": "full",
+  "pr": 2486,
+  "pr_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2486",
+  "repo": "stranske/Portable-Alpha-Extension-Model",
+  "scope_base_sha": "",
+  "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+  "status": "refreshed_pr",
+  "sync_phase": "canary",
+  "template_hash": "a478e45c16b6"
+}

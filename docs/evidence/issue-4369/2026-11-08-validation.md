@@ -1462,3 +1462,38 @@ and excluded.
 Focused re-run on the reduced branch (local, 2026-11-08): six Node test files
 gave 614 passed, 0 failed in 8.4s. Four pytest files, run with `-n 4`, gave
 251 passed in 20.1s.
+
+## Issue 4557 acceptance plan — 2026-11-08T20:46:00Z
+
+Outcome 1 is PASS only when both exact commands below exit 0 on one immutable
+published main descendant containing `b21fae85fe4f79e72c4133c29a3814b9d5950c3a`
+and all salvaged PR 4551 fixes, and the automation-started Maint 68 → Maint 71
+chain proves the final subscription payload on consumer main at its actual merge.
+Check date: 2026-11-08 (UTC). Initial outcome: NOT MET.
+
+```console
+node --test .github/scripts/__tests__/*.test.js
+python3 -m pytest -q tests/
+```
+
+Supported non-local runner identified from Selftest CI run 42486833507:
+GitHub Actions `ubuntu-latest`, Node 24, setup-python 3.13/3.14. Resolve and retain
+`python3` executable and selected environment before running. The existing
+Selftest Python jobs use marker/worker/coverage selections; their success does
+not substitute for the exact second command above. No full suite runs locally.
+Each acceptance execution is externally bounded: Node 600 seconds, Python 1800
+seconds, with complete combined output, UTC timestamps, wall duration, exit code,
+checkout SHA, runner identity, interpreter paths, and bound retained. A status
+read must finish within two minutes; the full acceptance executions are async.
+
+Stop rule: stop at the first unresolved step after three failed attempts at that
+step or 60 minutes from 20:46:00Z (deadline 21:46:00Z), whichever comes first.
+A pending CI job is not counted as a failed attempt. Preserve existing writers,
+review, merge, promotion, and verification gates. Do not manually dispatch
+Maint 68 or Maint 71. Record missing receipts as missing; historical sandbox
+failures are diagnostic leads only. If code changes, both suites must be rerun
+on one published main revision containing the repair.
+
+Initial blocking/drainable pair: blocking=1 (PR 4551 not merged; exact-head
+Python 3.13 Gate job pending), drainable=1 (read-only downstream receipt capture).
+No acceptance revision has been selected and no suite success is claimed.
