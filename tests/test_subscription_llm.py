@@ -114,10 +114,31 @@ def test_claude_config_dir_unavailable_without_credentials(
 
 
 @pytest.mark.parametrize("auth_exists", (False, True))
-def test_claude_config_dir_unset_uses_default_directory(claude_client, auth_exists):
+def test_claude_config_dir_unset_uses_default_directory(
+    claude_client, monkeypatch, tmp_path, auth_exists
+):
     if auth_exists:
         default = Path.home() / ".claude"
         default.mkdir(parents=True)
         (default / ".credentials.json").touch()
 
     assert (claude_client.available() is auth_exists,) == (True,)
+
+    transport = sys.modules[type(claude_client).__module__]
+    calls = []
+
+    def run_cli(command, **options):
+        calls.append(command[0])
+        assert options["env"]["HOME"] == str(tmp_path / "home")
+        assert "CLAUDE_CONFIG_DIR" not in options["env"]
+        assert options["input"] == "fixture prompt"
+        return SimpleNamespace(returncode=0, stdout='{"result": "fixture analysis"}')
+
+    monkeypatch.setattr(transport.subprocess, "run", run_cli)
+    if auth_exists:
+        assert claude_client.invoke("fixture prompt").content == "fixture analysis"
+        assert calls == ["claude"]
+    else:
+        with pytest.raises(RuntimeError, match="claude subscription CLI/auth unavailable"):
+            claude_client.invoke("fixture prompt")
+        assert calls == []

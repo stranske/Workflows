@@ -212,3 +212,67 @@ The two broad-gate items stay open because neither full suite passed locally.
 - [x] The tests verify configured-directory credentials yield `True`, a configured directory without credentials yields `False`, and an unset `CLAUDE_CONFIG_DIR` preserves default-directory behavior.
 - [ ] Both source gates pass: `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/`.
 - [x] Post-merge live verification records that, after `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread and sync-core no longer bumps this finding. Source-test success alone does not establish this result; unavailable live evidence remains explicitly pending.
+
+## Follow-up validation at incoming head b7ab20aa
+
+The default-directory regression now also exercises `invoke()` through an inert
+subprocess stub for both source and template. With default auth present, the stub
+must receive the temporary `HOME`, no `CLAUDE_CONFIG_DIR` override, and the expected
+prompt, and return the fixture result exactly once. With default auth absent,
+invocation must raise before calling the stub. The production fix is unchanged.
+
+Checks executed on 2026-11-08 after this test change:
+
+| Command | Exit | Output |
+| --- | --- | --- |
+| `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | `24 passed, 50444 deselected in 25.35s` |
+| `python3 -m pytest -q tests/test_subscription_llm.py tests/workflows/test_subscription_llm_credential_canary.py -m 'not slow'` | 0 | `36 passed in 1.09s` |
+| `python3 -m ruff check tests/test_subscription_llm.py` | 0 | `All checks passed!` |
+| `black --line-length 100 tests/test_subscription_llm.py` | 0 | `1 file left unchanged` |
+| `black --check --line-length 100 tests/test_subscription_llm.py` | 0 | `1 file would be left unchanged` |
+| `git diff --check` | 0 | No whitespace errors |
+
+The required test selection completed within two minutes and still covers
+configured-directory success, configured-directory failure despite default auth,
+and unset-variable fallback. The earlier pre-fix and deliberate-break results
+above remain historical evidence; this follow-up did not repeat those mutations.
+
+The plain full-repository Black command failed with `PermissionError: [Errno 1]
+Operation not permitted` while Python's forkserver attempted `listener.bind()`.
+A one-worker retry and both broad source suites are recorded separately below;
+none is inferred to pass from the focused checks.
+
+Staging the meaningful Python change failed again: `git add
+tests/test_subscription_llm.py` exited 128 because `.git/index.lock` cannot be
+created on the read-only filesystem. No commit or push is claimed.
+
+Read-only GitHub checks reconfirmed the existing historical downstream evidence:
+Maint 68 job 127073790362 created verified consumer head
+`99d10a9838cecfb4327a2735d8f3723e393e413e`; Maint 71 job 127075733924 reports
+that head with `raw_active_count: 4`, containing discussions 4434491631,
+4434491646, 4434491667 and 4434491675, with 4434491702 absent. The scoped
+thread remains outdated and unresolved. The last scoped sync-core recurrence
+in the fetched issue comments is still round `20261105T044440Z`, before that
+regeneration. This observation concerns the previously delivered production fix.
+PR 4539 was read as open and ready (`draft=false`) at `b7ab20aa`.
+
+The follow-up broad checks ended without passing results:
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `timeout -k 5s 600s node --test .github/scripts/__tests__/*.test.js` | 130 | Interrupted without a suite summary; captured output stopped after `keepalive-instruction-template.test.js` |
+| `timeout -k 5s 900s python3 -m pytest -q tests/` | 130 | Interrupted with progress near 2%; no suite summary |
+| `BLACK_NUM_WORKERS=1 timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .` | 130 | Interrupted without a formatting summary |
+
+These attempts used unchanged tests and formatter selection. They do not establish
+that either full source suite passes or that the full-repository formatting gate
+passes for this follow-up. Those acceptance checks remain pending; the successful
+repository Black check earlier in this report belongs to the prior iteration.
+
+Updating PR 4539's three verified acceptance checkboxes, posting the concrete
+blocker comment, and adding `needs-human` were each attempted. Automatic approval
+review rejected all three with `MCP tool call requires approval, but approval
+policy is never`. No remote mutation succeeded. The PR body's unchecked state
+therefore remains unchanged despite the local targeted-test and historical live
+evidence above. The local test and report changes require publication by a runner
+with writable git metadata, plus successful outstanding source/formatting gates.
