@@ -56,7 +56,9 @@ def _source_token(label: str) -> str:
 def test_documented_keepalive_labels_have_an_executable_or_retired_surface() -> None:
     """A documented control must execute somewhere or be explicitly retired."""
     surface = _automation_surface()
-    documentation_only = _documentation_only_labels() | DISABLED_LABELS | set(LOCAL_AUTOMATION_LABELS)
+    documentation_only = (
+        _documentation_only_labels() | DISABLED_LABELS | set(LOCAL_AUTOMATION_LABELS)
+    )
     missing = sorted(
         label
         for label in _documented_labels() - documentation_only
