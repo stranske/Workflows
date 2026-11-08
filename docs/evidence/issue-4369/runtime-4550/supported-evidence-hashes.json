@@ -14,13 +14,7 @@
   "supported-binding-tests.log": "bf918dbe2a6b927104bb8847e6ca59dbc6c92aef079e7cc18fccb9d23a550a21",
   "supported-coding-diagnostic.json": "b7dee83fdb27cf3d40a8d6da3c6639e2034e62464a5feeb977be281ce2a26146",
   "supported-coding-diagnostic.log": "b0c92430d4e914859abf00573697a9a41c01675196e4ce79d93ff06d0094389f",
-  "supported-incoming-node-ci.log": "ddbb1f022e1a2aeef81a2fd71c6f804df4717ae4c0732e8ca14aa9aa31418473",
   "supported-live-observation.json": "e22da2bbe2dbf2fcfbbdfcb574b2535f9156c5cd1b403d437c264ee5b7904089",
   "supported-node-failures-diagnostic.json": "c8e1e8d24275b57e74462d965c65d9406ee7478b7167c30caeb10cf750631e80",
-  "supported-node-failures-diagnostic.log": "86248faf3a327cd98b08a89b049c8a25dc4ef81f75b4b744c5f84a820885ad0e",
-  "supported-published-node-ci-5ce655b88.log": "b97322d3fbb017c6596a4cb5d06c6e6a588ac96ff51c6182eb27bb8e7089cd9b",
-  "supported-published-node-ci-b3d13601b.log": "c48b9516dafcfb52c1b0002fda5a1a88678ea344d2a4f6e79270809d92146e9d",
-  "supported-selftest-5ce655b88.json": "1aa2f26c23ec7e60deacd61b91475abe525f948fbb8ec8a87f277ae442166636",
-  "supported-exact-node-02fbe3f74.log": "be9f95a482b106ddc8586d5b8cc385254413d27e1b8f0ce38cb8ea792b590170",
-  "supported-exact-selftest-02fbe3f74.json": "79563d868b13d72fa163eb3322b2cfe419fae8758be96a97ae19652203b8d4be"
+  "supported-node-failures-diagnostic.log": "86248faf3a327cd98b08a89b049c8a25dc4ef81f75b4b744c5f84a820885ad0e"
 }
