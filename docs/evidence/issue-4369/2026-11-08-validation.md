@@ -1319,3 +1319,88 @@ label on PR 4549 were each rejected by automatic approval review:
 `MCP tool call requires approval, but approval policy is never`. Neither mutation
 was published. The local test and evidence files are prepared for a runner with
 writable Git metadata; the downstream acceptance remains pending live delivery.
+
+## Complete-trigger observation — 2026-11-08T09:22:40Z
+
+Recent commits `d2d1d637` and `243c207b` were reconciled against PR 4549's body
+before further work. Its first three task checkboxes and focused acceptance are
+already checked; the final downstream task and both remaining acceptance
+criteria correctly remain unchecked. The prior observation covered only
+`schedule` and `workflow_dispatch`. Maint 71 also accepts
+`repository_dispatch`, so that observation alone could not exclude another
+top-level Maint 71 run from its immediate-following-run selection.
+
+The new [complete-trigger receipt](runtime-4548/downstream-observation-complete.json)
+preserves the original receipt separately and collects every supported top-level
+trigger over the same **03:40:00–09:21:48Z** interval: **69 schedule**,
+**64 workflow_dispatch**, and **28 repository_dispatch** runs. Every collection
+fits one page of 100 and equals its API `total_count`; unrelated runs are retained.
+The repository-dispatch collection includes Maint 71 run **42444842270** at
+03:57:48Z, before the final source merge. `workflow_call` runs inside the caller
+and is not a separate top-level run event. Workflow-specific inventory endpoints
+were rejected by the connector as unsupported; the retained repository run
+collections use supported GET endpoints instead.
+
+Across all three collections, the latest Maint 68 is still **42449080092**,
+source `7e377b7ad8cc06e506393218bc7459ba47757f01`, with skipped consumer delivery.
+The immediately following Maint 71 remains **42451203202**, source
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`, reporting `no_prs`. Their historical
+job/log excerpts are carried forward from the original receipt; no new log read
+or regenerated consumer disposition is claimed.
+
+A fresh consumer branch read binds `main` to merge commit
+`0543dc9732eab0ad12227308749566a937581eea`, the merge of PR 2454's head
+`9c85282d05359ddc468d0881ec6b09269ac592a2`. Fetching
+`tools/subscription_llm.py` at that exact default-branch SHA yields the same
+retained older file bytes and Git blob `c889fd8064806a9c0f932f7c1dc09762896afe67`.
+It still differs from the merged source template blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. The previously observed resolution
+of discussion **4434491702** therefore remains insufficient to establish final
+payload delivery.
+
+The REST issue-comments read returns **49** comments in one page, with actual
+creation/update timestamps. Through observation **2026-11-08T09:22:40Z**, the last
+scoped sync-core recurrence is still comment **6649911684**, created
+**2026-11-05T04:45:07Z** (handoff round `20261105T044440Z`); the last any-consumer
+recurrence is **6650145104**, created **2026-11-05T05:01:44Z**. No newer scoped
+recurrence was present. This is bounded observation, not downstream acceptance.
+
+The evidence tests now replay both historical and complete-trigger receipts.
+Three added checks derive required trigger coverage from the authored workflows,
+bind the consumer default branch to its exact payload, and verify REST comment
+chronology. On checkout `243c207b67a97724ced22e9ac7918029da8bfca2`, Python 3.14.10:
+
+```console
+python3 -m pytest -q tests/scripts/test_issue_4369_downstream_evidence.py tests/scripts/test_issue_4455_post_merge_evidence.py tests/scripts/test_setup_validation_env.py -m 'not slow'
+33 passed in 1.13s
+```
+
+Ruff and the targeted Black formatter pass. No protected workflow, credential
+code, or consumer template was edited. Full-gate acceptance remains pending on
+the earlier retained failures; no full-gate rerun or passing result is implied
+by these focused evidence tests.
+
+After formatting, the same focused command passes again: **33 passed in 1.10s**;
+Ruff and `git diff --check` pass. Staging the three scoped files exits **128**:
+
+```text
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+```
+
+No commit or push succeeded. The prepared blocker comment and additive
+`needs-human` label were each rejected by automatic approval review:
+`MCP tool call requires approval, but approval policy is never`. Neither was
+published. A final metadata read verifies PR 4549 remains **open**, **non-draft**,
+at `243c207b67a97724ced22e9ac7918029da8bfca2`. No task checkbox was advanced.
+
+The required repository-wide Black CLI initially exits **1** when the sandbox
+rejects the multiprocessing forkserver socket. The documented one-worker
+event-loop heartbeat workaround reaches `973 files would be left unchanged` but
+times out at 90 seconds, exit **124**. The targeted post-format Black check exits
+**0**. These outcomes do not constitute a passing repository-wide gate.
+One bounded 60-second retry of the same full selection also exits **124**,
+reporting `571 files would be left unchanged` after aborting. No repository-wide
+formatting pass or commit is claimed.
+
+The complete-trigger JSON contains **161 run rows** and **49 comments**; its
+SHA-256 is `e2f938c97c715b11aee66ec06d5af9fc09217ffb9b58fd95fec484a39f8a878a`.

@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs/evidence/issue-4369/runtime-4548/downstream-observation.json"
@@ -18,9 +19,16 @@ MAINT71 = ".github/workflows/maint-71-merge-sync-prs.yml"
 DISCUSSION = "4434491702"
 
 
+@pytest.fixture(
+    scope="module", params=[EVIDENCE, EVIDENCE.with_stem("downstream-observation-complete")]
+)
+def receipt(request: pytest.FixtureRequest) -> dict:
+    return json.loads(request.param.read_text(encoding="utf-8"))
+
+
 @pytest.fixture(scope="module")
-def receipt() -> dict:
-    return json.loads(EVIDENCE.read_text(encoding="utf-8"))
+def complete_receipt() -> dict:
+    return json.loads(EVIDENCE.with_stem("downstream-observation-complete").read_text())
 
 
 def utc(value: str) -> datetime:
@@ -33,10 +41,13 @@ def runs(receipt: dict) -> list[dict]:
     return [run for page in receipt["collection"]["run_inventories"] for run in page["runs"]]
 
 
-def test_inventory_preserves_both_bounded_event_collections(receipt: dict) -> None:
+def test_inventory_preserves_bounded_event_collections(receipt: dict) -> None:
     inventories = receipt["collection"]["run_inventories"]
-    assert {page["event"] for page in inventories} == {"schedule", "workflow_dispatch"}
-    assert len(inventories) == 2
+    events = {"schedule", "workflow_dispatch"}
+    if receipt["schema"] == "issue-4369/downstream-observation/v2":
+        events.add("repository_dispatch")
+    assert {page["event"] for page in inventories} == events
+    assert len(inventories) == len(events)
     for page in inventories:
         query = parse_qs(urlparse(page["url"]).query)
         assert query == {
@@ -160,3 +171,49 @@ def test_complete_comment_observation_has_no_later_scoped_sync_core_recurrence(
         assert round_time < utc(receipt["source_pr"]["merged_at"])
     assert receipt["final_delivery_acceptance"] is False
     assert len(receipt["pending_reasons"]) == 3
+
+
+def test_complete_inventory_covers_all_top_level_workflow_triggers(complete_receipt: dict) -> None:
+    events = set()
+    for path in (MAINT68, MAINT71):
+        workflow = yaml.load((ROOT / path).read_text(), Loader=yaml.BaseLoader)
+        # workflow_call executes inside a caller's run; it has no separate
+        # top-level run inventory. Include all other authored entry points.
+        events.update(set(workflow["on"]) - {"workflow_call"})
+    inventories = complete_receipt["collection"]["run_inventories"]
+    assert {page["event"] for page in inventories} == events
+    assert len({(page["start"], page["end"]) for page in inventories}) == 1
+    # The newly collected trigger contains a real Maint 71 run. Omitting it
+    # could otherwise make the immediate-following-run selection incomplete.
+    dispatch = next(page for page in inventories if page["event"] == "repository_dispatch")
+    assert any(run["path"] == MAINT71 for run in dispatch["runs"])
+
+
+def test_default_branch_still_contains_the_pre_final_payload(complete_receipt: dict) -> None:
+    main = complete_receipt["consumer_default_branch"]
+    consumer = complete_receipt["consumer_pr"]
+    payload = complete_receipt["payloads"]["consumer"]
+    assert main["head_sha"] == consumer["merge_commit_sha"]
+    assert main["retained_content"] == "payloads.consumer.content"
+    assert main["sha"] == payload["sha"]
+    assert main["path"] == payload["path"]
+    assert parse_qs(urlparse(main["payload_url"]).query) == {"ref": [main["head_sha"]]}
+    assert main["sha"] != complete_receipt["payloads"]["source"]["sha"]
+
+
+def test_rest_comments_bound_nonrecurrence_to_actual_creation_times(complete_receipt: dict) -> None:
+    collection = complete_receipt["collection"]["comments"]
+    comments = complete_receipt["issue_comments"]
+    assert parse_qs(urlparse(collection["url"]).query) == {"per_page": ["100"]}
+    assert collection["page"] == 1
+    assert len(comments) == collection["returned"] < collection["per_page"]
+    for comment in comments:
+        assert utc(comment["created_at"]) <= utc(comment["updated_at"])
+        assert utc(comment["updated_at"]) < utc(complete_receipt["observed_at"])
+    sync = [comment for comment in comments if comment["body"].startswith("<!-- sync-core/v1 ")]
+    scoped = [comment for comment in sync if f"#discussion_r{DISCUSSION}" in comment["body"]]
+    assert max(scoped, key=lambda comment: utc(comment["created_at"]))["id"] == 6649911684
+    assert all(
+        utc(comment["created_at"]) < utc(complete_receipt["source_pr"]["merged_at"])
+        for comment in sync
+    )
