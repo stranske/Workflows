@@ -29,22 +29,34 @@ def claude_client(request, monkeypatch, tmp_path):
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.setattr(transport.shutil, "which", lambda _: "/fixture/bin/claude")
+
+    def unexpected_cli(*_args, **_kwargs):
+        pytest.fail("Availability checks must not launch the CLI")
+
+    monkeypatch.setattr(transport.subprocess, "run", unexpected_cli)
     return transport.SubscriptionClient(agent="claude", model="fixture-model")
 
 
-def test_claude_available_with_configured_directory(claude_client, monkeypatch, tmp_path):
+@pytest.mark.parametrize("default_auth_exists", (False, True))
+def test_claude_config_dir_available_with_credentials(
+    claude_client, monkeypatch, tmp_path, default_auth_exists
+):
     config = tmp_path / "custom-claude"
     config.mkdir()
     (config / ".credentials.json").touch()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
     legacy = Path.home() / ".claude" / ".credentials.json"
+    if default_auth_exists:
+        legacy.parent.mkdir(parents=True)
+        legacy.touch()
 
-    assert (legacy.is_file() is False,) == (True,)
+    assert sorted(path.name for path in config.iterdir()) == [".credentials.json"]
+    assert (legacy.is_file() is default_auth_exists,) == (True,)
     assert (claude_client.available() is True,) == (True,)
 
 
 @pytest.mark.parametrize("default_auth_exists", (False, True))
-def test_claude_invocation_uses_configured_directory(
+def test_claude_config_dir_invocation_uses_configured_directory(
     claude_client, monkeypatch, tmp_path, default_auth_exists
 ):
     config = tmp_path / "custom-claude"
@@ -76,7 +88,7 @@ def test_claude_invocation_uses_configured_directory(
 
 @pytest.mark.parametrize("default_auth_exists", (False, True))
 @pytest.mark.parametrize("config_state", ("missing", "empty", "directory-entry"))
-def test_claude_unavailable_without_configured_credentials(
+def test_claude_config_dir_unavailable_without_credentials(
     claude_client, monkeypatch, tmp_path, default_auth_exists, config_state
 ):
     config = tmp_path / "custom-claude"
@@ -102,7 +114,7 @@ def test_claude_unavailable_without_configured_credentials(
 
 
 @pytest.mark.parametrize("auth_exists", (False, True))
-def test_claude_available_with_default_directory(claude_client, auth_exists):
+def test_claude_config_dir_unset_uses_default_directory(claude_client, auth_exists):
     if auth_exists:
         default = Path.home() / ".claude"
         default.mkdir(parents=True)
