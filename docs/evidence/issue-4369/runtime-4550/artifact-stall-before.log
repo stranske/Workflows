@@ -1,0 +1,19 @@
+
+Interrupted while running:
+
+⚠ .github/scripts/__tests__/verifier-correction-artifacts.test.js (.github/scripts/__tests__/verifier-correction-artifacts.test.js:1:1)
+✖ .github/scripts/__tests__/verifier-correction-artifacts.test.js (24959.637679ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24967.871666
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/verifier-correction-artifacts.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-artifacts.test.js (24959.637679ms)
+  'Promise resolution is still pending but the event loop has already resolved'

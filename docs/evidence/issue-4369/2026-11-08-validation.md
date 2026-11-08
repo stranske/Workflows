@@ -1727,3 +1727,79 @@ Automatic approval review rejected the prepared blocker comment on PR 4551
 and additive `needs-human` label with `MCP tool call requires approval, but
 approval policy is never`. Neither was published, and no alternative mutation
 transport was used.
+
+## Issue 4550: artifact fixture stall repair at 12:30 UTC
+
+The incoming revision is `482ba34d49f0f91e163b8e8060fb13c3996c9630`, a
+descendant of `b21fae85fe4f79e72c4133c29a3814b9d5950c3a`. Reviewing the three
+recent keepalive commits and current PR body confirms the existing checkboxes
+are accurate: the first three repairs and complete-suite execution are recorded,
+but successful complete-suite validation and final consumer delivery remain
+unchecked. No additional completion is established by the prior evidence tests.
+
+The first unchecked delivery task remains blocked. The authorized, unchanged
+single-consumer Maint 68 dispatch exits **1**, `error connecting to
+api.github.com`. The connector has no workflow-dispatch method. No producer run
+ID was returned, so no following Maint 71 dispatch or delivery is claimed.
+
+To advance the remaining complete-suite acceptance, this iteration repairs one
+reproduced runtime stall in
+`.github/scripts/__tests__/verifier-correction-artifacts.test.js`. Its ZIP
+fixture previously sent JSON through Python's piped stdin without a timeout.
+The whole file reproduced the stall under an external **25-second** limit,
+exit **124**, with an unresolved promise. As with the previously diagnosed
+keepalive fixture, passing the inert JSON as an argv element with ignored stdin
+removes the denied socket write. Each Python invocation now also has a
+**15-second SIGKILL** bound. The real ZIP creation, archive authentication,
+ledger readback and all existing assertions remain active.
+
+A new round-trip regression checks quoted Unicode filenames and both empty and
+all-256-byte payloads through the fixture and real retained-archive reader.
+Direct execution reports **21 passed, 0 failed, 0 skipped**, exit **0**, in
+**2.60 seconds**. The isolated `node --test` invocation also exits **0**, with
+one passing file in **3.28 seconds**. `node --check` and `git diff --check` pass.
+No Python source or protected workflow/security file was changed.
+
+The broad Node retry still reaches its external **75-second** bound, exit
+**124**: **134 passing files, 9 failing files, 1 cancelled file**. This improves
+the previously cancelled artifact file to passing; the coding test still stalls
+and other failures remain. The Python diagnostic
+`python3 -m pytest -q tests/ -m 'not slow' -x` reaches its **60-second** external
+bound, exit **124**, near 2%, without a failure traceback or suite summary.
+Neither command establishes successful full-suite acceptance. Node is
+**v24.22.2** and Python is **3.14.10**. These runs test the incoming revision
+plus the uncommitted fixture change; they are not a published-revision pass.
+The [validation manifest](runtime-4550/artifact-stall-validation.json) records
+commands, bounds, exit codes and SHA-256 hashes for all five complete raw logs:
+[before](runtime-4550/artifact-stall-before.log),
+[after](runtime-4550/artifact-stall-after.log),
+[direct](runtime-4550/artifact-stall-direct.log),
+[Node suite](runtime-4550/artifact-stall-node-suite.log), and
+[Python diagnostic](runtime-4550/artifact-stall-python-diagnostic.log).
+
+The [fresh downstream observation](runtime-4550/artifact-stall-followup.json)
+retains **48 unique runs** on its short final page of capacity 100, covering
+**2026-11-08T12:03:28Z through 12:27:49Z**, without a Maint 68 or Maint 71 row.
+The consumer default branch remains
+`0543dc9732eab0ad12227308749566a937581eea`. A fresh exact-ref file read
+recomputes to blob `c889fd8064806a9c0f932f7c1dc09762896afe67`, still differing
+from final source/template blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`.
+Discussion **4434491702** remains resolved and outdated with historical owner
+disposition **4505043101**; this is not a new Maint 71 final-payload disposition.
+
+All **49 issue comments** are retained with complete bodies and real creation
+and update timestamps. The short final REST page and identical IDs from the
+all-pages connector establish completeness. There is no later scoped sync-core
+recurrence through **2026-11-08T12:26:45Z**; the last remains comment
+**6649911684**, round `20261105T044440Z`. These observations keep final delivery
+acceptance false. No remaining acceptance checkbox is advanced.
+
+After validation, staging the JavaScript change and evidence exits **128**:
+`.git/index.lock: Read-only file system`. No commit or push succeeded. Automatic
+approval review rejected the prepared PR-body reconciliation update, blocker
+comment and additive `needs-human` label with `MCP tool call requires approval,
+but approval policy is never`. None was published; no alternative mutation
+transport was used. A final metadata read confirms PR **4551** remains **open
+and non-draft** at `482ba34d49f0f91e163b8e8060fb13c3996c9630`. A runner with
+writable Git metadata and GitHub dispatch access must publish the local patch
+and complete the selected Maint 68/71 lifecycle.

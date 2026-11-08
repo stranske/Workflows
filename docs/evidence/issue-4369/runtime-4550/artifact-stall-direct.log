@@ -1,0 +1,29 @@
+✔ archive fixture preserves quoted names and empty or binary payloads through argv (87.614642ms)
+✔ immutable checkpoint upload is positively read back through canonical run/attempt/job/archive/member proof (49.938541ms)
+✔ lost upload ACK permits no effect until exact immutable readback, and absent/ambiguous data remains UNKNOWN (84.646498ms)
+✔ foreign/unmerged origin, wrong attempt/step, expiry and corrupt archives cannot authenticate checkpoints (252.620253ms)
+✔ real immutable transport ledger confirms exact contiguous journal before exposing dispatch selector (97.80392ms)
+✔ expired/missing checkpoints, duplicate revisions and unknown prior attempts never imply empty history (348.029499ms)
+✔ caller aliases cannot replace first original deadline or budget through a new request digest (44.004818ms)
+✔ foreign run-title exclusion cannot skip canonical workflow authentication (42.88108ms)
+✔ deleted prior checkpoint history cannot become revision zero; only positively skipped historical effects are empty (135.745773ms)
+✔ even the active attempt cannot forget a checkpoint it already confirmed (88.657617ms)
+✔ missing/malformed or server-out-of-scope run timestamps cannot silently erase history (1.176467ms)
+✔ canonical live precursor intents can be read by the child; started admission still requires completed producer step (220.382031ms)
+✔ private active stage is minted only by exact append/readback in this invocation, never by restart or retained JSON (93.362505ms)
+✔ operational: completed skipped prior attempt without admitted context is independent of active latest rerun (47.379571ms)
+✔ operational: incomplete or non-skipped prior attempt with missing admission remains UNKNOWN (129.231128ms)
+✔ operational: completed skipped prior attempt with admitted context and no journal is independent of active latest rerun (85.944029ms)
+✔ operational: incomplete or non-skipped prior attempt with missing journal remains UNKNOWN (255.729302ms)
+✔ managed template: completed skipped prior attempt without admitted context is independent of active latest rerun (46.412485ms)
+✔ managed template: incomplete or non-skipped prior attempt with missing admission remains UNKNOWN (129.323771ms)
+✔ managed template: completed skipped prior attempt with admitted context and no journal is independent of active latest rerun (86.651851ms)
+✔ managed template: incomplete or non-skipped prior attempt with missing journal remains UNKNOWN (254.617957ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2600.93714
