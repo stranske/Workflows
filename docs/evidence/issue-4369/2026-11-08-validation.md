@@ -2175,3 +2175,58 @@ The additive `needs-human` label and prepared blocker comment on PR **4551**
 were also rejected by automatic approval review with
 `MCP tool call requires approval, but approval policy is never`. Neither was
 published, and no alternate mutation transport was used.
+
+### Native candidate scope verification, 2026-11-08 14:23 UTC
+
+Reviewed the recent commits through `3a37c3fad90886606a0bfe279ac3aca6215fa838`.
+The PR body still correctly records **7/10** complete; no additional checkbox
+has verified completion. The reconciliation update was rejected by automatic
+approval review: `MCP tool call requires approval, but approval policy is never`.
+
+The delivery replay now exercises `verifiedCanaryRefreshPlan` with the retained
+consumer PR and a fresh GitHub native commit response for candidate
+`653f443b52ec179c6680ee369be06ed3e3ce2617`. The response projection is retained in
+[native-candidate-commit.json](runtime-4550/native-candidate-commit.json).
+Production verification accepts GitHub's reported valid signature and the
+frozen source-delta source/plan/base tuple. This is an offline replay of GitHub's
+verification status, not an independent cryptographic signature verification.
+Eight negative cases substitute the signature status/reason, commit SHA,
+observed head, source, plan, scope or scope base. Each is refused before any
+recovery dispatch. The positive case also distinguishes the producer's tooling
+revision from its frozen payload source; these are different commits.
+
+The **9 new cases**, existing live-report replay and the two related Maint 71
+modules report **328 passed, 0 failed, 0 skipped**, exit **0**, with a 60-second
+external bound. The command, interpreter, exact starting revision, working-tree
+test digest, timings and log digest are retained in
+[native-scope-replay.json](runtime-4550/native-scope-replay.json); complete raw
+output is [native-scope-replay.log](runtime-4550/native-scope-replay.log).
+No Python source or protected workflow file changed. This targeted run does
+not establish the pending combined full-suite acceptance criterion.
+
+The [fresh observation](runtime-4550/native-scope-live-observation.json) contains
+all **49** issue comments, including full bodies and timestamps, on the short
+final REST page; its ordered IDs match the independent all-pages connector.
+No scoped recurrence appears through **2026-11-08T14:21:46Z**. Historical
+discussion **4434491702** remains resolved and outdated with disposition
+**4505043101**. All **39** workflow runs in the retained
+**14:09:35Z–14:21:46Z** interval fit on one page; none is a new Maint 68 or
+Maint 71 delivery run. Both source PR **4551** and consumer PR **2486** are open
+and non-draft in this observation.
+
+Fresh immutable payload reads recompute source and candidate blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`; consumer main
+`0543dc9732eab0ad12227308749566a937581eea` still has blob
+`c889fd8064806a9c0f932f7c1dc09762896afe67`. Delivery remains incomplete.
+The prior two missing-canary subjects still require an owner disposition under
+the finite-shipment contract. The CLI read probe failed to connect to
+`api.github.com`, and the available connector exposes no workflow-dispatch
+operation. Repeating the same held campaign cannot establish a merged receipt.
+
+Staging the meaningful JavaScript change failed with exit **128**:
+`.git/index.lock: Read-only file system`; no commit or push succeeded. The
+required additive `needs-human` label and concrete blocker comment were also
+rejected by automatic approval review with
+`MCP tool call requires approval, but approval policy is never`. Neither was
+published. Publication results are retained in the replay receipt. Local changes
+are ready for the automation writer; no alternate mutation transport was used.

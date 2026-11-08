@@ -4,11 +4,73 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { dispatchCandidateRefreshFromReport } = require('../maint71_merge_sync_prs');
+const { dispatchCandidateRefreshFromReport, verifiedCanaryRefreshPlan } = require('../maint71_merge_sync_prs');
+const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
 
 const evidence = path.join(__dirname, '../../../docs/evidence/issue-4369/runtime-4550');
 const read = name => JSON.parse(fs.readFileSync(path.join(evidence, name), 'utf8'));
 const selectedRepository = 'stranske/Portable-Alpha-Extension-Model';
+
+function nativeFixture() {
+  const pr = read('supported-live-observation.json').consumer_pr;
+  const [marker] = [...pr.body.matchAll(/<!-- workflows-consumer-sync:v1 (.+?) -->/g)];
+  return {
+    owner: 'stranske', repo: 'Portable-Alpha-Extension-Model', pr,
+    metadata: JSON.parse(marker[1]), record: parseDeliveryRecord(pr.body),
+    nativeHead: read('native-candidate-commit.json'),
+  };
+}
+
+async function verifyNative(fixture) {
+  const calls = [];
+  // Exercise the native commit read as well as production scope verification.
+  // No writer/dispatch method is available to this replay.
+  const { nativeHead, ...args } = fixture;
+  const result = await verifiedCanaryRefreshPlan({ ...args, withRetry: async operation => {
+    const value = await operation({ rest: { repos: { getCommit: async request => {
+      calls.push(request);
+      return { data: nativeHead };
+    } } } });
+    assert.deepEqual(calls, [{ owner: fixture.owner, repo: fixture.repo,
+      ref: fixture.pr.head.sha }]);
+    return value;
+  } });
+  assert.equal(calls.length, 1);
+  return result;
+}
+
+test('the retained signed consumer head authenticates the frozen source-delta tuple', async () => {
+  const fixture = nativeFixture();
+  assert.equal(fixture.nativeHead.url,
+    `https://api.github.com/repos/${selectedRepository}/commits/${fixture.pr.head.sha}`);
+  assert.equal(fixture.nativeHead.sha, fixture.record.sealed_head_sha);
+  const result = await verifyNative(fixture);
+  assert.deepEqual(result, {
+    plan_id: fixture.metadata.plan_id, plan_scope: 'source-delta',
+    scope_base_sha: fixture.metadata.scope_base_sha, source_commit: fixture.record.source_commit,
+  });
+  const producerLog = fs.readFileSync(path.join(evidence, 'maint68-42485644055.log'), 'utf8');
+  assert.ok(producerLog.includes(`SOURCE_COMMIT: ${result.source_commit}`));
+  assert.notEqual(result.source_commit, read('maint68-42485644055.json').headSha,
+    'workflow tooling revision is distinct from the frozen payload source');
+});
+
+for (const [field, mutate, errorPrefix] of [
+  ['signature', f => { f.nativeHead.commit.verification.verified = false; }, 'canary_refresh_native_head_unverified'],
+  ['signature reason', f => { f.nativeHead.commit.verification.reason = 'unsigned'; }, 'canary_refresh_native_head_unverified'],
+  ['commit SHA', f => { f.nativeHead.sha = '0'.repeat(40); }, 'canary_refresh_native_head_unverified'],
+  ['observed head', f => { f.record.head_observed_sha = '0'.repeat(40); }, 'canary_refresh_native_scope_mismatch'],
+  ['source', f => { f.nativeHead.commit.message = f.nativeHead.commit.message.replace(f.record.source_commit, '0'.repeat(40)); }, 'canary_refresh_native_scope_mismatch'],
+  ['plan', f => { f.nativeHead.commit.message = f.nativeHead.commit.message.replace(f.record.plan_id, `sha256:${'0'.repeat(64)}`); }, 'canary_refresh_native_scope_mismatch'],
+  ['scope', f => { f.metadata.plan_scope = 'full'; }, 'canary_refresh_native_scope_mismatch'],
+  ['scope base', f => { f.metadata.scope_base_sha = '0'.repeat(40); }, 'canary_refresh_native_scope_mismatch'],
+]) {
+  test(`the retained consumer payload refuses substituted ${field} before recovery`, async () => {
+    const fixture = nativeFixture();
+    mutate(fixture);
+    await assert.rejects(verifyNative(fixture), error => error.message.startsWith(errorPrefix));
+  });
+}
 
 function replay(report, withRetry) {
   return dispatchCandidateRefreshFromReport({
