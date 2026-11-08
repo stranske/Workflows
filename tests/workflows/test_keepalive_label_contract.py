@@ -10,6 +10,9 @@ DOCS = (
 RETIRED_HEADING = "### Retired label names"
 RETIRED_LABELS = {"agents:max-parallel:<K>", "agent:codex-invite"}
 DISABLED_LABELS = {"agent:aider"}
+# Labels whose executable surface is local automation outside this repository, named here so the exemption is
+# deliberate. Each must say in docs/LABELS.md which local system owns it.
+LOCAL_AUTOMATION_LABELS = {"agents:local-loop": "stranske/Orchestrator"}
 AUTOMATION_ROOTS = (Path(".github/workflows"), Path(".github/scripts"))
 AUTOMATION_SUFFIXES = {".js", ".py", ".sh", ".yml", ".yaml"}
 SWEEP_PATHS = (
@@ -53,7 +56,7 @@ def _source_token(label: str) -> str:
 def test_documented_keepalive_labels_have_an_executable_or_retired_surface() -> None:
     """A documented control must execute somewhere or be explicitly retired."""
     surface = _automation_surface()
-    documentation_only = _documentation_only_labels() | DISABLED_LABELS
+    documentation_only = _documentation_only_labels() | DISABLED_LABELS | set(LOCAL_AUTOMATION_LABELS)
     missing = sorted(
         label
         for label in _documented_labels() - documentation_only
@@ -102,3 +105,13 @@ def test_run_cap_docs_state_the_executable_bounds() -> None:
     labels_doc = Path("docs/LABELS.md").read_text(encoding="utf-8")
     assert "Supported nonzero values are `K = 1–5`" in labels_doc
     assert "Values above 5 are clamped to an effective cap of 5" in labels_doc
+
+
+def test_local_automation_labels_name_their_owner() -> None:
+    """The local-automation exemption is not silent: each label's section names the system that executes it."""
+    doc = Path("docs/LABELS.md").read_text()
+    for label, owner in LOCAL_AUTOMATION_LABELS.items():
+        heading = f"### `{label}`"
+        assert heading in doc, f"{label} has no section in docs/LABELS.md"
+        section = doc.split(heading, maxsplit=1)[1].split("\n---", maxsplit=1)[0]
+        assert owner in section, f"{label}'s section does not name its owner {owner}"
