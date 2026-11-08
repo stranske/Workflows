@@ -1,5 +1,56 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Nested phase summary validation
+
+The validator now checks every declared process interval before Git: required
+boundaries/duration, finite nonnegative numeric types, ordered endpoints and
+duration arithmetic. Raw clock reconciliation still runs independently after
+source verification. This also fixes a demonstrated acceptance bug: boolean
+`true` compared equal to a one-second duration in the final dictionary equality
+check. All 44 new controller/worker regressions for both arms failed before the
+change; four boolean-duration cases had incorrectly returned a verified receipt.
+
+Current Python 3.14.10 verification:
+
+```text
+python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+605 passed in 17.01s
+
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 11.65s
+```
+
+The integration file and all five marker-specific options assertions remain
+unchanged. The requested Anaconda interpreter is absent. All four real archives
+were retried after the change: their metadata/phase preflight passes, then each
+fails at the same missing immutable Git sources documented below. Retained
+successful validation JSON does not establish fresh validation. Historical
+uploads and exclusive overhead remain UNKNOWN; instrumentation, archives, source
+pair and dependency lock were preserved.
+
+Reviewed recent commits and live PR state before continuing. PR #4542's archive
+revalidation and delivery task checkboxes must be reopened. PR #4535 remains open
+and ready at `f3325610782d7d8d57fbd9659cfae8b1e12fe10e`, with 13 active unresolved
+threads. The connector reports successful Gate/guard statuses, which do not
+establish complete expected/required checks. Its head has not received these
+validator changes. The proposed PR body has current results and outstanding
+requirements; publishing it, reconciling #4542's checkboxes, posting the blocker
+comment and adding `needs-human` were all rejected with
+`MCP tool call requires approval, but approval policy is never`. No remote
+state, review-thread disposition or merge was changed.
+
+Black formatted both touched Python files at line length 100. After a serial
+cache warmup respecting the repository's configured exclusions, the required
+CLI check passed with 970 unchanged files:
+
+```text
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-4541-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Ruff and `git diff --check` pass. Staging failed with `.git/index.lock: Read-only
+file system`; the source/test changes and handoff remain uncommitted. PRs #4535
+and #4542 were both rechecked open with `draft=false` before handoff.
+
 ## CLI refusal and current acceptance reconciliation
 
 Reviewed the recent commits and live PR state before editing. The newest commit

@@ -14,6 +14,11 @@ delivered to this PR's unchanged head `f3325610782d7d8d57fbd9659cfae8b1e12fe10e`
 The local validator rejects invalid workflow identities and incomplete declared
 phases before Git. Fourteen CLI regressions exercise those refusals and establish
 that self-reported receipts cannot replace independent Git verification.
+Nested interval summaries now also require finite numeric boundaries and
+durations, ordered endpoints and an exact duration before source lookup. This
+rejects boolean durations that previously compared equal to one-second raw
+measurements. Forty-four new controls cover both arms and controller/worker
+summaries; independent reconciliation with raw clocks still follows Git lookup.
 
 All four retained ZIPs are now present. Fresh independent validation stops at
 missing Git sources: the original run cannot resolve
@@ -32,10 +37,10 @@ Current local validation:
 
 ```text
 python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
-561 passed in 24.02s
+605 passed in 17.01s
 
 python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
-2054 passed in 12.56s
+2054 passed in 11.65s
 ```
 
 All five marker-specific options assertions remain in the unchanged integration

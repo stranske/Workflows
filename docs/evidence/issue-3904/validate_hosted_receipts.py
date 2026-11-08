@@ -94,6 +94,25 @@ def validate(archive, metadata):
                     f"{arm} requires complete available phase measurements declared by "
                     "phase_plugin_sha256"
                 )
+            for role, measurements in phases["processes"].items():
+                labels = {"session", "collection", "controller_worker_loop", "reporting"}
+                if role == "controller":
+                    labels.add("coverage_reporting")
+                for label in labels:
+                    interval = measurements.get(label) if isinstance(measurements, dict) else None
+                    if (
+                        not isinstance(interval, dict)
+                        or set(interval) != {"start", "end", "seconds"}
+                        or not all(
+                            type(t) in (int, float) and math.isfinite(t) and t >= 0
+                            for t in interval.values()
+                        )
+                        or interval["end"] < interval["start"]
+                        or interval["seconds"] != interval["end"] - interval["start"]
+                    ):
+                        raise ValueError(
+                            f"{arm} requires complete available phase measurements for {role}/{label}"
+                        )
     assert result["manifest"] == manifest
     assert manifest["workflow_sha"] == artifact["workflow_run"]["head_sha"]
     assert manifest["dependency_lock"] == "candidate/requirements.lock"

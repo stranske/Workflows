@@ -594,6 +594,58 @@ def test_declared_phase_metadata_must_be_complete_before_git(hosted_archive, arm
 
 
 @pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("role", ["controller", "gw0"])
+@pytest.mark.parametrize(
+    "change",
+    [
+        "missing_process_intervals",
+        "invalid_process_intervals",
+        "missing_interval",
+        "invalid_interval",
+        "missing_start",
+        "missing_end",
+        "missing_seconds",
+        "boolean_seconds",
+        "nonfinite_end",
+        "reversed_interval",
+        "inconsistent_seconds",
+    ],
+)
+def test_nested_phase_measurements_must_be_complete_before_git(hosted_archive, arm, role, change):
+    """Missing Git sources must not mask incomplete declared process intervals."""
+    build, git_calls = hosted_archive
+
+    def damage_summary(result, members):
+        processes = result["arms"][arm]["phases"]["processes"]
+        label = "coverage_reporting" if role == "controller" else "collection"
+        if change == "missing_process_intervals":
+            processes[role] = {}
+        elif change == "invalid_process_intervals":
+            processes[role] = None
+        elif change == "missing_interval":
+            del processes[role][label]
+        elif change == "invalid_interval":
+            processes[role][label] = None
+        elif change.startswith("missing_"):
+            del processes[role][label][change.removeprefix("missing_")]
+        elif change == "boolean_seconds":
+            # The valid interval is one second: Python's True == 1 must not pass.
+            processes[role][label]["seconds"] = True
+        elif change == "nonfinite_end":
+            processes[role][label]["end"] = float("inf")
+        elif change == "reversed_interval":
+            interval = processes[role][label]
+            interval["start"], interval["end"] = interval["end"], interval["start"]
+            interval["seconds"] = interval["end"] - interval["start"]
+        else:
+            processes[role][label]["seconds"] = 2
+
+    with pytest.raises(ValueError, match=f"{arm}.*phase measurements"):
+        validator.validate(*build(phase_enabled=True, mutate=damage_summary))
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
 @pytest.mark.parametrize("change", ["unavailable", "gaps", "missing_worker", "missing_coverage"])
 def test_phase_plugin_rejects_unavailable_or_incomplete_phases(hosted_archive, arm, change):
     build, _ = hosted_archive
