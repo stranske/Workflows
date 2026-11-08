@@ -24,6 +24,10 @@
 //  4. Drained voice: `clear` / `skip` decisions print `blocking 0` and say the
 //     pause is gone; see renderSummary and its tests.
 
+// Every GitHub API call here goes through the `withRetry` the calling step
+// builds with createTokenAwareRetry (github-api-with-retry.js); this module
+// never constructs a client of its own.
+
 const MAX_FORMAT_RETRIES = 2;
 const PAUSE_LABEL = 'agents:auto-pilot-pause';
 const AUTOPILOT_LABEL = 'agents:auto-pilot';
