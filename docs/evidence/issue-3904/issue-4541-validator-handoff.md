@@ -1,5 +1,46 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Historical upload UNKNOWN boundary continuation
+
+Added 16 regression cases across both arms and legacy/phase-enabled archives.
+An uploaded historical log must match its retained member hash and must leave
+the unavailable-entry list; corrupt uploaded historical or console logs are
+rejected even when the outer archive digest matches. Missing neighboring log
+paths cannot use the four inherited exceptions. The valid archive controls
+now assert the exact four unavailable historical paths, while exclusive
+overhead remains UNKNOWN.
+
+Verification with installed Python 3.14.10:
+
+```text
+python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+475 passed in 20.36s
+
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 11.48s
+```
+
+All five marker-specific options assertions remain in the unchanged integration
+file. Black formatted the touched test, Ruff and `git diff --check` pass.
+After a serial cache warmup honoring the current configured exclusions, the
+required repository-wide CLI check passed with 970 files unchanged, exit 0:
+
+```text
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-4541-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+The initial uncached CLI invocation stalled and was interrupted; the serial
+check and cached CLI check both passed without changing any exclusions.
+
+Staging the test failed with `.git/index.lock: Read-only file system`; no commit
+or push was possible. The requested Anaconda interpreter, three archives and
+the immutable harness/candidate Git objects remain unavailable here. These are
+fixture controls, not four-archive revalidation. The connector rejected the
+blocker comment and `needs-human` label with `MCP tool call requires approval,
+but approval policy is never`. PRs #4535 and #4542 were rechecked open and ready.
+PR #4535's head is unchanged, its review threads remain unresolved, and no
+acceptance checkbox or guarded merge was performed.
+
 ## Declared phase metadata preflight continuation
 
 Declared phase instrumentation now requires a mapping with `available: true`,

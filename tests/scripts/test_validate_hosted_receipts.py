@@ -199,7 +199,11 @@ def test_valid_legacy_and_phase_archives(
     assert summary["workflow_sha"] == workflow_sha
     assert summary["python"] == python_version
     assert git_calls
-    assert len(summary["unuploaded_inherited_entries_UNKNOWN"]) == 4
+    assert set(summary["unuploaded_inherited_entries_UNKNOWN"]) == {
+        f"{arm}/docs/evidence/issue-3743/runtime-probes/{name}.log"
+        for arm in validator.PAIR
+        for name in validator.PAIR
+    }
     assert "exclusive overhead stays UNKNOWN" in summary["limitations"]
     if phase_enabled:
         assert set(summary["phase_measurement"]) == set(validator.PAIR)
@@ -217,6 +221,62 @@ def test_valid_legacy_and_phase_archives(
             )
     else:
         assert summary["phase_measurement"] == "UNKNOWN: original run has no phase probe"
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_uploaded_historical_log_is_verified_instead_of_unknown(hosted_archive, phase_enabled, arm):
+    """Only unavailable inherited logs qualify for the explicit UNKNOWN exception."""
+    build, _ = hosted_archive
+    path = f"{arm}/docs/evidence/issue-3743/runtime-probes/baseline.log"
+
+    def upload_log(result, members):
+        members[path] = b"retained historical log\n"
+        result["artifact_sha256"][path] = validator.digest(members[path])
+
+    summary = validator.validate(*build(phase_enabled=phase_enabled, mutate=upload_log))
+    assert summary["verified"] is True
+    assert path not in summary["unuploaded_inherited_entries_UNKNOWN"]
+    assert len(summary["unuploaded_inherited_entries_UNKNOWN"]) == 3
+    assert "exclusive overhead stays UNKNOWN" in summary["limitations"]
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("historical", [False, True])
+def test_uploaded_log_corruption_cannot_be_treated_as_unknown(
+    hosted_archive, phase_enabled, arm, historical
+):
+    """A valid outer ZIP digest does not waive any uploaded member's hash check."""
+    build, _ = hosted_archive
+    path = (
+        f"{arm}/docs/evidence/issue-3743/runtime-probes/baseline.log"
+        if historical
+        else f"{arm}.log"
+    )
+
+    def corrupt_log(result, members):
+        result["artifact_sha256"][path] = validator.digest(b"original log\n")
+        members[path] = b"corrupted log\n"
+
+    with pytest.raises(AssertionError, match=f"uploaded hash mismatch: {path}"):
+        validator.validate(*build(phase_enabled=phase_enabled, mutate=corrupt_log))
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+def test_unknown_exception_does_not_cover_other_missing_historical_logs(
+    hosted_archive, phase_enabled, arm
+):
+    """A neighboring historical path is not one of the four inherited exceptions."""
+    build, _ = hosted_archive
+    path = f"{arm}/docs/evidence/issue-3743/runtime-probes/other.log"
+
+    def add_missing_log(result, members):
+        result["artifact_sha256"][path] = validator.digest(b"unavailable log\n")
+
+    with pytest.raises(AssertionError, match=f"missing required hash member: {path}"):
+        validator.validate(*build(phase_enabled=phase_enabled, mutate=add_missing_log))
 
 
 @pytest.mark.parametrize(
