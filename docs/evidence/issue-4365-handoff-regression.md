@@ -1,5 +1,75 @@
 # Issue #4365: handoff regression verification
 
+## Verifier visibility recovery check — 2026-11-08
+
+Pre-edit acceptance command:
+
+```sh
+timeout 60s node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js .github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js
+```
+
+Baseline: **109 passed, 0 failed**. Expected additional observation: an accepted
+verifier dispatch whose run is not yet visible can schedule `done`, but the
+separate continuation must retain ownership and withhold completion until the
+matching PR/head run becomes visible. Retrying verification must reuse that
+run, continue automatically, post one completion report, and remove ownership.
+Stop rule: one baseline and one post-edit attempt, each capped at 60 seconds;
+one corrective rerun only after investigating a named failure. Full Node and
+Python gates each receive one 300-second attempt; timeout is incomplete.
+Each deliberate-break check receives one 60-second attempt followed by
+restoration and the acceptance command.
+
+Readback confirms #4447 and #4451 are closed and unmerged, while #4538 is open
+and ready for review. Local `origin/main` contains #4463's replacement routing
+and #4537's explicit verifier-mode guard. The current continuation uses explicit
+dispatch, so accepting handoff-label events is not part of this implementation.
+
+Verification after the source/template test extension:
+
+- [x] Acceptance command: **111 passed, 0 failed**, including after restoring
+  both helper files from temporary mutations.
+- [x] `issue 4365: delayed verifier visibility retains ownership until a bound
+  run is observed` executes verify, redispatch, context, refused completion,
+  and successful retry on both surfaces. The retry reuses the observed run.
+- [x] Restoring label-only completion or mapping `verify` continuation to `auto`
+  separately in each helper makes that named regression and `issue 4365:
+  reopening then closing with a different PR verifies the new PR` fail. All
+  four experiments exit 1; `git diff --exit-code` on both helpers confirms
+  restoration. No temporary mutation remains.
+- [x] `timeout 60s python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -m 'not slow'`:
+  **66 passed**, Python 3.14.10, normal plugin loading.
+- [x] `git diff --check`: passed.
+- [ ] `timeout 300s node --test .github/scripts/__tests__/*.test.js`: exit
+  **124**; summary **115 passed, 6 failed, 20 cancelled**. The unchanged
+  `agents-verifier-context.test.js` and
+  `generated-delivery-seal-action.test.js` fail before the timeout. A focused
+  diagnostic of those files with `--test-isolation=none` reports **199 passed,
+  18 failed**, including `spawnSync git EPERM` and a missing
+  `delivery_not_sealed:staging` assertion. No unrelated test was changed.
+- [ ] `timeout 300s python3 -m pytest -q tests/ -m 'not slow'`: exit **124**,
+  approximately 3% progress, without a final summary. This is not a passing
+  full Python gate.
+- [ ] Commit: `git add` for the test and this evidence file fails with
+  `.git/index.lock: Read-only file system`. Changes remain local.
+
+Live readback: [Maint 68 run 42442456512](https://github.com/stranske/Workflows/actions/runs/42442456512)
+and its next observed [Maint 71 run 42442572378](https://github.com/stranske/Workflows/actions/runs/42442572378)
+both succeeded. Maint 71 still reports consumer #2454 at generated head
+`b36b8ebf242bde649f6e31edc2cc915ad49d7421`, source
+`c2ac6f38d6f2ce73f000158fa6f729bfece82092`, generation `4017589cec3c`, with
+`status=campaign_prepared`, `review_state=clear`, and `findings=[]`.
+Its `review_reassessment` job was skipped. Both reported threads remain
+outdated and unresolved; #4365's latest sync-core bump still names
+`d6f4831035dd` / `20261106T115526Z`. This unchanged-head observation does
+not satisfy live acceptance. No consumer branch or workflow was modified.
+
+Updating #4538's verified checkboxes, adding `needs-human`, and posting the
+concrete results/blocker comment were all rejected:
+`MCP tool call requires approval, but approval policy is never`. No remote
+checkbox, label, or comment update is claimed. Final readback confirms #4538 is
+open with `draft=false`. Tasks 1–7 and acceptance criteria 1–3 and 5 remain
+locally verified; full-gate and live-acceptance criteria remain unchecked.
+
 ## Context and failed-handoff recovery check — 2026-11-08
 
 Reconciled the recent #4538 commits before editing. #4447 and #4451 are still

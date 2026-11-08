@@ -627,6 +627,49 @@ for (const [surface, workflowPath] of SURFACES) {
     });
   });
 
+  test(`${surface}: issue 4365: delayed verifier visibility retains ownership until a bound run is observed`, async () => {
+    const world = createWorld({
+      prs: [mergedPr(PR, ISSUE)],
+      issueState: 'closed',
+      issueLabels: ['agents:auto-pilot', 'verify:evaluate'],
+      dispatchCreatesRun: false,
+    });
+    const verify = await runVerify(world);
+    assert.equal(verify.outcome, 'success');
+    assert.equal(verify.outputs.verify_handoff, 'found');
+    assert.equal(redispatchFires('verify', verify), true);
+    const redispatch = await runStep('Re-dispatch for next step', {
+      world,
+      env: { CURRENT_STEP: 'verify' },
+    });
+    assert.equal(redispatch.outcome, 'success');
+    const continuation = world.dispatches.find((d) => d.workflow_id === 'agents-auto-pilot.yml');
+    assert.equal(continuation.inputs.force_step, 'done');
+
+    // Dispatch acceptance is evidence in the verify run only. The separately
+    // dispatched reporter has to observe the correlated run for itself.
+    const context = await runStep('Determine context', { world });
+    assert.equal(context.outcome, 'success');
+    assert.equal(context.outputs.verify_handoff_bound, 'true');
+    assert.deepEqual(world.runs, []);
+    const done = await runDone(world, {
+      VERIFY_HANDOFF: '',
+      VERIFY_HANDOFF_BOUND: context.outputs.verify_handoff_bound,
+    });
+    assert.equal(done.outcome, 'failure');
+    assert.match(done.failures.join('; '), /verification handoff missing/);
+    assert.equal(completionPosted(world), false);
+    assert.equal(ownershipRemoved(world), false);
+    assert.ok(world.issueLabels.has('agents:auto-pilot'));
+
+    // Once GitHub exposes the run, normal closed-issue routing must recover
+    // without dispatching a second verifier or depending on a label event.
+    world.runs.push(dispatchRun(PR, HEAD));
+    world.dispatches = [];
+    await completeClosedIssue(world);
+    assert.equal(world.dispatches.filter((d) => d.workflow_id === 'agents-verifier.yml').length, 0);
+  });
+
   test(`${surface}: issue 4365: reopening then closing with a different PR verifies the new PR`, async () => {
     const world = createWorld({ prs: [mergedPr(PR, ISSUE)] });
     await completeClosedIssue(world);
