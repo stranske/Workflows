@@ -2230,3 +2230,63 @@ rejected by automatic approval review with
 `MCP tool call requires approval, but approval policy is never`. Neither was
 published. Publication results are retained in the replay receipt. Local changes
 are ready for the automation writer; no alternate mutation transport was used.
+
+### Historical finding gate replay, 2026-11-08 14:32 UTC
+
+Reviewed commits through `9e63b01867bc8d1bf360f51bf600da7eec018632`.
+The PR body already correctly records **7/10** complete. No additional task has
+verified completion. The reconciliation update preserving those checkboxes was
+rejected by automatic approval review: `MCP tool call requires approval, but
+approval policy is never`.
+
+Four new JavaScript cases in
+`.github/scripts/__tests__/maint71-delivery-receipts.test.js` replay historical
+discussion **4434491702** and worker disposition **4505043101** through the
+production finding evaluator, final finding gate and repository conversation
+gate. The evaluator receives the unfiltered native-shaped thread connection;
+exclusion is not supplied only by a fixture filter. The resolved historical
+finding produces the exact evaluation retained by both causal Maint 71 reports,
+**42485792262** and **42485974523**. Counterfactual reopened variants verify that
+an outdated unresolved conversation still blocks under a resolution rule, and
+that an active finding cannot borrow the old worker disposition for the new
+head. These are offline tests: the historical thread belongs to PR **2454**,
+not candidate PR **2486**. No new live disposition or merge is claimed.
+
+The pre-edit baseline reports **17 passed**, exit **0**. The updated module and
+related Maint 71 merge/finding-verification modules report **305 passed,
+0 failed, 0 skipped**, exit **0**, under an external **60-second** bound.
+Command, starting revision, working-tree test digest, Node interpreter, timing
+and log digest are in
+[historical-finding-gates.json](runtime-4550/historical-finding-gates.json);
+complete output is
+[historical-finding-gates.log](runtime-4550/historical-finding-gates.log).
+No Python file changed. This focused run does not satisfy full-suite acceptance.
+
+The [fresh observation](runtime-4550/historical-finding-live-observation.json)
+retains all **49** issue comments with full bodies and timestamps from the short
+final REST page; ordered IDs match the independent all-pages connector. No scoped
+recurrence appears through **2026-11-08T14:30:46Z**; collection completed at
+**14:30:47Z**. Discussion **4434491702** remains resolved and outdated with
+disposition **4505043101**. The unfiltered inventory has **42** runs in
+**14:21:46Z–14:28:38Z**, all on one short page, and no new Maint 68 or Maint 71
+delivery run.
+
+Fresh immutable file reads recompute frozen source template and consumer candidate
+to Git blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. Consumer main
+`0543dc9732eab0ad12227308749566a937581eea` still has different blob
+`c889fd8064806a9c0f932f7c1dc09762896afe67`. Source PR **4551** and consumer
+PR **2486** remain open and non-draft. Final merged delivery remains false.
+
+The CLI cannot connect to `api.github.com`; the connector has no workflow-dispatch
+operation. The two absent canary subjects and
+`canary_refresh_report_subject_unknown` still require an owner disposition and
+an authorized Maint 68/71 writer under the finite-shipment contract. No protected
+workflow file or consumer payload was edited.
+
+Staging the meaningful JavaScript change failed with exit **128** because
+`.git/index.lock` is read-only. No commit or push succeeded. Automatic approval
+review rejected the additive `needs-human` label and prepared blocker comment
+on PR **4551** with `MCP tool call requires approval, but approval policy is
+never`. Neither was published. Publication results are retained in the test
+receipt; changes remain local for the automation writer. No alternate mutation
+transport was used.

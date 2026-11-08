@@ -4,8 +4,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { dispatchCandidateRefreshFromReport, verifiedCanaryRefreshPlan } = require('../maint71_merge_sync_prs');
+const {
+  confirmExactHeadSyncFindingGate, dispatchCandidateRefreshFromReport,
+  repositoryConversationGate, verifiedCanaryRefreshPlan,
+} = require('../maint71_merge_sync_prs');
 const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
+const { evaluateSyncFindingDispositions } = require('../sync_pr_merge_contract');
 
 const evidence = path.join(__dirname, '../../../docs/evidence/issue-4369/runtime-4550');
 const read = name => JSON.parse(fs.readFileSync(path.join(evidence, name), 'utf8'));
@@ -88,6 +92,129 @@ function replay(report, withRetry) {
     },
   });
 }
+
+function historicalConversation() {
+  const [thread] = read('scoped-review-thread.json');
+  assert.equal(thread.comments[0].database_id, 4434491702);
+  assert.equal(thread.comments[1].database_id, 4505043101);
+  return {
+    id: thread.id, path: thread.path,
+    isResolved: thread.is_resolved, isOutdated: thread.is_outdated,
+    comments: {
+      pageInfo: { hasNextPage: false },
+      nodes: thread.comments.map(comment => ({
+        id: comment.id, body: comment.body, updatedAt: comment.updated_at,
+        author: { login: comment.author.login },
+        url: `https://github.com/${selectedRepository}/pull/2454#discussion_r${comment.database_id}`,
+      })),
+    },
+  };
+}
+
+// Insert historical evidence into an offline final-gate read. This does not
+// claim that the old PR's thread belongs to the new candidate. Reopening it is
+// a counterfactual proving that history cannot authorize a current exemption.
+async function findingReplay(thread) {
+  const { owner, repo, pr, record } = nativeFixture();
+  const calls = [];
+  const connection = { pageInfo: { hasNextPage: false }, nodes: [thread] };
+  const client = {
+    rest: { issues: { listComments() {} } },
+    paginate: async (method, params) => {
+      assert.equal(method, client.rest.issues.listComments);
+      assert.deepEqual(params, { owner, repo, issue_number: pr.number, per_page: 100 });
+      calls.push('comments');
+      return read('scoped-review-thread.json')[0].comments.map(comment => ({
+        id: comment.database_id, body: comment.body, updated_at: comment.updated_at,
+        user: { login: comment.author.login },
+      }));
+    },
+    graphql: async (_query, params) => {
+      assert.deepEqual(params, { owner, repo, number: pr.number });
+      calls.push('final-head-and-findings');
+      return { repository: { pullRequest: {
+        headRefOid: pr.head.sha, body: pr.body, reviewThreads: connection,
+      } } };
+    },
+  };
+  const gate = await confirmExactHeadSyncFindingGate({
+    owner, repo, pr, record,
+    threads: connection.nodes.filter(item => !item.isResolved && !item.isOutdated),
+    read: operation => operation(client),
+  });
+  // Feed the unfiltered native-shaped connection into the production
+  // evaluator as well; exclusion must not be implemented only by this fixture.
+  assert.deepEqual(evaluateSyncFindingDispositions({
+    ...gate.packet, reviewThreads: connection.nodes,
+    activeReviewThreadCount: gate.evaluation.raw_active_count,
+  }), gate.evaluation);
+  return { gate, calls, connection, owner, repo };
+}
+
+test('historical discussion is excluded by the final finding gate for both causal reports', async () => {
+  const replayed = await findingReplay(historicalConversation());
+  assert.deepEqual(replayed.calls, []);
+  assert.equal(replayed.gate.ok, true);
+  for (const run of [42485792262, 42485974523]) {
+    const report = read(`maint71-${run}-sync-pr-merge-report.json`);
+    const selected = report.results.find(row => `${row.owner}/${row.repo}` === selectedRepository);
+    assert.deepEqual(replayed.gate.evaluation, selected.review_finding_disposition);
+  }
+  const conversation = await repositoryConversationGate({ ...replayed, branch: 'main',
+    read: async () => assert.fail('a resolved historical thread needs no policy exemption'),
+  });
+  assert.equal(conversation.ok, true);
+  assert.equal(conversation.unresolved_count, 0);
+});
+
+for (const [resolved, outdated] of [[true, false], [false, true]]) {
+  test(`historical finding exclusion with resolved=${resolved}, outdated=${outdated} preserves conversation policy`, async () => {
+    const thread = historicalConversation();
+    thread.isResolved = resolved;
+    thread.isOutdated = outdated;
+    const replayed = await findingReplay(thread);
+    assert.equal(replayed.gate.ok, true);
+    assert.equal(replayed.gate.evaluation.raw_active_count, 0);
+    assert.deepEqual(replayed.gate.evaluation.findings, []);
+    const reads = [];
+    const client = { rest: { repos: { getBranchRules() {} } },
+      paginate: async (method, params) => {
+        assert.equal(method, client.rest.repos.getBranchRules);
+        assert.deepEqual(params, { owner: replayed.owner, repo: replayed.repo,
+          branch: 'main', per_page: 100 });
+        reads.push('applicable-rules');
+        return [{ type: 'pull_request', parameters: { required_review_thread_resolution: true } }];
+      },
+    };
+    const conversation = await repositoryConversationGate({ ...replayed, branch: 'main',
+      read: operation => operation(client),
+    });
+    assert.equal(conversation.ok, resolved);
+    assert.deepEqual(reads, resolved ? [] : ['applicable-rules']);
+    if (!resolved) {
+      assert.equal(conversation.reason, 'merge_blocked_repository_policy');
+      assert.deepEqual(conversation.unresolved_thread_ids, [thread.id]);
+      assert.equal(conversation.unresolved_outdated_count, 1);
+    }
+  });
+}
+
+test('reopening the historical finding cannot reuse its old worker disposition for this head', async () => {
+  const thread = historicalConversation();
+  thread.isResolved = thread.isOutdated = false;
+  const { gate, calls } = await findingReplay(thread);
+  assert.deepEqual(calls, ['comments', 'final-head-and-findings']);
+  assert.equal(gate.packet.evidenceComplete, true);
+  assert.deepEqual(gate.evaluation.errors, []);
+  assert.equal(gate.ok, false);
+  assert.equal(gate.evaluation.raw_active_count, 1);
+  assert.equal(gate.evaluation.aggregates.blocking, 1);
+  assert.equal(gate.evaluation.aggregates.unknown, 1);
+  assert.deepEqual(gate.evaluation.unknown_thread_ids, [thread.id]);
+  const [finding] = gate.evaluation.findings;
+  assert.equal(finding.url, thread.comments.nodes[0].url);
+  assert.deepEqual(finding.errors, ['classification_missing_or_stale']);
+});
 
 for (const run of [42485792262, 42485974523]) {
   test(`Maint 71 ${run}: retained missing-canary reports reproduce the refresh blocker`, async () => {
