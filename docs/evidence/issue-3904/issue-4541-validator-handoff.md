@@ -1,5 +1,47 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Instrumentation identity regression continuation
+
+Added ten fixture regression cases requiring recorded harness/workflow hashes
+and the declared phase-plugin hash to match immutable Git source. Complete,
+independently hashed phase receipts cannot substitute for the recorded probe.
+No runtime instrumentation, archives, source selections or dependency locks changed.
+
+Verification with installed Python 3.14.10:
+
+```text
+python3 -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+544 passed in 23.39s
+
+python3 -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 15.04s
+
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-4541-black black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+970 files would be left unchanged.
+```
+
+Black formatted the touched test at line length 100; Ruff and `git diff --check`
+pass. The serial cache warmup honored the configured `force-exclude`; the older
+serial helper omitted it and inspected excluded fixtures. No fixture was edited.
+All five marker-specific options assertions remain in the unchanged integration
+file. The Anaconda interpreter is absent, so the exact acceptance commands remain
+unverified.
+
+The retained original 3.13 ZIP matches live GitHub metadata, then independent
+validation stops at the missing immutable harness source
+`8142060267fce57561d25735aa2e7c5f457ade14:scripts/measure_verifier_runtime.py`.
+The three other ZIPs and candidate Git object remain absent locally. Historical
+unuploaded logs and exclusive overhead remain UNKNOWN.
+
+Staging the test for the requested commit failed with `.git/index.lock: Read-only
+file system`; no commit or push was possible. Automatic approval review rejected
+the prepared #4535 body update, reopening the two overstated #4542 task checkboxes,
+the blocker comment and the `needs-human` label: `MCP tool call requires approval,
+but approval policy is never`. The exact-head expected-check reporter returns
+UNKNOWN because native-gh cannot reach GitHub. Partial Gate/guard statuses do not
+prove complete expected/required checks; all 13 active review threads remain
+unresolved. No remote disposition, acceptance checkbox or merge was completed.
+
 ## Phase declaration and legacy fallback boundary
 
 Reviewed the recent keepalive commits and live PR state before editing. The

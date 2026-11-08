@@ -339,6 +339,33 @@ def test_archive_cannot_replace_candidate_dependency_lock(
 
 
 @pytest.mark.parametrize("phase_enabled", [False, True])
+@pytest.mark.parametrize("field", ["harness_sha256", "workflow_sha256"])
+def test_recorded_instrumentation_hash_must_match_git(hosted_archive, phase_enabled, field):
+    """An authenticated archive cannot substitute its recorded measurement source."""
+    build, git_calls = hosted_archive
+
+    def substitute_hash(result, members):
+        result["manifest"][field] = validator.digest(b"different measurement source\n")
+
+    with pytest.raises(AssertionError):
+        validator.validate(*build(phase_enabled=phase_enabled, mutate=substitute_hash))
+    assert git_calls
+
+
+@pytest.mark.parametrize("plugin_hash", [None, False, "", "d" * 64, "D" * 64, []])
+def test_declared_phase_plugin_must_match_immutable_harness(hosted_archive, plugin_hash):
+    """Complete phase receipts still require the probe from the recorded Git source."""
+    build, git_calls = hosted_archive
+
+    def substitute_probe(result, members):
+        result["phase_plugin_sha256"] = plugin_hash
+
+    with pytest.raises(AssertionError):
+        validator.validate(*build(phase_enabled=True, mutate=substitute_probe))
+    assert git_calls
+
+
+@pytest.mark.parametrize("phase_enabled", [False, True])
 @pytest.mark.parametrize("arm", ["baseline", "candidate"])
 def test_uploaded_historical_log_is_verified_instead_of_unknown(hosted_archive, phase_enabled, arm):
     """Only unavailable inherited logs qualify for the explicit UNKNOWN exception."""
