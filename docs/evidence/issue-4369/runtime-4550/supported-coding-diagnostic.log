@@ -1,0 +1,58 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; sys.path.insert(0,sys.argv[1]); from scripts.langchain.issue_pr_context import ContextOptions,render_correction_context,require_complete_correction_prompt,select_correction_budget; p=json.load(sys.stdin); text=p['base']+'\n\n## Complete original issue scope\n'+p['scope']['original_issue_body']+render_correction_context(p['scope']); print(require_complete_correction_prompt(text,ContextOptions(token_budget=select_correction_budget(p['scope'],p['budget']))),end='')
+                                                                                                                                                                                                                                                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4551__closer/scripts/langchain/issue_pr_context.py", line 170, in require_complete_correction_prompt
+    raise ValueError(
+    ...<3 lines>...
+    )
+ValueError: correction_scope_over_budget: complete final prompt requires 642 estimated tokens; configured budget=1; original scope, finding and required tests cannot be truncated
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; sys.path.insert(0,sys.argv[1]); from scripts.langchain.issue_pr_context import ContextOptions,render_correction_context,require_complete_correction_prompt,select_correction_budget; p=json.load(sys.stdin); text=p['base']+'\n\n## Complete original issue scope\n'+p['scope']['original_issue_body']+render_correction_context(p['scope']); print(require_complete_correction_prompt(text,ContextOptions(token_budget=select_correction_budget(p['scope'],p['budget']))),end='')
+                                                                                                                                                                                                                                                                                                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4551__closer/scripts/langchain/issue_pr_context.py", line 170, in require_complete_correction_prompt
+    raise ValueError(
+    ...<3 lines>...
+    )
+ValueError: correction_scope_over_budget: complete final prompt requires 641 estimated tokens; configured budget=100; original scope, finding and required tests cannot be truncated
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import json,sys; sys.path.insert(0,sys.argv[1]); from scripts.langchain.issue_pr_context import ContextOptions,render_correction_context,require_complete_correction_prompt,select_correction_budget; p=json.load(sys.stdin); text=p['base']+'\n\n## Complete original issue scope\n'+p['scope']['original_issue_body']+render_correction_context(p['scope']); print(require_complete_correction_prompt(text,ContextOptions(token_budget=select_correction_budget(p['scope'],p['budget']))),end='')
+                                                                                                                                                                                                                                                                                                                                                                                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4551__closer/scripts/langchain/issue_pr_context.py", line 152, in select_correction_budget
+    raise ValueError(
+        "correction_budget_provenance_missing: original authenticated policy ceiling unavailable"
+    )
+ValueError: correction_budget_provenance_missing: original authenticated policy ceiling unavailable
+✔ real no-incumbent offline scope fits complete text with typed required tests (185.256792ms)
+✔ real existing offline scope fits complete text with typed required tests (78.102958ms)
+✔ complete empty native history returns null and legacy activation stays exact bytes without a budget (0.880208ms)
+✔ malformed context, unknown classification, expired archive and incomplete history cannot yield coding scope (15.571875ms)
+✔ native no-incumbent creation proof and exact issue node/body cannot be replaced by copied markers (10.0775ms)
+✔ final activation missing budget and overflow hold synchronously before any activation effect (89.249958ms)
+✔ historical native cross-reference preserves scope after closing text and current links are removed (4.247791ms)
+✔ incomplete, colliding or substituted historical native link evidence holds (15.840958ms)
+✔ an otherwise coherent authenticated request cannot outlive its original deadline (2.458291ms)
+✔ two actual authenticated scopes historically linked to the same PR remain ambiguous (9.300792ms)
+✔ .github/workflows/agents-72-codex-belt-worker.yml: actual Belt absent-overlay activation remains byte-identical legacy single-task prompt (2.333875ms)
+✔ templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml: actual Belt absent-overlay activation remains byte-identical legacy single-task prompt (1.466792ms)
+✔ actual fixed reviewed-source reader permits fresh inert no-incumbent admission (365.965333ms)
+✔ actual fixed reviewed-source reader permits fresh inert incumbent-native-assignment admission (333.185ms)
+✔ qualification revocation or reviewed empty production registry cannot inherit old admission (513.687291ms)
+✔ fresh native issue/source holds, write permission loss and ownership changes stop coding after prior admission (2570.464958ms)
+✔ existing owner requires exact latest native assignment and source PR lineage (1553.069542ms)
+✔ recheck binds immutable original issue and body to real retained ledger, not mutable sidecar identity (796.664709ms)
+✔ trusted variable parser freezes exact private request/repository policy without a capacity claim (0.953916ms)
+✔ complete authenticated history applies minimum original/alias ceiling and a missing alias never defaults (256.408458ms)
+✔ fresh final admission independently rejects raised sidecar cap or changed original history cap (265.553708ms)
+✔ coding policy observation records exact existing configuration and minimum ceiling without execution authority (371.519625ms)
+✔ authenticated existing issue with native null body carries empty original scope through actual final fitting (93.807458ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7685.636792

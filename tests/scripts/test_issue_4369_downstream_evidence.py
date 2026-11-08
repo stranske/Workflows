@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -274,7 +275,12 @@ def test_refreshed_payload_binding_keeps_final_delivery_pending(refreshed_receip
     assert consumer["ref"] == branch["sha"]
     assert branch["name"] == "main"
     assert urlparse(branch["url"]).path == (f'/repos/{consumer["repository"]}/branches/main')
-    for payload in (source, consumer):
+    for key, payload in payloads.items():
+        repository = refreshed_receipt["consumer_repository" if key == "consumer" else "repository"]
+        assert payload["repository"] == repository
+        assert payload["url"] == (
+            f'https://github.com/{repository}/blob/{payload["ref"]}/{payload["path"]}'
+        )
         content = payload["content"].encode("utf-8")
         git_object = f"blob {len(content)}\0".encode("ascii") + content
         assert hashlib.sha1(git_object).hexdigest() == payload["sha"]
@@ -284,6 +290,29 @@ def test_refreshed_payload_binding_keeps_final_delivery_pending(refreshed_receip
     assert "Path(config_dir).expanduser().resolve()" in source["content"]
     assert "Path(config_dir).expanduser().resolve()" not in consumer["content"]
     assert refreshed_receipt["final_delivery_acceptance"] is False
+
+
+@pytest.mark.parametrize("payload_key", ["source", "consumer"])
+@pytest.mark.parametrize("field", ["repository", "url"])
+def test_refreshed_binding_rejects_substituted_metadata(
+    refreshed_receipt: dict, payload_key: str, field: str
+) -> None:
+    mutated = deepcopy(refreshed_receipt)
+    payload = mutated["payloads"][payload_key]
+    if field == "repository":
+        payload[field] = "stranske/unrelated"
+        # Keep related metadata consistent so receipt ownership is decisive.
+        payload["url"] = (
+            f'https://github.com/{payload[field]}/blob/{payload["ref"]}/{payload["path"]}'
+        )
+        if payload_key == "consumer":
+            mutated["consumer_default_branch"]["url"] = (
+                f'https://api.github.com/repos/{payload[field]}/branches/main'
+            )
+    else:
+        payload[field] += "-substituted"
+    with pytest.raises(AssertionError):
+        test_refreshed_payload_binding_keeps_final_delivery_pending(mutated)
 
 
 def test_failed_dispatch_does_not_fabricate_a_following_lifecycle(refreshed_receipt: dict) -> None:

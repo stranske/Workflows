@@ -1803,3 +1803,50 @@ transport was used. A final metadata read confirms PR **4551** remains **open
 and non-draft** at `482ba34d49f0f91e163b8e8060fb13c3996c9630`. A runner with
 writable Git metadata and GitHub dispatch access must publish the local patch
 and complete the selected Maint 68/71 lifecycle.
+
+
+## Issue 4550: supported runner continuation, 2026-11-08 13:38 UTC
+
+Outcome: frozen-range Maint 68 producer **42485644055 succeeded**, and its
+own dispatch step launched following Maint 71 candidate reconciliation
+**42485792262**. Final merged consumer delivery remains pending. Complete
+producer metadata and raw output are retained in `runtime-4550/maint68-42485644055.json`
+and `runtime-4550/maint68-42485644055.log`. The producer created consumer PR
+2486; candidate validation alone does not prove delivery to a merged revision.
+
+The refreshed binding now compares each repository with its receipt owner and
+checks the complete exact-ref URL. The older refreshed receipt lacked URL fields;
+these two canonical URLs were derived from its already retained repository/ref/path
+coordinates, without changing the historical content, timestamps or observations.
+Four regressions substitute source/consumer repository or URL. Repository mutations
+also update associated URL metadata, so an internal consistency assertion cannot
+mask missing receipt ownership. Removing the new binding assertions deliberately
+produces **4 failed** (`DID NOT RAISE AssertionError`), exit **1**; restoring them
+produces **29 passed**, exit **0**. Raw logs and runtime receipt are retained as
+`runtime-4550/supported-binding-deliberate-break.log`,
+`runtime-4550/supported-binding-tests.log` and `.json`. The interpreter is
+`/opt/anaconda3/bin/python3`. These focused results apply to incoming published
+revision `1dc5d0af2f74a61ffd9c6473a443a36953f0e8a8` plus this binding change.
+
+The old artifact-stall log identifies nine failed files plus the cancelled
+`verifier-correction-coding.test.js`. All nine files now pass together:
+**354 passed, 0 failed**, exit **0**, in **7.11 seconds**. The coding file passes
+**23 tests**, exit **0**, in **7.69 seconds**. Complete logs, commands, executable
+paths and timings are in `runtime-4550/supported-node-failures-diagnostic.*` and
+`runtime-4550/supported-coding-diagnostic.*`. No reproduced failure persists in
+these files in the supported runner, so no further fixture repair is justified.
+
+The incoming exact published revision also has a passing full Node CI log
+(`runtime-4550/supported-incoming-node-ci.log`): **3756 passed, 0 failed**,
+17.05 seconds, on Selftest run **42480665889**, job **128731714961**.
+This is evidence for the incoming revision, not the forthcoming changed revision.
+Gate run **42480665910** passes its Python 3.13 and 3.14 jobs. This does not
+prove the requested unfiltered `python3 -m pytest -q tests/` command: normal CI
+uses markers, workers and scope selection. The owner's final rule prohibits
+running the full suite locally; no local full-suite command was run. Exact
+unfiltered Python acceptance remains pending rather than being inferred from green CI.
+
+Stop rule for this continuation: stop after three failures at the same required
+step or 60 minutes. Preserve existing completed fixes and all review/merge gates.
+Blocking/drainable pair: final delivery is blocked pending causal Maint 71/merged
+consumer evidence; focused binding and runtime diagnostics can proceed meanwhile.
