@@ -61,6 +61,8 @@ function repositories(rows) {
 // initial validation. An inserted checkout/effect step must not preserve this
 // positive exclusion proof merely by leaving the initial checks unchanged.
 const SOURCE_WORKFLOWS = new Set([
+  // Frozen-source validation precedes force; source checkout and consumption remain bound.
+  '077b454913ab2f6877bc161916b49314467a3a2cce08adeb795ee9e125bee03a',
   '038ff08fed8ca2ff28e036ba4ebe03b6d1291232e66ae7d39b90432cb4df0f77',
   // Reviewed historical producers preserve the same resolved source checkout.
   'd52252dab8a2322021b39a68651592c4e212cdbb98e807750e5db75c00b99235',

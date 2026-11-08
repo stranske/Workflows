@@ -5,9 +5,6 @@ name: Sync/Dependency Campaign
 # "sync-dependabot-campaign" slug for dispatcher + persisted-state continuity.
 
 on:
-  workflow_run:
-    workflows: [Merge Sync PRs]
-    types: [completed]
   schedule:
     # The campaign marker is also Maint 71's durable continuation queue. This
     # bounded pass wakes due transient lanes even when no new GitHub event fires.
@@ -45,12 +42,6 @@ concurrency:
 
 jobs:
   campaign:
-    if: >-
-      github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == github.event.repository.default_branch &&
-       github.event.workflow_run.head_repository.full_name == github.repository &&
-       contains(fromJSON('["workflow_dispatch","repository_dispatch","schedule"]'), github.event.workflow_run.event))
     name: Refresh campaign queue
     runs-on: ubuntu-latest
     permissions:

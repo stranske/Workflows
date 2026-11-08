@@ -707,11 +707,16 @@ async function preserveFrozenCanaryRefresh({ withRetry, context, core, expectedC
   expectedPlanId = '', explicitSourceCommit = '', force = false, cleanupBranches = true, refreshKey = '' }) {
   if (expectedPlanId) {
     if (expectedPlanId !== planId) throw new Error('canary_refresh_explicit_plan_changed');
-    if (!/^[a-f0-9]{40}$/.test(explicitSourceCommit) || explicitSourceCommit !== sourceCommit) {
+    const explicit = String(explicitSourceCommit || '').trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(explicit) || explicit !== sourceCommit) {
       throw new Error('canary_refresh_explicit_source_missing; drainable=retry-original-source-and-plan');
     }
     return { redirected: false, source_commit: sourceCommit };
   }
+  // Source-delta requests already carry the exact native source/range and use
+  // the compiled scoped receipt contract. The unbound full-plan force path is
+  // the path that could silently substitute a newer main for the same payload.
+  if (planScope === 'source-delta') return { redirected: false, source_commit: sourceCommit };
   const selected = !requestedRepos || ['all', '*'].includes(requestedRepos)
     ? expectedCanaries : requestedRepos.split(',').map(value => value.trim());
   const candidates = candidateSet(selected);

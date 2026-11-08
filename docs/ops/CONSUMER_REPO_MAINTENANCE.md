@@ -233,8 +233,11 @@ worker follows active CI in the same run; the sweep is recovery and does not
 license dormant actionable work. Closed campaigns stay closed.
 Maint 82 compares active Maint 71 continuation titles after collapsing whitespace,
 because native run names may contain a newline before the continuation key.
-Successful native completions wake Maint 82 and are read back by exact run ID
-if absent from the bounded history page. Successful exact-key acknowledgments
+Maint 71 uses the existing repository-dispatch path to announce a completion
+run ID; the notification itself grants no authority. Maint 82 reads the exact
+canonical run if absent from the bounded history page. An early wake retains
+the pending run ID in the campaign marker until terminal success or failure;
+only observed success can acknowledge a key. Successful exact-key acknowledgments
 are persisted in the existing campaign marker for as long as that key remains
 queued. They survive process restarts and workflow-history eviction; replaced
 or terminal intents retire their acknowledgments. Only successful canonical

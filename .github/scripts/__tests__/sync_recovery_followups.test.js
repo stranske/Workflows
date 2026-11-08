@@ -44,6 +44,17 @@ test('exact workflow completion outside retained history is read once and identi
   assert.deepEqual(await observeMaint71Runs({read,owner:'stranske',repo:'Workflows',workflowRun:{id:run.id}}),[run]);
   assert.equal(exactReads,1);
 });
+test('an early completion wake retains the exact run across serialization until terminal success',async()=>{
+  let current={...run,status:'in_progress',conclusion:null};
+  const read=fn=>fn({rest:{actions:{listWorkflowRuns:async()=>({data:{workflow_runs:[]}}),
+    getWorkflowRun:async()=>({data:current})}}});
+  const observed=await observeMaint71Runs({read,owner:'stranske',repo:'Workflows',completionRunId:run.id});
+  assert.deepEqual(mergeContinuationAcknowledgments([],observed,[intent]),[]);
+  const saved=parseCampaignMarker(formatCampaignMarker({items:[],stats:{},continuation_completion_runs:[observed[0].id]}));
+  current=run;
+  const terminal=await observeMaint71Runs({read,owner:'stranske',repo:'Workflows',pendingRunIds:saved.continuation_completion_runs});
+  assert.equal(hasContinuationAcknowledgment(mergeContinuationAcknowledgments([],terminal,[intent]),intent),true);
+});
 
 test('same-plan forced refresh inherits signed source; an explicit original tuple ends the redirect',async()=>{
   const source='a'.repeat(40),newMain='b'.repeat(40),head='c'.repeat(40),plan=`sha256:${'d'.repeat(64)}`;
@@ -67,6 +78,7 @@ test('same-plan forced refresh inherits signed source; an explicit original tupl
   assert.equal(requests[0].inputs.scope_head_sha,source);assert.equal(requests[0].inputs.expected_plan_id,plan);
   assert.equal(requests[0].inputs.force,'true');assert.equal(requests[0].inputs.cleanup_branches,'false');
   assert.equal((await preserveFrozenCanaryRefresh({...args,sourceCommit:source,expectedPlanId:plan,explicitSourceCommit:source})).redirected,false);
+  assert.equal((await preserveFrozenCanaryRefresh({...args,sourceCommit:source,expectedPlanId:plan,explicitSourceCommit:source.toUpperCase()})).redirected,false);
   await assert.rejects(preserveFrozenCanaryRefresh({...args,expectedPlanId:plan}),/explicit_source_missing/);
   assert.equal(requests.length,1);
   client.rest.repos.getCommit=async()=>({data:{sha:head,commit:{verification:{verified:false}}}});

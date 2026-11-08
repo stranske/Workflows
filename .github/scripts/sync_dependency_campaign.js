@@ -569,17 +569,20 @@ function queuedMaint71Intents(records = []) {
     .map(next => ({ lane: next.lane, continuation_key: next.key }));
 }
 
-async function observeMaint71Runs({ read, owner, repo, workflowRun }) {
+async function observeMaint71Runs({ read, owner, repo, workflowRun, completionRunId, pendingRunIds = [] }) {
   const { data } = await read(client => client.rest.actions.listWorkflowRuns({
     owner, repo, workflow_id: 'maint-71-merge-sync-prs.yml', per_page: 40 }));
   if (!Array.isArray(data?.workflow_runs)) throw new Error('maint71_history_unknown; drainable=retry-actions-read');
   const runs = data.workflow_runs;
-  // A native workflow_run event carries the exact completion even after a
-  // burst of other jobs has pushed it out of the bounded history page.
-  if (cleanInteger(workflowRun?.id) && !runs.some(run => run.id === workflowRun.id)) {
+  // Existing repository-dispatch notifications carry only a run ID. Pending
+  // IDs survive an early wake, so later reconciliation can read completion
+  // even after unrelated history has pushed that run out of the bounded page.
+  const requested = [...new Set([...pendingRunIds, completionRunId, workflowRun?.id]
+    .map(cleanInteger).filter(Boolean))];
+  for (const id of requested.filter(id => !runs.some(run => run.id === id))) {
     const response = await read(client => client.rest.actions.getWorkflowRun({
-      owner, repo, run_id: workflowRun.id }));
-    if (response?.data?.id !== workflowRun.id) throw new Error('maint71_completion_identity_changed');
+      owner, repo, run_id: id }));
+    if (response?.data?.id !== id) throw new Error('maint71_completion_identity_changed');
     runs.push(response.data);
   }
   return runs;
@@ -1002,6 +1005,7 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     source_review_history: sourceReviewHistory,
     delivery_handoffs: deliveryHandoffs,
     continuation_acknowledgments: cleanArray(previousState.continuation_acknowledgments),
+    continuation_completion_runs: cleanArray(previousState.continuation_completion_runs),
     items,
   };
 }
@@ -1349,6 +1353,7 @@ function compactStateForMarker(state = {}) {
       .filter(Boolean),
     delivery_handoffs: cleanArray(state.delivery_handoffs).slice(0, DEFAULT_MAX_DELIVERY_HANDOFFS),
     continuation_acknowledgments: cleanArray(state.continuation_acknowledgments),
+    continuation_completion_runs: cleanArray(state.continuation_completion_runs),
     marker_item_filter: 'actionable-claimed-blocked-unpublished',
     items: markerItems.map(compactQueueItemForMarker),
   };
@@ -2154,10 +2159,6 @@ async function runCampaign({
   const withRetry = retryHelpers.withRetry;
   const campaignOwner = context.repo.owner;
   const campaignRepo = context.repo.repo;
-  const maint71Runs = observeContinuations ? await observeMaint71Runs({
-    read: withRetry, owner: campaignOwner, repo: campaignRepo,
-    workflowRun: context.payload?.workflow_run,
-  }) : [];
   const repoEntries = parseCsv(repos)
     .map((entry) => normaliseRepoEntry(entry, campaignOwner))
     .filter((entry) => entry && !isOwnerExcludedRepository(entry.fullName));
@@ -2165,6 +2166,11 @@ async function runCampaign({
 
   let campaignIssue = await findCampaignIssue(api, campaignOwner, campaignRepo, core, withRetry);
   let previousState = parseCampaignMarker(campaignIssue?.body) || {};
+  const maint71Runs = observeContinuations ? await observeMaint71Runs({
+    read: withRetry, owner: campaignOwner, repo: campaignRepo,
+    completionRunId: context.payload?.client_payload?.continuation_completion_run_id,
+    pendingRunIds: previousState.continuation_completion_runs || [],
+  }) : [];
   previousState = {
     ...previousState,
     items: excludeOwnerBlockedRecords(previousState.items),
@@ -2233,6 +2239,13 @@ async function runCampaign({
       repository: `${campaignOwner}/${campaignRepo}`,
       defaultBranch: context.payload?.repository?.default_branch || 'main',
     });
+  if (observeContinuations) state.continuation_completion_runs = maint71Runs
+    .filter(run => run.status !== 'completed' && cleanInteger(run.id)
+      && run.repository?.full_name === `${campaignOwner}/${campaignRepo}`
+      && run.head_branch === (context.payload?.repository?.default_branch || 'main')
+      && String(run.path || '').split('@')[0] === '.github/workflows/maint-71-merge-sync-prs.yml'
+      && ['workflow_dispatch', 'repository_dispatch', 'schedule'].includes(run.event))
+    .map(run => run.id);
   if (errors.length) {
     state.errors = errors.slice(0, 20);
   }
