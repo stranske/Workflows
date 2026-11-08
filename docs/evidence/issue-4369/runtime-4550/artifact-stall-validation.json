@@ -1,0 +1,91 @@
+{
+  "revision": "482ba34d49f0f91e163b8e8060fb13c3996c9630",
+  "uncommitted_changes": true,
+  "python": "3.14.10",
+  "node": "v24.22.2",
+  "checks": [
+    {
+      "log": "artifact-stall-before.log",
+      "command": [
+        "timeout",
+        "-k",
+        "2s",
+        "25s",
+        "node",
+        "--test",
+        "--test-reporter=spec",
+        "--test-timeout=20000",
+        ".github/scripts/__tests__/verifier-correction-artifacts.test.js"
+      ],
+      "exit_code": 124,
+      "external_timeout_seconds": 25,
+      "log_sha256": "d06b69809ad861cd6600669a79832241c3e2fd99c5a2021c93ac5166f47807f5"
+    },
+    {
+      "log": "artifact-stall-after.log",
+      "command": [
+        "timeout",
+        "-k",
+        "2s",
+        "45s",
+        "node",
+        "--test",
+        "--test-reporter=spec",
+        "--test-timeout=40000",
+        ".github/scripts/__tests__/verifier-correction-artifacts.test.js"
+      ],
+      "exit_code": 0,
+      "external_timeout_seconds": 45,
+      "log_sha256": "9e4d4b6b462305866f8afc53ccb5acd2c771b8f1415a3907eab34b630961f188"
+    },
+    {
+      "log": "artifact-stall-direct.log",
+      "command": [
+        "timeout",
+        "-k",
+        "2s",
+        "20s",
+        "node",
+        ".github/scripts/__tests__/verifier-correction-artifacts.test.js"
+      ],
+      "exit_code": 0,
+      "external_timeout_seconds": 20,
+      "log_sha256": "4feb909f8e2209393a06bf2530ab4898b7a2726df2c499eda37dcf124820ace5"
+    },
+    {
+      "log": "artifact-stall-node-suite.log",
+      "command": [
+        "timeout",
+        "-k",
+        "2s",
+        "75s",
+        "node",
+        "--test",
+        ".github/scripts/__tests__/*.test.js"
+      ],
+      "exit_code": 124,
+      "external_timeout_seconds": 75,
+      "log_sha256": "97181ffda6b083ab7cad05d395c751b56784fafaf9cdb97b0e427a4d9ab0a057"
+    },
+    {
+      "log": "artifact-stall-python-diagnostic.log",
+      "command": [
+        "timeout",
+        "-k",
+        "2s",
+        "60s",
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/",
+        "-m",
+        "not slow",
+        "-x"
+      ],
+      "exit_code": 124,
+      "external_timeout_seconds": 60,
+      "log_sha256": "368af20132b95de604fe1ad390e90ee115bf3eec968b263ee5a29ecfdb78bb15"
+    }
+  ]
+}

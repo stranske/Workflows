@@ -3865,6 +3865,14 @@ unchanged. This prospective classification does not change a retained
 
 ### Scoped refresh refusal diagnostics
 
+Maint 71 preflights every requested report subject before native API reads.
+Absent or invalid PR/head identities emit `canary-refresh-subject-refusal` in
+the log and step summary, with blocking counts, zero drainable requests, and
+at most eight configured repository names and fixed refusal reasons. Unknown
+repository text is omitted. The original refusal code remains unchanged; the
+owner must recover the missing subjects without borrowing another candidate's
+identity or treating this diagnostic as delivery evidence.
+
 The content refresh guard and recovery controller emit `canary-refresh-diagnostics`
 notices and step summaries for scoped requests. These identify the blocking native
 run and attempt, source-owned refusal code, available plan/source identities and

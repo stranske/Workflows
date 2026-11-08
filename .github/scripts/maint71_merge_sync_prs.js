@@ -796,6 +796,31 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
     && row.reason === 'candidate_pr_and_no_change_evidence_missing'
     && row.pr === undefined && row.head_sha === undefined && allowed.has(`${row.owner}/${row.repo}`));
   const subjects = rows.filter(row => !missing.includes(row));
+  // Preflight all remaining subjects before any native read or recovery dispatch.
+  // Report identities are diagnostic only; native PR/head checks still authorize
+  // candidate-specific recovery.
+  const unknownSubjects = [];
+  for (const row of subjects) {
+    const repository = `${row.owner}/${row.repo}`, reasons = [];
+    if (!allowed.has(repository)) reasons.push('repository_not_configured');
+    if (!Number.isSafeInteger(row.pr) || row.pr < 1) reasons.push('pr_missing_or_invalid');
+    if (!/^[a-f0-9]{40}$/.test(row.head_sha || '')) reasons.push('head_missing_or_invalid');
+    if (reasons.length) unknownSubjects.push({
+      repository: allowed.has(repository) ? repository : null, reasons,
+    });
+  }
+  if (unknownSubjects.length) {
+    const diagnostic = { schema: 'workflows.canary-refresh-subject-refusal/v1',
+      code: 'canary_refresh_report_subject_unknown', blocking: unknownSubjects.length,
+      drainable: 0, next_action: 'owner-recovery-required',
+      subjects: unknownSubjects.slice(0, 8), omitted_subjects: Math.max(0, unknownSubjects.length - 8) };
+    const encoded = JSON.stringify(diagnostic);
+    core.notice(`canary-refresh-subject-refusal: ${encoded}`);
+    await core.summary.addRaw(`\nCanary refresh subject refusal\n\n\`\`\`json\n${encoded}\n\`\`\`\n`).write();
+    const error = new Error(diagnostic.code);
+    error.diagnostic = diagnostic;
+    throw error;
+  }
   if (!subjects.length) {
     const names = missing.map(row => `${row.owner}/${row.repo}`).join(', ');
     core.notice(`candidate refresh: no candidate PR for ${names}; requesting a full canary run`);
@@ -813,8 +838,6 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
   const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
   for (const row of subjects) {
     const repository = `${row.owner}/${row.repo}`;
-    if (!allowed.has(repository) || !Number.isSafeInteger(row.pr) || row.pr < 1
-      || !/^[a-f0-9]{40}$/.test(row.head_sha || '')) throw new Error('canary_refresh_report_subject_unknown');
     const { data: pr } = await withRetry(client => client.rest.pulls.get({
       owner: row.owner, repo: row.repo, pull_number: row.pr }));
     if (pr.number !== row.pr || pr.state !== 'open' || pr.draft === true

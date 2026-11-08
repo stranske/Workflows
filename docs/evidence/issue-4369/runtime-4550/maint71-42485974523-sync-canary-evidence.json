@@ -1,0 +1,33 @@
+{
+  "schema": "workflows.consumer-sync-canary-evidence/v1",
+  "version": 1,
+  "results": [
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "plan_id": "sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2",
+      "plan_scope": "source-delta",
+      "scope_base_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01",
+      "source_commit": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+      "pr": 2486,
+      "head_sha": "653f443b52ec179c6680ee369be06ed3e3ce2617",
+      "evidence_source": "open-candidate",
+      "required_check_state": "success",
+      "active_review_thread_count": 0,
+      "review_disposition": {
+        "binding": {
+          "repository": "stranske/Portable-Alpha-Extension-Model",
+          "pr": 2486,
+          "head_sha": "653f443b52ec179c6680ee369be06ed3e3ce2617",
+          "source_commit": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+          "plan_id": "sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2",
+          "delivery_generation": "0347f9f5fd1c"
+        },
+        "reviewThreads": [],
+        "comments": [],
+        "handoffs": [],
+        "evidenceComplete": true
+      },
+      "delivery_generation": "0347f9f5fd1c"
+    }
+  ]
+}

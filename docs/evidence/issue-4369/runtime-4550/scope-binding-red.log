@@ -1,0 +1,76 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_causal_report_rejects_a_substituted_payload_scope[plan_scope-42485792262] _
+
+run_id = 42485792262, field = 'plan_scope'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", ["plan_scope", "scope_base_sha"])
+    def test_causal_report_rejects_a_substituted_payload_scope(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        # Preserve source, plan, consumer head and finding disposition. The finite
+        # source-delta shipment must still reject a widened scope or another base.
+        row[field] = "full" if field == "plan_scope" else "0" * 40
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:88: Failed
+_ test_causal_report_rejects_a_substituted_payload_scope[plan_scope-42485974523] _
+
+run_id = 42485974523, field = 'plan_scope'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", ["plan_scope", "scope_base_sha"])
+    def test_causal_report_rejects_a_substituted_payload_scope(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        # Preserve source, plan, consumer head and finding disposition. The finite
+        # source-delta shipment must still reject a widened scope or another base.
+        row[field] = "full" if field == "plan_scope" else "0" * 40
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:88: Failed
+_ test_causal_report_rejects_a_substituted_payload_scope[scope_base_sha-42485792262] _
+
+run_id = 42485792262, field = 'scope_base_sha'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", ["plan_scope", "scope_base_sha"])
+    def test_causal_report_rejects_a_substituted_payload_scope(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        # Preserve source, plan, consumer head and finding disposition. The finite
+        # source-delta shipment must still reject a widened scope or another base.
+        row[field] = "full" if field == "plan_scope" else "0" * 40
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:88: Failed
+_ test_causal_report_rejects_a_substituted_payload_scope[scope_base_sha-42485974523] _
+
+run_id = 42485974523, field = 'scope_base_sha'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", ["plan_scope", "scope_base_sha"])
+    def test_causal_report_rejects_a_substituted_payload_scope(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        # Preserve source, plan, consumer head and finding disposition. The finite
+        # source-delta shipment must still reject a widened scope or another base.
+        row[field] = "full" if field == "plan_scope" else "0" * 40
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:88: Failed
+=========================== short test summary info ============================
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_substituted_payload_scope[plan_scope-42485792262] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_substituted_payload_scope[plan_scope-42485974523] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_substituted_payload_scope[scope_base_sha-42485792262] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_substituted_payload_scope[scope_base_sha-42485974523] - Failed: DID NOT RAISE AssertionError
+4 failed, 22 deselected in 1.02s

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_issue_4369_downstream_evidence.py"
+  ],
+  "interpreter": "/opt/anaconda3/bin/python3",
+  "revision": "1dc5d0af2f74a61ffd9c6473a443a36953f0e8a8",
+  "working_tree_changes": true,
+  "utc": "2026-11-08T13:36:09.837396+00:00",
+  "seconds": 1.867472124984488,
+  "exit_code": 0
+}

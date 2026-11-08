@@ -1,0 +1,1104 @@
+{
+  "schema": "issue-4369/downstream-followup/v1",
+  "observed_at_utc": "2026-11-08T12:05:26Z",
+  "checkout_revision": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+  "repository": "stranske/Workflows",
+  "consumer_repository": "stranske/Portable-Alpha-Extension-Model",
+  "collection": {
+    "run_inventory": {
+      "start": "2026-11-08T11:42:44Z",
+      "end": "2026-11-08T12:03:28Z",
+      "per_page": 100,
+      "pages": [
+        {
+          "page": 1,
+          "total_count": 43,
+          "url": "https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=1&created=2026-11-08T11%3A42%3A44Z..2026-11-08T12%3A03%3A28Z",
+          "runs": [
+            {
+              "id": 42478442008,
+              "name": "Sync/Dependency Campaign",
+              "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+              "event": "schedule",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:03:19Z",
+              "updated_at": "2026-11-08T12:03:22Z",
+              "status": "in_progress",
+              "conclusion": null,
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478442008"
+            },
+            {
+              "id": 42478274213,
+              "name": "Auto-Fix Integration Test Failures",
+              "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+              "event": "issue_comment",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:01:10Z",
+              "updated_at": "2026-11-08T12:01:11Z",
+              "status": "completed",
+              "conclusion": "skipped",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478274213"
+            },
+            {
+              "id": 42478274243,
+              "name": "Agents Moderate Connector Comments",
+              "path": ".github/workflows/agents-moderate-connector.yml",
+              "event": "issue_comment",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:01:10Z",
+              "updated_at": "2026-11-08T12:01:17Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478274243"
+            },
+            {
+              "id": 42478274375,
+              "name": "Agents PR meta manager",
+              "path": ".github/workflows/agents-pr-meta-v4.yml",
+              "event": "issue_comment",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:01:10Z",
+              "updated_at": "2026-11-08T12:01:58Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478274375"
+            },
+            {
+              "id": 42478237475,
+              "name": "CI Autofix Loop",
+              "path": ".github/workflows/autofix.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:45Z",
+              "updated_at": "2026-11-08T12:00:55Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478237475"
+            },
+            {
+              "id": 42478237607,
+              "name": "Agents 70 Orchestrator",
+              "path": ".github/workflows/agents-70-orchestrator.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:45Z",
+              "updated_at": "2026-11-08T12:00:55Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478237607"
+            },
+            {
+              "id": 42478237416,
+              "name": "Maint 46 Post CI",
+              "path": ".github/workflows/maint-46-post-ci.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:45Z",
+              "updated_at": "2026-11-08T12:00:58Z",
+              "status": "completed",
+              "conclusion": "failure",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478237416"
+            },
+            {
+              "id": 42478237467,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:45Z",
+              "updated_at": "2026-11-08T12:00:54Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478237467"
+            },
+            {
+              "id": 42478237528,
+              "name": "Agents Autofix Loop",
+              "path": ".github/workflows/agents-autofix-loop.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:45Z",
+              "updated_at": "2026-11-08T12:01:13Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478237528"
+            },
+            {
+              "id": 42478237512,
+              "name": "Agents Bot Comment Handler",
+              "path": ".github/workflows/agents-bot-comment-handler.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:45Z",
+              "updated_at": "2026-11-08T12:01:31Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478237512"
+            },
+            {
+              "id": 42478237455,
+              "name": "Agents PR meta manager",
+              "path": ".github/workflows/agents-pr-meta-v4.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:45Z",
+              "updated_at": "2026-11-08T12:01:35Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478237455"
+            },
+            {
+              "id": 42478237567,
+              "name": "Agents Keepalive Loop",
+              "path": ".github/workflows/agents-keepalive-loop.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:45Z",
+              "updated_at": "2026-11-08T12:01:38Z",
+              "status": "in_progress",
+              "conclusion": null,
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478237567"
+            },
+            {
+              "id": 42478189264,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:11Z",
+              "updated_at": "2026-11-08T12:00:20Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478189264"
+            },
+            {
+              "id": 42478170597,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T12:00:00Z",
+              "updated_at": "2026-11-08T12:00:11Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42478170597"
+            },
+            {
+              "id": 42477605406,
+              "name": "Auto-Label Issues",
+              "path": ".github/workflows/agents-auto-label.yml",
+              "event": "issues",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:51:59Z",
+              "updated_at": "2026-11-08T11:52:00Z",
+              "status": "completed",
+              "conclusion": "skipped",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477605406"
+            },
+            {
+              "id": 42477605445,
+              "name": "Agents Issue Format Guard",
+              "path": ".github/workflows/agents-issue-format-guard.yml",
+              "event": "issues",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:51:59Z",
+              "updated_at": "2026-11-08T11:52:16Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477605445"
+            },
+            {
+              "id": 42477573775,
+              "name": "Sync/Dependency Campaign",
+              "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+              "event": "schedule",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:51:31Z",
+              "updated_at": "2026-11-08T11:52:01Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477573775"
+            },
+            {
+              "id": 42477449985,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:50Z",
+              "updated_at": "2026-11-08T11:50:01Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477449985"
+            },
+            {
+              "id": 42477445077,
+              "name": "Keepalive Loop Reporter",
+              "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:46Z",
+              "updated_at": "2026-11-08T11:49:47Z",
+              "status": "completed",
+              "conclusion": "skipped",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477445077"
+            },
+            {
+              "id": 42477443156,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:44Z",
+              "updated_at": "2026-11-08T11:49:54Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477443156"
+            },
+            {
+              "id": 42477430066,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:33Z",
+              "updated_at": "2026-11-08T11:49:45Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477430066"
+            },
+            {
+              "id": 42477428959,
+              "name": "PR 46 Dependency Repair Contract",
+              "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+              "event": "pull_request_target",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:32Z",
+              "updated_at": "2026-11-08T11:49:33Z",
+              "status": "completed",
+              "conclusion": "skipped",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477428959"
+            },
+            {
+              "id": 42477423089,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:27Z",
+              "updated_at": "2026-11-08T11:49:37Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477423089"
+            },
+            {
+              "id": 42477418043,
+              "name": "Agents Guard Fork Status Publisher",
+              "path": ".github/workflows/agents-guard-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:23Z",
+              "updated_at": "2026-11-08T11:49:43Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477418043"
+            },
+            {
+              "id": 42477407587,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:14Z",
+              "updated_at": "2026-11-08T11:49:27Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477407587"
+            },
+            {
+              "id": 42477398595,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:07Z",
+              "updated_at": "2026-11-08T11:49:20Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477398595"
+            },
+            {
+              "id": 42477395125,
+              "name": "Agents Moderate Connector Comments",
+              "path": ".github/workflows/agents-moderate-connector.yml",
+              "event": "issue_comment",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:04Z",
+              "updated_at": "2026-11-08T11:49:17Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477395125"
+            },
+            {
+              "id": 42477395021,
+              "name": "Auto-Fix Integration Test Failures",
+              "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+              "event": "issue_comment",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:04Z",
+              "updated_at": "2026-11-08T11:49:05Z",
+              "status": "completed",
+              "conclusion": "skipped",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477395021"
+            },
+            {
+              "id": 42477395068,
+              "name": "Agents PR meta manager",
+              "path": ".github/workflows/agents-pr-meta-v4.yml",
+              "event": "issue_comment",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:04Z",
+              "updated_at": "2026-11-08T11:49:52Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477395068"
+            },
+            {
+              "id": 42477394759,
+              "name": "Gate Fork Status Publisher",
+              "path": ".github/workflows/pr-00-gate-fork-status.yml",
+              "event": "workflow_run",
+              "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+              "head_branch": "main",
+              "created_at": "2026-11-08T11:49:03Z",
+              "updated_at": "2026-11-08T11:49:13Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477394759"
+            },
+            {
+              "id": 42477392676,
+              "name": "Health 50 Security Scan",
+              "path": ".github/workflows/health-50-security-scan.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:49:12Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392676"
+            },
+            {
+              "id": 42477392627,
+              "name": "PR 11 - Minimal invariant CI",
+              "path": ".github/workflows/pr-11-ci-smoke.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:49:18Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392627"
+            },
+            {
+              "id": 42477392604,
+              "name": "Maint 52 Validate Workflows",
+              "path": ".github/workflows/maint-52-validate-workflows.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:49:16Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392604"
+            },
+            {
+              "id": 42477392634,
+              "name": "Health 40 Sweep",
+              "path": ".github/workflows/health-40-sweep.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:49:10Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392634"
+            },
+            {
+              "id": 42477392619,
+              "name": "Health 72 Template Sync",
+              "path": ".github/workflows/health-72-template-sync.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:49:26Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392619"
+            },
+            {
+              "id": 42477392630,
+              "name": "Validate Sync Manifest",
+              "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:49:21Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392630"
+            },
+            {
+              "id": 42477392565,
+              "name": "Agents PR meta manager",
+              "path": ".github/workflows/agents-pr-meta-v4.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:49:23Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392565"
+            },
+            {
+              "id": 42477392605,
+              "name": "Health 45 Agents Guard",
+              "path": ".github/workflows/agents-guard.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:49:21Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392605"
+            },
+            {
+              "id": 42477392694,
+              "name": "Selftest CI",
+              "path": ".github/workflows/selftest-ci.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:50:27Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392694"
+            },
+            {
+              "id": 42477392636,
+              "name": "Health 52 Semgrep Scan",
+              "path": ".github/workflows/health-52-semgrep.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:53:42Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392636"
+            },
+            {
+              "id": 42477392656,
+              "name": "Health 44 Gate Branch Protection",
+              "path": ".github/workflows/health-44-gate-branch-protection.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T11:54:34Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392656"
+            },
+            {
+              "id": 42477392610,
+              "name": "Gate",
+              "path": ".github/workflows/pr-00-gate.yml",
+              "event": "pull_request",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:02Z",
+              "updated_at": "2026-11-08T12:00:43Z",
+              "status": "completed",
+              "conclusion": "success",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477392610"
+            },
+            {
+              "id": 42477391057,
+              "name": "PR 46 Dependency Repair Contract",
+              "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+              "event": "pull_request_target",
+              "head_sha": "e5e6aeb00c3cfb183ce59027365483ff1f1462d9",
+              "head_branch": "codex/issue-4550",
+              "created_at": "2026-11-08T11:49:00Z",
+              "updated_at": "2026-11-08T11:49:02Z",
+              "status": "completed",
+              "conclusion": "skipped",
+              "html_url": "https://github.com/stranske/Workflows/actions/runs/42477391057"
+            }
+          ]
+        }
+      ]
+    },
+    "comments": {
+      "observed_through_utc": "2026-11-08T12:03:28Z",
+      "per_page": 100,
+      "pages": [
+        {
+          "page": 1,
+          "url": "https://api.github.com/repos/stranske/Workflows/issues/4369/comments?per_page=100&page=1",
+          "comments": [
+            {
+              "id": 6568623594,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6568623594",
+              "created_at": "2026-11-02T03:52:17Z",
+              "updated_at": "2026-11-02T03:52:17Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `3e13566a73e9` (round 20261102T035200Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+            },
+            {
+              "id": 6568624416,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6568624416",
+              "created_at": "2026-11-02T03:52:21Z",
+              "updated_at": "2026-11-02T03:52:21Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `e1075176de36` (round 20261102T035200Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6583452479,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6583452479",
+              "created_at": "2026-11-02T17:14:59Z",
+              "updated_at": "2026-11-02T17:14:59Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `128edded1e54` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+            },
+            {
+              "id": 6583454319,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6583454319",
+              "created_at": "2026-11-02T17:15:04Z",
+              "updated_at": "2026-11-02T17:15:04Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `e1d8a8ed8a87` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+            },
+            {
+              "id": 6587416829,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6587416829",
+              "created_at": "2026-11-02T20:15:05Z",
+              "updated_at": "2026-11-02T20:15:05Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `0a5873df007f` (round 20261102T201439Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6588614972,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6588614972",
+              "created_at": "2026-11-02T21:14:01Z",
+              "updated_at": "2026-11-02T21:14:01Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `c485222f949a` (round 20261102T211340Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+            },
+            {
+              "id": 6597301080,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6597301080",
+              "created_at": "2026-11-03T06:46:33Z",
+              "updated_at": "2026-11-03T06:46:33Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `021a094497a1` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+            },
+            {
+              "id": 6597303042,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6597303042",
+              "created_at": "2026-11-03T06:46:42Z",
+              "updated_at": "2026-11-03T06:46:42Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `66242eb3268c` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6604754804,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6604754804",
+              "created_at": "2026-11-03T13:12:42Z",
+              "updated_at": "2026-11-03T13:12:42Z",
+              "body": "🤖 **Auto-pilot step 1**: Starting issue formatting...\n\nRunning formatter inline (not via label trigger).\n"
+            },
+            {
+              "id": 6623204937,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623204937",
+              "created_at": "2026-11-04T05:15:36Z",
+              "updated_at": "2026-11-04T05:15:36Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `f36c82cd6a83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+            },
+            {
+              "id": 6623206100,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623206100",
+              "created_at": "2026-11-04T05:15:42Z",
+              "updated_at": "2026-11-04T05:15:42Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `7e233b3c1e83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+            },
+            {
+              "id": 6623207637,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623207637",
+              "created_at": "2026-11-04T05:15:48Z",
+              "updated_at": "2026-11-04T05:15:48Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `ecff077a0504` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6623828876,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623828876",
+              "created_at": "2026-11-04T06:00:28Z",
+              "updated_at": "2026-11-04T06:00:28Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `c1add4c24991` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+            },
+            {
+              "id": 6623830468,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623830468",
+              "created_at": "2026-11-04T06:00:35Z",
+              "updated_at": "2026-11-04T06:00:35Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `58e7e3bdfe8b` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+            },
+            {
+              "id": 6631874862,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631874862",
+              "created_at": "2026-11-04T13:27:57Z",
+              "updated_at": "2026-11-04T13:27:57Z",
+              "body": "🤖 **Auto-pilot step 1**: Starting issue formatting...\n\nRunning formatter inline (not via label trigger).\n"
+            },
+            {
+              "id": 6631909094,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631909094",
+              "created_at": "2026-11-04T13:29:30Z",
+              "updated_at": "2026-11-04T13:29:30Z",
+              "body": "🤖 **Auto-pilot step 1**: Analyzing issue for improvements...\n\nRunning optimizer inline (not via label trigger).\n"
+            },
+            {
+              "id": 6631921882,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631921882",
+              "created_at": "2026-11-04T13:30:05Z",
+              "updated_at": "2026-11-04T13:30:05Z",
+              "body": "## Issue Optimization Suggestions\n\nReview the suggestions below. If you want the agent to apply them, add the\n`agents:apply-suggestions` label to this issue.\n\n### Task splitting\n- Add or extend a test beside `tools/subscription_llm.py` that fails for the reported behavior and passes after the fix. (The task bundles writing a regression test with the 'fails before / passes after' verification. It also leaves open whether to add a new test or extend an existing one. Both are achievable, but separating them makes each step verifiable. This is a minor concern, not a hard blocker.). Suggested split: Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory containing only a credentials file and asserts available() returns True, Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR is set to a directory without credentials, Verify the new test fails against the unfixed available() logic and passes after the fix is applied.\n\n### Blocked tasks\n- Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue. (This depends on workflow runs the agent cannot trigger, retry or modify (the workflows are protected, and agents cannot retry CI pipelines). It also depends on the external sync-core system and on a review thread in another repository being resolved. It is a post-merge live verification, not an agent-completable task. | Move this to a separate 'Post-merge verification (human/maintainer)' checklist outside the agent's scope. Keep only the source fix and the test in the agent-owned tasks.)\n- Deliberate-break → revert: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass. (The agent can do this locally, but it is a process step and not a deliverable. It leaves no artifact in the PR and cannot be verified from the final diff. It is also a mutation-testing step that may be awkward to run inside a CI-driven agent loop. | Rephrase it as an objective check. For example, the regression test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation. Optionally have the agent record the before/after pytest output in the PR description.)\n\n### Objective acceptance criteria\n- Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass. (The criterion is objective, but it is ambiguous. The source file is Python, so the JavaScript gate is likely irrelevant. The pytest path `tests/` may also not match 'a test beside tools/subscription_llm.py' as stated in the tasks. | State that `python3 -m pytest -q tests/` must pass, and that the new test lives in a path that this command collects (or specify the exact path, e.g. `tests/tools/test_subscription_llm.py`). Treat the JS gate as 'no regressions' only.)\n- Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass. (It is verifiable only by manual mutation and leaves no artifact. | Replace with: 'A test named e.g. test_available_uses_claude_config_dir exists, sets CLAUDE_CONFIG_DIR to a temp dir containing a credentials file, and asserts available() is True; it fails on the pre-fix commit.')\n- ...the next maint-71 run reports PR #2454 without this review thread, and sync-core stops bumping this issue. (It depends on external systems and timing, so it is not verifiable within the source PR. | Make it a non-blocking follow-up. The in-scope criterion should be: 'available() returns True when credentials exist only under $CLAUDE_CONFIG_DIR, and still falls back to the default ~/.claude location when the variable is unset.')\n\n### Missing sections\n- None\n\n### Formatting issues\n- The body contains both a rewritten top section and an 'Original Issue' block that repeats the Why, Tasks, Acceptance Criteria and Non-Goals content. The duplication adds noise, though it is collapsed in a <details> block and acceptable as provenance.\n- The Scope section is a single sentence and its wording is awkward: 'when present in the source file'. It should say that `CLAUDE_CONFIG_DIR`, when set, determines where the credentials file is looked up, and name the file (e.g. `.credentials.json`).\n- The Tasks section omits the third original task (regenerate the sync candidate and confirm the thread is resolved). It appears only as an acceptance criterion, which is a good change, but the Acceptance Criteria item still mixes agent-verifiable and external checks.\n- The Acceptance Criteria mix a generic, template-style gate (the JS and Python gates) with issue-specific behavior. Only the Python gate is relevant.\n- Task wording uses the 'stranske/Workflows:tools/subscription_llm.py' notation, which is not a valid path inside the repo. The agent should work on `tools/subscription_llm.py`.\n- Missing specifics: the issue does not state the expected fallback behavior when CLAUDE_CONFIG_DIR is unset or empty, or the credentials filename.\n\n### Notes\n- The issue is mostly agent-compatible. It has a clear, narrow code fix (honor CLAUDE_CONFIG_DIR in available()), a clear non-goal (do not edit the consumer PR) and a regression-test requirement. Why, Scope, Non-Goals and Implementation Notes are all present, so none are missing. The main problems are (1) the acceptance criteria include live-system checks on workflow runs the agent cannot trigger or control, (2) the JS gate is irrelevant to a Python fix, and (3) the intended behavior is underspecified (credentials filename, unset or empty variable, tilde expansion). Recommended rewrite of the tasks: (a) Fix available() in tools/subscription_llm.py to look for the credentials file under $CLAUDE_CONFIG_DIR when it is set and non-empty, falling back to the default location otherwise. (b) Add a pytest regression test using monkeypatch and tmp_path that covers the set, unset and empty cases. (c) Run `python3 -m pytest -q tests/` and confirm it passes. Move the maint-68/maint-71 verification to a human-owned follow-up.\n\n<!-- suggestions-json: {\"task_splitting\": [{\"task\": \"Add or extend a test beside `tools/subscription_llm.py` that fails for the reported behavior and passes after the fix.\", \"reason\": \"The task bundles writing a regression test with the 'fails before / passes after' verification. It also leaves open whether to add a new test or extend an existing one. Both are achievable, but separating them makes each step verifiable. This is a minor concern, not a hard blocker.\", \"split_suggestions\": [\"Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory containing only a credentials file and asserts available() returns True\", \"Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR is set to a directory without credentials\", \"Verify the new test fails against the unfixed available() logic and passes after the fix is applied\"]}], \"blocked_tasks\": [{\"task\": \"Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue.\", \"reason\": \"This depends on workflow runs the agent cannot trigger, retry or modify (the workflows are protected, and agents cannot retry CI pipelines). It also depends on the external sync-core system and on a review thread in another repository being resolved. It is a post-merge live verification, not an agent-completable task.\", \"suggested_action\": \"Move this to a separate 'Post-merge verification (human/maintainer)' checklist outside the agent's scope. Keep only the source fix and the test in the agent-owned tasks.\"}, {\"task\": \"Deliberate-break \\u2192 revert: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass.\", \"reason\": \"The agent can do this locally, but it is a process step and not a deliverable. It leaves no artifact in the PR and cannot be verified from the final diff. It is also a mutation-testing step that may be awkward to run inside a CI-driven agent loop.\", \"suggested_action\": \"Rephrase it as an objective check. For example, the regression test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation. Optionally have the agent record the before/after pytest output in the PR description.\"}], \"objective_criteria\": [{\"criterion\": \"Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass.\", \"issue\": \"The criterion is objective, but it is ambiguous. The source file is Python, so the JavaScript gate is likely irrelevant. The pytest path `tests/` may also not match 'a test beside tools/subscription_llm.py' as stated in the tasks.\", \"suggestion\": \"State that `python3 -m pytest -q tests/` must pass, and that the new test lives in a path that this command collects (or specify the exact path, e.g. `tests/tools/test_subscription_llm.py`). Treat the JS gate as 'no regressions' only.\"}, {\"criterion\": \"Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass.\", \"issue\": \"It is verifiable only by manual mutation and leaves no artifact.\", \"suggestion\": \"Replace with: 'A test named e.g. test_available_uses_claude_config_dir exists, sets CLAUDE_CONFIG_DIR to a temp dir containing a credentials file, and asserts available() is True; it fails on the pre-fix commit.'\"}, {\"criterion\": \"...the next maint-71 run reports PR #2454 without this review thread, and sync-core stops bumping this issue.\", \"issue\": \"It depends on external systems and timing, so it is not verifiable within the source PR.\", \"suggestion\": \"Make it a non-blocking follow-up. The in-scope criterion should be: 'available() returns True when credentials exist only under $CLAUDE_CONFIG_DIR, and still falls back to the default ~/.claude location when the variable is unset.'\"}], \"missing_sections\": [], \"formatting_issues\": [\"The body contains both a rewritten top section and an 'Original Issue' block that repeats the Why, Tasks, Acceptance Criteria and Non-Goals content. The duplication adds noise, though it is collapsed in a <details> block and acceptable as provenance.\", \"The Scope section is a single sentence and its wording is awkward: 'when present in the source file'. It should say that `CLAUDE_CONFIG_DIR`, when set, determines where the credentials file is looked up, and name the file (e.g. `.credentials.json`).\", \"The Tasks section omits the third original task (regenerate the sync candidate and confirm the thread is resolved). It appears only as an acceptance criterion, which is a good change, but the Acceptance Criteria item still mixes agent-verifiable and external checks.\", \"The Acceptance Criteria mix a generic, template-style gate (the JS and Python gates) with issue-specific behavior. Only the Python gate is relevant.\", \"Task wording uses the 'stranske/Workflows:tools/subscription_llm.py' notation, which is not a valid path inside the repo. The agent should work on `tools/subscription_llm.py`.\", \"Missing specifics: the issue does not state the expected fallback behavior when CLAUDE_CONFIG_DIR is unset or empty, or the credentials filename.\"], \"overall_notes\": \"The issue is mostly agent-compatible. It has a clear, narrow code fix (honor CLAUDE_CONFIG_DIR in available()), a clear non-goal (do not edit the consumer PR) and a regression-test requirement. Why, Scope, Non-Goals and Implementation Notes are all present, so none are missing. The main problems are (1) the acceptance criteria include live-system checks on workflow runs the agent cannot trigger or control, (2) the JS gate is irrelevant to a Python fix, and (3) the intended behavior is underspecified (credentials filename, unset or empty variable, tilde expansion). Recommended rewrite of the tasks: (a) Fix available() in tools/subscription_llm.py to look for the credentials file under $CLAUDE_CONFIG_DIR when it is set and non-empty, falling back to the default location otherwise. (b) Add a pytest regression test using monkeypatch and tmp_path that covers the set, unset and empty cases. (c) Run `python3 -m pytest -q tests/` and confirm it passes. Move the maint-68/maint-71 verification to a human-owned follow-up.\"} -->"
+            },
+            {
+              "id": 6631945201,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631945201",
+              "created_at": "2026-11-04T13:31:09Z",
+              "updated_at": "2026-11-04T13:31:09Z",
+              "body": "🤖 **Auto-pilot step 1**: Applying optimization suggestions...\n\nRunning apply inline (not via label trigger).\n"
+            },
+            {
+              "id": 6631947881,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631947881",
+              "created_at": "2026-11-04T13:31:16Z",
+              "updated_at": "2026-11-04T13:31:16Z",
+              "body": "⚠️ **Workflow failed**\n\nThe agents-issue-optimizer workflow encountered an error.\n\n**Details**: [View workflow run](https://github.com/stranske/Workflows/actions/runs/41838664145)\n"
+            },
+            {
+              "id": 6631981306,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631981306",
+              "created_at": "2026-11-04T13:32:50Z",
+              "updated_at": "2026-11-04T13:32:50Z",
+              "body": "🤖 **Auto-pilot step 1**: Issue prepared! Assigning to agent...\n\nAdding `agent:codex` label. The capability check will run automatically.\n\n⏳ Agent will create a PR shortly."
+            },
+            {
+              "id": 6631991191,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631991191",
+              "created_at": "2026-11-04T13:33:19Z",
+              "updated_at": "2026-11-04T13:33:19Z",
+              "body": "Belt dispatcher queued this issue and created branch `codex/issue-4369`. Health 40 will reclaim this claim after 24 hours if no linked open or merged PR exists."
+            },
+            {
+              "id": 6631996865,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631996865",
+              "created_at": "2026-11-04T13:33:35Z",
+              "updated_at": "2026-11-08T00:52:30Z",
+              "body": "### ⚠️ Capability Check: Some tasks may need human assistance\n\n**Recommendation:** REVIEW_NEEDED\n\n**⚠️ Partial Tasks (9):**\n- Inspect Claude's `available()` implementation and child-CLI environment handling in `tools/subscription_llm.py`, identifying the existing credentials filename and default directory.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Add regression tests to the existing test module covering `tools/subscription_llm.py`, with test names containing `claude_config_dir`; isolate environment variables, home-directory credentials, CLI discovery, and other availability prerequisites so the tests exercise credential-path resolution without requiring a real subscription or invoking Claude.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a temporary directory containing only the expected credentials file and assert that Claude's `available()` returns `True`.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a directory without credentials and assert that Claude's `available()` returns `False`, including when credentials exist in the default directory.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Fix Claude's `available()` in `tools/subscription_llm.py` to resolve the credentials file relative to `CLAUDE_CONFIG_DIR` when set, consistently with the directory supplied to the child CLI.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Extend the tests covering `tools/subscription_llm.py` to verify that the existing default-directory behavior remains intact when `CLAUDE_CONFIG_DIR` is absent.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Run `python3 -m pytest -q tests/ -k claude_config_dir` against the pre-fix implementation, against the fix, and after deliberately restoring and then reverting the reported faulty path resolution; record commands, test names, exit codes, and before/after output in the implementation report.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Run `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the source fix and record their results.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- After source delivery and regeneration by `.github/workflows/maint-68-sync-consumer-repos.yml`, inspect the next `.github/workflows/maint-71-merge-sync-prs.yml` run and the review thread on stranske/Portable-Alpha-Extension-Model#2454; record the consumer head, workflow run, thread state, and sync-core evidence, or explicitly report which live evidence is still pending.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n\n**👤 Human Actions Needed:**\n- Split task into smaller steps: Inspect Claude's `available()` implementation and child-CLI environment handling in `tools/subscription_llm.py`, identifying the existing credentials filename and default directory.\n- Split task into smaller steps: Add regression tests to the existing test module covering `tools/subscription_llm.py`, with test names containing `claude_config_dir`; isolate environment variables, home-directory credentials, CLI discovery, and other availability prerequisites so the tests exercise credential-path resolution without requiring a real subscription or invoking Claude.\n- Split task into smaller steps: In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a temporary directory containing only the expected credentials file and assert that Claude's `available()` returns `True`.\n- Split task into smaller steps: In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a directory without credentials and assert that Claude's `available()` returns `False`, including when credentials exist in the default directory.\n- Split task into smaller steps: Fix Claude's `available()` in `tools/subscription_llm.py` to resolve the credentials file relative to `CLAUDE_CONFIG_DIR` when set, consistently with the directory supplied to the child CLI.\n- Split task into smaller steps: Extend the tests covering `tools/subscription_llm.py` to verify that the existing default-directory behavior remains intact when `CLAUDE_CONFIG_DIR` is absent.\n- Split task into smaller steps: Run `python3 -m pytest -q tests/ -k claude_config_dir` against the pre-fix implementation, against the fix, and after deliberately restoring and then reverting the reported faulty path resolution; record commands, test names, exit codes, and before/after output in the implementation report.\n- Split task into smaller steps: Run `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the source fix and record their results.\n- Split task into smaller steps: After source delivery and regeneration by `.github/workflows/maint-68-sync-consumer-repos.yml`, inspect the next `.github/workflows/maint-71-merge-sync-prs.yml` run and the review thread on stranske/Portable-Alpha-Extension-Model#2454; record the consumer head, workflow run, thread state, and sync-core evidence, or explicitly report which live evidence is still pending.\n- LLM provider unavailable\n\n---\n*Auto-generated by capability check*"
+            },
+            {
+              "id": 6632013165,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632013165",
+              "created_at": "2026-11-04T13:34:20Z",
+              "updated_at": "2026-11-04T13:34:20Z",
+              "body": "🤖 **Auto-pilot step 1**: Branch ready, waiting for commits\n\nBranch `codex/issue-4369` exists but has no commits yet.\n✅ Dispatched the belt worker to generate changes.\n\n📊 Stall count: 1/5 (pauses after 5)\n\n⏳ Auto-pilot will check again on next trigger."
+            },
+            {
+              "id": 6632034602,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632034602",
+              "created_at": "2026-11-04T13:35:19Z",
+              "updated_at": "2026-11-04T13:35:19Z",
+              "body": "Opened PR #4444 via belt worker."
+            },
+            {
+              "id": 6632061199,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632061199",
+              "created_at": "2026-11-04T13:36:33Z",
+              "updated_at": "2026-11-04T13:36:33Z",
+              "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 1/5\n\n⏳ Auto-pilot will check again on next trigger."
+            },
+            {
+              "id": 6632137960,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632137960",
+              "created_at": "2026-11-04T13:40:07Z",
+              "updated_at": "2026-11-04T13:40:07Z",
+              "body": "🤖 **Auto-pilot**: Backoff delay (2m)\n\nMonitoring PR status. Attempt 2/5.\nWaiting before retry..."
+            },
+            {
+              "id": 6632181181,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632181181",
+              "created_at": "2026-11-04T13:42:08Z",
+              "updated_at": "2026-11-04T13:42:08Z",
+              "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 2/5\n\n⏳ Auto-pilot will check again on next trigger."
+            },
+            {
+              "id": 6632256111,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632256111",
+              "created_at": "2026-11-04T13:45:37Z",
+              "updated_at": "2026-11-04T13:45:37Z",
+              "body": "🤖 **Auto-pilot**: Backoff delay (4m)\n\nMonitoring PR status. Attempt 3/5.\nWaiting before retry..."
+            },
+            {
+              "id": 6632343497,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632343497",
+              "created_at": "2026-11-04T13:49:38Z",
+              "updated_at": "2026-11-04T13:49:38Z",
+              "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 3/5\n\n⏳ Auto-pilot will check again on next trigger."
+            },
+            {
+              "id": 6632420613,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632420613",
+              "created_at": "2026-11-04T13:52:59Z",
+              "updated_at": "2026-11-04T13:52:59Z",
+              "body": "🤖 **Auto-pilot**: Backoff delay (8m)\n\nMonitoring PR status. Attempt 4/5.\nWaiting before retry..."
+            },
+            {
+              "id": 6632598002,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632598002",
+              "created_at": "2026-11-04T14:01:00Z",
+              "updated_at": "2026-11-04T14:01:00Z",
+              "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 4/5\n\n⏳ Auto-pilot will check again on next trigger."
+            },
+            {
+              "id": 6632676828,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632676828",
+              "created_at": "2026-11-04T14:04:28Z",
+              "updated_at": "2026-11-04T14:04:28Z",
+              "body": "🤖 **Auto-pilot**: Backoff delay (16m)\n\nMonitoring PR status. Attempt 5/5.\nWaiting before retry..."
+            },
+            {
+              "id": 6633050549,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6633050549",
+              "created_at": "2026-11-04T14:20:29Z",
+              "updated_at": "2026-11-04T14:20:29Z",
+              "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 5/5\n\n⏳ Auto-pilot will check again on next trigger."
+            },
+            {
+              "id": 6633138780,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6633138780",
+              "created_at": "2026-11-04T14:24:20Z",
+              "updated_at": "2026-11-04T14:24:20Z",
+              "body": "🤖 **Auto-pilot step 1**: handing off to agent delegation after stall\n\nPR monitoring stalled after 5 attempts. Added `agent:auto` so the keepalive delegation policy can rotate to an alternative agent (eligible: codex, claude, cursor, muse, gemini).\n\n`needs-human` is withheld until delegation has also been exhausted."
+            },
+            {
+              "id": 6648485035,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648485035",
+              "created_at": "2026-11-05T03:00:31Z",
+              "updated_at": "2026-11-05T03:00:31Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `3512f549a602` (round 20261105T030005Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+            },
+            {
+              "id": 6648719968,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648719968",
+              "created_at": "2026-11-05T03:17:04Z",
+              "updated_at": "2026-11-05T03:17:04Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `86de5e1c244b` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+            },
+            {
+              "id": 6648720854,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648720854",
+              "created_at": "2026-11-05T03:17:08Z",
+              "updated_at": "2026-11-05T03:17:08Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `97baeaec5950` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6649127583,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649127583",
+              "created_at": "2026-11-05T03:46:43Z",
+              "updated_at": "2026-11-05T03:46:43Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `75aaabae989a` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+            },
+            {
+              "id": 6649128394,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649128394",
+              "created_at": "2026-11-05T03:46:47Z",
+              "updated_at": "2026-11-05T03:46:47Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `082d0e77cbf0` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+            },
+            {
+              "id": 6649129537,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649129537",
+              "created_at": "2026-11-05T03:46:52Z",
+              "updated_at": "2026-11-05T03:46:52Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `be40cedb1f5e` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6649299127,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649299127",
+              "created_at": "2026-11-05T03:59:38Z",
+              "updated_at": "2026-11-05T03:59:38Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `cf3a664378b6` (round 20261105T035909Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6649911684,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649911684",
+              "created_at": "2026-11-05T04:45:07Z",
+              "updated_at": "2026-11-05T04:45:07Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `39a3dc939133` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+            },
+            {
+              "id": 6649912647,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649912647",
+              "created_at": "2026-11-05T04:45:11Z",
+              "updated_at": "2026-11-05T04:45:11Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `15c797646f4e` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+            },
+            {
+              "id": 6649913432,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649913432",
+              "created_at": "2026-11-05T04:45:15Z",
+              "updated_at": "2026-11-05T04:45:15Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `eb24149b6f0f` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6650145104,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6650145104",
+              "created_at": "2026-11-05T05:01:44Z",
+              "updated_at": "2026-11-05T05:01:44Z",
+              "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `1bddd0cbe9a8` (round 20261105T050113Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+            },
+            {
+              "id": 6715276022,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6715276022",
+              "created_at": "2026-11-08T00:51:55Z",
+              "updated_at": "2026-11-08T00:51:55Z",
+              "body": "<!-- opener-core/v1 action=start target=stranske/Workflows#4369 agent=codex mode=remote round=20261108T004659Z -->\nopener-core started codex (remote) on this issue."
+            },
+            {
+              "id": 6717526002,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6717526002",
+              "created_at": "2026-11-08T05:03:35Z",
+              "updated_at": "2026-11-08T05:03:35Z",
+              "body": "🤖 **Auto-pilot**: Issue closed.\nTriggering verification on PR #4539...\n\nVerifier dispatch or existing PR/head run confirmed; recording handoff labels."
+            },
+            {
+              "id": 6717537084,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6717537084",
+              "created_at": "2026-11-08T05:04:54Z",
+              "updated_at": "2026-11-08T05:04:54Z",
+              "body": "## ✅ Auto-Pilot Complete\n\nThis issue has been fully processed:\n- ✅ Issue formatted and optimized\n- ✅ Agent assigned and PR created\n- ✅ PR merged\n- ✅ verification triggered on a merged source PR (PR-bound handoff recorded)\n\nThank you for using auto-pilot! 🚀"
+            },
+            {
+              "id": 6718971808,
+              "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6718971808",
+              "created_at": "2026-11-08T07:54:50Z",
+              "updated_at": "2026-11-08T07:54:50Z",
+              "body": "<!-- closer-core/v1 action=followup target=stranske/Workflows#4369 disposition=followup round=20261108T074414Z followup=#4548 -->\ncloser-core checked the closed issue stranske/Workflows#4369: unmet criteria moved to #4548"
+            }
+          ]
+        }
+      ],
+      "all_pages_connector": {
+        "tool": "github_fetch_issue_comments",
+        "returned": 49,
+        "ids": [
+          6568623594,
+          6568624416,
+          6583452479,
+          6583454319,
+          6587416829,
+          6588614972,
+          6597301080,
+          6597303042,
+          6604754804,
+          6623204937,
+          6623206100,
+          6623207637,
+          6623828876,
+          6623830468,
+          6631874862,
+          6631909094,
+          6631921882,
+          6631945201,
+          6631947881,
+          6631981306,
+          6631991191,
+          6631996865,
+          6632013165,
+          6632034602,
+          6632061199,
+          6632137960,
+          6632181181,
+          6632256111,
+          6632343497,
+          6632420613,
+          6632598002,
+          6632676828,
+          6633050549,
+          6633138780,
+          6648485035,
+          6648719968,
+          6648720854,
+          6649127583,
+          6649128394,
+          6649129537,
+          6649299127,
+          6649911684,
+          6649912647,
+          6649913432,
+          6650145104,
+          6715276022,
+          6717526002,
+          6717537084,
+          6718971808
+        ]
+      }
+    }
+  },
+  "payloads": {
+    "source": {
+      "repository": "stranske/Workflows",
+      "ref": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+      "path": "tools/subscription_llm.py",
+      "sha": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+      "url": "https://github.com/stranske/Workflows/blob/9acdde6d5f0731bf968a6766d83f2b47db8375a3/tools/subscription_llm.py",
+      "content": "\"\"\"Read-only subscription CLI transport for keepalive auxiliary analysis.\n\nOpt-in only. Missing CLI/auth or failed execution never falls back to an API.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport os\nimport shutil\nimport subprocess\nimport tempfile\nfrom collections.abc import Mapping\nfrom dataclasses import dataclass\nfrom pathlib import Path\nfrom types import SimpleNamespace\nfrom typing import Any\n\nimport yaml\n\nMODE_ENV = \"WORKFLOWS_ANALYSIS_CLI\"\nREGISTRY = Path(__file__).resolve().parents[1] / \".github/agents/registry.yml\"\n\n# Disable analysis capabilities explicitly: read-only sandbox alone permits\n# credential reads. Deployment still needs effective-tool and canary evidence.\n# unified_exec opt-outs are ignored; shell_tool controls command execution.\n_CODEX_DISABLED_FEATURES = (\n    \"shell_tool\",\n    \"view_image\",\n    \"multi_agent\",\n    \"multi_agent_v2\",\n    \"plugins\",\n    \"hooks\",\n    \"code_mode_host\",\n    \"browser_use\",\n    \"in_app_browser\",\n    \"apps\",\n    \"computer_use\",\n    \"skill_search\",\n)\n\n\ndef analysis_model(agent: str) -> str:\n    registry = yaml.safe_load(REGISTRY.read_text(encoding=\"utf-8\"))\n    profile = registry[\"subscription_analysis\"][agent]\n    if \"execution_profile\" in profile:\n        return str(registry[\"execution_profiles\"][profile[\"execution_profile\"]][\"model\"])\n    return str(profile[\"model\"])\n\n\ndef _has_subscription_auth(agent: str) -> bool:\n    if agent == \"claude\":\n        if os.environ.get(\"CLAUDE_CODE_OAUTH_TOKEN\"):\n            return True\n        try:\n            config_dir = os.environ.get(\"CLAUDE_CONFIG_DIR\")\n            home = (\n                Path(config_dir).expanduser().resolve() if config_dir else Path.home() / \".claude\"\n            )\n            return (home / \".credentials.json\").is_file()\n        except (OSError, RuntimeError):\n            return False\n    home = Path(os.environ.get(\"CODEX_HOME\", str(Path.home() / \".codex\")))\n    try:\n        auth = json.loads((home / \"auth.json\").read_text(encoding=\"utf-8\"))\n    except (OSError, ValueError):\n        return False\n    return auth.get(\"auth_mode\") == \"chatgpt\" and bool(\n        (auth.get(\"tokens\") or {}).get(\"access_token\")\n    )\n\n\n@dataclass(frozen=True)\nclass SubscriptionClient:\n    agent: str\n    model: str\n\n    def available(self) -> bool:\n        return bool(shutil.which(self.agent)) and _has_subscription_auth(self.agent)\n\n    def build_environment(self, environ: Mapping[str, str]) -> dict[str, str]:\n        \"\"\"Filter the child environment without reading auth or launching a CLI.\"\"\"\n        # Do not pass GitHub, tracing, API-provider or other job credentials to\n        # the analysis child. Subscription auth stays in the existing CLI store.\n        allowed = {\"PATH\", \"HOME\", \"TMPDIR\", \"TEMP\", \"SYSTEMROOT\", \"NO_COLOR\"}\n        allowed.update(\n            {\"CLAUDE_CODE_OAUTH_TOKEN\", \"CLAUDE_CONFIG_DIR\"}\n            if self.agent == \"claude\"\n            else {\"CODEX_HOME\"}\n        )\n        env = {key: value for key, value in environ.items() if key in allowed}\n        if self.agent == \"claude\" and env.get(\"CLAUDE_CONFIG_DIR\"):\n            # Resolve before the CLI starts in its unrelated temporary cwd.\n            env[\"CLAUDE_CONFIG_DIR\"] = str(Path(env[\"CLAUDE_CONFIG_DIR\"]).expanduser().resolve())\n        return env\n\n    def build_command(self) -> list[str]:\n        \"\"\"Build argv independently of prompt text and the parent environment.\"\"\"\n        if self.agent == \"codex\":\n            command = [\n                \"codex\",\n                \"exec\",\n                \"--json\",\n                \"--ignore-user-config\",\n                \"--ephemeral\",\n                \"--sandbox\",\n                \"read-only\",\n                \"--skip-git-repo-check\",\n                \"--model\",\n                self.model,\n                \"-c\",\n                'approval_policy=\"never\"',\n                \"-c\",\n                'forced_login_method=\"chatgpt\"',\n                \"-c\",\n                'model_reasoning_effort=\"low\"',\n                \"-c\",\n                'web_search=\"disabled\"',\n            ]\n            for feature in _CODEX_DISABLED_FEATURES:\n                command.extend([\"--disable\", feature])\n            command.append(\"-\")\n        elif self.agent == \"claude\":\n            command = [\n                \"claude\",\n                \"-p\",\n                \"--model\",\n                self.model,\n                \"--output-format\",\n                \"json\",\n                \"--tools\",\n                \"\",\n                \"--strict-mcp-config\",\n                \"--mcp-config\",\n                '{\"mcpServers\":{}}',\n                \"--setting-sources\",\n                \"\",\n                \"--no-session-persistence\",\n            ]\n        else:\n            raise ValueError(\"Unsupported subscription analysis agent\")\n        return command\n\n    def invoke(self, prompt: str, **_kwargs: Any) -> SimpleNamespace:\n        if not self.available():\n            raise RuntimeError(f\"{self.agent} subscription CLI/auth unavailable\")\n        # Empty cwd limits workspace discovery; it does not deny absolute-path reads.\n        # Prompt input is stdin-only. Capability controls above require runtime proof.\n        with tempfile.TemporaryDirectory(prefix=\"workflows-analysis-\") as scratch:\n            command = self.build_command()\n            env = self.build_environment(os.environ)\n            result = subprocess.run(\n                command,\n                input=prompt,\n                capture_output=True,\n                text=True,\n                env=env,\n                cwd=scratch,\n                timeout=90,\n                check=False,\n                shell=False,\n            )\n        if result.returncode:\n            raise RuntimeError(f\"{self.agent} analysis CLI exited {result.returncode}\")\n        if self.agent == \"claude\":\n            data = json.loads(result.stdout)\n            if data.get(\"is_error\"):\n                raise RuntimeError(\"Claude analysis returned an error\")\n            content = data.get(\"result\")\n        else:\n            messages = []\n            for line in result.stdout.splitlines():\n                event = json.loads(line)\n                item = event.get(\"item\") or {}\n                if event.get(\"type\") == \"item.completed\" and item.get(\"type\") == \"agent_message\":\n                    messages.append(item.get(\"text\"))\n            content = messages[-1] if messages else None\n        if not isinstance(content, str) or not content.strip():\n            raise RuntimeError(\"Subscription analysis returned no final message\")\n        return SimpleNamespace(content=content)\n\n\ndef build_subscription_client() -> SimpleNamespace | None:\n    agent = os.environ.get(MODE_ENV, \"\")\n    if agent not in {\"codex\", \"claude\"}:\n        raise ValueError(\"Subscription analysis mode must name codex or claude\")\n    client = SubscriptionClient(agent=agent, model=analysis_model(agent))\n    if not client.available():\n        raise RuntimeError(\"Subscription analysis CLI/auth unavailable; no API fallback\")\n    return SimpleNamespace(client=client, provider=agent, provider_label=agent, model=client.model)\n"
+    },
+    "template": {
+      "repository": "stranske/Workflows",
+      "ref": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+      "path": "templates/consumer-repo/tools/subscription_llm.py",
+      "sha": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+      "url": "https://github.com/stranske/Workflows/blob/9acdde6d5f0731bf968a6766d83f2b47db8375a3/templates/consumer-repo/tools/subscription_llm.py",
+      "content": "\"\"\"Read-only subscription CLI transport for keepalive auxiliary analysis.\n\nOpt-in only. Missing CLI/auth or failed execution never falls back to an API.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport os\nimport shutil\nimport subprocess\nimport tempfile\nfrom collections.abc import Mapping\nfrom dataclasses import dataclass\nfrom pathlib import Path\nfrom types import SimpleNamespace\nfrom typing import Any\n\nimport yaml\n\nMODE_ENV = \"WORKFLOWS_ANALYSIS_CLI\"\nREGISTRY = Path(__file__).resolve().parents[1] / \".github/agents/registry.yml\"\n\n# Disable analysis capabilities explicitly: read-only sandbox alone permits\n# credential reads. Deployment still needs effective-tool and canary evidence.\n# unified_exec opt-outs are ignored; shell_tool controls command execution.\n_CODEX_DISABLED_FEATURES = (\n    \"shell_tool\",\n    \"view_image\",\n    \"multi_agent\",\n    \"multi_agent_v2\",\n    \"plugins\",\n    \"hooks\",\n    \"code_mode_host\",\n    \"browser_use\",\n    \"in_app_browser\",\n    \"apps\",\n    \"computer_use\",\n    \"skill_search\",\n)\n\n\ndef analysis_model(agent: str) -> str:\n    registry = yaml.safe_load(REGISTRY.read_text(encoding=\"utf-8\"))\n    profile = registry[\"subscription_analysis\"][agent]\n    if \"execution_profile\" in profile:\n        return str(registry[\"execution_profiles\"][profile[\"execution_profile\"]][\"model\"])\n    return str(profile[\"model\"])\n\n\ndef _has_subscription_auth(agent: str) -> bool:\n    if agent == \"claude\":\n        if os.environ.get(\"CLAUDE_CODE_OAUTH_TOKEN\"):\n            return True\n        try:\n            config_dir = os.environ.get(\"CLAUDE_CONFIG_DIR\")\n            home = (\n                Path(config_dir).expanduser().resolve() if config_dir else Path.home() / \".claude\"\n            )\n            return (home / \".credentials.json\").is_file()\n        except (OSError, RuntimeError):\n            return False\n    home = Path(os.environ.get(\"CODEX_HOME\", str(Path.home() / \".codex\")))\n    try:\n        auth = json.loads((home / \"auth.json\").read_text(encoding=\"utf-8\"))\n    except (OSError, ValueError):\n        return False\n    return auth.get(\"auth_mode\") == \"chatgpt\" and bool(\n        (auth.get(\"tokens\") or {}).get(\"access_token\")\n    )\n\n\n@dataclass(frozen=True)\nclass SubscriptionClient:\n    agent: str\n    model: str\n\n    def available(self) -> bool:\n        return bool(shutil.which(self.agent)) and _has_subscription_auth(self.agent)\n\n    def build_environment(self, environ: Mapping[str, str]) -> dict[str, str]:\n        \"\"\"Filter the child environment without reading auth or launching a CLI.\"\"\"\n        # Do not pass GitHub, tracing, API-provider or other job credentials to\n        # the analysis child. Subscription auth stays in the existing CLI store.\n        allowed = {\"PATH\", \"HOME\", \"TMPDIR\", \"TEMP\", \"SYSTEMROOT\", \"NO_COLOR\"}\n        allowed.update(\n            {\"CLAUDE_CODE_OAUTH_TOKEN\", \"CLAUDE_CONFIG_DIR\"}\n            if self.agent == \"claude\"\n            else {\"CODEX_HOME\"}\n        )\n        env = {key: value for key, value in environ.items() if key in allowed}\n        if self.agent == \"claude\" and env.get(\"CLAUDE_CONFIG_DIR\"):\n            # Resolve before the CLI starts in its unrelated temporary cwd.\n            env[\"CLAUDE_CONFIG_DIR\"] = str(Path(env[\"CLAUDE_CONFIG_DIR\"]).expanduser().resolve())\n        return env\n\n    def build_command(self) -> list[str]:\n        \"\"\"Build argv independently of prompt text and the parent environment.\"\"\"\n        if self.agent == \"codex\":\n            command = [\n                \"codex\",\n                \"exec\",\n                \"--json\",\n                \"--ignore-user-config\",\n                \"--ephemeral\",\n                \"--sandbox\",\n                \"read-only\",\n                \"--skip-git-repo-check\",\n                \"--model\",\n                self.model,\n                \"-c\",\n                'approval_policy=\"never\"',\n                \"-c\",\n                'forced_login_method=\"chatgpt\"',\n                \"-c\",\n                'model_reasoning_effort=\"low\"',\n                \"-c\",\n                'web_search=\"disabled\"',\n            ]\n            for feature in _CODEX_DISABLED_FEATURES:\n                command.extend([\"--disable\", feature])\n            command.append(\"-\")\n        elif self.agent == \"claude\":\n            command = [\n                \"claude\",\n                \"-p\",\n                \"--model\",\n                self.model,\n                \"--output-format\",\n                \"json\",\n                \"--tools\",\n                \"\",\n                \"--strict-mcp-config\",\n                \"--mcp-config\",\n                '{\"mcpServers\":{}}',\n                \"--setting-sources\",\n                \"\",\n                \"--no-session-persistence\",\n            ]\n        else:\n            raise ValueError(\"Unsupported subscription analysis agent\")\n        return command\n\n    def invoke(self, prompt: str, **_kwargs: Any) -> SimpleNamespace:\n        if not self.available():\n            raise RuntimeError(f\"{self.agent} subscription CLI/auth unavailable\")\n        # Empty cwd limits workspace discovery; it does not deny absolute-path reads.\n        # Prompt input is stdin-only. Capability controls above require runtime proof.\n        with tempfile.TemporaryDirectory(prefix=\"workflows-analysis-\") as scratch:\n            command = self.build_command()\n            env = self.build_environment(os.environ)\n            result = subprocess.run(\n                command,\n                input=prompt,\n                capture_output=True,\n                text=True,\n                env=env,\n                cwd=scratch,\n                timeout=90,\n                check=False,\n                shell=False,\n            )\n        if result.returncode:\n            raise RuntimeError(f\"{self.agent} analysis CLI exited {result.returncode}\")\n        if self.agent == \"claude\":\n            data = json.loads(result.stdout)\n            if data.get(\"is_error\"):\n                raise RuntimeError(\"Claude analysis returned an error\")\n            content = data.get(\"result\")\n        else:\n            messages = []\n            for line in result.stdout.splitlines():\n                event = json.loads(line)\n                item = event.get(\"item\") or {}\n                if event.get(\"type\") == \"item.completed\" and item.get(\"type\") == \"agent_message\":\n                    messages.append(item.get(\"text\"))\n            content = messages[-1] if messages else None\n        if not isinstance(content, str) or not content.strip():\n            raise RuntimeError(\"Subscription analysis returned no final message\")\n        return SimpleNamespace(content=content)\n\n\ndef build_subscription_client() -> SimpleNamespace | None:\n    agent = os.environ.get(MODE_ENV, \"\")\n    if agent not in {\"codex\", \"claude\"}:\n        raise ValueError(\"Subscription analysis mode must name codex or claude\")\n    client = SubscriptionClient(agent=agent, model=analysis_model(agent))\n    if not client.available():\n        raise RuntimeError(\"Subscription analysis CLI/auth unavailable; no API fallback\")\n    return SimpleNamespace(client=client, provider=agent, provider_label=agent, model=client.model)\n"
+    },
+    "manifest": {
+      "repository": "stranske/Workflows",
+      "ref": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+      "path": ".github/sync-manifest.yml",
+      "sha": "b4741e6e3da29a28dc04bf28e8b3460155e83036",
+      "url": "https://github.com/stranske/Workflows/blob/9acdde6d5f0731bf968a6766d83f2b47db8375a3/.github/sync-manifest.yml",
+      "content": "# Sync Manifest - Single Source of Truth for Consumer Repo Synchronization\n#\n# This manifest declares ALL files that should be synced from Workflows to consumer repos.\n# The sync workflow (maint-68-sync-consumer-repos.yml) reads this manifest.\n# A validation CI workflow ensures this manifest is complete.\n#\n# POLICY: Any file intended for consumer repos MUST be listed here.\n# Verifier destination grammar also binds artifact-provenance property delivery\n# without treating checked provenance enforcement as a new artifact obligation.\n# Exact quoted review destination names retain channel binding; parser examples stay opaque.\n# Nominal no-need/requirement/obligation governors share evidence polarity across channels.\n# Partial OR parsing fails closed; punctuated ORs and property storage retain their semantics.\n# Files not listed will NOT be synced, even if they exist in templates/consumer-repo/.\n#\n# Last sync trigger: 2026-02-10 - manifest audit + sync trigger expansion\n#\n# Categories:\n#   workflows: Thin caller workflows that consumers run directly\n#   prompts: Codex prompt files for agent operations\n#   scripts: JavaScript/Python scripts required by workflows\n#   codex_config: Codex configuration files (AGENT_INSTRUCTIONS.md, etc.)\n#   docs: Documentation files synced to consumer repos\n#\n# Each entry can specify:\n#   - source: Safe path relative to the declared source_tree\n#   - source_tree: Optional `template` or `root`; defaults to the section owner.\n#       Template-owned sections fail closed when their consumer-template source is absent.\n#   - target: Path in consumer repo (defaults to same as source)\n#   - description: What this file does (required for documentation)\n#   - skip_repos: Optional list of repo-specific exclusions with a reason.\n#       Use only when a consumer has an intentional incompatible path or policy.\n#   - include_repos: Optional non-empty owner/repo allowlist. Omitted means every\n#       registered consumer; it cannot overlap skip_repos.\n#   - overwrite_repos: Optional list of repos that should ignore create_only and\n#       stay byte-aligned with the canonical template (for example stranske/Template).\n\nversion: 1\n\n# Workflows that run in consumer repos (thin callers)\nworkflows:\n  # Core CI/CD\n  - source: .github/workflows/pr-00-gate.yml\n    description: \"Gate workflow - binds current PR metadata to the exact head for classifier/seal checks and consumes it in the summary Python action, then runs tests, lint and type checking before merge. It remains create-only and not yet fresh-consumer deployable under the documented workaround (resolved: #2158) because consumers own their coverage and runtime policy.\"\n    # New-template defaults: Python 3.13/3.14; existing explicit runtime policies migrate separately.\n    sync_mode: create_only  # Do not overwrite consumer-specific Gate coverage, runtime, or policy.\n    overwrite_repos:\n      - stranske/Template\n    skip_repos:\n      - repo: stranske/Manager-Database\n        reason: \"Maintains a fully custom Gate workflow; never overwrite (replaces the hard-coded custom_gate_repos list in maint-68).\"\n\n  - source: .github/workflows/pr-00-gate-fork-status.yml\n    description: \"Trusted default-branch publisher for exact-head Gate / gate statuses on fork pull requests. Create-only during staged rollout so consumer policy can be audited before replacement.\"\n    sync_mode: create_only\n    overwrite_repos:\n      - stranske/Template\n\n    skip_repos:\n      - repo: stranske/Manager-Database\n        reason: \"Maintains a fully custom Gate workflow and is excluded with the canonical Gate source.\"\n\n  - source: .github/workflows/agents-guard-fork-status.yml\n    description: \"Trusted default-branch publisher for exact-head Health 45 Agents Guard / guard statuses on fork pull requests; centrally managed so existing consumers receive the required context.\"\n\n  - source: .github/workflows/ci.yml\n    description: \"CI workflow - main continuous integration entry point\"\n    sync_mode: create_only  # Don't overwrite - repos customize coverage-min, python versions\n    overwrite_repos:\n      - stranske/Template\n\n  - source: .github/workflows/autofix.yml\n    description: \"Autofix workflow - repairs failed/timed-out checks; cancellations do not trigger repairs\"\n\n  - source: .github/workflows/pr-46-dependency-repair-contract.yml\n    description: \"Dependency repair contract - keeps bot PRs bot-owned and validates agent repair promotion provenance\"\n\n  - source: .github/workflows/agents-issue-intake.yml\n    description: \"Issue intake - processes new issues for agent assignment\"\n\n  - source: .github/workflows/agents-80-pr-event-hub.yml\n    description: \"PR event hub - consolidates PR meta, bot comments, and verify-to-issue handlers\"\n\n  - source: .github/workflows/agents-81-gate-followups.yml\n    description: \"Gate followups hub - keepalive and autofix; forwards evaluated PR base to Codex; budgets count Gate failures with failed jobs\"\n\n  - source: .github/workflows/agents-keepalive-sweep.yml\n    description: \"Keepalive sweep - periodic level-based resync; dispatches the loop for open agent PRs so silent zero-commit stalls resurface\"\n\n  # Agent system - execution\n  - source: .github/workflows/agents-keepalive-loop-reporter.yml\n    description: \"Keepalive reporter - posts PR completion or an attributed run diagnostic when target resolution fails\"\n\n  - source: .github/workflows/agents-71-codex-belt-dispatcher.yml\n    description: \"Codex belt dispatcher - selects issues and creates agent branches for work\"\n\n  - source: .github/agents/belt-labels.json\n    description: \"Canonical belt queue labels shared by dispatcher, worker, auto-pilot, and cleanup tooling\"\n\n  - source: .github/workflows/agents-72-codex-belt-worker.yml\n    description: \"Codex belt worker - executes agent on issues with full prompt and context\"\n\n  - source: .github/workflows/agents-72-codex-belt-worker-dispatch.yml\n    description: \"Codex belt worker dispatch wrapper - allows workflow_dispatch for the worker\"\n\n  - source: .github/workflows/agents-73-codex-belt-conveyor.yml\n    description: \"Codex belt conveyor - orchestrates belt worker execution and handles completion\"\n\n  - source: .github/workflows/agents-autofix-dispatcher.yml\n    description: \"Autofix dispatch bridge - acknowledges legacy Gate repository_dispatch events; agents-81-gate-followups handles repair work\"\n\n  # Post-merge trusted-base execution, job-scoped permissions and declared secrets.\n  - source: .github/workflows/agents-verifier.yml\n    description: \"Verifier - optional PR/head dispatch correlation and inert launch-basis correlation and bounded chunked acceptance review, expanded evidence recovery and typed provider-free retained-output recovery; guarded PASS/UNVERIFIABLE_INPUT source closure; consumer dedup binds canonical PR and linked-source Tasks/Acceptance Criteria\"\n\n  - source: .github/workflows/list-llm-models.yml\n    description: \"List LLM Models - helper to show available models for verifier\"\n\n  - source: .github/workflows/agents-issue-optimizer.yml\n    description: \"Issue optimizer - LangChain-based issue formatting and optimization (Phase 1)\"\n\n  - source: .github/workflows/agents-issue-format-guard.yml\n    description: \"Issue format guard - validates issues on open/edit/reopen/closed, hold/exemption-label changes, and manual dispatch against AGENT_ISSUE_FORMAT, while durable/wontfix, automated, and bot issues remain exempt and have stale agents:format leases cleared. Closed issues also clear agents:auto-pilot-pause only after a fresh state read confirms they remain closed. Pause and needs-human labels hold dispatch. Any invalid non-exempt issue change on those triggers clears stale agents:formatted state, and hold removal revalidates on resume. Non-conforming unheld work gets agents:format so the optimizer repairs it. Requires .github/scripts/issue_format.py.\"\n    template_sync: exact\n\n  - source: .github/workflows/agents-verify-to-new-pr.yml\n    description: \"Verify to new PR - authenticates native GitHub Actions report authors, binds terminal gating and generated follow-up to the latest report, then dispatches auto-pilot (bridge inlined)\"\n\n  - source: .github/workflows/agents-auto-label.yml\n    description: \"Auto-label - suggests/applies labels based on semantic matching (Phase 5A); installs exact-synced canonical LLM requirements independently of consumer optional extras\"\n    requires:\n      - tools/requirements-llm.txt\n\n  - source: .github/workflows/agents-capability-check.yml\n    description: \"Capability check - pre-flight agent feasibility gate (Phase 3A); installs exact-synced canonical LLM requirements independently of consumer optional extras\"\n    requires:\n      - tools/requirements-llm.txt\n\n  - source: .github/workflows/agents-decompose.yml\n    description: \"Task decomposition - breaks large issues into sub-tasks (Phase 3B); installs exact-synced canonical LLM requirements independently of consumer optional extras\"\n    requires:\n      - tools/requirements-llm.txt\n\n  - source: .github/workflows/agents-dedup.yml\n    description: \"Duplicate detection - flags similar open issues (Phase 3C); installs exact-synced canonical LLM requirements independently of consumer optional extras\"\n    requires:\n      - tools/requirements-llm.txt\n\n  - source: .github/workflows/agents-guard.yml\n    description: \"Requires exactly one explicit enabled boolean per registry agent and current PR/run/attempt bindings before registry-error corrective writes; bounded trusted-registry retries and unavailable-policy stale-success invalidation; Agents guard - binds evaluated policy to enabled registry routing labels (Health 45)\"\n    requires:\n      - .github/agents/registry.yml\n\n  - source: .github/workflows/agents-pr-health.yml\n    description: \"PR health scanner - periodic conflict resolution and failing check re-dispatch\"\n\n  - source: .github/workflows/agents-auto-pilot.yml\n    source_tree: template\n    target: .github/workflows/agents-auto-pilot.yml\n    description: \"Auto-pilot - end-to-end automation orchestrator (format → optimize → agent → verify); PR/head-bound dispatch or confirmed-run handoff; requires verifier entry point, transition helper + retry wrapper\"\n    requires:\n      - .github/workflows/agents-verifier.yml\n      - .github/scripts/auto_pilot_transitions.js\n      - .github/scripts/github-api-with-retry.js\n\n  - source: .github/workflows/agents-weekly-metrics.yml\n    description: \"Weekly metrics - aggregates auto-pilot, keepalive, autofix and verifier metrics into summary reports\"\n\n  # Maintenance workflows\n  - source: .github/workflows/maint-coverage-guard.yml\n    description: \"Coverage guard - daily baseline monitoring with automatic issue creation and repository-scoped recovery history. Intentional full-workflow sync exception: ships the complete guard implementation to consumers instead of a thin reusable caller because the workflow embeds repo-specific artifact discovery and download logic tied to tools/coverage_guard.py.\"\n\n  - source: .github/workflows/maint-76-claude-code-review.yml\n    description: \"Claude Code review (opt-in) - Workflows owns the pinned action digest; runs only on labeled PRs or manual dispatch\"\n\n  - source: .github/workflows/maint-87-docs-drift-fix-agent.yml\n    description: \"Docs drift fix agent - reports deterministic documentation drift weekly and creates idempotent repair issues only on an explicit apply dispatch\"\n    template_sync: exact\n\n  # Renovate configuration - extends the shared fleet preset (renovate-presets/fleet.json).\n  # create_only so a consumer that already onboarded (e.g. a Mend generic config) is not clobbered;\n  # supersedes per-repo Renovate onboarding by giving consumers the fleet preset (dev-tool exclusions\n  # owned by autofix-versions.env, grouped automerge, vendored-minimatch cascade).\n  - source: .github/renovate.json\n    description: \"Renovate config - extends stranske/Workflows//renovate-presets/fleet (shared fleet preset)\"\n    sync_mode: create_only\n\n  # Reusable PR context workflow (medium-effort rate limit optimization)\n  - source: .github/workflows/reusable-pr-context.yml\n    description: \"Reusable PR context workflow - centralized PR data fetching via GraphQL\"\n\n  - source: .github/workflows/cross-repo-smoke.yml\n    description: \"Cross-repo smoke caller - opt-in host + pinned dependency integration test via reusable-13-cross-repo-smoke.yml\"\n    sync_mode: create_only\n\n  # Research-backplane run-contract/v1 conformance caller (opt-in, role-based)\n  - source: .github/workflows/backplane-conformance.yml\n    description: \"Backplane conformance caller stub - calls reusable-backplane-conformance.yml@main to validate a repo's emitted run-contract/v1 envelope (producer) or ingested object (consumer). No-op for non-participants (opt-in); editable install runs only for real project/build metadata, not tool-only pyproject.toml. Template lives under templates/consumer-repo/.github/workflows/.\"\n\n# Files to remove from consumer repos (obsolete / harmful when present)\nremovals:\n  - target: .github/workflows/dependabot-automerge.yml\n    description: \"Remove the retired Dependabot auto-merge workflow - the fleet is on Renovate (platformAutomerge covers auto-merge); see renovate-presets/fleet.json.\"\n  - target: .github/workflows/agents-63-issue-intake.yml\n    description: \"Remove deprecated issue intake workflow (replaced by agents-64/70)\"\n  - target: .workflows-lib\n    description: \"Remove deprecated workflows lib submodule\"\n  - target: .github/workflows/agents-verify-to-new-pr-autopilot.yml\n    description: \"Remove the retired verify-to-new-pr auto-pilot bridge (logic now lives in agents-verify-to-new-pr.yml)\"\n  - target: .github/workflows/agents-pr-meta.yml\n    description: \"Remove deprecated PR metadata template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)\"\n  - target: .github/workflows/agents-keepalive-loop.yml\n    description: \"Remove deprecated keepalive loop template workflow past the 2026-02-15 removal deadline (replaced by agents-81-gate-followups.yml)\"\n  - target: .github/workflows/agents-autofix-loop.yml\n    description: \"Remove deprecated autofix loop template workflow past the 2026-02-15 removal deadline (replaced by agents-81-gate-followups.yml)\"\n  - target: .github/workflows/agents-bot-comment-handler.yml\n    description: \"Remove deprecated bot comment handler template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)\"\n  - target: .github/workflows/agents-verify-to-issue.yml\n    description: \"Remove deprecated verify-to-issue v1 template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)\"\n  - target: .github/workflows/agents-verify-to-issue-v2.yml\n    description: \"Remove deprecated verify-to-issue v2 template workflow past the 2026-02-15 removal deadline (replaced by agents-80-pr-event-hub.yml)\"\n  - target: .github/workflows/agents-70-orchestrator.yml\n    description: \"Remove deprecated orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)\"\n  - target: .github/workflows/agents-orchestrator.yml\n    description: \"Remove deprecated legacy orchestrator workflow from template consumers (replaced by agents-80-pr-event-hub.yml and agents-81-gate-followups.yml)\"\n  - target: .github/workflows/maint-sync-workflows.yml\n    description: \"Remove stale consumer-local workflow syncer that can re-fetch retired agents-63/70 workflows after central manifest removals\"\n  - target: .github/workflows/agents-belt-dispatcher.yml\n    description: \"Remove retired belt dispatcher alias wrapper from template consumers (callers rewired to agents-71-codex-belt-dispatcher.yml)\"\n  - target: .github/workflows/agents-belt-worker.yml\n    description: \"Remove retired belt worker alias wrapper from template consumers (callers rewired to agents-72-codex-belt-worker.yml)\"\n  - target: .github/workflows/agents-belt-conveyor.yml\n    description: \"Remove retired belt conveyor alias wrapper from template consumers (callers rewired to agents-73-codex-belt-conveyor.yml)\"\n  - target: .github/scripts/rate-limit-aware-client.js\n    description: \"Remove retired rate-limit-aware client from template consumers (superseded by github-rate-limited-wrapper.js)\"\n# Codex prompts for agent operations\nprompts:\n  - source: .github/codex/prompts/keepalive_next_task.md\n    description: \"Keepalive prompt - instructs Codex on next task in PR\"\n\n  - source: .github/codex/prompts/autofix_from_ci_failure.md\n    description: \"Autofix prompt - instructs Codex to fix CI/Gate failures\"\n\n  - source: .github/codex/prompts/fix_ci_failures.md\n    description: \"CI fix prompt - general CI failure resolution instructions\"\n\n  - source: .github/codex/prompts/fix_bot_comments.md\n    description: \"Bot comments prompt - instructs Codex to address bot review comments\"\n\n  - source: .github/codex/prompts/verifier_acceptance_check.md\n    description: \"Verifier prompt - acceptance criteria validation\"\n\n  - source: .github/codex/prompts/fix_merge_conflicts.md\n    description: \"Conflict resolution prompt - instructs Codex to resolve merge conflicts\"\n\n# Codex configuration\ncodex_config:\n  - source: .github/codex/AGENT_INSTRUCTIONS.md\n    description: \"Agent instructions - base instructions for all Codex runs\"\n  - source: config/source_of_truth_docs.yml\n    description: \"Defines consumer-local documentation paths without distributing the Workflows fleet registry\"\n\n# Scripts required by consumer workflows\n# Note: These scripts are synced because they're referenced by reusable workflows\n# that run in the consumer repo context\nscripts:\n  - source: .github/scripts/gate-fork-status-publication.js\n    description: \"Validates trusted Gate identity and attempt/head binding; publishes Gate / gate with an authenticated status-id receipt from immutable default-branch code.\"\n\n  - source: .github/scripts/agents-guard-fork-status-publication.js\n    description: \"Validates trusted Health 45 Agents Guard identity, attempt/head and registry-backed evaluated-policy-label binding, failing closed on missing agent enabled booleans or missing/ambiguous attempt receipts; publishes the required fork guard status with an authenticated status-id receipt from immutable default-branch code.\"\n    requires:\n      - .github/agents/registry.yml\n\n  # Tools directory - Python helpers used by reusable-10-ci-python.yml\n\n  # Dev dependency sync script\n  - source: scripts/sync_dev_dependencies.py\n    description: \"Syncs every marker-qualified dev-tool pin and safely regenerates transitive uv requirements locks with their recorded scope\"\n    template_sync: exact\n  - source: scripts/check_agents_md_freshness.py\n    description: \"Warns when the generated Orchestrator AGENTS.md playbook section cites stale repo paths or commands\"\n    template_sync: exact\n  - source: scripts/check_docs_drift.py\n    description: \"Detects workflow-inventory and repository-path documentation drift for the docs drift fix agent\"\n    template_sync: exact\n  - source: scripts/docs_drift_fix_agent.py\n    description: \"Builds bounded deterministic documentation-drift repair plans and idempotent issue batches\"\n    template_sync: exact\n  - source: scripts/sync_status_file_ignores.py\n    description: \"Validates and updates the managed consumer .gitignore status-file block, including legacy conflict cleanup\"\n    template_sync: exact\n  - source: .github/scripts/issue_format.py\n    description: \"Pure-stdlib validator for AGENT_ISSUE_FORMAT compliance. Single fleet definition of agent-processable; used by agents-issue-format-guard.yml and callable directly by local filers to pre-flight before gh issue create (non-zero exit = unfit). Do not fork per repo.\"\n    template_sync: exact\n  - source: tools/resolve_mypy_pin.py\n    description: \"Resolves mypy version pinning - required by reusable CI workflow\"\n\n  - source: tools/requirements-llm.txt\n    description: \"Pinned LLM dependencies - exact-sync guarded for agent workflows\"\n    template_sync: exact\n\n  - source: tools/coverage_trend.py\n    description: \"Generates coverage trend summaries - required by reusable CI workflow\"\n\n  - source: tools/coverage_guard.py\n    description: \"Checks coverage guard artifacts - required by maint-coverage-guard.yml\"\n\n  - source: tools/__init__.py\n    description: \"Tools package marker for Python helpers imported by synced workflows\"\n\n  - source: tools/ci_failure_triage.py\n    description: \"Classifies CI failure logs - required by pr-00-gate.yml summary generation\"\n    template_sync: exact\n\n  - source: tools/post_ci_summary.py\n    description: \"Builds consolidated Gate summary comments - required by pr-00-gate.yml\"\n\n  # Scripts directory - CI helpers used by reusable-10-ci-python.yml\n  - source: scripts/state_fingerprint.py\n    description: \"Computes workflow state fingerprints for unchanged-state skip gates\"\n\n  - source: scripts/ledger_validate.py\n    description: \"Validates belt task ledgers (.agents/issue-*-ledger.yml); required by the ledger-validation job in pr-00-gate.yml, whose result feeds the required summary check on every belt PR\"\n\n  - source: scripts/belt_ledger_completion.py\n    description: \"Changed-artifact belt ledger completion helpers imported by scripts/ledger_validate.py (duplicate_artifact_errors); delivered with it so the Gate ledger-validation job can import\"\n\n  - source: scripts/check_deliberate_break.py\n    template_sync: exact\n    description: \"Opt-in Gate helper that proves named deliberate-break acceptance tests fail against the base implementation\"\n\n  - source: scripts/reference_packs.py\n    description: \"Validates and resolves reference pack configuration for shared runner prompt assembly\"\n\n  - source: scripts/orchestrator_skill.py\n    description: \"Validates and resolves exported Orchestrator skill context for remote Codex lanes\"\n\n  - source: scripts/runner_lib/\n    is_directory: true\n    description: \"Shared runner prompt assembly, output parsing, and dispatch debounce helpers\"\n\n  - source: scripts/aggregate_agent_metrics.py\n    description: \"Aggregates downloaded weekly agent metrics - required by agents-weekly-metrics.yml\"\n    template_sync: exact\n\n  - source: scripts/coverage_history_append.py\n    description: \"Appends coverage data to history file - required by reusable CI workflow\"\n\n  - source: scripts/ci_metrics.py\n    description: \"Collects CI metrics for dashboard - required by reusable CI workflow\"\n\n  - source: scripts/ci_history.py\n    description: \"Manages CI history data - required by reusable CI workflow\"\n\n  - source: scripts/ci_coverage_delta.py\n    description: \"Computes coverage delta between runs - required by reusable CI workflow\"\n\n  - source: scripts/reusable_ci_scope.py\n    description: \"Selects changed-input reusable CI scenarios including flat-layout/root Python modules and requirements lock files - required by reusable CI workflows\"\n\n  - source: scripts/sync_test_dependencies.py\n    description: \"Audits project dependency declarations or canonical non-package requirements.lock pins - required by reusable CI workflow\"\n\n  - source: scripts/check_test_dependencies.sh\n    description: \"Checks test dependencies match - required by reusable CI workflow\"\n\n  # Python scripts for auto-pilot metrics\n  - source: scripts/autopilot_step_timer.py\n    description: \"Emits step timing timestamps for auto-pilot workflows - required by agents-auto-pilot.yml\"\n\n  - source: scripts/autopilot_metrics_collector.py\n    description: \"Collects and appends structured auto-pilot metrics to NDJSON log - required by agents-auto-pilot.yml\"\n\n  # Python scripts for ChatGPT topic sync\n  - source: .github/scripts/decode_raw_input.py\n    description: \"Decodes raw input from ChatGPT connector\"\n\n  - source: .github/scripts/parse_chatgpt_topics.py\n    description: \"Parses ChatGPT conversation into issue topics\"\n\n  - source: .github/scripts/fallback_split.py\n    description: \"Fallback topic splitting when parsing fails\"\n\n  # JavaScript scripts for CI/Gate operations\n  - source: .github/scripts/detect-changes.js\n    description: \"Detects changed files for CI path-based filtering\"\n\n  - source: .github/scripts/agents-guard.js\n    description: \"Health 45 agents guard logic used by the workflow protections\"\n\n  - source: .github/scripts/coverage-normalize.js\n    description: \"Normalizes coverage data across different report formats\"\n\n  - source: .github/scripts/maint-post-ci.js\n    description: \"Post-CI maintenance tasks and cleanup\"\n\n  - source: .github/scripts/gate-docs-only.js\n    description: \"Gate check for docs-only changes to skip full CI\"\n\n  - source: .github/scripts/checkout_source.js\n    description: \"Source checkout utilities for CI workflows\"\n\n  - source: .github/scripts/package.json\n    description: \"Node package manifest for .github scripts (vendored minimatch)\"\n    skip_repos:\n      - repo: stranske/trip-planner\n        reason: \"Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules\"\n\n  - source: .github/agents/registry.yml\n    description: \"Agent registry - source of truth for agent keys and runner workflow mapping\"\n\n  - source: .github/scripts/agent_registry.js\n    description: \"Agent registry helper - loads registry and resolves agent key from labels\"\n\n  - source: .github/scripts/belt_claim_reclaim.js\n    description: \"Shared stale belt-claim timeout and audited reclaim logic for scheduled health sweeps\"\n\n  - source: .github/scripts/rate_limit_receipt.json\n    description: \"Single provider rate-limit receipt TTL shared by runner writer and routing reader\"\n\n  - source: .github/scripts/rate_limit_receipt.js\n    description: \"Time-based expiry for provider rate-limit receipts\"\n\n  - source: .github/scripts/agent_delegation_policy.js\n    description: \"Agent delegation policy - system-driven routing for agent:auto label\"\n\n  - source: .github/scripts/agent_stall_rotation.js\n    description: \"Auto-pilot stall rotation - registry-driven bounded belt-agent rotation before needs-human\"\n\n  - source: .github/scripts/node_modules/minimatch/\n    is_directory: true\n    description: \"Vendored minimatch dependency for .github scripts\"\n    skip_repos:\n      - repo: stranske/trip-planner\n        reason: \"Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules\"\n\n  - source: .github/scripts/node_modules/brace-expansion/\n    is_directory: true\n    description: \"Vendored brace-expansion dependency (transitive dep of minimatch)\"\n    skip_repos:\n      - repo: stranske/trip-planner\n        reason: \"Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules\"\n\n  - source: .github/scripts/node_modules/balanced-match/\n    is_directory: true\n    description: \"Vendored balanced-match dependency (transitive dep of brace-expansion)\"\n    skip_repos:\n      - repo: stranske/trip-planner\n        reason: \"Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules\"\n\n  # JavaScript scripts for issue/PR handling\n  - source: .github/scripts/issue_pr_locator.js\n    description: \"Locates PRs associated with issues\"\n\n  - source: .github/scripts/source_context.js\n    description: \"Classifies PR workflow sources with bounded historical fix references, unresolved explicit issue ambiguity, repository/author-bound Release Please inference, related-issue bindings, explicit title/metadata conflict rejection and declared non-issue precedence\"\n\n  - source: .github/scripts/issue_context_utils.js\n    description: \"Utilities for issue context extraction\"\n\n  - source: .github/scripts/terminal_disposition.js\n    description: \"Machine-readable terminal disposition records and source summaries\"\n\n  - source: .github/scripts/terminal_disposition_coverage.js\n    description: \"Warning-only terminal disposition source coverage preflight\"\n\n  - source: .github/scripts/bot_comment_auth_coverage.js\n    description: \"Warning-only bot-comment App auth coverage preflight\"\n\n  - source: .github/scripts/coverage_monitor_summary.js\n    description: \"Machine-readable weekly coverage monitor checkpoint\"\n\n  - source: .github/scripts/weekly_metrics_artifacts.js\n    description: \"Bounded weekly metrics artifact selection contract\"\n\n  - source: .github/scripts/weekly_metrics_download_manifest.js\n    description: \"Weekly metrics artifact download and extraction manifest contract\"\n\n  - source: .github/scripts/issue_scope_parser.js\n    description: \"Parses issue scope and requirements; preserves authored checklists in marker-less summaries and owns the shared PR template skeleton\"\n\n  - source: .github/scripts/keepalive_instruction_template.js\n    description: \"Generates keepalive instructions for Codex\"\n\n  - source: .github/scripts/keepalive_loop.js\n    description: \"Core keepalive loop logic with evidence-gated authority reconciliation and full criterion cache binding\"\n\n  - source: .github/scripts/keepalive_challenge_due.js\n    description: \"Selects due automation-owned authority challenges for the hourly keepalive sweep\"\n\n  - source: .github/scripts/keepalive_authority_state.js\n    description: \"PR-wide conditional authority generation, immutable attempt index, pinned-tree replay reads, exact-attempt release retry, single-use receipt ledger, and versioned per-entry attempt-presence manifests with pinned delta validation and a conditional checkpoint for PR classification\"\n\n  - source: .github/scripts/keepalive_worker_evidence.js\n    description: \"Attempt-bound worker job evidence from the originating registry revision for keepalive authority recovery\"\n\n  - source: .github/scripts/keepalive_reporter_applicability.js\n    description: \"Fail-closed exact-run classification, verified no-ledger replay, and active-attempt deferral for keepalive dispatches\"\n\n  - source: .github/scripts/token_load_balancer.js\n    description: \"Dynamic token load balancer for API rate limit management\"\n\n  - source: .github/scripts/keepalive_prompt_routing.js\n    description: \"Prompt routing logic for keepalive - determines which prompt template to use\"\n\n  - source: .github/scripts/keepalive_state.js\n    description: \"Keepalive state management and recovered authority summary projection\"\n\n  - source: .github/scripts/timeout_config.js\n    description: \"Timeout configuration parser for keepalive - required by keepalive_loop.js\"\n\n  - source: .github/scripts/keepalive_guard_utils.js\n    description: \"Guard utilities for keepalive state protection\"\n\n  - source: .github/scripts/keepalive_contract.js\n    description: \"Keepalive contract definitions and validation\"\n\n  - source: .github/scripts/keepalive_gate.js\n    description: \"Gate evaluation logic for keepalive workflow\"\n\n  - source: .github/scripts/keepalive_worker_gate.js\n    description: \"Worker gate logic for keepalive workflow\"\n\n  - source: .github/scripts/keepalive_orchestrator_gate_runner.js\n    description: \"Orchestrator gate runner for keepalive\"\n\n  - source: .github/scripts/keepalive_post_work.js\n    description: \"Post-work handling for keepalive rounds\"\n\n  - source: .github/scripts/keepalive_prompt_composer.js\n    description: \"Composes prompts for keepalive Codex calls\"\n\n  - source: .github/scripts/capability_bundle.js\n    description: \"Validates and selects capability-bundle/v1 fragments for keepalive prompts and metrics\"\n\n  - source: .github/scripts/autopilot_metrics.js\n    description: \"AutoPilot metrics collection and reporting\"\n\n  - source: .github/scripts/auto_pilot_transitions.js\n    description: \"Auto-pilot transition contract and next-step helper\"\n\n  - source: .github/scripts/github-api-with-retry.js\n    description: \"GitHub API retry wrapper with exponential backoff and pagination support - required by agents-auto-pilot.yml\"\n\n  - source: .github/scripts/sync_tracker_state/\n    is_directory: true\n    description: \"Shared durable tracker and open PR state helpers for consumer sync workflows\"\n\n  - source: .github/scripts/github-rate-limited-wrapper.js\n    description: \"Transparent rate-limit proxy - wraps all github.rest.* calls with automatic retry and token switching\"\n\n  - source: .github/scripts/prompt_injection_guard.js\n    description: \"Security guard against prompt injection attacks\"\n\n  - source: .github/scripts/prompt_integrity_guard.js\n    description: \"Integrity validation for prompts\"\n\n  - source: .github/scripts/error_classifier.js\n    description: \"Classifies CI errors for agent handling\"\n\n  - source: .github/scripts/error_diagnostics.js\n    description: \"Diagnostic utilities for error analysis\"\n\n  - source: .github/scripts/failure_comment_formatter.js\n    description: \"Formats failure comments for PR status updates\"\n\n  - source: .github/scripts/conflict_detector.js\n    description: \"Conflict detector - identifies merge conflicts for targeted resolution\"\n\n  - source: .github/scripts/merge_manager.js\n    description: \"Manages PR merge operations\"\n\n  - source: .github/scripts/runtime_ac_merge_guard.js\n    description: \"Blocks external merge lanes for PRs that require local Orchestrator runtime acceptance checks\"\n\n  - source: .github/scripts/sync_pr_lease_contract.js\n    description: \"Validates generated delivery lifecycle records and owns the shared seal-precondition reasons\"\n\n  - source: .github/scripts/comment-dedupe.js\n    description: \"Deduplicates bot comments on issues/PRs\"\n\n  - source: .github/scripts/bot-comment-dismiss.js\n    description: \"Collects ignored bot review comments for auto-dismiss handling\"\n\n  - source: .github/scripts/bot-comment-handler.js\n    description: \"Bot comment handler logic - processes bot review comments for dispatch\"\n\n  - source: .github/scripts/autofix_emit_report.py\n    description: \"Emits autofix report - required by reusable-18-autofix.yml\"\n\n  - source: .github/scripts/gate_summary.py\n    description: \"Gate summary renderer - shared and consumer copies isolate untrusted diagnostics\"\n    skip_repos:\n      - repo: stranske/Orchestrator\n        reason: >-\n          Orchestrator shards its Gate Python legs (6 shards x Python 3.13/3.14, Orchestrator PR 977)\n          and its gate_summary.py validates every shard receipt and reports the combined verify.py\n          coverage. Overwrite-sync replaces it with the unsharded renderer, which drops the\n          missing-shard failure and fails tests/test_delivery_required_contexts.py on generated\n          delivery (Orchestrator sync PR 1016). Keep it local until the template supports sharded Gates.\n\n  - source: .github/scripts/should-post-review.js\n    description: \"Evaluates whether a progress review comment should be posted\"\n\n  - source: .github/scripts/keepalive_review_guard.js\n    description: \"Guards against posting empty/null progress review comments\"\n\n  - source: .github/scripts/post_completion_comment.js\n    description: \"Posts completion comments on PRs\"\n\n  - source: .github/scripts/verifier_closure.js\n    description: \"Closes source issues only with nonempty exact-merge CI proof on PASS or successful exact-merge CI proof and deterministic gates for UNVERIFIABLE_INPUT\"\n\n  - source: .github/scripts/verifier_ci_query.js\n    description: \"Queries CI status for verifier workflow\"\n\n  - source: .github/scripts/verifier_issue_formatter.js\n    description: \"Formats issues for verifier output\"\n\n  - source: .github/scripts/verifier_verdict_json.py\n    description: \"Extracts structured post-merge verifier verdict JSON without trusting diff text\"\n\n  - source: .github/scripts/verifier_plan_fingerprint.js\n    description: \"Hashes canonical parsed Tasks/Acceptance Criteria and linked source lineage for consumer verifier deduplication\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_gzip_assets.js\n    description: \"Capture bounded gzip UTF-8 evidence assets from the immutable target Git tree without changing patches\"\n    delivery: copy\n\n  - source: .github/scripts/verification_event.js\n    description: \"Carries inert optional launch-basis correlation and authenticated exact-terminal dedup references; binds repeat verification and strict recovery selectors to authoritative code, original requests, typed comparison-baseline material and explicitly required retained evidence; authenticates known-no-evaluation causal predecessors, preserves the original edge on exact-event retries and reconciles older pending attempts through authoritative Actions reads and retains full-history completion deduplication without reparenting history\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_autopilot.js\n    description: \"Authenticates existing auto-pilot continuation admission, prepared redispatches and actual native started/PR/pause receipts; no provider-start or closure authority\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_host.js\n    description: \"Collects fresh native corrective ownership/assignment/inventory facts and reconciles exact immutable issue and continuation identities\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_runtime.js\n    description: \"Wires native correction consumer/reconciliation and mandatory coding scope into existing lanes; missing classifier provenance, current qualification or explicit coding budget stays held\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_artifact_sdk/package.json\n    description: \"Pinned package manifest for the existing official Actions artifact SDK used only by admitted correction checkpoints\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_artifact_sdk/package-lock.json\n    description: \"Frozen integrity-checked transitive dependency lock for correction artifact checkpoint transport; installed with scripts disabled\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_artifacts.js\n    description: \"Authenticates canonical correction run/attempt artifacts and exact checkpoint readback; uses the existing immutable follow-up NDJSON transport under authenticated PR concurrency\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_profile.py\n    description: \"Literal-only bounded view of the existing reviewed Orchestrator role registry; never executes fetched code and preserves empty/unsupported source as UNKNOWN\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_collector.js\n    description: \"Collects original raw seeds plus bounded post-terminal requests and physical test hashes; absent genuine Core classification qualification stays owned UNKNOWN\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_decision.js\n    description: \"Checks complete source-bound risk/test decisions against independently loaded production profile qualification; security/authority/unknown never fall through ordinary autopilot\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_seed.js\n    description: \"Retains exact original NON_PASS raw finding/source/event seeds after native terminal publication; no future hold/test/owner authority is invented\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_effects.js\n    description: \"Local-tested correction effects adapter for the existing follow-up issue/autopilot lane; requires authenticated seed/request, fresh gates, durable existing-ledger intent and actual continuation reconciliation; source-wired with inert causal tests; authenticated classifier-origin deployment gap remains held\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_correction_consumer.js\n    description: \"Collection-only exact correction admission using authenticated original verifier artifacts; no issue or auto-pilot effects until producer and continuation bindings exist\"\n    delivery: copy\n\n  - source: .github/scripts/verifier_pending_execution.js\n    description: \"Reconciles pending verifier attempts and authenticates provider-free retained-output origin, applicability and once-only publication; publishes provenance-only input-repair markers for already-retained mixed results\"\n    delivery: copy\n\n  - source: .github/scripts/agents_orchestrator_resolve.js\n    description: \"Resolves agent orchestrator state\"\n\n  - source: .github/scripts/agents_pr_meta_keepalive.js\n    description: \"PR metadata handling for keepalive\"\n\n  - source: .github/scripts/agents_pr_meta_orchestrator.js\n    description: \"PR metadata orchestrator logic\"\n\n  - source: .github/scripts/agents_pr_meta_update_body.js\n    description: \"Updates PR body while preserving authored descriptions; stable completed dependency-provenance results, observer exclusion, and exact-head Gate visibility\"\n\n  - source: .github/scripts/agents_verifier_context.js\n    description: \"Verifier context with authenticated explicitly selected ancestor comparison baselines scoped to byte-identical named sources, bounded selected artifact members with exact-ID metadata fallback independently of optional discovery counts and truthful unselected sibling inventories, plus authenticated provider-free retained revalidation under its recovery-key guard independently of ordinary exact-event completion deduplication, explicitly selected PR and linked-source comments retaining authenticated actor/time/body before optional chatter and lossless selected-proof prompt fitting, mandatory unavailable linked-issue discovery, known non-closing source-issue retrieval, independent body/comment/artifact evidence, independently bounded run/artifact pages with stable count presence, positive safe IDs and full-page continuation, positive channel-local paginated comment identities and stable ordering with bounded full-page signature revalidation against deletion shifts, safe NDJSON proof alongside JSONL, raw extraction byte accounting before UTF-8 decoding, bounded archive/member occurrence hash inventories with duplicate-name rejection and retained unavailable suffixes, complete exact-head typed/positive-clause-labelled including trailing negative URL predicates and Markdown section/reference scope explicit-union artifact scope selected before budgeting, shared bounded descriptor-aware URL-token and negative-subject classification with fail-closed oversized prose scope and descriptive affirmative declarations for positive evidence and diagnostic-local incidental fallback, coordinated comma-and/or URL subjects and independent non-URL/contrast clauses, and associated discovery, fail-closed aggregate availability, literal destination metadata, single-normalization filename-whitespace-preserving text/binary patch offsets and complete post-merge diffs\"\n\n  - source: .github/scripts/agents_dispatch_summary.js\n    description: \"Summarizes agent dispatch operations\"\n\n  - source: .github/scripts/agents_belt_scan.js\n    description: \"Scans agent belt for available tools\"\n\n  # Agent helper scripts and copy-delivered LangChain workflow support\n  #\n  # delivery: channel annotation (resolved: issue #2347)\n  #   copy    = physically copy-synced into the consumer tree by maint-68 and\n  #             read from the consumer's own working directory at runtime.\n  #   runtime = NOT copy-synced; the consuming consumer-template workflow does a\n  #             runtime sparse-checkout of stranske/Workflows `scripts/langchain`\n  #             (whole-directory) and runs the script from that fetched tree.\n  # Entries with `delivery: runtime` MUST NOT appear in any copy-synced section\n  # (they live under `runtime_fetched:` below); see\n  # tests/workflows/test_sync_manifest_delivery.py.\n  - source: scripts/api_client.py\n    description: \"Shared GitHub API client used by synced Python automation scripts\"\n\n  # Issue optimization (Phase 1) - agents-issue-optimizer.yml\n  - source: scripts/langchain/issue_optimizer.py\n    description: \"Issue optimizer - analyzes issues and suggests improvements\"\n    # delivery: copy -- read from the consumer working tree by agents-auto-pilot.yml\n    # (optimize/apply steps: `python scripts/langchain/issue_optimizer.py` +\n    # `sys.path.insert(0, 'scripts/langchain')`), which does NOT runtime-fetch\n    # scripts/langchain. Must stay copy-synced.\n    delivery: copy\n\n  - source: scripts/langchain/structured_output.py\n    description: \"Shared structured output helpers for LangChain workflows\"\n    # delivery: copy -- imported transitively by issue_optimizer.py on auto-pilot's\n    # copy-path (`from scripts.langchain.structured_output import ...`).\n    delivery: copy\n\n  - source: scripts/langchain/trace_utils.py\n    description: \"Shared LangSmith trace metadata helpers for LangChain workflows\"\n    delivery: copy\n\n  - source: scripts/langchain/response_content.py\n    description: \"Shared provider response text-block extraction\"\n    delivery: copy\n\n  - source: scripts/langchain/_llm_client.py\n    description: \"Shared LangChain chat-client construction (get_llm_client/get_llm_clients)\"\n    # delivery: copy -- imported transitively by copy-delivered LangChain scripts\n    # such as issue_optimizer.py, issue_formatter.py, and task_validator.py.\n    delivery: copy\n\n  - source: scripts/langchain/verifier_config.py\n    description: \"Shared verifier prompt budgets, schema-repair policy, and terminal artifact validation\"\n    delivery: copy\n\n  - source: scripts/langchain/checklist_utils.py\n    description: \"Shared checklist parsing helpers for issue and follow-up generation\"\n    delivery: copy\n\n  - source: scripts/langchain/issue_formatter.py\n    description: \"Issue formatter - converts raw text to AGENT_ISSUE_TEMPLATE format\"\n    # delivery: copy -- read from the consumer working tree by agents-auto-pilot.yml\n    # (format step: `python scripts/langchain/issue_formatter.py`), which does NOT\n    # runtime-fetch scripts/langchain. Must stay copy-synced.\n    delivery: copy\n    template_sync: exact\n\n  - source: scripts/langchain/issue_pr_context.py\n    description: \"Issue/PR context assembly helper with shared token budget caps\"\n    delivery: copy\n\n  - source: scripts/langchain/issue_dedup.py\n    description: \"Issue deduplication - finds similar open issues\"\n    delivery: copy\n\n  - source: scripts/langchain/injection_guard.py\n    description: \"Prompt injection guard - validates prompts before LLM submission\"\n    delivery: copy\n\n  - source: scripts/langchain/progress_reviewer.py\n    description: \"Progress reviewer - evaluates agent progress for keepalive rounds\"\n    delivery: copy\n\n  # Context and semantic analysis\n  - source: scripts/langchain/context_extractor.py\n    description: \"Context extractor - extracts relevant context from issues/PRs\"\n    delivery: copy\n\n  - source: scripts/langchain/semantic_matcher.py\n    description: \"Semantic matcher - vector similarity for issues/labels\"\n    delivery: copy\n\n  # Agent capability and task management\n  - source: scripts/langchain/capability_check.py\n    description: \"Capability check - pre-flight agent feasibility assessment\"\n    delivery: copy\n\n  - source: scripts/langchain/task_decomposer.py\n    description: \"Task decomposer - breaks large issues into sub-tasks\"\n    delivery: copy\n\n  - source: scripts/langchain/task_validator.py\n    description: \"Task validator - refines generated issue tasks for actionability\"\n    delivery: copy\n\n  - source: scripts/langchain/label_matcher.py\n    description: \"Label matcher - suggests labels based on semantic matching\"\n    delivery: copy\n\n  # PR verification and follow-up\n  # Direct/pronoun/qualified proofs and CI/build/execution logs reuse shared governors;\n  # bounded concrete destination ORs preserve every independent AND obligation.\n  # Body-component alternatives and checklist nouns share polarity/modality boundaries.\n  # Blank paragraphs end checklist inheritance; optional either-in alternatives stay optional.\n  # All supported list markers and structurally product-owned terminal components share those guards.\n  # Temporal/relative qualifiers terminate recognized components without suppressing bare review destinations.\n  # OR expansion shares independent review-predicate boundaries with channel classification.\n  # Named checklist destinations retain channels before temporal/relative continuations;\n  # attached destination availability keeps OR alternatives without erasing independent proof.\n  # Postposed conditional/negative checklist qualifiers retain shared governor semantics.\n  # Shared independent actor boundaries preserve relative polarity and copular availability.\n  # Canonical shared operations and contrast-aware negative governors retain required destinations.\n  # Nominal exists-negation and review-comment product subjects preserve independent delivery floors.\n  # Product generation/structural destinations and always-qualified availability retain actor/OR boundaries.\n  # Canonical product operations and per-item coordination preserve bare sibling review obligations.\n  # Shared passive-agent normalization preserves actor, modality, aspect and review destinations in either word order.\n  # Shared progressive inflections and perfect aspects preserve product alternatives and independent relative body duties.\n  # Irregular left and channel-symmetric relative presence retain independent and parent alternative semantics.\n  # First/final relative attachments preserve the complete bounded parent destination tail and availability alternatives.\n  # Shared relative evidence conditions retain their own governor without consuming parent sibling destinations.\n  # Comma-relative attachments and qualified only-if/solely-when conditions share those parent-tail guards.\n  # Shared lexical aliases retain passive reviewer/product actors before channel and alternative classification.\n  # Component-qualified availability stays inside complete passive destination lists and preserves bare sibling floors.\n  # Shared presence relatives preserve parent lists; component content is not an extra review delivery, bare-channel duties remain independent.\n  # Parent trailing conditions and local relative conditions retain separate scope; availability metadata cannot obstruct either.\n  # Final availability metadata retains the trailing parent delivery condition in either voice and channel order.\n  # Passive both/either destination quantifiers preserve product actor binding and bare sibling obligations.\n  # Coordinated product destinations retain optional modality and independent reviewer obligations.\n  # Irregular perfect delivery and repeated product operations retain shared actor/polarity binding.\n  # Multi-operation chains inherit the latest explicit governor/aspect, never stale head state.\n  # Product-only AND/OR chains preserve latest state without changing genuine bare-destination alternatives.\n  # Passive agents respect unquoted criterion boundaries; object adjectives preserve mandatory governor and soft wraps.\n  # Component start/end guards reuse all destination prepositions, retaining bare review transport qualifiers.\n  # Criterion splitting protects multiline quoted literals, retaining only independent external delivery duties.\n  # Shared participial content boundaries preserve bare duties and terminate real product components symmetrically.\n  # Content-object negative adjectives share modality grammar without inventing overall proof obligations after passive agents.\n  # Passive quantifiers on either side of prepositions and blank-paragraph relative boundaries share both classifiers.\n  # Artifact payload relatives retain shared parent modality; PR presence relatives remain independent.\n  # Filename dots and opaque prose payload punctuation preserve siblings; embedded product nouns do not create channel duties.\n  # Counted standalone duties and pre-preposition both/either share the guarded channel and destination grammars.\n  # Coordinated counts retain real duties; proof-object and product-recipient guards prevent domain artifacts becoming evidence.\n  # Product actor normalization and channel suppression share one grammar.\n  # Proof pronouns retain artifact destinations; bounded pure grammar caching returns fresh containers.\n  - source: scripts/langchain/pr_verifier.py\n    # Strict semantic JSON rejects duplicate members at every object depth before schema validation.\n    # Original requirements and minimum evidence admission are shared by both\n    # judge modes; native counting covers generation, synthesis and schema repair.\n    # Evaluate CLI accepts the existing OpenAI, GitHub Models and Anthropic routes.\n    # Bare/qualified review-comment discovery and ORs share literal-safe normalization;\n    # copy delivery and destination-first checklists retain shared polarity floors.\n    # Repeated governors, object polarity, passive capabilities and channel-symmetric\n    # product coordination preserve independent mandatory delivery clauses.\n    # Bounded save/persist/log product storage keeps independent reviewer duties\n    # and canonicalizes only its already-bound shared review destinations.\n    # Passive capability normalization is shared before mixed artifact/PR ORs.\n    # Plain and qualified artifact OR members retain mandatory alternative floors.\n    # Bare artifact AND lists and reverse product ORs share destination normalization.\n    # Independent comma/and/but/while boundaries reuse shared qualified recipient\n    # prefixes, preserving product-domain nouns and genuine review delivery.\n    # Same-subject predicate boundaries retain real destination lists/delivery\n    # pronouns; hyphenated qualified review aliases keep mandatory comment floors.\n    # Negative-content conditions cannot migrate onto mandatory parent deliveries.\n    # Shared complete-object boundaries reject evidence/review-comment product compounds\n    # while retaining shared proof payloads, bounded content, inherited destination\n    # prepositions and independent proof antecedents through AND/OR lists.\n    # Expanded v5 comparison requires every configured provider/model arm to be\n    # complete, used_llm=true, error-free and PASS; no availability filtering.\n    # Expanded v9 preserves a valid configured FAIL despite incomplete sibling results.\n    # Source-owned exact Terra Responses and Sonnet native Models/count binding;\n    # explicit independent input/context/output facts and actual request reserve.\n    # Terra context 1050000/input 922000; Sonnet native input/context 1000000.\n    # Exact facts come from managed registry/helper validation; expanded v7 retains\n    # up to 524288 evidence characters before unchanged native capacity preflight.\n    # Reusable expanded aggregation imports the fresh Workflows checkout, not stale caller code.\n    # Standard review packs whole-file chunks; a required single file reaches native\n    # counting without rough-budget clipping. Descriptive evidence sentences do not\n    # inherit unrelated later mandates; abbreviation periods keep real duties.\n    # Fitted necessary proof above its soft bound also requires native admission;\n    # omitted optional history leaves bounded legacy compatibility unchanged.\n    # Opt-in expanded diagnostic partitions preserve all loaded input ranges and\n    # findings within native-count bounds; global dependencies always withhold PASS.\n    # Every diagnostic request repeats the complete governing plan without clipping.\n    description: \"PR verifier - retains complete single-file requests for native capacity admission and scopes evidence mandates to their governing sentences, scopes chunk omissions to assigned paths, retains raw chunk evidence and reconciles explicitly attributed sibling concerns without waiving real findings; retains active as-artifact proof delivery, literal-safe PR/inline review-comment destinations and common-proof checklist nouns through shared polarity/product/OR grammar; normalizes actor-bound common test-result/log/screenshot/recording proof objects with early canonical contracted governors, offset-preserving literal-free proof contexts, bounded active/passive object qualifiers and literal-safe explicit pronoun antecedents across finite actor clause separators and shared negative-governor actor boundaries and structurally bounded PR-contained comment nouns through shared polarity/modality/product/literal grammar and validates independent acceptance-list items and destination-specific evidence with clause-bound mandatory evidence/artifact comment-presence predicates with shared negative requirement governors for bare be-in destinations, subject-level no polarity and canonical comment destinations, product permit capability and shared share/put/place/submit/deliver/supply aliases with shared finite compound-role subjects and possession-safe verbal guards with bounded adverb-and-polarity-aware optional-inspection noun spans and prove operations, contracted and bare prohibition polarity with additive not-only/not-merely/not-just and negative embedded-auxiliary guards with complete passive/active-perfect negative requirement actions, shared adverb-aware active-perfect/passive contrast-aware elided actor/governors and prohibition-safe checklist fallback, shared bounded multiword component and comma-availability grammar with order-symmetric single/coordinated destination OR options and actual floors and leading either alternatives, complete product-response vocabulary, bounded product-capability spans, qualified recipients and evidence-object modifiers, bound product storage/client aspects, optional-modal polarity, named and elided actor governor and finite-past sentence boundaries, attached reviewer predicates through shared destinations, complete body predicates, non-PASS concerns and rename-safe diff coverage; native-capable routes count complete standard/comparison/chunk/synthesis and schema-repair requests; registered standard routes without optional capacity facts preserve their original transport, while explicit expanded invocation always requires native capacity; evidence floors and isolated receipt I/O warnings remain\"\n    delivery: copy\n\n  # NOTE (resolved: issue #2347): scripts/langchain/followup_issue_generator.py was MOVED\n  # out of this copy-sync set into the `runtime_fetched:` section below. It is\n  # delivered to consumers ONLY via runtime sparse-checkout (see that section).\n\n  # Integration layer for LangChain components\n  - source: scripts/langchain/integration_layer.py\n    description: \"Integration layer - coordinates LangChain components\"\n    delivery: copy\n\n  - source: scripts/langchain/topic_splitter.py\n    description: \"Topic splitter - splits conversations into discrete issues\"\n    delivery: copy\n\n  # LangChain prompt templates\n  - source: scripts/langchain/prompts/format_issue.md\n    description: \"Prompt template for LLM-based issue formatting\"\n    delivery: copy\n\n  - source: scripts/langchain/prompts/analyze_issue.md\n    description: \"Prompt template for issue analysis/optimization\"\n    delivery: copy\n\n  - source: scripts/langchain/prompts/apply_suggestions.md\n    description: \"Prompt template for applying optimization suggestions\"\n    delivery: copy\n\n  - source: scripts/langchain/prompts/context_extract.md\n    description: \"Prompt template for context extraction\"\n    delivery: copy\n\n  - source: scripts/langchain/prompts/decompose_task.md\n    description: \"Prompt template for task decomposition\"\n    delivery: copy\n\n  - source: scripts/langchain/prompts/pr_evaluation.md\n    description: \"Prompt template for PR evaluation/verification\"\n    delivery: copy\n\n  - source: scripts/langchain/prompts/refine_tasks.md\n    description: \"Prompt template for task refinement and validation\"\n    delivery: copy\n\n  - source: scripts/langchain/verdict_extract.py\n    description: \"Verdict extractor - parses verification verdicts from LLM output\"\n    delivery: copy\n\n  - source: scripts/langchain/verdict_policy.py\n    description: \"Verdict policy engine - applies pass/fail rules to verification results\"\n    delivery: copy\n\n  - source: tools/subscription_llm.py\n    description: \"Subscription CLI-only keepalive analysis transport; no API fallback\"\n    template_sync: exact\n\n  - source: tools/llm_provider.py\n    description: \"LLM provider configuration - GitHub Models and OpenAI client setup\"\n\n  - source: tools/langchain_client.py\n    description: \"LangChain client builder - multi-provider client with slot-based fallback and configuration\"\n\n  - source: tools/llm_registry.py\n    description: \"LLM model registry helper - shared selection/blocked-model enforcement plus exact optional native capacity facts; missing records raise the stable public NativeCapacityUnavailable exception (including naming-rule compatibility), malformed facts raise ValueError\"\n    template_sync: exact\n\n  # Raw UTF-8 and CRLF identities must match loaded semantic inputs without newline normalization.\n  - source: tools/verifier_gzip_assets.py\n    description: \"Validate exact Git gzip evidence identities, bounded single-member UTF-8 views and complete review coverage\"\n    template_sync: exact\n\n  - source: tools/verifier_artifact_capture.py\n    description: \"Verify immutable raw artifact sidecars independently from bounded rendering\"\n    template_sync: exact\n\n  - source: tools/verifier_capture_obligation_manifest.py\n    description: \"Capture obligations and context-bound snapshots; optional typed unrenderable media is availability, required media and integrity failures remain blocking\"\n    template_sync: exact\n\n  - source: tools/verifier_semantic_acceptance.py\n    description: \"Reviewed semantic closure, proof joins and exact judge matrix admission\"\n    template_sync: exact\n\n  - source: tools/verifier_semantic_rules.py\n    description: \"Fixed source-owned reviewed byte-span rules, grouped shared joins and complete per-package prompts\"\n    template_sync: exact\n\n  - source: config/verifier_semantic_rules.json\n    description: \"Reviewed immutable semantic decomposition registry; unknown captures retain an all-input residual\"\n    template_sync: exact\n\n  - source: tools/verifier_semantic_execution.py\n    description: \"Frozen all-cell native preflight and runner-owned semantic execution ledger\"\n    template_sync: exact\n\n  - source: tools/verifier_proof_resource_plan.py\n    description: \"Offline full-capture archive resource accounting; no semantic/native admission\"\n    template_sync: exact\n\n  - source: tools/embedding_provider.py\n    description: \"Embedding provider registry used by synced semantic matching helpers\"\n    template_sync: exact\n\n  - source: tools/check_model_registry_freshness.py\n    description: \"Model-registry freshness gate - validates dated decisions, evidence, lifecycle, and profile-based slots\"\n\n  - source: tools/discover_model_catalog.py\n    description: \"Advisory provider-catalog discovery - proposes new model candidates without changing reviewed selections\"\n\n  - source: tools/evaluate_model_benchmark.py\n    description: \"Deterministic paired model benchmark evaluator - computes confidence-bound quality gates and cost/latency ranking\"\n\n  # Research-backplane run-contract/v1 validator (run locally + in the conformance gate)\n  - source: scripts/validate_run_contract.py\n    description: \"Validates a repo's emitted run-contract/v1 run envelope (producer/bridge) or ingested satellite object (consumer) against the canonical Workflows schemas + opt-in participant registry. Offline/deterministic; opt-in skip for non-participants. Synced so participants can validate locally and the reusable conformance gate can invoke it.\"\n    requires:\n      - docs/contracts/schemas/run-contract-v1.schema.json\n      - docs/contracts/schemas/artifact-manifest-v1.schema.json\n      - docs/contracts/schemas/evidence-object-v1.schema.json\n      - docs/contracts/schemas/tracked-variable-v1.schema.json\n      - docs/contracts/schemas/capability-bundle-v1.schema.json\n      - docs/contracts/schemas/mosaic-core-v1.schema.json\n      - docs/contracts/schemas/document-mirror-v1.schema.json\n      - docs/contracts/schemas/output-substrate-v1.schema.json\n\n  # GraphQL-based PR context fetcher (medium-effort rate limit optimization)\n  - source: .github/scripts/pr-context-graphql.js\n    description: \"GraphQL PR context fetcher - reduces 4+ REST calls to 1 GraphQL call\"\n\n  - source: .github/scripts/github-api-cache.js\n    description: \"Shared cache utilities for GitHub API requests used by PR context scripts\"\n\n  - source: .github/scripts/github-api-cache-client.js\n    description: \"Client wrapper for cached GitHub API requests\"\n# Templates required by keepalive system\ntemplates:\n  - source: .github/templates/keepalive-instruction.md\n    description: \"Keepalive instruction template - directives for Codex on each round\"\n\n  - source: .github/PULL_REQUEST_TEMPLATE.md\n    description: \"Pull request template with Workflow Source fields for direct GitHub and non-issue work\"\n\n  - source: .github/path-classification.yml\n    description: \"Path classification config used by the path-classifier composite action\"\n\n  - source: .github/workflows/ci-python-versions.env\n    source_tree: template\n    description: \"Shared Python 3.14 CI defaults and compatible test/lint tool pins; repo-owned autofix pins take precedence\"\n\n# Actions required by reusable workflows\nactions:\n  - source: .github/actions/agent-event-eligibility/\n    is_directory: true\n    description: \"Agent event eligibility action - early no-op gate for agent workflows\"\n\n  - source: .github/actions/setup-api-client/\n    is_directory: true\n    description: \"Unified API client setup - installs @octokit deps and exports all load balancer tokens\"\n\n  - source: .github/actions/agent-run-base/\n    source_tree: root\n    is_directory: true\n    description: \"Shared agent runner setup action - required by reusable-codex-run.yml and reusable-claude-run.yml\"\n\n  - source: .github/actions/resolve-default-branch/\n    is_directory: true\n    description: \"Resolves repository default branches for Workflows dual-checkout patterns\"\n\n  - source: .github/actions/export-load-balancer-tokens/\n    is_directory: true\n    description: \"Export load balancer tokens action - required by reusable-10-ci-python.yml (deprecated, use setup-api-client)\"\n\n  - source: .github/actions/path-classifier/\n    is_directory: true\n    description: \"Classifies changed PR paths using identity-bound resolved Gate metadata, including freshly sealed generated deliveries\"\n    requires:\n      - .github/scripts/sync_pr_lease_contract.js\n\n  - source: .github/actions/artifact-cache/\n    is_directory: true\n    description: \"Restores, discovers, and caches workflow artifacts by daily, weekly, or run window\"\n\n# Configuration files for LLM providers and workflows\nllm_config:\n  - source: config/llm_slots.json\n    description: \"LLM slot configuration - defines provider/model slots for multi-provider workflows\"\n    sync_mode: create_only  # Don't overwrite - repos may customize provider preferences\n\n  - source: config/model_registry.json\n    description: \"Model registry - available LLM models, selections and optional reviewed exact native capacity/transport facts\"\n\n  - source: config/model_selection_policy.json\n    description: \"Model selection policy - benchmark gates, measurements, optimization order, and review triggers\"\n\n# Documentation synced to consumer repos\ndocs:\n  - source: docs/CI_FAILURE_PLAYBOOK.md\n    source_tree: root\n    target: docs/CI_FAILURE_PLAYBOOK.md\n    description: \"Shared CI failure triage playbook with locally resolvable diagnostic links\"\n\n  - source: docs/MODEL_SELECTION_POLICY.md\n    source_tree: root\n    target: docs/MODEL_SELECTION_POLICY.md\n    description: \"Auditable auxiliary-model evaluation, selection, and refresh policy\"\n\n  - source: docs/AGENT_ISSUE_FORMAT.md\n    target: docs/AGENT_ISSUE_FORMAT.md\n    description: \"Format specification for agent-compatible issues\"\n\n  - source: docs/CI_SYSTEM_GUIDE.md\n    target: docs/CI_SYSTEM_GUIDE.md\n    description: \"Guide to the CI system for agents\"\n\n  - source: docs/LABELS.md\n    source_tree: template\n    target: docs/LABELS.md\n    description: \"Label definitions and usage\"\n\n  - source: docs/CODEX_TOKEN_REFRESH.md\n    target: docs/CODEX_TOKEN_REFRESH.md\n    description: \"Codex OAuth token refresh guide\"\n\n  - source: docs/TARGET_WORK_ENVIRONMENT.md\n    target: docs/TARGET_WORK_ENVIRONMENT.md\n    description: \"Confirmed target work-environment capabilities and blocked delivery shapes\"\n\n  - source: AGENTS.md\n    target: AGENTS.md\n    description: \"Context file for agents and coding assistants\"\n    skip_repos:\n      - repo: stranske/Trend_Model_Project\n        reason: \"Repo keeps historical Agents.md casing to avoid case-only path conflicts\"\n      - repo: stranske/Fine-Art-Archive\n        reason: >-\n          Sync commit faee7246 (2026-08-25) overwrote this file and silently deleted 60 lines of\n          repo-owned research guidance (\"Identifying a Work: Reverse Image Search Is the Next\n          Step\"). That guidance is archive-specific and belongs to the consumer, not the shared\n          template; the docs section is overwrite-synced, so the only protection is skipping the\n          repo here. Incident: resolved: #3275.\n      - repo: stranske/Orchestrator\n        reason: >-\n          Orchestrator owns a terminal merge invariant in AGENTS.md that requires its local\n          src/merge_guard.py for every repository-local terminal merge. Overwrite-sync removes\n          that safety rule and fails tests/test_merge_entrypoint_contract.py on generated\n          workflow-sync delivery. Keep this tool-owned guidance local, as with its CLAUDE.md\n          exception.\n\n  - source: CLAUDE.md\n    target: CLAUDE.md\n    description: \"Context file for Claude/AI assistants\"\n    skip_repos:\n      - repo: stranske/Fine-Art-Archive\n        reason: >-\n          Same incident as the AGENTS.md skip above: sync commit faee7246 (2026-08-25) deleted the\n          identical 60-line repo-owned reverse-image-search section from this file too. The repo\n          maintains its own CLAUDE.md with archive-specific rules; overwrite-sync would delete\n          them again. Incident: resolved: #3275.\n      - repo: stranske/Orchestrator\n        reason: >-\n          Orchestrator is the local agent-orchestration TOOL, not a product consumer. Its CLAUDE.md\n          is the tool's own safety net: the tool-vs-evidence split, the three-trees rule (clone /\n          launchd mirror / $ORCH_STATE_DIR), and the requirement to verify with verify.py rather\n          than a shell loop over test files. CLAUDE.md is the file agents auto-load every session,\n          so it is the enforcement mechanism; overwriting it with the consumer template would\n          silently remove those rules. Consumer conventions are referenced FROM that file instead.\n\n  - source: docs/contracts/agent-runner-output.md\n    target: docs/contracts/agent-runner-output.md\n    description: \"Agent runner output contract specification - required for implementing new agent runners\"\n\n  # Research-backplane run-contract/v1 contract set (spec + schemas + identity conventions).\n  # The registry (config/backplane_participants.json) and the program doc\n  # (docs/contracts/research-backplane-contract.md) are intentionally NOT synced\n  # (Workflows-only single source of truth); see research-backplane-contract.md.\n  - source: docs/contracts/run-contract-v1.md\n    source_tree: root\n    target: docs/contracts/run-contract-v1.md\n    description: \"Research-backplane run-contract/v1 wire-format spec - participants need it to implement an emitter/ingest adapter\"\n\n  - source: docs/contracts/identity-map-conventions.md\n    source_tree: root\n    target: docs/contracts/identity-map-conventions.md\n    description: \"Canonical entity-ID conventions for run-contract/v1 identity_refs / evidence entity_ref - participants emit against these\"\n\n  - source: docs/contracts/capability-bundle-v1.md\n    target: docs/contracts/capability-bundle-v1.md\n    description: \"Capability-bundle/v1 prompt-fragment and gate metadata contract for Workflows Keepalive\"\n\n  - source: docs/contracts/schemas/capability-bundle-v1.schema.json\n    target: docs/contracts/schemas/capability-bundle-v1.schema.json\n    description: \"JSON Schema (draft 2020-12) for capability-bundle/v1 keepalive prompt fragments and gate metadata\"\n\n  - source: docs/contracts/schemas/run-contract-v1.schema.json\n    source_tree: root\n    target: docs/contracts/schemas/run-contract-v1.schema.json\n    description: \"JSON Schema (draft 2020-12) for run-contract/v1 run envelopes - loaded by the validator and local helpers so participants validate without a Workflows checkout\"\n\n  - source: docs/contracts/schemas/artifact-manifest-v1.schema.json\n    source_tree: root\n    target: docs/contracts/schemas/artifact-manifest-v1.schema.json\n    description: \"JSON Schema (draft 2020-12) for artifact-manifest/v1 - the named-artifact manifest a run envelope references\"\n\n  - source: docs/contracts/schemas/evidence-object-v1.schema.json\n    source_tree: root\n    target: docs/contracts/schemas/evidence-object-v1.schema.json\n    description: \"JSON Schema (draft 2020-12) for evidence-object/v1 - attributable evidence objects (the satellite schema consumers like the LMS would ingest)\"\n\n  - source: docs/contracts/schemas/evidence-object-v1.schema.json\n    source_tree: root\n    target: src/deliverable_render/store/evidence-object-v1.schema.json\n    include_repos:\n      - stranske/Deliverable-Render\n    description: \"JSON Schema (draft 2020-12) for evidence-object/v1 - Deliverable-Render packaged-evidence schema\"\n\n  - source: docs/contracts/schemas/evidence-object-v1.schema.json\n    source_tree: root\n    target: src/manager_mosaic/schemas/evidence-object-v1.schema.json\n    include_repos:\n      - stranske/Manager-Mosaic\n    description: \"JSON Schema (draft 2020-12) for evidence-object/v1 - Manager-Mosaic packaged-evidence schema\"\n\n  - source: docs/contracts/document-identity-conventions.md\n    source_tree: root\n    target: docs/contracts/document-identity-conventions.md\n    description: \"Fleet contract for content-first document identity, secondary keys, supersession, and text-basis attribution\"\n\n  - source: docs/contracts/tracked-variable-v1.md\n    source_tree: root\n    target: docs/contracts/tracked-variable-v1.md\n    description: \"Tracked-variable/v1 specification and clause-variable alias for backplane consumers\"\n\n  - source: docs/contracts/schemas/tracked-variable-v1.schema.json\n    source_tree: root\n    target: docs/contracts/schemas/tracked-variable-v1.schema.json\n    description: \"Tracked-variable/v1 schema with embedded evidence and document/mirror provenance\"\n\n  - source: docs/contracts/mosaic-core-v1.md\n    source_tree: root\n    target: docs/contracts/mosaic-core-v1.md\n    description: \"Mosaic-core/v1 record types and fact-key join semantics\"\n    requires:\n      - docs/contracts/schemas/mosaic-core-v1.schema.json\n      - docs/contracts/schemas/artifact-manifest-v1.schema.json\n\n  - source: docs/contracts/schemas/mosaic-core-v1.schema.json\n    source_tree: root\n    target: docs/contracts/schemas/mosaic-core-v1.schema.json\n    description: \"Mosaic-core/v1 schema for facts, discrepancies, thesis claims and checks\"\n\n  - source: docs/contracts/document-mirror-v1.md\n    source_tree: root\n    target: docs/contracts/document-mirror-v1.md\n    description: \"Document-mirror/v1 specification for offline blob catalogs and triple-link resolvers\"\n    requires:\n      - docs/contracts/schemas/document-mirror-v1.schema.json\n\n  - source: docs/contracts/schemas/document-mirror-v1.schema.json\n    source_tree: root\n    target: docs/contracts/schemas/document-mirror-v1.schema.json\n    description: \"Document-mirror/v1 schema for mirror_root catalogs with content_sha256 blobs and source_refs\"\n\n  - source: docs/contracts/output-substrate-v1.md\n    source_tree: root\n    target: docs/contracts/output-substrate-v1.md\n    description: \"Output-substrate/v1 renderer profiles, workspace bundle refs, and manifest CSV exports\"\n    requires:\n      - docs/contracts/schemas/output-substrate-v1.schema.json\n      - docs/contracts/schemas/artifact-manifest-v1.schema.json\n\n  - source: docs/contracts/schemas/output-substrate-v1.schema.json\n    source_tree: root\n    target: docs/contracts/schemas/output-substrate-v1.schema.json\n    description: \"Output-substrate/v1 schema for vendored renderer wiring and view-bundle pointers\"\n\n  - source: docs/SETUP_CHECKLIST.md\n    target: docs/SETUP_CHECKLIST.md\n    description: \"Consumer repo setup checklist. Includes the default_workflow_permissions=write step in section 3.3.1 that prevents a Gate startup_failure on fresh consumers (resolved: #2157). Synced so it no longer drifts across the fleet.\"\n\n  # ---- Shared design system (fleet UX consistency) ----\n  # CSS tokens/components + a Streamlit adapter kit + the presentation-patterns\n  # standard, synced into each consumer's design-system/. Apps consume a PATTERN\n  # (theme / empty-state / error / dev-notice / availability-badge / no-raw-ids)\n  # rather than inventing bespoke fixes. Per-app overrides go in an app stylesheet\n  # loaded AFTER tokens.css; never fork components.css. Grouped here with the other\n  # synced reference assets (cf. the run-contract JSON schemas above).\n  - source: design-system/tokens.css\n    target: design-system/tokens.css\n    description: \"Design-system theme tokens (theme-air/theme-paper + density axis). Override tokens in an app stylesheet loaded after this; do not fork.\"\n  - source: design-system/components.css\n    target: design-system/components.css\n    description: \"Design-system component layer (.ds): panels/appbar/kpis/tables/fields + presentation-state patterns (.notice, .empty-state, .badge, .skeleton).\"\n  - source: design-system/ds_streamlit.py\n    target: design-system/ds_streamlit.py\n    description: \"Streamlit adapter for the design system (inject_theme/empty_state/notice/error/translate_error/dev_note/availability_badge/humanize_id) so Streamlit apps consume the same presentation patterns.\"\n  - source: design-system/PRESENTATION_PATTERNS.md\n    target: design-system/PRESENTATION_PATTERNS.md\n    description: \"The presentation-patterns standard (P1-P6): the rule behind each pattern + per-app-type application + the finding->pattern map from the 2026-06 UX-Review fleet baseline.\"\n  - source: design-system/README.md\n    target: design-system/README.md\n    description: \"Design-system usage guide: how to apply the theme + components/kit per app type.\"\n\n# Issue templates synced to consumer repos\nissue_templates:\n  - source: .github/ISSUE_TEMPLATE/agent_task.yml\n    description: \"Agent task issue template - structured format for agent-compatible issues\"\n\n  - source: .github/ISSUE_TEMPLATE/config.yml\n    description: \"Issue template chooser config - controls which templates appear in the UI\"\n\n# User-facing documentation\nuser_docs:\n  - source: WORKFLOW_USER_GUIDE.md\n    target: WORKFLOW_USER_GUIDE.md\n    description: \"Workflow user guide - explains the CI/agent system for repo consumers\"\n\n# Git configuration files for merge strategies\ngit_config:\n  - source: .gitattributes\n    description: \"Git attributes - merge strategies to prevent pr_body.md conflicts\"\n  - source: .coderabbit.yaml\n    description: \"CodeRabbit auto-review config - skips maintenance-bot PRs (renovate/dependabot/github-actions/keepalive) and generated sync/draft PRs, while keeping substantial agent-authored PR reviews enabled. High-level summaries stay in the walkthrough comment so release-note bullets cannot inflate keepalive checklists. Advisory/non-gating per fleet rule.\"\n\n\n# Workflows-owned runtime-fetched scripts (resolved: issue #2347)\n#\n# These files are intentionally NOT copy-synced into consumer repos. The\n# consumer-template workflows that use them perform a runtime sparse-checkout of\n# stranske/Workflows `scripts/langchain` (whole-directory) and run the script\n# directly from that fetched tree, so a copy in the consumer working tree would\n# only create a second, skew-prone delivery path during the daily sync window.\n#\n# This section is deliberately NOT in the list of sections processed by the\n# sync engine (maint-68-sync-consumer-repos.yml) or the drift checker\n# (scripts/check_consumer_sync_drift.py), so entries here are never copied and\n# never drift-probed. Each entry MUST carry `delivery: runtime`.\n# Enforced by tests/workflows/test_sync_manifest_delivery.py.\nruntime_fetched:\n  - source: scripts/langchain/followup_issue_generator.py\n    delivery: runtime\n    description: \"Follow-up issue generator - creates issues from verification feedback. Runtime-fetched only.\"\n    # Runtime-fetch evidence (consumer-delivered workflows, both in the manifest\n    # `workflows:` set):\n    #   * templates/consumer-repo/.github/workflows/agents-80-pr-event-hub.yml\n    #     - L315-323: actions/checkout repository: stranske/Workflows,\n    #       sparse-checkout includes `scripts/langchain` + `tools`, NO `path:`\n    #       (lands in the workspace root).\n    #     - L434: `python scripts/langchain/followup_issue_generator.py ...`\n    #       runs from that runtime-fetched root.\n    #   * templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml\n    #     - L67-83: the ONLY checkout is repository: stranske/Workflows with\n    #       `scripts/langchain` in sparse-checkout and NO `path:`; the consumer's\n    #       own repo is never checked out into root in this job.\n    #     - L576: `python scripts/langchain/followup_issue_generator.py ...`.\n    # No consumer-delivered workflow reads this module from the copy-synced tree,\n    # and no script/tool imports it (grep: zero importers), so dropping it from\n    # copy-sync is safe.\n\nexcluded:\n\n  - path: .gitignore\n    reason: \"Repo-specific ignore patterns; the managed Workflows status-file block is propagated by scripts/sync_status_file_ignores.py instead of generic sync targets\"\n  - path: README.md\n    reason: \"Repo-specific documentation\"\n  - path: config/coverage-baseline.json\n    reason: \"Each repo maintains its own coverage baseline - template provided for reference\"\n  - path: scripts/__pycache__\n    reason: \"Python bytecode cache - never synced\"\n  - path: .github/workflows/autofix-versions.env\n    reason: \"Repo-specific CI version pins; consumers copy or override per docs/ci/WORKFLOWS.md. Intentionally not synced (see CLAUDE.md).\"\n\n# Copilot configuration - skills and instructions for AI assistants\ncopilot_config:\n  - source: .github/copilot-instructions.md\n    description: \"Repository-specific instructions for GitHub Copilot\"\n\n  # Skills folder - synced as a directory\n  - source: .github/copilot-skills/\n    is_directory: true\n    description: \"Copilot skill definitions - patterns for CI, GitHub ops, etc.\"\n"
+    },
+    "consumer": {
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "ref": "0543dc9732eab0ad12227308749566a937581eea",
+      "path": "tools/subscription_llm.py",
+      "sha": "c889fd8064806a9c0f932f7c1dc09762896afe67",
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/blob/0543dc9732eab0ad12227308749566a937581eea/tools/subscription_llm.py",
+      "content": "\"\"\"Read-only subscription CLI transport for keepalive auxiliary analysis.\n\nOpt-in only. Missing CLI/auth or failed execution never falls back to an API.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport os\nimport shutil\nimport subprocess\nimport tempfile\nfrom collections.abc import Mapping\nfrom dataclasses import dataclass\nfrom pathlib import Path\nfrom types import SimpleNamespace\nfrom typing import Any\n\nimport yaml\n\nMODE_ENV = \"WORKFLOWS_ANALYSIS_CLI\"\nREGISTRY = Path(__file__).resolve().parents[1] / \".github/agents/registry.yml\"\n\n# Disable analysis capabilities explicitly: read-only sandbox alone permits\n# credential reads. Deployment still needs effective-tool and canary evidence.\n# unified_exec opt-outs are ignored; shell_tool controls command execution.\n_CODEX_DISABLED_FEATURES = (\n    \"shell_tool\",\n    \"view_image\",\n    \"multi_agent\",\n    \"multi_agent_v2\",\n    \"plugins\",\n    \"hooks\",\n    \"code_mode_host\",\n    \"browser_use\",\n    \"in_app_browser\",\n    \"apps\",\n    \"computer_use\",\n    \"skill_search\",\n)\n\n\ndef analysis_model(agent: str) -> str:\n    registry = yaml.safe_load(REGISTRY.read_text(encoding=\"utf-8\"))\n    profile = registry[\"subscription_analysis\"][agent]\n    if \"execution_profile\" in profile:\n        return str(registry[\"execution_profiles\"][profile[\"execution_profile\"]][\"model\"])\n    return str(profile[\"model\"])\n\n\ndef _has_subscription_auth(agent: str) -> bool:\n    if agent == \"claude\":\n        home = Path(os.environ.get(\"CLAUDE_CONFIG_DIR\", str(Path.home() / \".claude\")))\n        return (\n            bool(os.environ.get(\"CLAUDE_CODE_OAUTH_TOKEN\"))\n            or (home / \".credentials.json\").is_file()\n        )\n    home = Path(os.environ.get(\"CODEX_HOME\", str(Path.home() / \".codex\")))\n    try:\n        auth = json.loads((home / \"auth.json\").read_text(encoding=\"utf-8\"))\n    except (OSError, ValueError):\n        return False\n    return auth.get(\"auth_mode\") == \"chatgpt\" and bool(\n        (auth.get(\"tokens\") or {}).get(\"access_token\")\n    )\n\n\n@dataclass(frozen=True)\nclass SubscriptionClient:\n    agent: str\n    model: str\n\n    def available(self) -> bool:\n        return bool(shutil.which(self.agent)) and _has_subscription_auth(self.agent)\n\n    def build_environment(self, environ: Mapping[str, str]) -> dict[str, str]:\n        \"\"\"Filter the child environment without reading auth or launching a CLI.\"\"\"\n        # Do not pass GitHub, tracing, API-provider or other job credentials to\n        # the analysis child. Subscription auth stays in the existing CLI store.\n        allowed = {\"PATH\", \"HOME\", \"TMPDIR\", \"TEMP\", \"SYSTEMROOT\", \"NO_COLOR\"}\n        allowed.update(\n            {\"CLAUDE_CODE_OAUTH_TOKEN\", \"CLAUDE_CONFIG_DIR\"}\n            if self.agent == \"claude\"\n            else {\"CODEX_HOME\"}\n        )\n        return {key: value for key, value in environ.items() if key in allowed}\n\n    def build_command(self) -> list[str]:\n        \"\"\"Build argv independently of prompt text and the parent environment.\"\"\"\n        if self.agent == \"codex\":\n            command = [\n                \"codex\",\n                \"exec\",\n                \"--json\",\n                \"--ignore-user-config\",\n                \"--ephemeral\",\n                \"--sandbox\",\n                \"read-only\",\n                \"--skip-git-repo-check\",\n                \"--model\",\n                self.model,\n                \"-c\",\n                'approval_policy=\"never\"',\n                \"-c\",\n                'forced_login_method=\"chatgpt\"',\n                \"-c\",\n                'model_reasoning_effort=\"low\"',\n                \"-c\",\n                'web_search=\"disabled\"',\n            ]\n            for feature in _CODEX_DISABLED_FEATURES:\n                command.extend([\"--disable\", feature])\n            command.append(\"-\")\n        elif self.agent == \"claude\":\n            command = [\n                \"claude\",\n                \"-p\",\n                \"--model\",\n                self.model,\n                \"--output-format\",\n                \"json\",\n                \"--tools\",\n                \"\",\n                \"--strict-mcp-config\",\n                \"--mcp-config\",\n                '{\"mcpServers\":{}}',\n                \"--setting-sources\",\n                \"\",\n                \"--no-session-persistence\",\n            ]\n        else:\n            raise ValueError(\"Unsupported subscription analysis agent\")\n        return command\n\n    def invoke(self, prompt: str, **_kwargs: Any) -> SimpleNamespace:\n        if not self.available():\n            raise RuntimeError(f\"{self.agent} subscription CLI/auth unavailable\")\n        # Empty cwd limits workspace discovery; it does not deny absolute-path reads.\n        # Prompt input is stdin-only. Capability controls above require runtime proof.\n        with tempfile.TemporaryDirectory(prefix=\"workflows-analysis-\") as scratch:\n            command = self.build_command()\n            env = self.build_environment(os.environ)\n            result = subprocess.run(\n                command,\n                input=prompt,\n                capture_output=True,\n                text=True,\n                env=env,\n                cwd=scratch,\n                timeout=90,\n                check=False,\n                shell=False,\n            )\n        if result.returncode:\n            raise RuntimeError(f\"{self.agent} analysis CLI exited {result.returncode}\")\n        if self.agent == \"claude\":\n            data = json.loads(result.stdout)\n            if data.get(\"is_error\"):\n                raise RuntimeError(\"Claude analysis returned an error\")\n            content = data.get(\"result\")\n        else:\n            messages = []\n            for line in result.stdout.splitlines():\n                event = json.loads(line)\n                item = event.get(\"item\") or {}\n                if event.get(\"type\") == \"item.completed\" and item.get(\"type\") == \"agent_message\":\n                    messages.append(item.get(\"text\"))\n            content = messages[-1] if messages else None\n        if not isinstance(content, str) or not content.strip():\n            raise RuntimeError(\"Subscription analysis returned no final message\")\n        return SimpleNamespace(content=content)\n\n\ndef build_subscription_client() -> SimpleNamespace | None:\n    agent = os.environ.get(MODE_ENV, \"\")\n    if agent not in {\"codex\", \"claude\"}:\n        raise ValueError(\"Subscription analysis mode must name codex or claude\")\n    client = SubscriptionClient(agent=agent, model=analysis_model(agent))\n    if not client.available():\n        raise RuntimeError(\"Subscription analysis CLI/auth unavailable; no API fallback\")\n    return SimpleNamespace(client=client, provider=agent, provider_label=agent, model=client.model)\n"
+    }
+  },
+  "consumer_default_branch": {
+    "name": "main",
+    "sha": "0543dc9732eab0ad12227308749566a937581eea",
+    "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/branches/main"
+  },
+  "thread": {
+    "id": "PRRT_kwDOO15QxM6yXhfS",
+    "is_resolved": true,
+    "is_outdated": true,
+    "path": "tools/subscription_llm.py",
+    "line": null,
+    "diff_side": "RIGHT",
+    "start_line": null,
+    "start_diff_side": null,
+    "original_line": 55,
+    "original_start_line": null,
+    "resolved_by": {
+      "login": "stranske",
+      "name": "stranske",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+      "id": null
+    },
+    "comments": [
+      {
+        "id": "PRRC_kwDOO15QxM8AAAABCFD5Ng",
+        "database_id": 4434491702,
+        "body": "[P2] Claude's credential check ignores `CLAUDE_CONFIG_DIR`, even though that variable is passed to the child CLI. When subscription credentials exist only in the configured directory, `available()` rejects the client before Claude can read them. Resolve the credentials file relative to the configured directory when present.",
+        "created_at": "2026-11-01T05:10:47Z",
+        "updated_at": "2026-11-01T05:10:47Z",
+        "author": {
+          "login": "copilot-pull-request-reviewer",
+          "name": "copilot-pull-request-reviewer",
+          "email": null,
+          "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+          "id": null
+        },
+        "viewer_did_author": false
+      },
+      {
+        "id": "PRRC_kwDOO15QxM8AAAABDIWAnQ",
+        "database_id": 4505043101,
+        "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 51-56 resolve the credentials directory from CLAUDE_CONFIG_DIR, then check .credentials.json there; lines 80-83 preserve that variable in the child environment.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/tools/subscription_llm.py . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+        "created_at": "2026-11-08T04:39:05Z",
+        "updated_at": "2026-11-08T04:39:05Z",
+        "author": {
+          "login": "stranske",
+          "name": "stranske",
+          "email": null,
+          "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+          "id": null
+        },
+        "viewer_did_author": true
+      }
+    ]
+  },
+  "dispatch": {
+    "workflow": ".github/workflows/maint-68-sync-consumer-repos.yml",
+    "ref": "main",
+    "inputs": {
+      "repos": "stranske/Portable-Alpha-Extension-Model",
+      "phase": "canary",
+      "delivery_scope": "source-delta",
+      "scope_base_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01",
+      "scope_head_sha": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+      "force": "true",
+      "cleanup_branches": "false"
+    },
+    "exit_code": 1,
+    "output": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n",
+    "maint71_dispatched": false
+  },
+  "final_delivery_acceptance": false,
+  "pending_reasons": [
+    "Maint 68 dispatch failed before receipt of a run ID.",
+    "No Maint 68/71 delivery lifecycle exists in the newly observed interval.",
+    "Exact default-branch consumer bytes differ from the final frozen root and template payload."
+  ]
+}

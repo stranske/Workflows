@@ -1,0 +1,29 @@
+{
+  "revision": "2571ae7b91538b535c1b817c3c92c468e3d80ccf",
+  "working_tree_test": ".github/scripts/__tests__/maint71-delivery-receipts.test.js",
+  "working_tree_test_sha256": "b6017964788ddfc1fc441f233818893cfce54c38db95da6ebe77d102f4e7cb12",
+  "node_executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+  "node_version": "v24.22.2",
+  "command": [
+    "timeout",
+    "-k",
+    "5s",
+    "60s",
+    "node",
+    "--test",
+    "--test-isolation=none",
+    ".github/scripts/__tests__/maint71-delivery-receipts.test.js",
+    ".github/scripts/__tests__/maint71_merge_sync_prs.test.js"
+  ],
+  "started_at_utc": "2026-11-08T14:14:06.529543+00:00",
+  "duration_seconds": 0.429080005000003,
+  "exit_code": 0,
+  "log": "missing-canary-production-replay.log",
+  "log_sha256": "8704aa2931242485865b2a64517e6fc91094a33a0a17543c1501db2010042334",
+  "final_delivery_acceptance": false,
+  "publication": {
+    "git_add_exit_code": 128,
+    "error": ".git/index.lock: Read-only file system",
+    "commit_created": false
+  }
+}

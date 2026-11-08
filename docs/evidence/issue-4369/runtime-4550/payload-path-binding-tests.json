@@ -1,0 +1,81 @@
+{
+  "revision": "abc79b8db73c009ac032525b9fc4b8ca981e07d0",
+  "command": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+    "tests/scripts/test_issue_4369_downstream_evidence.py",
+    "-m",
+    "not slow"
+  ],
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+  "version": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "started_at_utc": "2026-11-08T14:38:59.490292+00:00",
+  "duration_seconds": 1.9192404409999995,
+  "exit_code": 0,
+  "log": "payload-path-binding-tests.log",
+  "log_sha256": "968cba03825870784df483e1020846965c3de6beefd5cb25e1755259e3edd6ac",
+  "test_sha256": "4409872aed809d9baa664918f11fd57f37ba53e4cf824eb6dbdd85b45b887dff",
+  "final_delivery_acceptance": false,
+  "red_control": {
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "-k",
+      "unrelated_file",
+      "-m",
+      "not slow"
+    ],
+    "external_timeout_seconds": 60,
+    "exit_code": 1,
+    "result": "3 failed (DID NOT RAISE), 1 passed, 18 deselected",
+    "log": "payload-path-binding-red.log"
+  },
+  "baseline": {
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "tests/scripts/test_issue_4369_downstream_evidence.py",
+      "-m",
+      "not slow"
+    ],
+    "exit_code": 0,
+    "result": "47 passed in 0.80s"
+  },
+  "black_check": {
+    "command": "black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "plain_exit_code": 1,
+    "plain_log": "payload-path-binding-black.log",
+    "supported_exit_code": 0,
+    "supported_log": "payload-path-binding-black-supported.log",
+    "environment": {
+      "BLACK_NUM_WORKERS": "1",
+      "PYTHONPATH": "/tmp/issue-4550-payload-black-runtime"
+    },
+    "runtime_hook": "Previously documented 50ms heartbeat through black.concurrency.maybe_use_uvloop; formatter, safety checks and selection unchanged",
+    "hook_sha256": "9ba789b55e62fd30411ecdb8322667c461d6c200051a7ee15220e0e191203eb7"
+  },
+  "publication": {
+    "git_add_exit_code": 128,
+    "error": ".git/index.lock: Read-only file system",
+    "commit_created": false,
+    "needs_human_label": "rejected",
+    "blocker_comment": "rejected",
+    "automatic_approval_review_reason": "MCP tool call requires approval, but approval policy is never"
+  },
+  "evidence_sha256": {
+    "payload-path-binding-black.log": "48360972d99821f8d1181341a0370029044c8862c9c23ea05b4ecad6b7a0299a",
+    "payload-path-binding-tests.log": "968cba03825870784df483e1020846965c3de6beefd5cb25e1755259e3edd6ac",
+    "payload-path-live-observation.json": "bf4be6c89824f2e5fa7b16536b005c24400ad862cce751e600846fb2c2d5c47e",
+    "payload-path-binding-red.log": "0e5d220c9f7ffab12b5e5b8be650fbf3b0e471e081e434ffa1ab5f68af3b4298",
+    "payload-path-binding-black-supported.log": "62ead75dbb3336329b737f5f55c2ab8b7182946a4decd2ed5d0a48cf72403f3f"
+  }
+}

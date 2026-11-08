@@ -7528,7 +7528,7 @@ function replayCompletion({
   const result = spawnSync(python, ['-c', `
 import contextlib, io, json, sys
 from scripts.runner_lib import core
-payload = json.load(sys.stdin)
+payload = json.loads(sys.argv[1])
 provider = payload['provider']
 reservation = dict(provider=provider, pr_number=3989, head_sha='sha-3989',
                    key=core._runner_key(3989, 'sha-3989', provider), status='pending',
@@ -7560,10 +7560,15 @@ with contextlib.redirect_stdout(io.StringIO()):
                '--completion-reason', payload['reason']])
 record = core.PrCommentRunnerStorage(api).read_record(3989, provider)
 print(json.dumps(dict(comments=api.comments, record=record)))
-`], {
-    input: JSON.stringify({ output, exitCode, provider, progressed,
-      reason: reason || classifyCompletion(output, exitCode) }), encoding: 'utf8',
+`, JSON.stringify({ output, exitCode, provider, progressed,
+    reason: reason || classifyCompletion(output, exitCode) })], {
+    // Node writes piped stdin through a socket; restricted runners can deny
+    // that send and leave Python waiting for EOF. Pass this small fixture as
+    // data in argv, with no shell or writable stdin involved.
+    stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8',
+    timeout: 15000, killSignal: 'SIGKILL',
   });
+  assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout);
 }

@@ -1404,3 +1404,61 @@ formatting pass or commit is claimed.
 
 The complete-trigger JSON contains **161 run rows** and **49 comments**; its
 SHA-256 is `e2f938c97c715b11aee66ec06d5af9fc09217ffb9b58fd95fec484a39f8a878a`.
+
+## Issue 4550: salvaged partial evidence (PR 4551)
+
+**Partial evidence only. Issue 4550 is not complete.** PR 4551 was reduced to
+the finished work. The full-suite acceptance and the final merged consumer
+payload receipt moved to follow-up issue 4557. The longer working narrative and
+the full-suite logs from that branch are kept at commit
+`b2949e496e18a5194d70cde14a01ca3781ca132e`. They are not part of this change.
+
+What landed:
+
+- `tests/scripts/test_issue_pr_context.py`: fallback-token estimates are now
+  deterministic (`tiktoken` is forced absent), with small-budget cases
+  (-1, 0, 1, 2) and a case that checks a partial heading against the tokenizer.
+- `keepalive-loop.test.js::replayCompletion` and
+  `verifier-correction-artifacts.test.js::zip`: the real Python fixtures now get
+  their small payloads through argv. stdin is ignored and each call has a 15s
+  SIGKILL bound. The payload assertions are unchanged.
+- `tests/scripts/test_llm_client_shared.py`: async modes run the real chain
+  under `asyncio.Runner`, with a heartbeat timer and a 10s `wait_for` bound.
+- `verifier-correction-coding.test.js`: Python stdin goes through a private
+  0600 file that is removed afterwards. Every interpreter call must have a
+  bound. Regressions cover quoted and Unicode text and budget overflow.
+- `maint71_merge_sync_prs.js::dispatchCandidateRefreshFromReport`: all report
+  subjects are checked before any native read or recovery dispatch. A failed
+  check emits `canary-refresh-subject-refusal` (blocking/drainable counts, at
+  most eight configured repositories, unknown repository text left out) and
+  keeps the `canary_refresh_report_subject_unknown` code. Coverage is in
+  `maint71-delivery-receipts.test.js`, together with the delivery-identity and
+  historical-finding regressions and the retained fixtures they read.
+
+Targeted passing logs (class: checks against test fixtures, not production use):
+`python-targeted.log` (196 passed), `python-truncation-named.log`,
+`python-async-named.log`, `python-context-coverage.log` (55 passed),
+`coding-stdin-targeted.log`, `historical-finding-gates.log`,
+`subject-refusal-maint71-delivery-receipts.log`,
+`subject-refusal-maint71_merge_sync_prs.log`, `scope-binding-tests.log`,
+`payload-path-binding-tests.log`, `supported-binding-tests.log`.
+
+Causal candidate receipts (class: read-only observation of production runs).
+Maint 68 `42485644055` dispatched Maint 71 `42485792262`, which opened consumer
+PR Portable-Alpha-Extension-Model#2486; the scoped retry is Maint 71
+`42485974523`. Both Maint 71 runs have `merged=0`, and consumer main
+`0543dc9732eab0ad12227308749566a937581eea` still holds the older payload bytes
+(`final_delivery_acceptance: false` in every observation). Receipts:
+`maint68-42485644055.*`, `maint71-42485792262*`, `maint71-42485974523*`,
+`native-candidate-commit.json`, `supported-live-observation.json`.
+
+Finite nonrecurrence observations (class: read-only observation): all 49
+issue-4369 comments were retained. No scoped recurrence was seen after
+2026-11-05T04:45:07Z, through the explicit boundaries 2026-11-08T13:38:40Z
+(`supported-live-observation.json`) and 2026-11-08 18:01:01 UTC
+(`coding-stdin-live-observation.json`). Discussion 4434491702 remains historical
+and excluded.
+
+Focused re-run on the reduced branch (local, 2026-11-08): six Node test files
+gave 614 passed, 0 failed in 8.4s. Four pytest files, run with `-n 4`, gave
+251 passed in 20.1s.

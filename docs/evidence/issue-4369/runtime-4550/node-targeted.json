@@ -1,0 +1,20 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-isolation=none",
+    "--test-reporter=spec",
+    "--test-name-pattern=^exit-zero quota classification yields to actual productivity",
+    ".github/scripts/__tests__/keepalive-loop.test.js"
+  ],
+  "revision": "db04a2ad4d12738143108beb20520a24c9d6adfb",
+  "uncommitted_changes": true,
+  "tested_patch_sha256": "c74f2c951d9aac0483c264888632467a2fe6f10c21085c9bd269836042980f8c",
+  "started_at_utc": "2026-11-08T11:09:12.279738+00:00",
+  "finished_at_utc": "2026-11-08T11:09:14.008268+00:00",
+  "wall_seconds": 1.729,
+  "exit_code": 0,
+  "timed_out": false,
+  "timeout_seconds": 60,
+  "log_sha256": "95c1feb33afab1603b3132d7e0c043ba9352adaf26c067d297c1882e41bea69e"
+}

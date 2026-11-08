@@ -117,10 +117,40 @@ def test_context_payload_omits_sections_that_do_not_fit_after_metadata() -> None
     assert context["estimated_tokens"] <= 1
 
 
-def test_truncation_helpers_handle_a_budget_smaller_than_the_heading() -> None:
-    assert (
-        issue_pr_context._truncate_section("## Heading", "body", 1, suffix="\n[truncated]") == "##"
+@pytest.mark.parametrize(
+    ("budget", "expected"),
+    [(-1, ""), (0, ""), (1, "## H"), (2, "## Headi")],
+)
+def test_truncation_helpers_handle_a_budget_smaller_than_the_heading(
+    monkeypatch, budget: int, expected: str
+) -> None:
+    # Without a tokenizer, the documented estimate allows four characters per token.
+    monkeypatch.setitem(sys.modules, "tiktoken", None)
+
+    result = issue_pr_context._truncate_section(
+        "## Heading", "body", budget, suffix="\n[truncated]"
     )
+
+    assert result == expected
+    assert estimate_tokens(result) <= max(0, budget)
+
+
+def test_truncation_helpers_respect_the_tokenizer_for_a_partial_heading(monkeypatch) -> None:
+    class CharacterEncoding:
+        def encode(self, text):
+            return list(text)
+
+    class CharacterTiktoken:
+        @staticmethod
+        def get_encoding(_name):
+            return CharacterEncoding()
+
+    monkeypatch.setitem(sys.modules, "tiktoken", CharacterTiktoken)
+
+    result = issue_pr_context._truncate_section("## Heading", "body", 1, suffix="\n[truncated]")
+
+    assert result == "#"
+    assert estimate_tokens(result) <= 1
 
 
 def test_loads_marker_rejects_non_object_json() -> None:

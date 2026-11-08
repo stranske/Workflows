@@ -1,0 +1,47 @@
+{
+  "revision": "45781009d0c43974648f004c6ac53f09120f6024",
+  "source_file": ".github/scripts/__tests__/verifier-correction-coding.test.js",
+  "source_sha256": "193baf1a3cdc6944b2ee90f7285d5bd6c4a04df11e531ad1a01f46bc61b3a62e",
+  "direct_validation": {
+    "command": [
+      "node",
+      "--test",
+      "--test-isolation=none",
+      ".github/scripts/__tests__/verifier-correction-coding.test.js"
+    ],
+    "timeout_seconds": 60,
+    "exit_code": 0,
+    "passed": 25,
+    "failed": 0,
+    "skipped": 0,
+    "duration_ms": 6300.642315,
+    "log": "coding-stdin-direct.log",
+    "log_sha256": "1ebe4e941028917cfdbfda76079c957f5e2c7f51846894eddef2c10df90e6cf3"
+  },
+  "required_ancestor": "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+  "ancestor_verified": true,
+  "publication": {
+    "git_add_exit_code": 128,
+    "git_add_error": ".git/index.lock: Read-only file system",
+    "commit_created": false,
+    "push_attempted": false,
+    "blocker_comment": "rejected",
+    "needs_human_label": "rejected",
+    "automatic_approval_review_reason": "MCP tool call requires approval, but approval policy is never",
+    "prepared_comment": "coding-stdin-blocker-comment.md"
+  },
+  "full_suite_acceptance": false,
+  "final_delivery_acceptance": false,
+  "receipt_files": {
+    "coding-stdin-direct.log": "1ebe4e941028917cfdbfda76079c957f5e2c7f51846894eddef2c10df90e6cf3",
+    "coding-stdin-live-observation.json": "b227ac80749ff191d7d23cd1533882247df3cca93428679b90c74917e32a8b65",
+    "coding-stdin-node-full.json": "3a0c868412d58252895d6b3af9d89b7096236603dd84d95ea24349e19646f8a5",
+    "coding-stdin-node-full.log": "0803897d6281f45f91ccbd4ed57b808ea53c995bdff996ee9a04c60d8b26bb6f",
+    "coding-stdin-python-full.json": "86d5f466c8b03f3f28ca3b1980af430ddb6bfeda959db1ce1beaba9730637a8b",
+    "coding-stdin-python-full.log": "f4b57f5055b8291bf3a4d5ebae1472acb70200475c9f48ac04df383b81b9667a",
+    "coding-stdin-red.json": "30a1a03fd31feedf1e31f6dbd66f05739fa91b6f95dc7ad5f78828ea9d0d0782",
+    "coding-stdin-red.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "coding-stdin-targeted.json": "1f08518d972a709ec56c0a5a51d5b059f063a682d8b80eb6faae95663c3bee14",
+    "coding-stdin-targeted.log": "061da3fc16a85208cb26ad8dc57e0107a501f97c4e22936924ddf92977892e6e"
+  }
+}

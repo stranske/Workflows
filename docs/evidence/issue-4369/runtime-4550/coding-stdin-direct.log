@@ -1,0 +1,33 @@
+✔ real no-incumbent offline scope fits complete text with typed required tests (183.883394ms)
+✔ real existing offline scope fits complete text with typed required tests (170.887688ms)
+✔ file-backed Python stdin preserves quoted Unicode coding scope and rejects budget overflow (338.316147ms)
+✔ complete empty native history returns null and legacy activation stays exact bytes without a budget (4.495559ms)
+✔ malformed context, unknown classification, expired archive and incomplete history cannot yield coding scope (18.015624ms)
+✔ native no-incumbent creation proof and exact issue node/body cannot be replaced by copied markers (10.301126ms)
+✔ final activation missing budget and overflow hold synchronously before any activation effect (178.910153ms)
+✔ historical native cross-reference preserves scope after closing text and current links are removed (6.980315ms)
+✔ incomplete, colliding or substituted historical native link evidence holds (20.528464ms)
+✔ an otherwise coherent authenticated request cannot outlive its original deadline (3.462826ms)
+✔ two actual authenticated scopes historically linked to the same PR remain ambiguous (14.816841ms)
+✔ .github/workflows/agents-72-codex-belt-worker.yml: actual Belt absent-overlay activation remains byte-identical legacy single-task prompt (1.333534ms)
+✔ templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml: actual Belt absent-overlay activation remains byte-identical legacy single-task prompt (0.587379ms)
+✔ actual fixed reviewed-source reader permits fresh inert no-incumbent admission (237.012951ms)
+✔ actual fixed reviewed-source reader permits fresh inert incumbent-native-assignment admission (233.289728ms)
+✔ reviewed qualification fixture preserves quoted Unicode evidence references (79.917942ms)
+✔ qualification revocation or reviewed empty production registry cannot inherit old admission (330.513434ms)
+✔ fresh native issue/source holds, write permission loss and ownership changes stop coding after prior admission (1709.911919ms)
+✔ existing owner requires exact latest native assignment and source PR lineage (1184.582852ms)
+✔ recheck binds immutable original issue and body to real retained ledger, not mutable sidecar identity (539.250063ms)
+✔ trusted variable parser freezes exact private request/repository policy without a capacity claim (1.855541ms)
+✔ complete authenticated history applies minimum original/alias ceiling and a missing alias never defaults (413.165175ms)
+✔ fresh final admission independently rejects raised sidecar cap or changed original history cap (173.668719ms)
+✔ coding policy observation records exact existing configuration and minimum ceiling without execution authority (233.583898ms)
+✔ authenticated existing issue with native null body carries empty original scope through actual final fitting (171.294959ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6300.642315
