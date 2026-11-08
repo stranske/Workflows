@@ -22,6 +22,112 @@ def read(name: str) -> dict:
     return json.loads((EVIDENCE / name).read_text(encoding="utf-8"))
 
 
+def acceptance_revision_receipts() -> dict:
+    return {
+        "selection": read("4558-revision-selection.json"),
+        "main": read("4558-main-observation.json"),
+        "pull": read("4558-fixture-pr.json"),
+        "ancestry": read("4558-ancestor-compare.json"),
+        "repair": read("4558-repair-compare.json"),
+        "node": read("4557-exact-main/node-full.json"),
+        "python": read("4557-exact-main/python-full.json"),
+    }
+
+
+def assert_acceptance_revision_binding(receipts: dict) -> None:
+    """Check retained revision evidence, without authorizing delivery or verification."""
+    selection, main, pull = (receipts[key] for key in ("selection", "main", "pull"))
+    selected, repaired = selection["selected_revision"], selection["repair_head"]
+    required = "b21fae85fe4f79e72c4133c29a3814b9d5950c3a"
+    assert re.fullmatch(r"[0-9a-f]{40}", selected)
+    assert selection["required_ancestor"] == required
+    assert main["name"] == "main"
+    assert main["commit"]["sha"] == selection["observed_main"] == selected
+    assert pull["number"] == 4551 and pull["merged"] is True
+    assert pull["merge_commit_sha"] == selected
+    assert pull["head"]["sha"] == repaired
+    assert pull["base"]["ref"] == "main"
+    assert pull["base"]["repo"]["full_name"] == "stranske/Workflows"
+
+    for key, ancestor in (("ancestry", required), ("repair", repaired)):
+        comparison = receipts[key]
+        assert urlparse(comparison["url"]).path == (
+            f"/repos/stranske/Workflows/compare/{ancestor}...{selected}"
+        )
+        assert comparison["base_commit"]["sha"] == ancestor
+        assert comparison["merge_base_commit"]["sha"] == ancestor
+        assert comparison["status"] == "ahead" and comparison["behind_by"] == 0
+        assert comparison["commits"][-1]["sha"] == selected
+
+    # Native tree equality binds every salvaged fix, rather than trusting only
+    # the independently authored per-file equality claims in the selection JSON.
+    repair = receipts["repair"]
+    tree = main["commit"]["commit"]["tree"]["sha"]
+    assert re.fullmatch(r"[0-9a-f]{40}", tree)
+    assert repair["base_commit"]["commit"]["tree"]["sha"] == tree
+    assert repair["commits"][-1]["commit"]["tree"]["sha"] == tree
+    assert repair["files"] == []
+    for key, command in (
+        ("node", "node --test .github/scripts/__tests__/*.test.js"),
+        ("python", "python3 -m pytest -q tests/"),
+    ):
+        suite = receipts[key]
+        # The executor's workflow SHA is deliberately different from its checkout.
+        assert suite["checkout_sha"] == selected
+        assert suite["command"] == command
+        assert suite["exit_code"] == 0 and suite["timed_out"] is False
+
+
+def test_published_acceptance_revision_contains_required_ancestor_and_salvaged_fixes() -> None:
+    assert_acceptance_revision_binding(acceptance_revision_receipts())
+
+
+@pytest.mark.parametrize(
+    ("path", "replacement"),
+    [
+        (("selection", "selected_revision"), "main"),
+        (("selection", "required_ancestor"), "0" * 40),
+        (("main", "name"), "codex/issue-4550"),
+        (("main", "commit", "sha"), "0" * 40),
+        (("pull", "merged"), False),
+        (("pull", "number"), 4558),
+        (("pull", "merge_commit_sha"), "0" * 40),
+        (("pull", "head", "sha"), "0" * 40),
+        (("pull", "base", "ref"), "other"),
+        (("pull", "base", "repo", "full_name"), "another/Workflows"),
+        (("ancestry", "merge_base_commit", "sha"), "0" * 40),
+        (("ancestry", "commits", -1, "sha"), "0" * 40),
+        (("repair", "behind_by"), 1),
+        (("repair", "base_commit", "commit", "tree", "sha"), "0" * 40),
+        (("repair", "commits", -1, "commit", "tree", "sha"), "0" * 40),
+        (("repair", "files"), [{"filename": "tests/scripts/test_issue_pr_context.py"}]),
+        (("node", "checkout_sha"), "0" * 40),
+        (("python", "checkout_sha"), "0" * 40),
+        (("python", "command"), "python3 -m pytest -q tests/ -k claude_config_dir"),
+        (("node", "exit_code"), 1),
+        (("python", "timed_out"), True),
+    ],
+    ids=lambda value: ".".join(map(str, value)) if isinstance(value, tuple) else None,
+)
+def test_acceptance_revision_rejects_substituted_or_partial_evidence(
+    path: tuple, replacement: object
+) -> None:
+    receipts = acceptance_revision_receipts()
+    target = receipts
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = replacement
+    with pytest.raises(AssertionError):
+        assert_acceptance_revision_binding(receipts)
+
+
+@pytest.mark.parametrize("suite", ["node", "python"])
+def test_exact_revision_suite_log_matches_its_retained_receipt(suite: str) -> None:
+    receipt = read(f"4557-exact-main/{suite}-full.json")
+    log = (EVIDENCE / f"4557-exact-main/{suite}-full.log").read_bytes()
+    assert hashlib.sha256(log).hexdigest() == receipt["log_sha256"]
+
+
 def protocol(body: str, marker: str) -> dict:
     (value,) = re.findall(rf"<!-- {re.escape(marker)} (.+?) -->", body)
     return json.loads(value)

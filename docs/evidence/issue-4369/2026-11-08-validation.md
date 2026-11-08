@@ -2056,3 +2056,89 @@ repair. No full suite was run locally, no dependency pin changed, and no
 Maint 68/71 workflow was dispatched. Existing upstream verification and producer
 origin gaps remain unresolved. Publication in this round supersedes the earlier
 round's historical inability to stage; that historical receipt remains intact.
+
+## Keepalive round 4: retained revision evidence tests — 2026-11-08
+
+Pre-code check: **2026-11-08T23:22:29Z**. This bounded change adds executable
+tests for the first unchecked task's existing published-main, ancestry and
+salvaged-fix receipts. The upstream verification disposition remains non-PASS.
+This change does not restart the expired 21:46:00Z acceptance campaign or retry
+its full suites, provider assessment or delivery dispatches.
+
+Baseline: `python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py
+-m 'not slow'` exits 0, **26 passed**. Planned validation is that same focused
+command with a 120-second external bound, relevant-file Black formatting at
+line length 100, and `black --check --line-length 100 --exclude
+'(\.workflows-lib|node_modules)' .` with a 180-second bound. Stop this scoped
+test change at its first unresolved step after three failed attempts or
+60 minutes, whichever occurs first; this does not reset the earlier stop rule.
+
+The focused module now exits **0**, **50 passed in 1.02s**, adding 24 cases.
+The native main/PR/compare receipts bind the required ancestor and salvaged
+PR 4551 head to `0a06f1976db1dd7eb12853f493a3371ee4736bcf`. Whole-tree equality
+checks the repaired and selected Git trees, independently of the authored
+per-file equality claims. Substitution cases reject an unmerged PR, another
+repository or base, changed ancestry or trees, another suite checkout, a filtered
+suite command, a failing exit, or a timeout. Both complete retained suite logs
+also match their recorded SHA-256 digests. These are offline evidence tests;
+they do not claim a new hosted full-suite run or a passing provider assessment.
+The [fresh local ancestry checks](runtime-4550/4558-round4-ancestry.json)
+independently exit 0 for the required ancestor, salvaged head and reachability
+from `origin/main`.
+
+A fresh read finds PR 4551 merged at that selected revision and current main at
+`34e923fe7c4dd99d24de003464f9b1adfe20bb6d`, whose parent is the selected revision.
+Issue 4550 is closed. The existing verifier run 42522535899 remains completed
+with Actions conclusion `success`; the retained assessment is still OpenAI
+`UNVERIFIABLE_INPUT` and Anthropic `CONCERNS`. No new provider assessment was
+requested, and the separate upstream verification task remains unresolved.
+
+Checklist correction, superseding the round-2/3 interpretation of T1: the first
+task requires delivery through review, merge and verification gates **if the
+salvaged fixes are not on main**. They are already on main. Its ancestry and
+fix-inclusion requirements are verified independently of the separate request
+to clear the upstream verification disposition. This distinction does not
+authorize another merge or change the retained non-PASS assessment.
+
+- [x] **T1:** inspect issue 4550, PR 4551 and main; identify an immutable published
+  main descendant containing the required ancestor and salvaged fixes; retain
+  ancestry and fix-inclusion evidence. Selected revision:
+  `0a06f1976db1dd7eb12853f493a3371ee4736bcf`.
+- [ ] Clear the existing upstream verification disposition.
+- [ ] Authenticate and observe the qualifying next automation-started
+  Maint 68 → Maint 71 causal chain.
+
+The [new native-field inventory](runtime-4550/4558-round4-origin-inventory.json)
+covers **2026-11-08T22:10:00Z–23:20:00Z**, returning **242** runs on pages of
+100, 100 and 42, with stable counts and unique IDs. It contains **zero** Maint 68
+producer runs and **zero** Maint 71 merge-sync runs. The unchanged collector CLI
+exits 0 against this inventory; its [result](runtime-4550/4558-round4-origin-observation.json)
+keeps `chain_acceptance=false`. Seven scheduled Maint 82 runs are present, but
+their timing does not authenticate any producer dispatch. This readback leaves
+the qualifying next causal chain unobserved. No Maint 68/71/82 dispatch occurred.
+
+Formatting and lint: relevant-file Black and Ruff exit 0. The default whole-repo
+Black check exits 1 at the sandbox's multiprocessing forkserver permission
+boundary. Its single-worker retry exits 124 at the 180-second bound. The third
+attempt uses the previously documented temporary 50ms loop callback, outside
+the repository, with the same full file selection and formatting/safe checks:
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4558-round4-black-runtime timeout -k 2s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+It exits **0**, **977 files would be left unchanged**; the
+[complete Black output](runtime-4550/4558-round4-black.log) is retained.
+`git diff --check` also exits 0. Commands, results and current PR state are
+summarized in the [round-4 receipt](runtime-4550/4558-round4-readback.json).
+
+Publication remains blocked. Explicit-path `git add` exits **128** because
+`.git/index.lock` cannot be created on the read-only filesystem. A connected
+GitHub writer fallback was attempted for the already-tested Python source;
+automatic approval review rejected that source-blob write with **"MCP tool call
+requires approval, but approval policy is never"**. No remote blob, commit,
+branch update, comment, label or PR-body edit succeeded in this round. T1 is
+verified in the local checklist above; its remote checkbox has not been edited.
+An authorized repository writer must publish the scoped test and receipt changes.
+At **2026-11-08T23:30:04Z**, PR 4558 remains open and ready (`draft=false`) at
+`dc692bda768960d2ae8693586799a72bcdf336bf`. Overall acceptance remains incomplete.
