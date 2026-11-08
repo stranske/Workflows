@@ -788,3 +788,70 @@ After the patch and report were concrete, posting the blocker comment and adding
 both with `MCP tool call requires approval, but approval policy is never`.
 Neither mutation succeeded. No remote checkbox, label, comment, or readiness
 change is claimed.
+
+## Continuation at e8b6341a: executable prerequisite and source-gate blockers
+
+Reviewed the five most recent commits and read the live PR 4539 body before
+editing. All nine implementation tasks and four source regression criteria are
+already checked there. No additional completed checkbox was missing; the two
+remaining acceptance criteria still lack complete evidence.
+
+Added `test_claude_config_dir_credentials_do_not_replace_missing_cli` to the
+existing source/template test module. Configured-directory credentials alone
+must not make Claude available when CLI discovery fails. Both `available()` and
+`invoke()` reject that state; the shared fixture fails any actual subprocess
+invocation. This preserves the executable prerequisite while testing the
+credential-directory fix. No production or protected files changed.
+
+Observed on 2026-11-08:
+
+| Command/state | Exit | Observed result |
+| --- | --- | --- |
+| Incoming `python3 -m pytest -q tests/test_subscription_llm.py -m 'not slow'` | 0 | `42 passed in 0.86s` |
+| Final `python3 -m pytest -q tests/test_subscription_llm.py -m 'not slow'` | 0 | `44 passed in 0.89s` |
+| Final `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | `44 passed, 50444 deselected in 11.06s` |
+| Incoming `timeout -k 5s 180s node --test .github/scripts/__tests__/*.test.js` | 124 | 140 tests: 114 passed, 6 failed, 20 cancelled; 179,959.592236 ms |
+| Incoming `timeout -k 5s 180s python3 -m pytest -q tests/` | 124 | Timed out near 2%; no completion summary |
+| `node --test .github/scripts/__tests__/maint68-scoped-receipt.test.js` | 1 | `spawnSync python3 EPERM`; 0 passed, 1 failed |
+
+The isolated Node failure independently reproduces a subprocess permission
+blocker. Other full-suite failures are not claimed fixed. Black formatted the
+changed test file, Ruff passed, `git diff --check` passed, and the production
+source/template files still match byte-for-byte.
+
+Hosted [Gate 42445603184](https://github.com/stranske/Workflows/actions/runs/42445603184)
+belongs to incoming head `e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd`.
+Decoded [Node job 128624035814](https://github.com/stranske/Workflows/actions/runs/42445603184/job/128624035814)
+reports 3,655 passed, 0 failed, 1 skipped in 20,650.347468 ms. Python jobs
+128624088212 and 128624088393 were still in progress when inspected. These
+hosted observations predate this continuation and do not establish both required
+source-gate passes for its final source.
+
+Source PR 4539 was read open, unmerged, and ready (`draft=false`) at the incoming
+head. Consumer PR 2454 was read open and ready at
+`9c85282d05359ddc468d0881ec6b09269ac592a2`; the original thread
+`PRRT_kwDOO15QxM6yXhfS` remains outdated and unresolved. No Maint 68/Maint 71
+delivery of this unmerged continuation or sync-core observation window is
+established. Both remaining acceptance criteria stay pending.
+
+Black formatted the changed test file at line length 100. The unmodified
+one-worker repository check timed out after 45 seconds (exit 124). The previously
+documented temporary event-loop heartbeat then allowed the full check to pass
+(exit 0), without changing formatting rules or file selection:
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+All done! ✨ 🍰 ✨
+968 files would be left unchanged.
+```
+
+Staging the two intended files failed with exit 128 because `.git/index.lock`
+is on a read-only filesystem. No commit or push succeeded. An environment with
+writable git metadata must capture this test/report change and obtain complete
+source-gate evidence. The PR body already records all verified completions, so
+no additional checkbox can honestly be checked in this continuation.
+
+After the patch and evidence were concrete, posting the blocker comment and
+adding `needs-human` to PR 4539 were attempted sequentially. Automatic approval
+review rejected both with `MCP tool call requires approval, but approval policy
+is never`. Neither remote mutation succeeded. No new draft PR was created.

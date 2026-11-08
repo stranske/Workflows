@@ -55,6 +55,21 @@ def test_claude_config_dir_available_with_credentials(
     assert (claude_client.available() is True,) == (True,)
 
 
+def test_claude_config_dir_credentials_do_not_replace_missing_cli(
+    claude_client, monkeypatch, tmp_path
+):
+    config = tmp_path / "custom-claude"
+    config.mkdir()
+    (config / ".credentials.json").touch()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
+    transport = sys.modules[type(claude_client).__module__]
+    monkeypatch.setattr(transport.shutil, "which", lambda _: None)
+
+    assert claude_client.available() is False
+    with pytest.raises(RuntimeError, match="claude subscription CLI/auth unavailable"):
+        claude_client.invoke("fixture prompt")
+
+
 def test_claude_config_dir_changes_are_observed_by_existing_client(
     claude_client, monkeypatch, tmp_path
 ):
