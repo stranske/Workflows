@@ -46,7 +46,8 @@ its real source dependencies. No generated sync branch was modified.
   the named test passes. Retained outputs: [deliberate-break.txt](deliberate-break.txt)
   and [restored-pass.txt](restored-pass.txt).
 - [x] Run six focused pytest admission/capacity tests: **6 passed**, 246 deselected.
-- [x] Run the existing real-source Node regression:
+- [x] Run Orchestrator's existing real-source Node regression (the file lives in
+  Orchestrator, not Workflows):
   `node --test --test-isolation=none --test-reporter=tap tests/test_closer_pipeline_capacity_clock.js`:
   **6 passed**, including all three wall-clock negative controls and restored passes.
 
@@ -65,12 +66,42 @@ The exact named job
 completed successfully. Its log reports **15042 passed, 0 failed**, 15075 collected,
 141 combined instrumented processes, and 87.8% combined coverage.
 
-The requested `gh run view` invocation cannot connect to `api.github.com` in
-this sandbox; the connector supplies the independent readback above. The old
-Evidence run remains a historical failure and is not the regenerated result.
+A later round confirmed this with the requested command:
+`gh run view 42518195788 -R stranske/Orchestrator` reports conclusion `success`
+on head `c0c5cb6aa8bf79aa855a54258c0ed423011cebeb`, and both
+`verify.py aggregate + combined coverage` and
+`verify.py aggregate in the flat exec-mirror shape` report `success`.
+Orchestrator #1247 then merged at 2026-11-08T20:49:16Z. The old Evidence run
+remains a historical failure and is not the regenerated result.
+
+## Re-verification on Orchestrator main `fd139a1` (post-merge)
+
+A fresh shallow clone of Orchestrator main
+`fd139a1ab922252111b7e4376df1b3a3569637ae` in `/tmp` (not a Workflows file,
+and not the sync branch):
+
+- [x] `python -m pytest tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers`:
+  **1 passed**.
+- [x] Deliberate break: line 1070 of the `run()` test helper was changed to
+  ignore the injected `now` and build the deadline from `time.time`. This is
+  the original behavior. The named test fails with `KeyError: 'a'` at
+  `row = receipt["targets"]["a"]`. After `git checkout` restored the file
+  (clean `git status`), the test passes again. Output is in
+  [rerun-main-fd139a1.txt](rerun-main-fd139a1.txt).
+- [x] `python -m pytest tests/test_closer_pipeline.py -m 'not slow'`: **252 passed**.
+- [x] `node --test --test-isolation=none tests/test_closer_pipeline_capacity_clock.js`:
+  **6 passed, 0 failed**.
+
+Orchestrator's full aggregate suite was not run locally. The regenerated sync
+PR's CI aggregate job (15042 passed, 0 failed) is the full-suite evidence.
+
+## Still open (human/sync-core owned)
 
 - [ ] Establish full local repository-suite success.
 - [ ] Observe a subsequent sync-core round explicitly clearing this finding.
+  #1247 has merged, so the finding can no longer reappear on that head. A
+  sync-core comment confirming the clearance was not observed when this was
+  written.
 
 The bounded local command
 `timeout 300 python -m pytest tests/ -m 'not slow' -q -x` exited **124** after
