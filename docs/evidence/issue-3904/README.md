@@ -637,3 +637,80 @@ Python 3.13 passed both scoped arms with zero lost verifier lines/branches.
 Python 3.12 terminal receipts, complete phase evidence and final current-head Gate
 conclusions remain UNKNOWN after REST rate limiting. The evidence task remains
 unchecked; resume the original run after **19:15:34 UTC**, without redispatch.
+
+## Closer remainder: original receipts and measured phases (2026-11-07)
+
+The original [run 42401537967](https://github.com/stranske/Workflows/actions/runs/42401537967)
+completed successfully on both Python 3.12.16 and 3.13.18. The earlier UNKNOWN
+3.12 status above records the rate-limited handoff, not the terminal outcome.
+The actual [3.12 archive](hosted-42401537967/verifier-runtime-3.12.zip), manifest,
+result, terminal run/artifact API responses and [independent reconciliation](hosted-42401537967/verified-3.12-summary.json)
+now accompany the existing 3.13 receipts. The archive digest matches GitHub:
+`a233e756308c0305182671a169abefb090464eb7ba50192e57e69336f1484e2e`.
+Both arms cover 2,144 verifier lines and 759 arcs with zero loss. Every scoped
+JUnit case passed; source manifests were rehashed against immutable Git objects
+and required uploaded coverage/JUnit/console hashes were verified. Four inherited
+source-tree log hash entries were not uploaded and remain UNKNOWN. The original
+run did not measure per-arm collection or reporting boundaries.
+
+The separate new manual measurement uses the same reviewed immutable source
+pair, common lock, four workers and coverage settings. An identical external
+`verifier_phase_probe` plugin records raw `time.monotonic` boundaries in
+`phase-clocks/{controller,gw0,gw1,gw2,gw3}.json` for each arm. Intervals cover
+session hooks, collection hooks, the controller/worker execution-loop hooks and
+final reporting hooks. `reporting` is the directly measured
+`pytest_sessionfinish` hook interval, enclosing JUnit and terminal reporting.
+`coverage_reporting` directly measures the controller pytest-cov `summary` call
+inside the execution loop. Per-test report handling and coverage finalization
+remain inside that loop, without invented separate intervals. Controller
+collection is its own hook invocation; actual xdist collection occurs separately
+in each worker. The controller loop overlaps worker collection and execution.
+Sessions include reporting; all four workers overlap each other. These intervals
+must never be added across processes or subtracted to invent exclusive overhead.
+Startup and teardown outside these hooks and exclusive overhead remain UNKNOWN.
+Missing, malformed, non-finite, boolean, negative or reversed boundaries produce
+null intervals and explicit UNKNOWN gaps. Phase availability is reported
+separately from the existing outcome and JUnit timing refusal checks.
+
+The new [run 42421935858](https://github.com/stranske/Workflows/actions/runs/42421935858)
+uses harness/workflow commit `43fc63febb0522b610a78f9dcac3e3c610937727`.
+Its [Python 3.12/3.13 raw archives and independently validated receipts](hosted-42421935858/)
+are retained separately from the original run. Both jobs succeeded; both arms on
+each runtime passed every scoped JUnit case and covered 2,144 verifier lines and
+759 arcs with zero loss. The four inherited, unuploaded historical log entries
+remain UNKNOWN; all required uploaded hashes reconcile. The earlier trial 42421695302 was canceled
+before accepting measurements because source inspection found coverage reporting
+inside the execution loop; the corrected trial measures that call directly.
+
+Observed hook durations in seconds (one pair; overlapping columns are **not additive**):
+
+| Python | Arm | Worker collection range | Controller loop | Coverage report | Final report |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 3.12.16 | baseline | 16.771–16.997 | 1247.224 | 29.216 | 3.905 |
+| 3.12.16 | candidate | 16.296–16.481 | 1210.337 | 29.124 | 3.396 |
+| 3.13.18 | baseline | 10.998–11.273 | 365.255 | 24.529 | 3.190 |
+| 3.13.18 | candidate | 11.096–11.581 | 350.204 | 24.653 | 3.188 |
+
+The controller collection hook itself is near-zero; actual test collection occurs
+in each worker. Raw boundaries, session intervals and worker loop/report intervals
+are retained in the archives, result JSON and independent summaries. The validator
+also rehashes the embedded probe against the exact hosted harness commit.
+No causal speedup claim follows from one pair per interpreter; OS page cache
+and host load/CPU placement remain uncontrolled; arm order is recorded. Unmeasured exclusive overhead
+remains UNKNOWN.
+
+Reproduce independent validation from the repository root:
+
+```bash
+/opt/anaconda3/bin/python3 docs/evidence/issue-3904/validate_hosted_receipts.py docs/evidence/issue-3904/hosted-42401537967/verifier-runtime-3.12.zip docs/evidence/issue-3904/hosted-42401537967/artifacts-readback-2026-11-07.json
+```
+
+Reproduce new-run reconciliation (replace `3.12` with `3.13` for the other runtime):
+
+```bash
+/opt/anaconda3/bin/python3 docs/evidence/issue-3904/validate_hosted_receipts.py docs/evidence/issue-3904/hosted-42421935858/verifier-runtime-3.12.zip docs/evidence/issue-3904/hosted-42421935858/artifacts-terminal-readback.json
+```
+
+See [the acceptance record](closer-r2-acceptance.md) for the stop rule, retained
+prior-branch work and validation results. PR #4527's source, dependency, outcome,
+coverage and timing refusal checks remain in force. No dependency pins changed.

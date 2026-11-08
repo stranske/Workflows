@@ -289,7 +289,7 @@ test('reopening the historical finding cannot reuse its old worker disposition f
 });
 
 for (const run of [42485792262, 42485974523]) {
-  test(`Maint 71 ${run}: retained missing-canary reports reproduce the refresh blocker`, async () => {
+  test(`Maint 71 ${run}: retained missing-canary reports reach the full refresh guard`, async () => {
     const report = read(`maint71-${run}-sync-pr-merge-report.json`);
     const before = structuredClone(report);
     const missing = report.results.filter(row =>
@@ -300,28 +300,20 @@ for (const run of [42485792262, 42485974523]) {
     const core = { notice: value => notices.push(value), summary: {
       addRaw(value) { summaries.push(value); return this; }, async write() {},
     } };
-    const diagnostic = {
-      schema: 'workflows.canary-refresh-subject-refusal/v1',
-      code: 'canary_refresh_report_subject_unknown',
-      blocking: 2, drainable: 0, next_action: 'owner-recovery-required',
-      subjects: missing.map(row => ({ repository: `${row.owner}/${row.repo}`,
-        reasons: ['pr_missing_or_invalid', 'head_missing_or_invalid'] })),
-      omitted_subjects: 0,
-    };
-
-    // Exercise the production helper, not a reconstruction of its decision.
-    // An absent native subject cannot authorize a read, dispatch or merge.
-    await assert.rejects(replay(report, async () => {
-      assert.fail('missing canary subjects must be rejected before API execution');
-    }, core), error => {
-      assert.equal(error.message, diagnostic.code);
-      assert.deepEqual(error.diagnostic, diagnostic);
-      return true;
-    });
-    assert.deepEqual(notices, [`canary-refresh-subject-refusal: ${JSON.stringify(diagnostic)}`]);
-    assert.equal(summaries.length, 1);
-    assert.ok(summaries[0].includes(JSON.stringify(diagnostic)));
-    assert.deepEqual(report, before, 'a rejected refresh must preserve the delivery receipt');
+    // Main now recovers this exact missing-candidate shape through the full
+    // refresh guard. An unavailable guard must still prevent dispatch.
+    const calls = [], unavailable = new Error('refresh guard unavailable');
+    const client = { rest: { repos: { getCommit: async request => {
+      calls.push(request);
+      throw unavailable;
+    } } } };
+    await assert.rejects(replay(report, async operation => operation(client), core),
+      error => error === unavailable);
+    assert.deepEqual(calls, [{ owner: 'stranske', repo: 'Workflows', ref: 'main' }]);
+    assert.deepEqual(notices, [`candidate refresh: no candidate PR for ${missing
+      .map(row => `${row.owner}/${row.repo}`).join(', ')}; requesting a full canary run`]);
+    assert.deepEqual(summaries, []);
+    assert.deepEqual(report, before, 'a held refresh must preserve the delivery receipt');
   });
 
   test(`Maint 71 ${run}: the selected sealed consumer cannot authorize a refresh`, async () => {
@@ -390,12 +382,13 @@ test('report subject refusal bounds diagnostics and excludes unconfigured raw co
   assert.deepEqual(report, before);
 });
 
-test('all report subjects are checked before reading a valid earlier candidate', async () => {
+test('invalid report subjects are checked before reading a valid candidate or recovering missing candidates', async () => {
   const fixture = refreshSubject();
   const missing = read('maint71-42485974523-sync-pr-merge-report.json').results[0];
   fixture.report.results.push(missing);
+  fixture.report.results.push({ ...missing, pr: -1 });
   await assert.rejects(replay(fixture.report, async () => {
-    assert.fail('preflight must find the absent subject before reading the first valid PR');
+    assert.fail('preflight must find the invalid subject before any native read or dispatch');
   }), error => {
     assert.equal(error.message, 'canary_refresh_report_subject_unknown');
     assert.equal(error.diagnostic.blocking, 1);

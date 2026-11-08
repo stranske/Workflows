@@ -682,6 +682,34 @@ function refreshCanary(overrides = {}) {
     ...overrides };
 }
 
+test('a canary with no candidate PR requests a full canary run instead of failing the lane', async () => {
+  // 2026-11-08 13:36Z: a single-consumer source-delta plan opened a candidate only in one canary; the
+  // other canaries' rows carried no PR, and the refresh request threw canary_refresh_report_subject_unknown.
+  const { dispatchCandidateRefreshFromReport } = require('../maint71_merge_sync_prs');
+  const api = refreshHarness();
+  const missing = (repo) => ({ owner: 'stranske', repo, branch: 'sync/workflows-candidate',
+    status: 'stable_base_refresh_required', next_command: 'dispatch-maint-68-phase-canary-no-filter',
+    reason: 'candidate_pr_and_no_change_evidence_missing' });
+  const call = (report) => dispatchCandidateRefreshFromReport({ report, withRetry: api.withRetry,
+    context: api.context, core: api.core, expectedCanaries: api.expectedCanaries, trustedActors: ['stranske'] });
+  const report = { inputs: { sync_hash: 'candidate', cleanup_branches: true },
+    results: [missing('Ready'), missing('Template')] };
+  const result = await call(report);
+  assert.equal(result.missing_candidates, 2);
+  assert.equal(api.dispatches.length, 1);
+  const { inputs } = api.dispatches[0];
+  assert.equal(inputs.phase, 'canary');
+  assert.equal(inputs.delivery_scope, 'full');
+  assert.deepEqual(inputs.repos.split(',').sort(), ['stranske/Ready', 'stranske/Template']);
+  assert.equal(report.canary_refresh.drainable, 2);
+  assert.ok(api.notices.some(n => n.includes('no candidate PR for stranske/Ready, stranske/Template')));
+  // Any other row without a native subject still fails closed.
+  const foreign = { ...report, results: [{ ...missing('Ready'), owner: 'someone' }] };
+  await assert.rejects(call(foreign), /canary_refresh_report_subject_unknown/);
+  const otherReason = { ...report, results: [{ ...missing('Ready'), reason: 'something_else' }] };
+  await assert.rejects(call(otherReason), /canary_refresh_report_subject_unknown/);
+});
+
 function refreshHarness(overrides = {}) {
   const dispatches = [], comments = [], summaries = [], failures = [], reads = [], notices = [];
   const manifestEntries = require('../sync_pr_merge_contract').parseManifestSyncedSourceEntries(`
@@ -2829,6 +2857,57 @@ test('a consumer-failed canary refresh still debounces for six hours', () => {
   assert.equal(decide([atBoundary]).eligible, true);
   const insideWindow = { ...consumer, created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS + 1).toISOString() };
   assert.equal(decide([insideWindow]).eligible, false);
+});
+
+test('a cancelled refresh that never started a Sync job does not debounce the next attempt', () => {
+  // 2026-11-07 01:39Z: the stable writer queue replaced a Maint 68 refresh before it ran; the guard
+  // then printed "refresh: skipped (cancelled)" and the canaries needed force=true to move.
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const replaced = producerRun({ id: 31, conclusion: 'cancelled', jobs: [
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'cancelled' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+  ] });
+  const state = decide([replaced]);
+  assert.equal(state.eligible, true);
+  assert.equal(state.state, 'unseen');
+  const diagnostic = canaryRefreshDiagnostics(state);
+  assert.equal(diagnostic.inventory.cancelled_before_sync, 1);
+  assert.deepEqual(diagnostic.failure_classification, [{ classification: 'not_started', run_id: 31 }]);
+  assert.equal(decide([{ ...producerRun({ id: 32, conclusion: 'cancelled' }), refresh_not_started: true }]).eligible, true,
+    'a run with a not-started receipt is not an attempt either');
+  const startedThenCancelled = producerRun({ id: 33, conclusion: 'cancelled', jobs: [
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+    { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'cancelled', runner_id: 7 },
+  ] });
+  assert.equal(decide([startedThenCancelled]).eligible, false, 'a Sync job that ran keeps the six-hour hold');
+  const unreadable = producerRun({ id: 34, conclusion: 'cancelled' });
+  assert.equal(decide([unreadable]).eligible, false, 'without job evidence a cancelled run still holds');
+  const receiptOnly = decide([{ ...producerRun({ id: 35, conclusion: 'cancelled' }), refresh_not_started: true }]);
+  assert.equal(canaryRefreshDiagnostics(receiptOnly).inventory.cancelled_before_sync, 1,
+    'a receipt-backed cancelled run is counted even without job evidence');
+});
+
+test('the guard reads cancelled-run jobs through listJobsForWorkflowRunAttempt', async () => {
+  const cancelled = producerRun({ id: 36, conclusion: 'cancelled', run_attempt: 3 });
+  const calls = [];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [cancelled] } }),
+    listJobsForWorkflowRunAttempt: async params => {
+      calls.push(params);
+      return { data: { total_count: 2, jobs: [
+        { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'cancelled' },
+        { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+      ] } };
+    },
+  } });
+  const state = await readCanaryRefreshState(api);
+  // Asserted outside the mock: the attachment step swallows API errors.
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].run_id, cancelled.id);
+  assert.equal(calls[0].attempt_number, 3);
+  assert.equal(state.eligible, true);
+  assert.equal(canaryRefreshDiagnostics(state).inventory.cancelled_before_sync, 1);
 });
 
 test('a second consecutive infrastructure failure debounces for the same plan, source and candidates', () => {

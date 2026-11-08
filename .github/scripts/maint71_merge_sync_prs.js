@@ -239,9 +239,14 @@ function syncJobStarted(job) {
 // starts is infrastructure (rate limit, runner, or transport). A Sync job that
 // actually ran is a consumer failure and keeps the six-hour debounce.
 function canaryRefreshFailureClass(run) {
-  if (!run || run.status !== 'completed' || run.conclusion !== 'failure') return null;
+  if (!run || run.status !== 'completed' || !['failure', 'cancelled'].includes(run.conclusion)) return null;
   const jobs = Array.isArray(run.refresh_jobs) ? run.refresh_jobs : Array.isArray(run.jobs) ? run.jobs : null;
   if (!jobs) return null;
+  // A cancelled run that never started a Sync job attempted nothing: the stable
+  // writer queue replaced it, or it was stopped before the matrix. Holding the
+  // next refresh for it latched the canaries for six hours (2026-11-07 01:39Z,
+  // "refresh: skipped (cancelled)" while confirmed_not_started was 2).
+  if (run.conclusion === 'cancelled') return jobs.some(syncJobStarted) ? 'consumer' : 'not_started';
   const prepareFailed = jobs.some(job => job?.name === 'Prepare sync from manifest' && job.conclusion === 'failure'
     && job.status !== 'queued' && job.status !== 'in_progress' && job.status !== 'waiting');
   const syncStarted = jobs.some(syncJobStarted);
@@ -253,8 +258,11 @@ function canaryRefreshFailureClass(run) {
 function canaryRefreshFailureRows(runs) {
   const rows = [];
   for (const run of runs) {
-    const classification = canaryRefreshFailureClass(run);
-    if (classification !== 'infrastructure' && classification !== 'consumer') continue;
+    // Job evidence may be unreadable while a receipt already proves the run never started.
+    const classification = canaryRefreshFailureClass(run)
+      || (run?.status === 'completed' && run.conclusion === 'cancelled' && run.refresh_not_started
+        ? 'not_started' : null);
+    if (!['infrastructure', 'consumer', 'not_started'].includes(classification)) continue;
     const row = { classification };
     if (Number.isSafeInteger(run.id) && run.id > 0) row.run_id = run.id;
     const attempt = Number(run.run_attempt);
@@ -276,7 +284,8 @@ function canaryRefreshDiagnostics(state) {
       unknown: unknown.length, potential_overwrites: runs.filter(run => run.refresh_potential_overwrite).length,
       confirmed_not_started: runs.filter(run => run.refresh_not_started).length,
       infrastructure_failures: failureClassification.filter(row => row.classification === 'infrastructure').length,
-      consumer_failures: failureClassification.filter(row => row.classification === 'consumer').length },
+      consumer_failures: failureClassification.filter(row => row.classification === 'consumer').length,
+      cancelled_before_sync: failureClassification.filter(row => row.classification === 'not_started').length },
     failure_classification: failureClassification.slice(0, 8),
     omitted_failure_classifications: Math.max(0, failureClassification.length - 8),
     blocking_receipt: unknown.find(run => run.id === state.run_id)?.refresh_receipt || null,
@@ -290,7 +299,7 @@ async function reportCanaryRefreshDiagnostics({ core, state }) {
   const diagnostic = canaryRefreshDiagnostics(state);
   const scoped = state.refresh_plan?.plan_scope === 'source-delta';
   const classified = diagnostic.inventory.infrastructure_failures > 0
-    || diagnostic.inventory.consumer_failures > 0;
+    || diagnostic.inventory.consumer_failures > 0 || diagnostic.inventory.cancelled_before_sync > 0;
   if (!scoped && !classified) return;
   const encoded = JSON.stringify(diagnostic);
   core.notice(`canary-refresh-diagnostics: ${encoded}`);
@@ -348,6 +357,7 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const recentCandidates = matching.filter((run) => {
     const at = observedAt(run);
     return run.status === 'completed' && run.conclusion !== 'success'
+      && !run.refresh_not_started && canaryRefreshFailureClass(run) !== 'not_started'
       && Number.isFinite(at) && at > newestSuccessAt
       && now - at < CANARY_REFRESH_DEBOUNCE_MS;
   });
@@ -389,7 +399,7 @@ async function listCanaryRefreshAttemptJobs(client, params) {
 
 async function attachCanaryRefreshFailureEvidence({ runs, withRetry, location, now }) {
   for (const run of runs) {
-    if (run.status !== 'completed' || run.conclusion !== 'failure') continue;
+    if (run.status !== 'completed' || !['failure', 'cancelled'].includes(run.conclusion)) continue;
     if (Array.isArray(run.refresh_jobs) || Array.isArray(run.jobs)) continue;
     const at = Date.parse(run.updated_at || run.created_at);
     if (!Number.isFinite(at) || now - at >= CANARY_REFRESH_DEBOUNCE_MS) continue;
@@ -778,11 +788,19 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
       && row.next_command === 'refresh-candidate-from-exact-plan'));
   if (!rows.length) return { eligible: false, state: 'no-refresh-request', dispatched: false };
   const allowed = new Set(expectedCanaries), requests = [], freshCanaries = [];
-  // Preflight the whole report so an absent candidate cannot be hidden by an
-  // earlier native read failure. Report identities are diagnostic only; they
-  // cannot supply the missing native PR/head or authorize a recovery dispatch.
+  // A canary with no candidate PR (a subset or source-delta plan never opened one) has no native
+  // subject to derive a plan from. Its drain is the row's own next_command: a full, unfiltered canary
+  // run from the default branch, behind the same refresh guard. Throwing here instead latched the
+  // candidate lane (2026-11-08 13:36Z, canary_refresh_report_subject_unknown on two rows like this).
+  const missing = rows.filter(row => row.status === 'stable_base_refresh_required'
+    && row.reason === 'candidate_pr_and_no_change_evidence_missing'
+    && row.pr === undefined && row.head_sha === undefined && allowed.has(`${row.owner}/${row.repo}`));
+  const subjects = rows.filter(row => !missing.includes(row));
+  // Preflight all remaining subjects before any native read or recovery dispatch.
+  // Report identities are diagnostic only; native PR/head checks still authorize
+  // candidate-specific recovery.
   const unknownSubjects = [];
-  for (const row of rows) {
+  for (const row of subjects) {
     const repository = `${row.owner}/${row.repo}`, reasons = [];
     if (!allowed.has(repository)) reasons.push('repository_not_configured');
     if (!Number.isSafeInteger(row.pr) || row.pr < 1) reasons.push('pr_missing_or_invalid');
@@ -803,9 +821,22 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
     error.diagnostic = diagnostic;
     throw error;
   }
+  if (!subjects.length) {
+    const names = missing.map(row => `${row.owner}/${row.repo}`).join(', ');
+    core.notice(`candidate refresh: no candidate PR for ${names}; requesting a full canary run`);
+    const refresh = await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries,
+      cleanupBranches: report.inputs?.cleanup_branches });
+    if (refresh.dispatched) {
+      const prior = report.canary_refresh || {};
+      report.canary_refresh = { ...prior,
+        refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
+        drainable: (prior.drainable || 0) + missing.length };
+    }
+    return { ...refresh, missing_candidates: missing.length };
+  }
   const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
   const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
-  for (const row of rows) {
+  for (const row of subjects) {
     const repository = `${row.owner}/${row.repo}`;
     const { data: pr } = await withRetry(client => client.rest.pulls.get({
       owner: row.owner, repo: row.repo, pull_number: row.pr }));
@@ -854,7 +885,7 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
     const prior = report.canary_refresh || {};
     report.canary_refresh = { ...prior,
       refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
-      drainable: (prior.drainable || 0) + rows.length,
+      drainable: (prior.drainable || 0) + subjects.length + missing.length,
       held_plans: [...new Set([...(prior.held_plans || []), request.plan_id])] };
     // The workflow may have uploaded the report before this recovery step.
     // Keep dispatch evidence visible in this step's logs and summary as well.
