@@ -1,0 +1,33 @@
+{
+  "arms": {
+    "baseline": {
+      "commit": "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769",
+      "tree": "12b50c312b5ac601286ba99b04bbd70b85f9a2d5",
+      "sha256": {
+        "tests/scripts/test_pr_verifier_delivery_destinations.py": "2b0614095ffcb5da62e1fc60f643dbb342fa1e3914eac789a2c1ec21c41a87ca",
+        "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+        "tests/scripts/test_pr_verifier_body_overall_integration.py": "6bea779eba3e8405cb52ee88f235b3aec6e36f438de9aa2a0eb0a8eaaddd73dc",
+        "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+        "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+        "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+      }
+    },
+    "candidate": {
+      "commit": "8c0afc3ef0263cf85949b6167435ceabed5dd2a3",
+      "tree": "fbb5d94688c875479c54a8d62c9c7e4ac918c7cd",
+      "sha256": {
+        "tests/scripts/test_pr_verifier_delivery_destinations.py": "5c00c35afe442cc2ad6b252ce0a1f2cddd4918dd4b10c72770acb93e5da177fc",
+        "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+        "tests/scripts/test_pr_verifier_body_overall_integration.py": "821bb6606f9273d1fa1050ab26c38ff3e898b62014c99b9a5022f327dd59d0c1",
+        "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+        "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+        "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+      }
+    }
+  },
+  "harness_sha256": "47b75973a33d7348d4b153b66afc921b4d84ac66e9b5741e0d828a433855790c",
+  "workflow_sha": "43fc63febb0522b610a78f9dcac3e3c610937727",
+  "workflow_sha256": "3d16dac77fa34b3f27e35db3676baa3f62d245d8225ebec88be92eda52e79ef3",
+  "dependency_lock": "candidate/requirements.lock",
+  "cache_policy": "No actions/cache or artifact restore; fresh arm directories, pytest cache provider disabled, bytecode writes disabled. OS page cache is uncontrolled; arm order is recorded in result.json (baseline first on Python 3.12, candidate first otherwise), not within-version replicated."
+}

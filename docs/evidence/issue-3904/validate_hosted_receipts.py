@@ -17,6 +17,9 @@ from pathlib import Path
 
 from defusedxml import ElementTree
 
+if not __debug__:
+    raise SystemExit("Optimized execution refuses validation before accepting any archive")
+
 REPO = Path(__file__).resolve().parents[3]
 SUITES = (
     "tests/scripts/test_pr_verifier_delivery_destinations.py",

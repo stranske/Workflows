@@ -1,0 +1,316 @@
+{
+  "verified": true,
+  "artifact_id": 3,
+  "archive_sha256": "b2f68c8e230dff23140719b173d8ed3b5de271284a933f7433d45eecbead72c7",
+  "run_id": 42421935858,
+  "workflow_sha": "43fc63febb0522b610a78f9dcac3e3c610937727",
+  "python": "3.12.16 (main, Oct 26 2026, 02:48:44) [GCC 15.2.0]",
+  "coverage": {
+    "lost_lines": [],
+    "lost_branches": [],
+    "baseline_lines": 2144,
+    "candidate_lines": 2144,
+    "baseline_branches": 759,
+    "candidate_branches": 759
+  },
+  "outcomes": {
+    "baseline": {
+      "tests.scripts.test_pr_verifier_delivery_destinations": {
+        "cases": 30461,
+        "passed": 30461,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 3524.73699999996
+      },
+      "tests.scripts.test_pr_verifier_prompt_coverage": {
+        "cases": 3813,
+        "passed": 3813,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 691.4660000000016
+      },
+      "tests.scripts.test_pr_verifier_body_overall_integration": {
+        "cases": 1994,
+        "passed": 1994,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 65.03300000000016
+      }
+    },
+    "candidate": {
+      "tests.scripts.test_pr_verifier_delivery_destinations": {
+        "cases": 29777,
+        "passed": 29777,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 3433.571999999976
+      },
+      "tests.scripts.test_pr_verifier_prompt_coverage": {
+        "cases": 3813,
+        "passed": 3813,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 708.585
+      },
+      "tests.scripts.test_pr_verifier_body_overall_integration": {
+        "cases": 2054,
+        "passed": 2054,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "worker_seconds": 65.65500000000054
+      }
+    }
+  },
+  "source_manifests_verified_against_git": true,
+  "uploaded_hashes_verified": true,
+  "unuploaded_inherited_entries_UNKNOWN": [
+    "baseline/docs/evidence/issue-3743/runtime-probes/candidate.log",
+    "baseline/docs/evidence/issue-3743/runtime-probes/baseline.log",
+    "candidate/docs/evidence/issue-3743/runtime-probes/candidate.log",
+    "candidate/docs/evidence/issue-3743/runtime-probes/baseline.log"
+  ],
+  "packages_unchanged_reported_by_harness": true,
+  "phase_measurement": {
+    "baseline": {
+      "controller": {
+        "session": {
+          "start": 60.815650628,
+          "end": 1312.179232762,
+          "seconds": 1251.3635821340001
+        },
+        "collection": {
+          "start": 61.049918096,
+          "end": 61.050105113,
+          "seconds": 0.0001870170000017879
+        },
+        "controller_worker_loop": {
+          "start": 61.05014073,
+          "end": 1308.273968441,
+          "seconds": 1247.223827711
+        },
+        "reporting": {
+          "start": 1308.27405889,
+          "end": 1312.179231921,
+          "seconds": 3.905173031000004
+        },
+        "coverage_reporting": {
+          "start": 1279.05825819,
+          "end": 1308.273783958,
+          "seconds": 29.215525767999907
+        }
+      },
+      "gw0": {
+        "session": {
+          "start": 63.332915787,
+          "end": 1241.856797101,
+          "seconds": 1178.523881314
+        },
+        "collection": {
+          "start": 63.414536522,
+          "end": 80.185532,
+          "seconds": 16.770995477999996
+        },
+        "controller_worker_loop": {
+          "start": 80.185598013,
+          "end": 1240.111714186,
+          "seconds": 1159.926116173
+        },
+        "reporting": {
+          "start": 1240.111930408,
+          "end": 1241.856795598,
+          "seconds": 1.7448651899999277
+        }
+      },
+      "gw1": {
+        "session": {
+          "start": 63.40034558,
+          "end": 1242.039603511,
+          "seconds": 1178.639257931
+        },
+        "collection": {
+          "start": 63.4874167,
+          "end": 80.348986217,
+          "seconds": 16.861569517000007
+        },
+        "controller_worker_loop": {
+          "start": 80.349066326,
+          "end": 1240.451198078,
+          "seconds": 1160.102131752
+        },
+        "reporting": {
+          "start": 1240.451404441,
+          "end": 1242.039602149,
+          "seconds": 1.5881977080000524
+        }
+      },
+      "gw2": {
+        "session": {
+          "start": 63.436801935,
+          "end": 1279.96253328,
+          "seconds": 1216.525731345
+        },
+        "collection": {
+          "start": 63.51920141,
+          "end": 80.396653822,
+          "seconds": 16.877452412000004
+        },
+        "controller_worker_loop": {
+          "start": 80.396704556,
+          "end": 1278.972090605,
+          "seconds": 1198.575386049
+        },
+        "reporting": {
+          "start": 1278.972234222,
+          "end": 1279.962532189,
+          "seconds": 0.9902979670000605
+        }
+      },
+      "gw3": {
+        "session": {
+          "start": 63.499617406,
+          "end": 1242.025823427,
+          "seconds": 1178.526206021
+        },
+        "collection": {
+          "start": 63.584947398,
+          "end": 80.581966821,
+          "seconds": 16.997019422999998
+        },
+        "controller_worker_loop": {
+          "start": 80.582049846,
+          "end": 1240.280032811,
+          "seconds": 1159.697982965
+        },
+        "reporting": {
+          "start": 1240.280248071,
+          "end": 1242.025821864,
+          "seconds": 1.7455737929999486
+        }
+      }
+    },
+    "candidate": {
+      "controller": {
+        "session": {
+          "start": 1317.537963091,
+          "end": 2531.509865988,
+          "seconds": 1213.971902897
+        },
+        "collection": {
+          "start": 1317.776687216,
+          "end": 1317.776848896,
+          "seconds": 0.00016168000001925975
+        },
+        "controller_worker_loop": {
+          "start": 1317.776882769,
+          "end": 2528.114038111,
+          "seconds": 1210.337155342
+        },
+        "reporting": {
+          "start": 2528.114106638,
+          "end": 2531.509865086,
+          "seconds": 3.395758447999924
+        },
+        "coverage_reporting": {
+          "start": 2498.989975608,
+          "end": 2528.113849901,
+          "seconds": 29.12387429299997
+        }
+      },
+      "gw0": {
+        "session": {
+          "start": 1320.052510272,
+          "end": 2499.856353078,
+          "seconds": 1179.8038428060001
+        },
+        "collection": {
+          "start": 1320.135327337,
+          "end": 1336.465771022,
+          "seconds": 16.330443684999864
+        },
+        "controller_worker_loop": {
+          "start": 1336.46581817,
+          "end": 2498.90506615,
+          "seconds": 1162.4392479800001
+        },
+        "reporting": {
+          "start": 2498.90520036,
+          "end": 2499.856352106,
+          "seconds": 0.9511517460000505
+        }
+      },
+      "gw1": {
+        "session": {
+          "start": 1320.115510981,
+          "end": 2481.090929669,
+          "seconds": 1160.9754186880002
+        },
+        "collection": {
+          "start": 1320.200594761,
+          "end": 1336.496661463,
+          "seconds": 16.296066701999962
+        },
+        "controller_worker_loop": {
+          "start": 1336.496707489,
+          "end": 2479.518550584,
+          "seconds": 1143.021843095
+        },
+        "reporting": {
+          "start": 2479.518751357,
+          "end": 2481.090928427,
+          "seconds": 1.5721770700001798
+        }
+      },
+      "gw2": {
+        "session": {
+          "start": 1320.172605784,
+          "end": 2481.540532667,
+          "seconds": 1161.367926883
+        },
+        "collection": {
+          "start": 1320.254452436,
+          "end": 1336.735878363,
+          "seconds": 16.48142592699992
+        },
+        "controller_worker_loop": {
+          "start": 1336.73594156,
+          "end": 2479.809100356,
+          "seconds": 1143.073158796
+        },
+        "reporting": {
+          "start": 2479.809294257,
+          "end": 2481.540530934,
+          "seconds": 1.7312366769997425
+        }
+      },
+      "gw3": {
+        "session": {
+          "start": 1320.236195684,
+          "end": 2481.543728512,
+          "seconds": 1161.3075328280001
+        },
+        "collection": {
+          "start": 1320.322233448,
+          "end": 1336.767780065,
+          "seconds": 16.44554661699999
+        },
+        "controller_worker_loop": {
+          "start": 1336.767834226,
+          "end": 2479.785039354,
+          "seconds": 1143.0172051280001
+        },
+        "reporting": {
+          "start": 2479.785253853,
+          "end": 2481.543727019,
+          "seconds": 1.7584731659999306
+        }
+      }
+    }
+  },
+  "limitations": "One pair per runtime; no causal speedup inference. Concurrent process intervals overlap; unavailable exclusive overhead stays UNKNOWN."
+}

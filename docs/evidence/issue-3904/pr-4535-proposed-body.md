@@ -17,62 +17,36 @@ Prior local work: merged closer-r1/issue-4462 (47135272d) before editing. Kept i
 Validation (only requested/focused tests; no local full suite or release/verify pipeline):
 
 ```text
-/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q
-........................................................................ [ 20%]
-........................................................................ [ 41%]
-........................................................................ [ 62%]
-........................................................................ [ 83%]
-.......................................................                  [100%]
-343 passed in 29.28s
-
-/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py
-============================= test session starts ==============================
-platform darwin -- Python 3.12.2, pytest-9.1.1, pluggy-1.6.0
-rootdir: /Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4462__closer-repair-2
-configfile: pyproject.toml
-plugins: hypothesis-6.161.5, cov-7.1.0, xdist-3.8.0, rerunfailures-16.3, anyio-4.14.2, datadir-1.8.0, typeguard-4.5.1, asyncio-1.3.0, langsmith-0.10.10, pytest_httpserver-1.1.3, regressions-2.11.0, Faker-40.39.0
-asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 2054 items
-
-tests/scripts/test_pr_verifier_body_overall_integration.py ............. [  0%]
-........................................................................ [  4%]
-........................................................................ [  7%]
-........................................................................ [ 11%]
+/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q
 ........................................................................ [ 14%]
-........................................................................ [ 18%]
-........................................................................ [ 21%]
-........................................................................ [ 25%]
 ........................................................................ [ 28%]
-........................................................................ [ 32%]
-........................................................................ [ 35%]
-........................................................................ [ 39%]
 ........................................................................ [ 42%]
-........................................................................ [ 46%]
-........................................................................ [ 49%]
-........................................................................ [ 53%]
 ........................................................................ [ 56%]
-........................................................................ [ 60%]
-........................................................................ [ 63%]
-........................................................................ [ 67%]
 ........................................................................ [ 70%]
-........................................................................ [ 74%]
-........................................................................ [ 77%]
-........................................................................ [ 81%]
 ........................................................................ [ 84%]
-........................................................................ [ 88%]
-........................................................................ [ 91%]
-........................................................................ [ 95%]
-........................................................................ [ 98%]
-.........................                                                [100%]
+...................................................................... [ 93%]
+.........................................                                        [100%]
+537 passed in 28.11s
 
-============================ 2054 passed in 13.68s =============================
+/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 27%]
+........................................................................ [ 36%]
+........................................................................ [ 45%]
+........................................................................ [ 54%]
+........................................................................ [ 63%]
+........................................................................ [ 72%]
+........................................................................ [ 81%]
+........................................................................ [ 90%]
+...................................................................... [100%]
+2054 passed in 12.01s
 ```
 
-The first focused run printed 1 failed, 178 passed in 24.93s: its sole failure was the inherited workflow-command expectation after removal of the unused environment setup; corrected before the passing requested run. The real two-arm fixture validates all five process receipts per arm in under two minutes, alongside bounded missing/invalid/reversed-clock controls.
+Both exact acceptance test commands pass. All five marker-specific options assertions retained. The real two-arm fixture validates all process receipts per arm, alongside bounded missing/invalid/reversed-clock controls. Four-archive validation independently succeeded for all retained Python 3.12/3.13 archives against retained metadata and immutable Git sources.
 
 The current source correction (43fc63feb) also addresses review comment 4504023552: actual hosted coverage-report intervals are independently measured (about 29s on 3.12 and 24.5s on 3.13). The source-head Gate passed. No runtime source changed after the passing requested tests; the last commit retains receipts/documentation. Missing historical log uploads and exclusive overhead remain UNKNOWN.
 
 Evidence and reproduction: docs/evidence/issue-3904/README.md, closer-r2-acceptance.md and validate_hosted_receipts.py. The original 3.13 receipts remain intact.
 
 <!-- workflow-source:local_request -->
-

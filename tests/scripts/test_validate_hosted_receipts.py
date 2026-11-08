@@ -665,3 +665,44 @@ def test_malformed_recorded_runtime_rejected(hosted_archive, python_version):
     with pytest.raises(ValueError, match="Python runtime must be.*major.minor.patch"):
         validator.validate(*build(mutate=change_runtime))
     assert git_calls == []
+
+
+@pytest.mark.parametrize("optimize_flag", ["-O", "-OO"])
+def test_optimized_python_refuses_validation_with_minus_O(tmp_path, hosted_archive, optimize_flag):
+    """Optimized Python execution refuses validation before accepting any archive."""
+    import subprocess
+
+    build, _ = hosted_archive
+    archive, metadata = build()
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(json.dumps(metadata))
+
+    result = subprocess.run(
+        ["python", optimize_flag, str(VALIDATOR_PATH), str(archive), str(metadata_path)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "Optimized execution refuses validation" in result.stderr
+
+
+def test_optimized_python_refuses_validation_with_PYTHONOPTIMIZE(tmp_path, hosted_archive):
+    """PYTHONOPTIMIZE=1 refuses validation before accepting any archive."""
+    import os
+    import subprocess
+
+    build, _ = hosted_archive
+    archive, metadata = build()
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(json.dumps(metadata))
+
+    env = os.environ.copy()
+    env["PYTHONOPTIMIZE"] = "1"
+    result = subprocess.run(
+        ["python", str(VALIDATOR_PATH), str(archive), str(metadata_path)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode != 0
+    assert "Optimized execution refuses validation" in result.stderr

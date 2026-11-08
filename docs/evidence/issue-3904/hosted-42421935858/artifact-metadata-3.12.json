@@ -1,0 +1,13 @@
+{
+  "artifacts": [
+    {
+      "id": 3,
+      "name": "verifier-runtime-3.12-42421935858",
+      "digest": "sha256:b2f68c8e230dff23140719b173d8ed3b5de271284a933f7433d45eecbead72c7",
+      "workflow_run": {
+        "id": 42421935858,
+        "head_sha": "43fc63febb0522b610a78f9dcac3e3c610937727"
+      }
+    }
+  ]
+}

@@ -49,12 +49,15 @@ four-archive revalidation and PR #4535 delivery tasks are still checked despite
 missing verification. Reopening those checkboxes was rejected by automatic
 approval review: `MCP tool call requires approval, but approval policy is never`.
 
-The validator now rejects phase summaries or raw phase-clock receipts without
-`phase_plugin_sha256` before Git. Previously, removing that declaration could
-validate an instrumented archive with either arm's summary missing, or classify
-raw phase receipts without summaries as legacy UNKNOWN. Nine regression cases
-reproduced the missing refusal before the guard. Genuine legacy controls still
-pass and retain UNKNOWN for phases, historical uploads and exclusive overhead.
+The validator now enforces a narrowed phase preflight: process-summary validation
+precedes Git, while nested interval reconciliation follows source lookup. It rejects
+phase summaries or raw phase-clock receipts without `phase_plugin_sha256` before Git.
+Previously, removing that declaration could validate an instrumented archive with either
+arm's summary missing, or classify raw phase receipts without summaries as legacy UNKNOWN.
+Nine regression cases reproduced the missing refusal before the guard. Genuine legacy controls
+still pass and retain UNKNOWN for phases, historical uploads and exclusive overhead.
+
+The source-pair stub finding does not apply because Git uses fixed PAIR refs.
 
 Using installed Python 3.14.10, the three focused suites pass with **534 passed
 in 22.03s**; the unchanged integration suite passes with **2054 passed in
