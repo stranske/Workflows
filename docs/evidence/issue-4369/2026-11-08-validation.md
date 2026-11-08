@@ -1879,6 +1879,40 @@ conversion, or automation rescheduling was performed to remove these gaps.
 The first unresolved delivery step is that non-PASS verification disposition;
 producer-origin proof is a separate missing receipt. The issue remains incomplete.
 
+### Bounded producer-origin follow-up — 2026-11-08T21:44Z
+
+The read-only collector [observe-maint68.js](observe-maint68.js) checks bounded,
+unfiltered REST inventories for complete pagination, stable counts, unique IDs
+and timestamps within the requested interval. It reports `workflow_dispatch`
+origin as `UNKNOWN` regardless of bot actors or `auto` titles. A scheduled run
+is only an automation lead; this collector never certifies a delivery chain.
+No production workflow or consumer payload changed.
+
+The fresh [inventory](runtime-4550/4558-origin-inventory.json) retains all 68
+runs from 21:31:19Z through 21:43:00Z, including scheduled Maint 82 run
+42526506022, and **zero Maint 68 producers**. Run IDs and relevant native fields
+are retained; unrelated repository/actor/commit metadata is projected out.
+The response digest hashes the parsed response serialized with `JSON.stringify`,
+not raw HTTP bytes. The [result](runtime-4550/4558-origin-observation.json)
+keeps `chain_acceptance=false`. No dispatch was performed. Both outstanding
+tasks remain unchecked; the existing 21:46:00Z deadline remains in force.
+
+Validation: `node tests/scripts/test_issue_4369_origin_observation.js` exits 0,
+**11 passed**, covering incomplete/filtered inventories, duplicate IDs, changed
+counts, out-of-bounds runs and refusal to infer origin from a bot dispatch.
+The collector CLI exits 0 against the retained live inventory. No Python file
+changed. The original hosted suites remain the acceptance evidence.
+
+Publication blocker: `git add` exits 128 because `.git/index.lock` cannot be
+created on the read-only filesystem. No commit or push succeeded. PR 4558 was
+observed open and ready (`draft=false`) at unchanged head
+`ff8ff901efee7f3c5eecc41b42b615210f1db2c5`. These files remain workspace changes.
+
+Posting the blocker comment and adding `needs-human` to PR 4558 were both
+rejected by automatic approval review: `MCP tool call requires approval, but
+approval policy is never`. Neither remote mutation succeeded. The direct Node
+check output is retained in [test log](runtime-4550/4558-origin-tests.log).
+
 ## Local keepalive round 2 readback — 2026-11-08
 
 Outcome 1: **NOT MET**, with **8/11** task/criterion IDs verified. The original
@@ -1935,3 +1969,5 @@ ownership remains with the existing closer/controller; this round does not clear
 its gates or claim overall completion.
 
 Verified IDs for this round: **T2, T3, T4, T6, T7, A1, A2, A4**.
+
+Publication reconciliation: the bot published `e925444af29e451ad4c8278943c2a618680ace26` during this readback. Its appended report and collector files are preserved by the merge; this round adds only Markdown and JSON receipts. The historical publication-blocker statements above describe that worker before the bot published its files.
