@@ -33,9 +33,10 @@ async function dispatch(runs, continuations = [continuation]) {
 test('native multiline active title suppresses duplicate continuation dispatch', async () => {
   assert.equal((await dispatch([{status: 'in_progress', display_title: 'Merge Sync PRs [dev-tool]\nsame-key'}])).length, 0);
 });
-test('different key and completed run do not suppress a due continuation', async () => {
+test('changed key or failed attempt stays eligible, successful exact key is consumed', async () => {
   assert.equal((await dispatch([{status: 'in_progress', display_title: 'Merge Sync PRs [dev-tool]\nother-key'}])).length, 1);
-  assert.equal((await dispatch([{status: 'completed', display_title: 'Merge Sync PRs [dev-tool]\nsame-key'}])).length, 1);
+  assert.equal((await dispatch([{status: 'completed', conclusion: 'success', display_title: 'Merge Sync PRs [dev-tool]\nsame-key'}])).length, 0);
+  assert.equal((await dispatch([{status: 'completed', conclusion: 'failure', display_title: 'Merge Sync PRs [dev-tool]\nsame-key'}])).length, 1);
 });
 test('duplicate rows dispatch once and active delivery retains candidate priority', async () => {
   assert.equal((await dispatch([], [continuation, continuation])).length, 1);

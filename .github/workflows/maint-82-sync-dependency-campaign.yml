@@ -239,12 +239,18 @@ jobs:
                 per_page: 40,
               }),
             );
+            const normalizeTitle = (value) => String(value || '').replace(/\s+/g, ' ').trim();
             const activeTitles = new Set(
               (runs.workflow_runs || [])
                 .filter((run) =>
                   ['queued', 'in_progress', 'waiting', 'pending'].includes(run.status),
                 )
-                .map((run) => String(run.display_title || '').replace(/\s+/g, ' ').trim()),
+                .map((run) => normalizeTitle(run.display_title)),
+            );
+            const completedTitles = new Set(
+              (runs.workflow_runs || [])
+                .filter((run) => run.status === 'completed' && run.conclusion === 'success')
+                .map((run) => normalizeTitle(run.display_title)),
             );
             for (const continuation of continuations) {
               const selector = continuation.lane;
@@ -258,8 +264,8 @@ jobs:
                 core.notice('Maint 71 candidate lane held while delivery is active');
                 continue;
               }
-              if (activeTitles.has(title)) {
-                core.notice(`Maint 71 ${selector} lane is already active`);
+              if (activeTitles.has(title) || (key && completedTitles.has(title))) {
+                core.notice(`Maint 71 ${selector} continuation is active or already completed; a new key remains eligible`);
                 continue;
               }
               const inputs = {
