@@ -78,25 +78,20 @@ errors, and clears the provider backoff marker.
 
 ### Critical Integration Points
 
-Closed-issue transitions require `verifyHandoffBound` plus matching identities:
-`closure: { id, sourcePr }` and `verifyHandoff: { closureId, sourcePr }`.
-The workflow must read the latest closed event from the issue timeline and
-persist its ID and merged source PR after a successful verifier handoff. The
-handoff must come from automation-owned state for this issue. A label alone is
-insufficient, and reopening followed by another closure requires a fresh
-handoff even if the source PR is unchanged. Missing or mismatched identities
-keep the issue at `verify`.
+Closed issues always enter `verify`, including issues with retained
+`verify:evaluate` or `verify:pr-handoff` labels after reopening. Historical labels
+and closure records cannot select `done`. Verification must confirm an explicit
+evaluate dispatch or applicable verifier run for the merged source PR and head.
+Only a successful verify step with `verify_handoff=found` permits the workflow to
+dispatch its next run with `force_step=done`. The done reporter revalidates the
+PR/head evidence before publishing completion and removing `agents:auto-pilot`.
 
-The current `agents-auto-pilot.yml` passes only the label-derived boolean.
-Deploying the stricter transition helper requires a coordinated workflow update
-to produce and pass these identities; otherwise closed issues remain at
-`verify`. The same protected workflow owns the event gate's `custom-predicate`
-and the redispatch step's stage allowlist. A maintainer must admit issue
-`verify:pr-handoff` label events with auto-pilot enabled and schedule continuation
-only after a successful handoff, or complete the done report in that run.
-After merge, maintainers run Maint 68 to regenerate the consumer candidate and
-check the subsequent Maint 71 report for the original review finding. Local
-source tests do not establish that deployment or live acceptance.
+Continuation uses `workflow_dispatch`, which the event gate accepts; it does not
+depend on a `verify:pr-handoff` label event. The executable source and consumer
+regressions are included in `.github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js`.
+After source changes reach main, Maint 68 regenerates the consumer candidate;
+the subsequent Maint 71 report must establish the original finding's disposition.
+Local source tests do not establish deployment or live acceptance.
 
 1. **PR body is the contract**: Auto-pilot writes structured tasks into the PR body. Keepalive reads these tasks via the task appendix. If the PR body format changes, both must be updated together.
 

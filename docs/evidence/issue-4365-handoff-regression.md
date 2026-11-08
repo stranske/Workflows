@@ -1,5 +1,130 @@
 # Issue #4365: handoff regression verification
 
+## Current acceptance check — 2026-11-08
+
+The historical notes below describe earlier attempts, not current deployment.
+GitHub reports PRs [#4447](https://github.com/stranske/Workflows/pull/4447) and
+[#4451](https://github.com/stranske/Workflows/pull/4451) closed with `merged=false`.
+Their closure-bound helper implementation is not on `origin/main`. Instead,
+commit `7ab99d09429a3b35aa55f7744f8c75b467f42536` (PR #4463) deliberately routes
+all closed issues through verification, maps confirmed `verify` to forced `done`,
+and revalidates PR/head evidence in the completion reporter. The previous helper
+tests on this branch are retained; resurrecting their superseded completion
+shortcut would conflict with the current production contract.
+
+Inspected the source/template transition helpers, their tests, invoking workflows,
+and `docs/AGENTS_POLICY.md`. The workflow redispatch condition already admits
+successful `verify` with `verify_handoff=found`. The eligibility predicate rejects
+`verify:pr-handoff` label events, but accepts `workflow_dispatch`, which supplies
+the actual continuation. Label-event admission is therefore not required.
+
+Pre-edit acceptance command:
+
+```sh
+timeout 60s node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js tests/workflows/auto_pilot_verify_handoff.test.js
+```
+
+Expected observations: retained labels after reopening and a different PR's
+closure select `verify`; a confirmed PR/head verifier handoff schedules forced
+`done`; the guarded reporter posts `Auto-Pilot Complete` and removes
+`agents:auto-pilot`. Failed dispatch must retain ownership without completion.
+Stop rule: one baseline attempt and one post-edit attempt, each capped at 60
+seconds; investigate a named failure before one corrective rerun. Full source
+gates are separately bounded at 180 seconds each; timeout is incomplete, not PASS.
+
+Baseline result: **97 passed, 0 failed** before implementation/test edits.
+
+Canonical acceptance command after adding lifecycle coverage:
+
+```sh
+timeout 60s node --test --test-isolation=none .github/scripts/__tests__/auto-pilot-transitions.test.js .github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js
+```
+
+Result: **101 passed, 0 failed**, including the final run after restoring temporary
+mutations. The script gate now includes the executable workflow suite through
+`auto-pilot-handoff-lifecycle.test.js`. Its source and consumer cases each load
+their own transition module, rather than both testing the root module.
+
+The new lifecycle tests start with legacy `verify:evaluate`, execute the actual
+verify script and redispatch script, evaluate the workflow's redispatch condition,
+then execute the done reporter in a separate-run context without inherited
+verify outputs. They assert one completion report and removal of ownership from
+the correct issue. The reopening case retains both old labels and the old verifier
+run, then requires a dispatch for the different PR and its different head.
+
+Named deliberate-break checks (each run separately against source and template):
+
+| Temporary implementation mutation | Named regression that failed (exit 1) |
+| --- | --- |
+| Trust `verifyHandoffBound` to select `closed-verified` | `issue 4365: reopening then closing with a different PR verifies the new PR` |
+| Map `verify` redispatch to `auto` instead of `done` | `issue 4365: legacy verify:evaluate automatically completes and releases ownership` |
+
+All four checks produced the named assertion failure. Both implementation files
+were restored after every experiment; `git diff --exit-code --` on those files
+passed. The first mutation-driver attempt could not spawn a nested Node process
+(`EPERM`), so the successful checks invoked Node directly from the shell with
+an EXIT trap restoring the original file. No mutation remains.
+
+Additional verification:
+
+- [x] `python3 -m pytest -q tests/workflows/test_auto_pilot_verify_handoff.py -m "not slow"`:
+  **66 passed**, Python 3.14.10, normal plugin loading and warning policy.
+- [x] `git diff --check` passes.
+- [ ] `timeout 180s node --test .github/scripts/__tests__/*.test.js`: exit **124**;
+  runner summary **115 passed, 6 failed, 20 cancelled**. The new lifecycle file
+  passed. Failures include `agents-verifier-context.test.js`,
+  `generated-delivery-seal-action.test.js`, `maint68-scoped-receipt.test.js`, and
+  vendored dependency/verifier tests outside this change. A diagnostic rerun of
+  the first two with isolation disabled reported **199 passed, 18 failed**,
+  including child-process `EPERM` and a missing `delivery_not_sealed:staging`
+  refusal message. No unrelated tests were changed or disabled.
+- [ ] `timeout 180s python3 -m pytest -q tests/ -m "not slow"`: exit **124**;
+  progress reached approximately 2%, without a final summary. This is not a
+  passing full Python gate. Unlike historical attempts, plugin startup succeeded.
+
+### Current live inspection — 2026-11-08
+
+[Maint 68 run 42433992005](https://github.com/stranske/Workflows/actions/runs/42433992005)
+completed successfully using source `c2ac6f38d6f2ce73f000158fa6f729bfece82092`.
+Consumer PR #2454 records generated head
+`b36b8ebf242bde649f6e31edc2cc915ad49d7421`, generation `4017589cec3c`.
+
+The next observed [Maint 71 run 42434199041](https://github.com/stranske/Workflows/actions/runs/42434199041)
+processed that exact head. Its report bound the head/source/plan, recorded
+`review_state=clear`, `findings=[]`, `blocked=false`, and
+`status=delivery_sealed_checks_pending`, requesting Gate rerun `42434160471`.
+Its review mode was `integration-only`; this does not prove reviewer reassessment
+of the two historical findings. The later
+[Maint 71 run 42436928175](https://github.com/stranske/Workflows/actions/runs/42436928175)
+still bound the same head and reported `campaign_prepared` with zero active review
+threads. Neither report resolved the original threads.
+
+GitHub currently marks discussions `4434491631` and `4434491675` **outdated, not
+resolved**. Issue #4365's last sync-core bump names head `d6f4831035dd`, round
+`20261106T115526Z`; its latest comments are closer/opener lifecycle notices.
+The lack of a later bump, and integration-only empty findings, do not establish
+that sync-core re-evaluated these findings successfully. Live acceptance remains
+unchecked pending that explicit result on the generated head. No generated
+consumer branch, workflow, or review thread was modified.
+
+### Verified task progress
+
+- [x] Inspect current source/tests/policy, prior PR merge state, and current main.
+- [x] Record and run a bounded pre-edit acceptance command.
+- [x] Add source/template reopening/different-PR regression coverage.
+- [x] Add legacy handoff/automatic continuation/report/cleanup regression coverage.
+- [x] Demonstrate named regression failures and passing results after restoration.
+- [ ] Full Node and Python source gates pass.
+- [ ] Explicit sync-core/reviewer live acceptance for the generated head.
+
+Commit attempt: `git add` for the four changed test/documentation files failed
+with `.git/index.lock: Read-only file system`; no commit was created. PR #4538
+was read back as open with `draft=false`. Updating its verified checkboxes,
+adding `needs-human`, and posting the concrete blocker comment were each rejected
+with `MCP tool call requires approval, but approval policy is never`. No remote
+checkbox, label, or comment change is claimed. The meaningful JavaScript test
+changes remain in the working tree for a runner with Git write access.
+
 Verified locally on 2026-11-04 for PR #4447. Reviewed prior commits
 `e4c3bf7c`, `3e91bbc9`, `8e055ec0`, and `7d26be7c` before continuing.
 

@@ -9,8 +9,6 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { determineNextStep } = require('../../.github/scripts/auto_pilot_transitions.js');
-
 const ROOT = path.join(__dirname, '../..');
 const SURFACES = [
   ['root', path.join(ROOT, '.github/workflows/agents-auto-pilot.yml')],
@@ -24,6 +22,11 @@ const OTHER_HEAD = 'd'.repeat(40);
 const PRE_CHANGE_MAX_PAGES = 10;
 
 for (const [surface, workflowPath] of SURFACES) {
+  const transitions = require(path.resolve(
+    path.dirname(workflowPath), '../scripts/auto_pilot_transitions.js',
+  ));
+  const { determineNextStep } = transitions;
+
   function stepBlock(stepName) {
     const lines = fs.readFileSync(workflowPath, 'utf8').split('\n');
     const start = lines.findIndex((line) => line.trim() === `- name: ${stepName}`);
@@ -297,7 +300,7 @@ for (const [surface, workflowPath] of SURFACES) {
     const requireStub = (name) => {
       if (name.endsWith('/.github/scripts/github-api-with-retry.js')) return retryModule;
       if (name.endsWith('/.github/scripts/auto_pilot_transitions.js')) {
-        return require('../../.github/scripts/auto_pilot_transitions.js');
+        return transitions;
       }
       throw new Error(`Unexpected require: ${name}`);
     };
@@ -558,6 +561,85 @@ for (const [surface, workflowPath] of SURFACES) {
     assert.equal(done.outcome, 'success', done.failures.join('; '));
     assert.equal(ownershipRemoved(world), true);
     assert.equal(completionPosted(world), true);
+  });
+
+  async function completeClosedIssue(world) {
+    const disposition = determineNextStep({
+      issueState: 'closed',
+      hasVerify: world.issueLabels.has('verify:evaluate'),
+      verifyHandoffBound: world.issueLabels.has('verify:pr-handoff'),
+    });
+    assert.equal(disposition.nextStep, 'verify', 'historical labels cannot select done');
+
+    const verify = await runVerify(world);
+    assert.equal(verify.outcome, 'success', verify.failures.join('; ') || verify.error?.message);
+    assert.equal(verify.outputs.verify_handoff, 'found');
+    assert.equal(redispatchFires(disposition.nextStep, verify), true,
+      'confirmed legacy handoff must automatically continue');
+
+    const redispatch = await runStep('Re-dispatch for next step', {
+      world,
+      env: { CURRENT_STEP: disposition.nextStep },
+    });
+    assert.equal(redispatch.outcome, 'success', redispatch.failures.join('; '));
+    const continuations = world.dispatches.filter((d) => d.workflow_id === 'agents-auto-pilot.yml');
+    assert.equal(continuations.length, 1);
+    assert.equal(continuations[0].inputs.issue_number, String(ISSUE));
+    const forced = determineNextStep({ forceStep: continuations[0].inputs.force_step });
+    assert.equal(forced.nextStep, 'done');
+
+    // A new workflow run has no verify_step outputs. It must revalidate the
+    // actual dispatched PR/head run, rather than inheriting same-run evidence.
+    const done = await runDone(world, {
+      VERIFY_HANDOFF: '',
+      VERIFY_HANDOFF_BOUND: world.issueLabels.has('verify:pr-handoff') ? 'true' : 'false',
+    });
+    assert.equal(done.outcome, 'success', done.failures.join('; ') || done.error?.message);
+    assert.equal(world.issueLabels.has('agents:auto-pilot'), false);
+    assert.ok(world.removed.some((r) => r.issue === ISSUE && r.name === 'agents:auto-pilot'));
+    const reports = world.comments.filter((c) => c.body.includes('Auto-Pilot Complete'));
+    assert.equal(reports.length, 1);
+    assert.equal(reports[0].issue, ISSUE);
+    assert.match(reports[0].body, /verification triggered on a merged source PR/);
+  }
+
+  test(`${surface}: issue 4365: legacy verify:evaluate automatically completes and releases ownership`, async () => {
+    const world = createWorld({
+      prs: [mergedPr(PR, ISSUE)],
+      issueLabels: ['agents:auto-pilot', 'verify:evaluate'],
+      knownLabels: ['verify:evaluate'],
+    });
+    await completeClosedIssue(world);
+    const verifier = world.dispatches.filter((d) => d.workflow_id === 'agents-verifier.yml');
+    assert.equal(verifier.length, 1);
+    assert.deepEqual(verifier[0].inputs, {
+      pr_number: String(PR), pr_head_sha: HEAD, mode: 'evaluate',
+    });
+  });
+
+  test(`${surface}: issue 4365: reopening then closing with a different PR verifies the new PR`, async () => {
+    const world = createWorld({ prs: [mergedPr(PR, ISSUE)] });
+    await completeClosedIssue(world);
+
+    // Re-enable auto-pilot on reopening while retaining both old handoff labels
+    // and the old verifier run. Neither is proof for the next closing PR.
+    world.issueLabels.add('agents:auto-pilot');
+    const reopened = determineNextStep({
+      issueState: 'open', linkedPr: String(PR),
+      hasVerify: true, verifyHandoffBound: true,
+    });
+    assert.equal(reopened.nextStep, 'monitor-pr');
+    world.prs.unshift(mergedPr(PR + 1, ISSUE, { head: OTHER_HEAD }));
+    world.dispatches = [];
+    world.comments = [];
+    world.removed = [];
+
+    await completeClosedIssue(world);
+    const verifier = world.dispatches.filter((d) => d.workflow_id === 'agents-verifier.yml');
+    assert.equal(verifier.length, 1, 'old PR verifier run cannot satisfy the new closure');
+    assert.deepEqual(verifier[0].inputs, {
+      pr_number: String(PR + 1), pr_head_sha: OTHER_HEAD, mode: 'evaluate',
+    });
   });
 
   test(`${surface}: routing: failed verify retains ownership and does not re-dispatch done`, async () => {
