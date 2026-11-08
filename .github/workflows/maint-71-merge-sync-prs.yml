@@ -826,6 +826,24 @@ jobs:
               withRetry, context, core,
             });
 
+      - name: Notify continuation completion
+        if: ${{ success() && (inputs.continuation_key || github.event.client_payload.continuation_key || '') != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT || github.token }}
+          script: |
+            // Notification is not a completion receipt. Maint 82 reads this
+            // exact canonical run and acknowledges only terminal success.
+            try {
+              await github.rest.repos.createDispatchEvent({
+                ...context.repo, event_type: 'sync-dependabot-campaign',
+                client_payload: { continuation_completion_run_id: context.runId },
+              });
+            } catch (error) {
+              // # best-effort: notification grants no authority; the durable Maint 82 sweep reads terminal run state independently.
+              core.warning('Completion wake unavailable; drainable=existing-Maint82-sweep');
+            }
+
       - name: Upload final rate limit incidents
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

@@ -146,6 +146,7 @@ jobs:
               maxRepos,
               currentSyncHash,
               deliveryHandoffRecords,
+              observeContinuations: !dryRun,
             });
             // Collab-Admin is an explicit manual-reconciliation exception. It
             // cannot wake a scheduled delivery selector for the rest of the fleet.
@@ -158,7 +159,12 @@ jobs:
             );
             const continuations = planMaint71Continuations(eligibleHandoffs, {
               now: new Date().toISOString(),
+              acknowledgments: result.state.continuation_acknowledgments,
             });
+            core.setOutput('maint71_acknowledgments', JSON.stringify(result.state.continuation_acknowledgments || []));
+            core.setOutput('maint71_observed_runs', JSON.stringify((result.maint71Runs || []).map(run => ({
+              status: run.status, conclusion: run.conclusion, display_title: run.display_title,
+            }))));
             core.setOutput('maint71_continuations', JSON.stringify(continuations));
             core.setOutput('maint71_delivery_handoffs', JSON.stringify(
               eligibleHandoffs.filter((record) =>
@@ -208,6 +214,8 @@ jobs:
         env:
           CONTINUATIONS_JSON: ${{ steps.campaign.outputs.maint71_continuations || '[]' }}
           DELIVERY_HANDOFFS_JSON: ${{ steps.campaign.outputs.maint71_delivery_handoffs || '[]' }}
+          ACKNOWLEDGMENTS_JSON: ${{ steps.campaign.outputs.maint71_acknowledgments || '[]' }}
+          OBSERVED_RUNS_JSON: ${{ steps.campaign.outputs.maint71_observed_runs || '[]' }}
           REGISTERED_REPOS: ${{ steps.registered.outputs.repos }}
         with:
           github-token: ${{ env.CAMPAIGN_TOKEN }}
@@ -215,7 +223,7 @@ jobs:
             const { createTokenAwareRetry } = require(
               './.github/scripts/github-api-with-retry.js'
             );
-            const { selectMaint71ContinuationRepos } = require(
+            const { selectMaint71ContinuationRepos, hasContinuationAcknowledgment } = require(
               './.github/scripts/sync_dependency_campaign.js'
             );
             const { withRetry } = await createTokenAwareRetry({
@@ -227,11 +235,14 @@ jobs:
             });
             const continuations = JSON.parse(process.env.CONTINUATIONS_JSON || '[]');
             const deliveryHandoffs = JSON.parse(process.env.DELIVERY_HANDOFFS_JSON || '[]');
+            const acknowledgments = JSON.parse(process.env.ACKNOWLEDGMENTS_JSON || '[]');
             const registeredRepos = String(process.env.REGISTERED_REPOS || '')
               .split(',')
               .map((repo) => repo.trim())
               .filter(Boolean);
-            const { data: runs } = await withRetry((client) =>
+            const { data: runs } = process.env.OBSERVED_RUNS_JSON
+              ? { data: { workflow_runs: JSON.parse(process.env.OBSERVED_RUNS_JSON) } }
+              : await withRetry((client) =>
               client.rest.actions.listWorkflowRuns({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -264,7 +275,8 @@ jobs:
                 core.notice('Maint 71 candidate lane held while delivery is active');
                 continue;
               }
-              if (activeTitles.has(title) || (key && completedTitles.has(title))) {
+              if (activeTitles.has(title) || (key && completedTitles.has(title))
+                || hasContinuationAcknowledgment(acknowledgments, continuation)) {
                 core.notice(`Maint 71 ${selector} continuation is active or already completed; a new key remains eligible`);
                 continue;
               }

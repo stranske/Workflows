@@ -23,7 +23,7 @@ async function dispatch(runs, continuations = [continuation]) {
   }}};
   await execute((name) => name.includes('github-api-with-retry')
     ? {createTokenAwareRetry: async () => ({withRetry: (call) => call(github)})}
-    : {selectMaint71ContinuationRepos: () => ['stranske/Ready']},
+    : {...require('../sync_dependency_campaign'), selectMaint71ContinuationRepos: () => ['stranske/Ready']},
   {env: {CONTINUATIONS_JSON: JSON.stringify(continuations), REGISTERED_REPOS: 'stranske/Ready'}},
   github, {repo: {owner: 'stranske', repo: 'Workflows'}, payload: {}},
   {notice() {}, warning() {}});

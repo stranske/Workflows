@@ -3008,7 +3008,8 @@ test('Maint 68 guard allows the next refresh after one same-digest infrastructur
   };
   const invoke = async () => execute(
     name => name === 'fs' ? { readFileSync: () => JSON.stringify({ plan_id: '', entries: [], removals: [] }) }
-      : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics }
+      : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics,
+        preserveFrozenCanaryRefresh: async () => ({ redirected: false }) }
       : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: api.withRetry }) }
       : { canaries: api.expectedCanaries.map(repo => ({ repo })) },
     await api.withRetry(client => client),
@@ -3659,7 +3660,8 @@ for (const writerActive of [false, true]) {
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
     await new AsyncFunction('require', 'github', 'context', 'core', 'process', script)(
       name => name === 'fs' ? { readFileSync: () => JSON.stringify({ plan_id: '', entries: [], removals: [] }) }
-        : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics }
+        : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics,
+          preserveFrozenCanaryRefresh: async () => ({ redirected: false }) }
         : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: api.withRetry }) }
         : { canaries: api.expectedCanaries.map(repo => ({ repo })) },
       await api.withRetry(client => client), { ...api.context, runId: 1000 },
@@ -3694,7 +3696,7 @@ test('an older run ID rerun on a later page is the newest delivered receipt', as
     deliveryDigest: 'B', now: refreshNow }).eligible, true);
 });
 
-test('Maint 68 force authorizes mutation without consulting an unchanged digest', async () => {
+test('Maint 68 force bypasses digest reads after preserving the frozen binding', async () => {
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
   const guard = workflow.split('      - name: Check content refresh guard')[1]
     .split('      - name: Authorize canary payload mutation')[0];
@@ -3706,16 +3708,20 @@ test('Maint 68 force authorizes mutation without consulting an unchanged digest'
     summary: { addRaw() { return this; }, async write() {} } };
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
   const execute = new AsyncFunction('core', 'require', 'process', 'github', 'context', script);
-  await execute(core, name => name === 'fs' ? { readFileSync: () => '{}' } : name.includes('maint71_merge_sync_prs')
-    ? { reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics, readCanaryRefreshState: async () => ({ eligible: false, producer_succeeded: true,
+  let bindingReads = 0, digestReads = 0;
+  const requireGuard = name => name === 'fs' ? { readFileSync: () => '{}' } : name.includes('maint71_merge_sync_prs')
+    ? { preserveFrozenCanaryRefresh: async () => { bindingReads++; return { redirected: false }; },
+      reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics, readCanaryRefreshState: async () => { digestReads++; return ({ eligible: false, producer_succeeded: true,
       delivery_digest: 'unchanged', unchanged_since: 'a'.repeat(40) }) }
+      }
     : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async ({ github }) => ({ withRetry: fn => fn(github) }) }
-    : { canaries: [{ repo: 'stranske/Ready' }] }, { env: { FORCE: 'false' } }, {}, { runId: 1 });
+    : { canaries: [{ repo: 'stranske/Ready' }] };
+  await execute(core, requireGuard, { env: { FORCE: 'false' } }, {}, { runId: 1 });
   assert.equal(outputs.allowed, 'false', 'the same payload blocks an ordinary refresh');
   assert.match(lines.pop(), /digest unchanged unchanged since/);
-  await execute(core, () => {
-    assert.fail('forced repair must bypass digest/history reads, even when payload is unchanged');
-  }, { env: { FORCE: 'true' } });
+  await execute(core, requireGuard, { env: { FORCE: 'true' } }, {}, { runId: 1 });
+  assert.equal(bindingReads, 2);
+  assert.equal(digestReads, 1, 'force bypasses only digest/history reads');
   assert.equal(outputs.allowed, 'true');
   assert.deepEqual(lines, ['refresh: forced (digest guard bypassed)']);
   assert.match(workflow, /needs.prepare.outputs.refresh_allowed != 'false'/);
