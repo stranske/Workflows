@@ -155,6 +155,15 @@ for(const surface of beltSurfaces)test(`${surface}: actual Belt absent-overlay a
 const {loadReviewedQualification}=require('../verifier_correction_collector');
 const {recheckCodingAdmission}=require('../verifier_correction_runtime');
 const {crossReferenceDigest}=require('../verifier_correction_host');
+function reviewedSource(records) {
+ const authority=fs.readFileSync(path.join(pythonRoot,'tests/fixtures/verifier_correction/core-role-authority.txt'),'utf8');
+ // These inert records are data. Avoid the sandbox's stalled stdin socket and
+ // bound the real interpreter independently of the surrounding Node test.
+ const literal=execFileSync('python3',['-I','-c','import sys,json;print(repr(json.loads(sys.argv[1])))',JSON.stringify(records)],{
+  stdio:['ignore','pipe','pipe'],encoding:'utf8',timeout:15000,killSignal:'SIGKILL',
+ }).trim();
+ return Buffer.from(authority.replace('ROLE_QUALIFICATIONS: dict[str, dict[str, Any]] = {}',`ROLE_QUALIFICATIONS: dict[str, dict[str, Any]] = ${literal}`));
+}
 async function freshFixture(existing=false) {
  const original=clone(require('../../../tests/fixtures/verifier_correction/integration-original.json'));
  original.comments[0].body+='\n| Provider | Model | Verdict | Confidence |\n| anthropic | fixture | CONCERNS | 0.90 |\n';
@@ -164,13 +173,9 @@ async function freshFixture(existing=false) {
  const assigned={id:1001,event:'assigned',created_at:'2026-10-25T23:00:00Z',assignee:{login:'inert-owner'}},lineage=crossref(pull);
  const records=clone(require('../../../tests/fixtures/verifier_correction/role-reader-goldens.json').cases.find(row=>row.id==='qualified').records);
  records['fixture-qualified'].qualified_at=1577836800;records['fixture-qualified'].expires_at=1893456000;
- const authority=fs.readFileSync(path.join(pythonRoot,'tests/fixtures/verifier_correction/core-role-authority.txt'),'utf8');
  const state={records,ownerPermission:{permission:'write',user:{login:'inert-owner'}},permission:{permission:'write',user:{login:'inert-dispatcher'}},comment:original.comments[0],events:[assigned],timeline:[lineage],pull,source};
- const reviewedSource=()=>{
-  const literal=execFileSync('python3',['-I','-c','import sys,json;print(repr(json.load(sys.stdin)))'],{input:JSON.stringify(state.records),encoding:'utf8'}).trim();
-  return Buffer.from(authority.replace('ROLE_QUALIFICATIONS: dict[str, dict[str, Any]] = {}',`ROLE_QUALIFICATIONS: dict[str, dict[str, Any]] = ${literal}`));};
  const github={rest:{repos:{get:async args=>{assert.equal(`${args.owner}/${args.repo}`,'stranske/Orchestrator');return {data:{full_name:'stranske/Orchestrator',default_branch:'main'}};},
-  getCommit:async args=>{assert.equal(args.ref,'main');return {data:{sha:'a'.repeat(40)}};},getContent:async args=>{assert.equal(args.path,'src/closer_role_qualification.py');assert.equal(args.ref,'a'.repeat(40));const bytes=reviewedSource();return {data:{type:'file',encoding:'base64',content:bytes.toString('base64'),sha:createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')}};}}}};
+  getCommit:async args=>{assert.equal(args.ref,'main');return {data:{sha:'a'.repeat(40)}};},getContent:async args=>{assert.equal(args.path,'src/closer_role_qualification.py');assert.equal(args.ref,'a'.repeat(40));const bytes=reviewedSource(state.records);return {data:{type:'file',encoding:'base64',content:bytes.toString('base64'),sha:createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')}};}}}};
  const clock=()=>new Date('2026-10-26T00:00:00Z'),profile={id:'synthetic-ordinary',role:'closer_interpret'};
  const qualification=await loadReviewedQualification({github,profile,clock});assert.equal(qualification.status,'qualified');
  f.context.qualification=qualification;f.context.decision.profile={...profile,qualification_ref:qualification.qualification_ref,qualification_sha256:qualification.qualification_sha256};
@@ -189,6 +194,19 @@ async function freshFixture(existing=false) {
 }
 for(const existing of [false,true])test(`actual fixed reviewed-source reader permits fresh inert ${existing?'incumbent-native-assignment':'no-incumbent'} admission`,async()=>{
  const f=await freshFixture(existing);assert.equal((await f.recheck()).status,'admitted');
+});
+test('reviewed qualification fixture preserves quoted Unicode evidence references',()=>{
+ const reference='inert:quoted "evidence" \\ café\nsecond line';
+ const records=clone(require('../../../tests/fixtures/verifier_correction/role-reader-goldens.json').cases.find(row=>row.id==='qualified').records);
+ records['fixture-qualified'].qualified_at=1577836800;records['fixture-qualified'].expires_at=1893456000;
+ records['fixture-qualified'].evidence_refs[0].reference=reference;
+ const payload={source:reviewedSource(records).toString('utf8'),profile_id:'synthetic-ordinary',now:Date.parse('2026-10-26T00:00:00Z')/1000};
+ const script='import json,sys;sys.path.insert(0,sys.argv[1]);from verifier_correction_profile import read_qualification;print(json.dumps(read_qualification(**json.loads(sys.argv[2]))))';
+ const result=JSON.parse(execFileSync('python3',['-I','-c',script,path.join(pythonRoot,'.github/scripts'),JSON.stringify(payload)],{
+  stdio:['ignore','pipe','pipe'],encoding:'utf8',timeout:15000,killSignal:'SIGKILL',
+ }));
+ assert.equal(result.status,'qualified');
+ assert.equal(result.record.evidence_refs[0].reference,reference);
 });
 test('qualification revocation or reviewed empty production registry cannot inherit old admission',async()=>{
  for(const mutate of [f=>{f.state.records={};},f=>{f.state.records['fixture-qualified'].status='revoked';}]) {

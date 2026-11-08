@@ -1804,6 +1804,91 @@ and non-draft** at `482ba34d49f0f91e163b8e8060fb13c3996c9630`. A runner with
 writable Git metadata and GitHub dispatch access must publish the local patch
 and complete the selected Maint 68/71 lifecycle.
 
+## Issue 4550: bounded qualification fixture and delivery observation at 13:35 UTC
+
+The incoming revision is `1dc5d0af2f74a61ffd9c6473a443a36953f0e8a8`, a
+descendant of `b21fae85fe4f79e72c4133c29a3814b9d5950c3a`. The first unchecked
+task remains final consumer delivery. The same authorized single-consumer
+Maint 68 dispatch fails with exit **1**, `error connecting to api.github.com`.
+No run ID is returned. The connector offers read-only run access but no dispatch
+method, so no following Maint 71 dispatch or successful delivery is claimed.
+
+This iteration advances the remaining validation work with a JavaScript fixture
+change in `.github/scripts/__tests__/verifier-correction-coding.test.js`.
+`reviewedSource(records)` replaces an unbounded Python JSON-on-stdin conversion
+with inert JSON passed as an argv element, ignored stdin, and a **15-second
+SIGKILL** bound. It still uses real Python to build the reviewed registry literal.
+A minimal Python stdin conversion also reproduces `ETIMEDOUT` under a three-second
+bound; the argv equivalent succeeds. This identifies a local transport problem,
+without claiming that all coding-file stalls have the same cause.
+
+The new regression passes quoted Unicode, a backslash and a newline through
+the fixture and the actual literal-only `read_qualification` implementation.
+The reader must return `qualified` and preserve the exact evidence reference.
+Temporarily restoring the original stdin conversion makes this same regression
+reach its **5-second** external bound, exit **124**; restoring the change gives
+**1 pass, 0 failures, 0 skipped**, exit **0**, in **0.126 seconds**. The mutation
+is restored in `finally`. See the [regression receipt](runtime-4550/coding-stall-regression.json),
+[original-fixture log](runtime-4550/coding-stall-regression-before.log), and
+[changed-fixture log](runtime-4550/coding-stall-regression-after.log).
+
+Complete-file validation still times out: the original file reaches **25 seconds**
+and the changed fixture reaches **55 seconds**, both exit **124**. Other real
+Python calls remain in this file's production path. The fixture regression proves
+the bounded conversion works; it does not establish complete-file success.
+No production helper, protected workflow or security-sensitive file was edited.
+
+The current full Node diagnostic, `node --test .github/scripts/__tests__/*.test.js`,
+reaches its **75-second** external bound, exit **124**, in **75.013 seconds**.
+It reports **134 passing files, 9 failing files, 1 cancelled file, 0 skipped**.
+The Python diagnostic, `python3 -m pytest -q tests/ -m 'not slow' -x`, reaches its
+**60-second** external bound, exit **124**, in **60.032 seconds**, near 2% without
+a failure traceback or suite summary. These are the incoming revision plus the
+local JavaScript change, using Node **v24.22.2** and Python **3.14.10**.
+The [validation manifest](runtime-4550/coding-stall-validation.json) records
+commands, timings, exits, the final changed-file digest and raw-log digests.
+Complete logs are retained for the [Node run](runtime-4550/coding-stall-node-suite.log),
+[Python run](runtime-4550/coding-stall-python-suite.log),
+[original coding file](runtime-4550/coding-stall-before.log), and
+[changed coding file](runtime-4550/coding-stall-after.log).
+Neither diagnostic establishes full-suite acceptance.
+
+The existing downstream-evidence replay suite passes **25 tests** in **0.85 seconds**
+using `python3 -m pytest -q tests/scripts/test_issue_4369_downstream_evidence.py
+-m 'not slow'`; its [complete log](runtime-4550/coding-stall-evidence-tests.log)
+is retained. `node --check` on the changed file and `git diff --check` also pass.
+No Python source changed, so the Python pre-commit formatting gate is not applicable.
+
+The [fresh downstream receipt](runtime-4550/coding-stall-followup.json) retains
+**81 unique runs** on a short final page of capacity 100, covering
+**2026-11-08T12:27:49Z through 13:28:47Z**, without a Maint 68 row.
+Maint 71 [run 42484675595](https://github.com/stranske/Workflows/actions/runs/42484675595),
+[job 128743840313](https://github.com/stranske/Workflows/actions/runs/42484675595/job/128743840313),
+succeeded but processed only `stranske/trip-planner`; it supplies no Portable
+Alpha final-payload disposition. Consumer main remains
+`0543dc9732eab0ad12227308749566a937581eea`. A fresh exact-ref file read computes
+to blob `c889fd8064806a9c0f932f7c1dc09762896afe67`, differing from frozen
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3` source/template blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. Both historical source copies are
+retained from immutable local Git objects, and all three blob hashes are verified.
+
+Discussion **4434491702** remains resolved and outdated, with historical owner
+disposition **4505043101**, which predates the final payload. All **49 comments**
+are retained with bodies and REST creation/update timestamps. The final short
+REST page agrees exactly by ID with the all-pages connector. No later scoped
+sync-core recurrence is observed through **2026-11-08T13:28:47Z**; the last scoped
+comment remains **6649911684**, round `20261105T044440Z`. Final delivery remains
+false, and no remaining task or acceptance checkbox is advanced.
+
+Staging the JavaScript change exits **128** because `.git/index.lock` is on a
+read-only filesystem. No commit or push succeeded. Automatic approval review
+also rejects the additive `needs-human` label and prepared PR blocker comment:
+`MCP tool call requires approval, but approval policy is never`. Neither mutation
+was published, and no alternate mutation transport was used. A final metadata
+read confirms PR **4551** remains **open and non-draft** at the incoming SHA.
+Publishing requires a runner with writable Git metadata; final delivery requires
+GitHub workflow-dispatch access and the selected Maint 68/71 lifecycle.
+
 
 ## Issue 4550: supported runner continuation, 2026-11-08 13:38 UTC
 

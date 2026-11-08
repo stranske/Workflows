@@ -1,0 +1,37 @@
+✖ reviewed qualification fixture preserves quoted Unicode evidence references (4958.069862ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4981.031036
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/verifier-correction-coding.test.js:196:1
+✖ reviewed qualification fixture preserves quoted Unicode evidence references (4958.069862ms)
+  <ref *1> Error: spawnSync python3 EPERM
+      at Object.spawnSync (node:internal/child_process:1191:20)
+      at spawnSync (node:child_process:929:24)
+      at execFileSync (node:child_process:972:15)
+      at reviewedSource (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/verifier-correction-coding.test.js:162:16)
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/verifier-correction-coding.test.js:201:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    errno: -1,
+    code: 'EPERM',
+    syscall: 'spawnSync python3',
+    path: 'python3',
+    spawnargs: [ '-I', '-c', 'import sys,json;print(repr(json.load(sys.stdin)))' ],
+    error: [Circular *1],
+    status: null,
+    signal: 'SIGTERM',
+    output: [ null, '', '' ],
+    pid: 12,
+    stdout: '',
+    stderr: ''
+  }
