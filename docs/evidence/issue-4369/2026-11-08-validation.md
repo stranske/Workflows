@@ -2492,3 +2492,80 @@ Read-only file system`; no commit or push succeeded. Automatic approval review
 also rejects the additive `needs-human` label and concrete blocker comment with
 `MCP tool call requires approval, but approval policy is never`. Neither was
 published. The prepared comment is retained locally with the tested patch.
+
+### Coding-test stdin transport and complete-suite bounds, 2026-11-08 18:01 UTC
+
+At incoming revision `45781009d0c43974648f004c6ac53f09120f6024`, the first
+unmet acceptance criterion remains combined complete-suite success. This
+revision contains `b21fae85fe4f79e72c4133c29a3814b9d5950c3a`; Python is
+**3.14.10** and Node is **v24.22.2**. Verified progress remains **8/10**.
+
+The coding module still reached real Python through the sandbox-denied Node
+stdin socket. Its test fixture now supplies the same stdin bytes through a
+private temporary file descriptor, retaining real Python rendering, qualification
+reading, budget enforcement, timeout and output bounds. It removes the file in
+`finally` and restores the process mock after the module. Production code is
+unchanged. A new regression preserves quoted Unicode, backslashes, newlines,
+finding text and required tests, and still rejects a budget overflow.
+
+The changed module reports **25 passed, zero failures or skips** in **6.301s**
+with isolation disabled under a 60-second external bound. It also passes under
+the normal `node --test` runner in **10.008s**. Bypassing only the file-backed
+transport makes the new regression time out after **5.005s**; the changed file
+is restored in `finally`. The [validation receipt](runtime-4550/coding-stdin-validation.json),
+[25-test raw output](runtime-4550/coding-stdin-direct.log),
+[normal-run receipt](runtime-4550/coding-stdin-targeted.json), and
+[negative control](runtime-4550/coding-stdin-red.json) retain commands, bounds
+and digests. No Python or protected file changed; `node --check` and
+`git diff --check` pass.
+
+Both exact complete-suite commands were rerun against this revision plus the
+identified test-file digest. Their complete captured output is retained:
+
+| Command | Result | Wall time | Raw log and receipt |
+| --- | --- | --- | --- |
+| `node --test .github/scripts/__tests__/*.test.js` | Exit **1**, 136 passing files, 9 failing files, zero cancelled or skipped | **43.318s**, 120s bound | [log](runtime-4550/coding-stdin-node-full.log), [receipt](runtime-4550/coding-stdin-node-full.json) |
+| `python3 -m pytest -q tests/` | External timeout **124**, child killed with SIGKILL; no suite summary | **180.030s**, 180s bound | [log](runtime-4550/coding-stdin-python-full.log), [receipt](runtime-4550/coding-stdin-python-full.json) |
+
+The coding file now passes in the full Node run, which terminates without the
+previous cancelled file. Nine other files still fail. The Python timeout does
+not establish a defect in its last test: a separate verbose probe's last named
+boundary, `test_hollow_detected`, passes alone in **6.18s**. Neither full-suite
+result meets acceptance, and no checkbox is advanced.
+
+The [read-only observation](runtime-4550/coding-stdin-live-observation.json)
+records the intervening automation without dispatching any workflow. Maint 68
+**42499084007** froze source **bbfc6ae604c8e8c4021138c5efe964a368482957**
+and full plan **a478e45c16b6**, creating candidate head
+**a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9** on consumer PR **2486**.
+Its reconciliation notice binds the immediately following Maint 71
+**42499282783**, whose selected result is `dry_run_seal`. The subsequent
+campaign pair **42500535712 → 42501293763** records `campaign_prepared`.
+Both selected finding dispositions bind the exact source/plan/head tuple,
+report zero active findings, and exclude historical discussion **4434491702**.
+These are log-derived results, not downloaded artifact claims or merged receipts.
+The six-page inventory retains 515 unique runs from the earlier observation
+window; its page counts and workflow events are explicit in the JSON.
+
+Fresh immutable file reads recompute frozen template and candidate payload to
+Git blob **71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2**. Consumer main remains
+**0543dc9732eab0ad12227308749566a937581eea**, with different payload blob
+**c889fd8064806a9c0f932f7c1dc09762896afe67**. Consumer PR **2486** and
+source PR **4551** are open and non-draft. Historical discussion **4434491702**
+is still resolved and outdated, with disposition **4505043101**. Final merged
+delivery remains false.
+
+The fresh complete short REST page retains **49** issue comments with full
+bodies and creation/update timestamps; ordered IDs match the independent
+all-pages connector. No scoped recurrence is observed through
+**2026-11-08T18:01:01Z**; the last scoped comment remains **6649911684**.
+
+Staging the meaningful JavaScript test change fails with exit **128** because
+`.git/index.lock` is read-only. No commit or push succeeds. The tested patch
+and evidence remain local for the automation writer; the remaining full-suite
+and merged-delivery criteria stay unchecked.
+
+Automatic approval review also rejects the prepared blocker comment and
+additive `needs-human` label on PR **4551** with `MCP tool call requires
+approval, but approval policy is never`. Neither is published; no alternate
+mutation transport is used.

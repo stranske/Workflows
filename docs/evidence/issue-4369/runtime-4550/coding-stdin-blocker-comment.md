@@ -1,0 +1,7 @@
+Verified progress remains 8/10; both remaining acceptance criteria stay unchecked.
+
+The scoped coding-test transport repair passes all 25 tests in 6.3s, and removing that repair reproduces the new regression's five-second timeout. The exact full Node command now terminates in 43.3s with 136 passing files, nine failing files, and none cancelled/skipped. The exact Python command times out at 180s without a suite summary. Complete logs, revision and file digests are retained under docs/evidence/issue-4369/runtime-4550/coding-stdin-*.
+
+Read-only receipts bind Maint 68 42499084007 to immediately following Maint 71 42499282783 and current candidate a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9. The candidate contains the final payload, but consumer PR 2486 remains open and main 0543dc9732eab0ad12227308749566a937581eea still has older bytes. No workflow was dispatched. Discussion 4434491702 remains resolved/outdated and is absent from these selected finding dispositions. All 49 issue comments show no scoped recurrence through 2026-11-08T18:01:01Z.
+
+Publication is blocked: git add fails with exit 128 because .git/index.lock is read-only. An authorized writer must commit the tested JavaScript patch and evidence; a supported runner must establish passing full-suite results, and the existing Maint 68/71 lifecycle must produce the final merged consumer receipt. No protected workflow changes are requested by this patch.

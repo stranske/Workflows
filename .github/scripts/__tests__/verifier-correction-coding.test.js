@@ -1,5 +1,26 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('path'),{createHash}=require('crypto');
+const fs=require('fs'),os=require('os'),childProcess=require('child_process');
+const nativeExecFileSync=childProcess.execFileSync;
+// Keep real Python readers/renderers, but deliver their stdin through a file:
+// this sandbox denies writes to Node's subprocess stdin socket. Do not move
+// payloads into argv (which has size limits and exposes process arguments).
+const pythonStdin=test.mock.method(childProcess,'execFileSync',(file,args,options={})=>{
+ if(file!=='python3' || !Object.hasOwn(options,'input'))return nativeExecFileSync(file,args,options);
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'coding-python-stdin-'));
+ let descriptor;
+ try {
+  const filename=path.join(directory,'stdin');
+  fs.writeFileSync(filename,options.input,{mode:0o600});descriptor=fs.openSync(filename,'r');
+  const {input,...boundedOptions}=options;
+  assert.ok(Number.isFinite(boundedOptions.timeout) && boundedOptions.timeout>0,'real Python calls remain bounded');
+  return nativeExecFileSync(file,args,{...boundedOptions,stdio:[descriptor,'pipe','pipe'],killSignal:'SIGKILL'});
+ } finally {
+  if(descriptor!==undefined)fs.closeSync(descriptor);
+  fs.rmSync(directory,{recursive:true,force:true});
+ }
+});
+test.after(()=>pythonStdin.mock.restore());
 const {digest}=require('../verification_event');
 const {seedForRequest,effectKey,issueIdentity,sourceScopeDigest}=require('../verifier_correction_effects');
 const {artifactName,SPECS}=require('../verifier_correction_artifacts');
@@ -55,6 +76,17 @@ for(const existing of [false,true])test(`real ${existing?'existing':'no-incumben
  assert.ok(final.startsWith(base+'\n\n## Complete original issue scope\n'+f.issue.body));const rendered=JSON.parse(final.slice(final.indexOf('{')));assert.equal(rendered.finding_text,scope.finding_text);assert.deepEqual(rendered.required_tests,scope.required_tests);
  for(const required of scope.required_tests)assert.ok(final.includes(required.specification || required.selector));
  assert.ok(f.calls.some(row=>row[0]==='canonical'));assert.ok(f.calls.some(row=>row[1]==='admitted'));assert.ok(f.calls.some(row=>row[1]==='ledger'));
+});
+test('file-backed Python stdin preserves quoted Unicode coding scope and rejects budget overflow',async()=>{
+ const issueBody='Original "scope" \\ café\nComplete the second line.';
+ const f=fixture(false,{issueBody}),scope=await resolveCodingScope({transport:f.transport,issueNumber:9});
+ const prompt='Coding instructions "quoted" \\ résumé\nNext instruction.';
+ const final=fitCodingText({base:prompt,scope,budget:'100000',pythonRoot});
+ assert.ok(final.startsWith(prompt+'\n\n## Complete original issue scope\n'+issueBody));
+ const rendered=JSON.parse(final.slice(final.indexOf('{')));
+ assert.deepEqual(rendered.required_tests,scope.required_tests);
+ assert.equal(rendered.finding_text,scope.finding_text);
+ assert.throws(()=>fitCodingText({base:prompt,scope,budget:'1',pythonRoot}));
 });
 test('complete empty native history returns null and legacy activation stays exact bytes without a budget',async()=>{
  const f=fixture();f.transport.runs=async()=>[];const scope=await resolveCodingScope({transport:f.transport,issueNumber:9});assert.equal(scope,null);
@@ -121,7 +153,7 @@ test('two actual authenticated scopes historically linked to the same PR remain 
  assert.equal((await resolveCodingScope({transport,issueNumber:11})).issue.node_id,'I_11');
  await assert.rejects(resolvePullCodingScope({transport,pullNumber:10}),/competing authenticated scopes/);
 });
-const fs=require('fs'),{execFileSync}=require('child_process');
+const {execFileSync}=require('child_process');
 const beltSurfaces=['.github/workflows/agents-72-codex-belt-worker.yml','templates/consumer-repo/.github/workflows/agents-72-codex-belt-worker.yml'];
 function activationScript(surface=beltSurfaces[0]) {
  const text=fs.readFileSync(path.join(pythonRoot,surface),'utf8');
