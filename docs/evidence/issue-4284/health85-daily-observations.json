@@ -1,0 +1,51 @@
+[
+  {
+    "date": "2026-10-31",
+    "p50_minutes": 11.75,
+    "run_id": 41197692660,
+    "run_conclusion": "success",
+    "note": "Health 85 log: stranske/Workflows: p50=11.75 target=10.0"
+  },
+  {
+    "date": "2026-11-01",
+    "p50_minutes": 11.716666666666665,
+    "run_id": 41302778594,
+    "run_conclusion": "success",
+    "note": "Health 85 log: stranske/Workflows: p50=11.716666666666665 target=10.0"
+  },
+  {
+    "date": "2026-11-02",
+    "p50_minutes": 11.85,
+    "run_id": 41438356129,
+    "run_conclusion": "success",
+    "note": "Health 85 log: stranske/Workflows: p50=11.85 target=10.0"
+  },
+  {
+    "date": "2026-11-03",
+    "p50_minutes": 11.841666666666667,
+    "run_id": 41629164812,
+    "run_conclusion": "success",
+    "note": "Health 85 log: stranske/Workflows: p50=11.841666666666667 target=10.0"
+  },
+  {
+    "date": "2026-11-04",
+    "p50_minutes": 11.85,
+    "run_id": 41822549611,
+    "run_conclusion": "success",
+    "note": "Health 85 log: stranske/Workflows: p50=11.85 target=10.0"
+  },
+  {
+    "date": "2026-11-05",
+    "p50_minutes": null,
+    "run_id": 42020576555,
+    "run_conclusion": "failure",
+    "note": "Health 85 run failed. Log: ERROR: stranske/Workflows: measurement unavailable. The job log does not include the exception text. Published p50 for this date is null."
+  },
+  {
+    "date": "2026-11-06",
+    "p50_minutes": null,
+    "run_id": 42211705537,
+    "run_conclusion": "failure",
+    "note": "Health 85 run failed. Log: ERROR: stranske/Workflows: measurement unavailable. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-06 11:58:23 UTC. p50 is null."
+  }
+]

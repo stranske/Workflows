@@ -1,0 +1,11 @@
+........................                                                 [100%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.14.10-final-0 _______________
+
+Name                                                            Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------------------------------------------------
+docs/evidence/issue-3743/shebang-rejection/compare_matched.py     288     78     54      4    73%   79, 83, 137, 146, 340, 353-368, 380-383, 401-403, 441-464, 492, 554-637, 641-659, 663
+-----------------------------------------------------------------------------------------------------------
+TOTAL                                                             288     78     54      4    73%
+Coverage JSON written to file /home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/comparison-input-validation/comparison-coverage.json
+24 passed in 1.36s

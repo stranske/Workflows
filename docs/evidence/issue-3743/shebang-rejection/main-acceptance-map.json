@@ -1,0 +1,742 @@
+{
+  "inspected_main": {
+    "ref": "origin/main",
+    "commit": "7ab99d09429a3b35aa55f7744f8c75b467f42536",
+    "committed_at": "2026-11-06T06:44:41-06:00",
+    "subject": "fix(autopilot): require PR-bound verification before guarded completion (#4463)"
+  },
+  "check_date": "2026-11-06",
+  "archives": [
+    {
+      "archive": "/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/proof.tar.gz",
+      "sha256": "83bf8bec764c0630a08c661876eaf7a24b5a7b27e1ee2875f6f96565ff281fae",
+      "bytes": 381289,
+      "manifest_sha256": "0b9017105b1ffca91fb9da871cdc3569dacd3b39b0f8b13daeb0224704311ddd",
+      "manifest_members": 122,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true,
+      "summary": "docs/evidence/issue-3743/shebang-rejection/summary.json"
+    },
+    {
+      "archive": "/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz",
+      "sha256": "f432fadc3959ac92e548b37b949f4070c4c9e00ad2ea19f8d1b5a9645c2fd254",
+      "bytes": 473676,
+      "manifest_sha256": "ba2cbaee4787ddcd2857677752cdd9543b4601515f77e4b05a900fe816eee0d1",
+      "manifest_members": 151,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true,
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json"
+    },
+    {
+      "archive": "/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz",
+      "sha256": "0a1974ad9d253eba6d78fca5b36a870aa9eac20b11db9b3bf0ac8be3c38abf8a",
+      "bytes": 854770,
+      "manifest_sha256": "9fc2ea69588a81726562bfb82534e056a6601908c592c9bad22347f47a4bdff9",
+      "manifest_members": 316,
+      "sha256_matches_summary": true,
+      "bytes_match_summary": true,
+      "manifest_sha256_matches_summary": true,
+      "member_count_matches_summary": true,
+      "manifest_covers_archive_files": true,
+      "member_mismatches": [],
+      "verified": true,
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json"
+    }
+  ],
+  "bindings": [
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/summary.json",
+      "path": "scripts/check_deliberate_break.py",
+      "expected": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "actual": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "status": "match",
+      "archive_copy_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/summary.json",
+      "path": "templates/consumer-repo/scripts/check_deliberate_break.py",
+      "expected": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "actual": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "status": "match",
+      "archive_copy_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "expected": "78cb81326dc9c5c084d1a89fe7ec6cec7ec887f3a0d016b76e7bdeccb5b8e731",
+      "actual": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+      "status": "mismatch",
+      "archive_copy_sha256": "78cb81326dc9c5c084d1a89fe7ec6cec7ec887f3a0d016b76e7bdeccb5b8e731",
+      "archive_copy_matches_summary": true,
+      "tree_versus_archive_diff": "--- archive\n+++ merged-main\n@@ -1,15 +1,22 @@\n \"\"\"Malformed pytest launchers cannot authorize a Python import probe or repair.\"\"\"\n \n import runpy\n+import shutil\n from pathlib import Path\n \n import pytest\n \n \n @pytest.fixture(params=[\"\", \"templates/consumer-repo/\"], ids=[\"root\", \"template\"])\n-def helper(request):\n+def helper(request, monkeypatch):\n     root = Path(__file__).resolve().parents[2]\n-    return runpy.run_path(str(root / request.param / \"scripts/check_deliberate_break.py\"))\n+    module = runpy.run_path(str(root / request.param / \"scripts/check_deliberate_break.py\"))\n+\n+    def unexpected_probe(*args, **kwargs):\n+        pytest.fail(\"a malformed launcher must not execute a probe subprocess\")\n+\n+    monkeypatch.setitem(module[\"_pyyaml_probe_succeeds\"].__globals__, \"_run\", unexpected_probe)\n+    return module\n \n \n @pytest.fixture\n@@ -25,13 +32,16 @@\n \n \n def assert_no_probe(helper, launcher):\n-    command = (str(launcher), \"tests/test_named.py::test_named\")\n-    assert helper[\"_pyyaml_probe_command\"](command, launcher.parent) is None\n-    assert helper[\"_uses_pytest_runtime\"](command) is False\n-    assert helper[\"_pyyaml_probe_succeeds\"](command, launcher.parent) is False\n+    assert shutil.which(\"pytest\") == str(launcher)\n+    for executable in (\"pytest\", str(launcher)):\n+        command = (executable, \"tests/test_named.py::test_named\")\n+        assert helper[\"_pyyaml_probe_command\"](command, launcher.parent) is None\n+        assert helper[\"_uses_pytest_runtime\"](command) is False\n+        assert helper[\"_pyyaml_probe_succeeds\"](command, launcher.parent) is False\n \n \n def test_empty_pytest_launcher_has_no_probe(helper, launcher):\n+    assert launcher.read_text(encoding=\"utf-8\") == \"\"\n     assert_no_probe(helper, launcher)\n \n \n",
+      "tree_bytes": 2093,
+      "archive_bytes": 1658
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/summary.json",
+      "path": "docs/evidence/issue-3743/shebang-rejection/replay.py",
+      "expected": "23d12b9f6434155c2152f467398f1c54ced754163ace0b3e8a1c558805087105",
+      "actual": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "status": "mismatch",
+      "archive_copy_sha256": "23d12b9f6434155c2152f467398f1c54ced754163ace0b3e8a1c558805087105",
+      "archive_copy_matches_summary": true,
+      "tree_versus_archive_diff": "--- archive\n+++ merged-main\n@@ -10,8 +10,8 @@\n import sys\n import tempfile\n from pathlib import Path\n-\n-from defusedxml import ElementTree as ET\n+from xml.etree import ElementTree as ET\n+from xml.parsers import expat\n \n TEST = \"tests/scripts/test_check_deliberate_break_shebang_rejection.py\"\n HELPER = \"scripts/check_deliberate_break.py\"\n@@ -39,6 +39,21 @@\n     return hashlib.sha256(data).hexdigest()\n \n \n+def parse_junit(path: Path) -> ET.Element:\n+    \"\"\"Read JUnit without dependencies, rejecting DTDs and entity declarations.\"\"\"\n+    data = path.read_bytes()\n+    parser = expat.ParserCreate()\n+\n+    def reject_declaration(*args):\n+        raise ValueError(\"JUnit must not contain DTDs or entity declarations\")\n+\n+    parser.StartDoctypeDeclHandler = reject_declaration\n+    parser.EntityDeclHandler = reject_declaration\n+    parser.ExternalEntityRefHandler = reject_declaration\n+    parser.Parse(data, True)\n+    return ET.fromstring(data)\n+\n+\n def run_node(checkout: Path, output: Path, node: str, phase: str) -> dict:\n     junit = output / f\"{phase}.xml\"\n     argv = [\n@@ -56,7 +71,7 @@\n     result = subprocess.run(argv, cwd=checkout, capture_output=True, text=True, timeout=60)\n     (output / f\"{phase}.stdout\").write_text(result.stdout, encoding=\"utf-8\")\n     (output / f\"{phase}.stderr\").write_text(result.stderr, encoding=\"utf-8\")\n-    cases = list(ET.parse(junit).getroot().iter(\"testcase\"))\n+    cases = list(parse_junit(junit).iter(\"testcase\"))\n     failures = [failure for case in cases for failure in case.findall(\"failure\")]\n     errors = [error for case in cases for error in case.findall(\"error\")]\n     skips = [skip for case in cases for skip in case.findall(\"skipped\")]\n",
+      "tree_bytes": 6406,
+      "archive_bytes": 5855
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/summary.json",
+      "path": "docs/evidence/issue-3743/shebang-rejection/coverage.ini",
+      "expected": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "actual": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "status": "match",
+      "archive_copy_sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "scripts/check_deliberate_break.py",
+      "expected": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "actual": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "status": "match",
+      "archive_copy_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "templates/consumer-repo/scripts/check_deliberate_break.py",
+      "expected": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "actual": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "status": "match",
+      "archive_copy_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "expected": "96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf",
+      "actual": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+      "status": "mismatch",
+      "archive_copy_sha256": "96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf",
+      "archive_copy_matches_summary": true,
+      "tree_versus_archive_diff": "--- archive\n+++ merged-main\n@@ -41,6 +41,7 @@\n \n \n def test_empty_pytest_launcher_has_no_probe(helper, launcher):\n+    assert launcher.read_text(encoding=\"utf-8\") == \"\"\n     assert_no_probe(helper, launcher)\n \n \n",
+      "tree_bytes": 2093,
+      "archive_bytes": 2039
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "docs/evidence/issue-3743/shebang-rejection/replay.py",
+      "expected": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "actual": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "status": "match",
+      "archive_copy_sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "docs/evidence/issue-3743/shebang-rejection/coverage.ini",
+      "expected": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "actual": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "status": "match",
+      "archive_copy_sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break.py",
+      "expected": "1e2cdff703047aa1ecbbc1a767429f6aef220d5ac60d94c41a7912117907e773",
+      "actual": "8ac94dd5a344e6612af3175085db6c01d7490082fe7f1b8842919e46584c2c11",
+      "status": "mismatch",
+      "archive_copy_sha256": "1e2cdff703047aa1ecbbc1a767429f6aef220d5ac60d94c41a7912117907e773",
+      "archive_copy_matches_summary": true,
+      "tree_versus_archive_diff": "--- archive\n+++ merged-main\n@@ -2444,7 +2444,13 @@\n         4: \"base usage diagnostic\",\n         5: \"no tests ran\",\n     }[exit_code]\n-    assert diagnostic in result[\"base_stdout\"] + result[\"base_stderr\"]\n+    combined = result[\"base_stdout\"] + result[\"base_stderr\"]\n+    if exit_code == 5 and diagnostic not in combined:\n+        # pytest -q omits \"no tests ran\" when a plugin warning summary owns the\n+        # footer. Exit code 5, asserted above, is still the empty session.\n+        assert \"warnings summary\" in combined\n+    else:\n+        assert diagnostic in combined\n     if exit_code == 1:\n         assert \"ERROR collecting\" in result[f\"base_{stream}\"]\n \n",
+      "tree_bytes": 101553,
+      "archive_bytes": 101260
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_archive.py",
+      "expected": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+      "actual": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+      "status": "match",
+      "archive_copy_sha256": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_fallback_target_selection.py",
+      "expected": "e0c6f0e7094e5685d9b9e96a80ed6819cd8eaf9c0cbbf340adc562f201bcd077",
+      "actual": "e0c6f0e7094e5685d9b9e96a80ed6819cd8eaf9c0cbbf340adc562f201bcd077",
+      "status": "match",
+      "archive_copy_sha256": "e0c6f0e7094e5685d9b9e96a80ed6819cd8eaf9c0cbbf340adc562f201bcd077",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_head_launch.py",
+      "expected": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+      "actual": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+      "status": "match",
+      "archive_copy_sha256": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+      "expected": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+      "actual": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+      "status": "match",
+      "archive_copy_sha256": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_launcher_admission.py",
+      "expected": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+      "actual": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+      "status": "match",
+      "archive_copy_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+      "expected": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+      "actual": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+      "status": "match",
+      "archive_copy_sha256": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_probe_option_boundaries.py",
+      "expected": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+      "actual": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+      "status": "match",
+      "archive_copy_sha256": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_repair_failures.py",
+      "expected": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+      "actual": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+      "status": "match",
+      "archive_copy_sha256": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_runtime_health.py",
+      "expected": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+      "actual": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+      "status": "match",
+      "archive_copy_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+      "expected": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+      "actual": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+      "status": "match",
+      "archive_copy_sha256": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+      "expected": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
+      "actual": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
+      "status": "match",
+      "archive_copy_sha256": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "path": "tests/scripts/test_shebang_rejection_replay.py",
+      "expected": "57d67836302a29372138733ab3deb71673cf04dbf0a6e7919c2af949873bfa14",
+      "actual": "01a515e7157d8aa54dcc548473f734e65409d87b354cf463686a44196e350a0d",
+      "status": "mismatch",
+      "archive_copy_sha256": "57d67836302a29372138733ab3deb71673cf04dbf0a6e7919c2af949873bfa14",
+      "archive_copy_matches_summary": true,
+      "tree_versus_archive_diff": null,
+      "tree_bytes": 7056,
+      "archive_bytes": 1653
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "scripts/check_deliberate_break.py",
+      "expected": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "actual": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "status": "match",
+      "archive_copy_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "templates/consumer-repo/scripts/check_deliberate_break.py",
+      "expected": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "actual": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "status": "match",
+      "archive_copy_sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "expected": "96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf",
+      "actual": "e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a",
+      "status": "mismatch",
+      "archive_copy_sha256": "96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf",
+      "archive_copy_matches_summary": true,
+      "tree_versus_archive_diff": "--- archive\n+++ merged-main\n@@ -41,6 +41,7 @@\n \n \n def test_empty_pytest_launcher_has_no_probe(helper, launcher):\n+    assert launcher.read_text(encoding=\"utf-8\") == \"\"\n     assert_no_probe(helper, launcher)\n \n \n",
+      "tree_bytes": 2093,
+      "archive_bytes": 2039
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "docs/evidence/issue-3743/shebang-rejection/replay.py",
+      "expected": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "actual": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "status": "match",
+      "archive_copy_sha256": "9ffef61d6ac22487d914edffa6295fae9503b4e7a12def1917efb3d73e2ef773",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "docs/evidence/issue-3743/shebang-rejection/coverage.ini",
+      "expected": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "actual": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "status": "match",
+      "archive_copy_sha256": "fcd1233e5a269b4729be015daf9258224d6d5fd5d59637964a9e426e1958486a",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_shebang_rejection_replay.py",
+      "expected": "01a515e7157d8aa54dcc548473f734e65409d87b354cf463686a44196e350a0d",
+      "actual": "01a515e7157d8aa54dcc548473f734e65409d87b354cf463686a44196e350a0d",
+      "status": "match",
+      "archive_copy_sha256": "01a515e7157d8aa54dcc548473f734e65409d87b354cf463686a44196e350a0d",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break.py",
+      "expected": "1e2cdff703047aa1ecbbc1a767429f6aef220d5ac60d94c41a7912117907e773",
+      "actual": "8ac94dd5a344e6612af3175085db6c01d7490082fe7f1b8842919e46584c2c11",
+      "status": "mismatch",
+      "archive_copy_sha256": "1e2cdff703047aa1ecbbc1a767429f6aef220d5ac60d94c41a7912117907e773",
+      "archive_copy_matches_summary": true,
+      "tree_versus_archive_diff": "--- archive\n+++ merged-main\n@@ -2444,7 +2444,13 @@\n         4: \"base usage diagnostic\",\n         5: \"no tests ran\",\n     }[exit_code]\n-    assert diagnostic in result[\"base_stdout\"] + result[\"base_stderr\"]\n+    combined = result[\"base_stdout\"] + result[\"base_stderr\"]\n+    if exit_code == 5 and diagnostic not in combined:\n+        # pytest -q omits \"no tests ran\" when a plugin warning summary owns the\n+        # footer. Exit code 5, asserted above, is still the empty session.\n+        assert \"warnings summary\" in combined\n+    else:\n+        assert diagnostic in combined\n     if exit_code == 1:\n         assert \"ERROR collecting\" in result[f\"base_{stream}\"]\n \n",
+      "tree_bytes": 101553,
+      "archive_bytes": 101260
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_archive.py",
+      "expected": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+      "actual": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+      "status": "match",
+      "archive_copy_sha256": "b6387a191078d8d33d4efefecc8ec7256ddf4901e7901187f764a7f0f983b5db",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_fallback_target_selection.py",
+      "expected": "e0c6f0e7094e5685d9b9e96a80ed6819cd8eaf9c0cbbf340adc562f201bcd077",
+      "actual": "e0c6f0e7094e5685d9b9e96a80ed6819cd8eaf9c0cbbf340adc562f201bcd077",
+      "status": "match",
+      "archive_copy_sha256": "e0c6f0e7094e5685d9b9e96a80ed6819cd8eaf9c0cbbf340adc562f201bcd077",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_head_launch.py",
+      "expected": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+      "actual": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+      "status": "match",
+      "archive_copy_sha256": "9ddaeb3f4b923679335de449703d58773ca7e502765952a5cac4f3ee2d2edf44",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+      "expected": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+      "actual": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+      "status": "match",
+      "archive_copy_sha256": "7839e44f89a2335205c0337c7271ae710a8c6b81a0a0d7789cdc29187c55ea48",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_launcher_admission.py",
+      "expected": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+      "actual": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+      "status": "match",
+      "archive_copy_sha256": "842b4f9427a14f406fdc075db55c91e66a3c51fe448324c44e16efe14d94ceca",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+      "expected": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+      "actual": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+      "status": "match",
+      "archive_copy_sha256": "0ac37107d479e081a7eecb4d396b2639dc237ef4adaebba35afe2ea9a471ee9b",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_probe_option_boundaries.py",
+      "expected": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+      "actual": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+      "status": "match",
+      "archive_copy_sha256": "fa7fa3c58a0258c89ba823f05b2f7e8ec0c88fb1a807715803603028cadad1a1",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_repair_failures.py",
+      "expected": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+      "actual": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+      "status": "match",
+      "archive_copy_sha256": "63001d63a10e2a75449117ccd96410dedbc588d44d7c225154270f0a02e59233",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_runtime_health.py",
+      "expected": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+      "actual": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+      "status": "match",
+      "archive_copy_sha256": "f27013701bbc1be89258d5e17fa0b9074bebc8d1beed593ea364ca9c72e16fcf",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+      "expected": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+      "actual": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+      "status": "match",
+      "archive_copy_sha256": "7dd93ef4dfddc7aca89eb6e1e4b4448335a6a12025b8e2c4d887dc7460f54ebc",
+      "archive_copy_matches_summary": true
+    },
+    {
+      "summary": "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "path": "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+      "expected": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
+      "actual": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
+      "status": "match",
+      "archive_copy_sha256": "7a5ad7cee37549cbbdc4feac00f53e535e31f691d0dcc3f26268fd28d3bbf934",
+      "archive_copy_matches_summary": true
+    }
+  ],
+  "helpers": {
+    "equal_each_other": true,
+    "root_equals_origin_main": true,
+    "template_equals_origin_main": true,
+    "sha256": "45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27",
+    "bytes": 45981
+  },
+  "historical_tree": {
+    "paths": [
+      "docs/evidence/issue-3743/shebang-rejection/README.md",
+      "docs/evidence/issue-3743/shebang-rejection/coverage.ini",
+      "docs/evidence/issue-3743/shebang-rejection/replay.py",
+      "docs/evidence/issue-3743/shebang-rejection/summary.json",
+      "docs/evidence/issue-3743/shebang-rejection/proof.tar.gz",
+      "docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json",
+      "docs/evidence/issue-3743/shebang-rejection/path-lookup/proof.tar.gz",
+      "docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json",
+      "docs/evidence/issue-3743/shebang-rejection/replay-validation/proof.tar.gz",
+      "docs/evidence/issue-3743/shebang-rejection/replay-validation/task-reconciliation.md",
+      "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "scripts/check_deliberate_break.py",
+      "templates/consumer-repo/scripts/check_deliberate_break.py",
+      "tests/scripts/test_shebang_rejection_replay.py"
+    ],
+    "match_origin_main": true,
+    "exit": 0
+  },
+  "test_contract": {
+    "cases": [
+      "test_empty_pytest_launcher_has_no_probe",
+      "test_missing_shebang_has_no_probe",
+      "test_unclosed_shebang_quote_has_no_probe",
+      "test_unresolved_env_python_has_no_probe"
+    ],
+    "parameter_ids": [
+      "root",
+      "template"
+    ],
+    "declared_cases_present": true,
+    "real_executable_file": true,
+    "restricted_path": true,
+    "empty_launcher_bytes": true,
+    "missing_shebang_case": true,
+    "unclosed_quote_case": true,
+    "unresolved_env_case": true,
+    "no_available_probe": true,
+    "unmanaged_runtime": true,
+    "unsuccessful_probe": true
+  },
+  "replay_contract": {
+    "mutation_names": [
+      "test_empty_pytest_launcher_has_no_probe",
+      "test_missing_shebang_has_no_probe",
+      "test_unclosed_shebang_quote_has_no_probe",
+      "test_unresolved_env_python_has_no_probe"
+    ],
+    "anchor_counts": {
+      "root": {
+        "test_empty_pytest_launcher_has_no_probe": 1,
+        "test_missing_shebang_has_no_probe": 1,
+        "test_unclosed_shebang_quote_has_no_probe": 1,
+        "test_unresolved_env_python_has_no_probe": 1
+      },
+      "template": {
+        "test_empty_pytest_launcher_has_no_probe": 1,
+        "test_missing_shebang_has_no_probe": 1,
+        "test_unclosed_shebang_quote_has_no_probe": 1,
+        "test_unresolved_env_python_has_no_probe": 1
+      }
+    },
+    "anchors_unique": true,
+    "claims_output_before_copy": true,
+    "restores_original_bytes": true,
+    "rejects_existing_output": true
+  },
+  "pre_change": {
+    "check_date": "2026-11-06",
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "stop_rule": "Attempt each literal acceptance command at most once. If /opt/anaconda3/bin/python3 is missing or not executable, record exit 127 and stop that command. Do not substitute another interpreter, do not change privacy settings, and do not create /tmp/fresh-shebang-rejection-proof. Cap the focused installed-interpreter pytest path at 120 seconds. Do not edit the shebang tests, replay.py, or either production helper until this pre-change record is written.",
+    "focused_limit_seconds": 120,
+    "literal_commands": [
+      {
+        "argv": [
+          "/opt/anaconda3/bin/python3",
+          "-m",
+          "pytest",
+          "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+          "-q",
+          "-o",
+          "addopts="
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "interpreter": "/opt/anaconda3/bin/python3",
+        "attempt": 1,
+        "limit_seconds": 120,
+        "exit": 127,
+        "stdout": "",
+        "stderr": "/opt/anaconda3/bin/python3: No such file or directory\n",
+        "stopped": "interpreter-absent",
+        "duration_seconds": 0
+      },
+      {
+        "argv": [
+          "/opt/anaconda3/bin/python3",
+          "docs/evidence/issue-3743/shebang-rejection/replay.py",
+          "--output",
+          "/tmp/fresh-shebang-rejection-proof"
+        ],
+        "cwd": "/home/runner/work/Workflows/Workflows",
+        "interpreter": "/opt/anaconda3/bin/python3",
+        "attempt": 1,
+        "limit_seconds": 120,
+        "exit": 127,
+        "stdout": "",
+        "stderr": "/opt/anaconda3/bin/python3: No such file or directory\n",
+        "stopped": "interpreter-absent",
+        "duration_seconds": 0
+      }
+    ],
+    "operational_pytest": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "-m",
+        "pytest",
+        "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+        "-q",
+        "-o",
+        "addopts=",
+        "--junitxml=/tmp/shebang-focused-7cmzwta_.xml"
+      ],
+      "cwd": "/home/runner/work/Workflows/Workflows",
+      "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+      "exit": 0,
+      "stdout": "........                                                                 [100%]\n8 passed in 0.23s\n",
+      "stderr": "",
+      "summary_line": "8 passed in 0.23s",
+      "passed": 8,
+      "duration_seconds": 1.025,
+      "under_two_minutes": true,
+      "stopped": null,
+      "junit": {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "satisfies_literal_interpreter": false
+    },
+    "protected_files_edited_before_record": false,
+    "note": "Recorded before any edit to the shebang tests, replay.py, or production helpers. The operational pytest uses the installed interpreter so the eight-pass outcome is measured. It is not a substitute for the literal Anaconda commands."
+  },
+  "replay_confirmation": {
+    "argv": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+      "/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/replay.py",
+      "--output",
+      "/tmp/shebang-acceptance-inspect-qarjkjg_/proof"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "output_retained": false,
+    "output_note": "Private temporary destination. /tmp/fresh-shebang-rejection-proof is reserved for the literal acceptance command and was not created.",
+    "exit": 0,
+    "stdout": "{\"pair_count\": 8, \"output\": \"/tmp/shebang-acceptance-inspect-qarjkjg_/proof\"}\n",
+    "stderr": "",
+    "duration_seconds": 14.297,
+    "pairs": [
+      {
+        "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[root]",
+        "source": "scripts/check_deliberate_break.py",
+        "red_exit": 1,
+        "green_exit": 0,
+        "restored_matches_original": true,
+        "mutant_differs": true
+      },
+      {
+        "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[root]",
+        "source": "scripts/check_deliberate_break.py",
+        "red_exit": 1,
+        "green_exit": 0,
+        "restored_matches_original": true,
+        "mutant_differs": true
+      },
+      {
+        "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[root]",
+        "source": "scripts/check_deliberate_break.py",
+        "red_exit": 1,
+        "green_exit": 0,
+        "restored_matches_original": true,
+        "mutant_differs": true
+      },
+      {
+        "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[root]",
+        "source": "scripts/check_deliberate_break.py",
+        "red_exit": 1,
+        "green_exit": 0,
+        "restored_matches_original": true,
+        "mutant_differs": true
+      },
+      {
+        "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_empty_pytest_launcher_has_no_probe[template]",
+        "source": "templates/consumer-repo/scripts/check_deliberate_break.py",
+        "red_exit": 1,
+        "green_exit": 0,
+        "restored_matches_original": true,
+        "mutant_differs": true
+      },
+      {
+        "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_missing_shebang_has_no_probe[template]",
+        "source": "templates/consumer-repo/scripts/check_deliberate_break.py",
+        "red_exit": 1,
+        "green_exit": 0,
+        "restored_matches_original": true,
+        "mutant_differs": true
+      },
+      {
+        "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unclosed_shebang_quote_has_no_probe[template]",
+        "source": "templates/consumer-repo/scripts/check_deliberate_break.py",
+        "red_exit": 1,
+        "green_exit": 0,
+        "restored_matches_original": true,
+        "mutant_differs": true
+      },
+      {
+        "node": "tests/scripts/test_check_deliberate_break_shebang_rejection.py::test_unresolved_env_python_has_no_probe[template]",
+        "source": "templates/consumer-repo/scripts/check_deliberate_break.py",
+        "red_exit": 1,
+        "green_exit": 0,
+        "restored_matches_original": true,
+        "mutant_differs": true
+      }
+    ],
+    "reuse": {
+      "argv": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/replay.py",
+        "--output",
+        "/tmp/shebang-acceptance-inspect-qarjkjg_/proof"
+      ],
+      "exit": 1,
+      "stderr": "Traceback (most recent call last):\n  File \"/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/replay.py\", line 153, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/replay.py\", line 147, in main\n    summary = replay(root, args.output.resolve())\n  File \"/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/replay.py\", line 93, in replay\n    output.mkdir(parents=True, exist_ok=False)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/pathlib/__init__.py\", line 1011, in mkdir\n    os.mkdir(self, mode)\n    ~~~~~~~~^^^^^^^^^^^^\nFileExistsError: [Errno 17] File exists: '/tmp/shebang-acceptance-inspect-qarjkjg_/proof'\n",
+      "proof_file_count": 93,
+      "proof_files_unchanged": true
+    },
+    "satisfies_literal_interpreter": false
+  },
+  "follow_up": "replay.py parses JUnit with ElementTree after an Expat pre-parse and does not normalize XML syntax failures into ValueError. The focused pytest run passed, so this remains a follow-up rather than an acceptance failure.",
+  "acceptance": [
+    {
+      "id": "pytest-command",
+      "requirement": "/opt/anaconda3/bin/python3 -m pytest tests/scripts/test_check_deliberate_break_shebang_rejection.py -q -o addopts= exits 0 with exactly eight passes and no errors or skips; archived raw JUnit and command receipts establish that result for the recorded inputs.",
+      "disposition": "gap",
+      "verified_evidence": [
+        "Installed interpreter /opt/hostedtoolcache/Python/3.14.10/x64/bin/python3 exited 0 with summary '8 passed in 0.23s' in 1.025s. JUnit counts: {'tests': 8, 'failures': 0, 'errors': 0, 'skipped': 0}."
+      ],
+      "gap": "Literal command ['/opt/anaconda3/bin/python3', '-m', 'pytest', 'tests/scripts/test_check_deliberate_break_shebang_rejection.py', '-q', '-o', 'addopts='] from cwd /home/runner/work/Workflows/Workflows exited 127 (interpreter-absent). No raw JUnit for that interpreter and the current test bytes is archived. tests/scripts/test_check_deliberate_break_shebang_rejection.py binding gap: docs/evidence/issue-3743/shebang-rejection/summary.json binds 78cb81326dc9c5c084d1a89fe7ec6cec7ec887f3a0d016b76e7bdeccb5b8e731 while merged main has e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a; docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json binds 96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf while merged main has e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a; docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json binds 96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf while merged main has e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a."
+    },
+    {
+      "id": "replay-command",
+      "requirement": "/opt/anaconda3/bin/python3 docs/evidence/issue-3743/shebang-rejection/replay.py --output /tmp/fresh-shebang-rejection-proof exits 0 with eight exact named assertion RED exit1/restored GREEN exit0 pairs, no errors/skips and byte-identical restoration. Reusing its output exits nonzero before mutation and preserves every proof file.",
+      "disposition": "gap",
+      "verified_evidence": [
+        "replay.py declares eight root/template mutations, unique anchors, byte restoration, and output claim before copy. Installed-interpreter confirmation exit 0, pairs 8, reuse 1, files unchanged True."
+      ],
+      "gap": "Literal command ['/opt/anaconda3/bin/python3', 'docs/evidence/issue-3743/shebang-rejection/replay.py', '--output', '/tmp/fresh-shebang-rejection-proof'] exited 127 (interpreter-absent) before mutation. /tmp/fresh-shebang-rejection-proof was not created, so its reuse check has no proof files to preserve. The installed-interpreter replay used a private temporary directory and does not satisfy the literal command."
+    },
+    {
+      "id": "matched-comparison",
+      "requirement": "Matched comparison adds exactly eight passing nodes, removes no nodes, changes no old outcomes, uses identical statement/branch universes with zero exclusions, and introduces zero covered-line or covered-branch regressions; raw inputs and computed counts/deltas are archived.",
+      "disposition": "gap",
+      "verified_evidence": [
+        "Historical replay-validation summary records baseline 340 and candidate 348 with eight added nodes, no removals, no changed outcomes, 1244 statements, 556 branches, and zero excluded lines. Those counts describe the bytes bound in that summary."
+      ],
+      "gap": "No matched comparison was run against current merged-main inputs. tests/scripts/test_check_deliberate_break_shebang_rejection.py binding gap: docs/evidence/issue-3743/shebang-rejection/summary.json binds 78cb81326dc9c5c084d1a89fe7ec6cec7ec887f3a0d016b76e7bdeccb5b8e731 while merged main has e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a; docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json binds 96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf while merged main has e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a; docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json binds 96f98261c3e2fcd177d8780b11d3cd13e812cf9207f1a927cadb03f43cd411bf while merged main has e1a4ad6a51b8a29075e63a1ba67c3a294cd438a07abf27595d26d7f40e1ab89a. tests/scripts/test_check_deliberate_break.py binding gap: docs/evidence/issue-3743/shebang-rejection/path-lookup/summary.json binds 1e2cdff703047aa1ecbbc1a767429f6aef220d5ac60d94c41a7912117907e773 while merged main has 8ac94dd5a344e6612af3175085db6c01d7490082fe7f1b8842919e46584c2c11; docs/evidence/issue-3743/shebang-rejection/replay-validation/summary.json binds 1e2cdff703047aa1ecbbc1a767429f6aef220d5ac60d94c41a7912117907e773 while merged main has 8ac94dd5a344e6612af3175085db6c01d7490082fe7f1b8842919e46584c2c11."
+    },
+    {
+      "id": "validation-and-helpers",
+      "requirement": "Full-repository Black, focused Ruff, strict template completeness and git diff --check exit 0 with recorded commands and output. Production helpers equal each other and their base bytes; historical evidence is unchanged.",
+      "disposition": "gap",
+      "verified_evidence": [
+        "Production helpers equal each other and origin/main (True, root True, template True, sha256 45a9193dc6d115c237471158d0255128289dd5dcc085d4cdecb9f1a294839b27). Historical archive verification is True."
+      ],
+      "gap": "This inspection did not run full-repository Black, focused Ruff, scripts/validate_template_completeness.py --strict, or git diff --check, so there is no current command receipt or measured validation file count."
+    },
+    {
+      "id": "archive-bindings",
+      "requirement": "Every delivered archive can be opened and every member hash/length and current input binding verifies. Documentation distinguishes historical receipts from current acceptance and records actual interpreter paths and measured validation file counts.",
+      "disposition": "gap",
+      "verified_evidence": [
+        "Three historical archives opened and member hashes/lengths verified: True. Archive-internal input copies match their summaries: True."
+      ],
+      "gap": "Current tree bindings do not verify: 7 summary rows differ from merged main. Validation file counts were not measured. This inspection record is current acceptance context; README, summary.json, path-lookup/, and replay-validation/ remain historical receipts."
+    }
+  ]
+}

@@ -45,7 +45,7 @@ class SubscriptionClientAdapter:
             prompt = to_string()
         if not isinstance(prompt, str):
             raise TypeError("Subscription prompt rendering must return a string")
-        return self.client.invoke(prompt, **kwargs)
+        return self.client.invoke(prompt, config=config, **kwargs)
 
     def __call__(self, prompt: Any) -> Any:
         return self.invoke(prompt)

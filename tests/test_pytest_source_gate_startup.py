@@ -9,7 +9,11 @@ import tomllib
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
-_LANGSMITH_FILTER = "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning"
+_LANGSMITH_FILTER = (
+    "ignore:'asyncio[.]iscoroutinefunction' is deprecated and slated for removal in Python 3[.]16; "
+    "use inspect[.]iscoroutinefunction[(][)] instead:DeprecationWarning:"
+    "langsmith[.]_internal[.]_beta_decorator$"
+)
 
 
 def test_pytest_config_keeps_warnings_as_errors_except_langsmith_startup() -> None:

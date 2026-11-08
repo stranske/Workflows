@@ -74,8 +74,46 @@ function validateIndependentFindingVerification({
     item.url === result.originating_completion_url && profile.logins.includes(item.author?.login)
     && item.commit?.oid === proof.head_sha
     && profile.disposition_completion_prefixes?.some((prefix) => item.body?.startsWith(prefix)));
-  if (!completion) return deny('originating_completion_missing');
-  const times = [request?.createdAt, completion?.createdAt, result.completed_at,
+  let completedAt = completion?.createdAt;
+  if (!completion) {
+    // Reviewer-unanswered path (owner decision 2026-11-06): a reviewer that is out of
+    // capacity (Copilot most months) would otherwise latch its findings forever. When
+    // the targeted request has stood for the policy window and the originating reviewer
+    // has said nothing IN THIS THREAD since, the independent assessment stands on its
+    // own; every other binding, validation and freshness check below still applies.
+    // The window counts from the FIRST trusted reassessment request in this thread, on any
+    // head: a busy canary is rebased to a new head every hour or two, and a window tied to
+    // the current head's request could never elapse (trip-planner#1957, 2026-11-06). The
+    // reviewer's silence since that first request is the signal; the current head still
+    // needs its own bound request (checked above), and the assessment stays exact-head.
+    const windowMinutes = Number(fallback.unanswered_reassessment_minutes);
+    if (!(windowMinutes > 0) || result.reviewer_unanswered !== true
+      || result.originating_completion_url !== null) return deny('originating_completion_missing');
+    const sameFinding = (item) => {
+      if (!fallback.trusted_publishers.includes(item?.author?.login)) return false;
+      const found = [...String(item?.body || '').matchAll(
+        /<!-- maint71-review-(?:reassessment|disposition):v1 ([\s\S]*?) -->/g)];
+      if (found.length !== 1) return false;
+      let earlier;
+      try { earlier = JSON.parse(found[0][1]); } catch { return false; }
+      return ['repository', 'pr', 'thread_id', 'originating_reviewer']
+        .every((key) => earlier?.[key] === binding[key]);
+    };
+    const requestTimes = thread.comments.nodes.filter(sameFinding)
+      .map((item) => Date.parse(item?.createdAt || ''))
+      .filter((value) => Number.isFinite(value));
+    const firstRequestedAt = requestTimes.length ? Math.min(...requestTimes) : NaN;
+    if (!Number.isFinite(firstRequestedAt) || !Number.isFinite(Date.parse(request?.createdAt || ''))) {
+      return deny('originating_completion_missing');
+    }
+    if (thread.comments.nodes.some((item) => profile.logins.includes(item?.author?.login)
+      && Date.parse(item?.createdAt || '') > firstRequestedAt)) return deny('originating_reviewer_answered');
+    if (Date.parse(result.completed_at || '') - firstRequestedAt < windowMinutes * 60 * 1000) {
+      return deny('reassessment_window_open');
+    }
+    completedAt = request.createdAt;
+  }
+  const times = [request?.createdAt, completedAt, result.completed_at,
     comment?.created_at].map((value) => Date.parse(value || ''));
   if (times.some((value) => !Number.isFinite(value)) || times[1] < times[0]
     || times[2] < times[1] || times[3] < times[2] || times[3] > now

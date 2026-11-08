@@ -1,0 +1,260 @@
+{
+  "revision": "264e9cc6503be2e1eef1c4a0c3851a6f777f6985",
+  "source_path": "scripts/audit_followup_mutations.py",
+  "test_path": "tests/scripts/test_audit_followup_mutations.py",
+  "state": "Local test/source overlay on revision; baseline auditor is RED, corrected auditor is restored GREEN. Both runs use identical tests and pyproject.toml. This is local regression proof, not hosted/main delivery.",
+  "red_source_sha256": "eee6d942475269417e9751e374bf87eedd2e871125027f229e18df29b23216d4",
+  "green_source_sha256": "5e7df3fb912ffa46d9ccc6e7fb90b8e80b6f53e7c859ca37438edbf2693a1c92",
+  "test_sha256": "6f028ebf8b83a43752b614b765496305f8a545ef8414f55bb68c7e77e7bbaa00",
+  "configuration_sha256": "f793630708820650e709e2976674cfdd5fab636f974ec1bb9e54b5968026a402",
+  "runtime": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "proofs": [
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-2 failed]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-2 failed]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-2 failed] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-2 failed] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7180c1a99d20>)\nfield = 'red_output', summary = '2 failed'\n\n    @pytest.mark.parametrize(\n        (\"field\", \"summary\"),\n        [\n            (\"red_output\", \"2 failed\"),\n            (\"red_output\", \"1 failed, 1 passed\"),\n            (\"red_output\", \"1 failed, 1 error\"),\n            (\"green_output\", \"1 passed, 1 failed\"),\n            (\"green_output\", \"1 passed, 1 error\"),\n            (\"green_output\", \"11 passed\"),\n        ],\n    )\n    def test_python_mixed_or_multiple_results_cannot_prove_one_selected_case(receipts, field, summary):\n        python, _, _, run = receipts\n        proof = python[\"proofs\"][0]\n        proof[field] = proof[field].rsplit(\"\\n\", 1)[0] + \"\\n\" + summary\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:141: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-2 failed] - assert True is False\n============================== 1 failed in 0.54s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-2 failed] PASSED [100%]\n\n============================== 1 passed in 0.50s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 passed]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 passed]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 passed] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 passed] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x76adf9609d20>)\nfield = 'red_output', summary = '1 failed, 1 passed'\n\n    @pytest.mark.parametrize(\n        (\"field\", \"summary\"),\n        [\n            (\"red_output\", \"2 failed\"),\n            (\"red_output\", \"1 failed, 1 passed\"),\n            (\"red_output\", \"1 failed, 1 error\"),\n            (\"green_output\", \"1 passed, 1 failed\"),\n            (\"green_output\", \"1 passed, 1 error\"),\n            (\"green_output\", \"11 passed\"),\n        ],\n    )\n    def test_python_mixed_or_multiple_results_cannot_prove_one_selected_case(receipts, field, summary):\n        python, _, _, run = receipts\n        proof = python[\"proofs\"][0]\n        proof[field] = proof[field].rsplit(\"\\n\", 1)[0] + \"\\n\" + summary\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:141: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 passed] - assert True is False\n============================== 1 failed in 0.47s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 passed] PASSED [100%]\n\n============================== 1 passed in 0.44s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 error]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 error]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 error] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 error] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x765eca101d20>)\nfield = 'red_output', summary = '1 failed, 1 error'\n\n    @pytest.mark.parametrize(\n        (\"field\", \"summary\"),\n        [\n            (\"red_output\", \"2 failed\"),\n            (\"red_output\", \"1 failed, 1 passed\"),\n            (\"red_output\", \"1 failed, 1 error\"),\n            (\"green_output\", \"1 passed, 1 failed\"),\n            (\"green_output\", \"1 passed, 1 error\"),\n            (\"green_output\", \"11 passed\"),\n        ],\n    )\n    def test_python_mixed_or_multiple_results_cannot_prove_one_selected_case(receipts, field, summary):\n        python, _, _, run = receipts\n        proof = python[\"proofs\"][0]\n        proof[field] = proof[field].rsplit(\"\\n\", 1)[0] + \"\\n\" + summary\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:141: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 error] - assert True is False\n============================== 1 failed in 0.47s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[red_output-1 failed, 1 error] PASSED [100%]\n\n============================== 1 passed in 0.44s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 failed]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 failed]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 failed] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 failed] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7c10ab959d20>)\nfield = 'green_output', summary = '1 passed, 1 failed'\n\n    @pytest.mark.parametrize(\n        (\"field\", \"summary\"),\n        [\n            (\"red_output\", \"2 failed\"),\n            (\"red_output\", \"1 failed, 1 passed\"),\n            (\"red_output\", \"1 failed, 1 error\"),\n            (\"green_output\", \"1 passed, 1 failed\"),\n            (\"green_output\", \"1 passed, 1 error\"),\n            (\"green_output\", \"11 passed\"),\n        ],\n    )\n    def test_python_mixed_or_multiple_results_cannot_prove_one_selected_case(receipts, field, summary):\n        python, _, _, run = receipts\n        proof = python[\"proofs\"][0]\n        proof[field] = proof[field].rsplit(\"\\n\", 1)[0] + \"\\n\" + summary\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:141: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 failed] - assert True is False\n============================== 1 failed in 0.48s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 failed] PASSED [100%]\n\n============================== 1 passed in 0.45s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 error]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 error]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 error] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 error] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x78bae0391d20>)\nfield = 'green_output', summary = '1 passed, 1 error'\n\n    @pytest.mark.parametrize(\n        (\"field\", \"summary\"),\n        [\n            (\"red_output\", \"2 failed\"),\n            (\"red_output\", \"1 failed, 1 passed\"),\n            (\"red_output\", \"1 failed, 1 error\"),\n            (\"green_output\", \"1 passed, 1 failed\"),\n            (\"green_output\", \"1 passed, 1 error\"),\n            (\"green_output\", \"11 passed\"),\n        ],\n    )\n    def test_python_mixed_or_multiple_results_cannot_prove_one_selected_case(receipts, field, summary):\n        python, _, _, run = receipts\n        proof = python[\"proofs\"][0]\n        proof[field] = proof[field].rsplit(\"\\n\", 1)[0] + \"\\n\" + summary\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:141: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 error] - assert True is False\n============================== 1 failed in 0.48s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-1 passed, 1 error] PASSED [100%]\n\n============================== 1 passed in 0.48s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-11 passed]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-11 passed]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-11 passed] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-11 passed] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7ee18be95d20>)\nfield = 'green_output', summary = '11 passed'\n\n    @pytest.mark.parametrize(\n        (\"field\", \"summary\"),\n        [\n            (\"red_output\", \"2 failed\"),\n            (\"red_output\", \"1 failed, 1 passed\"),\n            (\"red_output\", \"1 failed, 1 error\"),\n            (\"green_output\", \"1 passed, 1 failed\"),\n            (\"green_output\", \"1 passed, 1 error\"),\n            (\"green_output\", \"11 passed\"),\n        ],\n    )\n    def test_python_mixed_or_multiple_results_cannot_prove_one_selected_case(receipts, field, summary):\n        python, _, _, run = receipts\n        proof = python[\"proofs\"][0]\n        proof[field] = proof[field].rsplit(\"\\n\", 1)[0] + \"\\n\" + summary\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:141: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-11 passed] - assert True is False\n============================== 1 failed in 0.47s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_python_mixed_or_multiple_results_cannot_prove_one_selected_case[green_output-11 passed] PASSED [100%]\n\n============================== 1 passed in 0.44s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-red_output]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-red_output]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-red_output] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_node_result_must_belong_to_the_single_selected_case[other-case-red_output] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7d79d498a090>)\nfield = 'red_output', mismatch = 'other-case'\n\n    @pytest.mark.parametrize(\"field\", [\"red_output\", \"green_output\"])\n    @pytest.mark.parametrize(\"mismatch\", [\"other-case\", \"multiple-results\", \"missing-count\"])\n    def test_node_result_must_belong_to_the_single_selected_case(receipts, field, mismatch):\n        _, node, _, run = receipts\n        proof = node[\"proofs\"][0]\n        output = proof[field]\n        if mismatch == \"other-case\":\n            # The selected case appears, but its outcome belongs to another case.\n            output = output.replace(proof[\"test\"], \"unrelated test\") + f\"\\nselected: {proof['test']}\"\n        elif mismatch == \"multiple-results\":\n            output = output.replace(\"\u2139 tests 1\", \"\u2139 tests 2\")\n        else:\n            output = output.replace(\"\u2139 tests 1\\n\", \"\")\n        proof[field] = output\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:162: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-red_output] - assert True is False\n============================== 1 failed in 0.47s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-red_output] PASSED [100%]\n\n============================== 1 passed in 0.44s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-green_output]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-green_output]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-green_output] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_node_result_must_belong_to_the_single_selected_case[other-case-green_output] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x74302f8d6140>)\nfield = 'green_output', mismatch = 'other-case'\n\n    @pytest.mark.parametrize(\"field\", [\"red_output\", \"green_output\"])\n    @pytest.mark.parametrize(\"mismatch\", [\"other-case\", \"multiple-results\", \"missing-count\"])\n    def test_node_result_must_belong_to_the_single_selected_case(receipts, field, mismatch):\n        _, node, _, run = receipts\n        proof = node[\"proofs\"][0]\n        output = proof[field]\n        if mismatch == \"other-case\":\n            # The selected case appears, but its outcome belongs to another case.\n            output = output.replace(proof[\"test\"], \"unrelated test\") + f\"\\nselected: {proof['test']}\"\n        elif mismatch == \"multiple-results\":\n            output = output.replace(\"\u2139 tests 1\", \"\u2139 tests 2\")\n        else:\n            output = output.replace(\"\u2139 tests 1\\n\", \"\")\n        proof[field] = output\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:162: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-green_output] - assert True is False\n============================== 1 failed in 0.51s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[other-case-green_output] PASSED [100%]\n\n============================== 1 passed in 0.44s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-red_output]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-red_output]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-red_output] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_node_result_must_belong_to_the_single_selected_case[multiple-results-red_output] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x71377fb4e1f0>)\nfield = 'red_output', mismatch = 'multiple-results'\n\n    @pytest.mark.parametrize(\"field\", [\"red_output\", \"green_output\"])\n    @pytest.mark.parametrize(\"mismatch\", [\"other-case\", \"multiple-results\", \"missing-count\"])\n    def test_node_result_must_belong_to_the_single_selected_case(receipts, field, mismatch):\n        _, node, _, run = receipts\n        proof = node[\"proofs\"][0]\n        output = proof[field]\n        if mismatch == \"other-case\":\n            # The selected case appears, but its outcome belongs to another case.\n            output = output.replace(proof[\"test\"], \"unrelated test\") + f\"\\nselected: {proof['test']}\"\n        elif mismatch == \"multiple-results\":\n            output = output.replace(\"\u2139 tests 1\", \"\u2139 tests 2\")\n        else:\n            output = output.replace(\"\u2139 tests 1\\n\", \"\")\n        proof[field] = output\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:162: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-red_output] - assert True is False\n============================== 1 failed in 0.47s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-red_output] PASSED [100%]\n\n============================== 1 passed in 0.44s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-green_output]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-green_output]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-green_output] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_node_result_must_belong_to_the_single_selected_case[multiple-results-green_output] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7dd5ce23a1f0>)\nfield = 'green_output', mismatch = 'multiple-results'\n\n    @pytest.mark.parametrize(\"field\", [\"red_output\", \"green_output\"])\n    @pytest.mark.parametrize(\"mismatch\", [\"other-case\", \"multiple-results\", \"missing-count\"])\n    def test_node_result_must_belong_to_the_single_selected_case(receipts, field, mismatch):\n        _, node, _, run = receipts\n        proof = node[\"proofs\"][0]\n        output = proof[field]\n        if mismatch == \"other-case\":\n            # The selected case appears, but its outcome belongs to another case.\n            output = output.replace(proof[\"test\"], \"unrelated test\") + f\"\\nselected: {proof['test']}\"\n        elif mismatch == \"multiple-results\":\n            output = output.replace(\"\u2139 tests 1\", \"\u2139 tests 2\")\n        else:\n            output = output.replace(\"\u2139 tests 1\\n\", \"\")\n        proof[field] = output\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:162: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-green_output] - assert True is False\n============================== 1 failed in 0.47s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[multiple-results-green_output] PASSED [100%]\n\n============================== 1 passed in 0.46s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-red_output]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-red_output]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-red_output] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_node_result_must_belong_to_the_single_selected_case[missing-count-red_output] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7395de7c6350>)\nfield = 'red_output', mismatch = 'missing-count'\n\n    @pytest.mark.parametrize(\"field\", [\"red_output\", \"green_output\"])\n    @pytest.mark.parametrize(\"mismatch\", [\"other-case\", \"multiple-results\", \"missing-count\"])\n    def test_node_result_must_belong_to_the_single_selected_case(receipts, field, mismatch):\n        _, node, _, run = receipts\n        proof = node[\"proofs\"][0]\n        output = proof[field]\n        if mismatch == \"other-case\":\n            # The selected case appears, but its outcome belongs to another case.\n            output = output.replace(proof[\"test\"], \"unrelated test\") + f\"\\nselected: {proof['test']}\"\n        elif mismatch == \"multiple-results\":\n            output = output.replace(\"\u2139 tests 1\", \"\u2139 tests 2\")\n        else:\n            output = output.replace(\"\u2139 tests 1\\n\", \"\")\n        proof[field] = output\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:162: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-red_output] - assert True is False\n============================== 1 failed in 0.47s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-red_output] PASSED [100%]\n\n============================== 1 passed in 0.44s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-green_output]",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-green_output]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-green_output] FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_node_result_must_belong_to_the_single_selected_case[missing-count-green_output] _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x74de204da400>)\nfield = 'green_output', mismatch = 'missing-count'\n\n    @pytest.mark.parametrize(\"field\", [\"red_output\", \"green_output\"])\n    @pytest.mark.parametrize(\"mismatch\", [\"other-case\", \"multiple-results\", \"missing-count\"])\n    def test_node_result_must_belong_to_the_single_selected_case(receipts, field, mismatch):\n        _, node, _, run = receipts\n        proof = node[\"proofs\"][0]\n        output = proof[field]\n        if mismatch == \"other-case\":\n            # The selected case appears, but its outcome belongs to another case.\n            output = output.replace(proof[\"test\"], \"unrelated test\") + f\"\\nselected: {proof['test']}\"\n        elif mismatch == \"multiple-results\":\n            output = output.replace(\"\u2139 tests 1\", \"\u2139 tests 2\")\n        else:\n            output = output.replace(\"\u2139 tests 1\\n\", \"\")\n        proof[field] = output\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:162: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-green_output] - assert True is False\n============================== 1 failed in 0.48s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_result_must_belong_to_the_single_selected_case[missing-count-green_output] PASSED [100%]\n\n============================== 1 passed in 0.44s ===============================\n"
+    },
+    {
+      "test": "tests/scripts/test_audit_followup_mutations.py::test_node_passing_selected_case_cannot_borrow_an_unrelated_assertion_failure",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-p",
+        "no:langsmith_plugin",
+        "tests/scripts/test_audit_followup_mutations.py::test_node_passing_selected_case_cannot_borrow_an_unrelated_assertion_failure",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_passing_selected_case_cannot_borrow_an_unrelated_assertion_failure FAILED [100%]\n\n=================================== FAILURES ===================================\n_ test_node_passing_selected_case_cannot_borrow_an_unrelated_assertion_failure _\n\nreceipts = ({'revision': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'source_sha256': 'b95733705f9bd3b88f98a8f0b386556b6b6c8d5ff0...dded[a]', 'tests/test_followup_issue_generator.py::test_added[b]'}, <function receipts.<locals>.run at 0x7c2b568824b0>)\n\n    def test_node_passing_selected_case_cannot_borrow_an_unrelated_assertion_failure(receipts):\n        _, node, _, run = receipts\n        proof = node[\"proofs\"][0]\n        proof[\"red_output\"] = (\n            f\"\u2714 {proof['test']} (1ms)\\n\"\n            \"\u2716 unrelated test (1ms)\\n\"\n            \"\u2139 tests 2\\n\u2139 pass 1\\n\u2139 fail 1\\n\"\n            \"  AssertionError [ERR_ASSERTION]\"\n        )\n    \n        result = run()\n    \n>       assert result[\"complete\"] is False\nE       assert True is False\n\ntests/scripts/test_audit_followup_mutations.py:182: AssertionError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_audit_followup_mutations.py::test_node_passing_selected_case_cannot_borrow_an_unrelated_assertion_failure - assert True is False\n============================== 1 failed in 0.52s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /tmp/issue-3956-single-case-q2sqzdox\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\ntests/scripts/test_audit_followup_mutations.py::test_node_passing_selected_case_cannot_borrow_an_unrelated_assertion_failure PASSED [100%]\n\n============================== 1 passed in 0.48s ===============================\n"
+    }
+  ]
+}

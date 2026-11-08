@@ -1,0 +1,137 @@
+{
+  "artifact_api": [
+    {
+      "expired": false,
+      "expires_at": "2026-11-17T02:37:31Z",
+      "name": "agents-verifier-metrics",
+      "size_in_bytes": 578
+    }
+  ],
+  "changed_files": [
+    {
+      "additions": 26,
+      "blob_sha": "8d27163ae36cd13c4b5f0ac256f26ef2559d8317",
+      "deletions": 4,
+      "path": "scripts/langchain/issue_optimizer.py",
+      "status": "modified"
+    },
+    {
+      "additions": 518,
+      "blob_sha": "d95747ecc19fd2910dbf3b375ba438c65d388641",
+      "deletions": 0,
+      "path": "tests/scripts/test_issue_optimizer.py",
+      "status": "modified"
+    }
+  ],
+  "collected_at": "2026-11-06T20:11:03Z",
+  "downloaded_artifact_names": [
+    "agents-verifier-metrics"
+  ],
+  "log_excerpt": "check\tUNKNOWN STEP\t2026-10-18T02:35:15.6515618Z 021ec67ef580c83a88402a1574e27ea34db14dde\ncheck\tUNKNOWN STEP\t2026-10-18T02:35:16.0315143Z [command]/usr/bin/git log -1 --format=%H\ncheck\tUNKNOWN STEP\t2026-10-18T02:35:16.0341954Z 021ec67ef580c83a88402a1574e27ea34db14dde\ncheck\tUNKNOWN STEP\t2026-10-18T02:35:20.0865730Z Manual dispatch: PR #4065, mode=compare, model=undefined, model2=, provider=auto\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:28.3170693Z Uses: stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@refs/heads/main (021ec67ef580c83a88402a1574e27ea34db14dde)\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:32.9815674Z 021ec67ef580c83a88402a1574e27ea34db14dde\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:33.3044406Z [command]/usr/bin/git log -1 --format=%H\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:33.3068592Z 021ec67ef580c83a88402a1574e27ea34db14dde\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:39.2085583Z   path: .workflows-lib\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:39.2940188Z Working directory is '/home/runner/work/Workflows/Workflows/.workflows-lib'\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:42.3672410Z [command]/usr/bin/git log -1 --format=%H\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:42.3702291Z 021ec67ef580c83a88402a1574e27ea34db14dde\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:53.0809885Z   ISSUE_NUMBERS: [4063]\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:53.0810317Z   TARGET_SHA: 7ccda2ad80ccac05348ad305fb2248b02b0c2c81\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:53.0810794Z   PR_NUMBER: 4065\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:35:54.6755743Z Artifact verifier-closure-plans-39090617832 has been successfully uploaded! Final size is 2918 bytes. Artifact ID is 12121843705\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:25.8714153Z - openai: files reviewed 2 of 2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:25.8715548Z - anthropic: files reviewed 2 of 2\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:25.8946603Z   PR_NUMBER: 4065\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:25.8947562Z   EVALUATED_SHA: 7ccda2ad80ccac05348ad305fb2248b02b0c2c81\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:29.1435105Z https://github.com/stranske/Workflows/pull/4065#issuecomment-6244798951\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:29.1528307Z   name: comparison-results-39090617832\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:29.1529391Z   path: comparison.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tcomparison-stderr.log\nverifier / Run post-merge verifier\tUNKNOWN STEP\tcomparison-comment.md\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-context.md\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-diff-summary.md\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-pr-diff.patch\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-input-manifest.json\nverifier / Run post-merge verifier\tUNKNOWN STEP\tverifier-capacity-checks.jsonl\nverifier / Run post-merge verifier\tUNKNOWN STEP\t\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:29.1530464Z   if-no-files-found: ignore\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:29.3048662Z With the provided path, there will be 7 files uploaded\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:30.2228648Z Artifact comparison-results-39090617832 has been successfully uploaded! Final size is 51501 bytes. Artifact ID is 12122284286\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:30.2801723Z   PR_NUMBER: 4065\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:30.3453163Z   PR_NUMBER: 4065\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:31.4706516Z Artifact verifier-terminal-disposition-39090617832 has been successfully uploaded! Final size is 1549 bytes. Artifact ID is 12122512553\nverifier / Run post-merge verifier\tUNKNOWN STEP\t2026-10-18T02:37:32.5347844Z Artifact agents-verifier-metrics has been successfully uploaded! Final size is 578 bytes. Artifact ID is 12122527482\nVerify named gates on immutable merge commit\tUNKNOWN STEP\t2026-10-18T02:37:43.3457847Z [command]/usr/bin/git log -1 --format=%H\nVerify named gates on immutable merge commit\tUNKNOWN STEP\t2026-10-18T02:37:43.3485478Z 021ec67ef580c83a88402a1574e27ea34db14dde\nVerify named gates on immutable merge commit\tUNKNOWN STEP\t2026-10-18T02:37:47.1578747Z 7ccda2ad80ccac05348ad305fb2248b02b0c2c81\nVerify named gates on immutable merge commit\tUNKNOWN STEP\t2026-10-18T02:37:47.4732606Z [command]/usr/bin/git log -1 --format=%H\nVerify named gates on immutable merge commit\tUNKNOWN STEP\t2026-10-18T02:37:47.4757099Z 7ccda2ad80ccac05348ad305fb2248b02b0c2c81\nVerify named gates on immutable merge commit\tUNKNOWN STEP\t2026-10-18T02:38:49.3763444Z Artifact verifier-closure-results-39090617832 has been successfully uploaded! Final size is 3448 bytes. Artifact ID is 12122721349\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-10-18T02:38:56.7438445Z [command]/usr/bin/git log -1 --format=%H\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-10-18T02:38:56.7474160Z 021ec67ef580c83a88402a1574e27ea34db14dde\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-10-18T02:38:57.7753947Z   TARGET_SHA: 7ccda2ad80ccac05348ad305fb2248b02b0c2c81\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-10-18T02:38:57.7754276Z   PR_NUMBER: 4065\nApply verified source issue closure rule\tUNKNOWN STEP\t2026-10-18T02:39:00.0353029Z Closed source issues: none\n",
+  "metrics": {
+    "acceptance_criteria_count": 52,
+    "chain_depth": 0,
+    "checks_run": 9,
+    "codex_cli_version": "codex-cli 0.153.2",
+    "codex_model": "gpt-6-astra",
+    "codex_model_selection_reason": "default",
+    "issue_numbers": [],
+    "issues_created": 0,
+    "langsmith_trace_id": "lc_run--01a14cde-b198-7963-8367-db7899011573-0",
+    "langsmith_trace_url": "https://smith.langchain.com/r/lc_run--01a14cde-b198-7963-8367-db7899011573-0",
+    "langsmith_traces": [
+      {
+        "operation": "comparison",
+        "provider": "provider-0",
+        "trace_id": "lc_run--01a14cde-b198-7963-8367-db7899011573-0",
+        "trace_url": "https://smith.langchain.com/r/lc_run--01a14cde-b198-7963-8367-db7899011573-0"
+      },
+      {
+        "operation": "comparison",
+        "provider": "provider-1",
+        "trace_id": "lc_run--01a14cde-d39c-73f0-9edb-01d5d67d9406-0",
+        "trace_url": "https://smith.langchain.com/r/lc_run--01a14cde-d39c-73f0-9edb-01d5d67d9406-0"
+      }
+    ],
+    "metric_type": "evaluation",
+    "pr_number": 4065,
+    "recorded_at": "2026-10-18T02:37:30.317251+00:00",
+    "skip_reason": "",
+    "verdict": "UNVERIFIABLE_INPUT",
+    "verifier_mode": "compare"
+  },
+  "pull_request": {
+    "author_login": "stranske",
+    "base_ref": "main",
+    "head_ref": "orchestrator/issue-4063",
+    "head_sha": "117e1aa9a53564c41ac7a297c82728d2150c364c",
+    "html_url": "https://github.com/stranske/Workflows/pull/4065",
+    "labels": [
+      "verify:compare"
+    ],
+    "merge_commit_sha": "7ccda2ad80ccac05348ad305fb2248b02b0c2c81",
+    "merged_at": "2026-10-18T02:27:01Z",
+    "number": 4065,
+    "state": "closed",
+    "title": "test: expand issue optimizer fallback coverage"
+  },
+  "report_comment": {
+    "body": "## Provider Comparison Report\n\n- openai: files reviewed 2 of 2\n- anthropic: files reviewed 2 of 2\n\n### Provider Summary\n| Provider | Model | Verdict | Confidence | Summary |\n| --- | --- | --- | --- | --- |\n| openai | gpt-5.6-terra | UNVERIFIABLE_INPUT | 90% | The PR is a focused, low-blast-radius change. `_cap_checkbox_lines` now suppresses indented descendants of dropped top-level tasks while retaining descendants of permitted parents. `_append_deferre... |\n| anthropic | claude-sonnet-5-5 | PASS | 72% | The PR adds roughly 500 lines of behavior-focused tests to `tests/scripts/test_issue_optimizer.py`. They cover the CLI loaders and `main()`, the OpenAI token-limit retry and fallback paths, malform... |\n\n<details>\n<summary>\ud83d\udccb Full Provider Details (click to expand)</summary>\n\n#### openai\n- **Model:** gpt-5.6-terra\n- **Verdict:** UNVERIFIABLE_INPUT\n- **Confidence:** 90%\n- **Scores:**\n  - Correctness: 9.0/10\n  - Completeness: 8.0/10\n  - Quality: 9.0/10\n  - Testing: 9.0/10\n  - Risks: 9.0/10\n- **Summary:** The PR is a focused, low-blast-radius change. `_cap_checkbox_lines` now suppresses indented descendants of dropped top-level tasks while retaining descendants of permitted parents. `_append_deferred_tasks` now merges distinct deferred tasks into an existing deferred section before the next section and is idempotent for repeated suggestions. The added tests directly cover both regressions and extensively exercise fallback, provider-retry, CLI, parsing, and helper paths. No material correctness, security, compatibility, or maintainability defect was identified in the reviewed code. A PASS cannot be issued because required coverage and break-and-revert evidence remains unverifiable due to incomplete/truncated acceptance-artifact retrieval.\n- **Concerns:**\n  - The changed code and both changed files were completely reviewed and appear to implement the two described fixes correctly. However, the acceptance evidence is truncated/unavailable for required deliverables: the authoritative whole-suite coverage artifact is incomplete, and the complete break-and-revert test transcript required for every new test cannot be verified from the supplied evidence. Per the verification rules, this prevents a PASS but is not evidence that those deliverables are absent.\n\n#### anthropic\n- **Model:** claude-sonnet-5-5\n- **Verdict:** PASS\n- **Confidence:** 72%\n- **Scores:**\n  - Correctness: 8.0/10\n  - Completeness: 8.0/10\n  - Quality: 8.0/10\n  - Testing: 8.0/10\n  - Risks: 8.0/10\n- **Summary:** The PR adds roughly 500 lines of behavior-focused tests to `tests/scripts/test_issue_optimizer.py`. They cover the CLI loaders and `main()`, the OpenAI token-limit retry and fallback paths, malformed-suggestion handling, prompt fallbacks, the parser and legacy-chain invocation, and section-capping helpers. It makes two small production fixes that the tests exposed: `_cap_checkbox_lines` no longer keeps nested children of a dropped parent, and `_append_deferred_tasks` now merges new distinct tasks into an existing Deferred Tasks section instead of silently discarding them. Both fixes are minimal, and the diff shows tests that exercise them, including idempotency and placement before the next section. The PR body reports 198 uncovered units removed from the recorded 301 baseline, above the ~180 target, and a break-and-revert run against old production. The required Gate was green on the PR head. Production changes are limited to real bugs found by the tests, and each is explained in the PR body. The remaining uncertainty is evidence retrieval, not the code.\n- **Concerns:**\n  - The break-and-revert evidence is only partly visible. The PR body is truncated, and the gate-coverage artifacts for the 3.13 and 3.14 runs could not be fully extracted. The coverage figures (103 uncovered units remaining against a recorded baseline of 301, a reduction of 198) and the '2 failures / 56 passed on old production, 58 passed restored' run come from the PR body's own statements, not from artifacts I could read.\n  - The `selftest-ci.yml` run on the merge commit shows as cancelled. This is outside the PR's scope and is not treated as a defect.\n  - The `_cap_checkbox_lines` fix drops indented lines after an elided parent and resets on the next unindented non-empty line. This is reasonable for the checklist structure but is a heuristic about indentation.\n\n</details>\n\n### Agreement\n- Correctness: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n- Completeness: scores within 1 point (avg 8.0/10, range 8.0-8.0)\n- Quality: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n- Testing: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n- Risks: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n\n### Disagreement\n| Dimension | openai | anthropic |\n| --- | --- | --- |\n| Verdict | UNVERIFIABLE_INPUT | PASS |\n\n### Unique Insights\n- openai: The changed code and both changed files were completely reviewed and appear to implement the two described fixes correctly. However, the acceptance evidence is truncated/unavailable for required deliverables: the authoritative whole-suite coverage artifact is incomplete, and the complete break-and-revert test transcript required for every new test cannot be verified from the supplied evidence. Per the verification rules, this prevents a PASS but is not evidence that those deliverables are absent.\n- anthropic: The break-and-revert evidence is only partly visible. The PR body is truncated, and the gate-coverage artifacts for the 3.13 and 3.14 runs could not be fully extracted. The coverage figures (103 uncovered units remaining against a recorded baseline of 301, a reduction of 198) and the '2 failures / 56 passed on old production, 58 passed restored' run come from the PR body's own statements, not from artifacts I could read.; The `selftest-ci.yml` run on the merge commit shows as cancelled. This is outside the PR's scope and is not treated as a defect.; The `_cap_checkbox_lines` fix drops indented lines after an elided parent and resets on the next unindented non-empty line. This is reasonable for the checklist structure but is a heuristic about indentation.\n\n### \ud83d\udd0d LangSmith Traces\n- [openai](https://smith.langchain.com/r/lc_run--01a14cde-b198-7963-8367-db7899011573-0)\n- [anthropic](https://smith.langchain.com/r/lc_run--01a14cde-d39c-73f0-9edb-01d5d67d9406-0)\n\n",
+    "created_at": "2026-10-18T02:37:28Z",
+    "html_url": "https://github.com/stranske/Workflows/pull/4065#issuecomment-6244798951",
+    "id": 6244798951,
+    "user_login": "github-actions[bot]"
+  },
+  "repository": "stranske/Workflows",
+  "run_completed_at": "2026-10-18T02:39:02Z",
+  "run_list": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-10-18T02:35:09Z",
+      "databaseId": 39090617832,
+      "displayTitle": "Agents Verifier",
+      "event": "workflow_dispatch",
+      "headSha": "021ec67ef580c83a88402a1574e27ea34db14dde",
+      "status": "completed",
+      "url": "https://github.com/stranske/Workflows/actions/runs/39090617832"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-10-18T02:31:36Z",
+      "databaseId": 39090401899,
+      "displayTitle": "fix(verifier): review complete file chunks and guard source closure",
+      "event": "pull_request_target",
+      "headSha": "81424fd16d450008afe612c1198328f2ff72a822",
+      "status": "completed",
+      "url": "https://github.com/stranske/Workflows/actions/runs/39090401899"
+    }
+  ],
+  "selected_run_id": "39090617832",
+  "source_issue": {
+    "closed_at": "2026-11-03T18:23:53Z",
+    "closed_by": "stranske",
+    "created_at": "2026-10-18T01:02:08Z",
+    "html_url": "https://github.com/stranske/Workflows/issues/4063",
+    "number": 4063,
+    "state": "closed",
+    "state_reason": "completed",
+    "title": "Raise test coverage toward 90% (autopilot round 6, lane D, low blast radius only)"
+  },
+  "source_issue_timeline": [
+    {
+      "actor": "stranske",
+      "created_at": "2026-10-18T02:27:02Z",
+      "event": "closed"
+    },
+    {
+      "actor": "stranske",
+      "created_at": "2026-10-18T02:27:19Z",
+      "event": "reopened"
+    },
+    {
+      "actor": "stranske",
+      "created_at": "2026-11-03T18:23:53Z",
+      "event": "closed"
+    }
+  ]
+}

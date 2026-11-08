@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+    "-q",
+    "-o",
+    "addopts="
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "env_overrides": {},
+  "exit": 127,
+  "stdout": "",
+  "stderr": "/opt/anaconda3/bin/python3: No such file or directory\n",
+  "timeout_seconds": 120,
+  "duration_seconds": 0.001
+}

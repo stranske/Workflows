@@ -1,0 +1,9 @@
+{
+  "check_date": "2026-11-06T20:18:15.900006+00:00",
+  "base_commit": "22714ae7987ba087336c6babf0801d176edb6252",
+  "python": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+  "preexisting_evidence_files": 289,
+  "preexisting_evidence_inventory_sha256": "a8e59bf377ae68bc7d5cba270bc6172c8d4ab2d0064f6e88faba6940bbee2c12",
+  "literal_stop_rule": "Attempt each literal command once; do not install a replacement interpreter. Focused commands have a 120-second limit.",
+  "reconciliation": "PR #4472 already checks all tasks complete. Reopen final archive task/criterion for the omitted comparison-input-validation archive until inventory tests pass. GitHub update rejected: tool requires approval, policy never. Existing successful Anaconda receipts remain prior recorded executions."
+}

@@ -1,0 +1,154 @@
+{
+  "literal-pytest": {
+    "exit": 127,
+    "stdout": "",
+    "stderr": "[Errno 2] No such file or directory: '/opt/anaconda3/bin/python3'",
+    "stopped": "interpreter-absent",
+    "argv": [
+      "/opt/anaconda3/bin/python3",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "-q",
+      "-o",
+      "addopts="
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 0.0
+  },
+  "literal-replay": {
+    "exit": 127,
+    "stdout": "",
+    "stderr": "[Errno 2] No such file or directory: '/opt/anaconda3/bin/python3'",
+    "stopped": "interpreter-absent",
+    "argv": [
+      "/opt/anaconda3/bin/python3",
+      "docs/evidence/issue-3743/shebang-rejection/replay.py",
+      "--output",
+      "/tmp/fresh-shebang-rejection-proof"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 0.0
+  },
+  "focused": {
+    "exit": 0,
+    "stdout": "........                                                                 [100%]\n8 passed in 0.85s\n",
+    "stderr": "",
+    "argv": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+      "-m",
+      "pytest",
+      "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow",
+      "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/archive-inventory-validation/focused.xml"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 2.68
+  },
+  "inventory": {
+    "exit": 0,
+    "stdout": "......                                                                   [100%]\n6 passed in 0.87s\n",
+    "stderr": "",
+    "argv": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+      "-m",
+      "pytest",
+      "tests/scripts/test_shebang_rejection_delivered_archives.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow",
+      "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/archive-inventory-validation/inventory.xml"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 2.654
+  },
+  "companions": {
+    "exit": 0,
+    "stdout": "........................................................................ [ 94%]\n....                                                                     [100%]\n76 passed in 47.40s\n",
+    "stderr": "",
+    "argv": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+      "-m",
+      "pytest",
+      "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
+      "tests/scripts/test_shebang_rejection_acceptance_run.py",
+      "tests/scripts/test_shebang_rejection_archive_bindings.py",
+      "tests/scripts/test_shebang_rejection_matched_comparison.py",
+      "tests/scripts/test_shebang_rejection_replay.py",
+      "tests/scripts/test_shebang_rejection_validation_run.py",
+      "-q",
+      "-o",
+      "addopts=",
+      "-m",
+      "not slow",
+      "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/archive-inventory-validation/companions.xml"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 49.227
+  },
+  "ruff": {
+    "exit": 1,
+    "stdout": "SIM300 [*] Yoda condition detected\n  --> tests/scripts/test_shebang_rejection_delivered_archives.py:48:12\n   |\n46 |     )\n47 |     assert bindings == retained_bindings\n48 |     assert REQUIRED_BINDINGS <= bindings.keys()\n   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n49 |     for path, spec in bindings.items():\n50 |         data = (ROOT / path).read_bytes()\n   |\nhelp: Rewrite as `bindings.keys() >= REQUIRED_BINDINGS`\n   |\n47 |     assert bindings == retained_bindings\n   -     assert REQUIRED_BINDINGS <= bindings.keys()\n48 +     assert bindings.keys() >= REQUIRED_BINDINGS\n49 |     for path, spec in bindings.items():\n   |\n\nFound 1 error.\n[*] 1 fixable with `--fix`.\n",
+    "stderr": "",
+    "argv": [
+      "ruff",
+      "check",
+      "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py",
+      "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py",
+      "docs/evidence/issue-3743/shebang-rejection/compare_matched.py",
+      "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py",
+      "docs/evidence/issue-3743/shebang-rejection/replay.py",
+      "docs/evidence/issue-3743/shebang-rejection/verify_archives.py",
+      "scripts/check_deliberate_break.py",
+      "templates/consumer-repo/scripts/check_deliberate_break.py",
+      "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
+      "tests/scripts/test_shebang_rejection_acceptance_run.py",
+      "tests/scripts/test_shebang_rejection_archive_bindings.py",
+      "tests/scripts/test_shebang_rejection_matched_comparison.py",
+      "tests/scripts/test_shebang_rejection_replay.py",
+      "tests/scripts/test_shebang_rejection_validation_run.py",
+      "tests/scripts/test_shebang_rejection_delivered_archives.py"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 0.015
+  },
+  "template": {
+    "exit": 0,
+    "stdout": "\u2705 All consumer workflows are properly templated and manifested\n",
+    "stderr": "",
+    "argv": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+      "scripts/validate_template_completeness.py",
+      "--workflows-dir",
+      ".github/workflows",
+      "--template-dir",
+      "templates/consumer-repo/.github/workflows",
+      "--manifest",
+      ".github/sync-manifest.yml",
+      "--source",
+      "sync-manifest",
+      "--strict"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 0.147
+  },
+  "diffcheck": {
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "cwd": "/home/runner/work/Workflows/Workflows",
+    "duration_seconds": 0.011
+  }
+}

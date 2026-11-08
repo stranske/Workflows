@@ -1,0 +1,37 @@
+{
+  "argv": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "-m",
+    "coverage",
+    "run",
+    "--rcfile=docs/evidence/issue-3743/shebang-rejection/coverage.ini",
+    "--data-file=/tmp/shebang-matched-comparison-2ewade3o/baseline.coverage",
+    "-m",
+    "pytest",
+    "tests/scripts/test_check_deliberate_break.py",
+    "tests/scripts/test_check_deliberate_break_archive.py",
+    "tests/scripts/test_check_deliberate_break_fallback_target_selection.py",
+    "tests/scripts/test_check_deliberate_break_head_launch.py",
+    "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_launcher_admission.py",
+    "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_probe_option_boundaries.py",
+    "tests/scripts/test_check_deliberate_break_repair_failures.py",
+    "tests/scripts/test_check_deliberate_break_runtime_health.py",
+    "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+    "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+    "-q",
+    "-o",
+    "addopts=",
+    "-m",
+    "not slow",
+    "--junitxml=/home/runner/work/Workflows/Workflows/docs/evidence/issue-3743/shebang-rejection/matched-comparison/baseline.xml"
+  ],
+  "cwd": "/home/runner/work/Workflows/Workflows",
+  "exit": 0,
+  "duration_seconds": 117.988,
+  "env_overrides": {
+    "PYTEST_ADDOPTS": null,
+    "COVERAGE_FILE": null
+  }
+}

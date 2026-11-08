@@ -1,0 +1,73 @@
+{
+  "scope": "Supplemental local guard regressions; separate from the historical retained 199-test set and hosted/main evidence.",
+  "source_revision": "3667ba73cc170b510fe1c5fcf665777bf962e9e3",
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+  "source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+  "test_sha256": "e2a9e374fe10ba7eb6adc305886dc9e867a176b9c1077b3aff8b31f85e77b048",
+  "config_sha256": "3147eeb9bc2853fdad215c0c010c373abcdd33db1093588f459ae560b57d6b5c",
+  "proofs": [
+    {
+      "case": "original_issue",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-c",
+        "/home/runner/work/Workflows/Workflows/pyproject.toml",
+        "--import-mode=importlib",
+        "/home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[original_issue]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "before": "reason = f\"{reason} (source: {label})\"",
+      "mutant": "reason = reason",
+      "mutant_source_sha256": "1a00bdba7ad87705dfbc81f86919d09534e76bb5c7c7b11f2d51194b34681541",
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\n../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[original_issue] FAILED [100%]\n\n=================================== FAILURES ===================================\n__ test_guard_reports_later_payload_source_and_stops_scanning[original_issue] __\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x75faa8c15f30>\nblocked_source = 'original_issue'\n\n    @pytest.mark.parametrize(\"blocked_source\", [\"original_issue\", \"codex_log\"])\n    def test_guard_reports_later_payload_source_and_stops_scanning(monkeypatch, blocked_source):\n        scanned = []\n    \n        def check(text):\n            scanned.append(text)\n            return {\"blocked\": text == blocked_source, \"reason\": \"policy violation\"}\n    \n        monkeypatch.setattr(generator, \"check_prompt_injection\", check)\n    \n        result = generator._guard_payloads(\n            verification_text=\"verification_comment\",\n            original_issue_text=\"original_issue\",\n            codex_log=\"codex_log\",\n        )\n    \n>       assert result == {\n            \"blocked\": True,\n            \"reason\": f\"policy violation (source: {blocked_source})\",\n        }\nE       AssertionError: assert {'blocked': True, 'reason': 'policy violation'} == {'blocked': True, 'reason': 'policy violation (source: original_issue)'}\nE         \nE         Common items:\nE         {'blocked': True}\nE         Differing items:\nE         {'reason': 'policy violation'} != {'reason': 'policy violation (source: original_issue)'}\nE         \nE         Full diff: (-: missing in left side, +: extra in left side)\nE           {\nE               'blocked': True,\nE         -     'reason': 'policy violation (source: original_issue)',\nE         +     'reason': 'policy violation',\nE           }\n\n/home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py:23: AssertionError\n=========================== short test summary info ============================\nFAILED ../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[original_issue] - AssertionError: assert {'blocked': True, 'reason': 'policy violation'} == {'blocked': True, 'reason': 'policy violation (source: original_issue)'}\n  \n  Common items:\n  {'blocked': True}\n  Differing items:\n  {'reason': 'policy violation'} != {'reason': 'policy violation (source: original_issue)'}\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    {\n        'blocked': True,\n  -     'reason': 'policy violation (source: original_issue)',\n  +     'reason': 'policy violation',\n    }\n============================== 1 failed in 0.88s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\n../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[original_issue] PASSED [100%]\n\n============================== 1 passed in 0.79s ===============================\n",
+      "test": "tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[original_issue]",
+      "restored_source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925"
+    },
+    {
+      "case": "codex_log",
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-c",
+        "/home/runner/work/Workflows/Workflows/pyproject.toml",
+        "--import-mode=importlib",
+        "/home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[codex_log]",
+        "-vv",
+        "--tb=long",
+        "-m",
+        "not slow"
+      ],
+      "before": "reason = f\"{reason} (source: {label})\"",
+      "mutant": "reason = reason",
+      "mutant_source_sha256": "1a00bdba7ad87705dfbc81f86919d09534e76bb5c7c7b11f2d51194b34681541",
+      "red_exit": 1,
+      "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\n../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[codex_log] FAILED [100%]\n\n=================================== FAILURES ===================================\n____ test_guard_reports_later_payload_source_and_stops_scanning[codex_log] _____\n\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fce0e8c1f30>\nblocked_source = 'codex_log'\n\n    @pytest.mark.parametrize(\"blocked_source\", [\"original_issue\", \"codex_log\"])\n    def test_guard_reports_later_payload_source_and_stops_scanning(monkeypatch, blocked_source):\n        scanned = []\n    \n        def check(text):\n            scanned.append(text)\n            return {\"blocked\": text == blocked_source, \"reason\": \"policy violation\"}\n    \n        monkeypatch.setattr(generator, \"check_prompt_injection\", check)\n    \n        result = generator._guard_payloads(\n            verification_text=\"verification_comment\",\n            original_issue_text=\"original_issue\",\n            codex_log=\"codex_log\",\n        )\n    \n>       assert result == {\n            \"blocked\": True,\n            \"reason\": f\"policy violation (source: {blocked_source})\",\n        }\nE       AssertionError: assert {'blocked': True, 'reason': 'policy violation'} == {'blocked': True, 'reason': 'policy violation (source: codex_log)'}\nE         \nE         Common items:\nE         {'blocked': True}\nE         Differing items:\nE         {'reason': 'policy violation'} != {'reason': 'policy violation (source: codex_log)'}\nE         \nE         Full diff: (-: missing in left side, +: extra in left side)\nE           {\nE               'blocked': True,\nE         -     'reason': 'policy violation (source: codex_log)',\nE         ?                                --------------------\nE         +     'reason': 'policy violation',\nE           }\n\n/home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py:23: AssertionError\n=========================== short test summary info ============================\nFAILED ../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[codex_log] - AssertionError: assert {'blocked': True, 'reason': 'policy violation'} == {'blocked': True, 'reason': 'policy violation (source: codex_log)'}\n  \n  Common items:\n  {'blocked': True}\n  Differing items:\n  {'reason': 'policy violation'} != {'reason': 'policy violation (source: codex_log)'}\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    {\n        'blocked': True,\n  -     'reason': 'policy violation (source: codex_log)',\n  ?                                --------------------\n  +     'reason': 'policy violation',\n    }\n============================== 1 failed in 0.86s ===============================\n",
+      "green_exit": 0,
+      "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\n../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[codex_log] PASSED [100%]\n\n============================== 1 passed in 0.78s ===============================\n",
+      "test": "tests/test_followup_guard_contract.py::test_guard_reports_later_payload_source_and_stops_scanning[codex_log]",
+      "restored_source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925"
+    }
+  ],
+  "test_overlay": "The new test file is uncommitted; its SHA256 identifies the overlay on source_revision.",
+  "isolation": {
+    "cwd": "temporary directory removed after validation",
+    "PYTHONPATH": [
+      "temporary directory",
+      "/home/runner/work/Workflows/Workflows"
+    ],
+    "package_path_fallbacks": [
+      "scripts",
+      "scripts/langchain"
+    ],
+    "method": "Temporary packages prepend the copied generator and append repository package paths for unchanged support imports. Only the temporary generator is mutated and restored; checkout source is unchanged."
+  }
+}

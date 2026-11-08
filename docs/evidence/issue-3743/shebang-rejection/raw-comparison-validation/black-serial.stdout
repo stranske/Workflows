@@ -1,0 +1,4661 @@
+{
+  "checked_invocations": 931,
+  "cache_directory": "/tmp/shebang-rejection-validation-black-cache",
+  "results": [
+    {
+      "path": ".github/scripts/__tests__/autofix_emit_report_test.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/__tests__/decode_raw_input_test.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/__tests__/fallback_split_test.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/__tests__/label_rules_assert_test.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/__tests__/lockfile_status_test.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/__tests__/render_cosmetic_summary_test.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/autofix_emit_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/decode_raw_input.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/fallback_split.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/gate_summary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/health_summarize.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/issue_format.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/label_rules_assert.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/lockfile_status.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/parse_chatgpt_topics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/render_cosmetic_summary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/restore_branch_snapshots.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/verifier_correction_profile.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": ".github/scripts/verifier_verdict_json.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "config/verify_paired/representative-v1/workflows-4265-verified/evidence/current-review-runner.py",
+      "exit": 0,
+      "output": "No Python files are present to be formatted. Nothing to do \ud83d\ude34\n"
+    },
+    {
+      "path": "config/verify_paired/representative-v1/workflows-4265-verified/source/tests/test_coverage_guard.py",
+      "exit": 0,
+      "output": "No Python files are present to be formatted. Nothing to do \ud83d\ude34\n"
+    },
+    {
+      "path": "config/verify_paired/representative-v1/workflows-4265-verified/source/tests/workflows/test_maint_coverage_guard_artifacts.py",
+      "exit": 0,
+      "output": "No Python files are present to be formatted. Nothing to do \ud83d\ude34\n"
+    },
+    {
+      "path": "config/verify_paired/representative-v1/workflows-4265-verified/source/tools/coverage_guard.py",
+      "exit": 0,
+      "output": "No Python files are present to be formatted. Nothing to do \ud83d\ude34\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/fallback-target-selection/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/head-launch/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/launch-boundaries/wf-mutation-driver.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/launcher-admission/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/module-boundaries/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/probe-option-boundaries/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/repair-failures/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/runtime-health/measure.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/runtime-health/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/runtime-probes/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/runtime-probes/revalidation/black_serial.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/inputs/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/inputs/scripts/check_deliberate_break.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/inputs/templates/consumer-repo/scripts/check_deliberate_break.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/inputs/tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/mutant.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/original.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_empty_pytest_launcher_has_no_probe/restored.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/mutant.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/original.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_missing_shebang_has_no_probe/restored.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/mutant.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/original.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unclosed_shebang_quote_has_no_probe/restored.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/mutant.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/original.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/root-test_unresolved_env_python_has_no_probe/restored.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/mutant.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/original.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_empty_pytest_launcher_has_no_probe/restored.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/mutant.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/original.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_missing_shebang_has_no_probe/restored.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/mutant.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/original.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unclosed_shebang_quote_has_no_probe/restored.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/mutant.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/original.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/acceptance-run/mutation-proof/template-test_unresolved_env_python_has_no_probe/restored.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/capture_acceptance_run.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/capture_validation_run.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/compare_matched.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/inspect_main_acceptance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/shebang-rejection/verify_archives.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/uv-resolution/replay_suites.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3743/uv-resolution/replay_uv_resolution.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3835-evidence-destinations/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3839-reporter/acceptance-20261012/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/evidence/issue-3883-filename-qualified-destinations/replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "docs/reports/verification-binding-audit/deliberate_break_gate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "evidence/issue-3820/correction_red_green.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "evidence/issue-3820/deliberate_red_green.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "evidence/issue-3820/historical-all-arms-recovery-20261011/historical-source.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "evidence/issue-3820/historical-all-arms-recovery-20261011/historical-template-source.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "evidence/issue-3820/historical-all-arms-recovery-20261011/historical-test.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "evidence/issue-3820/patch-artifact-recovery-20261011/recover-original-artifacts.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "evidence/issue-3820/review_red_green.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "evidence/issue-3820/verifier-caller-security-red-green.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/baseline_kit/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/baseline_kit/catalog.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/baseline_kit/directional.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/baseline_kit/golden.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/baseline_kit/invariants.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/baseline_kit/manifest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/baseline_kit/snapshot.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/tests/test_catalog.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/app-baseline-kit/tests/test_snapshot.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/eval/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/eval/harness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/orchestration.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/providers/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/providers/docling_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/providers/text_baseline.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/src/stranske_pdf_extract/reliability.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/tests/conftest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/tests/test_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/tests/test_docling_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/tests/test_eval.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/tests/test_orchestration.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/tests/test_reliability.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "packages/stranske_pdf_extract/tests/test_text_baseline.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/agent_switch_cadence.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/aggregate_agent_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/aggregate_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/aggregate_repo_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/analyze_api_rate_limits.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/analyze_codex_session.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/api_client.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/audit_belt_ledger_completion.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/auth_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/auto_type_hygiene.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/autopilot_metrics_collector.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/autopilot_step_timer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/belt_ledger_completion.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/bootstrap_consumer_settings.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/build_autofix_pr_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/build_consumer_sync_shadow_handoff.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/capture_bootstrap_label_tests.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_agents_md_freshness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_api_wrapper_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_checks_reported.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_codex_cli_freshness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_consumer_sync_drift.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_deliberate_break.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_docs_drift.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_durable_tracker_liveness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_gate_diff_quality.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_gate_python_job_timings.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_issue_consistency.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_template_drift.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/check_workflow_action_pins.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ci_cosmetic_repair.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ci_coverage_delta.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ci_failure_analyzer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ci_history.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ci_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ci_test_growth.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ci_time_budget.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/classify_test_failures.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/cleanup_labels.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/cli_handler.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/closer_core_package.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/closer_operation_github.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/closer_runtime.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/completion_evidence_adapter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/consumer_delivery_digest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/coverage_history_append.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/create_verifier_labels.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/debouncing_options_matrix.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/dependency_sync_efficiency_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/dev_tool_update_policy.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/docs_drift_fix_agent.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/duplicate_detection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ensure_langsmith_fleet_artifact.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/export_keepalive_durability.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/fix_cosmetic_aggregate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/fix_numpy_asserts.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/gate_detect_output_diff.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/generate_consumer_renovate_ownership.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/generate_llm_workflow_update_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/generate_residual_trend.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/generate_suppression_guard_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/generate_worker_retry_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/guard_stable_plan_rotation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/issue_dedup_smoke.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/issue_pattern_corpus.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/issue_pattern_feedback.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/issue_pattern_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/keepalive_metrics_dashboard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/_llm_client.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/capability_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/checklist_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/context_extractor.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/followup_issue_generator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/injection_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/integration_layer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/issue_dedup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/issue_formatter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/issue_optimizer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/issue_pr_context.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/label_matcher.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/pr_verifier.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/progress_reviewer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/response_content.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/semantic_matcher.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/structured_output.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/task_decomposer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/task_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/topic_splitter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/trace_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/verdict_extract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/verdict_policy.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/verifier_config.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langchain/verifier_shadow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langsmith_fleet.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langsmith_fleet_conformance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/langsmith_observability_health.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ledger_migrate_base.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/ledger_validate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/list_registered_consumer_repos.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/maint_tool_version_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/measure_verifier_runtime.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/metrics_alerting.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/metrics_dashboard_generator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/metrics_format_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/metrics_retention.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/model_profile_trial_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/mypy_autofix.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/mypy_return_autofix.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/orchestrator_runtime/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/orchestrator_runtime/capabilities.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/orchestrator_runtime/capability_lifecycle.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/orchestrator_runtime/completion_event_adapter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/orchestrator_runtime/consumer_sync_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/orchestrator_runtime/evidence_schema.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/orchestrator_runtime/runner_effect_bridge.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/orchestrator_skill.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/prune_agent_stubs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/reference_packs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_approval_ledger.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_backlog_scan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_body_writer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_coordinator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_docs_drift_scan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_evaluator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_heartbeat.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_issue_quality.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_notify.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_queue_builder.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_round1_runner.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_round1_schema.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_round2_runner.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_round2_schema.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_scorecard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/repo_review_state.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/reusable_ci_scope.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/run_consumer_repo_tests.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/runner_lib/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/runner_lib/__main__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/runner_lib/acceptance_gate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/runner_lib/core.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/scope_consumer_sync_plan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/select_consumer_sync_phase.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/stage_agent_changes.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/state_fingerprint.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/sync_dev_dependencies.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/sync_integration_coverage_omit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/sync_integration_manifest_subset.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/sync_label_docs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/sync_manifest_compiler.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/sync_status_file_ignores.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/sync_test_dependencies.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/sync_tool_versions.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/test_openai_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/update_autofix_expectations.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/update_langchain_versions.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/update_residual_history.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/update_versions_from_pypi.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/upload_repo_review_issues.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/validate_backplane_registry.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/validate_dependency_test_setup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/validate_run_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/validate_template_completeness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/validate_template_sync.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/validate_version_pins.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/validate_workflow_yaml.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/workflow_concurrency_audit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/workflow_health_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/workflow_pr_context_audit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/workflow_run_counts.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/workflow_startup_failure_diagnostic.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "scripts/workflow_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "sitecustomize.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/aggregator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/cli_parser.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/ndjson_parser.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/percentile_calculator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/_autofix_trigger_sample.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/_autofix_violation_case2.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/_autofix_violation_case3.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/_ci_probe_faults.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/automation_multifailure.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/constants.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/selector.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "src/trend_analysis/weighting.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/.github/scripts/autofix_emit_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/.github/scripts/decode_raw_input.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/.github/scripts/fallback_split.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/.github/scripts/gate_summary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/.github/scripts/issue_format.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/.github/scripts/parse_chatgpt_topics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/.github/scripts/verifier_correction_profile.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/.github/scripts/verifier_verdict_json.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/design-system/ds_streamlit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/aggregate_agent_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/api_client.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/check_agents_md_freshness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/check_deliberate_break.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/check_docs_drift.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/docs_drift_fix_agent.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/capability_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/checklist_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/context_extractor.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/followup_issue_generator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/integration_layer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/issue_dedup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/issue_formatter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/issue_optimizer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/label_matcher.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/pr_verifier.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/semantic_matcher.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/structured_output.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/task_decomposer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/task_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/topic_splitter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/langchain/trace_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/runner_lib/acceptance_gate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/sync_dev_dependencies.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/sync_status_file_ignores.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/scripts/sync_test_dependencies.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/ci_failure_triage.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/embedding_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/langchain_client.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/llm_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/llm_registry.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/post_ci_summary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/resolve_mypy_pin.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/subscription_llm.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/verifier_artifact_capture.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/verifier_capture_obligation_manifest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/verifier_gzip_assets.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/verifier_proof_resource_plan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/verifier_semantic_acceptance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/verifier_semantic_execution.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/consumer-repo/tools/verifier_semantic_rules.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/integration-repo/scripts/sync_test_dependencies.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/integration-repo/scripts/sync_tool_versions.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/integration-repo/scripts/validate_dependency_test_setup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/integration-repo/src/example/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/integration-repo/tests/test_example.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/integration-repo/tools/resolve_mypy_pin.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "templates/test_helpers/version_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/_autofix_diag.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/conftest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/contracts/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/contracts/test_backplane_schemas.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/contracts/test_document_identity.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/contracts/test_validate_run_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_consumer_ci_system_guide.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_durable_tracker_drift_states.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_integration_guide_current_defaults.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_labels_agent_auto_coexistence.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_labels_markdown_tables.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_labels_template_sync.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_langsmith_observability_contract_doc.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_local_lanes_doc.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_run_contract_doc_pension_data.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_verification_concerns_1307.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_workflow_catalog_consumer_defaults.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_workflow_change_docs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_workflow_snippets_yaml.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/docs/test_workflow_source_docs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/e2e/test_metrics_dashboard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/fixtures/reusable_ci_consumer/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/fixtures/reusable_ci_consumer/sample.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/fixtures/reusable_ci_consumer/sample_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/integration/test_agents_dedup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/integration/test_ndjson_processing.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/langchain/test_correction_prompt_scope.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/orchestrator_runtime/test_completion_event_adapter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/orchestrator_runtime/test_consumer_sync_runtime.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/conftest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/integration_test.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_agent_switch_cadence.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_aggregate_agent_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_aggregate_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_aggregate_metrics_parse_errors.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_aggregate_repo_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_analyze_api_rate_limits.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_analyze_codex_session.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_api_client.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_auth_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_auto_type_hygiene.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_autopilot_metrics_collector.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_autopilot_metrics_file_io_and_env_handling.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_autopilot_step_timer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_autopilot_step_timer_failure_handling.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_bootstrap_consumer_labels.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_bootstrap_consumer_settings.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_build_autofix_pr_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_capability_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_agents_md_freshness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_api_wrapper_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_codex_cli_freshness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_consumer_sync_drift.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_archive.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_fallback_target_selection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_head_launch.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_launch_boundaries.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_launcher_admission.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_module_boundaries.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_probe_option_boundaries.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_repair_failures.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_runtime_health.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_runtime_probes.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_shebang_rejection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_deliberate_break_uv_resolution.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_docs_drift.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_gate_diff_quality.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_gate_python_job_timings.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_template_drift.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_template_drift_coverage.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_check_workflow_action_pins.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ci_cosmetic_repair.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ci_coverage_delta.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ci_failure_analyzer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ci_history.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ci_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ci_time_budget.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_classify_test_failures.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_cleanup_labels.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_cli_handler.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_closer_core_followup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_closer_core_package.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_closer_http_lifecycle.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_closer_large_records.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_closer_portable_boundaries.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_closer_runtime.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_closer_successor_history.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_closer_verify_request.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_completion_evidence_adapter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_consumer_delivery_digest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_consumer_script_typecheck.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_consumer_sync_shadow_handoff.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_context_extractor.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_corrective_verification_scope.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_coverage_history_append.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_create_verifier_labels.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_debouncing_options_matrix.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_dependency_sync_efficiency_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_dev_check_actionlint.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_dev_tool_update_policy.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_docs_drift_fix_agent.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_duplicate_detection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ensure_langsmith_fleet_artifact.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_evidence_destination_replay_security.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_export_keepalive_durability.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_fallback_target_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_fix_cosmetic_aggregate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_fix_numpy_asserts.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_fleet_list_single_source.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_gate_detect_output_diff.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_generate_consumer_renovate_ownership.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_generate_llm_workflow_update_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_generate_residual_trend.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_generate_suppression_guard_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_generate_worker_retry_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_guard_stable_plan_rotation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_head_launch_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_injection_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_consistency_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_dedup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_dedup_smoke.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_format.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_formatter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_optimizer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_pattern_corpus.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_pattern_feedback.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_pattern_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_issue_pr_context.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_keepalive_metrics_dashboard_unit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_label_matcher.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_langsmith_fleet.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_langsmith_fleet_conformance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_langsmith_observability_health.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_launch_mutation_driver.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_launcher_admission_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ledger_migrate_base.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ledger_validate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_list_registered_consumer_repos.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_llm_client_shared.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_maint_tool_version_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_measure_verifier_runtime.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_metrics_alerting.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_metrics_dashboard_generator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_metrics_format_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_metrics_retention.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_model_profile_trial_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_module_boundary_replay_isolation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_mypy_autofix.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_mypy_return_autofix.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_native_capacity_recovery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_native_capacity_registry.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_ndjson_consolidation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_orchestrator_skill.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_body_overall_integration.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_capture_obligation_failure.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_chain_depth.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_chunk_reconciliation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_compare.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_comparison_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_config_and_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_delivery_destinations.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_evidence_alternatives.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_fallback.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_file_chunks.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_grammar_inventory.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_infra_detection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_issue_creation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_original_fenced_final.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_partition_recovery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_prompt_coverage.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_provider_cli.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_recovery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_relative_presence_groups.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_semantic_integration.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_structured_output.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_pr_verifier_sync_manifest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_progress_reviewer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_prune_agent_stubs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_reference_packs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_approval_ledger.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_backlog_scan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_body_writer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_coordinator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_docs_drift_scan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_evaluator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_heartbeat.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_issue_quality.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_notify.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_queue_builder.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_round1_runner.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_round1_schema.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_round2_runner.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_round2_schema.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_scorecard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_repo_review_state.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_reusable_ci_scope.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_run_consumer_repo_tests.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_runner_completion_receipts.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_runner_lib.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_runtime_health_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_runtime_probe_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_scope_consumer_sync_plan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_select_consumer_sync_phase.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_semantic_matcher.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_shebang_rejection_acceptance_inspection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_shebang_rejection_acceptance_run.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_shebang_rejection_archive_bindings.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_shebang_rejection_matched_comparison.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_shebang_rejection_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_shebang_rejection_validation_run.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_stage_agent_changes.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_state_fingerprint.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_dev_dependencies.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_integration_coverage_omit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_integration_manifest_subset.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_label_docs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_manifest_compiler.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_manifest_docs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_status_file_ignores.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_templates.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_test_dependencies.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_test_dependencies_advice.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_test_dependencies_mapping.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_test_dependencies_nonpackage.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_sync_tool_versions.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_task_decomposer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_task_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_template_drift_allowlist.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_test_openai_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_trace_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_update_autofix_expectations.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_update_floating_tag.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_update_langchain_versions.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_update_residual_history.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_update_versions_from_pypi.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_upload_repo_review_issues.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_uv_resolution_replay_cli.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_uv_resolution_replay_restoration.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_validate_dependency_test_setup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_validate_run_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_validate_template_completeness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_validate_template_sync.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_validate_version_pins.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_validate_workflow_yaml.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_action_minimum_input.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_capacity_backup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_capture_integration.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_config.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_correction_profile.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_evaluate_evidence_minimum.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_original_request_admission.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_required_input_native_fit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_verifier_shadow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_workflow_concurrency_audit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_workflow_health_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_workflow_pr_context_audit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_workflow_run_counts.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_workflow_startup_failure_diagnostic.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/test_workflow_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/scripts/verifier_capacity_fakes.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_anthropic_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_auth_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_authentication.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_backplane_registry.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_check_checks_reported.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_check_docs_drift.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_check_model_registry_freshness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_ci_failure_analyzer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_ci_gate_budget.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_ci_python_standard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_confidence_capping.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_coverage_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_coverage_guard_payload_location.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_coverage_guard_payload_matching.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_dependency_version_alignment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_design_system_template.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_enforce_gate_branch_protection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_fallback_chain_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_followup_issue_generator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_github_models_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_hypothesis_dependency_guidance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_integration_repo_template.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_issue_4260_acceptance_gates.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_langchain_imports_smoke.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_ledger_validate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_llm_registry_malformed_input.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_openai_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_post_ci_summary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_pytest_source_gate_startup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_python_floor.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_repo_review_registry_active_code_repos.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_repo_review_registry_no_output_repos.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_setup_checklist_ci_scripts.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_structured_output.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_sync_dev_dependencies_precommit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_topic_splitter.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_verdict_extract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_verdict_policy.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_verdict_policy_integration.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_workflow_guide_verifier_sections.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_workflow_health_check.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/test_workflow_validator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_agy_judge_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_agy_pilot.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_analyze_judge_ensemble.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_ci_failure_triage.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_codex_jsonl_parser.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_codex_log_analyzer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_codex_session_analyzer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_coverage_trend.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_disable_legacy_workflows.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_discover_model_catalog.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_embedding_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_enforce_gate_branch_protection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_ensure_workflow_timeout_variables.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_evaluate_model_benchmark.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_failure_signature.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_generate_mutation_cases.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_harvest_verifier_corpus.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_integration_repo.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_langchain_client.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_llm_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_llm_provider_tracing_opt_out.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_llm_registry_selection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_maint78_cost_quality.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_model_eval_pilot.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_prepare_model_promotion.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_refresh_model_eval_candidates.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_reproduce_muse13_screen.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_resolve_mypy_pin.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_retained_original_final_projection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_retained_revalidation_correction_seeds.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_retained_verification_recovery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_run_judge_backend_screen.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_run_model_eval_pilot.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_run_verify_paired.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_stable_pass_cases.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_artifact_capture.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_capture_obligation_manifest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_compare_run_receipt.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_gzip_assets.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_input_repair_provenance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_proof_resource_plan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_request_correlation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_semantic_acceptance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_semantic_execution.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_semantic_package_recovery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_semantic_rules.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_shadow_adjudicate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_shadow_corpus.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_shadow_external.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_shadow_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verifier_standards_model.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/tools/test_verify_opus_native_policy.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/unit/test_aggregator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/unit/test_cli_parser.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/unit/test_ndjson_parser.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/unit/test_percentile_calculator.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/fixtures/reference_packs/repo_contents/trend-streamlit/apps/streamlit/app.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/github_scripts/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/github_scripts/test_decode_raw_input.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/github_scripts/test_fallback_split.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/github_scripts/test_gate_summary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/github_scripts/test_health_summarize.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/github_scripts/test_parse_chatgpt_topics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/github_scripts/test_restore_branch_snapshots.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_acceptance_gate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agent_auth_health_workflows.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agents_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agents_guard_fork_status_publication.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agents_guard_publication.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agents_guard_registry_enabled.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agents_issue_intake_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agents_issue_optimizer_format_trigger.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agents_orchestrator_resolve.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_agents_pr_meta_keepalive.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_artifact_retention.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_auto_label_checkout_isolation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_auto_pilot_verify_handoff.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_cancelled_gate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_full_pipeline.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_loop_routing.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_pipeline.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_pipeline_diverse.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_pipeline_tools.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_pr_comment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_staged_delivery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autofix_trigger_scenario2.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_autopilot_format_pause.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_backplane_conformance_artifact_handoff.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_belt_agent_registry.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_belt_claim_reclaim.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_belt_dispatcher_queue.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_belt_ledger_completion.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_bot_comment_handler.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_chatgpt_topics_parser.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_ci_cosmetic_repair.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_ci_coverage_delta.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_ci_history.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_ci_metrics.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_ci_test_growth.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_ci_time_budget_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_codex_belt_pipeline.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_codex_sandbox_startup_failure.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_consumer_sync_create_only_evidence.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_consumer_template_pip_install_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_consumer_template_ruff_clean.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_consumer_template_script_refs_synced.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_cursor_cli_preflight.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_delivered_scripts_mypy_clean_in_consumers.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_dependency_bot_conditions.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_dependency_sync_efficiency_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_dev_tool_source_lane.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_disable_legacy_workflows.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_docs_drift_fix_agent_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_durable_tracker_liveness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_gate_commit_status_fork_tolerance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_gate_dependency_isolation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_gate_followups_authority_sparse_checkout.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_gate_fork_status_publication.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_gate_summary_action_boundary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_gate_trigger_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_generated_delivery_wakeup.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_github_api_retry_standard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_github_api_retry_transient.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_github_credential_pool_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_harvest_pr_source_binding.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_health40_repo_selfcheck_aggregate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_health_68_liveness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_integration_repo_sync_hubs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_integration_template_script_closure.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_integration_template_secrets_in_if.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_issue2_excluded_tests_enabled.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_issue2_stub_module_interfaces.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_issue_bridge_seed.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_issue_bridge_triggers.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_issue_format_guard_closed_issues.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_issue_intake_agent_routing.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_authority_delivery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_base_ref.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_guard_utils.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_job_shape.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_label_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_loop_rate_limit.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_post_work.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_reporter_unresolved.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_sweep_nonconsolidated.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_task_progress.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_keepalive_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_langsmith_fleet_conformance_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_langsmith_metrics_dashboard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_langsmith_observability_health_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_maint39_llm_provider_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_maint46_post_ci_sparse_checkout.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_maint52_sync_dev_versions_pr_body.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_maint82_sync_campaign_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_maint_69_label_sync_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_maint_coverage_guard_artifacts.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_maint_metrics_retention.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_model_eval_pilot_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_model_profile_trial_workflows.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_model_registry_freshness_tracker.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_muse_runner_routing.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_no_api_keys_in_keepalive.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_no_clobbering_sparse_checkout.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_no_draft_pr_creation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_no_retired_python_in_shared_assets.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_no_silent_api_failures.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_no_untrusted_interpolation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_python_matrix_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_python_version_single_source.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_registered_consumer_repos_helper.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_renovate_fleet_policy.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_repeat_verification_lifecycle.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_resolve_default_branch.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_reusable_ci_no_hardcoded_ref_main.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_reusable_ci_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_reusable_run_refpack_heredoc_compiles.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_reusable_run_shared_base.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_reusable_workflow_inputs_doc.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_reusable_workflow_outputs_doc.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_runner_artifacts_stay_out_of_the_checkout.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_runner_cache_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_setup_api_client_contract.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_skip_v6.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_subscription_llm_credential_canary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_sync_delivery_liveness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_sync_manifest_delivery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_target_work_environment_template.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_template_drift_workflow.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_acceptance_environment.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_caller_security.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_evaluation_transport.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_evidence_profile.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_expanded_checkout.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_expanded_comparison.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_file_chunk_closure.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_input_repair_provenance_wiring.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_plan_fingerprint_wiring.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_result_admission.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_semantic_result_admission.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_terminal_disposition.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_verdict_parsing.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verifier_visible_reports.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_verify_to_new_pr_token.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_agents_consolidation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_archival_issue2823.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_autofix_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_expression_footguns.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_llm_installs.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_multi_failure_demo.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_naming.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_on_triggers_valid.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_selftest_consolidation.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflow_templates.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tests/workflows/test_workflows_doc_links_resolve.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/__init__.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/agy_judge_replay.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/agy_pilot.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/analyze_judge_ensemble.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/check_model_registry_freshness.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/ci_failure_triage.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/codex_jsonl_parser.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/codex_log_analyzer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/codex_session_analyzer.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/coverage_guard.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/coverage_trend.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/create_model_eval_snapshot.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/disable_legacy_workflows.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/discover_model_catalog.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/embedding_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/enforce_gate_branch_protection.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/ensure_workflow_timeout_variables.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/evaluate_model_benchmark.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/generate_mutation_cases.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/harvest_verifier_corpus.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/integration_repo.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/langchain_client.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/llm_provider.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/llm_registry.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/model_eval_snapshots.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/plan_model_eval.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/post_ci_summary.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/prepare_model_promotion.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/refresh_model_eval_candidates.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/reproduce_muse13_screen.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/resolve_mypy_pin.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/run_judge_backend_screen.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/run_model_eval_api_confirm.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/run_model_eval_cli_screen.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/run_model_eval_pilot.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/run_verify_paired.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/stable_pass_cases.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/subscription_llm.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/test_failure_signature.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_artifact_capture.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_capture_obligation_manifest.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_compare_run_receipt.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_corpus_evidence.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_event_recovery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_gzip_assets.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_proof_resource_plan.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_semantic_acceptance.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_semantic_execution.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_semantic_package_recovery.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_semantic_rules.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_shadow_adjudicate.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_shadow_corpus.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_shadow_external.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_shadow_report.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verifier_standards_model.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    },
+    {
+      "path": "tools/verify_paired_policy.py",
+      "exit": 0,
+      "output": "All done! \u2728 \ud83c\udf70 \u2728\n1 file would be left unchanged.\n"
+    }
+  ]
+}

@@ -439,6 +439,23 @@ def test_working_directory_propagates_to_steps() -> None:
     assert coverage_upload["with"]["path"] == "${{ env.PROJECT_ROOT }}/artifacts/coverage"
 
 
+def test_pinned_verifier_history_fetch_deepens_the_checkout_ref() -> None:
+    """origin/main history must not be the only deepened ref.
+
+    A depth-1 pull merge commit stays disconnected if only main is fetched, so
+    commits that are merely present fail the #4426 ancestor check.
+    """
+    steps = _load_workflow()["jobs"]["tests"]["steps"]
+    step = next(
+        item for item in steps if item.get("name") == "Fetch pinned verifier revision history"
+    )
+    script = step["run"]
+    assert step["if"] == "${{ hashFiles('tests/test_verifier_4422_audit.py') != '' }}"
+    assert 'git fetch --no-tags --shallow-since="$since" origin main' in script
+    assert 'git fetch --no-tags --shallow-since="$since" origin "${GITHUB_REF}"' in script
+    assert "021ec67ef580c83a88402a1574e27ea34db14dde" in script
+
+
 # --- Coverage config / editable-install gating -----------------------------
 #
 # Regression cover for a pair of mutually exclusive assumptions: the pytest

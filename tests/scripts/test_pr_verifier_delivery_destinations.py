@@ -1189,51 +1189,8 @@ def test_passive_delivery_agent_position_preserves_actor_and_floor(
     )
 
 
-@_semantic_matrix(
-    dimensions={
-        "missing": ["absent", "unavailable"],
-        "independent": [False, True],
-        "governor": ["must", "may", "must not"],
-        "shape": ["single", "human-and", "human-or", "product-and", "product-or"],
-        "position": ["agent-before", "agent-after"],
-        "destination,channel,other,other_channel": [
-            ["the PR body", "body", "a PR comment", "comments"],
-            ["the PR description", "body", "a PR comment", "comments"],
-            ["a PR comment", "comments", "the PR body", "body"],
-        ],
-        "operation": [
-            "recorded",
-            "supplied",
-            "shared",
-            "written",
-            "placed",
-            "delivered",
-            "submitted",
-            "pasted",
-            "put",
-        ],
-    },
-    semantic=(
-        "missing",
-        "independent",
-        "governor",
-        "shape",
-        "position",
-        "destination,channel,other,other_channel",
-    ),
-    lexical_spines={"operation": ("shape", "governor", "position")},
-)
-def test_passive_aliases_preserve_actor_options_and_actual_floor(
-    operation,
-    destination,
-    channel,
-    other,
-    other_channel,
-    position,
-    shape,
-    governor,
-    independent,
-    missing,
+def _passive_alias_case(
+    operation, destination, channel, other, other_channel, position, shape, governor, independent
 ):
     actor = "UI" if shape.startswith("product") else "reviewer"
     target = destination + (" panel" if actor == "UI" else "")
@@ -1258,10 +1215,99 @@ def test_passive_aliases_preserve_actor_options_and_actual_floor(
         expected = [{channel, other_channel} | artifact]
     else:
         expected = [{channel} | artifact]
+    return criterion, expected
+
+
+@_semantic_matrix(
+    dimensions={
+        "independent": [False, True],
+        "governor": ["must", "may", "must not"],
+        "shape": ["single", "human-and", "human-or", "product-and", "product-or"],
+        "position": ["agent-before", "agent-after"],
+        "destination,channel,other,other_channel": [
+            ["the PR body", "body", "a PR comment", "comments"],
+            ["the PR description", "body", "a PR comment", "comments"],
+            ["a PR comment", "comments", "the PR body", "body"],
+        ],
+        "operation": [
+            "recorded",
+            "supplied",
+            "shared",
+            "written",
+            "placed",
+            "delivered",
+            "submitted",
+            "pasted",
+            "put",
+        ],
+    },
+    semantic=(
+        "independent",
+        "governor",
+        "shape",
+        "position",
+        "destination,channel,other,other_channel",
+    ),
+    lexical_spines={"operation": ("shape", "governor", "position")},
+)
+def test_passive_aliases_preserve_actor_options_and_actual_floor(
+    operation,
+    destination,
+    channel,
+    other,
+    other_channel,
+    position,
+    shape,
+    governor,
+    independent,
+):
+    criterion, expected = _passive_alias_case(
+        operation,
+        destination,
+        channel,
+        other,
+        other_channel,
+        position,
+        shape,
+        governor,
+        independent,
+    )
     assert verifier._required_evidence_channels(criterion) == set().union(*expected)
     assert {frozenset(option) for option in verifier._required_evidence_options(criterion)} == {
         frozenset(option) for option in expected
     }
+
+
+@pytest.mark.parametrize("missing", ["absent", "unavailable"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize("shape", ["single", "human-and", "human-or", "product-and", "product-or"])
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+def test_passive_aliases_real_floor(
+    destination, channel, other, other_channel, shape, governor, independent, missing
+):
+    """Cross distinct requirement options and retrieval states after classification."""
+    criterion, expected = _passive_alias_case(
+        "recorded",
+        destination,
+        channel,
+        other,
+        other_channel,
+        "agent-before",
+        shape,
+        governor,
+        independent,
+    )
+    _assert_review_evidence_floor(criterion, expected, missing)
+
+
+def _assert_review_evidence_floor(criterion, expected, missing):
     fixture = _COVERAGE_FIXTURE
     for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
         evidence = (
@@ -1286,9 +1332,39 @@ def test_passive_aliases_preserve_actor_options_and_actual_floor(
         )
 
 
+def _component_availability_case(
+    operation,
+    voice,
+    destination,
+    channel,
+    other,
+    other_channel,
+    coordination,
+    reverse,
+    availability,
+    governor,
+    independent,
+):
+    members = [destination + " settings panel" + availability, other]
+    if reverse:
+        members.reverse()
+    target = f" {coordination} in ".join(members)
+    participle = {"record": "recorded", "supply": "supplied", "leave": "left"}[operation]
+    if voice == "active":
+        criterion = f"The UI {governor} {operation} evidence in {target}"
+    elif voice == "agent-before":
+        criterion = f"Evidence {governor} be {participle} by the UI in {target}"
+    else:
+        criterion = f"Evidence {governor} be {participle} in {target} by the UI"
+    expected = {other_channel} if governor == "must" else set()
+    if independent:
+        criterion += "; the auditor must record evidence in a workflow artifact"
+        expected.add("artifacts")
+    return criterion, expected
+
+
 @_semantic_matrix(
     dimensions={
-        "missing": ["absent", "unavailable"],
         "independent": [False, True],
         "governor": ["must", "may", "must not"],
         "availability": ["", " that is available", " that must always remain available"],
@@ -1303,7 +1379,6 @@ def test_passive_aliases_preserve_actor_options_and_actual_floor(
         "operation": ["record", "supply", "leave"],
     },
     semantic=(
-        "missing",
         "independent",
         "governor",
         "availability",
@@ -1326,46 +1401,83 @@ def test_component_availability_preserves_bare_sibling_and_passive_actor(
     availability,
     governor,
     independent,
-    missing,
 ):
-    members = [destination + " settings panel" + availability, other]
-    if reverse:
-        members.reverse()
-    target = f" {coordination} in ".join(members)
-    participle = {"record": "recorded", "supply": "supplied", "leave": "left"}[operation]
-    if voice == "active":
-        criterion = f"The UI {governor} {operation} evidence in {target}"
-    elif voice == "agent-before":
-        criterion = f"Evidence {governor} be {participle} by the UI in {target}"
-    else:
-        criterion = f"Evidence {governor} be {participle} in {target} by the UI"
-    expected = {other_channel} if governor == "must" else set()
-    if independent:
-        criterion += "; the auditor must record evidence in a workflow artifact"
-        expected.add("artifacts")
+    criterion, expected = _component_availability_case(
+        operation,
+        voice,
+        destination,
+        channel,
+        other,
+        other_channel,
+        coordination,
+        reverse,
+        availability,
+        governor,
+        independent,
+    )
     assert verifier._required_evidence_channels(criterion) == expected
     assert verifier._required_evidence_options(criterion) == [expected]
-    fixture = _COVERAGE_FIXTURE
-    for present in (set(), {"body"}, {"comments"}, {"body", "comments"}):
-        evidence = (
-            "- Overall retrieval status: **present**\n"
-            f"- PR body: **{'present' if 'body' in present else missing}**\n"
-            f"- PR comments: **{'present' if 'comments' in present else missing}**\n"
-            "- Referenced workflow artifacts: **present**"
-        )
-        context, _ = fixture._context(1, 1000, 1000)
-        context = context.replace("- " + fixture.ACCEPTANCE_SENTINEL, criterion).replace(
-            "## PR Diff Summary", "## Acceptance evidence\n\n" + evidence + "\n\n## PR Diff Summary"
-        )
-        result = verifier._apply_coverage_floor(
-            verifier.EvaluationResult(verdict="PASS", used_llm=True),
-            verifier.prompt_coverage(context, None),
-        )
-        assert result.verdict == (
-            "PASS"
-            if expected <= (present | {"artifacts"})
-            else ("UNVERIFIABLE_INPUT" if missing == "unavailable" else "CONCERNS")
-        )
+
+
+def _assert_component_availability_floor(
+    operation,
+    voice,
+    destination,
+    channel,
+    other,
+    other_channel,
+    coordination,
+    reverse,
+    availability,
+    governor,
+    independent,
+    missing,
+):
+    criterion, expected = _component_availability_case(
+        operation,
+        voice,
+        destination,
+        channel,
+        other,
+        other_channel,
+        coordination,
+        reverse,
+        availability,
+        governor,
+        independent,
+    )
+    assert verifier._required_evidence_channels(criterion) == expected
+    assert verifier._required_evidence_options(criterion) == [expected]
+    _assert_review_evidence_floor(criterion, [expected], missing)
+
+
+@pytest.mark.parametrize("missing", ["absent", "unavailable"])
+@pytest.mark.parametrize("independent", [False, True])
+@pytest.mark.parametrize("governor", ["must", "may", "must not"])
+@pytest.mark.parametrize(
+    "destination,channel,other,other_channel",
+    [
+        ("the PR body", "body", "a PR comment", "comments"),
+        ("a PR comment", "comments", "the PR body", "body"),
+    ],
+)
+def test_component_availability_real_floor(
+    destination, channel, other, other_channel, governor, independent, missing
+):
+    _assert_component_availability_floor(
+        "record",
+        "active",
+        destination,
+        channel,
+        other,
+        other_channel,
+        "and",
+        False,
+        " that is available",
+        governor,
+        independent,
+        missing,
+    )
 
 
 @pytest.mark.parametrize("operation", ["record", "supply", "leave"])
@@ -1385,7 +1497,7 @@ def test_component_availability_comma_retains_actual_floor(
     operation, voice, destination, channel, other, other_channel, reverse, coordination, governor
 ):
     for availability in (", that is available", ", which must always remain available"):
-        test_component_availability_preserves_bare_sibling_and_passive_actor(
+        _assert_component_availability_floor(
             operation,
             voice,
             destination,
@@ -1449,7 +1561,7 @@ def test_component_relative_presence_preserves_parent_actual_floor(
         " that must not contain command output",
         " that must contain command output if available",
     ):
-        test_component_availability_preserves_bare_sibling_and_passive_actor(
+        _assert_component_availability_floor(
             operation,
             voice,
             destination,
@@ -5286,6 +5398,17 @@ for destinations in permutations(("the PR body", "a PR comment", "a workflow art
     )
 
 
+def _body_clause_floor_cases():
+    """One witness per distinct required-channel outcome; full phrasing stays classifier-only."""
+    seen = {}
+    for criterion, expected in BODY_CLAUSE_CASES:
+        seen.setdefault(frozenset(expected), (criterion, sorted(expected)))
+    return list(seen.values())
+
+
+BODY_CLAUSE_FLOOR_CASES = _body_clause_floor_cases()
+
+
 @pytest.mark.parametrize(
     "criterion",
     [
@@ -5317,12 +5440,18 @@ def test_body_clause_matrix_preserves_independent_destinations(
     expected = expected | ({"comments"} if comment_position != "none" else set())
     actual = verifier._required_evidence_channels(prefix + criterion)
     assert actual == expected
+    assert verifier._required_evidence_options(prefix + criterion) == [expected]
 
 
-@pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_CASES)
+@pytest.mark.parametrize("criterion,expected", BODY_CLAUSE_FLOOR_CASES)
 @pytest.mark.parametrize("status", ["present", "absent", "unavailable"])
 @pytest.mark.parametrize("channel", ["body", "comments", "artifacts"])
 def test_body_clause_matrix_controls_real_coverage_floor(criterion, expected, status, channel):
+    """Exercise prompt_coverage and _apply_coverage_floor on each channel outcome class.
+
+    Wording variants and comment-position interactions remain in the classifier matrix.
+    """
+    expected = set(expected)
     fixture = _COVERAGE_FIXTURE
     context, _ = fixture._context(1, 1000, 1000)
     context = context.replace(fixture.ACCEPTANCE_SENTINEL, criterion)

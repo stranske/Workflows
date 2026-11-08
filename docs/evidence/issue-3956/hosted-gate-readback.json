@@ -1,0 +1,51 @@
+{
+  "checked": "2026-11-07",
+  "scope": "Hosted job logs and artifact metadata; original hosted-coverage-receipt.json retains the previously inspected JSON contents.",
+  "hosted_baseline": "No comparable hosted baseline recovered; local reductions cannot establish a hosted reduction.",
+  "snapshots": [
+    {
+      "tested_revision": "f77be1eee61239aa264c166aed84db8fae8708f3",
+      "run_id": 41567623097,
+      "job_id": 125693048153,
+      "job_conclusion": "success",
+      "artifact_id": 13200231583,
+      "artifact_name": "gate-coverage-3.14-1",
+      "artifact_zip_digest": "sha256:540949b4d94392b5d2daafc794f9acc6c1011155ac0cc24bf8f1bb6d635f4136",
+      "artifact_bound_head": "f77be1eee61239aa264c166aed84db8fae8708f3",
+      "artifact_contents_inspected_this_round": false,
+      "log_observations": [
+        "2026-11-03T02:42:06.8617456Z   PYTEST_WORKERS: 4",
+        "2026-11-03T02:42:06.9856055Z PYTHON_EXECUTION_CONTEXT={\"coverage_branch_probe_core\": \"SysMonitor\", \"coverage_probe_config_file\": false, \"coverage_probe_policy\": \"runtime-default branch-only probe; pytest config may override\", \"coverage_version\": \"7.17.0\", \"cpu_affinity\": [0, 1, 2, 3], \"cpu_count\": 4, \"pytest_workers\": \"4\", \"python\": \"3.14.9\"}",
+        "2026-11-03T02:42:08.1502900Z : \"${PYTEST_WORKERS:?step env must supply PYTEST_WORKERS}\"",
+        "2026-11-03T02:42:08.1652963Z pytest -p ci_test_growth \"${args[@]}\"",
+        "2026-11-03T02:42:08.1692461Z   PYTEST_MARKERS: not quarantine and not slow",
+        "2026-11-03T02:42:08.1692902Z   PYTEST_ARGS: -n auto --dist load",
+        "2026-11-03T02:42:08.1693325Z   PYTEST_WORKERS: 4",
+        "2026-11-03T02:52:52.7055200Z scripts/langchain/followup_issue_generator.py                851      0    386      1  99.92%   124->126",
+        "2026-11-03T02:52:52.7284759Z =========== 50308 passed, 27 skipped, 3 xfailed in 641.26s (0:10:41) ==========="
+      ]
+    },
+    {
+      "tested_revision": "9eaf43313c0e57ef964e4171f645985dca5742b8",
+      "run_id": 41752024615,
+      "job_id": 126320180581,
+      "job_conclusion": "success",
+      "artifact_id": 13287665592,
+      "artifact_name": "gate-coverage-3.14-1",
+      "artifact_zip_digest": "sha256:b63903e319393d955daf6a879fc9a1ffe7fa5d088672c97ab253be5f6c2ae06a",
+      "artifact_bound_head": "9eaf43313c0e57ef964e4171f645985dca5742b8",
+      "artifact_contents_inspected_this_round": false,
+      "log_observations": [
+        "2026-11-04T01:12:10.6846076Z   PYTEST_WORKERS: 4",
+        "2026-11-04T01:12:10.8053271Z PYTHON_EXECUTION_CONTEXT={\"coverage_branch_probe_core\": \"SysMonitor\", \"coverage_probe_config_file\": false, \"coverage_probe_policy\": \"runtime-default branch-only probe; pytest config may override\", \"coverage_version\": \"7.17.1\", \"cpu_affinity\": [0, 1, 2, 3], \"cpu_count\": 4, \"pytest_workers\": \"4\", \"python\": \"3.14.9\"}",
+        "2026-11-04T01:12:12.6089546Z : \"${PYTEST_WORKERS:?step env must supply PYTEST_WORKERS}\"",
+        "2026-11-04T01:12:12.6222360Z pytest -p ci_test_growth \"${args[@]}\"",
+        "2026-11-04T01:12:12.6258507Z   PYTEST_MARKERS: not quarantine and not slow",
+        "2026-11-04T01:12:12.6258934Z   PYTEST_ARGS: -n auto --dist load",
+        "2026-11-04T01:12:12.6259322Z   PYTEST_WORKERS: 4",
+        "2026-11-04T01:24:14.4010677Z scripts/langchain/followup_issue_generator.py                851      0    386      1  99.92%   124->126",
+        "2026-11-04T01:24:14.4224441Z =========== 50354 passed, 27 skipped, 3 xfailed in 718.57s (0:11:58) ==========="
+      ]
+    }
+  ]
+}
