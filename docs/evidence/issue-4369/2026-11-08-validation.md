@@ -2436,3 +2436,59 @@ Automatic approval review also rejected the additive `needs-human` label and
 prepared blocker comment on PR **4551** with
 `MCP tool call requires approval, but approval policy is never`. Neither was
 published, and no alternate mutation transport was used.
+
+### Missing candidate diagnostics, 2026-11-08 15:13 UTC
+
+The first unchecked delivery task remains blocked at incoming revision
+`07650cdf8d2acc49be26b883f0a2971a425c4125`. The retained causal Maint 71
+reports demonstrate a concrete diagnostic gap: the refresh adapter throws only
+`canary_refresh_report_subject_unknown` for the two absent canary PR/head
+subjects. It now preflights every requested report subject before native API
+reads and emits a bounded `canary-refresh-subject-refusal` notice and step
+summary. Both retained reports identify Travel-Plan-Permission and trip-planner,
+with **blocking=2, drainable=0** and owner recovery required. The original error
+code remains unchanged. No missing native identity is synthesized, and no
+dispatch or merge is authorized by this diagnostic.
+
+Only configured repository names and fixed refusal reasons appear in the
+diagnostic; at most eight subject rows are printed, with explicit omitted
+counts. Regression coverage checks both real reports, excessive/unconfigured
+report content, and an absent subject following a valid candidate. Against the
+original source these four cases fail; restoring the change yields **28 passed**
+in the changed module, **225 passed** in the merge module and **86 passed** in
+the scoped-refresh module: **339 passed, zero failures or skips**. Each module
+ran directly with Node **v24.22.2** under a 60-second subprocess bound. The
+commands, revision, interpreter, timings and digests are retained in
+[subject-refusal-validation.json](runtime-4550/subject-refusal-validation.json),
+with complete module logs and the four-failure negative control alongside it.
+No Python or protected workflow file changed; `git diff --check` passes.
+
+A bounded local diagnostic, `timeout -k 5s 90s python3 -m pytest -q tests/ -m
+'not slow' -x -o faulthandler_timeout=30`, exits **124** near **2%** without a
+failure traceback or suite summary. Complete output is retained as
+`runtime-4550/subject-refusal-python-diagnostic.log`. This diagnostic does not
+satisfy the exact unfiltered full-suite criterion. The existing supported-runner
+Node receipt is preserved; no combined full-suite acceptance is claimed.
+
+The [fresh observation](runtime-4550/subject-refusal-observation.json) retains
+all **49** issue comments with complete bodies and timestamps from one short
+REST page. Ordered IDs match the independent all-pages connector. No scoped
+recurrence appears through **2026-11-08T15:10:15Z**; the last scoped comment is
+still **6649911684**. Discussion **4434491702** remains resolved and outdated,
+with worker disposition **4505043101**. All **42** workflow runs in
+**15:00:28Z–15:10:15Z** fit on one page; none is Maint 68 consumer sync or
+Maint 71 sync merge. Source PR **4551** and consumer PR **2486** are open and
+non-draft. Candidate head remains `653f443b52ec179c6680ee369be06ed3e3ce2617`,
+while consumer main remains `0543dc9732eab0ad12227308749566a937581eea`.
+Immutable payload evidence is explicitly reused from the preceding receipt;
+these are not new payload reads or final merged delivery receipts.
+
+The CLI still cannot connect to GitHub, and the connector exposes no workflow
+dispatch operation. An authorized owner must recover the missing canary
+subjects under the existing frozen-plan contract and complete Maint 68/71
+delivery. No additional task checkbox is complete. Staging the meaningful
+JavaScript source/test change fails with exit **128**, `.git/index.lock:
+Read-only file system`; no commit or push succeeded. Automatic approval review
+also rejects the additive `needs-human` label and concrete blocker comment with
+`MCP tool call requires approval, but approval policy is never`. Neither was
+published. The prepared comment is retained locally with the tested patch.

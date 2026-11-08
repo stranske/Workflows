@@ -76,7 +76,7 @@ for (const [field, mutate, errorPrefix] of [
   });
 }
 
-function replay(report, withRetry) {
+function replay(report, withRetry, core) {
   return dispatchCandidateRefreshFromReport({
     report,
     withRetry,
@@ -86,7 +86,7 @@ function replay(report, withRetry) {
       repo: { owner: 'stranske', repo: 'Workflows' },
       payload: { repository: { default_branch: 'main' } },
     },
-    core: {
+    core: core || {
       notice() {},
       summary: { addRaw() { return this; }, async write() {} },
     },
@@ -296,12 +296,31 @@ for (const run of [42485792262, 42485974523]) {
       row.reason === 'candidate_pr_and_no_change_evidence_missing');
     assert.equal(missing.length, 2);
     assert.ok(missing.every(row => row.pr === undefined && row.head_sha === undefined));
+    const notices = [], summaries = [];
+    const core = { notice: value => notices.push(value), summary: {
+      addRaw(value) { summaries.push(value); return this; }, async write() {},
+    } };
+    const diagnostic = {
+      schema: 'workflows.canary-refresh-subject-refusal/v1',
+      code: 'canary_refresh_report_subject_unknown',
+      blocking: 2, drainable: 0, next_action: 'owner-recovery-required',
+      subjects: missing.map(row => ({ repository: `${row.owner}/${row.repo}`,
+        reasons: ['pr_missing_or_invalid', 'head_missing_or_invalid'] })),
+      omitted_subjects: 0,
+    };
 
     // Exercise the production helper, not a reconstruction of its decision.
     // An absent native subject cannot authorize a read, dispatch or merge.
     await assert.rejects(replay(report, async () => {
       assert.fail('missing canary subjects must be rejected before API execution');
-    }), { message: 'canary_refresh_report_subject_unknown' });
+    }, core), error => {
+      assert.equal(error.message, diagnostic.code);
+      assert.deepEqual(error.diagnostic, diagnostic);
+      return true;
+    });
+    assert.deepEqual(notices, [`canary-refresh-subject-refusal: ${JSON.stringify(diagnostic)}`]);
+    assert.equal(summaries.length, 1);
+    assert.ok(summaries[0].includes(JSON.stringify(diagnostic)));
     assert.deepEqual(report, before, 'a rejected refresh must preserve the delivery receipt');
   });
 
@@ -341,3 +360,45 @@ for (const run of [42485792262, 42485974523]) {
     });
   }
 }
+
+test('report subject refusal bounds diagnostics and excludes unconfigured raw content', async () => {
+  const report = read('maint71-42485974523-sync-pr-merge-report.json');
+  const row = report.results[0];
+  report.results = Array.from({ length: 10 }, () => ({ ...row,
+    owner: 'unconfigured', repo: 'arbitrary-report-content',
+    reason: 'arbitrary-report-reason', pr: -1, head_sha: 'arbitrary-report-head',
+  }));
+  const before = structuredClone(report), notices = [];
+  await assert.rejects(replay(report, async () => {
+    assert.fail('invalid subjects must be refused before any native API reads');
+  }, { notice: value => notices.push(value), summary: {
+    addRaw() { return this; }, async write() {},
+  } }), error => {
+    assert.equal(error.message, 'canary_refresh_report_subject_unknown');
+    assert.equal(error.diagnostic.blocking, 10);
+    assert.equal(error.diagnostic.drainable, 0);
+    assert.equal(error.diagnostic.subjects.length, 8);
+    assert.equal(error.diagnostic.omitted_subjects, 2);
+    assert.ok(error.diagnostic.subjects.every(subject => subject.repository === null
+      && JSON.stringify(subject.reasons) === JSON.stringify([
+        'repository_not_configured', 'pr_missing_or_invalid', 'head_missing_or_invalid',
+      ])));
+    return true;
+  });
+  assert.equal(notices.length, 1);
+  assert.ok(!notices[0].includes('arbitrary-report'));
+  assert.deepEqual(report, before);
+});
+
+test('all report subjects are checked before reading a valid earlier candidate', async () => {
+  const fixture = refreshSubject();
+  const missing = read('maint71-42485974523-sync-pr-merge-report.json').results[0];
+  fixture.report.results.push(missing);
+  await assert.rejects(replay(fixture.report, async () => {
+    assert.fail('preflight must find the absent subject before reading the first valid PR');
+  }), error => {
+    assert.equal(error.message, 'canary_refresh_report_subject_unknown');
+    assert.equal(error.diagnostic.blocking, 1);
+    return true;
+  });
+});

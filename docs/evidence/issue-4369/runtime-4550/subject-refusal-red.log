@@ -1,0 +1,164 @@
+✔ the retained signed consumer head authenticates the frozen source-delta tuple (7.643269ms)
+✔ the retained consumer payload refuses substituted signature before recovery (1.777139ms)
+✔ the retained consumer payload refuses substituted signature reason before recovery (2.038052ms)
+✔ the retained consumer payload refuses substituted commit SHA before recovery (1.490937ms)
+✔ the retained consumer payload refuses substituted observed head before recovery (1.441523ms)
+✔ the retained consumer payload refuses substituted source before recovery (1.511037ms)
+✔ the retained consumer payload refuses substituted plan before recovery (1.809757ms)
+✔ the retained consumer payload refuses substituted scope before recovery (1.4334ms)
+✔ the retained consumer payload refuses substituted scope base before recovery (1.553511ms)
+✔ the retained report tuple reaches source history only after native verification (3.633886ms)
+✔ matching report and PR-body source_commit cannot replace the signed payload identity (2.26243ms)
+✔ matching report and PR-body plan_id cannot replace the signed payload identity (1.471528ms)
+✔ matching report and PR-body scope_base_sha cannot replace the signed payload identity (1.541222ms)
+✔ matching report and PR-body plan_scope cannot replace the signed payload identity (1.501363ms)
+✔ historical discussion is excluded by the final finding gate for both causal reports (2.975004ms)
+✔ historical finding exclusion with resolved=true, outdated=false preserves conversation policy (1.580652ms)
+✔ historical finding exclusion with resolved=false, outdated=true preserves conversation policy (1.505679ms)
+✔ reopening the historical finding cannot reuse its old worker disposition for this head (2.191503ms)
+✖ Maint 71 42485792262: retained missing-canary reports reproduce the refresh blocker (1.888787ms)
+✔ Maint 71 42485792262: the selected sealed consumer cannot authorize a refresh (0.260533ms)
+✔ Maint 71 42485792262: stranske/Travel-Plan-Permission cannot borrow the selected consumer identity (1.89129ms)
+✔ Maint 71 42485792262: stranske/trip-planner cannot borrow the selected consumer identity (1.28754ms)
+✖ Maint 71 42485974523: retained missing-canary reports reproduce the refresh blocker (0.631572ms)
+✔ Maint 71 42485974523: the selected sealed consumer cannot authorize a refresh (0.150677ms)
+✔ Maint 71 42485974523: stranske/Travel-Plan-Permission cannot borrow the selected consumer identity (1.292077ms)
+✔ Maint 71 42485974523: stranske/trip-planner cannot borrow the selected consumer identity (1.282132ms)
+✖ report subject refusal bounds diagnostics and excludes unconfigured raw content (0.516108ms)
+✖ all report subjects are checked before reading a valid earlier candidate (2.723785ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 24
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 59.522204
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/maint71-delivery-receipts.test.js:292:3
+✖ Maint 71 42485792262: retained missing-canary reports reproduce the refresh blocker (1.888787ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   blocking: 2,
+  -   code: 'canary_refresh_report_subject_unknown',
+  -   drainable: 0,
+  -   next_action: 'owner-recovery-required',
+  -   omitted_subjects: 0,
+  -   schema: 'workflows.canary-refresh-subject-refusal/v1',
+  -   subjects: [
+  -     {
+  -       reasons: [
+  -         'pr_missing_or_invalid',
+  -         'head_missing_or_invalid'
+  -       ],
+  -       repository: 'stranske/Travel-Plan-Permission'
+  -     },
+  -     {
+  -       reasons: [
+  -         'pr_missing_or_invalid',
+  -         'head_missing_or_invalid'
+  -       ],
+  -       repository: 'stranske/trip-planner'
+  -     }
+  -   ]
+  - }
+  
+      at Object.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint71-delivery-receipts.test.js:318:14)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint71-delivery-receipts.test.js:314:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [Object],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at .github/scripts/__tests__/maint71-delivery-receipts.test.js:292:3
+✖ Maint 71 42485974523: retained missing-canary reports reproduce the refresh blocker (0.631572ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   blocking: 2,
+  -   code: 'canary_refresh_report_subject_unknown',
+  -   drainable: 0,
+  -   next_action: 'owner-recovery-required',
+  -   omitted_subjects: 0,
+  -   schema: 'workflows.canary-refresh-subject-refusal/v1',
+  -   subjects: [
+  -     {
+  -       reasons: [
+  -         'pr_missing_or_invalid',
+  -         'head_missing_or_invalid'
+  -       ],
+  -       repository: 'stranske/Travel-Plan-Permission'
+  -     },
+  -     {
+  -       reasons: [
+  -         'pr_missing_or_invalid',
+  -         'head_missing_or_invalid'
+  -       ],
+  -       repository: 'stranske/trip-planner'
+  -     }
+  -   ]
+  - }
+  
+      at Object.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint71-delivery-receipts.test.js:318:14)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint71-delivery-receipts.test.js:314:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [Object],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at .github/scripts/__tests__/maint71-delivery-receipts.test.js:364:1
+✖ report subject refusal bounds diagnostics and excludes unconfigured raw content (0.516108ms)
+  TypeError: Cannot read properties of undefined (reading 'blocking')
+      at Object.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint71-delivery-receipts.test.js:378:35)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint71-delivery-receipts.test.js:372:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at .github/scripts/__tests__/maint71-delivery-receipts.test.js:393:1
+✖ all report subjects are checked before reading a valid earlier candidate (2.723785ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'preflight must find the absent subject before reading the first valid PR'
+  - 'canary_refresh_report_subject_unknown'
+  
+      at Object.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint71-delivery-receipts.test.js:400:12)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.rejects (node:assert:769:3)
+      at async TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint71-delivery-receipts.test.js:397:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'preflight must find the absent subject before reading the first valid PR',
+    expected: 'canary_refresh_report_subject_unknown',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
