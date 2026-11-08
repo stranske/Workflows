@@ -262,6 +262,38 @@ def test_phase_plugin_requires_phases_in_both_arms(hosted_archive, arms):
 
 
 @pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("phases", None),
+        ("phases", False),
+        ("phases", []),
+        ("phases", "available"),
+        ("phases", {}),
+        ("available", 1),
+        ("available", False),
+        ("gaps", None),
+        ("gaps", ["missing boundary"]),
+        ("processes", []),
+        ("processes", {}),
+    ],
+)
+def test_declared_phase_metadata_must_be_complete_before_git(hosted_archive, arm, field, value):
+    """Malformed declared measurements fail explicitly without needing source objects."""
+    build, git_calls = hosted_archive
+
+    def damage_phases(result, members):
+        if field == "phases":
+            result["arms"][arm]["phases"] = value
+        else:
+            result["arms"][arm]["phases"][field] = value
+
+    with pytest.raises(ValueError, match=f"{arm}.*phase measurements"):
+        validator.validate(*build(phase_enabled=True, mutate=damage_phases))
+    assert git_calls == []
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
 @pytest.mark.parametrize("change", ["unavailable", "gaps", "missing_worker", "missing_coverage"])
 def test_phase_plugin_rejects_unavailable_or_incomplete_phases(hosted_archive, arm, change):
     build, _ = hosted_archive

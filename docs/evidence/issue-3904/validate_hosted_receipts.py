@@ -68,6 +68,20 @@ def validate(archive, metadata):
         raise ValueError("Python runtime must be a full major.minor.patch version")
     if artifact.get("name") != f"verifier-runtime-{runtime_match[1]}":
         raise ValueError("artifact name does not match recorded Python runtime")
+    if "phase_plugin_sha256" in result:
+        for arm in PAIR:
+            phases = result["arms"][arm].get("phases")
+            if (
+                not isinstance(phases, dict)
+                or phases.get("available") is not True
+                or phases.get("gaps") != []
+                or not isinstance(phases.get("processes"), dict)
+                or set(phases["processes"]) != {"controller", "gw0", "gw1", "gw2", "gw3"}
+            ):
+                raise ValueError(
+                    f"{arm} requires complete available phase measurements declared by "
+                    "phase_plugin_sha256"
+                )
     assert result["manifest"] == manifest
     assert manifest["workflow_sha"] == artifact["workflow_run"]["head_sha"]
     assert manifest["dependency_lock"] == "candidate/requirements.lock"
@@ -120,8 +134,6 @@ def validate(archive, metadata):
     outcomes, coverage, phases = {}, {}, {}
     for arm in PAIR:
         row = result["arms"][arm]
-        if "phase_plugin_sha256" in result and "phases" not in row:
-            raise ValueError(f"{arm} missing phase measurements declared by phase_plugin_sha256")
         assert row["exit_code"] == 0
         assert (
             type(row["wall_seconds"]) in (int, float)

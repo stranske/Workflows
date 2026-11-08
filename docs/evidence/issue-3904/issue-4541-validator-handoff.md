@@ -1,5 +1,56 @@
 # Receipt validator regression handoff — 2026-11-08
 
+## Declared phase metadata preflight continuation
+
+Declared phase instrumentation now requires a mapping with `available: true`,
+no gaps, and all five controller/worker process entries in each arm before any
+Git lookup. Malformed, unavailable or incomplete summaries raise an explicit
+arm-specific `ValueError`; raw clock reconciliation remains mandatory afterward.
+The 22 added regression cases independently damage each arm's phase metadata,
+verify rejection before Git, and retain the valid legacy/phase-enabled controls.
+The initial controls reproduced 22 failures before the implementation.
+
+Verification with installed Python 3.14.10:
+
+```text
+python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+459 passed in 20.39s
+
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -q -m 'not slow'
+2054 passed in 13.76s
+
+python -m pytest tests/scripts/test_validate_hosted_receipts.py -q -m 'not slow'
+130 passed in 1.05s
+```
+
+The last validator run follows refinement of the new fixtures to corrupt only
+one field at a time. All five marker-specific options assertions remain
+unchanged. The touched Python files pass Black at line length 100, Ruff and
+`git diff --check`. The serial check of the required repository-wide Black
+source set reports one unrelated existing formatting failure in
+`config/verify_paired/representative-v1/workflows-4265-verified/evidence/current-review-runner.py`
+and 973 unchanged files; it was left outside this repair. The exact Black CLI
+also timed out after 50 seconds with a writable cache; the repository-wide
+formatting gate has not passed.
+
+Staging again failed with `.git/index.lock: Read-only file system`, so these
+changes are uncommitted. The requested Anaconda interpreter is still absent.
+Only the original 3.13 archive is available locally; its harness Git source and
+the selected candidate Git object cannot be resolved. Four-archive validation
+is not established. The current-head check reporter returns UNKNOWN because
+`api.github.com` is unreachable from the shell. The connector's successful
+Gate/guard statuses alone do not establish complete required checks.
+
+PR #4535 remains open and ready at
+`f3325610782d7d8d57fbd9659cfae8b1e12fe10e`; this run has not superseded its
+writer or changed its branch. PR #4542 is also open and ready. Attempts to
+publish #4535's retained proposed body, add its blocker comment, and label
+source issue #4541 `needs-human` were each rejected with
+`MCP tool call requires approval, but approval policy is never`.
+No remote disposition, merge, or acceptance checkbox update was made.
+
+## Earlier regression handoff
+
 The local implementation rejects non-string workflow identities and anything
 except a full lowercase 40- or 64-character hexadecimal commit ID before calling
 Git. A declared `phase_plugin_sha256` now requires phase measurements in each
