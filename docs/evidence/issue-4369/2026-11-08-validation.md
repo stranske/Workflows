@@ -2290,3 +2290,47 @@ on PR **4551** with `MCP tool call requires approval, but approval policy is
 never`. Neither was published. Publication results are retained in the test
 receipt; changes remain local for the automation writer. No alternate mutation
 transport was used.
+
+### Payload path binding regression, 2026-11-08 14:42 UTC
+
+At incoming revision `abc79b8db73c009ac032525b9fc4b8ca981e07d0`, the
+delivery replay verified hashes and internally consistent URLs but did not
+require the source, candidate and consumer-main receipts to name
+`tools/subscription_llm.py`. Extracted its existing assertions into
+`assert_payload_binding` and added explicit role-specific paths. Four
+counterfactual tests substitute an unrelated path while preserving the bytes,
+blob hash, repository, ref and matching URL. Before the fix, three cases fail
+with `DID NOT RAISE`; the template case already rejects the substitution.
+The [raw red log](runtime-4550/payload-path-binding-red.log) retains that result.
+
+Both downstream evidence modules now report **51 passed**, exit **0**, using
+Python **3.14.10** and `-m 'not slow'` under a 60-second subprocess bound.
+The exact command, starting revision, interpreter, wall time and hashes are in
+[the receipt](runtime-4550/payload-path-binding-tests.json), with complete
+[raw output](runtime-4550/payload-path-binding-tests.log). Black formatted the
+changed file at line length 100. The ordinary full check fails on the sandbox's
+forkserver socket restriction; the documented temporary 50ms event-loop
+heartbeat and one-worker retry passes: **975 files unchanged**. Both outputs
+are retained in `runtime-4550/payload-path-binding-black*.log`.
+
+The [fresh observation](runtime-4550/payload-path-live-observation.json)
+retains all **49** issue comments with bodies and timestamps; ordered IDs match
+the independent all-pages connector. No scoped recurrence appears through
+**2026-11-08T14:37:24Z**. Historical discussion **4434491702** remains resolved
+and outdated with disposition **4505043101**. The unfiltered workflow inventory
+has **39** runs between **14:30:46Z** and **14:40:10Z**, on one short page,
+and no new Maint 68/71 delivery run. Source PR **4551** and consumer PR **2486**
+are open and non-draft. Fresh immutable reads recompute frozen template and
+candidate blob `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`; consumer main
+`0543dc9732eab0ad12227308749566a937581eea` still has different blob
+`c889fd8064806a9c0f932f7c1dc09762896afe67`.
+
+Final merged delivery and the combined complete-suite criterion remain pending;
+no additional checkbox is complete. The CLI cannot reach GitHub and the
+connector has no workflow-dispatch operation. The existing missing-canary
+campaign hold requires an authorized owner disposition. Staging the meaningful
+Python test change fails with exit **128** because `.git/index.lock` is read-only;
+no commit or push succeeded. Automatic approval review rejects the additive
+`needs-human` label and concrete blocker comment on PR **4551** with
+`MCP tool call requires approval, but approval policy is never`. Neither was
+published. No protected workflow file was edited.

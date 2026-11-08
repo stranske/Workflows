@@ -114,10 +114,8 @@ def test_producer_dispatch_is_followed_by_the_retained_maint71_run() -> None:
     )
 
 
-def test_final_template_bytes_reach_the_candidate_but_not_the_merged_consumer() -> None:
-    observation = read("supported-live-observation.json")
+def assert_payload_binding(observation: dict, template: dict) -> None:
     frozen = expected_binding()["source_commit"]
-    template = read("downstream-followup.json")["payloads"]["template"]
     assert template["ref"] == frozen
     assert template["path"] == "templates/consumer-repo/tools/subscription_llm.py"
     assert template["repository"] == "stranske/Workflows"
@@ -129,6 +127,12 @@ def test_final_template_bytes_reach_the_candidate_but_not_the_merged_consumer() 
         )
         owner = "stranske/Workflows" if key in {"source", "template"} else CONSUMER
         assert payload["repository"] == owner
+        expected_path = (
+            "templates/consumer-repo/tools/subscription_llm.py"
+            if key == "template"
+            else "tools/subscription_llm.py"
+        )
+        assert payload["path"] == expected_path
         assert (
             payload["url"] == f'https://github.com/{owner}/blob/{payload["ref"]}/{payload["path"]}'
         )
@@ -140,11 +144,32 @@ def test_final_template_bytes_reach_the_candidate_but_not_the_merged_consumer() 
     assert source["sha"] != main["sha"]
     assert candidate["ref"] == expected_binding()["head_sha"]
     assert main["ref"] == observation["consumer_main"]["commit"]["sha"]
+
+
+def test_final_template_bytes_reach_the_candidate_but_not_the_merged_consumer() -> None:
+    observation = read("supported-live-observation.json")
+    template = read("downstream-followup.json")["payloads"]["template"]
+    assert_payload_binding(observation, template)
     pr = observation["consumer_pr"]
     assert pr["state"] == "open" and pr["draft"] is False
     # GitHub can supply a prospective merge_commit_sha for an open PR.
     assert pr["merged"] is False and pr["merged_at"] is None
     assert observation["final_delivery_acceptance"] is False
+
+
+@pytest.mark.parametrize("role", ["source", "template", "consumer_candidate", "consumer_main"])
+def test_payload_binding_rejects_an_unrelated_file_with_identical_bytes(role: str) -> None:
+    observation = read("supported-live-observation.json")
+    template = read("downstream-followup.json")["payloads"]["template"]
+    payload = template if role == "template" else observation["payloads"][role]
+    payload["path"] = "unrelated/subscription_llm.py"
+    # Keep the URL internally consistent and the content/hash untouched. Blob
+    # equality alone cannot bind the requested source and destination paths.
+    payload["url"] = (
+        f'https://github.com/{payload["repository"]}/blob/{payload["ref"]}/{payload["path"]}'
+    )
+    with pytest.raises(AssertionError):
+        assert_payload_binding(observation, template)
 
 
 def test_green_candidate_does_not_satisfy_campaign_merge_acceptance() -> None:
