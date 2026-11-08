@@ -225,6 +225,8 @@ Maint82 retains its bounded ten-minute continuation sweep: consumer CI completio
 does not yet provide a native event wakeup for every delivery stage. The local
 worker follows active CI in the same run; the sweep is recovery and does not
 license dormant actionable work. Closed campaigns stay closed.
+Maint 82 compares active Maint 71 continuation titles after collapsing whitespace, because native run names may contain a newline before the continuation key. It preserves exact continuation-key matching and candidate/delivery priority; a successful exact continuation key is consumed in the observed run history. A new material-state/due handoff key or a failed attempt remains eligible. Completed delivery does not count as an active writer for candidate priority.
+
 
 ## Post-merge verifier security boundary
 
@@ -3863,5 +3865,3 @@ Each stage repeats the native check inventories and head/linkage reads. A presen
 failed, pending or unknown required context remains blocking. Generated delivery
 PRs and their final merge guard continue to require their own exact-head checks;
 this no-change fallback does not apply to them.
-
-Maint 82 compares active Maint 71 continuation titles after collapsing whitespace, because native run names may contain a newline before the continuation key. It preserves exact continuation-key matching and candidate/delivery priority; a successful exact continuation key is consumed in the observed run history. A new material-state/due handoff key or a failed attempt remains eligible. Completed delivery does not count as an active writer for candidate priority.
