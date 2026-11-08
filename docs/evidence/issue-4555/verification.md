@@ -119,3 +119,31 @@ Updating Workflows #4556's managed task block was attempted after verification.
 The GitHub connector rejected the mutation: `MCP tool call requires approval,
 but approval policy is never`. The prepared replacement body is retained at
 `/tmp/issue-4555-reconciled-pr-body.md`. No remote checkbox update is claimed.
+
+## Re-verification on Orchestrator main `69d32fa` (keepalive round 3)
+
+Fresh shallow clone of Orchestrator main
+`69d32fa9a5ca3a8058d37ba9ce75bf590a6495d5` in `/tmp` (disposable, not the sync
+branch):
+
+- [x] Named test: **1 passed**.
+- [x] Deliberate break: the `run()` helper's `clock = kw.pop("now", time.time)`
+  was replaced with `kw.pop("now", None); clock = time.time`, which restores the
+  original wall-clock deadline. The named test fails with
+  `KeyError: 'a'` at `tests/test_closer_pipeline.py:1586`. `git checkout`
+  restored the file (`git status --short` empty) and the test passes again.
+- [x] `gh run view 42518195788 -R stranske/Orchestrator` reports conclusion
+  `success` on `c0c5cb6aa8bf79aa855a54258c0ed423011cebeb`. Both
+  `verify.py aggregate + combined coverage` and
+  `verify.py aggregate in the flat exec-mirror shape` report `success`.
+- [ ] Sync-core clearance: no sync-core comment appeared on #4555 after
+  Orchestrator #1247 merged at 2026-11-08T20:49:16Z. This stays human/sync-core
+  owned.
+
+The unchecked "Additional PR tasks" in Workflows #4556 repeat the original
+task list with its sub-bullets split. The evidence above and in the sections
+before it covers them. There is no Workflows source change to make: the
+defect was in an Orchestrator-owned test fixture, which Orchestrator #1251
+fixed in its owning repo. `scripts/sync_core_shipment_finding.py` here is a
+one-off fingerprint check for #4508, not the classifier that produced this
+finding.
