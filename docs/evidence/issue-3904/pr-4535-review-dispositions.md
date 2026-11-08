@@ -1,5 +1,55 @@
 # PR #4535 review and delivery handoff — 2026-11-08
 
+## Raw phase receipt regression continuation
+
+The validator suite now includes 44 additional controls against raw phase
+receipts in both arms, for the controller and a worker. They reject null,
+boolean, string, negative, nonfinite and reversed boundaries, missing receipts
+or receipt hashes, and incorrect process/clock identities. Damaged receipt
+bytes are rehashed in the fixture while the valid reported phase summary is
+retained, so rejection must come from independent receipt reconciliation rather
+than a stale digest. Existing workflow-identity and missing-arm controls remain.
+No runtime instrumentation or retained archive was changed.
+
+Local Python 3.14.10 / pytest 9.2.0 results:
+
+```text
+python -m pytest tests/scripts/test_validate_hosted_receipts.py -q -m 'not slow'
+108 passed in 1.16s
+
+python -m pytest tests/scripts/test_validate_hosted_receipts.py tests/scripts/test_measure_verifier_runtime.py tests/scripts/test_gate_runtime_evidence.py -q -m 'not slow'
+437 passed in 26.93s
+
+python -m pytest tests/scripts/test_pr_verifier_body_overall_integration.py -m 'not slow'
+2054 passed in 21.49s
+```
+
+All five marker-specific options assertions remain unchanged. The exact
+Anaconda interpreter path is still absent; these are local equivalent commands,
+not evidence that the machine-specific commands exited zero. Ruff and
+`git diff --check` pass; the touched test file is Black-formatted at length 100.
+After a serial check populated the writable Black cache with the configured
+source selection, the required repository-wide command passed:
+
+```text
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/receipt-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+970 files would be left unchanged.
+```
+
+The subsequent source/test commit attempt failed at staging with
+`Unable to create '.git/index.lock': Read-only file system`. These new test
+controls and handoff notes remain uncommitted; no push was made.
+
+PR #4535 was rechecked open with `draft=false` at the unchanged head below.
+Publishing its prepared body was again rejected with
+`MCP tool call requires approval, but approval policy is never`. The exact-head
+check reporter returned UNKNOWN because `api.github.com` was unreachable.
+The connector reports successful Gate/guard contexts, but that partial result
+does not establish complete expected/required checks. The candidate Git object
+is still absent, and an explicit base64 read of the retained new 3.12 archive
+returned empty content. Four-archive revalidation and guarded merge remain
+unverified. No acceptance checkbox was changed.
+
 PR #4535 remains open and ready for review at
 `f3325610782d7d8d57fbd9659cfae8b1e12fe10e` on `closer-r2/issue-4462`.
 This checkout is `codex/issue-4541`. No source write to the other branch is

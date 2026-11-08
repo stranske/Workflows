@@ -281,6 +281,50 @@ def test_phase_plugin_rejects_unavailable_or_incomplete_phases(hosted_archive, a
         validator.validate(*build(phase_enabled=True, mutate=damage_phases))
 
 
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("role", ["controller", "gw3"])
+@pytest.mark.parametrize("boundary", [None, True, "3", -1, float("nan"), float("inf"), 11])
+def test_raw_phase_boundaries_cannot_be_hidden_by_valid_summary(
+    hosted_archive, arm, role, boundary
+):
+    """Rehashing a bad raw clock must not let an unchanged valid summary pass."""
+    build, _ = hosted_archive
+
+    def damage_clock(result, members):
+        path = f"{arm}/phase-clocks/{role}.json"
+        clock = json.loads(members[path])
+        clock["boundaries"]["session_start"] = boundary
+        members[path] = json.dumps(clock).encode()
+        result["artifact_sha256"][path] = validator.digest(members[path])
+
+    with pytest.raises(AssertionError):
+        validator.validate(*build(phase_enabled=True, mutate=damage_clock))
+
+
+@pytest.mark.parametrize("arm", ["baseline", "candidate"])
+@pytest.mark.parametrize("role", ["controller", "gw3"])
+@pytest.mark.parametrize("change", ["missing_receipt", "missing_hash", "role", "clock"])
+def test_phase_summary_cannot_replace_raw_receipt(hosted_archive, arm, role, change):
+    """Each arm needs independently hashed receipts with the expected clock identity."""
+    build, _ = hosted_archive
+
+    def damage_clock(result, members):
+        path = f"{arm}/phase-clocks/{role}.json"
+        if change == "missing_receipt":
+            del members[path]
+            del result["artifact_sha256"][path]
+        elif change == "missing_hash":
+            del result["artifact_sha256"][path]
+        else:
+            clock = json.loads(members[path])
+            clock[change] = "other-process" if change == "role" else "time.time"
+            members[path] = json.dumps(clock).encode()
+            result["artifact_sha256"][path] = validator.digest(members[path])
+
+    with pytest.raises(AssertionError):
+        validator.validate(*build(phase_enabled=True, mutate=damage_clock))
+
+
 @pytest.mark.parametrize(
     "member",
     [
