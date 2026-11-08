@@ -200,8 +200,10 @@ disables shell/unified_exec and related tools, runs ephemeral with an empty cwd,
 and never relies on sandbox read-only alone to protect `CODEX_HOME/auth.json`.
 Claude analysis uses `--tools ""`. Its availability check looks for `.credentials.json`
 under `CLAUDE_CONFIG_DIR` when set, otherwise under `~/.claude`, matching the
-configuration directory passed to the child CLI. Relative paths and `~` in
-`CLAUDE_CONFIG_DIR` are expanded to an absolute path before launching the child
+configuration directory passed to the child CLI. Existing OAuth authentication
+is checked first; without it, an unresolvable credentials directory reports
+unavailable. Relative paths and `~` in `CLAUDE_CONFIG_DIR` are expanded to an
+absolute path before launching the child
 from its temporary working directory. API-provider, GitHub, and tracing keys are
 excluded from the child environment. Missing CLI, account auth, timeout, or
 invalid CLI output never falls back to an API. Optional Cursor/Gemini/Muse

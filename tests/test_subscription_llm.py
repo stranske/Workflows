@@ -84,6 +84,39 @@ def test_claude_config_dir_changes_are_observed_by_existing_client(
     assert claude_client.available() is True
 
 
+@pytest.mark.parametrize("auth_present", (False, True))
+@pytest.mark.parametrize("resolution_error", (RuntimeError, OSError))
+def test_claude_config_dir_unresolvable_directory(
+    claude_client, monkeypatch, tmp_path, auth_present, resolution_error
+):
+    configured = "~unresolvable-claude-user/config"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", configured)
+    if auth_present:
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "fixture-oauth")
+    # Default credentials must not hide an invalid explicitly configured directory.
+    default = Path.home() / ".claude"
+    default.mkdir(parents=True)
+    (default / ".credentials.json").touch()
+    original_expanduser = Path.expanduser
+    resolutions = []
+
+    def expanduser(path):
+        if str(path) == configured:
+            resolutions.append(str(path))
+            raise resolution_error("Fixture directory cannot be resolved")
+        return original_expanduser(path)
+
+    monkeypatch.setattr(Path, "expanduser", expanduser)
+
+    assert claude_client.available() is auth_present
+    if auth_present:
+        assert resolutions == []
+    else:
+        assert resolutions == [configured]
+        with pytest.raises(RuntimeError, match="claude subscription CLI/auth unavailable"):
+            claude_client.invoke("fixture prompt")
+
+
 @pytest.mark.parametrize("default_auth_exists", (False, True))
 @pytest.mark.parametrize("config_name", ("custom-claude", "custom claude"))
 def test_claude_config_dir_invocation_uses_configured_directory(

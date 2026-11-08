@@ -175,7 +175,7 @@ check used Black's normal CLI and full repository selection, with one worker and
 the same temporary `/tmp/issue-4369-black-runtime/sitecustomize.py` heartbeat:
 
 ```console
-BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib\|node_modules)' .
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
 ```
 
 The startup hook wraps `black.concurrency.maybe_use_uvloop()` and schedules a
@@ -312,7 +312,7 @@ Checks executed on 2026-11-08:
 The successful full-repository formatting command was:
 
 ```console
-BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib\|node_modules)' .
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
 ```
 
 As in the earlier successful check, the temporary `sitecustomize.py` wraps
@@ -398,7 +398,7 @@ documented above: `BLACK_NUM_WORKERS=1`, a `/tmp/issue-4369-black-runtime`
 normal event loop, and the unchanged full-repository CLI selection:
 
 ```console
-BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib\|node_modules)' .
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
 ```
 
 The new regression also received an isolated negative control. A temporary
@@ -675,3 +675,116 @@ attempted after the concrete changes and validation were prepared. Automatic
 approval review rejected both actions with
 `MCP tool call requires approval, but approval policy is never`. Neither remote
 mutation succeeded; no PR checkbox or readiness state was changed.
+
+## Availability error handling at incoming head 3b180ea4
+
+Reviewed the recent commits and the live PR body before continuing. The actual
+diff against `origin/main` contains five files; the reconciliation notice's
+37-file count is not this PR's current diff. All nine implementation tasks are
+already checked. Both full-source success and post-merge live acceptance remain
+unchecked; no additional checkbox is justified by the previous attempts.
+
+The review's OAuth short-circuit finding is valid despite its outdated position:
+directory expansion currently runs before the existing OAuth check. Both
+production copies now check OAuth first. Without OAuth, an `OSError` or
+`RuntimeError` resolving the credential directory reports unavailable without
+falling back to default credentials. Existing directory normalization remains.
+The manifest already distributes this source/template pair with exact copying;
+no distribution scope or protected file changes are needed.
+
+Added `test_claude_config_dir_unresolvable_directory` for source and template,
+with and without fixture OAuth authentication, for both resolution exception
+types. The fixture controls path expansion and prevents real CLI execution.
+Default-directory credentials are present to detect incorrect fallback. The
+OAuth cases additionally require that directory resolution never runs. These
+tests assert availability, not successful child invocation with invalid config.
+
+Observed results on 2026-11-08:
+
+| Command/state | Exit | Output |
+| --- | --- | --- |
+| Before fix: `python3 -m pytest -q tests/test_subscription_llm.py -k claude_config_dir_unresolvable_directory -m 'not slow'` | 1 | `8 failed, 34 deselected in 0.76s` |
+| After fix: `python3 -m pytest -q tests/test_subscription_llm.py -m 'not slow'` | 0 | `42 passed in 0.70s` |
+| `python3 -m pytest -q tests/ -k claude_config_dir` | 0 | `42 passed, 50444 deselected in 8.54s` |
+| `python3 -m pytest -q tests/test_subscription_llm.py tests/workflows/test_subscription_llm_credential_canary.py -m 'not slow'` | 0 | `54 passed in 1.51s` |
+
+All eight pre-fix failures raised the injected resolution exception. The fixed
+tests instead verify `True` with OAuth and `False` without it. Ruff on the three
+touched Python files, source/template byte comparison, and `git diff --check`
+also pass. The three historical fenced Black examples now use regex alternation
+`|`; their previous Markdown display escaping was incorrect inside code fences.
+Escaping remains in table cells.
+
+### Current downstream observation, not delivery of this continuation
+
+[Maint 68 run 42444646712](https://github.com/stranske/Workflows/actions/runs/42444646712),
+job 128621008551, regenerated PR 2454 from source
+`7e377b7ad8cc06e506393218bc7459ba47757f01`, creating consumer head
+`de13160ba38871fd65ae8d77e9c6d14afada5fe6`. The next
+[Maint 71 run 42444768833](https://github.com/stranske/Workflows/actions/runs/42444768833),
+job 128621285615, reports that same source/head and plan
+`sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da`.
+Its finding disposition has `raw_active_count: 0`, `findings: []`, and
+`review_state: clear`; delivery is `awaiting-sealed-gate`, not merged.
+
+The original thread `PRRT_kwDOO15QxM6yXhfS` remains outdated and unresolved.
+The consumer PR was read open and ready at that regenerated head. All 46 issue
+comments still put the last Portable-Alpha recurrence at comment 6649911684,
+round `20261105T044440Z`, and the last fleet recurrence at `20261105T050113Z`.
+This is evidence for the earlier repair. Source PR 4539 remains unmerged, so
+publication, regeneration, the following merge-run observation, and absence of
+sync-core recurrence for this continuation remain explicitly pending.
+
+### Formatting and publication for the availability error fix
+
+Black formatted the three touched Python files individually with line length
+100. The unmodified one-worker repository check timed out after 45 seconds
+(exit 124). Using the same temporary event-loop heartbeat workaround described
+above, the required repository-wide check then passed (exit 0):
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue4369-black-runtime timeout -k 5s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+All done! ✨ 🍰 ✨
+968 files would be left unchanged.
+```
+
+The workaround changes loop responsiveness and worker count, not file selection
+or formatting rules. No runtime helper was added to the repository.
+
+Staging the five intended files exited 128 because `.git/index.lock` is on a
+read-only filesystem. No commit or push succeeded. The source PR was re-read as
+open and ready (`draft=false`) at `3b180ea4ff2d59c292e3b636e369b909867f5f27`.
+
+### Full-source gates for the availability error fix
+
+The initial incoming-source Node gate timed out (exit 124 after 180 seconds).
+The initial Python gate was interrupted (exit 130 near 2%) before rerunning on
+the final source. Neither is reported as a pass.
+
+Final-source commands, without changing test selection:
+
+```console
+timeout -k 5s 90s node --test .github/scripts/__tests__/*.test.js
+timeout -k 5s 180s python3 -m pytest -q tests/
+```
+
+Both final commands exited **124**. Node's cancellation summary reports
+`tests 140`, `pass 114`, `fail 6`, `cancelled 20`, `skipped 0`, with duration
+`89969.491522ms`. Its output includes `Error: spawnSync python3 EPERM` from
+`maint68-scoped-receipt.test.js:14`. Running that file alone also exited 1 with
+the same error (`0 passed, 1 failed`), independently reproducing the subprocess
+permission blocker. Other failures are not classified as fixed by this change.
+The Python run remained near 2% with no completion summary. Passing focused
+tests and formatting do not establish either full-source gate's success.
+
+Both remaining acceptance checkboxes stay unchecked. A runner with writable git
+metadata and the required subprocess capabilities must publish the patch and
+obtain both complete source-gate passes. This continuation's post-merge delivery
+verification also remains pending. No unrelated test, required check, protected
+workflow, security configuration, or generated consumer branch was changed.
+
+After the patch and report were concrete, posting the blocker comment and adding
+`needs-human` to PR 4539 were each attempted. Automatic approval review rejected
+both with `MCP tool call requires approval, but approval policy is never`.
+Neither mutation succeeded. No remote checkbox, label, comment, or readiness
+change is claimed.
