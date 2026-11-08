@@ -306,9 +306,9 @@ def test_refreshed_binding_rejects_substituted_metadata(
             f'https://github.com/{payload[field]}/blob/{payload["ref"]}/{payload["path"]}'
         )
         if payload_key == "consumer":
-            mutated["consumer_default_branch"]["url"] = (
-                f'https://api.github.com/repos/{payload[field]}/branches/main'
-            )
+            mutated["consumer_default_branch"][
+                "url"
+            ] = f"https://api.github.com/repos/{payload[field]}/branches/main"
     else:
         payload[field] += "-substituted"
     with pytest.raises(AssertionError):
