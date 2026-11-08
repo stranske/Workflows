@@ -1921,10 +1921,14 @@ paths and timings are in `runtime-4550/supported-node-failures-diagnostic.*` and
 `runtime-4550/supported-coding-diagnostic.*`. No reproduced failure persists in
 these files in the supported runner, so no further fixture repair is justified.
 
-The incoming exact published revision also has a passing full Node CI log
+The incoming revision has a passing full Node PR-merge CI log
 (`runtime-4550/supported-incoming-node-ci.log`): **3756 passed, 0 failed**,
 17.05 seconds, on Selftest run **42480665889**, job **128731714961**.
-This is evidence for the incoming revision, not the forthcoming changed revision.
+The tested checkout is PR merge commit
+`ae992bd5d349543e0c8938deaae65604187b44ba`, merging incoming branch
+`1dc5d0af2f74a61ffd9c6473a443a36953f0e8a8` into
+`e8f9dc2373563dea50a708501a63a9ad58f8db06`. This is PR-integration evidence,
+not an exact branch checkout or evidence for the forthcoming change.
 Gate run **42480665910** passes its Python 3.13 and 3.14 jobs. This does not
 prove the requested unfiltered `python3 -m pytest -q tests/` command: normal CI
 uses markers, workers and scope selection. The owner's final rule prohibits
@@ -1949,10 +1953,13 @@ that exact correction was published as
 `5ce655b88e34b35e2af8809964b5c12fe05e93bd`. Its focused evidence file prints
 **29 passed in 0.48s**, exit **0**.
 
-On that exact published revision, Selftest run **42486148395**, job
+For that published branch head, PR Selftest run **42486148395**, job
 **128748376682**, runs `node --test .github/scripts/__tests__/*.test.js` and
 exits **0**: **3757 passed, 0 failed, 1 skipped**, in **21.662 seconds**.
-The complete raw job log is
+The tested checkout is merge commit
+`5ae6b6ad27b5ef0a44008a9a2cf10352c98b7e8e`, which merges that head into
+`e8f9dc2373563dea50a708501a63a9ad58f8db06`; the run metadata head SHA
+is not the checkout SHA. The complete raw job log is
 [runtime-4550/supported-published-node-ci-5ce655b88.log](runtime-4550/supported-published-node-ci-5ce655b88.log),
 with complete run/job timestamps, revision and conclusions in
 [runtime-4550/supported-selftest-5ce655b88.json](runtime-4550/supported-selftest-5ce655b88.json).
@@ -2016,3 +2023,28 @@ evidence and resolved, response
 https://github.com/stranske/Workflows/pull/4551#discussion_r4506410511.
 The other two named threads remain unresolved for their missing acceptance
 evidence. Dependency pins and existing completed repairs are preserved.
+
+
+### Exact branch Node acceptance and CI provenance correction, 13:52 UTC
+
+The earlier PR Selftest reports were incorrectly described as testing exact
+branch revisions. They tested GitHub PR-merge checkouts. The descriptions above
+now identify those merge SHAs explicitly. In particular, incoming run
+42480665889 tested `ae992bd5d349543e0c8938deaae65604187b44ba`, and run
+42486148395 tested `5ae6b6ad27b5ef0a44008a9a2cf10352c98b7e8e`.
+
+To obtain exact branch provenance, Selftest was manually dispatched on
+`codex/issue-4550` as **42486833507**. The complete raw Node job **128750475775**
+log records fetch, checkout and `git log -1 --format=%H` for published revision
+**`02fbe3f745b7f88827e4f1150439585bea11972b`**. At that exact checkout,
+`node --test .github/scripts/__tests__/*.test.js` exits **0**:
+**3757 passed, 0 failed, 1 skipped**, in **16.502 seconds**. Complete raw output
+is [runtime-4550/supported-exact-node-02fbe3f74.log](runtime-4550/supported-exact-node-02fbe3f74.log).
+The job also passes the separate path-classifier replay (1 test); that is not
+included in the broad-suite count. Node setup is v24.22.2 under
+`/opt/hostedtoolcache/node/24.22.2/x64`, as recorded in the raw log.
+The run/job metadata snapshot, taken with the Node job completed and other jobs
+still running, is retained as `runtime-4550/supported-exact-selftest-02fbe3f74.json`.
+No final status for the whole manual Selftest run is inferred from that snapshot.
+The canonical Python jobs still use configured marker filters, so the exact
+unfiltered Python requirement and combined suite review thread remain open.
