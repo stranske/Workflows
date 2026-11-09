@@ -5,6 +5,13 @@ Checked 2026-11-09 UTC. **Overall acceptance: NOT ESTABLISHED.** The actual
 production step summary and its posterior/capacity condition remain unverified.
 No production repair is demonstrated or included in this evidence PR.
 
+**Current round 12 disposition supersedes the round 7–11 A4 verdicts below:**
+A4 **PASS**, 17/51 = 33.33%, using the source issue's explicit first-label
+measure (first routing label is not `agent:codex`). `agent:auto` counts for
+this label measure, but establishes no provider execution. The stricter
+first-label provider metric remains 13/51 = 25.49% as a separate limitation.
+T3/A3 remain UNVERIFIED; overall acceptance remains NOT ESTABLISHED.
+
 Round 7 verification (2026-11-09): **T2 and T4 verified; T3/A3 remain
 UNVERIFIED; A4 FAILS.** Repeated the isolated merge-commit mutation: 55/74
 passed and 19 failed, including the named source/template top-pool-shed cases.
@@ -81,7 +88,7 @@ was run. Only the two issue-named Node test commands were executed locally.
 | Both named Node commands on the merge commit; successful CI containing the suite | Both pass 74/74; successful suite-bearing CI linked below | PASS |
 | Deliberate-break and restored-green transcripts in the implementing PR body | Isolated mutation produces the named top-pool-shed failures; restored bytes pass 74/74; full transcripts included in PR body | PASS |
 | Real post-merge non-Codex DEFAULT_AGENT summary under the specified condition | Real logs establish a Cursor default, but actual summary and posterior/pool values were not retrieved | UNVERIFIED |
-| Complete 48-hour non-Codex first-routing-label share >=30% | First-label non-Codex provider share 13/51 = 25.49%; four `agent:auto` labels are not provider evidence | FAIL; below 30% |
+| Complete 48-hour first-routing-label share other than `agent:codex` >=30% | 17/51 = 33.33%, complete coverage; includes four `agent:auto` labels | PASS for specified label measure; provider redistribution remains unproved |
 
 ## Exact-merge tests and deliberate break
 
@@ -228,9 +235,8 @@ cannot be evaluated without historical capacity at each assignment.
 ## Outstanding evidence
 
 The production summary and its historical posterior/capacity condition still
-need direct evidence before T3/A3 can be marked complete. A4 fails the measured
-first-label provider threshold (25.49%); a closed historical window cannot be
-made to pass by rerunning collection or changing current labels.
+need direct evidence before T3/A3 can be marked complete. A4 passes the specified first-label measure (33.33%); the separate concrete
+provider share is 25.49%. Neither measure establishes provider execution.
 The preserved logs and first-label study do not fill that gap. The merged
 capacity fix is preserved; no unrelated workflow or policy repair was made.
 
@@ -351,3 +357,39 @@ No dependency pins, workflows, routing policy or historical receipts changed.
 All three remaining checkboxes remain unchecked. The next scheduled closer
 round owns the seven-minute post-push review and CI follow-up; no merge is
 attempted in this evidence round.
+
+
+## Round 12 criterion correction and final evidence pass — 2026-11-09
+
+**Outcome: A4 PASS (17/51 = 33.33%); T3/A3 UNVERIFIED.** Source issue
+[#3988](https://github.com/stranske/Workflows/issues/3988) explicitly defines
+the pass number as PRs “whose first routing label is not `agent:codex`.”
+Earlier rounds substituted a stricter provider-identification requirement.
+That interpretation was incorrect for A4. The collector now uses the stated
+label measure for `acceptance_metric` and `verdict`, preserving the stricter
+13/51 provider measure as `first_label_provider_metric`. No underlying
+histories, eligibility decisions, exclusions, or observation window changed.
+The conservative lower bound is already above 30%, with 17/17 repositories
+covered and zero unavailable histories. A4 is verified for labels only;
+`agent:auto` does not establish a non-Codex execution or pool capacity.
+
+Stop rule: one evidence pass, at most 20 minutes. Reproduction:
+
+```sh
+/opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py --from-saved
+```
+
+Direct inspection confirms the chooser invocation, empty-input DEFAULT_AGENT
+propagation and awaited summary writing in both workflows. The real
+[candidate production job](https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413)
+still logs Cursor as default before the Claude label override; the live
+check-run API returns null summary/text. Browser lookup fails with
+`native pipe is closed`. Neither the actual summary nor its historical
+posterior/capacity condition was observed, so T3/A3 remain unchecked.
+
+Both commands named in the current request pass 74/74 on this branch.
+PR #4505 checks retain successful suite-bearing JavaScript CI and a separate
+failed Codex keepalive job. Full command outputs and workflow hashes/line
+references are in [round12-verification.json](round12-verification.json).
+No workflow, routing policy, dependency pin or production label changed.
+Overall acceptance remains NOT ESTABLISHED because T3/A3 lack live proof.

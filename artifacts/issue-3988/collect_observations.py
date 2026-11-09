@@ -194,7 +194,7 @@ def main():
         END.replace("Z", "+00:00")
     )
     share = numerator / denominator if denominator else None
-    # A3/A4 require a non-Codex agent; automatic selection alone identifies none.
+    # Provider redistribution is a separate limitation; A4 specifies labels other than agent:codex.
     provider_numerator = sum(
         bool(r["tied_first_labels"])
         and all(label not in ("agent:auto", "agent:codex") for label in r["tied_first_labels"])
@@ -249,29 +249,32 @@ def main():
                 else "FAIL" if (numerator + ambiguous) / denominator < 0.30 else "UNKNOWN"
             )
         ),
-        "acceptance_metric": {
+        "first_label_provider_metric": {
             "definition": "First routing label identifies a non-Codex provider; agent:auto is not credited. Same-second mixed labels use conservative bounds.",
             "numerator": provider_numerator,
             "denominator": denominator,
             "share": provider_share,
             "numerator_upper_bound": provider_numerator + provider_ambiguous,
         },
+        "acceptance_metric": {
+            "definition": "First routing label is not agent:codex, as specified in issue #3988; includes agent:auto. Same-second mixed labels use conservative bounds.",
+            "numerator": numerator,
+            "denominator": denominator,
+            "share": share,
+            "numerator_upper_bound": numerator + ambiguous,
+        },
         "verdict": (
             "UNKNOWN"
             if not complete or not elapsed or not denominator
             else (
                 "PASS"
-                if provider_share >= 0.30
-                else (
-                    "FAIL"
-                    if (provider_numerator + provider_ambiguous) / denominator < 0.30
-                    else "UNKNOWN"
-                )
+                if share >= 0.30
+                else ("FAIL" if (numerator + ambiguous) / denominator < 0.30 else "UNKNOWN")
             )
         ),
         "limitations": [
             "Observed label history does not establish a particular chooser invocation, pool capacity at assignment, or causal attribution to PR #4505.",
-            "agent:auto is a routing label in the named test contract, but does not identify a concrete non-Codex provider. Literal-label PASS does not establish the intended redistribution of work.",
+            "agent:auto is a routing label in the named test contract, but does not identify a concrete non-Codex provider. A4 label-measure PASS does not establish provider redistribution or the separate A3 production-summary condition.",
         ],
     }
     save("routing-observations.json", result)

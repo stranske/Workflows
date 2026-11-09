@@ -2586,16 +2586,23 @@
   },
   "threshold": 0.3,
   "literal_label_verdict": "PASS",
-  "acceptance_metric": {
+  "first_label_provider_metric": {
     "definition": "First routing label identifies a non-Codex provider; agent:auto is not credited. Same-second mixed labels use conservative bounds.",
     "numerator": 13,
     "denominator": 51,
     "share": 0.2549019607843137,
     "numerator_upper_bound": 13
   },
-  "verdict": "FAIL",
+  "acceptance_metric": {
+    "definition": "First routing label is not agent:codex, as specified in issue #3988; includes agent:auto. Same-second mixed labels use conservative bounds.",
+    "numerator": 17,
+    "denominator": 51,
+    "share": 0.3333333333333333,
+    "numerator_upper_bound": 18
+  },
+  "verdict": "PASS",
   "limitations": [
     "Observed label history does not establish a particular chooser invocation, pool capacity at assignment, or causal attribution to PR #4505.",
-    "agent:auto is a routing label in the named test contract, but does not identify a concrete non-Codex provider. Literal-label PASS does not establish the intended redistribution of work."
+    "agent:auto is a routing label in the named test contract, but does not identify a concrete non-Codex provider. A4 label-measure PASS does not establish provider redistribution or the separate A3 production-summary condition."
   ]
 }
