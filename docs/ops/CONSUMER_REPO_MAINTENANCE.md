@@ -3184,6 +3184,13 @@ rechecks the new exact head, required checks, review threads, mergeability, and
 seven-minute review window. An active producer run or missing API evidence is a
 held handoff, not permission to overwrite the lease or merge the stale head.
 
+Producer refresh retains the original `source_commit`. Maint 71 groups requests
+by that immutable SHA and dispatches one group at a time using Maint 52's
+`source_sha` input; other groups remain in the durable handoff. Maint 52 checks
+out that exact source for its pin file, propagation script and wave hash, then
+regenerates against the current consumer base. Omitting `source_sha` selects the
+trigger's source commit for a new wave. A moving ref or malformed SHA is rejected.
+
 For a tool-only `pyproject.toml` with no package declaration (as in Orchestrator),
 Maint 52 leaves the file's tool configuration alone instead of adding
 `[project.optional-dependencies]`. It still synchronizes any supported direct
