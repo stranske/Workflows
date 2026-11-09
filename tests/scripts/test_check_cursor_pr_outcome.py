@@ -146,6 +146,29 @@ def test_search_hits_require_exact_head_author_and_timestamps(candidate):
     assert result["matches"] == []
 
 
+@pytest.mark.parametrize("field", [("head", "ref"), ("user", "login")])
+@pytest.mark.parametrize("value", [None, "", " \t", False, 0, 123, [], {}])
+def test_cli_cannot_clear_a_window_without_branch_or_author_evidence(
+    monkeypatch, capsys, field, value
+):
+    candidate = pull()
+    parent, key = field
+    candidate[parent][key] = value
+    api = GitHub([candidate])
+    collect = audit.collect
+    monkeypatch.setattr(
+        audit,
+        "collect",
+        lambda fix_pr, **kwargs: collect(fix_pr, now=START + timedelta(days=14), api=api),
+    )
+
+    assert audit.main(["--fix-pr", FIX]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "unknown"
+    assert result["blocking"] == result["drainable"] == 1
+    assert api.calls[-1] == "repos/stranske/Example/pulls/1"
+
+
 def test_inclusive_end_boundary_and_mixed_case_slug():
     candidate = pull("cursor/issue-12-Fix_slug", created=START + timedelta(days=14))
     assert (

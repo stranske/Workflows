@@ -105,10 +105,13 @@ def collect(fix_pr: str, *, now: datetime, api=gh_json) -> dict:
             seen.add(key)
             pull = api(f"repos/{item_repo}/pulls/{item_number}")
             branch = pull["head"]["ref"]
+            author = pull["user"]["login"]
+            if any(not isinstance(value, str) or not value.strip() for value in (branch, author)):
+                raise ValueError("PR branch and author evidence must be nonempty strings")
             created = timestamp(pull["created_at"])
             if (
                 SLUG_BRANCH.fullmatch(branch)
-                and pull["user"]["login"] == "github-actions[bot]"
+                and author == "github-actions[bot]"
                 and start <= created <= observed_end
             ):
                 report["matches"].append(
