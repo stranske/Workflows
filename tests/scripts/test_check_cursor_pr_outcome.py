@@ -318,3 +318,41 @@ def test_cli_search_outcomes_with_fake_api(
     assert result["drainable"] == int(expected != 0)
     if expected == 0:
         assert result["status"] == "clear_search"
+
+
+@pytest.mark.parametrize("failed_read", ["second-page", "last-pull"])
+@pytest.mark.parametrize("failure", ["timeout", "api-error", "invalid-json"])
+def test_cli_cannot_clear_a_window_after_a_late_read_failure(
+    monkeypatch, capsys, failed_read, failure
+):
+    # The first 100 PRs look clear. The only regression is on the final page,
+    # so accepting evidence collected before the failed read would hide it.
+    api = GitHub([pull("cursor/issue-12")] * 100 + [pull()])
+    collect = audit.collect
+    failed_endpoint = (
+        "page=2" if failed_read == "second-page" else "repos/stranske/Example/pulls/101"
+    )
+
+    def interrupted(endpoint):
+        result = api(endpoint)
+        if failed_endpoint in endpoint:
+            if failure == "timeout":
+                raise subprocess.TimeoutExpired(["gh", "api"], 60)
+            if failure == "api-error":
+                raise subprocess.CalledProcessError(1, ["gh", "api"])
+            raise json.JSONDecodeError("incomplete response", "", 0)
+        return result
+
+    monkeypatch.setattr(
+        audit,
+        "collect",
+        lambda fix_pr, **kwargs: collect(fix_pr, now=START + timedelta(days=14), api=interrupted),
+    )
+    assert audit.main(["--fix-pr", FIX]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "unknown"
+    assert result["blocking"] == result["drainable"] == 1
+    assert api.calls[-1].endswith(failed_endpoint)
+    assert len([call for call in api.calls if "/Example/pulls/" in call]) == (
+        100 if failed_read == "second-page" else 101
+    )
