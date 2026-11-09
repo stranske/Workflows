@@ -192,3 +192,63 @@ gh run view 42613446920 --repo stranske/Workflows --json conclusion,status,jobs,
 The reason for cancellation is unknown; cancellation does not establish a
 workflow defect or successful autofix execution. No workflow repair was made.
 This update changes only the evidence record; no executable tests apply.
+
+## Round 3: generation regression and independent readback — 2026-11-09
+
+The structured readback is retained in
+[`2026-11-09-readback.json`](2026-11-09-readback.json). The source file at
+maint-68's immutable source `c2ac6f38d6f2ce73f000158fa6f729bfece82092`
+and the generated consumer file at `08c150469cfa35afc9461ba668b8493fdc7a0405`
+have the **same Git blob SHA**, `4dc7773da38b7cfdf73188a62c6afd9498403682`.
+Both contain the effective-slot-config lookup. The comparison API also confirms
+that the generation source descends from the #4448 merge commit.
+
+The new test
+`test_verifier_fix_remains_in_travel_plan_permission_generation` compiles the
+actual manifest and exercises both full and source-delta plan selection. It
+checks that generation selects the current root verifier bytes at the existing
+consumer path, permits Travel-Plan-Permission, and overwrites the existing
+file. This guards delivery configuration regressions; live readback supplies
+the operational proof.
+
+Verified task and acceptance state:
+
+- [x] Inspect completed maint-68 regeneration and confirm the updated verifier
+  reaches Travel-Plan-Permission#1716 through generation (run `42433992005`).
+- [x] Inspect original comment `4434491951` and record its disposition against
+  the regenerated head: explicitly **superseded**, outdated and unresolved.
+- [x] Inspect maint-71 and #4370 sync-core comments for that head. The final
+  report binds `status: merged`, `findings: []` and `raw_active_count: 0` to
+  `08c150469cfa`; the prepared report also records zero active review threads.
+- [x] Completed regeneration contains the merged source fix, confirmed by run
+  metadata, generation log, source ancestry and matching delivered blob.
+- [x] The subsequent maint-71 log reports #1716 without this finding.
+- [x] The thread is explicitly superseded, and the positive exact-head report
+  plus complete #4370 comment readback show no renewed finding. The latest of
+  eight matching sync-core handoffs remains the pre-fix 2026-11-05T06:01:30Z
+  comment. No consumer branch or review thread was changed.
+
+Validation: `python -m pytest -q tests/scripts/test_pr_verifier_sync_manifest.py
+tests/scripts/test_verifier_capacity_backup.py tests/scripts/test_sync_manifest_compiler.py
+tests/scripts/test_scope_consumer_sync_plan.py -m 'not slow'` passed **207 tests**;
+Ruff passed for the changed test file.
+
+This round's `gh run list` attempt could not connect to `api.github.com` in the
+shell sandbox. Independent readback used the GitHub connector's run metadata,
+job logs, comparison, file and review-thread APIs instead. The CLI commands in
+earlier rounds remain reproduction instructions; this round does not claim
+they succeeded. maint-71's overall failure remains distinct from its successful
+Travel-Plan-Permission row, and `isResolved=false` is retained explicitly.
+
+### Execution limits for round 3
+
+- The changed Python file was formatted with Black at line length 100. The
+  required repository-wide Black check failed initially because sandbox policy
+  prevents its multiprocessing socket. A `BLACK_NUM_WORKERS=1` retry was
+  started; no passing result was available at handoff.
+- Staging the three changed files failed with `.git/index.lock: Read-only file
+  system`. No commit was created; the changes remain in the working tree.
+- Updating PR #4588's title and six task/acceptance checkboxes was rejected by
+  the tool approval gate: `MCP tool call requires approval, but approval policy
+  is never`. The remote PR body remains unchanged. Readback confirmed it was
+  open and ready for review (`draft=false`); no consumer PR was modified.
