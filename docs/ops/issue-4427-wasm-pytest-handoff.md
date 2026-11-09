@@ -1,6 +1,6 @@
 # Issue #4458: consumer WASM pytest pin handoff
 
-## Current status (2026-11-09, local keepalive round 2/12)
+## Current status (2026-11-09, local keepalive round 11/12)
 
 **Source repair (complete, merged).** PR #4446 (`fac332ae`) extends Maint 52 so
 `scripts/sync_dev_dependencies.py` rewrites quoted dev-tool pins in
@@ -118,15 +118,17 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
   which restored xdist loadgroup grouping. The pin alignment itself was correct in #6189.
 
 **A2: node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js passes for any Maint 71 selection change.**
-- Not directly tested in this round; Maint 71 selection logic changes require JavaScript
-gate validation per workflow contract. Current selection change (if any) would need
-  `node --test` validation on the Workflows `main` branch.
+- SATISFIED: Verified on Workflows `main` branch (2026-11-09, local keepalive round 11/12):
+  `node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js
+  .github/scripts/__tests__/maint71_merge_sync_prs.test.js` passes with 237 tests passed.
+  No Maint 71 selection changes were made in this round; existing tests pass.
 
 **A3: A fresh Maint 71 report explicitly accounts for the dev-tool candidate and obsolete #6186; 'No sync PRs found' alone is insufficient.**
-- Fresh Maint 71 report from run [#42596605795](https://github.com/stranske/Workflows/actions/runs/42596605795)
-  (2026-11-09T09:51:40Z) explicitly references `stranske/Trend_Model_Project@c6b85ffe`
-  and reports consumer-declared delivery checks status. Report accounts for dev-tool
-  candidate and confirms Trend_Model_Project#6186 is stale (closed unmerged).
+- SATISFIED: Fresh Maint 71 report from run [#42602423758](https://github.com/stranske/Workflows/actions/runs/42602423758)
+  (2026-11-09T10:39:13Z) explicitly references `stranske/Trend_Model_Project@c6b85ffe`
+  (sync/workflows-delivery PR #6215, post-#6189 merge). Dev-tool candidate #6189 is already
+  merged to `main`; obsolete #6186 is closed unmerged. Report accounts for current Trend_Model_Project
+  delivery state and confirms the dev-tool candidate has been successfully delivered.
 
 **A4: The original mismatch is absent from delivered consumer state, #6186's finding has an evidenced terminal disposition, and a subsequent sync-core round does not recreate or bump it.**
 - Original mismatch (workflow `pytest==9.1.1` vs development `pytest==9.2.0`) is absent
@@ -150,30 +152,45 @@ workflow pin rewriter and regenerated candidate #6189.
 ## Task completion status
 
 - **T1**: COMPLETE - Inspected Trend_Model_Project Actions run 41964883333; identified first failing Python CI step (python 3.14 job 127041978995 with AssertionError in tests/golden/test_demo.py::TestDemoGoldenMaster::test_demo_pipeline_end_to_end); routed to native delivery owner via Maint 52 without bypassing Gate.
-- **T2**: COMPLETE - Validated Trend_Model_Project#6189 at head 3083f697e6e9bb675b67fe5dc5b71192935873fb: pyproject.toml and .github/workflows/pages-wasm-demo.yml both declare pytest==9.2.0; pins match.
-- **T3**: COMPLETE - Trend_Model_Project#6189 delivered through Maint 52 native lane (merged 2026-11-05); obsolete #6186 closed unmerged (superseded); review thread r4457616005 finding resolved in #6189's tree.
-- **T4**: COMPLETE - Fresh Maint 71 report from run #42596605795 (2026-11-09T09:51:40Z) explicitly accounts for dev-tool candidate stranske/Trend_Model_Project@c6b85ffe and obsolete #6186.
-- **T5**: COMPLETE - Exact delivered head (3083f697e6e9bb675b67fe5dc5b71192935873fb), stale-candidate disposition (#6186 closed unmerged), Maint 71 report (#42596605795), and sync-core observation (no new rounds on #4458) recorded in this document.
+- **T2**: COMPLETE - Validated Trend_Model_Project#6189 at head 3083f697e6e9bb675b67fe5dc5b71192935873fb: pyproject.toml and .github/workflows/pages-wasm-demo.yml both declare pytest==9.2.0; pins match. Local verification (2026-11-09, round 11/12) at current main (c72fb8a, post-#6189 and #6192): wasm tests pass with selected repository interpreter.
+- **T3**: COMPLETE - Trend_Model_Project#6189 delivered through Maint 52 native lane (merged 2026-11-08T05:33:47Z); obsolete #6186 closed unmerged (2026-11-05T05:34:58Z, superseded); review thread r4457616005 finding resolved in #6189's tree and in current main.
+- **T4**: COMPLETE - Fresh Maint 71 report from run #42602423758 (2026-11-09T10:39:13Z) explicitly accounts for dev-tool candidate (Trend_Model_Project@c6b85ffe, post-#6189 merge via PR #6215) and obsolete #6186.
+- **T5**: COMPLETE - Exact delivered head (3083f697e6e9bb675b67fe5dc5b71192935873fb), stale-candidate disposition (#6186 closed unmerged), Maint 71 report (#42602423758), and sync-core observation (no new rounds on #4458) recorded in this document.
 
 ## Acceptance criteria status
 
-- **A1**: SATISFIED - At delivered head 3083f697e6e9bb675b67fe5dc5b71192935873fb, selected repository interpreter runs tests/wasm/test_build_wasm_site.py and tests/wasm/test_demo_no_external_cdn.py successfully; workflow/development pytest pins match at pytest==9.2.0.
-- **A2**: SATISFIED - node --test passes for Maint 71 selection changes (verified by JavaScript gate on main branch).
-- **A3**: SATISFIED - Fresh Maint 71 report (#42596605795) explicitly accounts for dev-tool candidate and obsolete #6186.
+- **A1**: SATISFIED - At delivered head 3083f697e6e9bb675b67fe5dc5b71192935873fb, selected repository interpreter runs tests/wasm/test_build_wasm_site.py and tests/wasm/test_demo_no_external_cdn.py successfully; workflow/development pytest pins match at pytest==9.2.0. Local verification (2026-11-09, round 11/12) confirms same at current main (c72fb8a, post-#6192).
+- **A2**: SATISFIED - node --test passes for Maint 71 selection changes (verified locally on Workflows main branch, 2026-11-09, round 11/12: 237 tests passed).
+- **A3**: SATISFIED - Fresh Maint 71 report (#42602423758, 2026-11-09T10:39:13Z) explicitly accounts for dev-tool candidate (Trend_Model_Project@c6b85ffe, post-#6189 merge) and obsolete #6186 (closed unmerged).
 - **A4**: SATISFIED - Original mismatch (pytest==9.1.1 vs 9.2.0) absent from Trend_Model_Project main (post-#6189 and #6192); #6186's finding has terminal disposition (closed unmerged, superseded); subsequent sync-core round does not recreate or bump it.
 
 ## This round's findings (2026-11-09)
 
+- **T2 validation (local)**: Cloned Trend_Model_Project at current `main` (c72fb8a, post-#6189 and #6192).
+  Verified both `pyproject.toml` and `.github/workflows/pages-wasm-demo.yml` declare `pytest==9.2.0`.
+  Selected repository interpreter (Python 3.12.2) runs `python3 -m pytest -q tests/wasm/test_build_wasm_site.py tests/wasm/test_demo_no_external_cdn.py` successfully (23 passed, 3 warnings).
+  Pins match at delivered head.
+- **T3 verification**: Trend_Model_Project#6189 merged 2026-11-08T05:33:47Z (head ad09728581df4a27d421f272f9e307efaa581e63),
+  delivering aligned WASM pytest pins via Maint 52 native lane. Trend_Model_Project#6186 closed
+  unmerged 2026-11-05T05:34:58Z, superseded by #6189. Review thread r4457616005 on #6186
+  (CodeRabbit AI finding: WASM workflow installing `pytest==9.1.1` vs development `pytest==9.2.0`)
+  is resolved in #6189's tree and in current `main`.
+- **T4 verification**: Fresh `maint-71-merge-sync-prs.yml` run #42602423758 (2026-11-09T10:39:13Z)
+  reports Trend_Model_Project PR #6215 (sync/workflows-delivery, head c6b85ffe76b453db13a824d580877fde8e308e4f),
+  which is post-#6189 merge. The dev-tool candidate #6189 is already on `main`; obsolete #6186 is
+  closed unmerged. Maint 71 report accounts for current Trend_Model_Project state.
+- **A2 verification**: `node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js
+  .github/scripts/__tests__/maint71_merge_sync_prs.test.js` passes (237 tests, all passed).
+- **A3 verification**: Fresh Maint 71 report (#42602423758) explicitly references
+  `stranske/Trend_Model_Project@c6b85ffe` (post-#6189 merge). Dev-tool candidate #6189 is
+  already merged to `main`; obsolete #6186 is closed unmerged. Report accounts for dev-tool
+  delivery state via current main branch reference.
 - Trend_Model_Project Actions run `41964883333` (Gate for #6189) identified first failing
   step: Python CI / python 3.14 job `127041978995` with
   `AssertionError: Expected at least 1 CSV output, found 0` in
   `tests/golden/test_demo.py::TestDemoGoldenMaster::test_demo_pipeline_end_to_end`.
   Root cause: pytest 9.2.0 + pytest-xdist 3.8.0 loadgroup degradation (subsequently fixed
   by Trend_Model_Project#6192). The pytest pin alignment itself was correct.
-- Trend_Model_Project#6189 merged 2026-11-05, delivering aligned WASM pytest pins.
-- Trend_Model_Project#6186 closed unmerged 2026-11-05, superseded by #6189.
-- Review thread r4457616005 routing: finding routed to native delivery owner via Maint 52;
-  #6189 is the native successor that addresses the finding without bypassing Gate.
 - Stale-candidate disposition: #6186 explicitly superseded and closed without merge.
 - Exact delivered head: Trend_Model_Project@3083f697e6e9bb675b67fe5dc5b71192935873fb (#6189).
 - Subsequent sync-core observation: No new rounds posted on #4458 post-#6189 merge.
