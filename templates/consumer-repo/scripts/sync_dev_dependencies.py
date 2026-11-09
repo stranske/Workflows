@@ -479,6 +479,19 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
     # requirements-dev.txt may be a manually authored direct requirement list.
     if not command and lockfile_path.suffix == ".txt":
         return [], []
+    # A runtime-only hand-maintained lock has no dev-tool payload to resolve.
+    # Keep it byte-identical rather than inventing an extras/platform scope.
+    if not command:
+        managed = _build_lockfile_targets(pins)
+        entries = [
+            LOCKFILE_PATTERN.fullmatch(line)
+            for line in content.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        if all(
+            match is not None and match.group("name").lower() not in managed for match in entries
+        ):
+            return [], []
     try:
         tokens = shlex.split(command)
         if tokens[:3] != ["uv", "pip", "compile"]:
