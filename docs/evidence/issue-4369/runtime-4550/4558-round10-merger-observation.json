@@ -1,0 +1,10 @@
+{
+  "start": "2026-11-09T01:49:57Z",
+  "end": "2026-11-09T02:01:37Z",
+  "total_count": 101,
+  "pagination_complete": true,
+  "workflow_path": ".github/workflows/maint-71-merge-sync-prs.yml",
+  "inventory_scope": "repository",
+  "mergers": [],
+  "chain_acceptance": false
+}

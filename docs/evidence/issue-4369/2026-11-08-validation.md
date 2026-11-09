@@ -2643,3 +2643,74 @@ and Git checks plus local receipt validation; **zero new runner executions,
 zero workflow dispatches, zero dependency-pin edits**. The existing controller
 owns the post-push review at least seven minutes after publication and the
 next exact-head CI readback; no new job, hold, or merge action is created.
+
+## Keepalive round 10: hosted execution receipt binding — 2026-11-09
+
+Check date and plan, recorded before implementation: **2026-11-09T02:01:37Z**.
+The first unchecked revision-selection task has retained passing evidence, but
+its regression validator does not yet bind suite runner/interpreter/timing
+fields to the native hosted-job receipt. Add focused tests for that requirement;
+do not change the selected revision or rerun full suites locally. Baseline:
+`python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py -m "not slow"`
+exits **0**, **71 passed**. Run the same command after the change, then Black
+with line length 100 and the required repository-wide formatting check.
+Bound each local validation to 120 seconds. Preserve the original stop rule:
+stop at the first unresolved step after three failed attempts or 60 minutes,
+whichever occurs first (this continuation deadline **03:01:37Z**).
+
+Read-only origin observation interval: **01:49:57Z–02:01:37Z**. The connector
+rejects workflow-specific run-list URLs; local `gh api` cannot connect to
+api.github.com. The connector's repository-wide run-list endpoint works with
+encoded timestamp colons; retain every page before interpreting its result.
+No Maint 68, Maint 71 or Maint 82 dispatch is authorized or performed.
+
+Implemented in
+[`test_issue_4369_delivery_lifecycle.py`](../../../tests/scripts/test_issue_4369_delivery_lifecycle.py):
+bind both suite receipts to the retained successful hosted run/job, runner name,
+run ID and workflow revision, absolute interpreter paths, prescribed 600/1800
+second bounds, finite wall durations and ordered execution within that job.
+Twenty-four mutation cases reject substituted or incomplete execution evidence.
+This validates historical acceptance receipts; it does not claim full-suite
+execution on the current PR head. No production symbol or protected file changed.
+
+Verification: **95 Python tests pass**, **32 direct Node observer tests pass**,
+and focused Ruff exits **0**. The required whole-repository Black command exits
+**0**, **977 files unchanged**. The first Black attempt failed at the sandbox's
+forkserver socket; the second timed out at 120 seconds (partial output was not
+retained). The third used `BLACK_NUM_WORKERS=1` and the previously documented
+temporary 50ms event-loop callback, with unchanged formatting/safety/file checks.
+The exact commands, bounds, results and log hashes are in the
+[validation receipt](runtime-4550/4558-round10-validation.json); the
+[Black log](runtime-4550/4558-round10-black-heartbeat.log) retains its successful
+result. The temporary callback source is retained as
+[`sitecustomize.py.txt`](runtime-4550/4558-round10-sitecustomize.py.txt).
+
+The [complete interval inventory](runtime-4550/4558-round10-origin-inventory.json)
+retains all **101 unique runs**, pages of **100 and 1**, stable totals, native
+request URLs and an explicit field projection (ID, creation time, path, event,
+workflow ID). It is a projected inventory, not full raw API metadata. Both
+[producer](runtime-4550/4558-round10-producer-observation.json) and
+[merger](runtime-4550/4558-round10-merger-observation.json) replays find **zero**
+exact-path matches through **2026-11-09T02:01:37Z**. Similarly numbered integration
+workflows are excluded by exact path. No qualifying causal chain is observable.
+
+The [readback](runtime-4550/4558-round10-readback.json) records current published
+main `7a9d652445cee388cb5c39e15b8d2de53f0dda68` and a native compare proving the
+selected acceptance revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf` remains
+its ancestor. PR 4558 was open and ready at incoming head `273394fe07aa27aced860849552315fe56720b79`.
+The existing upstream non-PASS assessment was not reevaluated or cleared.
+The issue-comment completeness boundary remains **2026-11-09T01:49:57Z**.
+
+- [x] Revalidate published-main ancestry, salvaged fix inclusion and hosted suite
+  execution receipts with the strengthened implementation.
+- [ ] Authenticate and observe the qualifying next automation-started chain.
+- [ ] Clear the upstream non-PASS verification disposition.
+
+Publication attempt: explicit-path `git add` exits **128** because
+`.git/index.lock` cannot be created on the read-only filesystem. No commit or
+push succeeded. The meaningful Python test change and its receipts remain in
+the working tree for the existing writer; no alternate remote commit was made.
+Posting the concrete PR blocker comment and adding `needs-human` were each
+rejected with `MCP tool call requires approval, but approval policy is never`.
+Neither remote mutation succeeded. The
+[blocker note](runtime-4550/4558-round10-publication-blocker.md) is retained locally.

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from copy import deepcopy
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -45,6 +46,7 @@ def acceptance_revision_receipts() -> dict:
         "fix_inventory": read("4558-round8-fix-inventory.json"),
         "node": read("4557-exact-main/node-full.json"),
         "python": read("4557-exact-main/python-full.json"),
+        "execution": read("4557-exact-main-run.json"),
     }
 
 
@@ -91,6 +93,50 @@ def assert_acceptance_revision_binding(receipts: dict) -> None:
         assert suite["checkout_sha"] == selected
         assert suite["command"] == command
         assert suite["exit_code"] == 0 and suite["timed_out"] is False
+    assert_suite_execution_binding(receipts)
+
+
+def assert_suite_execution_binding(receipts: dict) -> None:
+    """Bind the two suite executions to their retained successful hosted job."""
+    execution = receipts["execution"]
+    run, job = execution["run"], execution["job"]
+    assert execution["tested_main_revision"] == receipts["selection"]["selected_revision"]
+    assert execution["executor_revision"] == run["head_sha"]
+    assert run["path"] == ".github/workflows/selftest-ci.yml"
+    assert run["status"] == "completed" and run["conclusion"] == "success"
+    assert job["conclusion"] == "success"
+    assert job["runner_group_name"] == "GitHub Actions"
+    assert "ubuntu-latest" in job["labels"]
+    assert job["html_url"] == f'{run["html_url"]}/job/{job["id"]}'
+    assert run["html_url"] == (f'https://github.com/stranske/Workflows/actions/runs/{run["id"]}')
+    lower, upper = (datetime.fromisoformat(job[key]) for key in ("started_at", "completed_at"))
+    assert lower < upper
+    previous_end = lower
+    for name, bound in (("node", 600), ("python", 1800)):
+        suite = receipts[name]
+        runner = suite["runner"]
+        assert runner == receipts["node"]["runner"]
+        assert runner["RUNNER_NAME"] == job["runner_name"]
+        assert runner["GITHUB_RUN_ID"] == str(run["id"])
+        assert runner["GITHUB_WORKFLOW_SHA"] == run["head_sha"]
+        assert runner["RUNNER_OS"] == "Linux" and runner["RUNNER_ARCH"] == "X64"
+        assert runner["ImageOS"] and runner["ImageVersion"]
+        interpreters = suite["interpreters"]
+        assert interpreters == receipts["node"]["interpreters"]
+        node, python = (PurePosixPath(interpreters[key]) for key in ("node", "python3"))
+        assert node.is_absolute() and node.name == "node"
+        assert python.is_absolute() and python.name == "python3.14"
+        assert PurePosixPath(suite["python_executable"]) == python.parent / "python3"
+        assert suite["python_executable"] == receipts["node"]["python_executable"]
+        start, end = (datetime.fromisoformat(suite[key]) for key in ("started_at", "completed_at"))
+        assert start.utcoffset() is not None and end.utcoffset() is not None
+        assert previous_end <= start < end <= upper
+        elapsed = (end - start).total_seconds()
+        assert type(suite["bound_seconds"]) is int and suite["bound_seconds"] == bound
+        wall = suite["wall_seconds"]
+        assert type(wall) in (int, float) and math.isfinite(wall)
+        assert 0 < wall < bound and abs(elapsed - wall) < 0.01
+        previous_end = end
 
 
 def assert_fix_inventory_binding(selection: dict, pull: dict, receipt: dict) -> None:
@@ -182,6 +228,48 @@ def test_exact_revision_suite_log_matches_its_retained_receipt(suite: str) -> No
     receipt = read(f"4557-exact-main/{suite}-full.json")
     log = (EVIDENCE / f"4557-exact-main/{suite}-full.log").read_bytes()
     assert hashlib.sha256(log).hexdigest() == receipt["log_sha256"]
+
+
+@pytest.mark.parametrize(
+    ("path", "replacement"),
+    [
+        (("execution", "tested_main_revision"), "0" * 40),
+        (("execution", "run", "id"), 42486833507),
+        (("execution", "run", "head_sha"), "0" * 40),
+        (("execution", "run", "conclusion"), "cancelled"),
+        (("execution", "job", "conclusion"), "failure"),
+        (("execution", "job", "runner_name"), "local-runner"),
+        (("execution", "job", "runner_group_name"), "Self-hosted"),
+        (("execution", "job", "labels"), ["self-hosted"]),
+        (("execution", "job", "html_url"), "https://github.com/another/job/1"),
+        (("python", "runner", "GITHUB_RUN_ID"), "42486833507"),
+        (("python", "runner", "GITHUB_WORKFLOW_SHA"), "0" * 40),
+        (("python", "interpreters", "python3"), "python3.14"),
+        (("node", "interpreters", "node"), "node"),
+        (("python", "python_executable"), "/usr/bin/python3"),
+        (("node", "bound_seconds"), 1800),
+        (("python", "bound_seconds"), True),
+        (("python", "wall_seconds"), 1801),
+        (("node", "wall_seconds"), float("nan")),
+        (("node", "wall_seconds"), float("inf")),
+        (("python", "wall_seconds"), 1),
+        (("node", "started_at"), "2026-11-08T20:00:00+00:00"),
+        (("python", "completed_at"), "2026-11-08T22:00:00+00:00"),
+        (("python", "started_at"), "2026-11-08T21:05:24+00:00"),
+        (("node", "started_at"), "2026-11-08T21:05:24.550364"),
+    ],
+    ids=lambda value: ".".join(map(str, value)) if isinstance(value, tuple) else None,
+)
+def test_suite_execution_rejects_unbound_hosted_environment_or_timings(
+    path: tuple, replacement: object
+) -> None:
+    receipts = acceptance_revision_receipts()
+    target = receipts
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = replacement
+    with pytest.raises(AssertionError):
+        assert_acceptance_revision_binding(receipts)
 
 
 @pytest.mark.parametrize(
