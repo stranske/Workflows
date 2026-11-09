@@ -122,7 +122,8 @@ const github = {
     ? [{ body: '<!-- cursor-target-closed:42:123 -->' }] : [],
 };
 const exec = { getExecOutput: async (file, args) => ({
-  stdout: execFileSync(file, args, { encoding: 'utf8' }),
+  // Inherit stderr so restricted runners need only the captured stdout pipe.
+  stdout: execFileSync(file, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }),
 }) };
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 (async () => {
