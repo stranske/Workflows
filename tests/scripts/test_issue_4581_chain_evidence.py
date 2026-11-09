@@ -145,5 +145,6 @@ def test_candidate_and_merged_payloads_match_the_source_and_merge_revision_blob(
 def test_terminal_evidence_still_matches_the_retained_provenance_hashes() -> None:
     provenance = read_receipt("4581-artifact-provenance.json")
     assert provenance["files"]
+    assert "chain-receipt.json" in provenance["files"]
     for name, digest in provenance["files"].items():
         assert hashlib.sha256((EVIDENCE / name).read_bytes()).hexdigest() == digest, name

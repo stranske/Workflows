@@ -19,6 +19,7 @@
     "orchestrator-model-table-refresh.json": "4f0a278f229980aefb291858a072a23efcca9c9e98e9f2e34fce94bb1351343d",
     "orchestrator-model-table-test.json": "7ab537f2563c636b90ddf0fde62c2205371d045297b20d9a3beea13beb0391f2",
     "orchestrator-model-table-test.log": "1453948b846c8ea7dcf6e78315f30b31e28f79ea513ad94fc6b33d823adbf6ab",
-    "orchestrator-pr-1288-merged.json": "412a570b45f57110f0947974f40f635ff1e841efe0a5743ed7db947636f987c3"
+    "orchestrator-pr-1288-merged.json": "412a570b45f57110f0947974f40f635ff1e841efe0a5743ed7db947636f987c3",
+    "chain-receipt.json": "c348298582fa08a93b0e845e495d8951af50461f8ac1e2e334c62a659c6879c3"
   }
 }
