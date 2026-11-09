@@ -2340,3 +2340,66 @@ this readback). Cost: read-only Git/GitHub checks and focused local validation;
 **zero new runner executions, zero dispatches, zero pin edits**. The existing
 controller/closer owns continuation and the next scheduled post-push review
 at least seven minutes after publication; no new job or hold is created.
+
+## Local seat round 7: published fix, blocked integration — 2026-11-09
+
+Outcome: **9/11 acceptance items supported by retained evidence; incoming-head
+CI fails; upstream repair incorporation blocked by filesystem access**.
+Check date: **2026-11-09T00:44:59Z**. This bounded readback does not restart the
+original acceptance campaign. Outcome command:
+`/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py -m 'not slow'`.
+Commands have a 120-second bound; stop after three failed attempts at one step
+or 60 minutes, whichever occurs first. No full suite runs locally.
+
+The [round-7 receipt](runtime-4550/4558-seat-round7-readback.json) binds
+[Selftest run 42540722369](https://github.com/stranske/Workflows/actions/runs/42540722369)
+to incoming head `8d8f3552e35442647de5457156e638a221acc067`. Downloaded logs
+for compatibility jobs 128915094357 and 128915094410 each report **2 failed,
+8 passed** with Ruff pinned at 0.17.3 versus required 0.17.4. Complete-download
+hashes and diagnostic excerpts are retained. Python Tests fails as an aggregate.
+
+Unlike round 6, fetched main **e8aa27930bddd15f479b1312db14828b1542e2ee**
+now contains Ruff **0.17.4**, from merged
+[PR 4567](https://github.com/stranske/Workflows/pull/4567). This supersedes the
+previous observation that no published pin repair was available. It does not
+establish that the designated updater delivered it: that workflow's latest
+observed run remains failed run 42147968635. No pin was authored by this seat.
+
+Attempting to incorporate published main with `git merge --no-edit origin/main`
+exited **2**, before any focused freshness checks could run:
+
+```text
+error: unable to unlink old '.agents/issue-4484-ledger.yml': Operation not permitted
+Merge with strategy ort failed.
+```
+
+The managed seat explicitly grants read-only access to `.agents`; no bypass or
+permission change was attempted. HEAD remained unchanged, no MERGE_HEAD existed,
+and no tracked changes remained. Three untracked files left by the failed merge
+were byte-verified against fetched main before removing those merge artifacts.
+The existing closer must incorporate published main in a seat with access to the
+tracked ledger, then obtain fresh exact-head CI. This report does not claim that
+the upstream repair was integrated or that current-head CI passes.
+
+Workflow-specific inventories, without event filtering, completely cover
+**2026-11-09T00:31:28Z–00:44:59Z**: **0 Maint 68 runs, 0 Maint 71 runs**.
+No new automation-started causal chain can be established; T5/A3 remain open.
+No manual dispatch was used. The prior issue-comment observation boundary and
+finding dispositions are unchanged; no fresh comment-completeness claim is made.
+
+All three ancestry checks exit 0. Both retained full-suite log hashes still
+match their exit-0 receipts on immutable published main revision
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`; retained source and merged-consumer
+bytes compare equal with `cmp` exit 0. Focused lifecycle validation exits **0**,
+**50 passed in 0.35s**. Supported IDs remain **T1, T2, T3, T4, T6, T7, A1, A2,
+A4**, based on those retained immutable-revision receipts. The separate upstream
+assessment remains non-PASS.
+
+Blocking/drainable pair: **blocking=3** (automation-origin chain, upstream
+assessment, filesystem access preventing incorporation), **drainable=1**
+(publish this integration-blocker receipt). Cost: read-only Git/GitHub checks,
+one failed merge and focused validation; zero workflow dispatches, zero full
+local suites, zero authored pin changes. Only this record and its readback
+receipt are published. The existing controller/closer owns continuation and the
+next scheduled post-push CI/review/inline-comment readback after the seven-minute
+floor; that future review is not claimed complete.
