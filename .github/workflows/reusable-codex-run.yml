@@ -290,7 +290,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
-    if: ${{ github.event_name == 'workflow_call' && !inputs.skip }}
+    if: ${{ !inputs.skip && inputs.prompt_file != '' }}
     outputs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
       final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
@@ -2243,11 +2243,12 @@ jobs:
   codex-pinned-canary:
     name: Pinned Codex CLI Canary
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_call' && !inputs.skip && github.repository == 'stranske/Workflows') }}
+    if: ${{ inputs.prompt_file == '' && github.repository == 'stranske/Workflows' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           ref: ${{ inputs.workflows_ref || github.ref }}
 
       - name: Setup Node.js
