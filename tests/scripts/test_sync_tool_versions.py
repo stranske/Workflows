@@ -380,9 +380,11 @@ def test_checked_in_templates_match_canonical_source() -> None:
 @pytest.mark.parametrize(
     "stale_templates", [(0,), (1,), (0, 1)], ids=["consumer", "integration", "both"]
 )
+@pytest.mark.parametrize("check_args", [(), ("--check",)], ids=["default", "explicit-check"])
 def test_apply_repairs_ruff_drift_in_templates(
     tmp_path: Path,
     stale_templates: tuple[int, ...],
+    check_args: tuple[str, ...],
 ) -> None:
     """Exercise real CLI paths so a missing integration target cannot go unnoticed."""
     script = Path(sync_tool_versions.__file__).resolve()
@@ -413,8 +415,11 @@ def test_apply_repairs_ruff_drift_in_templates(
             timeout=10,
         )
 
-    result = run_cli()
+    result = run_cli(*check_args)
     assert result.returncode == 1, result.stderr
+    assert result.stdout == ""
+    assert env_path.read_bytes() == canonical
+    assert pyproject_path.read_text(encoding="utf-8") == _make_pyproject_content(versions)
     for index, template in enumerate(templates):
         if index in stale_templates:
             assert str(template.relative_to(tmp_path)) in result.stderr
@@ -430,7 +435,7 @@ def test_apply_repairs_ruff_drift_in_templates(
     for template in templates:
         assert template.read_bytes() == canonical
 
-    result = run_cli()
+    result = run_cli(*check_args)
     assert result.returncode == 0, result.stderr
     assert result.stdout == result.stderr == ""
 
