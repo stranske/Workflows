@@ -81,7 +81,7 @@ workflows:
     description: "PR event hub - consolidates PR meta, bot comments, and verify-to-issue handlers"
 
   - source: .github/workflows/agents-81-gate-followups.yml
-    description: "Gate followups hub - keepalive and autofix; forwards evaluated PR base to Codex; budgets count Gate failures with failed jobs"
+    description: "Gate followups hub - keepalive and autofix with attempt-bound completion acknowledgments; forwards evaluated PR base to Codex; budgets count Gate failures with failed jobs"
 
   - source: .github/workflows/agents-keepalive-sweep.yml
     description: "Keepalive sweep - periodic level-based resync; dispatches the loop for open agent PRs so silent zero-commit stalls resurface"
@@ -337,7 +337,7 @@ scripts:
 
   - source: scripts/runner_lib/
     is_directory: true
-    description: "Shared runner prompt assembly, output parsing, and dispatch debounce helpers"
+    description: "Shared runner prompt assembly, output parsing, dispatch debounce, and bounded historical completion reconciliation"
 
   - source: scripts/aggregate_agent_metrics.py
     description: "Aggregates downloaded weekly agent metrics - required by agents-weekly-metrics.yml"
