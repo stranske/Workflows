@@ -2142,3 +2142,86 @@ verified in the local checklist above; its remote checkbox has not been edited.
 An authorized repository writer must publish the scoped test and receipt changes.
 At **2026-11-08T23:30:04Z**, PR 4558 remains open and ready (`draft=false`) at
 `dc692bda768960d2ae8693586799a72bcdf336bf`. Overall acceptance remains incomplete.
+
+
+## Local seat round 4 publication reconciliation — 2026-11-09
+
+Outcome: **9/11 verified; overall acceptance incomplete**. This readback preserves
+the original **2026-11-08T21:46:00Z** stop deadline. No acceptance rerun, code
+repair, provider retry or Maint 68/71 dispatch was performed. Cost: read-only
+Git/GitHub queries and evidence publication; zero additional runner executions.
+The previous worker's publication blocker is historical: its scoped tests and
+receipts are now present in published head `cb1d6221c61d3d71f5bac500b1c3512d1e200ed2`.
+
+The [seat readback](runtime-4550/4558-seat-round4-readback.json) independently
+rechecks required ancestry, salvaged-head ancestry, published-main reachability,
+and whole-tree equality between PR 4551's salvaged head and acceptance revision
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`. The
+[fresh merge receipt](runtime-4550/4558-seat-round4-merged-pr.json) confirms PR 4551
+merged at that revision. T1's conditional delivery requirement applies when the
+fixes are absent from main; they are present. The separate retained upstream
+assessment remains non-PASS and is not cleared by this interpretation.
+
+Both complete hosted suite log digests match their exit-0 receipts on that same
+immutable checkout. The [fresh run readback](runtime-4550/4558-seat-round4-acceptance-run.json)
+confirms successful Selftest run 42523162606. The prior exact-command receipts
+retain runner identity, selected interpreter paths, execution bounds and timings;
+no full suite was run locally. Historical diagnostic failures justify no repair
+because neither remains reproduced in those supported-runner commands.
+
+A fresh `git show` of source revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf`
+and contents-API read of consumer merge `1ff9e11cd51a456333c626cb354543b63202bef6`
+produce identical 7,087-byte files. The retained `cmp` command exits **0**.
+Both blobs are `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`.
+[Comparison receipt](runtime-4550/4558-seat-round4-bytes.json),
+[source bytes](runtime-4550/4558-seat-round4-source.txt), and
+[merged consumer bytes](runtime-4550/4558-seat-round4-consumer.txt) retain the
+identities and payloads independently of candidate metadata.
+
+The [fresh complete issue-4369 comment observation](runtime-4550/4558-seat-round4-comments.json)
+covers **2026-11-09T00:01:34Z**. Pages contain **49 and 0** comments; all IDs
+are unique, and the issue's comment count is stable at 49 before and after
+pagination. Applicable exact-head Maint 71 dispositions remain the retained
+zero active/blocking/nonblocking/unknown findings, errors and unresolved threads
+for candidate `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, source
+`bbfc6ae604c8e8c4021138c5efe964a368482957`, generation `a478e45c16b6` in
+[the terminal target report](runtime-4550/4557-maint71-target.json).
+Discussion **4434491702 is excluded**, without claiming its old thread resolved.
+
+The [workflow-specific inventories](runtime-4550/4558-seat-round4-inventory.json)
+cover 23:20:00Z through **2026-11-09T00:01:34Z** with no event filter and complete
+pagination: **0 Maint 68 runs, 0 Maint 71 runs**. Together with the retained
+preceding intervals, no qualifying next producer has been observed. Existing
+source/plan/candidate/actual-merge lineage still lacks producer-origin proof.
+T5/A3 remain unchecked; temporal proximity and owner-token dispatch metadata
+cannot fill this gap. No manual dispatch was used.
+
+Checklist supported by the published evidence:
+
+- [x] T1 — immutable published main, required ancestry and salvaged-fix inclusion.
+- [x] T2 — supported runner and pre-code commands, bounds and stop rule retained.
+- [x] T3 — both exact hosted commands and complete execution receipts retained.
+- [x] T4 — historical logs read as diagnostics; supported full suites pass without repair.
+- [ ] T5 — qualifying automation-started next causal chain remains unobserved.
+- [x] T6 — immutable source and merged consumer bytes compare equal.
+- [x] T7 — exact-byte comparison, scoped finding dispositions and complete comments recorded.
+- [x] A1 — both full suites exit 0 on the same required main revision.
+- [x] A2 — merged-byte comparison exits 0 with matching blob receipts.
+- [ ] A3 — automation-origin proof remains missing.
+- [x] A4 — required validation record and complete bounded comment observation retained.
+
+First unresolved acceptance step at stop: authenticate the next automation-started
+producer chain. Separate retained upstream assessment: non-PASS. Blocking/drainable
+pair: **blocking=2** (origin/next-chain proof and upstream assessment),
+**drainable=1** (publish this verified readback). No new hold, permit or lock is
+created. Continuation remains with the existing closer/controller; the expired
+acceptance campaign is not restarted by this publication.
+
+Seat validation: `/opt/anaconda3/bin/python3 -m pytest -q
+tests/scripts/test_issue_4369_delivery_lifecycle.py -m 'not slow'` exits **0**,
+**50 passed in 0.36s**; `git diff --check` exits 0. Only documentation and
+receipts changed. No dependency pin changed. Under the post-push-review automation
+rule, the existing next scheduled closer round owns the review pass at least
+seven minutes after this push; it must read current-head CI, reviews and inline
+comments. This is a continuation handoff, not a newly scheduled job or a claim
+that post-push review has already passed.
