@@ -93,9 +93,11 @@ def test_ci_history_generates_metrics_when_missing(
             monkeypatch.delenv(key, raising=False)
 
     assert exit_code == 0
+    assert history_path.exists()
     record = json.loads(history_path.read_text(encoding="utf-8").strip())
     assert record["summary"]["tests"] == 3
     assert "metrics_path" not in record
+    assert "regression_evidence" not in record
 
 
 def test_load_metrics_falls_back_on_invalid_json(tmp_path: Path) -> None:
@@ -175,6 +177,7 @@ def test_ci_history_missing_junit(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert record["status"] == "skipped"
     assert record["reason"] == "missing-junit-report"
     assert record["junit_path"] == str(junit_path)
+    assert "regression_evidence" not in record
 
 
 @pytest.mark.parametrize("with_github_metadata", [False, True])
@@ -226,12 +229,9 @@ def test_main_handles_load_metrics_error(
     assert record["error"] == "bad"
     assert record["junit_path"] == str(junit_path)
     assert record["metrics_path"] == str(tmp_path / "ci-metrics.json")
-    assert record["regression_evidence"] == {
-        "observed_failure": True,
-        "file_not_found": "bad",
-        "shallow_history_suspected": True,
-        "regression_identified": "shallow-history-fetch",
-    }
+    assert "regression_evidence" not in record
+    assert "shallow_history_suspected" not in record
+    assert "regression_identified" not in record
     if with_github_metadata:
         assert record["github"] == {key.lower(): value for key, value in github_metadata.items()}
     else:
