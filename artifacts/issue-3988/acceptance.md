@@ -316,3 +316,38 @@ failed Codex keepalive job. Full command outputs, live API/log readback and
 workflow hashes/line references are in
 [round10-verification.json](round10-verification.json). Historical receipts
 are retained. No remaining criterion is newly completed by this round.
+
+## Round 11 remaining-criteria verification — 2026-11-09
+
+**Outcome: T3/A3 UNVERIFIED; A4 FAIL (13/51 = 25.49%).** Checked branch
+head `6ed58ebddc63a829d0eaefd9e7550e097a9b849a`. Stop rule: at most two
+retrieval attempts per unavailable source or 25 minutes. The real-input
+acceptance command remains:
+
+```sh
+/opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py --from-saved
+```
+
+Replay was byte-identical, with complete coverage and the same failing
+first-label provider share. A4 is an observed historical failure, rather than
+a missing local implementation. Present-day routing or label changes cannot
+repair the specified closed observation window. No production change is
+justified by this aggregate alone.
+
+Direct inspection of both workflow files again verifies the chooser invocation,
+empty-input DEFAULT_AGENT propagation, and awaited summary table containing
+Posterior, Pool State and Default Agent. The candidate production job still
+logs a Cursor default before its Claude label override. Its live check-run
+API returns null summary/text, and browser retrieval fails with
+`native pipe closed before response`. Therefore the actual production summary
+and historical posterior/capacity condition remain unavailable; the log
+inference does not complete T3 or A3.
+
+Both Node commands named in this round's instructions pass 74/74 on this
+branch. PR #4505 checks still show passing suite-bearing JavaScript CI and
+a separate failed Codex keepalive job. Full command outputs, workflow hashes
+and line references are retained in [round11-verification.json](round11-verification.json).
+No dependency pins, workflows, routing policy or historical receipts changed.
+All three remaining checkboxes remain unchecked. The next scheduled closer
+round owns the seven-minute post-push review and CI follow-up; no merge is
+attempted in this evidence round.
