@@ -81,9 +81,6 @@ def _pinned_codex() -> str | None:
 
 PINNED_CODEX = _pinned_codex()
 NODE = shutil.which("node")
-pytestmark = pytest.mark.skipif(
-    not (PINNED_CODEX and NODE), reason=f"pinned codex-cli {PINNED_VERSION} not installed"
-)
 
 
 def _forbidden_calls(auth_path: str) -> dict[str, dict]:
@@ -219,6 +216,8 @@ def sandbox(tmp_path, monkeypatch):
     The shim only adds local-backend overrides; the production argv follows
     unchanged and is logged so the test can compare it.
     """
+    if not (PINNED_CODEX and NODE):
+        pytest.skip(f"pinned codex-cli {PINNED_VERSION} not installed")
     token = f"pinned-cli-canary-{uuid4().hex}"
     env_canary = f"pinned-env-canary-{uuid4().hex}"
     home = tmp_path / "home"
