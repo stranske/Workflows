@@ -1,8 +1,9 @@
 'use strict';
 
-// Read-only replay of bounded REST /actions/runs pages. This collects leads;
+// Read-only collection and replay of bounded REST /actions/runs pages. These are leads;
 // workflow_dispatch, actor names and run titles never authenticate the caller.
 const fs = require('node:fs');
+const childProcess = require('node:child_process');
 const MAINT68 = '.github/workflows/maint-68-sync-consumer-repos.yml';
 const MAINT71 = '.github/workflows/maint-71-merge-sync-prs.yml';
 
@@ -18,6 +19,49 @@ function utcTimestamp(value) {
     throw new Error('invalid UTC observation timestamp');
   }
   return parsed;
+}
+
+function inventoryTotal(body) {
+  const total = body?.total_count;
+  if (!Number.isSafeInteger(total) || total < 0 || total >= 1000) {
+    throw new Error('inventory count is invalid or reaches the REST search limit');
+  }
+  return total;
+}
+
+function readInventoryPage(url) {
+  return JSON.parse(childProcess.execFileSync('gh', ['api', '--method', 'GET', url], {
+    encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', maxBuffer: 16 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }));
+}
+
+// Collect only GET run pages. Validate the query before invoking transport and
+// cap pagination below the REST search limit. Never emit a partial inventory.
+function collect({ start, end, workflow_id, workflow_path }, request = readInventoryPage) {
+  const inventory = { start, end,
+    ...(workflow_id === undefined ? {} : { workflow_id }),
+    ...(workflow_path === undefined ? {} : { workflow_path }), pages: [] };
+  const endpoint = workflow_id === undefined
+    ? 'https://api.github.com/repos/stranske/Workflows/actions/runs'
+    : `https://api.github.com/repos/stranske/Workflows/actions/workflows/${workflow_id}/runs`;
+  const urlFor = page => `${endpoint}?per_page=100&page=${page}&created=${start}..${end}`;
+  observe({ ...inventory,
+    pages: [{ url: urlFor(1), body: { total_count: 0, workflow_runs: [] } }] });
+  let total, last = 1;
+  for (let page = 1; page <= last; page++) {
+    const url = urlFor(page), body = request(url), count = inventoryTotal(body);
+    if (page === 1) {
+      total = count;
+      last = Math.floor(total / 100) + 1;
+    }
+    if (count !== total || !Array.isArray(body.workflow_runs)
+      || body.workflow_runs.length !== Math.min(100, Math.max(0, total - (page - 1) * 100))) {
+      throw new Error('incomplete or changing inventory');
+    }
+    inventory.pages.push({ url, body });
+  }
+  return { inventory, observation: observe(inventory) };
 }
 
 function observe({ start, end, pages, workflow_id, workflow_path = MAINT68 }) {
@@ -40,10 +84,7 @@ function observe({ start, end, pages, workflow_id, workflow_path = MAINT68 }) {
   const endpoint = workflow_id === undefined
     ? '/repos/stranske/Workflows/actions/runs'
     : `/repos/stranske/Workflows/actions/workflows/${workflow_id}/runs`;
-  const total = pages[0].body.total_count;
-  if (!Number.isSafeInteger(total) || total < 0 || total >= 1000) {
-    throw new Error('inventory count is invalid or reaches the REST search limit');
-  }
+  const total = inventoryTotal(pages[0].body);
   const runs = [], ids = new Set();
   for (const [index, page] of pages.entries()) {
     const url = new URL(page.url);
@@ -140,8 +181,10 @@ function observeSequence(inventories) {
 
 if (require.main === module) {
   try {
-    const input = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-    const result = Array.isArray(input) ? observeSequence(input) : observe(input);
+    const collecting = process.argv[2] === '--collect';
+    const input = JSON.parse(fs.readFileSync(process.argv[collecting ? 3 : 2], 'utf8'));
+    const result = collecting ? collect(input)
+      : Array.isArray(input) ? observeSequence(input) : observe(input);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } catch (error) {
     process.stderr.write(`Observation refused: ${error.message}\n`);
@@ -149,4 +192,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { observe, observeSequence };
+module.exports = { collect, observe, observeSequence };

@@ -2,7 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { observe, observeSequence } = require('../../docs/evidence/issue-4369/observe-maint68');
+const childProcess = require('node:child_process');
+const { collect, observe, observeSequence } = require('../../docs/evidence/issue-4369/observe-maint68');
 const MAINT68 = '.github/workflows/maint-68-sync-consumer-repos.yml';
 const MAINT71 = '.github/workflows/maint-71-merge-sync-prs.yml';
 
@@ -67,6 +68,103 @@ function replaceTimestamp(input, field, value) {
     }
   }
 }
+
+test('collector retains complete unfiltered pages for repository and workflow inventories', () => {
+  for (const make of [inventory, producerInventory, mergerInventory]) {
+    for (const count of [0, 99, 100, 101, 999]) {
+      const expected = make(count), requests = [];
+      const { pages, ...query } = expected;
+      const result = collect(query, url => {
+        requests.push(url);
+        assert.equal(url, pages[requests.length - 1].url);
+        return structuredClone(pages[requests.length - 1].body);
+      });
+      assert.deepEqual(result.inventory, expected);
+      assert.deepEqual(result.observation, observe(expected));
+      assert.equal(requests.length, Math.floor(count / 100) + 1);
+      assert.equal(result.observation.chain_acceptance, false);
+    }
+  }
+});
+
+test('collector validates the query before making any request', () => {
+  for (const mutate of [
+    x => { x.start = 'yesterday'; },
+    x => { x.end = x.start.replace('21:', '20:'); },
+    x => { x.workflow_id = '../runs?event=schedule'; },
+    x => { x.workflow_path = 'other.yml'; },
+  ]) {
+    const { pages, ...query } = inventory();
+    mutate(query);
+    let requests = 0;
+    assert.throws(() => collect(query, () => { requests++; }));
+    assert.equal(requests, 0);
+  }
+});
+
+test('collector rejects changing totals, truncated pages and mismatched workflow rows', () => {
+  for (const mutate of [
+    pages => { pages[1].body.total_count++; },
+    pages => { pages[0].body.workflow_runs.pop(); },
+    pages => { pages[1].body.workflow_runs[0].workflow_id++; },
+  ]) {
+    const { pages, ...query } = producerInventory(101);
+    mutate(pages);
+    let requests = 0;
+    assert.throws(() => collect(query, () => pages[requests++].body));
+    assert.ok(requests <= 2);
+  }
+});
+
+test('collector refuses capped and malformed totals after one request', () => {
+  for (const total_count of [1000, -1, '1', null, NaN]) {
+    let requests = 0;
+    assert.throws(() => collect(inventory(), () => {
+      requests++;
+      return { total_count, workflow_runs: [] };
+    }));
+    assert.equal(requests, 1);
+  }
+});
+
+test('collector propagates request failures without returning a partial observation', () => {
+  const { pages, ...query } = inventory(101);
+  const failure = new Error('request timed out');
+  let requests = 0;
+  assert.throws(() => collect(query, () => {
+    if (requests++) throw failure;
+    return pages[0].body;
+  }), error => error === failure);
+  assert.equal(requests, 2);
+});
+
+test('native collector uses bounded GET argv with closed stdin and no shell', t => {
+  const { pages, ...query } = inventory(101);
+  let requests = 0;
+  t.mock.method(childProcess, 'execFileSync', (executable, argv, options) => {
+    const page = pages[requests++];
+    assert.equal(executable, 'gh');
+    assert.deepEqual(argv, ['api', '--method', 'GET', page.url]);
+    assert.deepEqual(options, {
+      encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', maxBuffer: 16 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return JSON.stringify(page.body);
+  });
+  assert.deepEqual(collect(query).inventory, { ...query, pages });
+  assert.equal(requests, 2);
+});
+
+test('native collector refuses malformed JSON and propagates transport failure', t => {
+  const { pages, ...query } = inventory();
+  const request = t.mock.method(childProcess, 'execFileSync', () => 'not JSON');
+  assert.throws(() => collect(query), SyntaxError);
+  assert.equal(request.mock.calls.length, 1);
+  const failure = new Error('bounded gh request failed');
+  request.mock.mockImplementation(() => { throw failure; });
+  assert.throws(() => collect(query), error => error === failure);
+  assert.equal(request.mock.calls.length, 2);
+});
 
 for (const value of [
   '2026-11-08', '2026-11-08T21:35:00', '2026-11-08T22:35:00+01:00',

@@ -1,0 +1,150 @@
+✖ collector retains complete unfiltered pages for repository and workflow inventories (3.298168ms)
+✔ collector validates the query before making any request (0.668773ms)
+✔ collector rejects changing totals, truncated pages and mismatched workflow rows (0.478578ms)
+✖ collector refuses capped and malformed totals after one request (0.815272ms)
+✖ collector propagates request failures without returning a partial observation (0.472539ms)
+✔ refuse non-UTC, normalized or imprecise start: "2026-11-08" (0.807531ms)
+✔ refuse non-UTC, normalized or imprecise end: "2026-11-08" (0.602163ms)
+✔ refuse non-UTC, normalized or imprecise created_at: "2026-11-08" (0.248553ms)
+✔ refuse non-UTC, normalized or imprecise start: "2026-11-08T21:35:00" (0.347141ms)
+✔ refuse non-UTC, normalized or imprecise end: "2026-11-08T21:35:00" (0.384216ms)
+✔ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T21:35:00" (0.270796ms)
+✔ refuse non-UTC, normalized or imprecise start: "2026-11-08T22:35:00+01:00" (0.135984ms)
+✔ refuse non-UTC, normalized or imprecise end: "2026-11-08T22:35:00+01:00" (0.132979ms)
+✔ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T22:35:00+01:00" (0.157717ms)
+✔ refuse non-UTC, normalized or imprecise start: "2026-11-08T21:35:00.000001Z" (0.109254ms)
+✔ refuse non-UTC, normalized or imprecise end: "2026-11-08T21:35:00.000001Z" (0.10659ms)
+✔ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T21:35:00.000001Z" (0.179589ms)
+✔ refuse non-UTC, normalized or imprecise start: "2026-11-08T24:00:00Z" (0.112439ms)
+✔ refuse non-UTC, normalized or imprecise end: "2026-11-08T24:00:00Z" (0.095934ms)
+✔ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T24:00:00Z" (0.151548ms)
+✔ refuse non-UTC, normalized or imprecise start: "2026-02-30T21:35:00Z" (0.108993ms)
+✔ refuse non-UTC, normalized or imprecise end: "2026-02-30T21:35:00Z" (0.1266ms)
+✔ refuse non-UTC, normalized or imprecise created_at: "2026-02-30T21:35:00Z" (0.235864ms)
+✔ refuse non-UTC, normalized or imprecise start: 2026 (0.123315ms)
+✔ refuse non-UTC, normalized or imprecise end: 2026 (0.116114ms)
+✔ refuse non-UTC, normalized or imprecise created_at: 2026 (0.152919ms)
+✔ refuse non-UTC, normalized or imprecise start: null (0.217195ms)
+✔ refuse non-UTC, normalized or imprecise end: null (0.220321ms)
+✔ refuse non-UTC, normalized or imprecise created_at: null (0.30009ms)
+✔ UTC timestamps accept explicit zero offsets, milliseconds and leap days (0.580521ms)
+✔ continuous observation compares equivalent UTC boundary representations (0.638718ms)
+✔ continuous observations deduplicate an unchanged run at the inclusive boundary (0.328142ms)
+✔ continuous empty observations preserve merger identity and do not establish a chain (0.960802ms)
+✔ continuous observations retain distinct chronological leads without inferring causality (0.445048ms)
+✔ continuous observation refuses gap (0.449624ms)
+✔ continuous observation refuses overlap (0.315964ms)
+✔ continuous observation refuses reversed windows (0.238798ms)
+✔ continuous observation refuses changed workflow (0.20711ms)
+✔ continuous observation refuses changed inventory scope (0.236285ms)
+✔ continuous observation refuses incomplete continuation (0.189174ms)
+✔ continuous observation refuses missing boundary run in continuation (0.267892ms)
+✔ continuous observation refuses missing boundary run in preceding window (0.271588ms)
+✔ continuous observation refuses conflicting boundary event (0.22657ms)
+✔ continuous observation refuses conflicting boundary workflow (0.32003ms)
+✔ continuous observation refuses conflicting boundary identity (0.239028ms)
+✔ continuous observation requires at least one complete inventory (0.226249ms)
+✔ merger observations validate empty, exact-boundary and multi-page inventories (1.423044ms)
+✔ refuse unsupported workflow path (0.137517ms)
+✔ refuse non-string workflow path (0.081562ms)
+✔ refuse producer path on merger rows (0.158268ms)
+✔ refuse producer workflow identity on merger rows (0.129034ms)
+✔ refuse producer inventory endpoint (0.121502ms)
+✔ refuse filtered merger inventory (0.103325ms)
+✔ refuse incomplete merger pagination (0.2729ms)
+✔ refuse duplicate merger run (0.128112ms)
+✔ refuse merger run outside bounds (0.157666ms)
+✔ repository inventories select exact merger paths without treating chronology as causality (0.225398ms)
+✔ retained round-9 inventory observes a merger dispatch without a producer or causal proof (1.701432ms)
+✔ workflow-specific inventory supports empty and paginated producer observations (0.504426ms)
+✔ refuse missing workflow identity (0.166449ms)
+✔ refuse invalid workflow identity (0.135073ms)
+✔ refuse changed page endpoint (0.435403ms)
+✔ refuse wrong row workflow identity (0.13992ms)
+✔ refuse missing row workflow identity (0.136094ms)
+✔ refuse wrong workflow path (0.142143ms)
+✔ refuse event-filtered producer inventory (0.19981ms)
+✔ refuse incomplete producer pagination (0.435163ms)
+✔ empty inventory and exact page boundary require terminal empty pages (1.296795ms)
+✔ bot actor and auto title do not authenticate a dispatch or a complete chain (0.16631ms)
+✔ scheduled producer is an automation lead, not a delivery-chain acceptance (0.162905ms)
+✔ refuse filtered endpoint (0.142864ms)
+✔ refuse wrong repository (0.119259ms)
+✔ refuse missing page (0.096174ms)
+✔ refuse changing total (0.296224ms)
+✔ refuse duplicate run (0.104336ms)
+✔ refuse outside bounds (0.092439ms)
+✔ refuse missing run (0.08651ms)
+✔ refuse search cap (0.133971ms)
+ℹ tests 78
+ℹ suites 0
+ℹ pass 75
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39.828192
+
+✖ failing tests:
+
+test at tests/scripts/test_issue_4369_origin_observation.js:71:1
+✖ collector retains complete unfiltered pages for repository and workflow inventories (3.298168ms)
+  TypeError: collect is not a function
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:76:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at tests/scripts/test_issue_4369_origin_observation.js:118:1
+✖ collector refuses capped and malformed totals after one request (0.815272ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:125:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:129:1
+✖ collector propagates request failures without returning a partial observation (0.472539ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  TypeError: collect is not a function
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:133:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: TypeError: collect is not a function
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:133:23
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:133:10)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: [Function (anonymous)],
+    operator: 'throws',
+    diff: 'simple'
+  }

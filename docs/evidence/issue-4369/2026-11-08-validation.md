@@ -2955,3 +2955,95 @@ but approval policy is never`. Neither remote mutation succeeded. The
 [blocker comment](runtime-4550/4558-round13-publication-blocker.md) retain the
 specific failure and proposed commit subject. The existing authorized writer
 must publish these local code/test changes. Overall acceptance remains incomplete.
+## Keepalive round 14: bounded native run collection — 2026-11-09
+
+Plan recorded before implementation at **2026-11-09T03:03:30Z**.
+Recent commits include round 13's strict UTC observer and retained native
+revision/hosted-suite/payload receipts. Fresh #4550/#4551/#4558/main reads
+confirm #4551 merged into selected revision
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`, current main
+`7a9d652445cee388cb5c39e15b8d2de53f0dda68`, and #4558 open/ready.
+Three ancestry commands exit 0, and the existing targeted receipt suite
+passes **124 tests**. Five completed task/acceptance checkboxes were reconciled,
+but the PR-body update was rejected: `MCP tool call requires approval, but
+approval policy is never`. Retain the exact reconciled body for the writer.
+
+The remaining delivery task lacks an authenticated producer and causal chain.
+A fresh unfiltered repository run inventory covers
+**2026-11-09T02:52:15Z–03:01:54Z**, with 86 rows and no exact-path Maint 68/71
+matches. The connector refuses workflow-specific inventory URLs; its supported
+repository-wide endpoint provides the fallback. No workflow was dispatched.
+
+Implement native bounded collection in the existing observer, with offline
+transport regressions for pagination, changing/truncated pages, invalid inputs,
+and transport errors. Collect only GET run inventories, using argv-based
+`gh api` without a shell, a 30-second per-request timeout, and at most ten
+requests. Replay existing retained receipts. Validation commands:
+`node tests/scripts/test_issue_4369_origin_observation.js`,
+`node --check docs/evidence/issue-4369/observe-maint68.js`,
+`node --check tests/scripts/test_issue_4369_origin_observation.js`,
+`python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py tests/scripts/test_issue_4369_downstream_evidence.py -m "not slow"`,
+the collector/replay CLIs, and `git diff --check`.
+Bound each validation command to 120 seconds. Stop at the first unresolved step
+after three failures or 60 minutes, whichever occurs first; deadline
+**2026-11-09T04:03:30Z**. No production, workflow, consumer, or Python file
+change is planned. Collection/replay alone never establishes chain acceptance.
+
+Implemented `collect()` and the `--collect QUERY.json` CLI in
+[`observe-maint68.js`](observe-maint68.js), with seven new regression tests.
+The collector validates UTC bounds and workflow identity before any request,
+retains the exact request URLs and response pages, requires complete pagination
+(including an empty terminal page for exact page multiples), rejects changed
+totals and malformed/truncated data, and returns no partial receipt on failure.
+Native requests use explicit GET argv, closed stdin, a 30-second timeout with
+SIGKILL, a 16 MiB response bound, and at most ten requests. No shell or dispatch
+operation is used. A scheduled run remains only an origin lead; causal delivery
+acceptance stays false.
+
+The [validation receipt](runtime-4550/4558-round14-validation.json) retains
+commands, bounds, timings, exits and complete stdout/stderr hashes.
+[Observer tests](runtime-4550/4558-round14-observer-tests-stdout.log):
+**80 passed**, zero skipped; [Python receipt tests](runtime-4550/4558-round14-receipt-tests-stdout.log):
+**124 passed** with `-m "not slow"`. Both syntax checks, all three ancestry
+commands, the retained source/consumer byte comparison, and `git diff --check`
+exit **0**. The [red log](runtime-4550/4558-round14-red.log) demonstrates the
+new collector cases fail before implementation. No Python file was edited.
+
+The live native [collector stderr](runtime-4550/4558-round14-native-collection-stderr.log)
+records `error connecting to api.github.com`, exit **2** and empty stdout.
+This is a transport limitation, not proof of a collected native inventory.
+The [connector-backed projected inventory](runtime-4550/4558-round14-origin-inventory.json)
+retains the successful fallback read, its exact URL, all 86 rows and the explicit
+field projection. Combined with rounds 10/11/13, the
+[producer replay](runtime-4550/4558-round14-producer-sequence-stdout.log) and
+[merger replay](runtime-4550/4558-round14-merger-sequence-stdout.log) exit **0**:
+**441 unique runs**, four complete adjacent inventories,
+**2026-11-09T01:49:57Z–03:01:54Z**, no exact-path Maint 68/71 runs.
+These reads cannot establish an automation-started delivery chain.
+The issue-comment observation boundary remains **02:45:58Z**.
+
+The [fresh readback](runtime-4550/4558-round14-readback.json) and passing native
+ancestry/receipt checks support five checkbox corrections in the
+[reconciled PR body](runtime-4550/4558-round14-pr-body-reconciled.md):
+revision selection, hosted full suites, byte comparison, and their two matching
+acceptance criteria. The remote PR body is unchanged because automatic approval
+review rejected that mutation. Current production acceptance revision remains
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`; this evidence-tool change repairs
+no production source symbol and does not claim full-suite execution of this
+PR head. No workflow was edited or dispatched. The upstream non-PASS verifier
+disposition remains unresolved.
+
+- [x] Implement and verify bounded, read-only run collection for the remaining
+  delivery observation task.
+- [ ] Authenticate and observe the qualifying automation-started delivery chain.
+- [ ] Clear the upstream non-PASS verification disposition.
+
+Publication is blocked. The explicit-path [Git attempt](runtime-4550/4558-round14-publication.json)
+exits **128**: `.git/index.lock` cannot be created on the read-only filesystem.
+No commit or push succeeded. Automatic approval review also rejected the PR-body
+correction, `needs-human` label and blocker comment because approval is required
+but the active approval policy is `never`
+([remote results](runtime-4550/4558-round14-remote-publication.json)).
+The [concrete handoff](runtime-4550/4558-round14-publication-blocker.md) and exact
+reconciled body are retained for the authorized writer. Overall acceptance
+remains incomplete; no new source/runtime failure was inferred from this blocker.

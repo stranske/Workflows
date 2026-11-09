@@ -1,0 +1,4 @@
+Observation refused: Command failed: gh api --method GET https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=1&created=2026-11-09T02:52:15Z..2026-11-09T03:01:54Z
+error connecting to api.github.com
+check your internet connection or https://githubstatus.com
+
