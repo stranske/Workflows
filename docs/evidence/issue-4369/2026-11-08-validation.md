@@ -3878,3 +3878,37 @@ changed. The preceding head's inline review comments and CI were re-read; no
 new finding required an acceptance repair. Post-push review belongs to the next
 scheduled pass, at least seven minutes after this push. New-head CI remains
 unverified until that pass observes it.
+
+
+### PR 4582 keepalive round 12 — 2026-11-09
+
+Outcome 1: **A1–A4 PASS**, observed at **2026-11-09T12:29:46.126292+00:00**.
+The [round-12 receipt](runtime-4550/4557r2/4582-round12-verification.json)
+records execution on parent head `95c28f66850c00173120e6535a12c0659ad33be6`.
+PAEM PR 2488 is MERGED at `e4ccdaf177e3271173ae534a710ebc23f29341e8`,
+matching `chain-receipt.json`. `/opt/anaconda3/bin/python3 -m json.tool`
+and all three `cmp` commands exit **0**, including the comparison against a
+fresh consumer download at that merge SHA. The producer event is `schedule`.
+
+Orchestrator PR 1288 is merged with no unsuccessful checks. Its retained merged
+archive passes `/opt/anaconda3/bin/python3 -m pytest -q
+tests/test_model_table.py::test_copy_matches_workflows_source`: **1 passed in
+0.41s**, exit **0**, without skip against live Workflows main. All **3,888**
+archive files match the hash-bound archive. The archive lacks Git metadata, so
+the test-input tracking hook remains **NOT CHECKED**; the named test ran.
+
+PR 4579's merge, chain receipt and Closer repair 2 section are on Workflows
+main. The fresh fully paginated issue-4369 observation contains **49** comments
+at the boundary above. T1, T2, T4 and T5 remain verified. T3 remains **UNKNOWN**:
+terminal Maint 71 run 42585644980 used `workflow_dispatch`, and the retained
+producer dispatch identifies an earlier run. **Blocking=1, drainable by Maint
+71=0**; read-only terminal dispatcher provenance investigation is the available
+drain. No dispatch occurred in this round.
+
+No acceptance command failed, so no code repair was warranted. Only this report
+and the round-12 receipt changed. The preceding head's inline comments and green
+CI were re-read; the provenance-map nit remains follow-up under the acceptance-only
+scope. No dependency pins, schedules or workflow settings changed. This final
+keepalive round does not establish T3 or authorize another dispatch. After the
+push, the next scheduled review must read PR 4582's comments and checks at least
+seven minutes later; new-head CI is not claimed by these acceptance results.

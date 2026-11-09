@@ -1,0 +1,76 @@
+{
+  "checked_parent_head": "95c28f66850c00173120e6535a12c0659ad33be6",
+  "consumer_pr": {
+    "mergeCommit": {
+      "oid": "e4ccdaf177e3271173ae534a710ebc23f29341e8"
+    },
+    "mergedAt": "2026-11-09T08:25:48Z",
+    "state": "MERGED"
+  },
+  "json_tool_exit_code": 0,
+  "producer": {
+    "conclusion": "success",
+    "databaseId": 42564882056,
+    "event": "schedule",
+    "headSha": "c7885e1a7d6add7bb866b2912794e7ba7466adf5"
+  },
+  "maint71": {
+    "conclusion": "success",
+    "databaseId": 42585644980,
+    "event": "workflow_dispatch",
+    "headSha": "75712a5bdf7c0f5791ec1b633f75b18bd3568562",
+    "dispatcher": "UNKNOWN"
+  },
+  "fresh_consumer": {
+    "ref": "e4ccdaf177e3271173ae534a710ebc23f29341e8",
+    "blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2"
+  },
+  "cmp": [
+    {
+      "target": "docs/evidence/issue-4369/runtime-4550/4557r2/candidate-795155aa-subscription_llm.py.txt",
+      "exit_code": 0
+    },
+    {
+      "target": "docs/evidence/issue-4369/runtime-4550/4557r2/consumer-e4ccdaf1-subscription_llm.py.txt",
+      "exit_code": 0
+    },
+    {
+      "target": "/tmp/4582-round12-consumer.py",
+      "exit_code": 0
+    }
+  ],
+  "orchestrator": {
+    "state": "MERGED",
+    "revision": "7568b39de2537655d84dbe119a30bd7e2c02774a",
+    "unsuccessful_checks": [],
+    "command": "/opt/anaconda3/bin/python3 -m pytest -q tests/test_model_table.py::test_copy_matches_workflows_source",
+    "exit_code": 0,
+    "result": ".                                                                        [100%]\ntracked test inputs: NOT CHECKED -- /private/tmp/issue-4581-orchestrator is not a git checkout. In the exec mirror that loses nothing: its tests/ IS `git archive HEAD tests`, so every file in it was tracked\n1 passed in 0.41s",
+    "archive_sha256": "673d85f750046a4866c90bc7c90d255c006bc2a6137a1e8ccda9243c1f2ba5d9",
+    "archive_files_verified_unchanged": 3888,
+    "limitation": "Archive lacks Git metadata; test-input tracking hook NOT CHECKED. Named test passed without skip."
+  },
+  "source_pr_4579": {
+    "mergeCommit": {
+      "oid": "75712a5bdf7c0f5791ec1b633f75b18bd3568562"
+    },
+    "mergedAt": "2026-11-09T08:04:51Z",
+    "state": "MERGED"
+  },
+  "source_receipts_and_section_on_main": true,
+  "issue_4369_comments": {
+    "complete_pagination": true,
+    "count": 49,
+    "latest_created_at": "2026-11-08T07:54:50Z",
+    "latest_updated_at": "2026-11-08T07:54:50Z"
+  },
+  "observed_at_utc": "2026-11-09T12:29:46.126292+00:00",
+  "blocking": 1,
+  "drainable_by_maint71": 0,
+  "actions": "Read-only GitHub checks and named acceptance commands; no workflow dispatch or merge.",
+  "scope_limit": "T3 schedule-started terminal run not fully established; producer dispatch identifies an earlier run.",
+  "follow_up": [
+    "Add chain-receipt.json to the provenance map (existing review request).",
+    "Establish terminal Maint 71 dispatcher without redispatch."
+  ]
+}
