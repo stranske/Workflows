@@ -31,21 +31,21 @@ Issues = "https://github.com/stranske/Workflows/issues"
 [project.optional-dependencies]
 app = []
 dev = [
-    "pre-commit==4.6.1",
+    "pre-commit==4.7.0",
     "black==26.10.1",
     "ruff==0.17.4",
     "isort==9.0.2",
     "docformatter==1.7.8",
     "mypy==2.4.1",
-    "flake8==7.3.0",
+    "flake8==7.5.0",
     "pytest==9.2.0",
     "anyio>=4.15.1",  # pytest 9.2 plugin startup with warnings treated as errors.
     "pytest-cov==7.1.0",
     "coverage==7.17.2",
     "pytest-xdist==3.8.0",
     "httpx==0.28.1",  # Native SDK MockTransport regression tests.
-    "openai==2.48.0",  # Direct native SDK imports in inert Verify transport tests.
-    "anthropic==0.120.0",
+    "openai==2.54.0",  # Direct native SDK imports in inert Verify transport tests.
+    "anthropic==0.125.0",
     "packaging>=26.1",
 
     # Required by repo dependency checks / CI fallback checks
@@ -68,11 +68,11 @@ dev = [
 # Install with: pip install -e ".[langchain]"
 # Versions auto-updated by scripts/update_langchain_versions.py
 langchain = [
-    "langchain>=1.3.4,<1.4",
-    "langchain-core>=1.5.1,<1.6",
+    "langchain>=1.4.9,<1.5",
+    "langchain-core>=1.7.6,<1.8",
     "langchain-community>=0.4.2,<0.5",
-    "langchain-openai>=1.4.1,<1.5",
-    "langchain-anthropic>=1.5.2,<1.6",
+    "langchain-openai>=1.7.4,<1.8",
+    "langchain-anthropic>=1.7.10,<1.8",
     "faiss-cpu>=1.14.2,<2.0",  # Vector store for dedup workflow
 ]
 
