@@ -153,3 +153,42 @@ show that sync-core kept observing this PR:
 - `isResolved` on the original thread is still `false`. It is recorded as
   superseded (outdated, with the fix delivered and the PR merged), not
   resolved.
+
+## Round 2 verification — 2026-11-09
+
+**Outcome 1: PASS.** Live readback reconfirms generation of the fixed file and
+an empty finding report for the exact consumer head
+`08c150469cfa35afc9461ba668b8493fdc7a0405`. The operational check is the
+existing completed delivery, rather than another regeneration or a consumer
+branch edit. The commands in §§1–4 retrieve the acceptance evidence; each
+individual read completed in under two minutes. Stop rule for this round:
+two repair attempts or 30 minutes, whichever comes first.
+
+| Task / criterion | Rechecked evidence |
+| --- | --- |
+| T1 / A1 | `gh run list --repo stranske/Workflows --workflow maint-68-sync-consumer-repos.yml` and `gh run view 42433992005 --repo stranske/Workflows --log`; the run is completed/success, its source contains the merged fix, and its Travel-Plan-Permission job records the file update and verified commit in §1. Fetching the consumer file at that exact commit confirms the effective-slot-config lookup on line 8778. |
+| T2 | The named REST comment endpoint still returns the allowlist finding; GraphQL identifies thread `PRRT_kwDOPrFQ5c6yXhhx` as outdated and unresolved. Its explicit disposition remains **superseded by the generated fix at `08c150469cfa35afc9461ba668b8493fdc7a0405`**, as recorded in §3. This is an evidence-backed disposition, not a claim of reviewer approval or API resolution. |
+| T3 / A2 / A3 | `gh run view 42447027509 --repo stranske/Workflows --log` binds `findings: []`, `raw_active_count: 0`, and `active_review_thread_count: 0` to that same head. Paginated #4370 comments contain no later handoff bump for this finding; §4 explains why comment silence alone is insufficient. The exact-head maint-71 report supplies the positive observation. |
+
+### Reported CI failures
+
+Live readback of [CI Autofix Loop run 42613446920](https://github.com/stranske/Workflows/actions/runs/42613446920)
+shows `completed/cancelled`, attempt 1, for PR head
+`affbfcc84788b5e6ecb4cc43f929097b806a8d4e`:
+
+- Resolve Context, job `129147387534`: `cancelled`, `steps: []`.
+- Record autofix dispatch completion, job `129147401810`: `cancelled`,
+  `steps: []`.
+- The intervening autofix job was skipped.
+
+Readback command:
+
+```console
+gh run view 42613446920 --repo stranske/Workflows --json conclusion,status,jobs,event,headSha,url
+```
+
+`gh run view 42613446920 --repo stranske/Workflows --log` returns
+`log not found: 129147387534`. No step failure or code diagnostic is available.
+The reason for cancellation is unknown; cancellation does not establish a
+workflow defect or successful autofix execution. No workflow repair was made.
+This update changes only the evidence record; no executable tests apply.
