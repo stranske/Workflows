@@ -47,7 +47,8 @@ def test_maint68_resolve_job_never_runs_for_failures_dry_runs_or_previews():
     cond = job["if"]
     for token in (
         "needs.prepare.result == 'success'",
-        "needs.sync.result != 'failure'",
+        "needs.sync.result == 'success'",
+        "needs.prepare.outputs.has_plan_items != 'true'",
         "needs.validate.result != 'failure'",
         "inputs.dry_run != true",
         "!= 'preview'",
@@ -65,3 +66,14 @@ def test_maint68_refused_dispatch_input_reports_refusal_instead_of_alerting():
     # the refusal path must not call gh issue create/comment
     run_text = " ".join(s.get("run", "") for s in jobs["report-refusal"]["steps"])
     assert "gh issue" not in run_text
+
+
+def test_maint68_refresh_guard_skip_is_not_recovery_and_refusals_are_allowlisted():
+    text = (WORKFLOWS / "maint-68-sync-consumer-repos.yml").read_text(encoding="utf-8")
+    cond = _load("maint-68-sync-consumer-repos.yml")["jobs"]["resolve-alert"]["if"]
+    # a skipped sync only counts when there was no plan to deliver
+    assert "needs.sync.result != 'failure'" not in cond
+    assert "has_plan_items != 'true'" in cond
+    # config/plan selector errors are not classified as refused dispatch input
+    assert "unsupported_canary_config_schema" not in text.split("input_refusal=")[0][-900:]
+    assert "canary_selection_contains_non_canary:*" in text

@@ -457,9 +457,15 @@ jobs:
             cat selector.err >&2
             refusal=$(grep -m1 'select_consumer_sync_phase.py: error:' selector.err \
               | sed 's/^.*select_consumer_sync_phase.py: error: //' | cut -c1-300 || true)
-            if [ -n "$refusal" ]; then
-              echo "input_refusal=$refusal" >> "$GITHUB_OUTPUT"
-            fi
+            # Only request-validation codes on a dispatch are refusals. Config or
+            # plan failures (bad canary config, bad plan) stay real alerts.
+            case "$refusal" in
+              canary_selection_contains_non_canary:*|selected_repos_must_be_registered*|invalid_canary_evidence_json*|unsupported_sync_phase*|promotion_rejected:*)
+                if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+                  echo "input_refusal=$refusal" >> "$GITHUB_OUTPUT"
+                fi
+                ;;
+            esac
             exit 2
           fi
           echo "matrix=$(jq -c '.matrix' sync-phase-selection.json)" >> "$GITHUB_OUTPUT"
@@ -2404,18 +2410,21 @@ jobs:
     name: Close resolved failure alert
     needs: [prepare, validate, sync]
     runs-on: ubuntu-latest
-    # prepare must have succeeded; validate/sync may be skipped (nothing to
-    # sync) but none may have failed or been cancelled. Dry runs and previews
-    # prove nothing about delivery and never close the alert.
+    # Recovery means delivery succeeded, or there was nothing to deliver. A sync
+    # skipped by the refresh guard (refresh_allowed == 'false') is NOT recovery:
+    # it did not retry the failed operation. Dry runs and previews prove
+    # nothing about delivery and never close the alert.
     if: >-
       ${{ !cancelled() && needs.prepare.result == 'success'
       && needs.validate.result != 'failure' && needs.validate.result != 'cancelled'
-      && needs.sync.result != 'failure' && needs.sync.result != 'cancelled'
+      && (needs.sync.result == 'success'
+          || (needs.sync.result == 'skipped' && needs.prepare.outputs.has_plan_items != 'true'))
       && inputs.dry_run != true && (inputs.phase || 'canary') != 'preview' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           sparse-checkout: |
             .github/scripts
           sparse-checkout-cone-mode: false

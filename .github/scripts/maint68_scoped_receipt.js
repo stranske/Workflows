@@ -75,7 +75,7 @@ const SOURCE_WORKFLOWS = new Set([
   'd6dfc503a0c90c7b40fdfc7e7ead7b0f3776a31a495c7967f723332665d91928',
   // Adds the failure-alert resolve-alert and report-refusal jobs, which write only issue
   // comments/state and never consume the source or touch a consumer; prepare only records a selector refusal as an output.
-  'b84feef23daccbb07f178023cbc26075bfce703d21110477cf6b2067fe27a371',
+  'e6f00c2e6835ebcf449a48bed2e84f24f04179914fa9199fd92168d1fbd00990',
 ]);
 
 async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch = 'main', candidates }) {
