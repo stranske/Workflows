@@ -16,7 +16,7 @@ import re
 import subprocess
 import zipfile
 
-from . import core
+from scripts.runner_lib import core
 
 
 class GhApi:

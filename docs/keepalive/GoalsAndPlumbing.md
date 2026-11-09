@@ -83,7 +83,7 @@ successful head-movement measurement. It records the actual workflow attempt;
 the keepalive finish job cannot substitute for this independent autofix result.
 
 For a historical successful autofix on an already merged PR, run
-`python -m scripts.runner_lib.reconcile_completion --repo OWNER/REPO --run-id ID --report`.
+`python -m scripts.reconcile_runner_completion --repo OWNER/REPO --run-id ID --report`.
 The read-only report validates the native workflow/attempt, terminal worker,
 digest-bound metrics archive and original reservation. `--apply` appends an
 immutable receipt with the original worker completion time and a separately

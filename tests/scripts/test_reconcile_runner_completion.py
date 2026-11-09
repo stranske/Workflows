@@ -7,8 +7,8 @@ import json
 import zipfile
 
 import pytest
+from scripts.reconcile_runner_completion import reconcile
 from scripts.runner_lib import core
-from scripts.runner_lib.reconcile_completion import reconcile
 
 RUN = 42575919772
 HEAD = "f27f30c19b225fcc0c248ef57a31e5df2bc4730c"
