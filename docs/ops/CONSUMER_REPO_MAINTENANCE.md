@@ -3934,3 +3934,7 @@ error, never an empty or ready result. Permission errors and secondary limits do
 not invoke this fallback. Subsequent delivery operations retain their existing
 required checks, source/plan bindings and merge guards; inventory fallback alone
 does not authorize a merge or claim that REST-only operations are available.
+
+## Reusing completed Gate job measurements
+
+Health 85 refreshes the completed-run inventory daily, then reuses fully observed job snapshots for the exact repository, run ID, attempt, head SHA and update revision. Changed attempts/updates, incomplete jobs and invalid cache records require a fresh read. Failed reads never become successful measurements. The Actions cache retains completed snapshots even when another repository's measurement fails, reducing repeated job-list reads across daily runs. The ten-minute target and seven consecutive genuine daily measurements are unchanged.
