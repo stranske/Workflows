@@ -1,12 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Workflows Renovate config — extends the stranske fleet-shared preset (renovate-presets/fleet.json), the single source of truth for grouping, automerge-on-green, dev-tool exclusions, the vendored-minimatch cascade, and the pip-compile manager that regenerates requirements.lock (a `uv pip compile` output) in-PR. The pip-compile manager (provided by the preset since #2406) also enables lockFileMaintenance by default (branchTopic `pip-compile-refresh`), recompiling the lock from scratch on a schedule — this OWNS the periodic refresh and replaced the retired maint-51-dependency-refresh.yml, so do NOT reintroduce a scheduled `uv pip compile --upgrade` workflow. (`--upgrade` is a one-time action flag uv omits from the lock header, and Renovate's pip-compile parser would throw `Option --upgrade not supported (yet)` if it ever appeared there; Renovate scopes its own per-dep bumps with `--upgrade-package`.) Workflows dogfoods the same preset every consumer repo extends; the ONLY Workflows-specific override is below — requirements.txt is a pip-compile SOURCE for requirements.lock here (unlike consumers, whose locks source pyproject.toml only), so pip_requirements is disabled for it to avoid double-managing a lock source (Renovate docs); tools/requirements-llm.txt stays on pip_requirements (standalone LLM pins, not a lock source). This override is intentionally NOT in the fleet preset.",
+  "description": "Workflows Renovate config \u2014 extends the stranske fleet-shared preset (renovate-presets/fleet.json), the single source of truth for grouping, automerge-on-green, dev-tool exclusions, the vendored-minimatch cascade, and the pip-compile manager that regenerates requirements.lock (a `uv pip compile` output) in-PR. The pip-compile manager (provided by the preset since #2406) also enables lockFileMaintenance by default (branchTopic `pip-compile-refresh`), recompiling the lock from scratch on a schedule \u2014 this OWNS the periodic refresh and replaced the retired maint-51-dependency-refresh.yml, so do NOT reintroduce a scheduled `uv pip compile --upgrade` workflow. (`--upgrade` is a one-time action flag uv omits from the lock header, and Renovate's pip-compile parser would throw `Option --upgrade not supported (yet)` if it ever appeared there; Renovate scopes its own per-dep bumps with `--upgrade-package`.) Workflows dogfoods the same preset every consumer repo extends; the ONLY Workflows-specific override is below \u2014 requirements.txt is a pip-compile SOURCE for requirements.lock here (unlike consumers, whose locks source pyproject.toml only), so pip_requirements is disabled for it to avoid double-managing a lock source (Renovate docs); tools/requirements-llm.txt stays on pip_requirements (standalone LLM pins, not a lock source). This override is intentionally NOT in the fleet preset.",
   "extends": [
     "github>stranske/Workflows//renovate-presets/fleet"
   ],
   "packageRules": [
     {
-      "description": "requirements.txt is a pip-compile source for requirements.lock; let the pip-compile manager own it to avoid duplicate PRs. Workflows-specific — consumer locks source pyproject.toml only, so this disable is NOT in the fleet preset.",
+      "description": "requirements.txt is a pip-compile source for requirements.lock; let the pip-compile manager own it to avoid duplicate PRs. Workflows-specific \u2014 consumer locks source pyproject.toml only, so this disable is NOT in the fleet preset.",
       "matchManagers": [
         "pip_requirements"
       ],
@@ -24,9 +24,34 @@
         "python"
       ],
       "allowedVersions": "<3.15"
+    },
+    {
+      "description": "Hosted Gemini CLI gets its own PR so a CLI regression is attributable to one bump. Every release is a 0.x bump; dependencyDashboardApproval false makes sure even a release Renovate grades as major opens a PR instead of waiting on the dashboard (a parked bump would stop the weekly update with nothing reporting it). Minor/patch automerge on green via the fleet rule; the preset's 3-day minimumReleaseAge applies.",
+      "matchPackageNames": [
+        "@google/gemini-cli"
+      ],
+      "groupName": "gemini-cli",
+      "dependencyDashboardApproval": false
     }
   ],
   "ignorePaths": [
     "config/verify_paired/**"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Hosted Gemini CLI pin: reusable-gemini-run.yml writes the version twice (the gemini_cli_version input default and the GEMINI_CLI_VERSION env fallback); both match, so one PR moves both. Owner 2026-11-09: keep the CLI current as releases arrive.",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/reusable-gemini-run\\.yml$/"
+      ],
+      "matchStrings": [
+        "gemini_cli_version:\\s*\\n(?:\\s+[a-z_]+:.*\\n)*?\\s+default: '(?<currentValue>\\d+\\.\\d+\\.\\d+)'",
+        "inputs\\.gemini_cli_version \\|\\| '(?<currentValue>\\d+\\.\\d+\\.\\d+)'"
+      ],
+      "matchStringsStrategy": "any",
+      "datasourceTemplate": "npm",
+      "depNameTemplate": "@google/gemini-cli",
+      "versioningTemplate": "npm"
+    }
   ]
 }

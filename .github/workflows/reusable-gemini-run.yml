@@ -65,7 +65,7 @@ on:
       gemini_cli_version:
         description: 'Pinned npm CLI version (empty uses the default release).'
         required: false
-        default: '0.64.0'
+        default: '0.67.0'
         type: string
       gemini_cli_args:
         description: 'Optional additional gemini CLI arguments (string).'
@@ -254,7 +254,7 @@ jobs:
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
     env:
-      GEMINI_CLI_VERSION: ${{ inputs.gemini_cli_version || '0.64.0' }}
+      GEMINI_CLI_VERSION: ${{ inputs.gemini_cli_version || '0.67.0' }}
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -907,6 +907,9 @@ jobs:
           MODEL: ${{ steps.model_table.outputs.model }}
           MODEL_EFFORT: ${{ steps.model_table.outputs.reasoning_effort }}
           MODEL_FALLBACK: ${{ steps.model_table.outputs.fallback_model }}
+          # Headless gemini-cli refuses an untrusted folder (exit 55) before any model call; every hosted run
+          # 2026-11-01..07 stopped there. The runner checks out the PR into a throwaway workspace on purpose.
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
         run: |
           set -euo pipefail
 

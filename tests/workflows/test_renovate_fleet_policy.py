@@ -104,3 +104,21 @@ def test_workflows_dependency_updates_preserve_reviewed_runtime_and_packets() ->
     assert "config/verify_paired/**" in config["ignorePaths"]
     runtime = _rule(config, matchManagers=["github-actions"], matchPackageNames=["python"])
     assert runtime["allowedVersions"] == "<3.15"
+
+
+def test_hosted_gemini_cli_pin_is_renovate_managed_in_both_places() -> None:
+    """Both copies of the Gemini CLI pin match the custom manager and agree, so one bump moves both."""
+    import re
+
+    config = json.loads((REPO_ROOT / "renovate.json").read_text(encoding="utf-8"))
+    (manager,) = [m for m in config["customManagers"] if m["depNameTemplate"] == "@google/gemini-cli"]
+    assert manager["datasourceTemplate"] == "npm"
+    workflow = (REPO_ROOT / ".github/workflows/reusable-gemini-run.yml").read_text(encoding="utf-8")
+    found = []
+    for pattern in manager["matchStrings"]:
+        hits = [m.group("currentValue") for m in re.finditer(pattern.replace("(?<", "(?P<"), workflow)]
+        assert len(hits) == 1, (pattern, hits)
+        found += hits
+    assert len(found) == 2 and found[0] == found[1], found
+    (rule,) = [r for r in config["packageRules"] if r.get("matchPackageNames") == ["@google/gemini-cli"]]
+    assert rule["dependencyDashboardApproval"] is False

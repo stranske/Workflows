@@ -67,17 +67,17 @@
       },
       "surface_models": {
         "hosted": {
-          "cheap": "gemini-3.5-flash",
-          "mid": "gemini-3.5-flash",
-          "full": "gemini-2.5-pro",
-          "frontier": "gemini-2.5-pro"
+          "cheap": "gemini-3.8-flash",
+          "mid": "gemini-3.8-flash",
+          "full": "gemini-4-argon",
+          "frontier": "gemini-4-argon"
         }
       },
       "surface_model_evidence": {
-        "hosted": "gemini-cli 0.64.0 standard flash/pro ids (packages/core/src/config/models.ts at v0.64.0, the models its `auto` alias routes between); Argon is served only through local agy. Not yet seen in a live hosted run: all 37 hosted runs 2026-11-01..08 stopped at the CLI workspace-trust refusal (exit 55) before any model call."
+        "hosted": "Gemini API ids for the models the fleet runs and evaluates (Gemini 3.8 Flash, Gemini 4 Argon), the same ids config/verifier_shadow.json calls on GEMINI_API_KEY. The API id carries no effort rung; local agy ids do. Corrected 2026-11-09: the first hosted ids (gemini-3.5-flash, gemini-2.5-pro) were copied from the gemini-cli built-in model list, which lags the fleet."
       },
       "fallback": "gemini-3.8-flash-high",
-      "surface_fallbacks": {"hosted": "gemini-3.5-flash"},
+      "surface_fallbacks": {"hosted": "gemini-3.8-flash"},
       "effort": {"flag": "", "levels": [], "note": "local agy ids carry the effort rung in the model id; hosted gemini-cli has no effort flag"}
     },
     "cursor": {
