@@ -1775,5 +1775,1173 @@
       ]
     },
     "pairwise": true
+  },
+  {
+    "function": "test_availability_first_final_retains_parent_condition",
+    "original_count": 432,
+    "dimensions": {
+      "component": [
+        false,
+        true
+      ],
+      "condition": [
+        "if available",
+        "only when produced"
+      ],
+      "reverse": [
+        false,
+        true
+      ],
+      "coordination": [
+        "and",
+        "or"
+      ],
+      "destination,other": [
+        [
+          "the PR body",
+          "a PR comment"
+        ],
+        [
+          "the PR description",
+          "a PR comment"
+        ],
+        [
+          "a PR comment",
+          "the PR body"
+        ]
+      ],
+      "voice": [
+        "active",
+        "agent-before",
+        "agent-after"
+      ],
+      "operation,participle": [
+        [
+          "record",
+          "recorded"
+        ],
+        [
+          "supply",
+          "supplied"
+        ],
+        [
+          "leave",
+          "left"
+        ]
+      ]
+    },
+    "semantic": [
+      "component",
+      "condition",
+      "reverse",
+      "coordination",
+      "destination,other",
+      "voice"
+    ],
+    "lexical_spines": {
+      "operation,participle": [
+        "voice",
+        "component",
+        "destination,other"
+      ]
+    },
+    "retained_count": 180,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_relative_qualifier_preserves_parent_and_local_condition_scope",
+    "original_count": 648,
+    "dimensions": {
+      "local_condition": [
+        false,
+        true
+      ],
+      "component": [
+        false,
+        true
+      ],
+      "condition": [
+        "if available",
+        "only if available",
+        "when produced"
+      ],
+      "coordination": [
+        "and",
+        "or"
+      ],
+      "destination,channel,other": [
+        [
+          "the PR body",
+          "body",
+          "a PR comment"
+        ],
+        [
+          "the PR description",
+          "body",
+          "a PR comment"
+        ],
+        [
+          "a PR comment",
+          "comments",
+          "the PR body"
+        ]
+      ],
+      "voice": [
+        "active",
+        "agent-before",
+        "agent-after"
+      ],
+      "operation,participle": [
+        [
+          "record",
+          "recorded"
+        ],
+        [
+          "supply",
+          "supplied"
+        ],
+        [
+          "leave",
+          "left"
+        ]
+      ]
+    },
+    "semantic": [
+      "local_condition",
+      "component",
+      "condition",
+      "coordination",
+      "destination,channel,other",
+      "voice"
+    ],
+    "lexical_spines": {
+      "operation,participle": [
+        "voice",
+        "component",
+        "local_condition"
+      ]
+    },
+    "retained_count": 240,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_component_availability_comma_retains_actual_floor",
+    "original_count": 324,
+    "dimensions": {
+      "governor": [
+        "must",
+        "may",
+        "must not"
+      ],
+      "coordination": [
+        "and",
+        "or"
+      ],
+      "reverse": [
+        false,
+        true
+      ],
+      "destination,channel,other,other_channel": [
+        [
+          "the PR body",
+          "body",
+          "a PR comment",
+          "comments"
+        ],
+        [
+          "the PR description",
+          "body",
+          "a PR comment",
+          "comments"
+        ],
+        [
+          "a PR comment",
+          "comments",
+          "the PR body",
+          "body"
+        ]
+      ],
+      "voice": [
+        "active",
+        "agent-before",
+        "agent-after"
+      ],
+      "operation": [
+        "record",
+        "supply",
+        "leave"
+      ]
+    },
+    "semantic": [
+      "governor",
+      "coordination",
+      "reverse",
+      "destination,channel,other,other_channel",
+      "voice"
+    ],
+    "lexical_spines": {
+      "operation": [
+        "voice",
+        "governor"
+      ]
+    },
+    "retained_count": 126,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_content_object_polarity_across_passive_agents",
+    "original_count": 576,
+    "dimensions": {
+      "voice": [
+        "active",
+        "passive-before",
+        "passive-after"
+      ],
+      "component": [
+        "",
+        " results panel"
+      ],
+      "actor": [
+        "UI",
+        "reviewer"
+      ],
+      "governor": [
+        "must",
+        "may",
+        "must not",
+        "is not expected to"
+      ],
+      "destination,channel": [
+        [
+          "the PR body",
+          "body"
+        ],
+        [
+          "the PR description",
+          "body"
+        ],
+        [
+          "a PR comment",
+          "comments"
+        ]
+      ],
+      "modifier": [
+        "optional archived",
+        "no longer required",
+        "not expected",
+        "not supposed"
+      ]
+    },
+    "semantic": [
+      "voice",
+      "component",
+      "actor",
+      "governor",
+      "destination,channel"
+    ],
+    "lexical_spines": {
+      "modifier": [
+        "voice",
+        "actor",
+        "governor"
+      ]
+    },
+    "retained_count": 216,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_compound_review_roles_retain_active_past_delivery",
+    "original_count": 576,
+    "dimensions": {
+      "destination,channel": [
+        [
+          "the PR body",
+          "body"
+        ],
+        [
+          "a PR comment",
+          "comments"
+        ],
+        [
+          "workflow artifacts",
+          "artifacts"
+        ]
+      ],
+      "marker": [
+        "",
+        "- [ ] "
+      ],
+      "adverb": [
+        "",
+        "already ",
+        "currently "
+      ],
+      "operation": [
+        "placed",
+        "submitted",
+        "delivered",
+        "supplied"
+      ],
+      "role": [
+        "release reviewer",
+        "security reviewer",
+        "compliance maintainer",
+        "risk auditor",
+        "security release reviewer",
+        "CI release reviewer",
+        "project team",
+        "independent security auditor"
+      ]
+    },
+    "semantic": [
+      "destination,channel",
+      "marker"
+    ],
+    "lexical_spines": {
+      "role": [
+        "destination,channel",
+        "marker"
+      ],
+      "operation": [
+        "destination,channel",
+        "marker"
+      ],
+      "adverb": [
+        "destination,channel",
+        "marker"
+      ]
+    },
+    "retained_count": 119,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35",
+    "pairwise": true
+  },
+  {
+    "function": "test_product_delivery_operations_share_storage_recipient_and_voice_guards",
+    "original_count": 648,
+    "dimensions": {
+      "independent_comment": [
+        false,
+        true
+      ],
+      "governor": [
+        "must",
+        "may",
+        "must not"
+      ],
+      "destination": [
+        "in the database",
+        "to authorized clients of the UI"
+      ],
+      "actor": [
+        "UI",
+        "service"
+      ],
+      "voice": [
+        "active",
+        "agent-before",
+        "agent-after"
+      ],
+      "operation,participle": [
+        [
+          "record",
+          "recorded"
+        ],
+        [
+          "capture",
+          "captured"
+        ],
+        [
+          "generate",
+          "generated"
+        ],
+        [
+          "leave",
+          "left"
+        ],
+        [
+          "prove",
+          "proved"
+        ],
+        [
+          "upload",
+          "uploaded"
+        ],
+        [
+          "publish",
+          "published"
+        ],
+        [
+          "share",
+          "shared"
+        ],
+        [
+          "supply",
+          "supplied"
+        ]
+      ]
+    },
+    "semantic": [
+      "independent_comment",
+      "governor",
+      "destination",
+      "actor",
+      "voice"
+    ],
+    "lexical_spines": {
+      "operation,participle": [
+        "voice",
+        "governor",
+        "destination"
+      ]
+    },
+    "retained_count": 216,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_relative_presence_preserves_parent_mandatory_alternatives",
+    "original_count": 720,
+    "dimensions": {
+      "condition": [
+        "",
+        " if available",
+        ", when present",
+        " only if available",
+        " solely when present"
+      ],
+      "independent": [
+        false,
+        true
+      ],
+      "first": [
+        false,
+        true
+      ],
+      "predicate": [
+        "must contain",
+        "may contain",
+        "must not contain"
+      ],
+      "coordination": [
+        "and",
+        "or"
+      ],
+      "destination,channel,other,other_channel": [
+        [
+          "the PR body",
+          "body",
+          "a PR comment",
+          "comments"
+        ],
+        [
+          "the PR description",
+          "body",
+          "a PR comment",
+          "comments"
+        ],
+        [
+          "a PR comment",
+          "comments",
+          "the PR body",
+          "body"
+        ]
+      ],
+      "relative": [
+        "that",
+        "which"
+      ]
+    },
+    "semantic": [
+      "condition",
+      "independent",
+      "first",
+      "predicate",
+      "coordination",
+      "destination,channel,other,other_channel"
+    ],
+    "lexical_spines": {
+      "relative": [
+        "predicate",
+        "condition",
+        "first"
+      ]
+    },
+    "retained_count": 390,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_optional_predicate_cannot_suppress_named_actor_delivery",
+    "original_count": 360,
+    "dimensions": {
+      "destinations": [
+        [
+          "the PR body",
+          "a PR comment"
+        ],
+        [
+          "the PR body",
+          "workflow artifacts"
+        ],
+        [
+          "a PR comment",
+          "the PR body"
+        ],
+        [
+          "a PR comment",
+          "workflow artifacts"
+        ],
+        [
+          "workflow artifacts",
+          "the PR body"
+        ],
+        [
+          "workflow artifacts",
+          "a PR comment"
+        ]
+      ],
+      "governor,operation": [
+        [
+          "must",
+          "place"
+        ],
+        [
+          "will",
+          "place"
+        ],
+        [
+          "must have",
+          "placed"
+        ],
+        [
+          "has",
+          "placed"
+        ],
+        [
+          "is",
+          "placing"
+        ],
+        [
+          "needs to",
+          "place"
+        ]
+      ],
+      "modal": [
+        "may",
+        "can",
+        "could",
+        "would",
+        "should"
+      ],
+      "role": [
+        "maintainer",
+        "release reviewer"
+      ]
+    },
+    "semantic": [
+      "destinations",
+      "governor,operation",
+      "modal"
+    ],
+    "lexical_spines": {
+      "role": [
+        "governor,operation",
+        "modal"
+      ]
+    },
+    "retained_count": 210,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_component_alternatives_preserve_optional_negative_floor",
+    "original_count": 512,
+    "dimensions": {
+      "governor": [
+        "may",
+        "can",
+        "could",
+        "would",
+        "should",
+        "must not",
+        "is not expected to",
+        "is no longer required to"
+      ],
+      "independent": [
+        false,
+        true
+      ],
+      "either": [
+        "",
+        "either "
+      ],
+      "operator": [
+        "and",
+        "or"
+      ],
+      "destination": [
+        "PR body",
+        "PR description"
+      ],
+      "component": [
+        "editor",
+        "field",
+        "textarea",
+        "preview"
+      ]
+    },
+    "semantic": [
+      "governor",
+      "independent",
+      "either",
+      "operator"
+    ],
+    "lexical_spines": {
+      "component": [
+        "governor",
+        "operator"
+      ],
+      "destination": [
+        "governor",
+        "either"
+      ]
+    },
+    "retained_count": 128,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_repeated_product_operations_keep_component_ownership",
+    "original_count": 432,
+    "dimensions": {
+      "governor": [
+        "must",
+        "may",
+        "must not"
+      ],
+      "reverse": [
+        false,
+        true
+      ],
+      "boundary": [
+        "and",
+        "or"
+      ],
+      "component": [
+        "panel",
+        "preview panel",
+        "formatted preview panel"
+      ],
+      "operation": [
+        "generate",
+        "record",
+        "supply",
+        "leave"
+      ],
+      "actor": [
+        "UI",
+        "service",
+        "interface"
+      ]
+    },
+    "semantic": [
+      "governor",
+      "reverse",
+      "boundary",
+      "component"
+    ],
+    "lexical_spines": {
+      "operation": [
+        "governor",
+        "boundary",
+        "component"
+      ],
+      "actor": [
+        "governor",
+        "component"
+      ]
+    },
+    "retained_count": 108,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_component_options_and_actual_floor_are_order_symmetric",
+    "original_count": 384,
+    "dimensions": {
+      "independent": [
+        false,
+        true
+      ],
+      "condition": [
+        "",
+        " if available",
+        ", if available"
+      ],
+      "coordination": [
+        "and",
+        "or"
+      ],
+      "body_first": [
+        false,
+        true
+      ],
+      "destination": [
+        "PR body",
+        "PR description"
+      ],
+      "actor,operation": [
+        [
+          "UI",
+          "display"
+        ],
+        [
+          "reviewer",
+          "post"
+        ]
+      ],
+      "component": [
+        "field",
+        "panel",
+        "settings panel",
+        "results section"
+      ]
+    },
+    "semantic": [
+      "independent",
+      "condition",
+      "coordination",
+      "body_first",
+      "actor,operation"
+    ],
+    "lexical_spines": {
+      "component": [
+        "actor,operation",
+        "coordination",
+        "body_first"
+      ],
+      "destination": [
+        "actor,operation",
+        "coordination"
+      ]
+    },
+    "retained_count": 76,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_destination_list_cannot_consume_independent_affirmative_actor",
+    "original_count": 504,
+    "dimensions": {
+      "destination,channel": [
+        [
+          "workflow artifacts",
+          "artifacts"
+        ],
+        [
+          "the PR body",
+          "body"
+        ],
+        [
+          "a PR comment",
+          "comments"
+        ]
+      ],
+      "governor": [
+        "must",
+        "shall",
+        "has to",
+        "required to",
+        "expected to",
+        "is required to",
+        "is supposed to"
+      ],
+      "predicate_prefix": [
+        "",
+        "currently ",
+        "that ",
+        "which now "
+      ],
+      "separator": [
+        ", and ",
+        " and ",
+        " or "
+      ],
+      "marker": [
+        "",
+        "- [ ] "
+      ]
+    },
+    "semantic": [
+      "destination,channel",
+      "separator",
+      "marker"
+    ],
+    "lexical_spines": {
+      "governor": [
+        "destination,channel",
+        "separator"
+      ],
+      "predicate_prefix": [
+        "separator",
+        "marker",
+        "destination,channel"
+      ]
+    },
+    "retained_count": 150,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35",
+    "pairwise": true
+  },
+  {
+    "function": "test_transport_qualifier_is_not_a_product_component",
+    "original_count": 384,
+    "dimensions": {
+      "independent": [
+        false,
+        true
+      ],
+      "governor": [
+        "must",
+        "may",
+        "must not",
+        "is not expected to"
+      ],
+      "component": [
+        "",
+        " results panel"
+      ],
+      "destination,channel": [
+        [
+          "the PR body",
+          "body"
+        ],
+        [
+          "the PR description",
+          "body"
+        ],
+        [
+          "a PR comment",
+          "comments"
+        ]
+      ],
+      "preposition": [
+        "in",
+        "into",
+        "to",
+        "within",
+        "for",
+        "as",
+        "through",
+        "via"
+      ]
+    },
+    "semantic": [
+      "independent",
+      "governor",
+      "component",
+      "destination,channel"
+    ],
+    "lexical_spines": {
+      "preposition": [
+        "component",
+        "governor"
+      ]
+    },
+    "retained_count": 104,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_multiline_quoted_criteria_cannot_create_delivery",
+    "original_count": 160,
+    "dimensions": {
+      "independent": [
+        false,
+        true
+      ],
+      "operation": [
+        "The parser recognizes",
+        "The reviewer quotes"
+      ],
+      "destination": [
+        "the PR body",
+        "a PR comment"
+      ],
+      "separator": [
+        "\n",
+        "\r\n",
+        "\n\n",
+        " "
+      ],
+      "quotes": [
+        [
+          "\"",
+          "\""
+        ],
+        [
+          "'",
+          "'"
+        ],
+        [
+          "`",
+          "`"
+        ],
+        [
+          "\u201c",
+          "\u201d"
+        ],
+        [
+          "\u2018",
+          "\u2019"
+        ]
+      ]
+    },
+    "semantic": [
+      "independent",
+      "destination",
+      "separator"
+    ],
+    "lexical_spines": {
+      "quotes": [
+        "separator",
+        "independent"
+      ],
+      "operation": [
+        "separator",
+        "destination"
+      ]
+    },
+    "retained_count": 65,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35",
+    "pairwise": true
+  },
+  {
+    "function": "test_passive_both_preposition_order_retains_actor_and_destinations",
+    "original_count": 288,
+    "dimensions": {
+      "governor": [
+        "must",
+        "may",
+        "must not"
+      ],
+      "reverse": [
+        false,
+        true
+      ],
+      "actor": [
+        "UI",
+        "reviewer"
+      ],
+      "agent_first": [
+        false,
+        true
+      ],
+      "quantifier,conjunction": [
+        [
+          "both",
+          "and"
+        ],
+        [
+          "either",
+          "or"
+        ]
+      ],
+      "position": [
+        "before",
+        "after"
+      ],
+      "participle": [
+        "recorded",
+        "supplied",
+        "left"
+      ]
+    },
+    "semantic": [
+      "governor",
+      "reverse",
+      "actor",
+      "agent_first",
+      "quantifier,conjunction",
+      "position"
+    ],
+    "lexical_spines": {
+      "participle": [
+        "governor",
+        "quantifier,conjunction",
+        "position"
+      ]
+    },
+    "retained_count": 120,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_body_delivery_uses_shared_operation_and_polarity",
+    "original_count": 384,
+    "dimensions": {
+      "governor": [
+        "must",
+        "may",
+        "must not",
+        "is not expected to"
+      ],
+      "independent": [
+        false,
+        true
+      ],
+      "proof": [
+        "evidence",
+        "test results"
+      ],
+      "reverse": [
+        false,
+        true
+      ],
+      "component": [
+        "",
+        " panel"
+      ],
+      "body_alias": [
+        "body",
+        "description"
+      ],
+      "operation": [
+        "link",
+        "generate",
+        "post"
+      ]
+    },
+    "semantic": [
+      "governor",
+      "independent",
+      "reverse",
+      "component"
+    ],
+    "lexical_spines": {
+      "operation": [
+        "governor",
+        "component"
+      ],
+      "body_alias": [
+        "reverse",
+        "component"
+      ],
+      "proof": [
+        "governor",
+        "independent"
+      ]
+    },
+    "retained_count": 60,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35"
+  },
+  {
+    "function": "test_common_proof_pronoun_cross_actor_delivery",
+    "original_count": 324,
+    "dimensions": {
+      "governor": [
+        "must",
+        "must not",
+        "may"
+      ],
+      "operation": [
+        "record",
+        "attach",
+        "include"
+      ],
+      "actor": [
+        "reviewer",
+        "automation agent",
+        "runner",
+        "bot",
+        "developer",
+        "engineer",
+        "tester",
+        "auditor",
+        "verifier",
+        "team",
+        "user",
+        "consumer"
+      ],
+      "proof": [
+        "test results",
+        "screenshots",
+        "validation output"
+      ]
+    },
+    "semantic": [
+      "governor"
+    ],
+    "lexical_spines": {
+      "actor": [
+        "governor"
+      ],
+      "operation": [
+        "governor"
+      ],
+      "proof": [
+        "governor"
+      ]
+    },
+    "retained_count": 96,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35",
+    "pairwise": true
+  },
+  {
+    "function": "test_finite_aspect_additive_contrast_preserves_both_channels",
+    "original_count": 324,
+    "dimensions": {
+      "second_destination,second_channel": [
+        [
+          "the PR body",
+          "body"
+        ],
+        [
+          "a PR comment",
+          "comments"
+        ],
+        [
+          "workflow artifacts",
+          "artifacts"
+        ]
+      ],
+      "first_destination,first_channel": [
+        [
+          "the PR body",
+          "body"
+        ],
+        [
+          "a PR comment",
+          "comments"
+        ],
+        [
+          "workflow artifacts",
+          "artifacts"
+        ]
+      ],
+      "participle": [
+        "recorded",
+        "supplied",
+        "proved"
+      ],
+      "aspect": [
+        "has been",
+        "had been",
+        "is being",
+        "was being"
+      ],
+      "contrast": [
+        "only",
+        "merely",
+        "just"
+      ]
+    },
+    "semantic": [
+      "second_destination,second_channel",
+      "first_destination,first_channel",
+      "aspect"
+    ],
+    "lexical_spines": {
+      "participle": [
+        "aspect"
+      ],
+      "contrast": [
+        "aspect"
+      ]
+    },
+    "retained_count": 72,
+    "source_base": "12cea89599a67c3004d1d469d669c2daa33dfd35",
+    "pairwise": true
   }
 ]

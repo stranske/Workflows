@@ -3,6 +3,79 @@
 Issue #3904 changes test design, not production verifier behavior or delivery gates.
 The source base is `12cea89599a67c3004d1d469d669c2daa33dfd35`.
 
+## Round 3: remaining full-Cartesian matrices
+
+Eighteen functions that still kept their full original Cartesian product now use
+the same `_semantic_matrix` decomposition. Each has an entry in
+`verifier-grammar-matrices.json`, and the existing inventory audit checks
+every declared semantic and lexical projection against the emitted cases. They fall
+from 7,980 to 2,676 cases. The destination inventory falls from 29,777 to 24,473,
+and the three grammar files from 35,644 to 30,340 collected cases.
+
+The semantic axes follow the earlier rounds: governor and polarity, voice and agent
+position, actor class, destination identity and order, AND/OR, condition
+attachment, independent duties and checklist markers. Lexical sweeps cover the
+spellings of operations, participles, roles, modifiers, prepositions, relative
+pronouns, adverbs, quotes and destination aliases. Each lexical axis is crossed with
+its named semantic spine. Matrices whose lexical axes could interact with one
+another also set `pairwise`, which crosses every pair of dimensions.
+
+| Function | Old cases | Retained cases |
+| --- | ---: | ---: |
+| `test_availability_first_final_retains_parent_condition` | 432 | 180 |
+| `test_relative_qualifier_preserves_parent_and_local_condition_scope` | 648 | 240 |
+| `test_component_availability_comma_retains_actual_floor` | 324 | 126 |
+| `test_content_object_polarity_across_passive_agents` | 576 | 216 |
+| `test_compound_review_roles_retain_active_past_delivery` | 576 | 119 |
+| `test_product_delivery_operations_share_storage_recipient_and_voice_guards` | 648 | 216 |
+| `test_relative_presence_preserves_parent_mandatory_alternatives` | 720 | 390 |
+| `test_optional_predicate_cannot_suppress_named_actor_delivery` | 360 | 210 |
+| `test_component_alternatives_preserve_optional_negative_floor` | 512 | 128 |
+| `test_repeated_product_operations_keep_component_ownership` | 432 | 108 |
+| `test_component_options_and_actual_floor_are_order_symmetric` | 384 | 76 |
+| `test_destination_list_cannot_consume_independent_affirmative_actor` | 504 | 150 |
+| `test_transport_qualifier_is_not_a_product_component` | 384 | 104 |
+| `test_multiline_quoted_criteria_cannot_create_delivery` | 160 | 65 |
+| `test_passive_both_preposition_order_retains_actor_and_destinations` | 288 | 120 |
+| `test_body_delivery_uses_shared_operation_and_polarity` | 384 | 60 |
+| `test_common_proof_pronoun_cross_actor_delivery` | 324 | 96 |
+| `test_finite_aspect_additive_contrast_preserves_both_channels` | 324 | 72 |
+
+Left unchanged on purpose:
+
+- `test_component_relative_presence_preserves_parent_actual_floor` keeps the
+  absent/unavailable pairs on one worker, which its own test pins.
+- `test_comma_relative_attachments_preserve_parent_floor` and
+  `test_independent_delivery_prohibition_uses_shared_operation_grammar` would
+  need `independent` or a negation form treated as lexical.
+
+All assertion bodies are unchanged.
+
+Evidence (local, Python 3.14.3, 8 xdist workers):
+
+- **Whole three-file run.** Line and branch coverage of `scripts/langchain/pr_verifier.py`
+  shows the same 2,133 executed lines and 764 executed branches before and after.
+- **Each changed function alone.** Run serially, every changed function reaches the
+  same arcs before and after: none are lost and none are gained. Do not
+  attribute arcs per test through coverage contexts. The verifier's
+  `lru_cache` normalizers execute only on a cache miss, so context attribution
+  follows worker scheduling: it reported 17 "lost" arcs that the solo run reaches.
+  Contexts also need `COVERAGE_CORE=ctrace` on Python 3.14.
+- **Deliberate breaks.** Two temporary production mutations were applied, then the
+  source was restored byte for byte:
+  - `_required_evidence_channels` returns an empty set. 2,315 of the 2,676 retained
+    cases fail, and the 18 functions that detect it are the same 18 as before.
+  - `_apply_coverage_floor` returns the incoming PASS. 278 retained cases fail,
+    and the nine functions that detect it are the same nine as before.
+
+  The other nine functions expect PASS or do not call the floor, in both versions.
+  After restoration, all 2,676 cases pass.
+
+Summed JUnit worker time for the three files fell from 250.8 s to 213.4 s
+locally. That is an observation on a loaded machine, not a controlled hosted timing.
+In the Gate these files run in the parallel `python ci grammar` call. That call is
+not the critical path, so this change reduces runner work but not Gate wall time.
+
 ## Follow-up: passive aliases and component availability
 
 The retained inventory now has 29,777 destination cases. The passive-alias
