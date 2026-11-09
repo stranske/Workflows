@@ -3751,3 +3751,28 @@ schedules or merges changed. **Blocking=0, drainable by Maint 71=0.**
 Post-push review continuation: inspect PR 4582's inline comments and checks on
 its next scheduled pass, at least seven minutes after this round's push. This
 automation does not wait for the review floor or claim new-head CI has passed.
+
+### PR 4582 keepalive round 8 — 2026-11-09
+
+Outcome 1: **PASS**, rechecked at **2026-11-09T11:32:21.359017+00:00**.
+The [round-8 verification receipt](runtime-4550/4557r2/4582-round8-verification.json)
+records actual execution of A1–A4. PAEM PR 2488 remains merged at
+`e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the chain receipt.
+`json.tool` and all three `cmp` commands (including a fresh download at that
+merge SHA) exit **0**. The producer event is `schedule`; terminal Maint 71
+run 42585644980 succeeded. No manual dispatch occurred.
+
+Orchestrator PR 1288 is merged with no unsuccessful checks. The named model-table
+test against live Workflows main passes without skip: **1 passed in 0.95s**,
+exit **0**. All **3,888** archived files match the retained archive; missing Git
+metadata leaves the test-input tracking hook **NOT CHECKED**.
+
+PR 4579's merge, chain receipt and Closer repair 2 section remain on Workflows
+main. Criterion 3 remains met at the merge SHA above; the complete issue-4369
+comment read contains **49** comments at this new UTC boundary. No acceptance
+failure required a code repair. Only this report and the round-8 receipt changed.
+**Blocking=0, drainable by Maint 71=0.**
+
+Post-push review continuation: the next scheduled pass must inspect PR 4582's
+inline comments and checks at least seven minutes after this round's push.
+New-head CI is not claimed by these local acceptance results.
