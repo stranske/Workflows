@@ -16,6 +16,19 @@ EVIDENCE = Path(__file__).resolve().parents[2] / "docs/evidence/issue-4369/runti
 CONSUMER = "stranske/Portable-Alpha-Extension-Model"
 FOLLOWING = 42485792262
 RETRY = 42485974523
+FIX_PATHS = sorted(
+    [
+        ".github/scripts/__tests__/keepalive-loop.test.js",
+        ".github/scripts/__tests__/maint71-delivery-receipts.test.js",
+        ".github/scripts/__tests__/verifier-correction-artifacts.test.js",
+        ".github/scripts/__tests__/verifier-correction-coding.test.js",
+        ".github/scripts/maint71_merge_sync_prs.js",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "tests/scripts/test_issue_pr_context.py",
+        "tests/scripts/test_llm_client_shared.py",
+    ]
+)
 
 
 def read(name: str) -> dict:
@@ -29,6 +42,7 @@ def acceptance_revision_receipts() -> dict:
         "pull": read("4558-fixture-pr.json"),
         "ancestry": read("4558-ancestor-compare.json"),
         "repair": read("4558-repair-compare.json"),
+        "fix_inventory": read("4558-round8-fix-inventory.json"),
         "node": read("4557-exact-main/node-full.json"),
         "python": read("4557-exact-main/python-full.json"),
     }
@@ -67,6 +81,7 @@ def assert_acceptance_revision_binding(receipts: dict) -> None:
     assert repair["base_commit"]["commit"]["tree"]["sha"] == tree
     assert repair["commits"][-1]["commit"]["tree"]["sha"] == tree
     assert repair["files"] == []
+    assert_fix_inventory_binding(selection, pull, receipts["fix_inventory"])
     for key, command in (
         ("node", "node --test .github/scripts/__tests__/*.test.js"),
         ("python", "python3 -m pytest -q tests/"),
@@ -76,6 +91,47 @@ def assert_acceptance_revision_binding(receipts: dict) -> None:
         assert suite["checkout_sha"] == selected
         assert suite["command"] == command
         assert suite["exit_code"] == 0 and suite["timed_out"] is False
+
+
+def assert_fix_inventory_binding(selection: dict, pull: dict, receipt: dict) -> None:
+    """Bind every salvaged fix claim to retained native tree entries."""
+    blobs = {}
+    for role, revision in (
+        ("before", pull["base"]["sha"]),
+        ("repair", selection["repair_head"]),
+        ("selected", selection["selected_revision"]),
+    ):
+        inventory = receipt["inventories"][role]
+        assert inventory["argv"] == ["git", "ls-tree", "-r", revision, "--", *FIX_PATHS]
+        assert inventory["exit_code"] == 0 and inventory["stderr"] == ""
+        entries = {}
+        for line in inventory["stdout"].splitlines():
+            match = re.fullmatch(r"100644 blob ([0-9a-f]{40})\t(.+)", line)
+            assert match is not None
+            blob, path = match.groups()
+            assert path in FIX_PATHS and path not in entries
+            entries[path] = blob
+        blobs[role] = entries
+
+    claims = selection["fix_blobs"]
+    assert sorted(row["path"] for row in claims) == FIX_PATHS
+    for role in ("repair", "selected"):
+        assert sorted(blobs[role]) == FIX_PATHS
+    for claim in claims:
+        path = claim["path"]
+        for role in ("before", "repair", "selected"):
+            assert claim[f"{role}_blob"] == blobs[role].get(path)
+        assert claim["before_blob"] != claim["repair_blob"] == claim["selected_blob"]
+        assert claim["comparison_argv"] == [
+            "git",
+            "diff",
+            "--exit-code",
+            selection["repair_head"],
+            selection["selected_revision"],
+            "--",
+            path,
+        ]
+        assert claim["comparison_exit_code"] == 0
 
 
 def test_published_acceptance_revision_contains_required_ancestor_and_salvaged_fixes() -> None:
@@ -126,6 +182,47 @@ def test_exact_revision_suite_log_matches_its_retained_receipt(suite: str) -> No
     receipt = read(f"4557-exact-main/{suite}-full.json")
     log = (EVIDENCE / f"4557-exact-main/{suite}-full.log").read_bytes()
     assert hashlib.sha256(log).hexdigest() == receipt["log_sha256"]
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("path", "tests/unrelated.py"),
+        ("before_blob", "0" * 40),
+        ("repair_blob", "0" * 40),
+        ("selected_blob", "0" * 40),
+        ("comparison_argv", ["git", "diff", "--exit-code", "main", "main"]),
+        ("comparison_exit_code", 1),
+    ],
+)
+def test_fix_inclusion_rejects_unbound_per_file_claims(field: str, replacement: object) -> None:
+    receipts = acceptance_revision_receipts()
+    receipts["selection"]["fix_blobs"][0][field] = replacement
+    with pytest.raises(AssertionError):
+        assert_acceptance_revision_binding(receipts)
+
+
+@pytest.mark.parametrize("role", ["before", "repair", "selected"])
+@pytest.mark.parametrize("defect", ["revision", "exit", "missing", "duplicate", "blob"])
+def test_fix_inclusion_rejects_incomplete_or_substituted_native_inventory(
+    role: str, defect: str
+) -> None:
+    receipts = acceptance_revision_receipts()
+    inventory = receipts["fix_inventory"]["inventories"][role]
+    lines = inventory["stdout"].splitlines(keepends=True)
+    if defect == "revision":
+        inventory["argv"][3] = "main"
+    elif defect == "exit":
+        inventory["exit_code"] = 128
+    elif defect == "missing":
+        inventory["stdout"] = "".join(lines[1:])
+    elif defect == "duplicate":
+        inventory["stdout"] += lines[0]
+    else:
+        inventory["stdout"] = re.sub(r"blob [0-9a-f]{40}", "blob " + "0" * 40, lines[0])
+        inventory["stdout"] += "".join(lines[1:])
+    with pytest.raises(AssertionError):
+        assert_acceptance_revision_binding(receipts)
 
 
 def protocol(body: str, marker: str) -> dict:

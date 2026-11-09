@@ -2403,3 +2403,92 @@ local suites, zero authored pin changes. Only this record and its readback
 receipt are published. The existing controller/closer owns continuation and the
 next scheduled post-push CI/review/inline-comment readback after the seven-minute
 floor; that future review is not claimed complete.
+
+
+## Keepalive round 8: native salvaged-fix inventory validation — 2026-11-09
+
+Pre-code check: **2026-11-09T01:04:49.184609+00:00**. The first task's
+selected published-main revision remains
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`. This scoped change will bind its
+per-file fix claims to freshly retained native `git ls-tree` output for the
+required ancestor, salvaged PR head and selected revision. Existing whole-tree
+checks do not currently validate the path-specific blob and comparison-command
+receipts. Baseline focused validation exits 0: **50 passed in 1.06s**.
+
+Planned checks: `python3 -m pytest -q
+tests/scripts/test_issue_4369_delivery_lifecycle.py -m 'not slow'` (120-second
+bound), Black formatting on the touched Python file at line length 100, then
+`black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+(180-second bound). Stop at the first unresolved step after three failed
+attempts or 60 minutes, whichever occurs first. This does not restart the
+expired acceptance campaign or rerun either full suite. No production repair,
+workflow edit, dependency pin change or workflow dispatch is planned.
+
+The implementation retains [native Git inventories](runtime-4550/4558-round8-fix-inventory.json)
+for all nine salvaged source/test paths. The `before_blob` entries describe
+PR 4551's base `1a7a3c7de40b62af2839cb138e8d2abfe72fc766`, rather than
+the older required ancestor: an initial replay against that older ancestor
+correctly exposed the difference in `maint71_merge_sync_prs.js`. The validator
+now binds each inventory to its correct immutable revision, checks every
+before/repair/selected blob claim, and requires the exact path and revisions
+in each retained comparison command. Missing or duplicated entries, changed
+blob IDs, nonzero exits and moving refs are rejected. No production symbol
+was repaired from a historical diagnostic log.
+
+The [focused test receipt](runtime-4550/4558-round8-tests.json) and
+[complete log](runtime-4550/4558-round8-tests.log) record **71 passed in 1.03s**,
+exit **0**, with 21 new mutation cases. Relevant-file Black and Ruff pass.
+These tests validate retained evidence; they do not constitute another hosted
+full-suite execution or clear the upstream non-PASS assessment.
+
+The [fresh readback](runtime-4550/4558-round8-readback.json) finds issue 4550
+closed and PR 4551 merged, ready-state preserved. Native remote comparison
+shows the selected revision remains an ancestor of main
+`e8aa27930bddd15f479b1312db14828b1542e2ee`. This strengthens the already
+verified first task; its existing completed local checkbox remains justified.
+
+The unfiltered repository-wide inventory completely covers
+**2026-11-09T00:44:59Z–01:04:17Z**: **185 distinct runs**, pages of 100 and 85,
+stable total counts, **zero Maint 68 producer runs** and **one exact-path
+Maint 71 merge-sync run**. Run
+[42542851555](https://github.com/stranske/Workflows/actions/runs/42542851555)
+completed successfully with `event=workflow_dispatch`, actor and triggering
+actor `stranske`. Those fields do not authenticate automation origin. No
+qualifying producer or causal source → plan → candidate → merge chain was
+established by this interval. T5/A3 and the upstream verification task remain
+open. No manual dispatch was performed by this work, and the previously
+retained issue-comment completeness boundary is unchanged. PR 4558 is open
+and ready (`draft=false`) on incoming head
+`4a99f38daa58845c84d31ef59b896ea429a71be5`.
+
+Repository formatting gate: the default attempt exited 1 when the sandbox
+denied the multiprocessing forkserver socket. The single-worker retry exited
+124 at its 180-second bound, after reporting 977 unchanged files. The final
+bounded attempt exited **0**, **977 files would be left unchanged**, using
+the previously documented temporary 50ms event-loop heartbeat:
+
+```console
+BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4558-round8-black-runtime timeout -k 2s 180s black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+The hook schedules callbacks only; formatting, safe checks, file selection
+and reporting are unchanged. It is outside the repository. The complete
+[Black log](runtime-4550/4558-round8-black.log) and its hash are retained.
+`git diff --check` exits 0. No protected file was edited.
+
+Publication blocker: explicit-path `git add` exited **128**:
+
+```text
+fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system
+```
+
+No commit or push succeeded. The verified Python test changes and all receipts
+remain in the working tree for the existing authorized writer to publish.
+No permission bypass or alternative repository metadata directory was used.
+The first task remains locally verified; overall acceptance and remote task
+checkboxes are not changed by this unpublished round.
+
+Automatic approval review also rejected the requested PR blocker comment and
+`needs-human` label: **"MCP tool call requires approval, but approval policy is
+never"**. Neither mutation succeeded. No remote PR state, label or checklist
+was changed. The last native PR read remains open, ready (`draft=false`).
