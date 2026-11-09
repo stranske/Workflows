@@ -182,7 +182,7 @@ addition before the window ends, even if subsequently removed. There are
 51 eligible PRs and 96 explicit non-keepalive exclusions. No branch name,
 author, current label, or later delegation substitutes for a first label.
 
-| Repository | All in-window PRs | Eligible keepalive PRs | Guaranteed non-Codex first labels |
+| Repository | All in-window PRs | Eligible keepalive PRs | Literal non-Codex first labels (includes auto) |
 | --- | ---: | ---: | ---: |
 | Workflows | 43 | 21 | 6 |
 | Travel-Plan-Permission | 3 | 0 | 0 |
@@ -251,3 +251,36 @@ job. Saved-history replay via
 produces byte-identical observation JSON: complete coverage, acceptance share
 13/51 (25.49%), verdict FAIL. T3/A3 remain unproved and A4 remains unsatisfied.
 No new fleet collection or production-routing change was made in this round.
+
+## Round 9 remaining-criteria verification — 2026-11-09
+
+**Outcome: T3/A3 UNVERIFIED; A4 FAIL (13/51 = 25.49%).** The command
+`/opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py --from-saved`
+prints the acceptance metric and FAIL verdict in under two minutes. This
+round's stop rule was one evidence pass and at most one targeted repair within
+30 minutes. No production repair was justified by the evidence collected.
+
+Directly inspected both current workflow files again: each calls
+`chooseAgentForIntake('implement', routeWeights, registry.agents)`, propagates
+the chooser result into an empty `DEFAULT_AGENT`, resolves `defaultAgent`,
+and awaits the summary table write. Current file hashes and inspected line
+numbers are retained in [round9-verification.json](round9-verification.json).
+The existing [candidate production job](https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413)
+still returns null summary and text from the check-run API. The browser
+lookup failed with `native pipe is closed`, so no production summary was
+observed. The earlier Cursor log remains evidence of a default, but cannot
+establish the missing historical posterior/capacity condition. T3 and A3
+remain unchecked.
+
+Saved-history replay produced byte-identical observation JSON, preserving
+complete coverage and the failing first-label provider share. A4 remains
+unchecked: the fixed historical window cannot be repaired with current label
+changes. The table above is now explicitly headed as the historical literal
+metric so its 17 total cannot be mistaken for the acceptance numerator of 13.
+No new fleet API collection was necessary or performed.
+
+Both named Node commands passed again on this branch, 74/74 each; full output
+and exit codes are in the receipt. `gh pr checks 4505 --repo stranske/Workflows`
+again showed passing JavaScript Tests and the separate failed Codex keepalive
+job. No full suite was run. This round adds verification evidence only and
+does not claim completion of any remaining task or criterion.
