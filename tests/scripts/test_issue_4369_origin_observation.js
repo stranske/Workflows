@@ -3,6 +3,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { collect, observe, observeSequence } = require('../../docs/evidence/issue-4369/observe-maint68');
 const MAINT68 = '.github/workflows/maint-68-sync-consumer-repos.yml';
 const MAINT71 = '.github/workflows/maint-71-merge-sync-prs.yml';
@@ -68,6 +71,114 @@ function replaceTimestamp(input, field, value) {
     }
   }
 }
+
+// Exercise the actual CLI and its native execFileSync transport without API
+// access. An absolute Node shebang and a private PATH select only this inert gh.
+function collectCli(t, input, failure) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'origin cli '));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const config = path.join(directory, 'config.json');
+  const history = path.join(directory, 'requests.json');
+  const queryFile = path.join(directory, 'query with spaces.json');
+  const { pages, ...query } = input;
+  fs.writeFileSync(config, JSON.stringify({ pages, failure }));
+  fs.writeFileSync(history, '[]');
+  fs.writeFileSync(queryFile, JSON.stringify(query));
+  fs.writeFileSync(path.join(directory, 'gh'), `#!${process.execPath}
+'use strict';
+const fs = require('node:fs');
+const config = JSON.parse(fs.readFileSync(process.env.OBSERVATION_CONFIG, 'utf8'));
+const history = JSON.parse(fs.readFileSync(process.env.OBSERVATION_HISTORY, 'utf8'));
+history.push(process.argv.slice(2));
+fs.writeFileSync(process.env.OBSERVATION_HISTORY, JSON.stringify(history));
+const page = config.pages[history.length - 1];
+if (!page || JSON.stringify(process.argv.slice(2)) !==
+    JSON.stringify(['api', '--method', 'GET', page.url])) process.exit(9);
+if (history.length === 2 && config.failure === 'transport') {
+  fs.writeSync(2, 'offline late-page transport failure');
+  process.exit(7);
+}
+fs.writeSync(1, history.length === 2 && config.failure === 'json'
+  ? 'invalid JSON' : JSON.stringify(page.body));
+`, { mode: 0o700 });
+  const stdoutPath = path.join(directory, 'stdout.json');
+  const stderrPath = path.join(directory, 'stderr.log');
+  const stdout = fs.openSync(stdoutPath, 'w');
+  const stderr = fs.openSync(stderrPath, 'w');
+  let result;
+  try {
+    result = childProcess.spawnSync(process.execPath, [
+      path.resolve(__dirname, '../../docs/evidence/issue-4369/observe-maint68.js'),
+      '--collect', queryFile,
+    ], {
+      encoding: 'utf8', timeout: 15000, killSignal: 'SIGKILL',
+      maxBuffer: 1024 * 1024, stdio: ['ignore', stdout, stderr],
+      env: { ...process.env, PATH: directory,
+        OBSERVATION_CONFIG: config, OBSERVATION_HISTORY: history },
+    });
+  } finally {
+    fs.closeSync(stdout);
+    fs.closeSync(stderr);
+  }
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  return { ...result, stdout: fs.readFileSync(stdoutPath, 'utf8'),
+    stderr: fs.readFileSync(stderrPath, 'utf8'),
+    requests: JSON.parse(fs.readFileSync(history, 'utf8')) };
+}
+
+for (const [scope, make] of [
+  ['repository', inventory], ['producer', producerInventory], ['merger', mergerInventory],
+]) {
+  test(`native collection CLI emits complete ${scope} JSON without claiming acceptance`, t => {
+    const input = make(101);
+    const result = collectCli(t, input);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, '');
+    assert.deepEqual(result.requests, input.pages.map(page => ['api', '--method', 'GET', page.url]));
+    const receipt = JSON.parse(result.stdout);
+    assert.deepEqual(receipt.inventory, input);
+    assert.equal(receipt.observation.inventory_scope, scope);
+    assert.equal(receipt.observation.total_count, 101);
+    assert.equal(receipt.observation.pagination_complete, true);
+    assert.equal(receipt.observation.chain_acceptance, false);
+    const role = scope === 'merger' ? 'mergers' : 'producers';
+    assert.equal(receipt.observation[role].length, 101);
+    assert.ok(receipt.observation[role].every(run => run.automation_origin === 'UNKNOWN'));
+  });
+}
+
+test('native collection CLI retains the explicit empty terminal page', t => {
+  const input = producerInventory(100);
+  const result = collectCli(t, input);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.requests.length, 2);
+  const receipt = JSON.parse(result.stdout);
+  assert.deepEqual(receipt.inventory.pages[1].body.workflow_runs, []);
+  assert.equal(receipt.observation.pagination_complete, true);
+  assert.equal(receipt.observation.chain_acceptance, false);
+});
+
+for (const failure of ['transport', 'json']) {
+  test(`native collection CLI emits no partial receipt after late ${failure} failure`, t => {
+    const result = collectCli(t, producerInventory(101), failure);
+    assert.equal(result.status, 2);
+    assert.equal(result.requests.length, 2, 'failure follows a successfully collected first page');
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /^Observation refused:/);
+    if (failure === 'transport') assert.match(result.stderr, /offline late-page transport failure/);
+  });
+}
+
+test('native collection CLI rejects invalid bounds before launching gh', t => {
+  const input = producerInventory(1);
+  input.start = 'yesterday';
+  const result = collectCli(t, input);
+  assert.equal(result.status, 2);
+  assert.deepEqual(result.requests, []);
+  assert.equal(result.stdout, '');
+  assert.match(result.stderr, /^Observation refused: invalid UTC observation timestamp/);
+});
 
 test('collector retains complete unfiltered pages for repository and workflow inventories', () => {
   for (const make of [inventory, producerInventory, mergerInventory]) {

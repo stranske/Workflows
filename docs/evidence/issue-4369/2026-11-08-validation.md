@@ -3201,3 +3201,86 @@ that commit, preserving both appended evidence sections and its collector fix.
 The [post-rebase checks](runtime-4550/4558-seat-round10-post-rebase.json) pass:
 **81 observer tests**, **124 receipt tests**, and `git diff --check` exit 0.
 The initial non-fast-forward push was rejected without changing remote history.
+
+## Keepalive round 16: exercise the native observation CLI — 2026-11-09
+
+Plan recorded before implementation at **2026-11-09T03:40:30Z**. The first
+unchecked revision-selection row is already supported by the retained receipts;
+recheck native ancestry and the focused receipt tests before claiming it again.
+Selected published main remains `0a06f1976db1dd7eb12853f493a3371ee4736bcf`.
+The next unresolved task is the authenticated automation-started delivery chain.
+The observer's native collection CLI has unit coverage but no subprocess-level
+regression proving complete JSON output, non-acceptance, or empty stdout on a
+late transport failure. Add offline CLI tests using a temporary inert `gh`
+executable: no real API access, dispatch, production repair, or workflow change.
+
+Commands: `node tests/scripts/test_issue_4369_origin_observation.js`, both
+JavaScript `node --check` commands, focused Python receipt tests with
+`python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py
+ tests/scripts/test_issue_4369_downstream_evidence.py -m "not slow"`, native
+ancestry checks, retained byte comparison, inventory replay and `git diff --check`.
+Bound commands to 120 seconds, each test child to 15 seconds and read requests
+to 30 seconds. Original acceptance commands remain
+`node --test .github/scripts/__tests__/*.test.js` and
+`python3 -m pytest -q tests/` on the supported hosted runner. Stop at the first
+unresolved step after three failures or 60 minutes, whichever occurs first;
+deadline **2026-11-09T04:40:30Z**. Native API transport is unavailable; connector
+workflow-specific reads are refused, so use a repository-wide GET fallback.
+No new acceptance completion is inferred from these offline tests.
+
+Seven new subprocess tests pass, bringing the observer suite to **88 passed**.
+They exercise real CLI argument parsing and native transport for repository,
+producer and merger inventories, exact-page terminal pagination, late transport
+and malformed-JSON failures, and invalid bounds before any request. The inert
+`gh` stub accepts only the expected GET argv. Every subprocess has a 15-second
+SIGKILL bound and closed stdin; temporary paths include spaces and are cleaned
+up after each test. Initial fixture attempts using asynchronous pipe writes lost
+output on this restricted runner. The passing fixture uses synchronous stub
+writes and regular files for outer CLI stdout/stderr, preserving the assertions
+and real transport without changing the observer or any production symbol.
+
+The [validation receipt](runtime-4550/4558-round16-validation.json) records exact
+argv, executable paths, 120-second bounds, UTC timings, exit codes and complete
+log hashes. Observer tests: **88 passed**, zero skipped; focused Python receipt
+tests: **124 passed** with `-m "not slow"`. Both syntax checks, all three native
+ancestry commands, retained payload `cmp`, inventory replay and `git diff --check`
+exit **0**. No Python file was edited; the Python formatting gate does not apply.
+The new evidence-tool tests have not been run in the historical hosted suite;
+they do not constitute a production repair or change its selected acceptance SHA.
+
+The fresh [readback](runtime-4550/4558-round16-readback.json) confirms #4551 merged
+as `0a06f1976db1dd7eb12853f493a3371ee4736bcf`, a native ancestor of current main
+`dc88475b617e52bb06f86ab4d79b01d21462ee67`, with #4558 open and ready.
+Issue #4550 is closed, despite the historical scope text describing it as open.
+The retained revision, hosted-suite and byte-comparison evidence supports the
+same five checkbox corrections identified in prior rounds. No new full-suite
+execution is claimed and no downstream acceptance is inferred from those rows.
+
+The complete unfiltered [projected run inventory](runtime-4550/4558-round16-origin-inventory.json)
+covers **03:30:44Z–03:39:48Z**, with **67/67** rows on one page, below the search
+cap. Its [producer replay](runtime-4550/4558-round16-producer-replay-stdout.log)
+contains zero Maint 68 runs. Exact-path Maint 71 run **42557538415**, created
+**03:38:45Z**, completed successfully as a `workflow_dispatch` by
+`stranske-automation-bot`. The [native run readback](runtime-4550/4558-round16-merger-readback.json)
+retains actor and triggering-actor metadata, but neither authenticates its caller
+or binds a producer artifact. Automation origin remains **UNKNOWN** and
+`chain_acceptance` remains **false**. No Maint 68, Maint 71 or Maint 82 dispatch
+was performed. The issue-comment observation boundary remains **03:30:44Z**;
+this workflow inventory does not extend it.
+
+- [x] Reverify the selected published-main revision, required ancestry and salvaged fixes using native checks and retained receipt tests.
+- [x] Add and verify subprocess regressions for complete and failed native observation CLI collection.
+- [ ] Observe and authenticate the qualifying automation-started Maint 68 → Maint 71 delivery chain; no producer occurred in this new interval.
+- [ ] Clear the upstream model non-PASS verification disposition; run 42522535899 remains at attempt 1, and its Actions success does not establish a passing model verdict.
+
+Publication is blocked. Explicit-path `git add` exits **128** because
+`.git/index.lock` cannot be created on the read-only filesystem; no commit or push
+succeeded. Automatic approval review rejected the PR-body reconciliation, blocker
+comment and `needs-human` label: `MCP tool call requires approval, but approval
+policy is never`. No remote checkbox was changed. The exact five-row correction
+is retained in the [proposed PR body](runtime-4550/4558-round16-pr-body-reconciled.md),
+with a [concrete handoff](runtime-4550/4558-round16-publication-blocker.md) and
+[publication receipt](runtime-4550/4558-round16-publication.json). Final readback
+confirms PR 4558 is open and ready (`isDraft=false`) at incoming head
+`b818bbd881d5d9999937b2e2e2181e43d8092403`. The authenticated delivery chain
+and upstream non-PASS verification disposition remain unresolved.
