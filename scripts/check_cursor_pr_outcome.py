@@ -63,7 +63,7 @@ def collect(fix_pr: str, *, now: datetime, api=gh_json) -> dict:
     observed_end = min(now, end)
     query = (
         f"is:pr user:{owner} author:app/github-actions "
-        f"created:{start.date()}..{now.date()} "
+        f"created:{start.date()}..{observed_end.date()} "
         + " ".join(f"-repo:{name}" for name in sorted(EXCLUDED_REPOS))
     )
     report.update(window_start=start.isoformat(), window_end=end.isoformat(), query=query)

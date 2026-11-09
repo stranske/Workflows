@@ -68,6 +68,34 @@ def test_empty_search_only_clears_a_complete_window(age, status):
     assert "search alone is not acceptance" in result["mid_run_merge_verification"]
 
 
+@pytest.mark.parametrize("age", [0, 3, 14, 20, 365])
+def test_search_date_range_stops_at_observed_window_end(age):
+    api = GitHub()
+    now = START + timedelta(days=age)
+    result = audit.collect(FIX, now=now, api=api)
+    expected_end = min(now, START + timedelta(days=14))
+    search = next(call for call in api.calls if call.startswith("search/"))
+    query = parse_qs(urlsplit(search).query)["q"][0]
+    assert f"created:{START.date()}..{expected_end.date()}" in query
+    assert result["query"] == query
+
+
+def test_late_collection_avoids_result_cap_from_prs_outside_the_window():
+    api = GitHub()
+
+    def busy_owner(endpoint):
+        result = api(endpoint)
+        if endpoint.startswith("search/"):
+            query = parse_qs(urlsplit(endpoint).query)["q"][0]
+            if f"created:{START.date()}..{(START + timedelta(days=14)).date()}" not in query:
+                return {**result, "total_count": 1001}
+        return result
+
+    result = audit.collect(FIX, now=START + timedelta(days=365), api=busy_owner)
+    assert result["status"] == "clear_search"
+    assert result["searched_count"] == 0
+
+
 @pytest.mark.parametrize("age", [0, 3, 14, 20])
 def test_actual_slug_branch_including_closed_pr_is_a_regression(age):
     result = audit.collect(FIX, now=START + timedelta(days=age), api=GitHub([pull()]))
