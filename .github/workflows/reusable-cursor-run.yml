@@ -18,9 +18,10 @@ on:
         default: keepalive
         type: string
       pr_number:
-        description: 'Optional pull request number (used for logging or comments by callers).'
-        required: false
-        default: ''
+        description: >-
+          Target pull request number. Must be a positive integer; the run is rejected
+          before Cursor executes otherwise, and pushes only reach this open PR.
+        required: true
         type: string
       pr_ref:
         description: 'The branch/ref to checkout and push to (e.g., refs/heads/feature-branch).'
@@ -294,6 +295,16 @@ jobs:
           } >> "$GITHUB_ENV"
 
           printf 'Checkout auth: %s; push permitted with app token: %s.\n' "$source" "$push_allowed"
+
+      - name: Validate target PR input
+        id: target_input
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          if ! [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::pr_number must be a positive integer; got '${PR_NUMBER}'. Cursor was not run."
+            exit 1
+          fi
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -921,12 +932,47 @@ jobs:
 
       - name: Record Cursor starting commit
         id: cursor_base
-        if: always() && steps.capability_evidence.outcome != 'failure'
+        if: >-
+          always() && steps.capability_evidence.outcome != 'failure' &&
+          steps.target_input.outcome == 'success'
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Both checkouts persist their token for the authenticated pre-run fetches.
+      # Remove it before Cursor starts; later pushes use explicit-token URLs.
+      - name: Remove persisted checkout credentials
+        id: credential_isolation
+        if: >-
+          always() && steps.capability_evidence.outcome != 'failure' &&
+          steps.target_input.outcome == 'success'
+        run: |
+          set -euo pipefail
+          for repo in . .workflows-lib; do
+            git -C "$repo" rev-parse --git-dir >/dev/null 2>&1 || continue
+            while IFS= read -r key; do
+              [ -n "$key" ] || continue
+              if [[ "$key" == includeif.* ]]; then
+                git -C "$repo" config --local --get-all "$key" | while IFS= read -r path; do
+                  rm -f -- "$path"
+                done
+              fi
+              git -C "$repo" config --local --unset-all "$key" || true
+            done < <(
+              git -C "$repo" config --local --name-only --get-regexp \
+                '^(http\..*\.extraheader|includeif\..*\.path)$' | sort -u || true
+            )
+            if git -C "$repo" config --includes --get-regexp '^http\..*\.extraheader$' >/dev/null; then
+              echo "::error::Persisted credentials remain in ${repo}; Cursor was not run."
+              exit 1
+            fi
+          done
+          echo "Persisted checkout credentials removed; blocking=none drainable=explicit_token_push"
 
       - name: Run Cursor
         id: run_cursor
-        if: always() && steps.capability_evidence.outcome != 'failure'
+        if: >-
+          always() && steps.capability_evidence.outcome != 'failure' &&
+          steps.target_input.outcome == 'success' &&
+          steps.credential_isolation.outcome == 'success'
         env:
           GH_TOKEN: ''
           GITHUB_TOKEN: ''
@@ -1099,11 +1145,16 @@ jobs:
 
       - name: Check target PR before pushing
         id: target_pr
-        if: always() && steps.capability_evidence.outcome != 'failure'
-        uses: actions/github-script@v9
+        if: >-
+          always() && steps.capability_evidence.outcome != 'failure' &&
+          steps.target_input.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           START_SHA: ${{ steps.cursor_base.outputs.sha }}
+          RECOVERY_ARTIFACT: cursor-blocked-delivery-${{ github.run_id }}-${{ github.run_attempt }}
+          LOOKUP_ATTEMPTS: '3'
+          LOOKUP_DELAY_MS: '2000'
         with:
           script: |
             core.setOutput('push_allowed', 'false');
@@ -1113,9 +1164,31 @@ jobs:
               return;
             }
             const { owner, repo } = context.repo;
-            const { data: pull } = await github.rest.pulls.get({
-              owner, repo, pull_number: prNumber,
-            });
+            // Transient reads retry a bounded number of times; exhaustion throws
+            // and leaves push_allowed=false.
+            const attempts = Number(process.env.LOOKUP_ATTEMPTS);
+            const delayMs = Number(process.env.LOOKUP_DELAY_MS);
+            const transient = error =>
+              !error.status || error.status === 429 || error.status >= 500;
+            let pull;
+            for (let attempt = 1; ; attempt += 1) {
+              try {
+                ({ data: pull } = await github.rest.pulls.get({
+                  owner, repo, pull_number: prNumber,
+                }));
+                break;
+              } catch (error) {
+                if (attempt >= attempts || !transient(error)) {
+                  core.warning(
+                    `Target PR lookup failed after ${attempt} attempt(s); ` +
+                    `blocking=target_pr_unknown drainable=next_run`,
+                  );
+                  throw error;
+                }
+                core.info(`Target PR lookup attempt ${attempt} failed: ${error.message}; retrying.`);
+                await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+              }
+            }
             if (pull.state === 'open') {
               core.info('blocking=none drainable=push_existing_pr');
               core.setOutput('push_allowed', 'true');
@@ -1140,6 +1213,9 @@ jobs:
               '',
               'Unpushed commits created during this run:',
               ...(shas.length ? shas.map(sha => `- \`${sha}\``) : ['- None.']),
+              '',
+              `Recovery artifact: \`${process.env.RECOVERY_ARTIFACT}\` ` +
+                '(commits bundle, staged/unstaged patches, untracked files).',
             ].join('\n');
             await core.summary.addRaw(body).write();
             const { extractIssueNumberFromPull } = require(
@@ -1150,14 +1226,76 @@ jobs:
               core.warning('No unambiguous source issue; unpushed commits retained in the run summary.');
               return;
             }
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number: issueNumber, per_page: 100,
-            });
-            if (!comments.some(comment => comment.body?.includes(marker))) {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: issueNumber, body,
+            // A notification failure must not fail the successful closed-target skip.
+            try {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: issueNumber, per_page: 100,
               });
+              if (!comments.some(comment => comment.body?.includes(marker))) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issueNumber, body,
+                });
+              }
+            } catch (error) {
+              core.warning(
+                `Source issue #${issueNumber} notification failed: ${error.message}; ` +
+                'evidence retained in the run summary.',
+              );
             }
+
+      # Blocked delivery keeps recoverable work as an artifact only; it never
+      # creates a branch or PR.
+      - name: Preserve blocked delivery
+        id: preserve_blocked
+        if: >-
+          always() && steps.capability_evidence.outcome != 'failure' &&
+          steps.target_input.outcome == 'success' &&
+          steps.cursor_base.outputs.sha != '' &&
+          steps.target_pr.outputs.push_allowed != 'true'
+        env:
+          START_SHA: ${{ steps.cursor_base.outputs.sha }}
+          RECOVERY_ARTIFACT: cursor-blocked-delivery-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          out="${RUNNER_TEMP:-/tmp}/cursor-blocked-delivery"
+          rm -rf "$out"
+          mkdir -p "$out"
+          commits=$(git rev-list --count "${START_SHA}..HEAD")
+          if [ "$commits" -gt 0 ]; then
+            git bundle create "$out/commits.bundle" HEAD "^${START_SHA}"
+          fi
+          git diff --binary --cached > "$out/staged.patch"
+          git diff --binary > "$out/unstaged.patch"
+          git ls-files -z --others --exclude-standard > "$out/untracked.list"
+          untracked=$(tr -cd '\0' < "$out/untracked.list" | wc -c | tr -d '[:space:]')
+          if [ "$untracked" -gt 0 ]; then
+            tar --null -czf "$out/untracked.tar.gz" -T "$out/untracked.list"
+          fi
+          {
+            echo "artifact=${RECOVERY_ARTIFACT}"
+            echo "start_sha=${START_SHA}"
+            echo "head_sha=$(git rev-parse HEAD)"
+            echo "unpushed_commits=${commits}"
+            echo "untracked_files=${untracked}"
+          } > "$out/receipt.txt"
+          cat "$out/receipt.txt"
+          echo "artifact=${RECOVERY_ARTIFACT}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Blocked Cursor delivery preserved"
+            echo ""
+            echo '```'
+            cat "$out/receipt.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload blocked delivery
+        if: always() && steps.preserve_blocked.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.preserve_blocked.outputs.artifact }}
+          path: ${{ runner.temp }}/cursor-blocked-delivery/
+          retention-days: 14
+          if-no-files-found: error
 
       - name: Commit and push changes
         id: commit

@@ -186,10 +186,18 @@ push step only for an open PR. A merged or closed target produces
 `skipped: target PR merged/closed mid-run`, skips all workflow pushes, and posts
 one source-issue comment per run with the new unpushed commit SHAs and run URL.
 The source issue is resolved by `source_context.js`; ambiguous or missing sources
-leave the evidence in the run summary with a warning. No target PR means no push;
-a failed state lookup also withholds push permission. The workflow requires
-`issues: write` for the source-issue comment. Token clearing is not a credential
-sandbox, and the post-run read does not prevent a later concurrent merge.
+leave the evidence in the run summary with a warning, and a failed source-issue
+comment only warns. `pr_number` is required and must be a positive integer; the
+run fails before Cursor executes otherwise. Before Cursor starts, the persisted
+credentials of both checkouts are removed (authenticated pre-run fetches still
+work, and pushes use their explicit-token URLs). The state lookup retries
+transient errors three times; an exhausted lookup fails the step and withholds
+push permission. Every blocked delivery uploads
+`cursor-blocked-delivery-<run_id>-<attempt>` with a bundle of unpushed commits,
+staged and unstaged patches, an untracked-file archive and a receipt; the source
+issue comment names that artifact. The workflow requires `issues: write` for the
+source-issue comment. Token clearing is not a credential sandbox, and the
+post-run read does not prevent a later concurrent merge.
 Issue #4562's production acceptance still requires a mid-run merge observation
 and 14 days without new orphan slug-branch PRs after deployment.
 
