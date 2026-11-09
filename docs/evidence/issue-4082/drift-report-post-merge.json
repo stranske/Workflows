@@ -1,0 +1,365 @@
+{
+  "counts": {
+    "drift": 0,
+    "errors": 0,
+    "missing": 0,
+    "obsolete": 0,
+    "unmeasured_create_only": 84
+  },
+  "drift": [],
+  "errors": [],
+  "follow_up": {
+    "all_repos_command": "gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows --ref main",
+    "targeted_repos_command": "",
+    "workflow": "maint-68-sync-consumer-repos.yml"
+  },
+  "gate_triggers": [
+    "gate triggers: all match"
+  ],
+  "missing": [],
+  "obsolete": [],
+  "path_prefix_counts": {
+    "drift": {},
+    "errors": {},
+    "missing": {},
+    "obsolete": {}
+  },
+  "repo_count": 14,
+  "repo_summaries": {
+    "stranske/Counter_Risk": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Deliverable-Render": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Doc-Lineage": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Fine-Art-Archive": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Inv-Man-Intake": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Manager-Mosaic": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Orchestrator": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Pension-Data": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Portable-Alpha-Extension-Model": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Ready": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Travel-Plan-Permission": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Trend_Model_Project": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/learning-management-system": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/trip-planner": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    }
+  },
+  "repo_summary_count": 14,
+  "repos": [
+    "stranske/Counter_Risk",
+    "stranske/Deliverable-Render",
+    "stranske/Doc-Lineage",
+    "stranske/Fine-Art-Archive",
+    "stranske/Inv-Man-Intake",
+    "stranske/Manager-Mosaic",
+    "stranske/Orchestrator",
+    "stranske/Pension-Data",
+    "stranske/Portable-Alpha-Extension-Model",
+    "stranske/Ready",
+    "stranske/Travel-Plan-Permission",
+    "stranske/Trend_Model_Project",
+    "stranske/learning-management-system",
+    "stranske/trip-planner"
+  ],
+  "schema": "workflows-consumer-sync-drift/v1",
+  "skip_count": 36,
+  "skipped": [
+    "stranske/Counter_Risk: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Counter_Risk: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Deliverable-Render: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Doc-Lineage: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Doc-Lineage: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Fine-Art-Archive: AGENTS.md (Sync commit faee7246 (2026-08-25) overwrote this file and silently deleted 60 lines of repo-owned research guidance (\"Identifying a Work: Reverse Image Search Is the Next Step\"). That guidance is archive-specific and belongs to the consumer, not the shared template; the docs section is overwrite-synced, so the only protection is skipping the repo here. Incident: resolved: #3275.)",
+    "stranske/Fine-Art-Archive: CLAUDE.md (Same incident as the AGENTS.md skip above: sync commit faee7246 (2026-08-25) deleted the identical 60-line repo-owned reverse-image-search section from this file too. The repo maintains its own CLAUDE.md with archive-specific rules; overwrite-sync would delete them again. Incident: resolved: #3275.)",
+    "stranske/Fine-Art-Archive: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Fine-Art-Archive: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Inv-Man-Intake: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Inv-Man-Intake: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Manager-Mosaic: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Orchestrator: .github/scripts/gate_summary.py (Orchestrator shards its Gate Python legs (6 shards x Python 3.13/3.14, Orchestrator PR 977) and its gate_summary.py validates every shard receipt and reports the combined verify.py coverage. Overwrite-sync replaces it with the unsharded renderer, which drops the missing-shard failure and fails tests/test_delivery_required_contexts.py on generated delivery (Orchestrator sync PR 1016). Keep it local until the template supports sharded Gates.)",
+    "stranske/Orchestrator: AGENTS.md (Orchestrator owns a terminal merge invariant in AGENTS.md that requires its local src/merge_guard.py for every repository-local terminal merge. Overwrite-sync removes that safety rule and fails tests/test_merge_entrypoint_contract.py on generated workflow-sync delivery. Keep this tool-owned guidance local, as with its CLAUDE.md exception.)",
+    "stranske/Orchestrator: CLAUDE.md (Orchestrator is the local agent-orchestration TOOL, not a product consumer. Its CLAUDE.md is the tool's own safety net: the tool-vs-evidence split, the three-trees rule (clone / launchd mirror / $ORCH_STATE_DIR), and the requirement to verify with verify.py rather than a shell loop over test files. CLAUDE.md is the file agents auto-load every session, so it is the enforcement mechanism; overwriting it with the consumer template would silently remove those rules. Consumer conventions are referenced FROM that file instead.)",
+    "stranske/Orchestrator: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Orchestrator: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Pension-Data: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Pension-Data: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Portable-Alpha-Extension-Model: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Portable-Alpha-Extension-Model: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Ready: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Ready: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Travel-Plan-Permission: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Travel-Plan-Permission: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Trend_Model_Project: AGENTS.md (Repo keeps historical Agents.md casing to avoid case-only path conflicts)",
+    "stranske/Trend_Model_Project: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/Trend_Model_Project: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/learning-management-system: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/learning-management-system: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/trip-planner: .github/scripts/node_modules/balanced-match (Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules)",
+    "stranske/trip-planner: .github/scripts/node_modules/brace-expansion (Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules)",
+    "stranske/trip-planner: .github/scripts/node_modules/minimatch (Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules)",
+    "stranske/trip-planner: .github/scripts/package.json (Repo installs .github/scripts dependencies from package-lock.json and forbids tracked node_modules)",
+    "stranske/trip-planner: src/deliverable_render/store/evidence-object-v1.schema.json (Manifest include_repos excludes repo)",
+    "stranske/trip-planner: src/manager_mosaic/schemas/evidence-object-v1.schema.json (Manifest include_repos excludes repo)"
+  ],
+  "status": "converged",
+  "summary_limits": {
+    "content_error_threshold_per_repo": 5,
+    "max_items_per_section": 50
+  },
+  "sync_remediation": {
+    "candidate_branch": "sync/workflows-candidate",
+    "coverage_lease_hours": 36,
+    "delivery_branch": "sync/workflows-delivery",
+    "expected_branch": "sync/workflows-delivery",
+    "global_errors": [],
+    "latest_open_pr": null,
+    "lookup_errors": [],
+    "open_pr_count": 0,
+    "open_prs": [],
+    "plan_id": "sha256:858db2f3507d23ded9aa506406ae741184058dbc958aedac2623f6a730a57b80",
+    "repo_count": 0,
+    "repo_states": {
+      "stranske/Counter_Risk": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Deliverable-Render": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Doc-Lineage": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Fine-Art-Archive": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Inv-Man-Intake": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Manager-Mosaic": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Orchestrator": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Pension-Data": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Portable-Alpha-Extension-Model": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Ready": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Travel-Plan-Permission": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/Trend_Model_Project": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/learning-management-system": {
+        "reason": "no drift detected",
+        "state": "converged"
+      },
+      "stranske/trip-planner": {
+        "reason": "no drift detected",
+        "state": "converged"
+      }
+    },
+    "stale_open_pr_count": 0,
+    "state": "converged"
+  },
+  "token_diagnostics": {
+    "attempted_sources": [
+      "GH_TOKEN"
+    ],
+    "probe_path": ".github/workflows/agents-guard-fork-status.yml",
+    "probe_paths": [
+      ".github/workflows/agents-guard-fork-status.yml",
+      ".github/codex/prompts/keepalive_next_task.md",
+      ".github/scripts/gate-fork-status-publication.js",
+      ".github/codex/AGENT_INSTRUCTIONS.md",
+      ".github/copilot-instructions.md",
+      ".github/templates/keepalive-instruction.md",
+      ".github/actions/agent-event-eligibility/action.yml",
+      "docs/CI_FAILURE_PLAYBOOK.md",
+      "config/model_registry.json",
+      ".gitattributes",
+      ".github/ISSUE_TEMPLATE/agent_task.yml",
+      "WORKFLOW_USER_GUIDE.md"
+    ],
+    "probe_repo": "stranske/Counter_Risk",
+    "probe_repos": [
+      "stranske/Counter_Risk",
+      "stranske/Deliverable-Render",
+      "stranske/Doc-Lineage"
+    ],
+    "rejected": [],
+    "schema": "workflows-drift-token-selection/v1",
+    "selected_source": "GH_TOKEN"
+  },
+  "top_repo_gaps": [],
+  "unmeasured_create_only": [
+    "stranske/Counter_Risk: .github/renovate.json",
+    "stranske/Counter_Risk: .github/workflows/ci.yml",
+    "stranske/Counter_Risk: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Counter_Risk: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Counter_Risk: .github/workflows/pr-00-gate.yml",
+    "stranske/Counter_Risk: config/llm_slots.json",
+    "stranske/Deliverable-Render: .github/renovate.json",
+    "stranske/Deliverable-Render: .github/workflows/ci.yml",
+    "stranske/Deliverable-Render: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Deliverable-Render: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Deliverable-Render: .github/workflows/pr-00-gate.yml",
+    "stranske/Deliverable-Render: config/llm_slots.json",
+    "stranske/Doc-Lineage: .github/renovate.json",
+    "stranske/Doc-Lineage: .github/workflows/ci.yml",
+    "stranske/Doc-Lineage: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Doc-Lineage: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Doc-Lineage: .github/workflows/pr-00-gate.yml",
+    "stranske/Doc-Lineage: config/llm_slots.json",
+    "stranske/Fine-Art-Archive: .github/renovate.json",
+    "stranske/Fine-Art-Archive: .github/workflows/ci.yml",
+    "stranske/Fine-Art-Archive: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Fine-Art-Archive: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Fine-Art-Archive: .github/workflows/pr-00-gate.yml",
+    "stranske/Fine-Art-Archive: config/llm_slots.json",
+    "stranske/Inv-Man-Intake: .github/renovate.json",
+    "stranske/Inv-Man-Intake: .github/workflows/ci.yml",
+    "stranske/Inv-Man-Intake: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Inv-Man-Intake: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Inv-Man-Intake: .github/workflows/pr-00-gate.yml",
+    "stranske/Inv-Man-Intake: config/llm_slots.json",
+    "stranske/Manager-Mosaic: .github/renovate.json",
+    "stranske/Manager-Mosaic: .github/workflows/ci.yml",
+    "stranske/Manager-Mosaic: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Manager-Mosaic: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Manager-Mosaic: .github/workflows/pr-00-gate.yml",
+    "stranske/Manager-Mosaic: config/llm_slots.json",
+    "stranske/Orchestrator: .github/renovate.json",
+    "stranske/Orchestrator: .github/workflows/ci.yml",
+    "stranske/Orchestrator: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Orchestrator: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Orchestrator: .github/workflows/pr-00-gate.yml",
+    "stranske/Orchestrator: config/llm_slots.json",
+    "stranske/Pension-Data: .github/renovate.json",
+    "stranske/Pension-Data: .github/workflows/ci.yml",
+    "stranske/Pension-Data: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Pension-Data: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Pension-Data: .github/workflows/pr-00-gate.yml",
+    "stranske/Pension-Data: config/llm_slots.json",
+    "stranske/Portable-Alpha-Extension-Model: .github/renovate.json",
+    "stranske/Portable-Alpha-Extension-Model: .github/workflows/ci.yml",
+    "stranske/Portable-Alpha-Extension-Model: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Portable-Alpha-Extension-Model: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Portable-Alpha-Extension-Model: .github/workflows/pr-00-gate.yml",
+    "stranske/Portable-Alpha-Extension-Model: config/llm_slots.json",
+    "stranske/Ready: .github/renovate.json",
+    "stranske/Ready: .github/workflows/ci.yml",
+    "stranske/Ready: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Ready: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Ready: .github/workflows/pr-00-gate.yml",
+    "stranske/Ready: config/llm_slots.json",
+    "stranske/Travel-Plan-Permission: .github/renovate.json",
+    "stranske/Travel-Plan-Permission: .github/workflows/ci.yml",
+    "stranske/Travel-Plan-Permission: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Travel-Plan-Permission: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Travel-Plan-Permission: .github/workflows/pr-00-gate.yml",
+    "stranske/Travel-Plan-Permission: config/llm_slots.json",
+    "stranske/Trend_Model_Project: .github/renovate.json",
+    "stranske/Trend_Model_Project: .github/workflows/ci.yml",
+    "stranske/Trend_Model_Project: .github/workflows/cross-repo-smoke.yml",
+    "stranske/Trend_Model_Project: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/Trend_Model_Project: .github/workflows/pr-00-gate.yml",
+    "stranske/Trend_Model_Project: config/llm_slots.json",
+    "stranske/learning-management-system: .github/renovate.json",
+    "stranske/learning-management-system: .github/workflows/ci.yml",
+    "stranske/learning-management-system: .github/workflows/cross-repo-smoke.yml",
+    "stranske/learning-management-system: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/learning-management-system: .github/workflows/pr-00-gate.yml",
+    "stranske/learning-management-system: config/llm_slots.json",
+    "stranske/trip-planner: .github/renovate.json",
+    "stranske/trip-planner: .github/workflows/ci.yml",
+    "stranske/trip-planner: .github/workflows/cross-repo-smoke.yml",
+    "stranske/trip-planner: .github/workflows/pr-00-gate-fork-status.yml",
+    "stranske/trip-planner: .github/workflows/pr-00-gate.yml",
+    "stranske/trip-planner: config/llm_slots.json"
+  ]
+}
