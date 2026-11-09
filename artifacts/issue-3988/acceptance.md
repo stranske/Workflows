@@ -284,3 +284,35 @@ and exit codes are in the receipt. `gh pr checks 4505 --repo stranske/Workflows`
 again showed passing JavaScript Tests and the separate failed Codex keepalive
 job. No full suite was run. This round adds verification evidence only and
 does not claim completion of any remaining task or criterion.
+
+## Round 10 remaining-criteria verification — 2026-11-09
+
+**Outcome: T3/A3 UNVERIFIED; A4 FAIL (13/51 = 25.49%).** Checked on
+branch head `a1f87d31989ec23e13343a631893ba496ab524aa`. Stop rule: one
+evidence pass, at most 30 minutes. The pass finished without a production
+change. The reproducible real-input check remains:
+
+```sh
+/opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py --from-saved
+```
+
+It prints complete coverage and the failing acceptance metric in under two
+minutes; the observation JSON remains byte-identical. The fixed historical
+window cannot be changed by a present-day repair. No new fleet queries were
+needed for this replay.
+
+Direct inspection of both current intake workflows confirms the chooser
+call, empty-input DEFAULT_AGENT propagation and awaited summary-table write.
+The live candidate job log was fetched again and still shows Cursor as the
+default before a Claude label override. The live check-run API again returns
+null summary/text, and browser retrieval failed with `native pipe closed
+before response`. Neither the actual production summary nor its historical
+posterior/capacity condition was observed. Consequently the inspection
+portion of T3 is verified, but T3 as a whole and A3 remain unchecked.
+
+Both issue-named Node commands pass 74/74 on this branch. PR #4505 checks
+still include the successful suite-bearing JavaScript job and the separate
+failed Codex keepalive job. Full command outputs, live API/log readback and
+workflow hashes/line references are in
+[round10-verification.json](round10-verification.json). Historical receipts
+are retained. No remaining criterion is newly completed by this round.
