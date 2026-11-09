@@ -127,6 +127,7 @@ jobs:
       plan_scope: ${{ steps.manifest.outputs.plan_scope }}
       scope_base_sha: ${{ steps.manifest.outputs.scope_base_sha }}
       source_commit: ${{ steps.manifest.outputs.source_commit }}
+      input_refusal: ${{ steps.repos.outputs.input_refusal }}
       has_plan_items: ${{ steps.manifest.outputs.has_plan_items }}
     steps:
       - name: Resolve immutable plan scope
@@ -441,14 +442,26 @@ jobs:
           if [ -n "$REPOS_INPUT" ]; then
             selected_repos_args=(--selected-repos "$repos")
           fi
-          python scripts/select_consumer_sync_phase.py \
+          # A selector refusal (for example a canary request that names a
+          # non-canary repo) is a rejected dispatch input, not a sync failure.
+          # Record it so notify-failure reports a refusal instead of opening
+          # or re-commenting the "Action Required" alert; the step still fails.
+          if ! python scripts/select_consumer_sync_phase.py \
             --plan manifest.json \
             --phase "$phase" \
             --registered-repos "$(echo "$REGISTERED_CONSUMER_REPOS" | tr '\n' ',' | sed 's/,$//')" \
             "${selected_repos_args[@]}" \
             --canaries config/consumer_sync_canaries.json \
             --canary-evidence-json "$CANARY_EVIDENCE_JSON" \
-            --output sync-phase-selection.json
+            --output sync-phase-selection.json 2> selector.err; then
+            cat selector.err >&2
+            refusal=$(grep -m1 'select_consumer_sync_phase.py: error:' selector.err \
+              | sed 's/^.*select_consumer_sync_phase.py: error: //' | cut -c1-300 || true)
+            if [ -n "$refusal" ]; then
+              echo "input_refusal=$refusal" >> "$GITHUB_OUTPUT"
+            fi
+            exit 2
+          fi
           echo "matrix=$(jq -c '.matrix' sync-phase-selection.json)" >> "$GITHUB_OUTPUT"
           echo "phase=$phase" >> "$GITHUB_OUTPUT"
           if [ "$phase" = "canary" ]; then
@@ -2230,7 +2243,9 @@ jobs:
     name: Create failure issue
     needs: [prepare, validate, sync]
     runs-on: ubuntu-latest
-    if: failure()
+    # A refused dispatch input (needs.prepare.outputs.input_refusal) is
+    # reported by report-refusal below and never opens or comments on the alert.
+    if: failure() && needs.prepare.outputs.input_refusal == ''
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -2356,3 +2371,63 @@ jobs:
               --label "sync-failure,automated,bug"
             echo "::warning::Created new sync failure issue"
           fi
+
+  # ============================================================================
+  # REFUSAL: a rejected dispatch input is not a sync failure
+  # ============================================================================
+  report-refusal:
+    name: Report refused dispatch input
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    if: failure() && needs.prepare.outputs.input_refusal != ''
+    steps:
+      - name: Report refusal
+        env:
+          REFUSAL: ${{ needs.prepare.outputs.input_refusal }}
+          ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::warning::Dispatch input refused (no consumer write happened, no alert opened): $REFUSAL"
+          {
+            echo "## Dispatch input refused"
+            echo ""
+            echo "Requested by \`$ACTOR\`. The phase selector rejected the request before any"
+            echo "consumer write: \`$REFUSAL\`"
+            echo ""
+            echo "This is not a sync failure, so no \"Action Required\" alert was opened or updated."
+            echo "Re-dispatch with corrected inputs."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ============================================================================
+  # RESOLVE: a later successful run closes this workflow's own failure alert
+  # ============================================================================
+  resolve-alert:
+    name: Close resolved failure alert
+    needs: [prepare, validate, sync]
+    runs-on: ubuntu-latest
+    # prepare must have succeeded; validate/sync may be skipped (nothing to
+    # sync) but none may have failed or been cancelled. Dry runs and previews
+    # prove nothing about delivery and never close the alert.
+    if: >-
+      ${{ !cancelled() && needs.prepare.result == 'success'
+      && needs.validate.result != 'failure' && needs.validate.result != 'cancelled'
+      && needs.sync.result != 'failure' && needs.sync.result != 'cancelled'
+      && inputs.dry_run != true && (inputs.phase || 'canary') != 'preview' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Close the sync failure alert
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 .github/scripts/resolve_alert_issue.py \
+            --repo "${{ github.repository }}" \
+            --label sync-failure --label automated \
+            --title "🚨 Consumer Repo Sync Failed - Action Required" \
+            --workflow "Maint 68 Sync Consumer Repos" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
