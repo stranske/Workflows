@@ -3694,3 +3694,30 @@ fresh complete issue-4369 comment observation contains **49** comments at the
 UTC boundary above. Earlier observations and unresolved historical concerns
 remain preserved. No acceptance failure required a code repair. Only this report
 and the round-5 receipt changed. **Blocking=0, drainable by Maint 71=0.**
+
+### PR 4582 keepalive round 6 — 2026-11-09
+
+Outcome 1: **PASS**, rechecked at **2026-11-09T11:02:56.835415+00:00**.
+The [round-6 verification receipt](runtime-4550/4557r2/4582-round6-verification.json)
+records actual execution of A1–A4. The reported inability to run acceptance
+commands did not recur. Live PAEM PR 2488 remains `MERGED` at
+`e4ccdaf177e3271173ae534a710ebc23f29341e8`, mergedAt
+`2026-11-09T08:25:48Z`, matching the chain receipt. `json.tool` exits **0**;
+producer 42564882056 reports event `schedule` and success. Terminal Maint 71
+run 42585644980 reports success; its producer-triggered `workflow_dispatch`
+handoff remains distinct from a manual dispatch by this seat.
+
+Both retained payload comparisons and `cmp` against a fresh consumer download
+at the merge SHA exit **0**. Orchestrator PR 1288 is merged with no unsuccessful
+checks. Its exact merged archive's named model-table test returns **1 passed in
+0.37s**, exit **0**, without skip, against live Workflows main. The archive hash
+matches the retained receipt; all **3,888** archived files match the test checkout.
+Missing Git metadata leaves the test-input tracking hook **NOT CHECKED**.
+
+Fetched Workflows main contains PR 4579's merge, the chain receipt and Closer
+repair 2 section. Criterion 3 remains met at the consumer merge SHA above; the
+fresh complete issue-4369 comment observation contains **49** comments at the
+UTC boundary above. Earlier observations and unresolved historical concerns
+remain preserved. No acceptance failure required a code repair. Only this report
+and the round-6 receipt changed. No dependency pins, workflow dispatches,
+schedules or merges changed. **Blocking=0, drainable by Maint 71=0.**
