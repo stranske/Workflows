@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -362,6 +364,115 @@ def test_integration_template_sync_detects_mismatch(
 
     assert exit_code == 1
     assert str(integration_template) in captured.err
+
+
+def test_checked_in_templates_match_canonical_source() -> None:
+    """Keep both checked-in templates aligned with the complete source pin file."""
+    repo_root = Path(__file__).parents[2]
+    canonical = (repo_root / ".github/workflows/autofix-versions.env").read_bytes()
+    for template in ("consumer-repo", "integration-repo"):
+        template_path = (
+            repo_root / "templates" / template / ".github/workflows/autofix-versions.env"
+        )
+        assert template_path.read_bytes() == canonical, str(template_path)
+
+
+@pytest.mark.parametrize(
+    "stale_templates", [(0,), (1,), (0, 1)], ids=["consumer", "integration", "both"]
+)
+@pytest.mark.parametrize("check_args", [(), ("--check",)], ids=["default", "explicit-check"])
+@pytest.mark.parametrize(
+    "stale_lockfile", [False, True], ids=["aligned-lockfile", "stale-lockfile"]
+)
+@pytest.mark.parametrize(
+    "stale_pyproject", [False, True], ids=["aligned-pyproject", "stale-pyproject"]
+)
+def test_apply_repairs_ruff_drift_in_templates(
+    tmp_path: Path,
+    stale_templates: tuple[int, ...],
+    check_args: tuple[str, ...],
+    stale_lockfile: bool,
+    stale_pyproject: bool,
+) -> None:
+    """Exercise real CLI paths so a missing integration target cannot go unnoticed."""
+    script = Path(sync_tool_versions.__file__).resolve()
+    env_path = tmp_path / ".github/workflows/autofix-versions.env"
+    pyproject_path = tmp_path / "pyproject.toml"
+    lockfile_path = tmp_path / "requirements.lock"
+    aligned_lockfile = "ruff==0.17.4\n# Preserve unrelated dependencies\nunrelated==1.0\n"
+    initial_lockfile = (
+        aligned_lockfile.replace("ruff==0.17.4", "ruff==0.17.3")
+        if stale_lockfile
+        else aligned_lockfile
+    )
+    lockfile_path.write_text(initial_lockfile, encoding="utf-8")
+    templates = [
+        tmp_path / "templates" / repo / ".github/workflows/autofix-versions.env"
+        for repo in ("consumer-repo", "integration-repo")
+    ]
+    versions = {cfg.env_key: "14.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
+    versions["RUFF_VERSION"] = "0.17.4"
+    env_path.parent.mkdir(parents=True)
+    _write_env_file(env_path, versions)
+    aligned_pyproject = _make_pyproject_content(versions)
+    initial_pyproject = (
+        aligned_pyproject.replace('"ruff==0.17.4"', '"ruff==0.17.3"')
+        if stale_pyproject
+        else aligned_pyproject
+    )
+    pyproject_path.write_text(initial_pyproject, encoding="utf-8")
+    canonical = env_path.read_bytes()
+    stale = canonical.replace(b"RUFF_VERSION=0.17.4", b"RUFF_VERSION=0.17.3")
+    for index, template in enumerate(templates):
+        template.parent.mkdir(parents=True)
+        template.write_bytes(stale if index in stale_templates else canonical)
+
+    def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(script), *args],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+
+    result = run_cli(*check_args)
+    assert result.returncode == 1, result.stderr
+    assert result.stdout == ""
+    assert env_path.read_bytes() == canonical
+    assert pyproject_path.read_text(encoding="utf-8") == initial_pyproject
+    assert ("ruff: pyproject has 0.17.3" in result.stderr) == stale_pyproject
+    assert lockfile_path.read_text(encoding="utf-8") == initial_lockfile
+    assert ("requirements.lock:ruff" in result.stderr) == stale_lockfile
+    for index, template in enumerate(templates):
+        if index in stale_templates:
+            assert str(template.relative_to(tmp_path)) in result.stderr
+            assert template.read_bytes() == stale
+        else:
+            assert str(template.relative_to(tmp_path)) not in result.stderr
+            assert template.read_bytes() == canonical
+
+    result = run_cli("--apply")
+    assert result.returncode == 0, result.stderr
+    assert "template autofix-versions.env files synced from source" in result.stdout
+    assert ("tool pins synced to pyproject.toml" in result.stdout) == stale_pyproject
+    assert result.stderr == ""
+    assert pyproject_path.read_text(encoding="utf-8") == aligned_pyproject
+    for template in templates:
+        assert template.read_bytes() == canonical
+    assert lockfile_path.read_text(encoding="utf-8") == aligned_lockfile
+
+    result = run_cli(*check_args)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == result.stderr == ""
+
+    result = run_cli("--apply")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == result.stderr == ""
+    assert env_path.read_bytes() == canonical
+    assert pyproject_path.read_text(encoding="utf-8") == aligned_pyproject
+    assert lockfile_path.read_text(encoding="utf-8") == aligned_lockfile
 
 
 def test_lockfile_sync_detects_direct_pin_mismatch(
