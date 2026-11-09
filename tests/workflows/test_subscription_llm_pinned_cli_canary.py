@@ -369,6 +369,33 @@ def test_canary_detects_disclosure_when_shell_tool_is_enabled(transport, sandbox
     assert "auth token in /v1/responses" in _disclosures(backend, sandbox, content)
 
 
+def test_canary_fails_when_multi_agent_is_not_disabled(transport, sandbox, monkeypatch):
+    """Positive control: removing multi_agent from _CODEX_DISABLED_FEATURES lets spawn_agent run."""
+    features = tuple(f for f in transport._CODEX_DISABLED_FEATURES if f != "multi_agent")
+    monkeypatch.setattr(transport, "_CODEX_DISABLED_FEATURES", features)
+    with pytest.raises(AssertionError, match=r"unsupported call: collaborationspawn_agent"):
+        test_pinned_cli_refuses_credential_disclosure(transport, sandbox, "spawn_agent")
+
+
+def test_reusable_codex_run_has_pinned_cli_canary_ci_job():
+    """CI job in reusable-codex-run.yml installs the pinned CLI and forbids skipped tests."""
+    workflow = yaml.safe_load(RUNNER.read_text(encoding="utf-8"))
+    job = workflow["jobs"].get("codex-pinned-canary")
+    assert job is not None, "missing codex-pinned-canary job in reusable-codex-run.yml"
+    steps = job.get("steps", [])
+    install_steps = [s for s in steps if s.get("name") == "Install Codex CLI"]
+    assert len(install_steps) == 1
+    assert "@openai/codex@${CODEX_CLI_VERSION}" in install_steps[0].get("run", "")
+    run_steps = [s for s in steps if s.get("name") == "Run pinned Codex CLI canary"]
+    assert len(run_steps) == 1
+    run_step = run_steps[0]
+    assert "if" not in run_step, "canary step must not conditionally skip"
+    assert "WORKFLOWS_PINNED_CODEX_BIN" in (run_step.get("env") or {})
+    run_cmd = run_step.get("run", "")
+    assert "tests/workflows/test_subscription_llm_pinned_cli_canary.py" in run_cmd
+    assert "skipped" in run_cmd or "exit 5" in run_cmd, "canary step must fail on skipped tests"
+
+
 def _workflow_output_extractor() -> str:
     workflow = yaml.safe_load(RUNNER.read_text(encoding="utf-8"))
     for job in workflow["jobs"].values():

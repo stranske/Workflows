@@ -2286,8 +2286,20 @@ jobs:
           python -m pip install --upgrade pip pytest pyyaml
 
       - name: Run pinned Codex CLI canary
-        if: ${{ hashFiles('tests/workflows/test_subscription_llm_pinned_cli_canary.py') != '' }}
         env:
           WORKFLOWS_PINNED_CODEX_BIN: ${{ runner.temp }}/agent-cli/codex/bin/codex
         run: |
-          python -m pytest tests/workflows/test_subscription_llm_pinned_cli_canary.py -vv
+          set -euo pipefail
+          junit_xml="${RUNNER_TEMP:-/tmp}/pinned-codex-canary-junit.xml"
+          python -m pytest tests/workflows/test_subscription_llm_pinned_cli_canary.py -vv --junitxml="$junit_xml"
+          python - "$junit_xml" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse(sys.argv[1]).getroot()
+          suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
+          tests = sum(int(s.attrib.get("tests", 0)) for s in suites)
+          skipped = sum(int(s.attrib.get("skipped", 0)) for s in suites)
+          if tests == 0 or skipped > 0:
+              raise SystemExit(f"Expected 0 skipped tests across >0 cases, got tests={tests}, skipped={skipped}")
+          PY
