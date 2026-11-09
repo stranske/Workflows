@@ -364,6 +364,19 @@ def test_integration_template_sync_detects_mismatch(
     assert str(integration_template) in captured.err
 
 
+def test_integration_template_ruff_pin_matches_canonical_source() -> None:
+    """Keep the checked-in integration template aligned with the source pin."""
+    repo_root = Path(__file__).parents[2]
+    canonical = sync_tool_versions.parse_env_file(
+        repo_root / ".github/workflows/autofix-versions.env"
+    )
+    integration_template = sync_tool_versions.parse_env_file(
+        repo_root / "templates/integration-repo/.github/workflows/autofix-versions.env"
+    )
+
+    assert integration_template["RUFF_VERSION"] == canonical["RUFF_VERSION"]
+
+
 def test_apply_repairs_ruff_drift_in_both_templates(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
