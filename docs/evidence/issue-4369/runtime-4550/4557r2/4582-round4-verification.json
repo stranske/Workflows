@@ -1,0 +1,313 @@
+{
+  "checked_parent_head": "eeb7f8e040c7bf8f8db2ab1cfc415e561b45882a",
+  "consumer_pr": {
+    "mergeCommit": {
+      "oid": "e4ccdaf177e3271173ae534a710ebc23f29341e8"
+    },
+    "mergedAt": "2026-11-09T08:25:48Z",
+    "state": "MERGED"
+  },
+  "json_tool_exit_code": 0,
+  "producer": {
+    "conclusion": "success",
+    "event": "schedule",
+    "head_sha": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+    "id": 42564882056
+  },
+  "maint71": {
+    "conclusion": "success",
+    "event": "workflow_dispatch",
+    "head_sha": "75712a5bdf7c0f5791ec1b633f75b18bd3568562",
+    "id": 42585644980
+  },
+  "cmp": [
+    {
+      "target": "candidate-795155aa-subscription_llm.py.txt",
+      "exit_code": 0
+    },
+    {
+      "target": "consumer-e4ccdaf1-subscription_llm.py.txt",
+      "exit_code": 0
+    },
+    {
+      "target": "/tmp/4582-round4-consumer.py",
+      "ref": "e4ccdaf177e3271173ae534a710ebc23f29341e8",
+      "blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+      "exit_code": 0
+    }
+  ],
+  "orchestrator": {
+    "state": "MERGED",
+    "revision": "7568b39de2537655d84dbe119a30bd7e2c02774a",
+    "unsuccessful_checks": [],
+    "command": "/opt/anaconda3/bin/python3 -m pytest -q tests/test_model_table.py::test_copy_matches_workflows_source",
+    "exit_code": 0,
+    "result": ".                                                                        [100%]\ntracked test inputs: NOT CHECKED -- /private/tmp/issue-4581-orchestrator is not a git checkout. In the exec mirror that loses nothing: its tests/ IS `git archive HEAD tests`, so every file in it was tracked\n1 passed in 0.38s",
+    "archive_sha256": "673d85f750046a4866c90bc7c90d255c006bc2a6137a1e8ccda9243c1f2ba5d9",
+    "archive_files_verified_unchanged": 3888,
+    "limitation": "Archive has no Git metadata; test-input tracking hook NOT CHECKED. Named test passed without skip."
+  },
+  "source_pr_4579": {
+    "mergeCommit": {
+      "oid": "75712a5bdf7c0f5791ec1b633f75b18bd3568562"
+    },
+    "mergedAt": "2026-11-09T08:04:51Z",
+    "state": "MERGED"
+  },
+  "source_receipts_and_section_on_main": true,
+  "issue_4369_comments": {
+    "complete_pagination": true,
+    "count": 49,
+    "comments": [
+      {
+        "id": 6568623594,
+        "created_at": "2026-11-02T03:52:17Z",
+        "updated_at": "2026-11-02T03:52:17Z"
+      },
+      {
+        "id": 6568624416,
+        "created_at": "2026-11-02T03:52:21Z",
+        "updated_at": "2026-11-02T03:52:21Z"
+      },
+      {
+        "id": 6583452479,
+        "created_at": "2026-11-02T17:14:59Z",
+        "updated_at": "2026-11-02T17:14:59Z"
+      },
+      {
+        "id": 6583454319,
+        "created_at": "2026-11-02T17:15:04Z",
+        "updated_at": "2026-11-02T17:15:04Z"
+      },
+      {
+        "id": 6587416829,
+        "created_at": "2026-11-02T20:15:05Z",
+        "updated_at": "2026-11-02T20:15:05Z"
+      },
+      {
+        "id": 6588614972,
+        "created_at": "2026-11-02T21:14:01Z",
+        "updated_at": "2026-11-02T21:14:01Z"
+      },
+      {
+        "id": 6597301080,
+        "created_at": "2026-11-03T06:46:33Z",
+        "updated_at": "2026-11-03T06:46:33Z"
+      },
+      {
+        "id": 6597303042,
+        "created_at": "2026-11-03T06:46:42Z",
+        "updated_at": "2026-11-03T06:46:42Z"
+      },
+      {
+        "id": 6604754804,
+        "created_at": "2026-11-03T13:12:42Z",
+        "updated_at": "2026-11-03T13:12:42Z"
+      },
+      {
+        "id": 6623204937,
+        "created_at": "2026-11-04T05:15:36Z",
+        "updated_at": "2026-11-04T05:15:36Z"
+      },
+      {
+        "id": 6623206100,
+        "created_at": "2026-11-04T05:15:42Z",
+        "updated_at": "2026-11-04T05:15:42Z"
+      },
+      {
+        "id": 6623207637,
+        "created_at": "2026-11-04T05:15:48Z",
+        "updated_at": "2026-11-04T05:15:48Z"
+      },
+      {
+        "id": 6623828876,
+        "created_at": "2026-11-04T06:00:28Z",
+        "updated_at": "2026-11-04T06:00:28Z"
+      },
+      {
+        "id": 6623830468,
+        "created_at": "2026-11-04T06:00:35Z",
+        "updated_at": "2026-11-04T06:00:35Z"
+      },
+      {
+        "id": 6631874862,
+        "created_at": "2026-11-04T13:27:57Z",
+        "updated_at": "2026-11-04T13:27:57Z"
+      },
+      {
+        "id": 6631909094,
+        "created_at": "2026-11-04T13:29:30Z",
+        "updated_at": "2026-11-04T13:29:30Z"
+      },
+      {
+        "id": 6631921882,
+        "created_at": "2026-11-04T13:30:05Z",
+        "updated_at": "2026-11-04T13:30:05Z"
+      },
+      {
+        "id": 6631945201,
+        "created_at": "2026-11-04T13:31:09Z",
+        "updated_at": "2026-11-04T13:31:09Z"
+      },
+      {
+        "id": 6631947881,
+        "created_at": "2026-11-04T13:31:16Z",
+        "updated_at": "2026-11-04T13:31:16Z"
+      },
+      {
+        "id": 6631981306,
+        "created_at": "2026-11-04T13:32:50Z",
+        "updated_at": "2026-11-04T13:32:50Z"
+      },
+      {
+        "id": 6631991191,
+        "created_at": "2026-11-04T13:33:19Z",
+        "updated_at": "2026-11-04T13:33:19Z"
+      },
+      {
+        "id": 6631996865,
+        "created_at": "2026-11-04T13:33:35Z",
+        "updated_at": "2026-11-08T00:52:30Z"
+      },
+      {
+        "id": 6632013165,
+        "created_at": "2026-11-04T13:34:20Z",
+        "updated_at": "2026-11-04T13:34:20Z"
+      },
+      {
+        "id": 6632034602,
+        "created_at": "2026-11-04T13:35:19Z",
+        "updated_at": "2026-11-04T13:35:19Z"
+      },
+      {
+        "id": 6632061199,
+        "created_at": "2026-11-04T13:36:33Z",
+        "updated_at": "2026-11-04T13:36:33Z"
+      },
+      {
+        "id": 6632137960,
+        "created_at": "2026-11-04T13:40:07Z",
+        "updated_at": "2026-11-04T13:40:07Z"
+      },
+      {
+        "id": 6632181181,
+        "created_at": "2026-11-04T13:42:08Z",
+        "updated_at": "2026-11-04T13:42:08Z"
+      },
+      {
+        "id": 6632256111,
+        "created_at": "2026-11-04T13:45:37Z",
+        "updated_at": "2026-11-04T13:45:37Z"
+      },
+      {
+        "id": 6632343497,
+        "created_at": "2026-11-04T13:49:38Z",
+        "updated_at": "2026-11-04T13:49:38Z"
+      },
+      {
+        "id": 6632420613,
+        "created_at": "2026-11-04T13:52:59Z",
+        "updated_at": "2026-11-04T13:52:59Z"
+      },
+      {
+        "id": 6632598002,
+        "created_at": "2026-11-04T14:01:00Z",
+        "updated_at": "2026-11-04T14:01:00Z"
+      },
+      {
+        "id": 6632676828,
+        "created_at": "2026-11-04T14:04:28Z",
+        "updated_at": "2026-11-04T14:04:28Z"
+      },
+      {
+        "id": 6633050549,
+        "created_at": "2026-11-04T14:20:29Z",
+        "updated_at": "2026-11-04T14:20:29Z"
+      },
+      {
+        "id": 6633138780,
+        "created_at": "2026-11-04T14:24:20Z",
+        "updated_at": "2026-11-04T14:24:20Z"
+      },
+      {
+        "id": 6648485035,
+        "created_at": "2026-11-05T03:00:31Z",
+        "updated_at": "2026-11-05T03:00:31Z"
+      },
+      {
+        "id": 6648719968,
+        "created_at": "2026-11-05T03:17:04Z",
+        "updated_at": "2026-11-05T03:17:04Z"
+      },
+      {
+        "id": 6648720854,
+        "created_at": "2026-11-05T03:17:08Z",
+        "updated_at": "2026-11-05T03:17:08Z"
+      },
+      {
+        "id": 6649127583,
+        "created_at": "2026-11-05T03:46:43Z",
+        "updated_at": "2026-11-05T03:46:43Z"
+      },
+      {
+        "id": 6649128394,
+        "created_at": "2026-11-05T03:46:47Z",
+        "updated_at": "2026-11-05T03:46:47Z"
+      },
+      {
+        "id": 6649129537,
+        "created_at": "2026-11-05T03:46:52Z",
+        "updated_at": "2026-11-05T03:46:52Z"
+      },
+      {
+        "id": 6649299127,
+        "created_at": "2026-11-05T03:59:38Z",
+        "updated_at": "2026-11-05T03:59:38Z"
+      },
+      {
+        "id": 6649911684,
+        "created_at": "2026-11-05T04:45:07Z",
+        "updated_at": "2026-11-05T04:45:07Z"
+      },
+      {
+        "id": 6649912647,
+        "created_at": "2026-11-05T04:45:11Z",
+        "updated_at": "2026-11-05T04:45:11Z"
+      },
+      {
+        "id": 6649913432,
+        "created_at": "2026-11-05T04:45:15Z",
+        "updated_at": "2026-11-05T04:45:15Z"
+      },
+      {
+        "id": 6650145104,
+        "created_at": "2026-11-05T05:01:44Z",
+        "updated_at": "2026-11-05T05:01:44Z"
+      },
+      {
+        "id": 6715276022,
+        "created_at": "2026-11-08T00:51:55Z",
+        "updated_at": "2026-11-08T00:51:55Z"
+      },
+      {
+        "id": 6717526002,
+        "created_at": "2026-11-08T05:03:35Z",
+        "updated_at": "2026-11-08T05:03:35Z"
+      },
+      {
+        "id": 6717537084,
+        "created_at": "2026-11-08T05:04:54Z",
+        "updated_at": "2026-11-08T05:04:54Z"
+      },
+      {
+        "id": 6718971808,
+        "created_at": "2026-11-08T07:54:50Z",
+        "updated_at": "2026-11-08T07:54:50Z"
+      }
+    ]
+  },
+  "observed_at_utc": "2026-11-09T10:02:57.436449+00:00",
+  "blocking": 0,
+  "drainable_by_maint71": 0,
+  "actions": "Read-only GitHub checks, named acceptance commands; no workflow dispatch or merge."
+}

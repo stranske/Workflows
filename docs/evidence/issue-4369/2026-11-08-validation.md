@@ -3642,3 +3642,30 @@ the original observation and unresolved historical concerns remain preserved.
 No acceptance failure required a code repair. Only this report and the round-3
 receipt changed. No manual Maint 68/71 dispatch, merge, dependency-pin change or
 schedule change occurred. **Blocking=0, drainable by Maint 71=0.**
+
+### PR 4582 keepalive round 4 — 2026-11-09
+
+Outcome 1: **PASS**, rechecked at **2026-11-09T10:02:57.436449+00:00**.
+The [round-4 verification receipt](runtime-4550/4557r2/4582-round4-verification.json)
+records execution of A1–A4 against real input. PAEM PR 2488 remains merged at
+`e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching `consumer_merge` in the
+chain receipt. `json.tool` exits **0**. Producer 42564882056 independently
+reports event `schedule` and success; terminal Maint 71 run 42585644980 reports
+success. Its `workflow_dispatch` event is the retained producer-triggered handoff,
+not a manual dispatch by this seat.
+
+Both retained payload comparisons and the comparison against a fresh download
+of `tools/subscription_llm.py` at the actual consumer merge SHA exit **0**.
+Orchestrator PR 1288 is merged with no unsuccessful checks; its exact merged
+archive's named model-table test returns **1 passed in 0.38s**, exit **0**, with
+no skip. The archive hash matches its recorded source receipt and all **3,888**
+archived files match the test checkout. The archive lacks Git metadata, so its
+test-input tracking hook remains **NOT CHECKED**; the named test passed against
+live Workflows main.
+
+Fetched Workflows main contains PR 4579's merge, chain receipt and Closer repair 2
+section. The fresh complete issue-4369 comment read has **49** comments at the
+UTC boundary above. Earlier observations and unresolved historical concern
+classes remain preserved. No acceptance failure required a code change. Only
+this report and the round-4 receipt changed; no dependency pins, manual workflow
+dispatches, schedules or merges changed. **Blocking=0, drainable by Maint 71=0.**
