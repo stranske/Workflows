@@ -68,6 +68,26 @@ def test_empty_search_only_clears_a_complete_window(age, status):
     assert "search alone is not acceptance" in result["mid_run_merge_verification"]
 
 
+@pytest.mark.parametrize("offset", [-1, 0, 1])
+def test_full_window_requires_fourteen_elapsed_days(offset):
+    now = START + timedelta(days=14, seconds=offset)
+    result = audit.collect(FIX, now=now, api=GitHub())
+    complete = offset >= 0
+    assert result["status"] == ("clear_search" if complete else "pending")
+    assert result["blocking"] == result["drainable"] == int(not complete)
+    assert result["window_end"] == (START + timedelta(days=14)).isoformat()
+
+
+@pytest.mark.parametrize("offset,status", [(-1, "regression"), (0, "regression"), (1, "pending")])
+def test_partial_window_filters_same_day_prs_at_observation_time(offset, status):
+    now = START + timedelta(days=3)
+    candidate = pull(created=now + timedelta(seconds=offset))
+    result = audit.collect(FIX, now=now, api=GitHub([candidate]))
+    assert result["status"] == status
+    assert len(result["matches"]) == int(status == "regression")
+    assert result["blocking"] == result["drainable"] == 1
+
+
 @pytest.mark.parametrize("age", [0, 3, 14, 20, 365])
 def test_search_date_range_stops_at_observed_window_end(age):
     api = GitHub()
@@ -140,6 +160,21 @@ def test_search_pages_are_all_read_before_reporting_no_matches():
     assert result["status"] == "regression"
     assert result["searched_count"] == 101
     assert len([call for call in api.calls if call.startswith("search/")]) == 2
+
+
+@pytest.mark.parametrize(
+    "last_branch,status",
+    [("cursor/issue-12", "clear_search"), ("cursor/issue-12-slug", "regression")],
+)
+def test_search_reads_the_last_result_at_the_github_cap(last_branch, status):
+    api = GitHub([pull("cursor/issue-12")] * 999 + [pull(last_branch)])
+    result = audit.collect(FIX, now=START + timedelta(days=14), api=api)
+    assert result["status"] == status
+    assert result["searched_count"] == 1000
+    searches = [parse_qs(urlsplit(call).query) for call in api.calls if call.startswith("search/")]
+    assert [query["page"] for query in searches] == [[str(page)] for page in range(1, 11)]
+    assert api.calls[-1] == "repos/stranske/Example/pulls/1000"
+    assert len(result["matches"]) == int(status == "regression")
 
 
 @pytest.mark.parametrize(
