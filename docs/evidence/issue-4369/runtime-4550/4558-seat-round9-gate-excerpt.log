@@ -1,0 +1,3 @@
+summary	Enforce explicit Gate success	﻿2026-11-09T02:31:18.4470249Z ##[group]Run printf '%s\n' "Gate did not report explicit success: ${GATE_SUMMARY_DESCRIPTION}" >&2
+summary	Enforce explicit Gate success	2026-11-09T02:31:18.4471195Z ^[[36;1mprintf '%s\n' "Gate did not report explicit success: ${GATE_SUMMARY_DESCRIPTION}" >&2^[[0m
+summary	Enforce explicit Gate success	2026-11-09T02:31:18.4770256Z Gate did not report explicit success: Python CI cancelled; waiting for rerun.

@@ -1,0 +1,41 @@
+{
+  "checked_at": "2026-11-08T23:26:19.876007+00:00",
+  "checks": [
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "origin/main"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

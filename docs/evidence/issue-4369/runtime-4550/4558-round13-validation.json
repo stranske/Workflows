@@ -1,0 +1,216 @@
+[
+  {
+    "argv": [
+      "node",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "started_at": "2026-11-09T02:55:22.589471+00:00",
+    "completed_at": "2026-11-09T02:55:22.703651+00:00",
+    "wall_seconds": 0.11419120599998678,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-observer-tests.log",
+    "log_sha256": "e60c2da2ac00d06a2ae2ed10f1e921fc971299035729960ec36a13adda4de6cc",
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node"
+  },
+  {
+    "argv": [
+      "node",
+      "--check",
+      "docs/evidence/issue-4369/observe-maint68.js"
+    ],
+    "started_at": "2026-11-09T02:55:22.704102+00:00",
+    "completed_at": "2026-11-09T02:55:22.736227+00:00",
+    "wall_seconds": 0.032124190999979874,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-observer-syntax.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node"
+  },
+  {
+    "argv": [
+      "node",
+      "--check",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "started_at": "2026-11-09T02:55:22.736485+00:00",
+    "completed_at": "2026-11-09T02:55:22.768454+00:00",
+    "wall_seconds": 0.031971545999965656,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-tests-syntax.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node"
+  },
+  {
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "tests/scripts/test_issue_4369_downstream_evidence.py",
+      "-m",
+      "not slow"
+    ],
+    "started_at": "2026-11-09T02:55:22.768813+00:00",
+    "completed_at": "2026-11-09T02:55:25.989534+00:00",
+    "wall_seconds": 3.220729143000028,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-receipt-tests.log",
+    "log_sha256": "7f99f162de267e39020ec8f4f0bb0ee66603c7918d42a9fc52d5099ed4b767a7",
+    "executable_path": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3"
+  },
+  {
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+    ],
+    "started_at": "2026-11-09T02:55:25.990037+00:00",
+    "completed_at": "2026-11-09T02:55:25.993935+00:00",
+    "wall_seconds": 0.003898585000001731,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-required-ancestry.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "executable_path": "/usr/bin/git"
+  },
+  {
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+    ],
+    "started_at": "2026-11-09T02:55:25.994269+00:00",
+    "completed_at": "2026-11-09T02:55:25.997901+00:00",
+    "wall_seconds": 0.0036305550000292897,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-repair-ancestry.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "executable_path": "/usr/bin/git"
+  },
+  {
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "origin/main"
+    ],
+    "started_at": "2026-11-09T02:55:25.998199+00:00",
+    "completed_at": "2026-11-09T02:55:26.001843+00:00",
+    "wall_seconds": 0.003646075999995446,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-published-ancestry.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "executable_path": "/usr/bin/git"
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "docs/evidence/issue-4369/runtime-4550/4558-round13-origin-inventory.json"
+    ],
+    "started_at": "2026-11-09T02:55:26.002260+00:00",
+    "completed_at": "2026-11-09T02:55:26.034141+00:00",
+    "wall_seconds": 0.03188171499999726,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-single-cli.log",
+    "log_sha256": "000b0cf17bb7f66e80bd2259f9f348bb735137993759523075486970f35220e8",
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node"
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "/tmp/issue-4558-round13-sequence.json"
+    ],
+    "started_at": "2026-11-09T02:55:26.035856+00:00",
+    "completed_at": "2026-11-09T02:55:26.067722+00:00",
+    "wall_seconds": 0.03186955200004604,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-sequence-cli.log",
+    "log_sha256": "9ae5437976064833e158f47a0c38f25f76f625e26a4e14b33b4c1816b2e94b75",
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node"
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "/tmp/issue-4558-round13-sequence.json"
+    ],
+    "started_at": "2026-11-09T02:55:26.068759+00:00",
+    "completed_at": "2026-11-09T02:55:26.100694+00:00",
+    "wall_seconds": 0.03194342000000461,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-merger-sequence-cli.log",
+    "log_sha256": "aebb61daeb181e9e338c4b9eb88f8a90869a93aced6aad73aab1ca0e461f454b",
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node"
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "/tmp/issue-4558-round13-invalid.json"
+    ],
+    "started_at": "2026-11-09T02:55:26.102245+00:00",
+    "completed_at": "2026-11-09T02:55:26.134225+00:00",
+    "wall_seconds": 0.031985276999989765,
+    "bound_seconds": 120,
+    "exit_code": 2,
+    "expected_exit_code": 2,
+    "timed_out": false,
+    "log": "4558-round13-invalid-cli.log",
+    "log_sha256": "d20638fbb5dca8ffda5d006ace79aed426d800efca3c9f0ff092e770f2e962a2",
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node"
+  },
+  {
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "started_at": "2026-11-09T02:55:26.134673+00:00",
+    "completed_at": "2026-11-09T02:55:26.151982+00:00",
+    "wall_seconds": 0.01730885000000626,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round13-diff-check.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "executable_path": "/usr/bin/git"
+  }
+]

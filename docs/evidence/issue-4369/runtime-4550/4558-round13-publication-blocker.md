@@ -1,0 +1,5 @@
+Round 13 implemented explicit UTC/calendar validation in docs/evidence/issue-4369/observe-maint68.js and added 26 regression cases in tests/scripts/test_issue_4369_origin_observation.js. Final checks: 73 Node tests and 124 Python receipt tests pass; syntax and bounded CLI replay checks pass. The complete continuous inventory covers 355 unique runs through 2026-11-09T02:52:15Z with no exact-path Maint 68/71 matches. No workflow was dispatched. Automation-origin acceptance and the upstream non-PASS verification remain unresolved.
+
+Publication blocker: explicit-path git add exits 128 because .git/index.lock is on a read-only filesystem. No commit or push succeeded. Please have the existing authorized writer commit the local code/tests and receipts; intended commit subject: Reject ambiguous UTC bounds in delivery observations. No protected file was edited.
+
+Adding `needs-human` and posting this comment were both rejected by automatic approval review: `MCP tool call requires approval, but approval policy is never`. Neither remote mutation succeeded.

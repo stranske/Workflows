@@ -1,0 +1,695 @@
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08" (3.873959ms)
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08" (0.469776ms)
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08" (0.257049ms)
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08T21:35:00" (0.413ms)
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08T21:35:00" (0.419873ms)
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T21:35:00" (0.339964ms)
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08T22:35:00+01:00" (0.356635ms)
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08T22:35:00+01:00" (0.252221ms)
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T22:35:00+01:00" (0.230821ms)
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08T21:35:00.000001Z" (0.425133ms)
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08T21:35:00.000001Z" (0.309557ms)
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T21:35:00.000001Z" (0.156421ms)
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08T24:00:00Z" (0.188552ms)
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08T24:00:00Z" (0.161131ms)
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T24:00:00Z" (0.238405ms)
+✖ refuse non-UTC, normalized or imprecise start: "2026-02-30T21:35:00Z" (0.169155ms)
+✖ refuse non-UTC, normalized or imprecise end: "2026-02-30T21:35:00Z" (0.20892ms)
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-02-30T21:35:00Z" (0.190275ms)
+✖ refuse non-UTC, normalized or imprecise start: 2026 (0.153667ms)
+✖ refuse non-UTC, normalized or imprecise end: 2026 (0.183092ms)
+✖ refuse non-UTC, normalized or imprecise created_at: 2026 (0.208309ms)
+✖ refuse non-UTC, normalized or imprecise start: null (0.149399ms)
+✖ refuse non-UTC, normalized or imprecise end: null (0.138728ms)
+✖ refuse non-UTC, normalized or imprecise created_at: null (0.161211ms)
+✔ UTC timestamps accept explicit zero offsets, milliseconds and leap days (0.504361ms)
+✔ continuous observation compares equivalent UTC boundary representations (0.605851ms)
+✔ continuous observations deduplicate an unchanged run at the inclusive boundary (0.227915ms)
+✔ continuous empty observations preserve merger identity and do not establish a chain (1.015095ms)
+✔ continuous observations retain distinct chronological leads without inferring causality (0.449479ms)
+✔ continuous observation refuses gap (0.449679ms)
+✔ continuous observation refuses overlap (0.39679ms)
+✔ continuous observation refuses reversed windows (0.338261ms)
+✔ continuous observation refuses changed workflow (0.233966ms)
+✔ continuous observation refuses changed inventory scope (0.254916ms)
+✔ continuous observation refuses incomplete continuation (0.174065ms)
+✔ continuous observation refuses missing boundary run in continuation (0.281746ms)
+✔ continuous observation refuses missing boundary run in preceding window (0.20363ms)
+✔ continuous observation refuses conflicting boundary event (0.223227ms)
+✔ continuous observation refuses conflicting boundary workflow (0.203509ms)
+✔ continuous observation refuses conflicting boundary identity (0.316962ms)
+✔ continuous observation requires at least one complete inventory (0.18747ms)
+✔ merger observations validate empty, exact-boundary and multi-page inventories (0.807878ms)
+✔ refuse unsupported workflow path (0.179585ms)
+✔ refuse non-string workflow path (0.16083ms)
+✔ refuse producer path on merger rows (0.293097ms)
+✔ refuse producer workflow identity on merger rows (0.160981ms)
+✔ refuse producer inventory endpoint (0.148657ms)
+✔ refuse filtered merger inventory (0.170619ms)
+✔ refuse incomplete merger pagination (0.272428ms)
+✔ refuse duplicate merger run (0.177391ms)
+✔ refuse merger run outside bounds (0.77178ms)
+✔ repository inventories select exact merger paths without treating chronology as causality (0.371814ms)
+✔ retained round-9 inventory observes a merger dispatch without a producer or causal proof (0.876396ms)
+✔ workflow-specific inventory supports empty and paginated producer observations (0.318785ms)
+✔ refuse missing workflow identity (0.143318ms)
+✔ refuse invalid workflow identity (0.136335ms)
+✔ refuse changed page endpoint (0.271928ms)
+✔ refuse wrong row workflow identity (0.122679ms)
+✔ refuse missing row workflow identity (0.127758ms)
+✔ refuse wrong workflow path (0.11256ms)
+✔ refuse event-filtered producer inventory (0.121707ms)
+✔ refuse incomplete producer pagination (0.223407ms)
+✔ empty inventory and exact page boundary require terminal empty pages (0.432667ms)
+✔ bot actor and auto title do not authenticate a dispatch or a complete chain (0.165518ms)
+✔ scheduled producer is an automation lead, not a delivery-chain acceptance (0.211875ms)
+✔ refuse filtered endpoint (0.23574ms)
+✔ refuse wrong repository (0.167543ms)
+✔ refuse missing page (0.106078ms)
+✔ refuse changing total (0.183453ms)
+✔ refuse duplicate run (0.167724ms)
+✔ refuse outside bounds (0.133569ms)
+✔ refuse missing run (0.114384ms)
+✔ refuse search cap (0.100247ms)
+ℹ tests 73
+ℹ suites 0
+ℹ pass 49
+ℹ fail 24
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40.143876
+
+✖ failing tests:
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08" (3.873959ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08" (0.469776ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid observation bounds'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid observation bounds
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:16:11)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08" (0.257049ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid, duplicate or out-of-bounds run'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid, duplicate or out-of-bounds run
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:54:15)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08T21:35:00" (0.413ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid, duplicate or out-of-bounds run'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid, duplicate or out-of-bounds run
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:54:15)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08T21:35:00" (0.419873ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T21:35:00" (0.339964ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08T22:35:00+01:00" (0.356635ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid, duplicate or out-of-bounds run'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid, duplicate or out-of-bounds run
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:54:15)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08T22:35:00+01:00" (0.252221ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T22:35:00+01:00" (0.230821ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08T21:35:00.000001Z" (0.425133ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid, duplicate or out-of-bounds run'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid, duplicate or out-of-bounds run
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:54:15)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08T21:35:00.000001Z" (0.309557ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T21:35:00.000001Z" (0.156421ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise start: "2026-11-08T24:00:00Z" (0.188552ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid observation bounds'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid observation bounds
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:16:11)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise end: "2026-11-08T24:00:00Z" (0.161131ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-11-08T24:00:00Z" (0.238405ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid, duplicate or out-of-bounds run'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid, duplicate or out-of-bounds run
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:54:15)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise start: "2026-02-30T21:35:00Z" (0.169155ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise end: "2026-02-30T21:35:00Z" (0.20892ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid observation bounds'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid observation bounds
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:16:11)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise created_at: "2026-02-30T21:35:00Z" (0.190275ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid, duplicate or out-of-bounds run'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid, duplicate or out-of-bounds run
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:54:15)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise start: 2026 (0.153667ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise end: 2026 (0.183092ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid observation bounds'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid observation bounds
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:16:11)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise created_at: 2026 (0.208309ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid, duplicate or out-of-bounds run'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid, duplicate or out-of-bounds run
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:54:15)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise start: null (0.149399ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid observation bounds'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid observation bounds
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:16:11)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise end: null (0.138728ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid observation bounds'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid observation bounds
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:16:11)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/scripts/test_issue_4369_origin_observation.js:77:5
+✖ refuse non-UTC, normalized or imprecise created_at: null (0.161211ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /timestamp/. Input:
+  
+  'Error: invalid, duplicate or out-of-bounds run'
+  
+      at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: invalid, duplicate or out-of-bounds run
+        at observe (/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/observe-maint68.js:54:15)
+        at /home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:27
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (/home/runner/work/Workflows/Workflows/tests/scripts/test_issue_4369_origin_observation.js:80:14)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    expected: /timestamp/,
+    operator: 'throws',
+    diff: 'simple'
+  }

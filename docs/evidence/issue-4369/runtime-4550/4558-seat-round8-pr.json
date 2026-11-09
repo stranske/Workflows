@@ -1,0 +1,561 @@
+{
+  "headRefOid": "ab3593ad342906b33f9c660ee1951f56d777f9b4",
+  "isDraft": false,
+  "state": "OPEN",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:09Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724598/job/128930195831",
+      "name": "comment_event_context",
+      "startedAt": "2026-11-09T01:28:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Agents PR meta manager"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:08Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545722144/job/128930189214",
+      "name": "contract",
+      "startedAt": "2026-11-09T01:28:08Z",
+      "status": "COMPLETED",
+      "workflowName": "PR 46 Dependency Repair Contract"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:39:59Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128931934589",
+      "name": "resolve Gate PR context",
+      "startedAt": "2026-11-09T01:39:55Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:33:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724588/job/128930194766",
+      "name": "detect workflow edits",
+      "startedAt": "2026-11-09T01:33:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 40 Sweep"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:32:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724498/job/128930194232",
+      "name": "classify changed paths",
+      "startedAt": "2026-11-09T01:32:30Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 44 Gate Branch Protection"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:32:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724501/job/128930194898",
+      "name": "guard",
+      "startedAt": "2026-11-09T01:31:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 45 Agents Guard"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:32:00Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724541/job/128930194692",
+      "name": "classify changed paths",
+      "startedAt": "2026-11-09T01:31:52Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 50 Security Scan"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:31:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724537/job/128930194463",
+      "name": "classify changed paths",
+      "startedAt": "2026-11-09T01:31:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 52 Semgrep Scan"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:31:45Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724510/job/128930194472",
+      "name": "Parse and lint workflows",
+      "startedAt": "2026-11-09T01:31:29Z",
+      "status": "COMPLETED",
+      "workflowName": "Maint 52 Validate Workflows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:33:12Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724655/job/128930194743",
+      "name": "YAML syntax + script imports",
+      "startedAt": "2026-11-09T01:32:58Z",
+      "status": "COMPLETED",
+      "workflowName": "PR 11 - Minimal invariant CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:32:16Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128930195004",
+      "name": "classify changed paths",
+      "startedAt": "2026-11-09T01:32:06Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:09Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724598/job/128930225323",
+      "name": "gate_event_context",
+      "startedAt": "2026-11-09T01:28:17Z",
+      "status": "COMPLETED",
+      "workflowName": "Agents PR meta manager"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:33:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724588/job/128931657301",
+      "name": "workflow lint (maint-36)",
+      "startedAt": "2026-11-09T01:33:45Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 40 Sweep"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:08Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545722144/job/128930189750",
+      "name": "unauthorized-promotion-marker",
+      "startedAt": "2026-11-09T01:28:08Z",
+      "status": "COMPLETED",
+      "workflowName": "PR 46 Dependency Repair Contract"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128930195949",
+      "name": "verifier settlement failed-upload trace",
+      "startedAt": "2026-11-09T01:28:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:43:23Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128933312705",
+      "name": "detect changed files",
+      "startedAt": "2026-11-09T01:43:15Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:42:38Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724498/job/128931376474",
+      "name": "enforce",
+      "startedAt": "2026-11-09T01:37:17Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 44 Gate Branch Protection"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:37:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724541/job/128931203810",
+      "name": "CodeQL",
+      "startedAt": "2026-11-09T01:36:02Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 50 Security Scan"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:40:24Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724537/job/128931139293",
+      "name": "Semgrep",
+      "startedAt": "2026-11-09T01:37:04Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 52 Semgrep Scan"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:33:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724588/job/128931658060",
+      "name": "workflow liveness (zero-job approval holds)",
+      "startedAt": "2026-11-09T01:33:45Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 40 Sweep"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128930196312",
+      "name": "Gate tracker replay receipt",
+      "startedAt": "2026-11-09T01:28:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:33:18Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724598/job/128930194895",
+      "name": "Upsert PR body sections",
+      "startedAt": "2026-11-09T01:32:59Z",
+      "status": "COMPLETED",
+      "workflowName": "Agents PR meta manager"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:43:24Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128933312647",
+      "name": "generated delivery seal",
+      "startedAt": "2026-11-09T01:43:15Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724598/job/128930195879",
+      "name": "Detect keepalive round comments",
+      "startedAt": "2026-11-09T01:28:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Agents PR meta manager"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:33:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724588/job/128931658041",
+      "name": "reclaim stale belt claims",
+      "startedAt": "2026-11-09T01:33:45Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 40 Sweep"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:44:41Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934206827",
+      "name": "privilege environment gate",
+      "startedAt": "2026-11-09T01:44:36Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:39:05Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128931276078",
+      "name": "JavaScript Tests",
+      "startedAt": "2026-11-09T01:38:29Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724598/job/128930196680",
+      "name": "Resume keepalive after Gate",
+      "startedAt": "2026-11-09T01:28:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Agents PR meta manager"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:33:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724588/job/128931657287",
+      "name": "branch protection sweep",
+      "startedAt": "2026-11-09T01:33:45Z",
+      "status": "COMPLETED",
+      "workflowName": "Health 40 Sweep"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:32:16Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128931277229",
+      "name": "canonical Python suite",
+      "startedAt": "2026-11-09T01:32:16Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:44:24Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934206817",
+      "name": "issue consistency",
+      "startedAt": "2026-11-09T01:44:12Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724598/job/128930196376",
+      "name": "gate_no_pr_summary",
+      "startedAt": "2026-11-09T01:28:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Agents PR meta manager"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:46:07Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934528620",
+      "name": "python ci / Validate inputs",
+      "startedAt": "2026-11-09T01:46:02Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724598/job/128930196042",
+      "name": "Dispatch keepalive orchestrator",
+      "startedAt": "2026-11-09T01:28:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Agents PR meta manager"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:48:43Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934906442",
+      "name": "python ci / lint-format",
+      "startedAt": "2026-11-09T01:48:02Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:48:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934906337",
+      "name": "python ci / select reusable CI scope",
+      "startedAt": "2026-11-09T01:47:58Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:47:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934906485",
+      "name": "python ci / lint-ruff",
+      "startedAt": "2026-11-09T01:47:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:46:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934906455",
+      "name": "python ci / typecheck-mypy",
+      "startedAt": "2026-11-09T01:46:24Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128935417101",
+      "name": "python ci / python 3.13",
+      "startedAt": "2026-11-09T01:48:04Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128935417125",
+      "name": "python ci / python 3.14",
+      "startedAt": "2026-11-09T01:48:28Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:38:41Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128931276013",
+      "name": "slow compatibility (3.13)",
+      "startedAt": "2026-11-09T01:37:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:43:03Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128931276130",
+      "name": "slow compatibility (3.14)",
+      "startedAt": "2026-11-09T01:41:58Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:46:32Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934528587",
+      "name": "docs guard",
+      "startedAt": "2026-11-09T01:46:16Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:41:02Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128931276090",
+      "name": "stranske-pdf-extract package tests",
+      "startedAt": "2026-11-09T01:40:46Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:47:16Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934528610",
+      "name": "github scripts tests",
+      "startedAt": "2026-11-09T01:46:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:38:29Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128931276054",
+      "name": "Lint, Format & YAML Validation",
+      "startedAt": "2026-11-09T01:37:43Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:46:36Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934528533",
+      "name": "stranske-pdf-extract package tests",
+      "startedAt": "2026-11-09T01:46:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:43:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724587/job/128934118119",
+      "name": "Python Tests",
+      "startedAt": "2026-11-09T01:43:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Selftest CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:47:28Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934528573",
+      "name": "test-quality",
+      "startedAt": "2026-11-09T01:46:28Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:44:41Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934529746",
+      "name": "docker smoke",
+      "startedAt": "2026-11-09T01:44:41Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:47:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/actions/runs/42545724638/job/128934528638",
+      "name": "ledger validation",
+      "startedAt": "2026-11-09T01:46:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Gate"
+    },
+    {
+      "__typename": "StatusContext",
+      "context": "Gate / gate",
+      "startedAt": "2026-11-09T01:39:55Z",
+      "state": "ERROR",
+      "targetUrl": "https://github.com/stranske/Workflows/actions/runs/42544364151"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:28:15Z",
+      "conclusion": "NEUTRAL",
+      "detailsUrl": "https://coderabbit.ai?utm_source=cr_app&utm_medium=github",
+      "name": "CodeRabbit",
+      "startedAt": "2026-11-09T01:28:15Z",
+      "status": "COMPLETED",
+      "workflowName": ""
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:36:53Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/runs/128932479974",
+      "name": "CodeQL",
+      "startedAt": "2026-11-09T01:36:51Z",
+      "status": "COMPLETED",
+      "workflowName": ""
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T01:40:20Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/stranske/Workflows/runs/128933386005",
+      "name": "Semgrep OSS",
+      "startedAt": "2026-11-09T01:40:15Z",
+      "status": "COMPLETED",
+      "workflowName": ""
+    },
+    {
+      "__typename": "StatusContext",
+      "context": "Health 45 Agents Guard / guard",
+      "startedAt": "2026-11-09T01:31:58Z",
+      "state": "SUCCESS",
+      "targetUrl": "https://github.com/stranske/Workflows/actions/runs/42545724501"
+    }
+  ]
+}

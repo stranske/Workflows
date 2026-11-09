@@ -1,0 +1,2087 @@
+{
+  "total_count": 17,
+  "jobs": [
+    {
+      "id": 128750437876,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-h_F9A",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750437876",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750437876",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:10Z",
+      "started_at": "2026-11-08T13:50:11Z",
+      "completed_at": "2026-11-08T13:50:25Z",
+      "name": "verifier settlement failed-upload trace",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:12Z",
+          "completed_at": "2026-11-08T13:50:13Z"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:13Z",
+          "completed_at": "2026-11-08T13:50:16Z"
+        },
+        {
+          "name": "Run actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:16Z",
+          "completed_at": "2026-11-08T13:50:16Z"
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:16Z",
+          "completed_at": "2026-11-08T13:50:16Z"
+        },
+        {
+          "name": "Install trace harness dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T13:50:16Z",
+          "completed_at": "2026-11-08T13:50:20Z"
+        },
+        {
+          "name": "Controlled comparison artifact upload failure",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T13:50:20Z",
+          "completed_at": "2026-11-08T13:50:20Z"
+        },
+        {
+          "name": "Execute authored settlement and sink trace",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-08T13:50:20Z",
+          "completed_at": "2026-11-08T13:50:22Z"
+        },
+        {
+          "name": "Require controlled failure evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-11-08T13:50:22Z",
+          "completed_at": "2026-11-08T13:50:22Z"
+        },
+        {
+          "name": "Retain settlement trace",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-08T13:50:22Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:24Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-11-08T13:50:24Z",
+          "completed_at": "2026-11-08T13:50:24Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750437876",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674196,
+      "runner_name": "GitHub Actions 1004674196",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750438105,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-h_G2Q",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750438105",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750438105",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:10Z",
+      "started_at": "2026-11-08T13:50:11Z",
+      "completed_at": "2026-11-08T13:50:19Z",
+      "name": "classify changed paths",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:12Z",
+          "completed_at": "2026-11-08T13:50:12Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:12Z",
+          "completed_at": "2026-11-08T13:50:17Z"
+        },
+        {
+          "name": "Classify changed paths",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:17Z",
+          "completed_at": "2026-11-08T13:50:17Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T13:50:17Z",
+          "completed_at": "2026-11-08T13:50:18Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-08T13:50:18Z",
+          "completed_at": "2026-11-08T13:50:18Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750438105",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674197,
+      "runner_name": "GitHub Actions 1004674197",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750438244,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-h_HZA",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750438244",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750438244",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:10Z",
+      "started_at": "2026-11-08T13:50:12Z",
+      "completed_at": "2026-11-08T13:50:19Z",
+      "name": "Gate tracker replay receipt",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:12Z",
+          "completed_at": "2026-11-08T13:50:13Z"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:13Z",
+          "completed_at": "2026-11-08T13:50:15Z"
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:15Z",
+          "completed_at": "2026-11-08T13:50:16Z"
+        },
+        {
+          "name": "Replay authored tracker without live issue writes",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:16Z",
+          "completed_at": "2026-11-08T13:50:16Z"
+        },
+        {
+          "name": "Upload tracker replay receipt",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T13:50:16Z",
+          "completed_at": "2026-11-08T13:50:17Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-08T13:50:17Z",
+          "completed_at": "2026-11-08T13:50:17Z"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-08T13:50:17Z",
+          "completed_at": "2026-11-08T13:50:17Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T13:50:17Z",
+          "completed_at": "2026-11-08T13:50:17Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750438244",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674198,
+      "runner_name": "GitHub Actions 1004674198",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750475775,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iBZ_w",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750475775",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750475775",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:19Z",
+      "started_at": "2026-11-08T13:50:21Z",
+      "completed_at": "2026-11-08T13:50:54Z",
+      "name": "JavaScript Tests",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:21Z",
+          "completed_at": "2026-11-08T13:50:22Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:22Z",
+          "completed_at": "2026-11-08T13:50:24Z"
+        },
+        {
+          "name": "Setup Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:24Z",
+          "completed_at": "2026-11-08T13:50:25Z"
+        },
+        {
+          "name": "Run JavaScript tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:25Z",
+          "completed_at": "2026-11-08T13:50:41Z"
+        },
+        {
+          "name": "Replay path classifier against recent merged PRs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T13:50:41Z",
+          "completed_at": "2026-11-08T13:50:51Z"
+        },
+        {
+          "name": "Post Setup Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-08T13:50:51Z",
+          "completed_at": "2026-11-08T13:50:51Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-08T13:50:51Z",
+          "completed_at": "2026-11-08T13:50:51Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T13:50:51Z",
+          "completed_at": "2026-11-08T13:50:51Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750475775",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674199,
+      "runner_name": "GitHub Actions 1004674199",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750475790,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iBaDg",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750475790",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750475790",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:19Z",
+      "started_at": "2026-11-08T13:50:21Z",
+      "completed_at": "2026-11-08T13:51:29Z",
+      "name": "slow compatibility (3.14)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:22Z",
+          "completed_at": "2026-11-08T13:50:22Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:26Z"
+        },
+        {
+          "name": "Setup Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:26Z",
+          "completed_at": "2026-11-08T13:50:31Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:31Z",
+          "completed_at": "2026-11-08T13:51:00Z"
+        },
+        {
+          "name": "Run Python tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T13:51:00Z",
+          "completed_at": "2026-11-08T13:51:24Z"
+        },
+        {
+          "name": "Retain compatibility evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T13:51:24Z",
+          "completed_at": "2026-11-08T13:51:26Z"
+        },
+        {
+          "name": "Post Setup Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T13:51:26Z",
+          "completed_at": "2026-11-08T13:51:26Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-08T13:51:26Z",
+          "completed_at": "2026-11-08T13:51:26Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-08T13:51:26Z",
+          "completed_at": "2026-11-08T13:51:26Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750475790",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674200,
+      "runner_name": "GitHub Actions 1004674200",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750475803,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iBaGw",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750475803",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750475803",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:19Z",
+      "started_at": "2026-11-08T13:50:21Z",
+      "completed_at": "2026-11-08T13:51:12Z",
+      "name": "Lint, Format & YAML Validation",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:22Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:27Z"
+        },
+        {
+          "name": "Setup Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:27Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Install tools",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:37Z"
+        },
+        {
+          "name": "Check Black formatting",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T13:50:37Z",
+          "completed_at": "2026-11-08T13:51:07Z"
+        },
+        {
+          "name": "Run Ruff linting",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T13:51:07Z",
+          "completed_at": "2026-11-08T13:51:07Z"
+        },
+        {
+          "name": "Validate workflow YAML files",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-08T13:51:07Z",
+          "completed_at": "2026-11-08T13:51:09Z"
+        },
+        {
+          "name": "Post Setup Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-08T13:51:09Z",
+          "completed_at": "2026-11-08T13:51:09Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-11-08T13:51:09Z",
+          "completed_at": "2026-11-08T13:51:09Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-11-08T13:51:09Z",
+          "completed_at": "2026-11-08T13:51:09Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750475803",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674202,
+      "runner_name": "GitHub Actions 1004674202",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750475826,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iBaMg",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750475826",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750475826",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:19Z",
+      "started_at": "2026-11-08T13:50:21Z",
+      "completed_at": "2026-11-08T13:51:34Z",
+      "name": "slow compatibility (3.13)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:22Z",
+          "completed_at": "2026-11-08T13:50:24Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:24Z",
+          "completed_at": "2026-11-08T13:50:27Z"
+        },
+        {
+          "name": "Setup Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:27Z",
+          "completed_at": "2026-11-08T13:50:33Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:33Z",
+          "completed_at": "2026-11-08T13:51:06Z"
+        },
+        {
+          "name": "Run Python tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T13:51:06Z",
+          "completed_at": "2026-11-08T13:51:30Z"
+        },
+        {
+          "name": "Retain compatibility evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T13:51:30Z",
+          "completed_at": "2026-11-08T13:51:31Z"
+        },
+        {
+          "name": "Post Setup Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T13:51:31Z",
+          "completed_at": "2026-11-08T13:51:32Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-08T13:51:32Z",
+          "completed_at": "2026-11-08T13:51:32Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-08T13:51:32Z",
+          "completed_at": "2026-11-08T13:51:32Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750475826",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674201,
+      "runner_name": "GitHub Actions 1004674201",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750475878,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iBaZg",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750475878",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750475878",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:19Z",
+      "started_at": "2026-11-08T13:50:21Z",
+      "completed_at": "2026-11-08T13:50:36Z",
+      "name": "stranske-pdf-extract package tests",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:21Z",
+          "completed_at": "2026-11-08T13:50:22Z"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:22Z",
+          "completed_at": "2026-11-08T13:50:25Z"
+        },
+        {
+          "name": "Setup Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:25Z",
+          "completed_at": "2026-11-08T13:50:28Z"
+        },
+        {
+          "name": "Install package test dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:28Z",
+          "completed_at": "2026-11-08T13:50:33Z"
+        },
+        {
+          "name": "Run package test suite",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T13:50:33Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Post Setup Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750475878",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674203,
+      "runner_name": "GitHub Actions 1004674203",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750475924,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iBalA",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750475924",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750475924",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:19Z",
+      "started_at": "2026-11-08T13:50:21Z",
+      "completed_at": "2026-11-08T13:50:25Z",
+      "name": "canonical Python suite / Validate inputs",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:21Z",
+          "completed_at": "2026-11-08T13:50:22Z"
+        },
+        {
+          "name": "Checkout shared CI defaults",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:22Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        },
+        {
+          "name": "Validate workflow inputs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        },
+        {
+          "name": "Emit deprecated input warnings",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        },
+        {
+          "name": "Post Checkout shared CI defaults",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-08T13:50:23Z",
+          "completed_at": "2026-11-08T13:50:23Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750475924",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674204,
+      "runner_name": "GitHub Actions 1004674204",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750501906,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iDAEg",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750501906",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750501906",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:25Z",
+      "started_at": "2026-11-08T13:50:27Z",
+      "completed_at": "2026-11-08T13:50:30Z",
+      "name": "canonical Python suite / select reusable CI scope",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:27Z",
+          "completed_at": "2026-11-08T13:50:28Z"
+        },
+        {
+          "name": "Checkout Workflows helper",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:28Z",
+          "completed_at": "2026-11-08T13:50:29Z"
+        },
+        {
+          "name": "Select Python version matrix",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:29Z",
+          "completed_at": "2026-11-08T13:50:29Z"
+        },
+        {
+          "name": "Post Checkout Workflows helper",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T13:50:29Z",
+          "completed_at": "2026-11-08T13:50:29Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-08T13:50:29Z",
+          "completed_at": "2026-11-08T13:50:29Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750501906",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674205,
+      "runner_name": "GitHub Actions 1004674205",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750503277,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iDFbQ",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750503277",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750503277",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-08T13:50:26Z",
+      "started_at": "2026-11-08T13:50:26Z",
+      "completed_at": "2026-11-08T13:50:25Z",
+      "name": "canonical Python suite / typecheck-mypy",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750503277",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 128750503510,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iDGVg",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750503510",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750503510",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-08T13:50:26Z",
+      "started_at": "2026-11-08T13:50:26Z",
+      "completed_at": "2026-11-08T13:50:25Z",
+      "name": "canonical Python suite / lint-ruff",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750503510",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 128750503738,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iDHOg",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750503738",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750503738",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-08T13:50:26Z",
+      "started_at": "2026-11-08T13:50:26Z",
+      "completed_at": "2026-11-08T13:50:25Z",
+      "name": "canonical Python suite / lint-format",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750503738",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    },
+    {
+      "id": 128750521205,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iELdQ",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750521205",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750521205",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:30Z",
+      "started_at": "2026-11-08T13:50:32Z",
+      "completed_at": "2026-11-08T13:59:09Z",
+      "name": "canonical Python suite / python 3.14",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:33Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Select runner-owned test temporary storage",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Mint GitHub App Token",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:35Z"
+        },
+        {
+          "name": "Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:35Z",
+          "completed_at": "2026-11-08T13:50:37Z"
+        },
+        {
+          "name": "Checkout repository (sparse)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 5,
+          "started_at": "2026-11-08T13:50:37Z",
+          "completed_at": "2026-11-08T13:50:37Z"
+        },
+        {
+          "name": "Fetch pinned verifier revision history",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T13:50:37Z",
+          "completed_at": "2026-11-08T13:50:39Z"
+        },
+        {
+          "name": "Set up Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-08T13:50:39Z",
+          "completed_at": "2026-11-08T13:50:40Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-11-08T13:50:40Z",
+          "completed_at": "2026-11-08T13:50:42Z"
+        },
+        {
+          "name": "Checkout Workflows artifact cache action",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-08T13:50:42Z",
+          "completed_at": "2026-11-08T13:50:43Z"
+        },
+        {
+          "name": "Install uv",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-08T13:50:43Z",
+          "completed_at": "2026-11-08T13:50:44Z"
+        },
+        {
+          "name": "Cache uv artifacts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T13:50:44Z",
+          "completed_at": "2026-11-08T13:50:47Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-08T13:50:47Z",
+          "completed_at": "2026-11-08T13:50:49Z"
+        },
+        {
+          "name": "Validate test dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-08T13:50:49Z",
+          "completed_at": "2026-11-08T13:50:54Z"
+        },
+        {
+          "name": "Check for undeclared test dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-11-08T13:50:54Z",
+          "completed_at": "2026-11-08T13:50:56Z"
+        },
+        {
+          "name": "Auto-fix missing dependencies",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 15,
+          "started_at": "2026-11-08T13:50:56Z",
+          "completed_at": "2026-11-08T13:50:56Z"
+        },
+        {
+          "name": "Resolve mypy python pin",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 16,
+          "started_at": "2026-11-08T13:50:56Z",
+          "completed_at": "2026-11-08T13:50:56Z"
+        },
+        {
+          "name": "Cache mypy state",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 17,
+          "started_at": "2026-11-08T13:50:56Z",
+          "completed_at": "2026-11-08T13:50:56Z"
+        },
+        {
+          "name": "Cache pytest state",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-11-08T13:50:56Z",
+          "completed_at": "2026-11-08T13:50:56Z"
+        },
+        {
+          "name": "Record Python execution context",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-11-08T13:50:56Z",
+          "completed_at": "2026-11-08T13:50:56Z"
+        },
+        {
+          "name": "Restore CI artifact cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-11-08T13:50:56Z",
+          "completed_at": "2026-11-08T13:50:58Z"
+        },
+        {
+          "name": "Pytest (unit tests with coverage)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21,
+          "started_at": "2026-11-08T13:50:58Z",
+          "completed_at": "2026-11-08T13:59:00Z"
+        },
+        {
+          "name": "Enforce coverage minimum",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22,
+          "started_at": "2026-11-08T13:59:00Z",
+          "completed_at": "2026-11-08T13:59:00Z"
+        },
+        {
+          "name": "Stage coverage artifact layout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23,
+          "started_at": "2026-11-08T13:59:00Z",
+          "completed_at": "2026-11-08T13:59:00Z"
+        },
+        {
+          "name": "Record CI summary",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 24,
+          "started_at": "2026-11-08T13:59:00Z",
+          "completed_at": "2026-11-08T13:59:00Z"
+        },
+        {
+          "name": "Record staged artifact paths",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 25,
+          "started_at": "2026-11-08T13:59:00Z",
+          "completed_at": "2026-11-08T13:59:00Z"
+        },
+        {
+          "name": "Upload coverage artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 26,
+          "started_at": "2026-11-08T13:59:00Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Finalize check results",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Resolve primary python version",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Build CI metrics payload",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 29,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Upload metrics artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 30,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Append metrics history",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 31,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Upload metrics history artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 32,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Upload classification artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 33,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Compute coverage delta",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 34,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Upload coverage delta artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 35,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Generate coverage trend summary",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 36,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Annotate coverage trend record",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 37,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Append coverage trend history",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 38,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Upload coverage summary artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 39,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Upload coverage trend artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 40,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Upload coverage trend history artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 41,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Checkout Workflows LangSmith fleet helper",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 42,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Ensure LangSmith fleet telemetry artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 43,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Check LangSmith fleet telemetry artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 44,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Upload LangSmith fleet telemetry artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 45,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:01Z"
+        },
+        {
+          "name": "Post Restore CI artifact cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 83,
+          "started_at": "2026-11-08T13:59:01Z",
+          "completed_at": "2026-11-08T13:59:02Z"
+        },
+        {
+          "name": "Post Cache pytest state",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 84,
+          "started_at": "2026-11-08T13:59:02Z",
+          "completed_at": "2026-11-08T13:59:02Z"
+        },
+        {
+          "name": "Post Cache uv artifacts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 85,
+          "started_at": "2026-11-08T13:59:02Z",
+          "completed_at": "2026-11-08T13:59:02Z"
+        },
+        {
+          "name": "Post Checkout Workflows artifact cache action",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 86,
+          "started_at": "2026-11-08T13:59:02Z",
+          "completed_at": "2026-11-08T13:59:02Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 87,
+          "started_at": "2026-11-08T13:59:02Z",
+          "completed_at": "2026-11-08T13:59:02Z"
+        },
+        {
+          "name": "Post Set up Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 88,
+          "started_at": "2026-11-08T13:59:02Z",
+          "completed_at": "2026-11-08T13:59:02Z"
+        },
+        {
+          "name": "Post Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 89,
+          "started_at": "2026-11-08T13:59:02Z",
+          "completed_at": "2026-11-08T13:59:02Z"
+        },
+        {
+          "name": "Post Mint GitHub App Token",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 90,
+          "started_at": "2026-11-08T13:59:02Z",
+          "completed_at": "2026-11-08T13:59:03Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 91,
+          "started_at": "2026-11-08T13:59:03Z",
+          "completed_at": "2026-11-08T13:59:03Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750521205",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674207,
+      "runner_name": "GitHub Actions 1004674207",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128750521208,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-iELeA",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128750521208",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128750521208",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T13:50:30Z",
+      "started_at": "2026-11-08T13:50:32Z",
+      "completed_at": "2026-11-08T14:02:03Z",
+      "name": "canonical Python suite / python 3.13",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T13:50:32Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Select runner-owned test temporary storage",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Mint GitHub App Token",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:34Z"
+        },
+        {
+          "name": "Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T13:50:34Z",
+          "completed_at": "2026-11-08T13:50:36Z"
+        },
+        {
+          "name": "Checkout repository (sparse)",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 5,
+          "started_at": "2026-11-08T13:50:36Z",
+          "completed_at": "2026-11-08T13:50:36Z"
+        },
+        {
+          "name": "Fetch pinned verifier revision history",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T13:50:36Z",
+          "completed_at": "2026-11-08T13:50:38Z"
+        },
+        {
+          "name": "Set up Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-08T13:50:38Z",
+          "completed_at": "2026-11-08T13:50:38Z"
+        },
+        {
+          "name": "Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-11-08T13:50:38Z",
+          "completed_at": "2026-11-08T13:50:39Z"
+        },
+        {
+          "name": "Checkout Workflows artifact cache action",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-08T13:50:39Z",
+          "completed_at": "2026-11-08T13:50:40Z"
+        },
+        {
+          "name": "Install uv",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-08T13:50:40Z",
+          "completed_at": "2026-11-08T13:50:40Z"
+        },
+        {
+          "name": "Cache uv artifacts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T13:50:40Z",
+          "completed_at": "2026-11-08T13:50:43Z"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-08T13:50:43Z",
+          "completed_at": "2026-11-08T13:50:44Z"
+        },
+        {
+          "name": "Validate test dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-08T13:50:44Z",
+          "completed_at": "2026-11-08T13:50:46Z"
+        },
+        {
+          "name": "Check for undeclared test dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-11-08T13:50:46Z",
+          "completed_at": "2026-11-08T13:50:48Z"
+        },
+        {
+          "name": "Auto-fix missing dependencies",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 15,
+          "started_at": "2026-11-08T13:50:48Z",
+          "completed_at": "2026-11-08T13:50:48Z"
+        },
+        {
+          "name": "Resolve mypy python pin",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 16,
+          "started_at": "2026-11-08T13:50:48Z",
+          "completed_at": "2026-11-08T13:50:48Z"
+        },
+        {
+          "name": "Cache mypy state",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 17,
+          "started_at": "2026-11-08T13:50:48Z",
+          "completed_at": "2026-11-08T13:50:48Z"
+        },
+        {
+          "name": "Cache pytest state",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-11-08T13:50:48Z",
+          "completed_at": "2026-11-08T13:50:48Z"
+        },
+        {
+          "name": "Record Python execution context",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-11-08T13:50:48Z",
+          "completed_at": "2026-11-08T13:50:48Z"
+        },
+        {
+          "name": "Restore CI artifact cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-11-08T13:50:48Z",
+          "completed_at": "2026-11-08T13:50:50Z"
+        },
+        {
+          "name": "Pytest (unit tests with coverage)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21,
+          "started_at": "2026-11-08T13:50:50Z",
+          "completed_at": "2026-11-08T14:01:53Z"
+        },
+        {
+          "name": "Enforce coverage minimum",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22,
+          "started_at": "2026-11-08T14:01:53Z",
+          "completed_at": "2026-11-08T14:01:53Z"
+        },
+        {
+          "name": "Stage coverage artifact layout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23,
+          "started_at": "2026-11-08T14:01:53Z",
+          "completed_at": "2026-11-08T14:01:53Z"
+        },
+        {
+          "name": "Record CI summary",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 24,
+          "started_at": "2026-11-08T14:01:53Z",
+          "completed_at": "2026-11-08T14:01:53Z"
+        },
+        {
+          "name": "Record staged artifact paths",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 25,
+          "started_at": "2026-11-08T14:01:53Z",
+          "completed_at": "2026-11-08T14:01:53Z"
+        },
+        {
+          "name": "Upload coverage artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 26,
+          "started_at": "2026-11-08T14:01:53Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Finalize check results",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Resolve primary python version",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Build CI metrics payload",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 29,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Upload metrics artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 30,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Append metrics history",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 31,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Upload metrics history artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 32,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Upload classification artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 33,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Compute coverage delta",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 34,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Upload coverage delta artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 35,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Generate coverage trend summary",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 36,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Annotate coverage trend record",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 37,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Append coverage trend history",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 38,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Upload coverage summary artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 39,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Upload coverage trend artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 40,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Upload coverage trend history artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 41,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Checkout Workflows LangSmith fleet helper",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 42,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Ensure LangSmith fleet telemetry artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 43,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Check LangSmith fleet telemetry artifact",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 44,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Upload LangSmith fleet telemetry artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 45,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Post Restore CI artifact cache",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 83,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Post Cache pytest state",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 84,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Post Cache uv artifacts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 85,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:55Z"
+        },
+        {
+          "name": "Post Checkout Workflows artifact cache action",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 86,
+          "started_at": "2026-11-08T14:01:55Z",
+          "completed_at": "2026-11-08T14:01:56Z"
+        },
+        {
+          "name": "Post Set up Node.js",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 87,
+          "started_at": "2026-11-08T14:01:56Z",
+          "completed_at": "2026-11-08T14:01:56Z"
+        },
+        {
+          "name": "Post Set up Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 88,
+          "started_at": "2026-11-08T14:01:56Z",
+          "completed_at": "2026-11-08T14:01:56Z"
+        },
+        {
+          "name": "Post Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 89,
+          "started_at": "2026-11-08T14:01:56Z",
+          "completed_at": "2026-11-08T14:01:56Z"
+        },
+        {
+          "name": "Post Mint GitHub App Token",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 90,
+          "started_at": "2026-11-08T14:01:56Z",
+          "completed_at": "2026-11-08T14:01:56Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 91,
+          "started_at": "2026-11-08T14:01:56Z",
+          "completed_at": "2026-11-08T14:01:56Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128750521208",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674206,
+      "runner_name": "GitHub Actions 1004674206",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128753325243,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-kvUuw",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128753325243",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128753325243",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T14:02:03Z",
+      "started_at": "2026-11-08T14:02:05Z",
+      "completed_at": "2026-11-08T14:02:19Z",
+      "name": "canonical Python suite / logs summary",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T14:02:06Z",
+          "completed_at": "2026-11-08T14:02:08Z"
+        },
+        {
+          "name": "Mint GitHub App Token",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T14:02:08Z",
+          "completed_at": "2026-11-08T14:02:08Z"
+        },
+        {
+          "name": "Checkout Workflows repo for actions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T14:02:08Z",
+          "completed_at": "2026-11-08T14:02:09Z"
+        },
+        {
+          "name": "Setup API client",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T14:02:09Z",
+          "completed_at": "2026-11-08T14:02:14Z"
+        },
+        {
+          "name": "Summarize check outcomes",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T14:02:14Z",
+          "completed_at": "2026-11-08T14:02:14Z"
+        },
+        {
+          "name": "Summarize workflow jobs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T14:02:14Z",
+          "completed_at": "2026-11-08T14:02:15Z"
+        },
+        {
+          "name": "Post Checkout Workflows repo for actions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T14:02:15Z",
+          "completed_at": "2026-11-08T14:02:15Z"
+        },
+        {
+          "name": "Post Mint GitHub App Token",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-08T14:02:15Z",
+          "completed_at": "2026-11-08T14:02:16Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-08T14:02:16Z",
+          "completed_at": "2026-11-08T14:02:16Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128753325243",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674296,
+      "runner_name": "GitHub Actions 1004674296",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128753392379,
+      "run_id": 42486833507,
+      "workflow_name": "Selftest CI",
+      "head_branch": "codex/issue-4550",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42486833507",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd-kza-w",
+      "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128753392379",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507/job/128753392379",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T14:02:19Z",
+      "started_at": "2026-11-08T14:02:21Z",
+      "completed_at": "2026-11-08T14:02:24Z",
+      "name": "Python Tests",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T14:02:21Z",
+          "completed_at": "2026-11-08T14:02:21Z"
+        },
+        {
+          "name": "Require the applicable Python checks",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T14:02:21Z",
+          "completed_at": "2026-11-08T14:02:21Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T14:02:21Z",
+          "completed_at": "2026-11-08T14:02:21Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128753392379",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004674299,
+      "runner_name": "GitHub Actions 1004674299",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}
+

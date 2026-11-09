@@ -1,0 +1,18 @@
+"""Keep sandbox event-loop waits bounded while Black checks its normal file set."""
+
+import asyncio
+
+_new_event_loop = asyncio.new_event_loop
+
+
+def _loop_with_heartbeat():
+    loop = _new_event_loop()
+
+    def heartbeat():
+        loop.call_later(0.05, heartbeat)
+
+    loop.call_later(0.05, heartbeat)
+    return loop
+
+
+asyncio.new_event_loop = _loop_with_heartbeat

@@ -1,0 +1,129 @@
+[
+  {
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "-m",
+      "not slow"
+    ],
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T02:03:56.095572+00:00",
+    "completed_at": "2026-11-09T02:03:58.489119+00:00",
+    "wall_seconds": 2.393547,
+    "exit_code": 0,
+    "log": "4558-round10-tests.log",
+    "log_sha256": "60251ddc705a29356408aa090f79af7518f34f1c2c678ce404827ce51338671c"
+  },
+  {
+    "argv": [
+      "black",
+      "--line-length",
+      "100",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py"
+    ],
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T02:03:58.489376+00:00",
+    "completed_at": "2026-11-09T02:03:59.026313+00:00",
+    "wall_seconds": 0.536937,
+    "exit_code": 0,
+    "log": "4558-round10-black-format.log",
+    "log_sha256": "e45ddb3013bf04717a5ea83c7618707d4cf893301c5aa99f1c4592bcc3f2052b"
+  },
+  {
+    "argv": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "--exclude",
+      "(\\.workflows-lib|node_modules)",
+      "."
+    ],
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T02:03:59.026563+00:00",
+    "completed_at": "2026-11-09T02:03:59.845930+00:00",
+    "wall_seconds": 0.819367,
+    "exit_code": 1,
+    "log": "4558-round10-black-check.log",
+    "log_sha256": "48360972d99821f8d1181341a0370029044c8862c9c23ea05b4ecad6b7a0299a"
+  },
+  {
+    "argv": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "--exclude",
+      "(\\.workflows-lib|node_modules)",
+      "."
+    ],
+    "environment_overrides": {
+      "BLACK_NUM_WORKERS": "1"
+    },
+    "bound_seconds": 120,
+    "result": "subprocess.TimeoutExpired; no exit code returned",
+    "timed_out": true,
+    "partial_output_retained": false
+  },
+  {
+    "argv": [
+      "black",
+      "--check",
+      "--line-length",
+      "100",
+      "--exclude",
+      "(\\.workflows-lib|node_modules)",
+      "."
+    ],
+    "environment_overrides": {
+      "BLACK_NUM_WORKERS": "1",
+      "PYTHONPATH": "/tmp/issue-4558-round10-black-runtime"
+    },
+    "bound_seconds": 120,
+    "kill_after_seconds": 2,
+    "started_at": "2026-11-09T02:07:03.575982+00:00",
+    "completed_at": "2026-11-09T02:08:09.356004+00:00",
+    "wall_seconds": 65.780022,
+    "exit_code": 0,
+    "log": "4558-round10-black-heartbeat.log",
+    "log_sha256": "15e0a2ba6ca673864a257c444a085b49a5d9ffdd502aace298c0487a59edb6d0"
+  },
+  {
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "-m",
+      "not slow"
+    ],
+    "environment_overrides": {},
+    "bound_seconds": 120,
+    "kill_after_seconds": 2,
+    "started_at": "2026-11-09T02:08:09.356491+00:00",
+    "completed_at": "2026-11-09T02:08:11.783461+00:00",
+    "wall_seconds": 2.42697,
+    "exit_code": 0,
+    "log": "4558-round10-tests-formatted.log",
+    "log_sha256": "66bca6d5d5d650b492c35658c747d6cd238bb0c3b710927f1b89f0ecdcac5145"
+  },
+  {
+    "argv": [
+      "node",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "environment_overrides": {},
+    "bound_seconds": 120,
+    "kill_after_seconds": 2,
+    "started_at": "2026-11-09T02:08:11.783952+00:00",
+    "completed_at": "2026-11-09T02:08:11.837320+00:00",
+    "wall_seconds": 0.053368,
+    "exit_code": 0,
+    "log": "4558-round10-observer-direct.log",
+    "log_sha256": "ca2cad45b8e28e58e156a9e911a24249f3a4af3507e5a4c623eb386189e53570"
+  }
+]

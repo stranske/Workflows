@@ -1,0 +1,25 @@
+{
+  "total_count": 1,
+  "artifacts": [
+    {
+      "id": 13633428761,
+      "node_id": "MDg6QXJ0aWZhY3QxMzYzMzQyODc2MQ==",
+      "name": "sync-pr-merge-and-canary-evidence",
+      "size_in_bytes": 7121,
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13633428761",
+      "archive_download_url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13633428761/zip",
+      "expired": false,
+      "digest": "sha256:ed1d03d9a852b26ee00f1dd34ca2a65da15516abcf2647b63fcb4d0f3ca71466",
+      "created_at": "2026-11-08T20:50:01Z",
+      "updated_at": "2026-11-08T20:50:01Z",
+      "expires_at": "2026-12-08T20:50:00Z",
+      "workflow_run": {
+        "id": 42521606142,
+        "repository_id": 1117447156,
+        "head_repository_id": 1117447156,
+        "head_branch": "main",
+        "head_sha": "1a7a3c7de40b62af2839cb138e8d2abfe72fc766"
+      }
+    }
+  ]
+}

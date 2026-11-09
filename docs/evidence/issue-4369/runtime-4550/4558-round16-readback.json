@@ -1,0 +1,36 @@
+{
+  "checked_at": "2026-11-09T03:39:48Z",
+  "selected_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "main": "dc88475b617e52bb06f86ab4d79b01d21462ee67",
+  "pr4551": {
+    "number": 4551,
+    "state": "closed",
+    "merged": true,
+    "merge_commit_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+  },
+  "issue4550": {
+    "state": "closed"
+  },
+  "pr4558": {
+    "number": 4558,
+    "state": "open",
+    "isDraft": false,
+    "head": "b818bbd881d5d9999937b2e2e2181e43d8092403"
+  },
+  "upstream_verifier": {
+    "id": 42522535899,
+    "run_attempt": 1,
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "workflow_specific_read_failures": {
+    "producer": {
+      "error": "HTTPError: 400: GitHub Fetch URL is not an allowed public GitHub repository or search endpoint. (Response: None)",
+      "error_code": "INVALID_ARGUMENT"
+    },
+    "merger": {
+      "error": "HTTPError: 400: GitHub Fetch URL is not an allowed public GitHub repository or search endpoint. (Response: None)",
+      "error_code": "INVALID_ARGUMENT"
+    }
+  }
+}

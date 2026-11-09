@@ -1,0 +1,122 @@
+{
+  "observed_at_utc": "2026-11-09T05:37:26Z",
+  "purpose": "Current observable state of the automation-started Maint 68 -> Maint 71 chain for criterion 3 of stranske/Workflows#4557",
+  "read_only": true,
+  "commands": [
+    "gh run view 42564882056 -R stranske/Workflows",
+    "gh run view 42566563553 -R stranske/Workflows",
+    "gh pr view 2488 -R stranske/Portable-Alpha-Extension-Model",
+    "gh run list -R stranske/Workflows --workflow maint-71-merge-sync-prs.yml",
+    "gh run view 42565425171 -R stranske/Workflows --log",
+    "gh run view 42566405464 -R stranske/Workflows --log",
+    "gh run view 42565151499 -R stranske/Portable-Alpha-Extension-Model"
+  ],
+  "chain": {
+    "source": {
+      "present": true,
+      "maint68_run": 42564882056,
+      "workflow": "Maint 68 Sync Consumer Repos",
+      "event": "schedule",
+      "created_at": "2026-11-09T05:01:06Z",
+      "updated_at": "2026-11-09T05:08:18Z",
+      "head_sha": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "conclusion": "success"
+    },
+    "plan": {
+      "present": true,
+      "job": "Prepare sync from manifest",
+      "started_at": "2026-11-09T05:01:55Z",
+      "completed_at": "2026-11-09T05:02:39Z",
+      "conclusion": "success"
+    },
+    "candidate": {
+      "present": true,
+      "job": "Sync stranske/Portable-Alpha-Extension-Model",
+      "completed_at": "2026-11-09T05:04:09Z",
+      "head_ref": "sync/workflows-candidate",
+      "head_sha": "795155aa9b1cdca5942bac2db3707c6b64dc57d3"
+    },
+    "consumer_pr": {
+      "present": true,
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "number": 2488,
+      "created_at": "2026-11-09T05:04:00Z",
+      "state": "OPEN",
+      "isDraft": false,
+      "mergeStateStatus": "CLEAN",
+      "files": [
+        ".github/workflows/agents-auto-pilot.yml",
+        "docs/LABELS.md",
+        "scripts/langchain/pr_verifier.py"
+      ],
+      "touches_tools_subscription_llm_py": false,
+      "gate_run": {
+        "id": 42565151499,
+        "event": "pull_request",
+        "head_sha": "795155aa9b1cdca5942bac2db3707c6b64dc57d3",
+        "conclusion": "success",
+        "updated_at": "2026-11-09T05:16:51Z"
+      }
+    },
+    "merge_sha": {
+      "present": false,
+      "mergedAt": null,
+      "mergeCommit": null
+    },
+    "maint71_observation": {
+      "present": true,
+      "chained_run": {
+        "id": 42565425171,
+        "event": "workflow_dispatch",
+        "created_at": "2026-11-09T05:06:59Z",
+        "head_sha": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+        "conclusion": "success",
+        "dispatched_by": "run 42564882056 job 'Start generated delivery reconciliation' step 'Dispatch Maint 71 for the generated lane' (notice at 2026-11-09T05:06:59.6370103Z, SOURCE_COMMIT c7885e1a)",
+        "observed_pr": 2488,
+        "result": "sealed; status delivery_sealed_checks_pending (raw_check_status checks_failed at 05:10:19Z, Gate rerun 42565151499 requested); pre-merge canary evidence incomplete; Merged: 0"
+      },
+      "later_runs": [
+        {
+          "id": 42566405464,
+          "event": "workflow_dispatch",
+          "created_at": "2026-11-09T05:17:08Z",
+          "head_sha": "a222b225133ae10ae2cd9ecb4ed8eeca1cc00209",
+          "conclusion": "success",
+          "observed_pr": 2488,
+          "result": "status campaign_prepared; Merged: 0"
+        },
+        {
+          "id": 42567929461,
+          "event": "workflow_dispatch",
+          "created_at": "2026-11-09T05:32:48Z",
+          "status": "queued"
+        },
+        {
+          "id": 42567963797,
+          "event": "schedule",
+          "created_at": "2026-11-09T05:33:10Z",
+          "status": "pending"
+        }
+      ]
+    }
+  },
+  "promote_run": {
+    "id": 42566563553,
+    "workflow": "Maint 68 Sync Consumer Repos",
+    "event": "workflow_dispatch",
+    "created_at": "2026-11-09T05:18:45Z",
+    "updated_at": "2026-11-09T05:32:51Z",
+    "head_sha": "a222b225133ae10ae2cd9ecb4ed8eeca1cc00209",
+    "conclusion": "success",
+    "synced_portable_alpha": false,
+    "note": "manual dispatch; not part of the automation-started chain and has no Portable-Alpha sync job"
+  },
+  "criterion_3": {
+    "met": false,
+    "first_break": "merge_sha: PR 2488 is OPEN and unmerged at observation time; no Maint 71 run has merged it",
+    "payload_note": "PR 2488 does not change tools/subscription_llm.py; if merged, the chain is a causal successor in the sync lineage, not a payload change. PR 2486 (merge 1ff9e11) remains the payload delivery and was started by workflow_dispatch runs 42485644055 and 42499084007."
+  },
+  "blocking": 1,
+  "drainable": 1,
+  "drain": "A Maint 71 run (42567963797 schedule or 42567929461 dispatch, both queued at observation) merges PR 2488; the follow-up issue records the merge SHA."
+}

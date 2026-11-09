@@ -1,0 +1,105 @@
+{
+  "name": "main",
+  "commit": {
+    "sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "node_id": "C_kwDOQprj9NoAKDBhMDZmMTk3NmRiMWRkN2ViMTI4NTNmNDkzYTMzNzFlZTQ3MzZiY2Y",
+    "commit": {
+      "author": {
+        "name": "stranske",
+        "email": "stranske@gmail.com",
+        "date": "2026-11-08T20:54:56Z"
+      },
+      "committer": {
+        "name": "GitHub",
+        "email": "noreply@github.com",
+        "date": "2026-11-08T20:54:56Z"
+      },
+      "message": "Merge pull request #4551 from stranske/codex/issue-4550\n\nIssue 4550 (partial): bounded fixture repairs and Maint 71 subject-refusal diagnostics",
+      "tree": {
+        "sha": "68219aa38f5e5c94e2a8f70c6dc343f17eeb3a84",
+        "url": "https://api.github.com/repos/stranske/Workflows/git/trees/68219aa38f5e5c94e2a8f70c6dc343f17eeb3a84"
+      },
+      "url": "https://api.github.com/repos/stranske/Workflows/git/commits/0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "comment_count": 0,
+      "verification": {
+        "verified": true,
+        "reason": "valid",
+        "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8OGgCRC1aQ7uu5UhlAAA75QQAJlliO816hStMaubAyNtUmLG\nHMg25kcI7+gvNUSkBPs/NIvkYO9FhaiyZCsdbys3tfiihf+WLktLECjrW6eXq6vI\nUrbLogdXAmqZo/ISgiUpY4DoAg4670mNF0c9UCYmF7N4p0lk2ipah2JOEJcE1Sn7\nsoBE8NtZeJOfc+hCi2GJ9R/T4DYfn/qsXQhu2djpYAI+wLl8q/9n3eHknoiXwGUp\nUpRfPRYikZJOMxY9uJeVNkF5CWOQ1zRcA16BxSzuV4USlXFuMNQi2Nq+BTD4ldh1\nVy/VYwRY02q8TxbHEyf64wwthBRfHO9sBx0OO03M9G4ocrR93FPRAArfPCLwa/zg\n+AfOffEYxwV1lRaMYGVTHXgOesOcHFCJfcIGBeo519NE8016Owj6vVT1NJF34A9m\nelQn300elpkoOdDYLDecVXbHegpaxNmWW33NOreC5OjhurF5/m9tS/oPOEkvd2HZ\nhiu9kjgRVJJO7ncaNJQeoLQSiI5FS7ayzX47biI2rzZ0+HtKunVL6FW8sESXK17n\nLxwwpffRedUbOyG8q0YEb19PLmAU7gz1qVjia1Dcmu9CunmWK2+AyBXKEvtnOb8b\nxUR3gM/nDiPqAOPhkvjGKAitQn6bTZkqRl7uOr9+6byCdh3sIumLKq7lw1ScZqHi\nCUGYXxSwfuS5FtA9YZIq\n=p2f9\n-----END PGP SIGNATURE-----\n",
+        "payload": "tree 68219aa38f5e5c94e2a8f70c6dc343f17eeb3a84\nparent 1a7a3c7de40b62af2839cb138e8d2abfe72fc766\nparent 154858c48424d7aa30c9edaf22ee3edb90066c5d\nauthor stranske <stranske@gmail.com> 1794171296 -0600\ncommitter GitHub <noreply@github.com> 1794171296 -0600\n\nMerge pull request #4551 from stranske/codex/issue-4550\n\nIssue 4550 (partial): bounded fixture repairs and Maint 71 subject-refusal diagnostics",
+        "verified_at": "2026-11-08T20:54:56Z"
+      }
+    },
+    "url": "https://api.github.com/repos/stranske/Workflows/commits/0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "html_url": "https://github.com/stranske/Workflows/commit/0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "comments_url": "https://api.github.com/repos/stranske/Workflows/commits/0a06f1976db1dd7eb12853f493a3371ee4736bcf/comments",
+    "author": {
+      "login": "stranske",
+      "id": 23046322,
+      "node_id": "MDQ6VXNlcjIzMDQ2MzIy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/stranske",
+      "html_url": "https://github.com/stranske",
+      "followers_url": "https://api.github.com/users/stranske/followers",
+      "following_url": "https://api.github.com/users/stranske/following{/other_user}",
+      "gists_url": "https://api.github.com/users/stranske/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/stranske/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/stranske/subscriptions",
+      "organizations_url": "https://api.github.com/users/stranske/orgs",
+      "repos_url": "https://api.github.com/users/stranske/repos",
+      "events_url": "https://api.github.com/users/stranske/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/stranske/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "web-flow",
+      "id": 19864447,
+      "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/web-flow",
+      "html_url": "https://github.com/web-flow",
+      "followers_url": "https://api.github.com/users/web-flow/followers",
+      "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+      "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+      "organizations_url": "https://api.github.com/users/web-flow/orgs",
+      "repos_url": "https://api.github.com/users/web-flow/repos",
+      "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/web-flow/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "1a7a3c7de40b62af2839cb138e8d2abfe72fc766",
+        "url": "https://api.github.com/repos/stranske/Workflows/commits/1a7a3c7de40b62af2839cb138e8d2abfe72fc766",
+        "html_url": "https://github.com/stranske/Workflows/commit/1a7a3c7de40b62af2839cb138e8d2abfe72fc766"
+      },
+      {
+        "sha": "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "url": "https://api.github.com/repos/stranske/Workflows/commits/154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "html_url": "https://github.com/stranske/Workflows/commit/154858c48424d7aa30c9edaf22ee3edb90066c5d"
+      }
+    ]
+  },
+  "_links": {
+    "self": "https://api.github.com/repos/stranske/Workflows/branches/main",
+    "html": "https://github.com/stranske/Workflows/tree/main"
+  },
+  "protected": true,
+  "protection": {
+    "enabled": false,
+    "required_status_checks": {
+      "enforcement_level": "off",
+      "contexts": [],
+      "checks": []
+    }
+  },
+  "protection_url": "https://api.github.com/repos/stranske/Workflows/branches/main/protection"
+}
+

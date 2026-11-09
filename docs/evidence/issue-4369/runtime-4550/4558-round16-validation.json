@@ -1,0 +1,192 @@
+[
+  {
+    "label": "observer-tests",
+    "argv": [
+      "node",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:34.257184+00:00",
+    "completed_at": "2026-11-09T03:42:34.722037+00:00",
+    "wall_seconds": 0.4648610799999915,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-observer-tests-stdout.log": "b0d077d0e80d77ca7c6d3c2a705062149d3fec046e61538130cd0601fbaf2f5a",
+      "4558-round16-observer-tests-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "observer-syntax",
+    "argv": [
+      "node",
+      "--check",
+      "docs/evidence/issue-4369/observe-maint68.js"
+    ],
+    "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:34.722166+00:00",
+    "completed_at": "2026-11-09T03:42:34.754208+00:00",
+    "wall_seconds": 0.03204986199995119,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-observer-syntax-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "4558-round16-observer-syntax-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "test-syntax",
+    "argv": [
+      "node",
+      "--check",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:34.754281+00:00",
+    "completed_at": "2026-11-09T03:42:34.786195+00:00",
+    "wall_seconds": 0.031919977000029576,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-test-syntax-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "4558-round16-test-syntax-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "receipt-tests",
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "tests/scripts/test_issue_4369_downstream_evidence.py",
+      "-m",
+      "not slow"
+    ],
+    "executable": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:34.786259+00:00",
+    "completed_at": "2026-11-09T03:42:36.703257+00:00",
+    "wall_seconds": 1.9170125720000328,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-receipt-tests-stdout.log": "e47201d5ca51f8aa1d68539d8c4e16f0cdf33b1019194bded152d80b89799627",
+      "4558-round16-receipt-tests-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "required-ancestry",
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+    ],
+    "executable": "/usr/bin/git",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:36.703362+00:00",
+    "completed_at": "2026-11-09T03:42:36.707266+00:00",
+    "wall_seconds": 0.00390727199999219,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-required-ancestry-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "4558-round16-required-ancestry-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "repair-ancestry",
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+    ],
+    "executable": "/usr/bin/git",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:36.707311+00:00",
+    "completed_at": "2026-11-09T03:42:36.710972+00:00",
+    "wall_seconds": 0.0036639660000332697,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-repair-ancestry-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "4558-round16-repair-ancestry-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "published-ancestry",
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "dc88475b617e52bb06f86ab4d79b01d21462ee67"
+    ],
+    "executable": "/usr/bin/git",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:36.711013+00:00",
+    "completed_at": "2026-11-09T03:42:36.714529+00:00",
+    "wall_seconds": 0.0035189189999869086,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-published-ancestry-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "4558-round16-published-ancestry-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "byte-comparison",
+    "argv": [
+      "cmp",
+      "docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt",
+      "docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt"
+    ],
+    "executable": "/usr/bin/cmp",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:36.714577+00:00",
+    "completed_at": "2026-11-09T03:42:36.716065+00:00",
+    "wall_seconds": 0.001490713999999116,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-byte-comparison-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "4558-round16-byte-comparison-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "producer-replay",
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "docs/evidence/issue-4369/runtime-4550/4558-round16-origin-inventory.json"
+    ],
+    "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:36.716103+00:00",
+    "completed_at": "2026-11-09T03:42:36.747780+00:00",
+    "wall_seconds": 0.031680898999979945,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-producer-replay-stdout.log": "75756edec0d2ccc0682da8c4295c2f8391d2b99815489e2289908b8d3af724bc",
+      "4558-round16-producer-replay-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  {
+    "label": "diff-check",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "executable": "/usr/bin/git",
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T03:42:36.747829+00:00",
+    "completed_at": "2026-11-09T03:42:36.764545+00:00",
+    "wall_seconds": 0.016720584999973198,
+    "exit_code": 0,
+    "logs": {
+      "4558-round16-diff-check-stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "4558-round16-diff-check-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+]

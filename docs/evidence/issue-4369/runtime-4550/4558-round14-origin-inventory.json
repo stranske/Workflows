@@ -1,0 +1,627 @@
+{
+  "start": "2026-11-09T02:52:15Z",
+  "end": "2026-11-09T03:01:54Z",
+  "collection": {
+    "transport": "GitHub connector fetch",
+    "field_projection": [
+      "id",
+      "workflow_id",
+      "path",
+      "event",
+      "created_at"
+    ],
+    "workflow_specific_endpoint": "refused by connector; unfiltered repository endpoint used"
+  },
+  "pages": [
+    {
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=1&created=2026-11-09T02:52:15Z..2026-11-09T03:01:54Z",
+      "body": {
+        "total_count": 86,
+        "workflow_runs": [
+          {
+            "id": 42554104731,
+            "workflow_id": 216399413,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:52Z"
+          },
+          {
+            "id": 42554104573,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:52Z"
+          },
+          {
+            "id": 42554104536,
+            "workflow_id": 218465302,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:52Z"
+          },
+          {
+            "id": 42554104538,
+            "workflow_id": 216399425,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:52Z"
+          },
+          {
+            "id": 42554104331,
+            "workflow_id": 216399435,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:51Z"
+          },
+          {
+            "id": 42554104438,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:51Z"
+          },
+          {
+            "id": 42554104382,
+            "workflow_id": 218468808,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:51Z"
+          },
+          {
+            "id": 42554104338,
+            "workflow_id": 219679175,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:51Z"
+          },
+          {
+            "id": 42554059918,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:01:22Z"
+          },
+          {
+            "id": 42553971628,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:29Z"
+          },
+          {
+            "id": 42553932567,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:05Z"
+          },
+          {
+            "id": 42553932852,
+            "workflow_id": 218465302,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:05Z"
+          },
+          {
+            "id": 42553932650,
+            "workflow_id": 216399435,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:05Z"
+          },
+          {
+            "id": 42553932653,
+            "workflow_id": 216399425,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:05Z"
+          },
+          {
+            "id": 42553932664,
+            "workflow_id": 219679175,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:05Z"
+          },
+          {
+            "id": 42553932857,
+            "workflow_id": 216399413,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:05Z"
+          },
+          {
+            "id": 42553932762,
+            "workflow_id": 218468808,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:05Z"
+          },
+          {
+            "id": 42553932605,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T03:00:05Z"
+          },
+          {
+            "id": 42553924040,
+            "workflow_id": 221022961,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T03:00:01Z"
+          },
+          {
+            "id": 42553924005,
+            "workflow_id": 216399422,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T03:00:01Z"
+          },
+          {
+            "id": 42553924001,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T03:00:01Z"
+          },
+          {
+            "id": 42553885027,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:59:32Z"
+          },
+          {
+            "id": 42553882038,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:59:30Z"
+          },
+          {
+            "id": 42553831901,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:52Z"
+          },
+          {
+            "id": 42553830289,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:51Z"
+          },
+          {
+            "id": 42553829111,
+            "workflow_id": 221022961,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:58:50Z"
+          },
+          {
+            "id": 42553829127,
+            "workflow_id": 216399422,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:58:50Z"
+          },
+          {
+            "id": 42553828929,
+            "workflow_id": 218465302,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:50Z"
+          },
+          {
+            "id": 42553828931,
+            "workflow_id": 219679175,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:50Z"
+          },
+          {
+            "id": 42553828950,
+            "workflow_id": 216399413,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:50Z"
+          },
+          {
+            "id": 42553829099,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:58:50Z"
+          },
+          {
+            "id": 42553828947,
+            "workflow_id": 218468808,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:50Z"
+          },
+          {
+            "id": 42553828789,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:49Z"
+          },
+          {
+            "id": 42553828815,
+            "workflow_id": 216399435,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:49Z"
+          },
+          {
+            "id": 42553828809,
+            "workflow_id": 216399425,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:49Z"
+          },
+          {
+            "id": 42553828796,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:49Z"
+          },
+          {
+            "id": 42553788991,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:20Z"
+          },
+          {
+            "id": 42553786610,
+            "workflow_id": 227032001,
+            "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:18Z"
+          },
+          {
+            "id": 42553771942,
+            "workflow_id": 384990025,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:58:08Z"
+          },
+          {
+            "id": 42553732091,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:57:38Z"
+          },
+          {
+            "id": 42553729019,
+            "workflow_id": 216399439,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553729086,
+            "workflow_id": 216399428,
+            "path": ".github/workflows/health-40-sweep.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553728959,
+            "workflow_id": 216399432,
+            "path": ".github/workflows/health-44-gate-branch-protection.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553728992,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553729016,
+            "workflow_id": 216399443,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553728974,
+            "workflow_id": 216399419,
+            "path": ".github/workflows/agents-guard.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553728932,
+            "workflow_id": 216399433,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553729063,
+            "workflow_id": 216399442,
+            "path": ".github/workflows/pr-00-gate.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553728988,
+            "workflow_id": 216409243,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553729064,
+            "workflow_id": 295761985,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-09T02:57:36Z"
+          },
+          {
+            "id": 42553726904,
+            "workflow_id": 324598833,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "created_at": "2026-11-09T02:57:35Z"
+          },
+          {
+            "id": 42553687734,
+            "workflow_id": 227032001,
+            "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:57:07Z"
+          },
+          {
+            "id": 42553684540,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:57:04Z"
+          },
+          {
+            "id": 42553684632,
+            "workflow_id": 216399422,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:57:04Z"
+          },
+          {
+            "id": 42553684480,
+            "workflow_id": 221022961,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:57:04Z"
+          },
+          {
+            "id": 42553682722,
+            "workflow_id": 216399422,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:57:03Z"
+          },
+          {
+            "id": 42553682697,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:57:03Z"
+          },
+          {
+            "id": 42553682703,
+            "workflow_id": 221022961,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:57:03Z"
+          },
+          {
+            "id": 42553631489,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:56:27Z"
+          },
+          {
+            "id": 42553535197,
+            "workflow_id": 216399413,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:55:21Z"
+          },
+          {
+            "id": 42553534958,
+            "workflow_id": 216399435,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:55:21Z"
+          },
+          {
+            "id": 42553534995,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:55:21Z"
+          },
+          {
+            "id": 42553535164,
+            "workflow_id": 219679175,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:55:21Z"
+          },
+          {
+            "id": 42553534943,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:55:21Z"
+          },
+          {
+            "id": 42553535167,
+            "workflow_id": 218468808,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:55:21Z"
+          },
+          {
+            "id": 42553535056,
+            "workflow_id": 216399425,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:55:21Z"
+          },
+          {
+            "id": 42553535129,
+            "workflow_id": 218465302,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:55:21Z"
+          },
+          {
+            "id": 42553492985,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:54:53Z"
+          },
+          {
+            "id": 42553474459,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:54:40Z"
+          },
+          {
+            "id": 42553442028,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:54:17Z"
+          },
+          {
+            "id": 42553423657,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:54:05Z"
+          },
+          {
+            "id": 42553367048,
+            "workflow_id": 221022961,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:53:24Z"
+          },
+          {
+            "id": 42553367089,
+            "workflow_id": 216399422,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:53:24Z"
+          },
+          {
+            "id": 42553367084,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-09T02:53:24Z"
+          },
+          {
+            "id": 42553346541,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:53:10Z"
+          },
+          {
+            "id": 42553307763,
+            "workflow_id": 216399413,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:43Z"
+          },
+          {
+            "id": 42553307685,
+            "workflow_id": 218465302,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:43Z"
+          },
+          {
+            "id": 42553307990,
+            "workflow_id": 218468808,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:43Z"
+          },
+          {
+            "id": 42553307687,
+            "workflow_id": 216399435,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:43Z"
+          },
+          {
+            "id": 42553307696,
+            "workflow_id": 216399425,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:43Z"
+          },
+          {
+            "id": 42553307751,
+            "workflow_id": 219679175,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:43Z"
+          },
+          {
+            "id": 42553307583,
+            "workflow_id": 216399424,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:42Z"
+          },
+          {
+            "id": 42553307577,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:42Z"
+          },
+          {
+            "id": 42553286970,
+            "workflow_id": 369057596,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-09T02:52:28Z"
+          },
+          {
+            "id": 42553279375,
+            "workflow_id": 221540317,
+            "path": ".github/workflows/agents-auto-label.yml",
+            "event": "issues",
+            "created_at": "2026-11-09T02:52:23Z"
+          },
+          {
+            "id": 42553279357,
+            "workflow_id": 328243471,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "created_at": "2026-11-09T02:52:23Z"
+          }
+        ]
+      }
+    }
+  ]
+}
