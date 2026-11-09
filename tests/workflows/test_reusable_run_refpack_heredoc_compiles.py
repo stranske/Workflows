@@ -36,7 +36,7 @@ REUSABLE_RUN_WORKFLOWS = [
     ".github/workflows/reusable-claude-run.yml",
 ]
 REFPACK_ACTION = ".github/actions/agent-reference-packs/action.yml"
-REFPACK_RUNNER_USES = "uses: ./.github/actions/agent-reference-packs"
+REFPACK_RUNNER_USES = "uses: ./.workflows-lib/.github/actions/agent-reference-packs"
 
 
 def _extract_yaml_run_block(path: Path, step_name: str) -> str:

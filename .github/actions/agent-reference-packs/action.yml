@@ -36,7 +36,7 @@ runs:
           echo "reference_packs_exists=false" >> "$GITHUB_OUTPUT"
         else
           echo "Validating reference pack configuration..."
-          python scripts/reference_packs.py --workspace . --format json \
+          python .workflows-lib/scripts/reference_packs.py --workspace . --format json \
             > /tmp/reference_packs_output.json
           echo "reference_packs_exists=true" >> "$GITHUB_OUTPUT"
 
@@ -136,13 +136,13 @@ runs:
           pack_args+=(--enabled-override "$ORCHESTRATOR_SKILL_ENABLED")
         fi
 
-        python scripts/orchestrator_skill.py --workspace . --format json \
+        python .workflows-lib/scripts/orchestrator_skill.py --workspace . --format json \
           "${pack_args[@]}" > /tmp/orchestrator_skill_output.json || {
             echo "::error::Orchestrator skill config validation failed."
             exit 1
           }
 
-        PYTHONPATH="${GITHUB_WORKSPACE}/scripts:${GITHUB_WORKSPACE}" python3 <<'ORCHSKILL_EOF'
+        PYTHONPATH="${GITHUB_WORKSPACE}/.workflows-lib:${GITHUB_WORKSPACE}" python3 <<'ORCHSKILL_EOF'
         import json
         import os
 
