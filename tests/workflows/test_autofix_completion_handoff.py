@@ -2,7 +2,9 @@
 
 import json
 import os
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,119 @@ import yaml
 from scripts.runner_lib import core
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.parametrize("lookup_failure", ["unavailable", "missing-head"])
+def test_collector_failure_retains_reservation_through_completion_shell(tmp_path, lookup_failure):
+    """Run the shipped collector and shell, including the runner's receipt boundary."""
+    workflow = yaml.safe_load(
+        (
+            ROOT / "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
+        ).read_text()
+    )
+    steps = workflow["jobs"]["metrics"]["steps"]
+    collect = next(step for step in steps if step.get("id") == "collect")
+    completion = next(step for step in steps if step.get("name") == "Record autofix completion")
+    head = "a" * 40
+    inputs = {
+        "needs.prepare.outputs.pr_number || 0": "42",
+        "needs.prepare.outputs.head_sha": head,
+        "needs.prepare.outputs.gate_conclusion": "failure",
+        "needs.autofix.result": "success",
+        "needs.autofix-claude.result": "skipped",
+        "needs.autofix-cursor.result": "skipped",
+        "needs.autofix-muse.result": "skipped",
+    }
+    script = re.sub(
+        r"\$\{\{\s*(.*?)\s*\}\}", lambda m: inputs.get(m[1], ""), collect["with"]["script"]
+    )
+    collector = tmp_path / "collect.js"
+    collector.write_text(
+        "const context = {repo: {owner: 'owner', repo: 'repo'}, payload: {}};\n"
+        "const core = {info() {}, warning() {}, setOutput(name, value) {\n"
+        "  if (name === 'metrics_json') process.stdout.write(value);\n"
+        "}};\n"
+        "const github = {rest: {pulls: {async get() {\n"
+        + (
+            "throw new Error('PR lookup unavailable');\n"
+            if lookup_failure == "unavailable"
+            else "return {data: {head: {}}};\n"
+        )
+        + "}}, actions: {async listWorkflowRuns() { return {data: []}; }}}};\n"
+        + "async function collect() {\n"
+        + script
+        + "\n}\ncollect().catch(() => {process.exitCode = 1;});\n"
+    )
+    measured = subprocess.run(
+        ["node", str(collector)], cwd=tmp_path, capture_output=True, text=True, check=True
+    )
+    metrics = json.loads(measured.stdout)
+    assert metrics["head_sha_after"] == head
+    assert metrics["fix_applied"] is False
+
+    # Keep the real CLI validation and persistence code, substituting only its
+    # storage transport. No network or workflow permissions are needed.
+    state = tmp_path / "reservation.json"
+    pending = {
+        "provider": "codex",
+        "pr_number": 42,
+        "head_sha": head,
+        "key": core._runner_key(42, head, "codex"),
+        "status": "pending",
+        "workflow_attempt_id": "test-source",
+        "unproductive_completions": 1,
+    }
+    state.write_text(json.dumps(pending))
+    original = state.read_bytes()
+    binary = tmp_path / "bin"
+    binary.mkdir()
+    wrapper = binary / "python"
+    wrapper.write_text('#!/bin/sh\nexec "$REAL_PYTHON" "$RUNNER_HELPER" "$@"\n')
+    wrapper.chmod(0o755)
+    runner = tmp_path / "runner.py"
+    runner.write_text(
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "from scripts.runner_lib import core\n"
+        "state = Path(os.environ['RESERVATION_PATH'])\n"
+        "class Storage:\n"
+        "    def read_record(self, *_): return json.loads(state.read_text())\n"
+        "    def write_record(self, _pr, _provider, record):\n"
+        "        state.write_text(json.dumps(record))\n"
+        "core._storage_from_name = lambda _: Storage()\n"
+        "core._workflow_attempt_id = lambda: 'test-source'\n"
+        "assert sys.argv[1:3] == ['-m', 'scripts.runner_lib']\n"
+        "sys.exit(core.main(sys.argv[3:]))\n"
+    )
+    env = {
+        **os.environ,
+        "PATH": str(binary) + ":" + os.environ["PATH"],
+        "PYTHONPATH": str(ROOT),
+        "REAL_PYTHON": sys.executable,
+        "RUNNER_HELPER": str(runner),
+        "RESERVATION_PATH": str(state),
+        "GITHUB_OUTPUT": str(tmp_path / "github-output"),
+        "PR_NUMBER": "42",
+        "HEAD_SHA": head,
+        "PROVIDER": "codex",
+        "METRICS_JSON": measured.stdout,
+    }
+    # Repeated observation failures must not spend the remaining retry allowance.
+    for _ in range(2):
+        result = subprocess.run(
+            ["bash", "-c", completion["run"]], env=env, capture_output=True, text=True
+        )
+        assert result.returncode != 0
+        assert "retain reservation" in result.stderr
+        assert state.read_bytes() == original
+
+    # A successful measurement must reach persistence through the same harness.
+    env["METRICS_JSON"] = json.dumps({**metrics, "head_observed": True})
+    subprocess.run(["bash", "-c", completion["run"]], env=env, capture_output=True, check=True)
+    recorded = json.loads(state.read_text())
+    assert recorded["status"] == "completed"
+    assert recorded["productive"] is False
+    assert recorded["unproductive_completions"] == 2
 
 
 @pytest.mark.parametrize("advanced", [False, True])
