@@ -15,6 +15,40 @@ EMPTY_CRITERION = "Tests pass; the reviewer must record it in an artifact"
 BODY_CRITERION = "Evidence must be posted in the PR body"
 
 
+def test_equivalent_normalized_criteria_share_bounded_fresh_classification(monkeypatch) -> None:
+    cache = verifier._cached_normalized_evidence_channels
+    classify = verifier._classify_normalized_evidence_channels
+    calls = Counter()
+
+    def observed(text, *, _bind_attached=True):
+        calls[text, _bind_attached] += 1
+        return classify(text, _bind_attached=_bind_attached)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(verifier, "_classify_normalized_evidence_channels", observed)
+        cache.cache_clear()
+        wordings = [
+            "The tool must allow reviewers to post evidence in the PR body",
+            "The tool must enable reviewers to post evidence in the PR body",
+        ]
+        normalized = verifier._normalize_evidence_acceptance(wordings[0])
+        assert verifier._normalize_evidence_acceptance(wordings[1]) == normalized
+        first = verifier._classify_evidence_channels(wordings[0])
+        assert first == set()
+        first.add("comments")
+        assert verifier._classify_evidence_channels(wordings[1]) == set()
+        assert calls[normalized, True] == 1
+        assert cache.cache_info().hits == 1 and cache.cache_info().maxsize == 512
+        assert verifier._classify_evidence_channels(wordings[0], _bind_attached=False) == set()
+        assert calls[normalized, False] == 1
+        large = "x" * (verifier._EVIDENCE_CACHE_MAX_CHARS + 1)
+        before = cache.cache_info().currsize
+        assert verifier._classify_evidence_channels(large) == set()
+        assert verifier._classify_evidence_channels(large) == set()
+        assert calls[large, True] == 2 and cache.cache_info().currsize == before
+    cache.cache_clear()
+
+
 def test_classifiers_share_bounded_immutable_normalization(monkeypatch) -> None:
     original = verifier._normalize_capability_deliveries
     calls = Counter()
