@@ -6,7 +6,7 @@
   "window_end_exclusive": "2026-11-09T02:51:20Z",
   "window_elapsed": true,
   "fleet_source": "3e7f75d3750e54a1453cf9ea0ce4ed048bf24288:.github/workflows/maint-68-sync-consumer-repos.yml REGISTERED_CONSUMER_REPOS plus source Workflows",
-  "method": "Enumerate all PRs by creation time, including closed PRs; exhaust each in-window PR timeline. Eligible means keepalive-labeled before window end, even if later removed. Literal first routing includes agent:auto, matching the named suite's routing-label contract. Complete histories without any routing label count in the denominator but not the numerator. Mixed same-second first labels produce conservative numerator bounds. Later delegation is never substituted for the first label. A separate provider metric excludes agent:auto. Histories are stored per repository. No search index or present-day-label filter.",
+  "method": "Enumerate all PRs by creation time, including closed PRs; exhaust each in-window PR timeline. Eligible means keepalive-labeled before window end, even if later removed. Routing excludes known control/status labels (agent:retry, agent:rate-limited, agent:needs-attention). Literal first routing includes agent:auto, matching the named suite's routing-label contract. Complete histories without any routing label count in the denominator but not the numerator. Mixed same-second first labels produce conservative numerator bounds. Later delegation is never substituted for the first label. A separate provider metric excludes agent:auto. Histories are stored per repository. No search index or present-day-label filter.",
   "repository_coverage": [
     {
       "repository": "stranske/Workflows",

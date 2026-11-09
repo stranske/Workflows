@@ -12,13 +12,72 @@ this label measure, but establishes no provider execution. The stricter
 first-label provider metric remains 13/51 = 25.49% as a separate limitation.
 T3/A3 remain UNVERIFIED; overall acceptance remains NOT ESTABLISHED.
 
+## Current continuation disposition — 2026-11-09
+
+Outcome 1: **A4 PASS**, unchanged **17/51 = 33.33%**, complete coverage.
+Saved-history replay after excluding `agent:retry`, `agent:rate-limited` and
+`agent:needs-attention` leaves every classified observation unchanged; only
+the collector method description changes. `agent:auto` and consumer-specific
+agent labels remain routing labels. The first-label provider metric remains
+13/51 = 25.49%. All existing history files and historical receipts are retained.
+
+The pure `classify_record(record, end)` is covered by 10 focused tests: END
+boundaries, mixed Codex/non-Codex ties in both orders, auto-only history,
+absent routing, removed labels, each status label before Codex, consumer
+labels, incomplete history and an explicit boundary. Command/result receipts:
+
+- `/opt/anaconda3/bin/python3 -m unittest discover -s artifacts/issue-3988 -p 'test_collect_observations.py'`: 10 tests, OK ([receipt](continuation-python-tests.txt)).
+- `/opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py --from-saved`: 17/51, complete coverage true, PASS ([receipt](continuation-replay.txt)).
+- `node --test tests/scripts/test_agent_delegation_policy_intake.js`: 74 passed, 0 failed ([receipt](continuation-node-source.txt)).
+- `node --test .github/scripts/__tests__/agent-delegation-policy-intake.test.js`: 74 passed, 0 failed ([receipt](continuation-node-wrapper.txt)).
+
+These continuation Node runs use the current branch; the retained exact-merge
+receipts below remain the evidence for the merge commit. No mutation was repeated.
+
+**Path correction:** the historical issue spelling
+`.github/scripts/tests/agent-delegation-policy-intake.test.js` is absent and
+incorrect at this revision. The existing `__tests__` wrapper imports the direct
+suite. Historical receipts establish the direct command and that wrapper,
+not both commands with the historical spelling as written. The live issue body
+now names `__tests__`; both currently named commands above pass.
+
+**Interpreter requirement:** this macOS app requires a selected repository
+virtual environment or `/opt/anaconda3/bin/python3`; Apple/CLT Python is not a
+fallback. The collector uses only the Python standard library (Python 3.9+),
+plus `git` and `gh` for its documented external reads. Other machines may use
+an equivalent Python interpreter; the absolute path records the required local
+runtime, not an Anaconda package dependency.
+
+**A3 remains unchecked / UNKNOWN.** The genuine candidate is
+[run 42353296252, job 128345864413](https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413).
+A fresh read of `repos/stranske/Workflows/check-runs/128345864413` still returns
+`output.summary: null` ([retained response](continuation-check-run-summary.json)).
+The job metadata reports success, but does not expose the summary table.
+Browser retrieval of that exact job URL failed before navigation with
+`native pipe write failed: Broken pipe (os error 32)`. Thus the unavailable
+sources are the actual job step-summary table and the route-weights snapshot
+used at 2026-11-07T07:55:59Z. Observed log value remains Cursor as the default,
+overridden to Claude from labels; posterior, Codex posterior rank and pool
+state at that invocation are **UNKNOWN**. No evidence establishes the required
+condition "Codex is not the top posterior or is shed." Current weights cannot
+prove that historical condition. No synthetic evidence substitutes for it.
+
+Stop rule: two attempts per unavailable source, 45 minutes active repair.
+Blocking/drainable pair: A3 blocks closure; classifier tests, saved replay,
+claim reconciliation and review dispositions can drain while A3 is unknown.
+No merge or issue closure is authorized by the A4 result alone.
+
+The following round 7–11 narrative is **historical and superseded for A4**;
+its provider-only FAIL claims are not current acceptance verdicts. Historical
+command claims are also subject to the path correction above.
+
 Round 7 verification (2026-11-09): **T2 and T4 verified; T3/A3 remain
 UNVERIFIED; A4 FAILS.** Repeated the isolated merge-commit mutation: 55/74
 passed and 19 failed, including the named source/template top-pool-shed cases.
 Restored both policy files byte-for-byte (SHA-256 receipts in
 [round7-verification.json](round7-verification.json)); both named commands then
 passed 74/74. New full transcripts are retained as `round7-*.txt`, alongside
-all earlier transcripts. The PR body retains the original full transcripts.
+all earlier transcripts. The PR body retains the original full transcripts (historical receipts).
 Direct inspection of both current workflow files confirms the chooser,
 DEFAULT_AGENT propagation and awaited summary writing remain present.
 The live candidate check-run API again returned `output.summary: null`; see
@@ -85,7 +144,7 @@ was run. Only the two issue-named Node test commands were executed locally.
 
 | Criterion | Observed result | Status |
 | --- | --- | --- |
-| Both named Node commands on the merge commit; successful CI containing the suite | Both pass 74/74; successful suite-bearing CI linked below | PASS |
+| Direct Node suite and existing `__tests__` wrapper on the merge commit; successful suite-bearing CI | Both pass 74/74; historical issue-path typo corrected above | PASS for corrected paths |
 | Deliberate-break and restored-green transcripts in the implementing PR body | Isolated mutation produces the named top-pool-shed failures; restored bytes pass 74/74; full transcripts included in PR body | PASS |
 | Real post-merge non-Codex DEFAULT_AGENT summary under the specified condition | Real logs establish a Cursor default, but actual summary and posterior/pool values were not retrieved | UNVERIFIED |
 | Complete 48-hour first-routing-label share other than `agent:codex` >=30% | 17/51 = 33.33%, complete coverage; includes four `agent:auto` labels | PASS for specified label measure; provider redistribution remains unproved |

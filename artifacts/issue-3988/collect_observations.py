@@ -31,7 +31,7 @@ def api(endpoint):
 
 
 def save(name, data):
-    (OUT / name).write_text(json.dumps(data, indent=2) + "\n")
+    (OUT / name).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def collect_repo(repo):
@@ -113,6 +113,55 @@ def collect_repo(repo):
     return coverage, observations
 
 
+STATUS_LABELS = frozenset({"agent:retry", "agent:rate-limited", "agent:needs-attention"})
+
+
+def classify_record(record, end=END):
+    """Classify saved history without I/O; removals do not erase earlier routing."""
+    events = sorted(record["label_events"], key=lambda e: (e["created_at"], e["id"]))
+    keepalive = [
+        e
+        for e in events
+        if e["event"] == "labeled"
+        and e["label"] == "agents:keepalive"
+        and e["created_at"] < end
+    ]
+    routing = [
+        e
+        for e in events
+        if e["event"] == "labeled"
+        and e["label"].startswith("agent:")
+        and e["created_at"] < end
+        and e["label"] not in STATUS_LABELS
+    ]
+    item = {k: record[k] for k in ("repository", "number", "url", "created_at")}
+    if not record["history_complete"]:
+        return "unknown", {**item, "reason": record.get("history_error", "incomplete history")}
+    elif not keepalive:
+        return "excluded", {**item, "reason": "no agents:keepalive label event before window end"}
+    else:
+        first = routing[0] if routing else None
+        # Equal timestamps do not prove ordering between distinct routing agents.
+        tied = sorted(
+            {e["label"] for e in routing if first and e["created_at"] == first["created_at"]}
+        )
+        concrete = [e for e in routing if e["label"] != "agent:auto"]
+        item.update(
+            {
+                "first_keepalive_event": keepalive[0],
+                "first_routing_event": first,
+                "tied_first_labels": tied,
+                "routing_status": (
+                    "absent" if not first else "ambiguous" if len(tied) > 1 else "observed"
+                ),
+                "non_codex": bool(tied) and all(label != "agent:codex" for label in tied),
+                "first_concrete_routing_event": concrete[0] if concrete else None,
+                "concrete_non_codex": bool(concrete) and concrete[0]["label"] != "agent:codex",
+            }
+        )
+        return "eligible", item
+
+
 def main():
     workflow = subprocess.check_output(
         ["git", "show", f"{MERGE}:.github/workflows/maint-68-sync-consumer-repos.yml"],
@@ -126,11 +175,13 @@ def main():
     repos = ["stranske/Workflows", *repos]
     coverage, observations = [], []
     if "--from-saved" in sys.argv:
-        previous = json.loads((OUT / "routing-observations.json").read_text())
+        previous = json.loads((OUT / "routing-observations.json").read_text(encoding="utf-8"))
         coverage = previous["repository_coverage"]
         for repo in repos:
             observations.extend(
-                json.loads((OUT / (repo.split("/")[1] + "-histories.json")).read_text())
+                json.loads(
+                    (OUT / (repo.split("/")[1] + "-histories.json")).read_text(encoding="utf-8")
+                )
             )
         collected_at = previous["collected_at"]
     else:
@@ -140,48 +191,10 @@ def main():
                 observations.extend(rows)
         collected_at = dt.datetime.now(dt.timezone.utc).isoformat()
     eligible, exclusions, unknown = [], [], []
+    buckets = {"eligible": eligible, "excluded": exclusions, "unknown": unknown}
     for record in observations:
-        events = sorted(record["label_events"], key=lambda e: (e["created_at"], e["id"]))
-        keepalive = [
-            e
-            for e in events
-            if e["event"] == "labeled"
-            and e["label"] == "agents:keepalive"
-            and e["created_at"] < END
-        ]
-        routing = [
-            e
-            for e in events
-            if e["event"] == "labeled" and e["label"].startswith("agent:") and e["created_at"] < END
-        ]
-        item = {k: record[k] for k in ("repository", "number", "url", "created_at")}
-        if not record["history_complete"]:
-            unknown.append({**item, "reason": record.get("history_error", "incomplete history")})
-        elif not keepalive:
-            exclusions.append(
-                {**item, "reason": "no agents:keepalive label event before window end"}
-            )
-        else:
-            first = routing[0] if routing else None
-            # Equal timestamps do not prove ordering between distinct routing agents.
-            tied = sorted(
-                {e["label"] for e in routing if first and e["created_at"] == first["created_at"]}
-            )
-            concrete = [e for e in routing if e["label"] != "agent:auto"]
-            item.update(
-                {
-                    "first_keepalive_event": keepalive[0],
-                    "first_routing_event": first,
-                    "tied_first_labels": tied,
-                    "routing_status": (
-                        "absent" if not first else "ambiguous" if len(tied) > 1 else "observed"
-                    ),
-                    "non_codex": bool(tied) and all(label != "agent:codex" for label in tied),
-                    "first_concrete_routing_event": concrete[0] if concrete else None,
-                    "concrete_non_codex": bool(concrete) and concrete[0]["label"] != "agent:codex",
-                }
-            )
-            eligible.append(item)
+        classification, item = classify_record(record)
+        buckets[classification].append(item)
     numerator = sum(r.get("non_codex", False) for r in eligible)
     denominator = len(eligible)
     ambiguous = sum(
@@ -214,7 +227,7 @@ def main():
         "window_end_exclusive": END,
         "window_elapsed": elapsed,
         "fleet_source": f"{MERGE}:.github/workflows/maint-68-sync-consumer-repos.yml REGISTERED_CONSUMER_REPOS plus source Workflows",
-        "method": "Enumerate all PRs by creation time, including closed PRs; exhaust each in-window PR timeline. Eligible means keepalive-labeled before window end, even if later removed. Literal first routing includes agent:auto, matching the named suite's routing-label contract. Complete histories without any routing label count in the denominator but not the numerator. Mixed same-second first labels produce conservative numerator bounds. Later delegation is never substituted for the first label. A separate provider metric excludes agent:auto. Histories are stored per repository. No search index or present-day-label filter.",
+        "method": "Enumerate all PRs by creation time, including closed PRs; exhaust each in-window PR timeline. Eligible means keepalive-labeled before window end, even if later removed. Routing excludes known control/status labels (agent:retry, agent:rate-limited, agent:needs-attention). Literal first routing includes agent:auto, matching the named suite's routing-label contract. Complete histories without any routing label count in the denominator but not the numerator. Mixed same-second first labels produce conservative numerator bounds. Later delegation is never substituted for the first label. A separate provider metric excludes agent:auto. Histories are stored per repository. No search index or present-day-label filter.",
         "repository_coverage": coverage,
         "complete_coverage": complete,
         "eligible_keepalive_prs": eligible,
