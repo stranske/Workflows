@@ -384,11 +384,15 @@ def test_checked_in_templates_match_canonical_source() -> None:
 @pytest.mark.parametrize(
     "stale_lockfile", [False, True], ids=["aligned-lockfile", "stale-lockfile"]
 )
+@pytest.mark.parametrize(
+    "stale_pyproject", [False, True], ids=["aligned-pyproject", "stale-pyproject"]
+)
 def test_apply_repairs_ruff_drift_in_templates(
     tmp_path: Path,
     stale_templates: tuple[int, ...],
     check_args: tuple[str, ...],
     stale_lockfile: bool,
+    stale_pyproject: bool,
 ) -> None:
     """Exercise real CLI paths so a missing integration target cannot go unnoticed."""
     script = Path(sync_tool_versions.__file__).resolve()
@@ -410,7 +414,13 @@ def test_apply_repairs_ruff_drift_in_templates(
     versions["RUFF_VERSION"] = "0.17.4"
     env_path.parent.mkdir(parents=True)
     _write_env_file(env_path, versions)
-    pyproject_path.write_text(_make_pyproject_content(versions), encoding="utf-8")
+    aligned_pyproject = _make_pyproject_content(versions)
+    initial_pyproject = (
+        aligned_pyproject.replace('"ruff==0.17.4"', '"ruff==0.17.3"')
+        if stale_pyproject
+        else aligned_pyproject
+    )
+    pyproject_path.write_text(initial_pyproject, encoding="utf-8")
     canonical = env_path.read_bytes()
     stale = canonical.replace(b"RUFF_VERSION=0.17.4", b"RUFF_VERSION=0.17.3")
     for index, template in enumerate(templates):
@@ -431,7 +441,8 @@ def test_apply_repairs_ruff_drift_in_templates(
     assert result.returncode == 1, result.stderr
     assert result.stdout == ""
     assert env_path.read_bytes() == canonical
-    assert pyproject_path.read_text(encoding="utf-8") == _make_pyproject_content(versions)
+    assert pyproject_path.read_text(encoding="utf-8") == initial_pyproject
+    assert ("ruff: pyproject has 0.17.3" in result.stderr) == stale_pyproject
     assert lockfile_path.read_text(encoding="utf-8") == initial_lockfile
     assert ("requirements.lock:ruff" in result.stderr) == stale_lockfile
     for index, template in enumerate(templates):
@@ -445,7 +456,9 @@ def test_apply_repairs_ruff_drift_in_templates(
     result = run_cli("--apply")
     assert result.returncode == 0, result.stderr
     assert "template autofix-versions.env files synced from source" in result.stdout
+    assert ("tool pins synced to pyproject.toml" in result.stdout) == stale_pyproject
     assert result.stderr == ""
+    assert pyproject_path.read_text(encoding="utf-8") == aligned_pyproject
     for template in templates:
         assert template.read_bytes() == canonical
     assert lockfile_path.read_text(encoding="utf-8") == aligned_lockfile
@@ -458,7 +471,7 @@ def test_apply_repairs_ruff_drift_in_templates(
     assert result.returncode == 0, result.stderr
     assert result.stdout == result.stderr == ""
     assert env_path.read_bytes() == canonical
-    assert pyproject_path.read_text(encoding="utf-8") == _make_pyproject_content(versions)
+    assert pyproject_path.read_text(encoding="utf-8") == aligned_pyproject
     assert lockfile_path.read_text(encoding="utf-8") == aligned_lockfile
 
 
