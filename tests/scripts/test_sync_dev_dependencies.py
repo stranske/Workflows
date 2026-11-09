@@ -498,11 +498,18 @@ def test_maint52_preserves_orchestrator_runtime_only_lock(tmp_path, monkeypatch)
     for ambiguous in (
         "-r requirements-dev.in\n",
         "requests @ https://example.invalid/runtime.whl\n",
+        "black==1.0\n",
+        "pytest_cov==6.0\n",
+        "PyTeSt.CoV==6.0\n",
     ):
         lock.write_text(ambiguous)
         assert sdd.main(["--apply", "--create-if-missing", "--resolve-locks"]) == 2
         assert lock.read_text() == ambiguous
         resolver.assert_not_called()
+    lock.write_text("pytest_cov==6.0\n")
+    changes, errors = sdd.sync_lockfile(lock, {"PYTEST_COV_VERSION": "7.1.0"}, apply=True)
+    assert errors == [] and changes
+    assert lock.read_text() == "pytest_cov==7.1.0\n"
 
 
 def test_sync_pyproject_rejects_package_without_project_section(tmp_path: Path) -> None:
