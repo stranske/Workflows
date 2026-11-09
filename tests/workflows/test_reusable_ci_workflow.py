@@ -450,6 +450,8 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) 
         item for item in steps if item.get("name") == "Fetch pinned verifier revision history"
     )
     script = step["run"]
+    pinned_sha = '021ec67ef580c83a88402a1574e27ea34db14dde'
+    assert pinned_sha in script, 'Workflow pin changed; update this fixture'
     assert step["if"] == "${{ hashFiles('tests/test_verifier_4422_audit.py') != '' }}"
     source = tmp_path / "source.git"
     checkout = tmp_path / "checkout"
@@ -517,7 +519,7 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) 
     print(f"before (main-only fetch): checkout ancestry exit {main_only.returncode}")
 
     completed = subprocess.run(
-        ["bash", "-c", script.replace("021ec67ef580c83a88402a1574e27ea34db14dde", pin)],
+        ["bash", "-c", script.replace(pinned_sha, pin)],
         cwd=checkout,
         env=env,
         text=True,
