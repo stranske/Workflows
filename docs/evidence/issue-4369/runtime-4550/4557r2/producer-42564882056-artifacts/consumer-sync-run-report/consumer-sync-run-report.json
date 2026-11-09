@@ -1,0 +1,124 @@
+{
+  "schema": "workflows-consumer-sync-run/v1",
+  "generated_at": "2026-11-09T05:08:09.237Z",
+  "run": {
+    "repository": "stranske/Workflows",
+    "run_id": 42564882056,
+    "run_number": 2161,
+    "workflow": "Maint 68 Sync Consumer Repos",
+    "ref": "refs/heads/main",
+    "sha": "c7885e1a7d6add7bb866b2912794e7ba7466adf5"
+  },
+  "inputs": {
+    "repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/trip-planner",
+      "stranske/Portable-Alpha-Extension-Model"
+    ],
+    "registered_repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/Template",
+      "stranske/Counter_Risk",
+      "stranske/Pension-Data",
+      "stranske/Inv-Man-Intake",
+      "stranske/Ready",
+      "stranske/trip-planner",
+      "stranske/Manager-Database",
+      "stranske/Portable-Alpha-Extension-Model",
+      "stranske/Trend_Model_Project",
+      "stranske/learning-management-system",
+      "stranske/Fine-Art-Archive",
+      "stranske/Orchestrator",
+      "stranske/Doc-Lineage",
+      "stranske/Deliverable-Render",
+      "stranske/Manager-Mosaic"
+    ],
+    "template_hash": "4947a11cfee1",
+    "expected_branch": "sync/workflows-4947a11cfee1",
+    "dry_run": false,
+    "force": false
+  },
+  "summary": {
+    "no_changes": 0,
+    "dry_run_changes": 0,
+    "existing_pr": 0,
+    "refreshed_pr": 0,
+    "created_pr": 3,
+    "no_committed_changes": 0,
+    "create_pr_failed": 0,
+    "sync_failed": 0,
+    "label_failed": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "changes_count": 3,
+      "consumer_head_sha": "b3b617e7428026395bc7b644061163570a86e723",
+      "dry_run": false,
+      "expected_branch": "sync/workflows-candidate",
+      "force": false,
+      "has_changes": true,
+      "outcomes": {
+        "create_pr": "success",
+        "labels": "success",
+        "sync": "success"
+      },
+      "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+      "plan_scope": "full",
+      "pr": 2488,
+      "pr_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2488",
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "scope_base_sha": "",
+      "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "status": "created_pr",
+      "sync_phase": "canary",
+      "template_hash": "4947a11cfee1"
+    },
+    {
+      "changes_count": 2,
+      "consumer_head_sha": "655a0f8d534e0e330ad510df0da2c6146e5ada3b",
+      "dry_run": false,
+      "expected_branch": "sync/workflows-candidate",
+      "force": false,
+      "has_changes": true,
+      "outcomes": {
+        "create_pr": "success",
+        "labels": "success",
+        "sync": "success"
+      },
+      "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+      "plan_scope": "full",
+      "pr": 1736,
+      "pr_url": "https://github.com/stranske/Travel-Plan-Permission/pull/1736",
+      "repo": "stranske/Travel-Plan-Permission",
+      "scope_base_sha": "",
+      "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "status": "created_pr",
+      "sync_phase": "canary",
+      "template_hash": "4947a11cfee1"
+    },
+    {
+      "changes_count": 2,
+      "consumer_head_sha": "aad55d8a0bb5a22638b60e04eb70884d397b1b4e",
+      "dry_run": false,
+      "expected_branch": "sync/workflows-candidate",
+      "force": false,
+      "has_changes": true,
+      "outcomes": {
+        "create_pr": "success",
+        "labels": "success",
+        "sync": "success"
+      },
+      "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+      "plan_scope": "full",
+      "pr": 2021,
+      "pr_url": "https://github.com/stranske/trip-planner/pull/2021",
+      "repo": "stranske/trip-planner",
+      "scope_base_sha": "",
+      "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "status": "created_pr",
+      "sync_phase": "canary",
+      "template_hash": "4947a11cfee1"
+    }
+  ]
+}
