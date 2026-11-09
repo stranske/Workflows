@@ -495,7 +495,10 @@ def test_maint52_preserves_orchestrator_runtime_only_lock(tmp_path, monkeypatch)
     assert project.read_text() == "[tool.ruff]\nline-length = 100\n"
     resolver.assert_not_called()
     # Includes or unrecognized syntax do not prove a runtime-only scope.
-    for ambiguous in ("-r requirements-dev.in\n", "requests @ https://example.invalid/runtime.whl\n"):
+    for ambiguous in (
+        "-r requirements-dev.in\n",
+        "requests @ https://example.invalid/runtime.whl\n",
+    ):
         lock.write_text(ambiguous)
         assert sdd.main(["--apply", "--create-if-missing", "--resolve-locks"]) == 2
         assert lock.read_text() == ambiguous
