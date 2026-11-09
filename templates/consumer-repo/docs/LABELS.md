@@ -28,6 +28,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:auto-pilot-pause` | Issue labeled | Pauses auto-pilot dispatch
 | `agents:paused` | PR labeled | Pauses keepalive loop on PR
 | `agents:keepalive` | PR labeled | Enables keepalive loop on PR
+| `agents:local-loop` | PR labeled (local automation) | The local Orchestrator keepalive loop owns the PR; hosted keepalive stays off it
 | `agents:max-runs:<K>` | PR labeled | Caps keepalive run count; `agents:max-runs:0` is an explicit hold
 | `needs-human` | Issue or PR labeled | Blocks automation until a human clears the blocker
 | `security:bypass-guard` | Issue or PR labeled | Bypasses prompt-injection guard after explicit approval
@@ -550,6 +551,29 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 ---
 
 ## Keepalive Control Labels
+
+### `agents:local-loop`
+
+**Applies to:** Pull Requests
+
+**Set by:** local automation, never by a workflow in this repository. The local opener (`opener-core`) adds it
+when the Orchestrator router starts the work on the owner's machine (`router.choose_mode` returns mode `local`).
+
+**Effect:**
+1. The Orchestrator's local keepalive loop (`src/local_loop.py` in stranske/Orchestrator, run on every
+   controller pass) owns the PR. It re-runs the agent on CI results with the failing lines, gives it the source
+   issue's tasks, runs the issue's acceptance commands on a green head, and rotates agents after two
+   unproductive rounds.
+2. One owner per PR: a PR with this label never carries `agents:keepalive`, so hosted keepalive
+   (`agents-81-gate-followups.yml`) does not dispatch on it, and the local label sweep does not add hosted labels.
+3. The loop ends either when the PR is done (closer-core merges the green PR, after a judge if the PR edits CI
+   workflows) or by handing the PR to hosted keepalive. It hands off when its round cap is reached, no untried
+   agent is left, or no local slot frees in time: it adds `agents:keepalive` and `autofix`, then removes
+   `agents:local-loop`.
+
+**To hand off by hand:** add `agents:keepalive` and `autofix`, then remove `agents:local-loop`.
+
+---
 
 ### `agents:paused`
 
