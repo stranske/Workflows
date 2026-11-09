@@ -86,7 +86,7 @@ enforcement step evaluates their results.
 
 | Job ID | Display name | Purpose | Artifacts / outputs | Notes |
 | --- | --- | --- | --- | --- |
-| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` once with a 3.13 + 3.14 matrix. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads share the `gate-coverage` artifact under `coverage/runtimes/<python>` for downstream consumers. |
+| `python-ci` | python ci | Invokes `reusable-10-ci-python.yml` with a 3.13 + 3.14 matrix for every test file except the three verifier grammar suites, which `python-ci-grammar` (`python ci grammar`) runs in parallel without coverage. Runs Ruff, Mypy (on the pinned runtime), pytest with coverage, and emits structured summaries. | `gate-coverage`, `gate-coverage-summary`, `gate-coverage-trend` (primary runtime). | Single source of lint/type/test/coverage truth. Coverage payloads share the `gate-coverage` artifact under `coverage/runtimes/<python>` for downstream consumers. |
 | `docs-guard` | docs guard | Runs the cheap reusable-workflow documentation guards even when the PR is docs-only. | None (logs only). | Skips cleanly in consumer repos that do not carry the Workflows docs guard tests, but fails the `Gate / gate` status when Workflows docs drift from reusable workflow inputs/outputs. |
 | `docker-smoke` | docker smoke | Builds the project image and executes the smoke command through `reusable-12-ci-docker.yml`. | None (logs only). | Ensures packaging basics work before merge. |
 | `summary` | summary | Aggregates lint/type/test/coverage results, computes deltas, uploads `gate-summary.md`, and maintains the consolidated PR comment. | Job summary, `gate-summary.md`, `gate-coverage.json`, `gate-coverage-delta.json`, `gate-coverage-summary.md`. | Posts the required `Gate / gate` status and enforces failure when upstream legs are unhealthy. |
@@ -470,6 +470,16 @@ suite six times. See [the profile contract](SELFTESTS.md) for ownership and over
 ### Python runtime and coverage policy
 
 Workflows' own Gate passes `-n auto --dist load` through `pytest_args`.
+It also splits the suite across two parallel reusable calls: `python-ci` ignores
+the three verifier grammar suites (`tests/scripts/test_pr_verifier_delivery_destinations.py`,
+`test_pr_verifier_prompt_coverage.py`, `test_pr_verifier_body_overall_integration.py`)
+and `python-ci-grammar` runs exactly those files on both runtimes, with coverage off
+and the `grammar-` artifact prefix so the summary's `gate-*` merge never sees them.
+They hold ~35.6k cases and ~38% of the suite's worker time, and in one job they kept
+the pytest step at 6.7–13.3 minutes (Workflows#3904). The Gate passes only when both
+calls pass; `tests/test_ci_gate_budget.py` keeps the ignore list equal to the
+grammar call's files, so the two calls still discover the full suite. Coverage
+percentages therefore exclude lines only those suites reach.
 The reusable appends `-n 4 --dist=loadgroup`, which remain effective; these
 caller flags do not establish an auto/load speedup. The temporary #4258 timing
 flags were removed after hosted measurement. Test-design changes retain the

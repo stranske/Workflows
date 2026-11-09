@@ -286,12 +286,55 @@ jobs:
       coverage: ${{ needs.detect.outputs.coverage == 'true' }}
       # Preserve the full-suite 70% guard formerly repeated by six selftest profiles.
       coverage-min: '70'
-      pytest_args: "-n auto --dist load"
+      # The verifier grammar suites run in python-ci-grammar below; the two
+      # calls together discover the full suite (tests/test_ci_gate_budget.py).
+      pytest_args: "-n auto --dist load --ignore=tests/scripts/test_pr_verifier_delivery_destinations.py --ignore=tests/scripts/test_pr_verifier_prompt_coverage.py --ignore=tests/scripts/test_pr_verifier_body_overall_integration.py"
       cache: ${{ needs.detect.outputs.cache == 'true' }}
       enable-soft-gate: ${{ needs.detect.outputs.coverage == 'true' }}
       # Use the shared gate- prefix so downstream Maint workflows can locate the
       # coverage artifacts without special-casing runtime names.
       artifact-prefix: 'gate-'
+
+  python-ci-grammar:
+    # The three verifier grammar suites hold ~35.6k parametrized cases and ~38% of
+    # the suite's worker time (Workflows#3904). Run in python-ci they pushed its
+    # pytest step to 13 minutes, so they run here in parallel on both runtimes.
+    # python-ci ignores exactly these files, so the union is still the full suite.
+    # Coverage stays on python-ci; this call is a pass/fail gate only.
+    name: python ci grammar
+    needs:
+      - resolve-pr
+      - detect
+      - environment-gate
+    if: >-
+      ${{
+        needs.detect.outputs.doc_only != 'true' &&
+        needs.detect.outputs.run_core == 'true'
+      }}
+    uses: ./.github/workflows/reusable-10-ci-python.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      actions: read
+    with:
+      workflows_ref: ${{ github.sha }}
+      primary-python-version: '3.14'
+      python-versions: '["3.13", "3.14"]'
+      pytest-workers: '4'
+      marker: "not quarantine and not slow"
+      pytest_markers: ${{ needs.detect.outputs.pytest_markers }}
+      lint: false
+      format_check: false
+      typecheck: false
+      run-mypy: false
+      coverage: false
+      pytest_args: "-n auto --dist load tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_prompt_coverage.py tests/scripts/test_pr_verifier_body_overall_integration.py"
+      # Its own artifact cache would share python-ci's cache key.
+      cache: false
+      enable-soft-gate: false
+      # Not gate-: the summary job merges every gate-* artifact into one tree,
+      # where these runtime files would overwrite python-ci's.
+      artifact-prefix: 'grammar-'
 
   docs-guard:
     name: docs guard
@@ -717,6 +760,7 @@ jobs:
       - detect
       - environment-gate
       - python-ci
+      - python-ci-grammar
       - docs-guard
       - docker-smoke
       - github-scripts-tests
@@ -956,7 +1000,21 @@ jobs:
           DOC_ONLY: ${{ needs.detect.outputs.doc_only || 'false' }}
           RUN_CORE: ${{ needs.detect.outputs.run_core || 'true' }}
           REASON: ${{ needs.detect.outputs.reason }}
-          PYTHON_RESULT: ${{ needs.python-ci.result || 'skipped' }}
+          # Python passes only when both python-ci calls pass: a failure or a
+          # cancellation in either one decides the combined result.
+          PYTHON_RESULT: >-
+            ${{
+              (needs.python-ci.result == 'failure' || needs.python-ci-grammar.result == 'failure')
+              && 'failure'
+              || (needs.python-ci.result == 'cancelled'
+                  || needs.python-ci-grammar.result == 'cancelled')
+              && 'cancelled'
+              || (needs.python-ci.result == 'success'
+                  && needs.python-ci-grammar.result != 'success')
+              && (needs.python-ci-grammar.result || 'skipped')
+              || needs.python-ci.result
+              || 'skipped'
+            }}
           DOCS_GUARD_RESULT: ${{ needs.docs-guard.result || 'success' }}
           PYTHON_REQUIRED: >-
             ${{ needs.detect.outputs.doc_only != 'true' && needs.detect.outputs.run_core == 'true' }}
