@@ -377,8 +377,14 @@ def test_integration_template_ruff_pin_matches_canonical_source() -> None:
     assert integration_template["RUFF_VERSION"] == canonical["RUFF_VERSION"]
 
 
-def test_apply_repairs_ruff_drift_in_both_templates(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize(
+    "stale_templates", [(0,), (1,), (0, 1)], ids=["consumer", "integration", "both"]
+)
+def test_apply_repairs_ruff_drift_in_templates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    stale_templates: tuple[int, ...],
 ) -> None:
     env_path = tmp_path / "pins.env"
     pyproject_path = tmp_path / "pyproject.toml"
@@ -389,8 +395,8 @@ def test_apply_repairs_ruff_drift_in_both_templates(
     pyproject_path.write_text(_make_pyproject_content(versions), encoding="utf-8")
     canonical = env_path.read_bytes()
     stale = canonical.replace(b"RUFF_VERSION=0.17.4", b"RUFF_VERSION=0.17.3")
-    for template in templates:
-        template.write_bytes(stale)
+    for index, template in enumerate(templates):
+        template.write_bytes(stale if index in stale_templates else canonical)
 
     monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
     monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
@@ -399,9 +405,13 @@ def test_apply_repairs_ruff_drift_in_both_templates(
 
     assert sync_tool_versions.main([]) == 1
     captured = capsys.readouterr()
-    for template in templates:
-        assert str(template) in captured.err
-        assert template.read_bytes() == stale
+    for index, template in enumerate(templates):
+        if index in stale_templates:
+            assert str(template) in captured.err
+            assert template.read_bytes() == stale
+        else:
+            assert str(template) not in captured.err
+            assert template.read_bytes() == canonical
 
     assert sync_tool_versions.main(["--apply"]) == 0
     captured = capsys.readouterr()
