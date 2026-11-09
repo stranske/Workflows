@@ -7,6 +7,10 @@ duplicate consumer repair is justified. The source owner's
 [handoff](https://github.com/stranske/Workflows/issues/4555#issuecomment-6726070925)
 explicitly requests regeneration without duplicating that repair.
 
+**PR Status Distinction**: 
+- **Workflows PR #4556** (this PR): Currently **open**, delivers evidence and bookkeeping only. No production code changes.
+- **Orchestrator PR #1247** (consumer/sync PR): **Merged** at 2026-11-08T20:49:16Z with successful CI (run 42518195788).
+
 ## Root cause
 
 The failing expression is `receipt["targets"]["a"]` in the test assertion, at
@@ -109,6 +113,8 @@ The bounded local command
 and no full-suite pass. Its partial output is retained in
 [workflows-suite.txt](workflows-suite.txt). No unrelated test or timeout change
 was made to force acceptance.
+
+**Timeout Disclosure**: Local full repository-suite pass remains **unclaimed**. The timeout disclosure is preserved as evidence that the local-suite portion cannot be completed within 300 seconds.
 
 No protected workflow was edited or triggered, no CI was retried, and no
 consumer PR was edited. Workflows #4556 and Orchestrator #1247 were both
