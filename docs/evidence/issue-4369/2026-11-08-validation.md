@@ -3669,3 +3669,28 @@ UTC boundary above. Earlier observations and unresolved historical concern
 classes remain preserved. No acceptance failure required a code change. Only
 this report and the round-4 receipt changed; no dependency pins, manual workflow
 dispatches, schedules or merges changed. **Blocking=0, drainable by Maint 71=0.**
+
+### PR 4582 keepalive round 5 — 2026-11-09
+
+Outcome 1: **PASS**, rechecked at **2026-11-09T10:45:37.942244+00:00**.
+The [round-5 verification receipt](runtime-4550/4557r2/4582-round5-verification.json)
+records actual execution of A1–A4; the reported inability to run acceptance
+commands did not recur. Live PAEM PR 2488 reports `MERGED`, merge SHA
+`e4ccdaf177e3271173ae534a710ebc23f29341e8` and mergedAt
+`2026-11-09T08:25:48Z`, matching the chain receipt. `json.tool` exits **0**;
+producer 42564882056 reports event `schedule` and success, and terminal Maint 71
+run 42585644980 reports success. No manual dispatch was performed.
+
+Both retained `cmp` commands and a comparison against a fresh consumer download
+at that merge SHA exit **0**. Orchestrator PR 1288 is merged with no unsuccessful
+checks. Its exact merged archive's named model-table test returns **1 passed in
+0.33s**, exit **0**, without skip, against live Workflows main. The archive hash
+matches its retained source receipt; all **3,888** archived files match the test
+checkout. Missing Git metadata leaves the test-input tracking hook **NOT CHECKED**.
+
+Fetched Workflows main contains PR 4579's merge, the chain receipt and Closer
+repair 2 section. Criterion 3 remains met at the consumer merge SHA above; the
+fresh complete issue-4369 comment observation contains **49** comments at the
+UTC boundary above. Earlier observations and unresolved historical concerns
+remain preserved. No acceptance failure required a code repair. Only this report
+and the round-5 receipt changed. **Blocking=0, drainable by Maint 71=0.**
