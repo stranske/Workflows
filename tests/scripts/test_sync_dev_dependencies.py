@@ -472,6 +472,30 @@ def test_main_preserves_tool_only_pyproject_and_updates_lockfile(
     assert lockfile.read_text(encoding="utf-8") == "ruff==1.0.0\n"
 
 
+def test_maint52_preserves_orchestrator_runtime_only_lock(tmp_path, monkeypatch):
+    """The real tool-only consumer has no managed dev tools in its runtime lock."""
+    monkeypatch.chdir(tmp_path)
+    env_path = Path(".github/workflows/autofix-versions.env")
+    env_path.parent.mkdir(parents=True)
+    _write_env_file(env_path, {"RUFF_VERSION": "0.17.4"})
+    project = Path("pyproject.toml")
+    project.write_text("[tool.ruff]\nline-length = 100\n")
+    lock = Path("requirements.lock")
+    original = (
+        "PyYAML==6.0.3\nrequests==2.34.2\njsonschema==4.26.0\npsutil==7.2.2\n"
+        "# Test-only: exercise retained native LLMUsage/LLMChunk validation without SDK imports.\n"
+        "pydantic==2.13.4\n"
+    )
+    lock.write_text(original)
+    resolver = Mock(side_effect=AssertionError("runtime-only lock must not be resolved"))
+    monkeypatch.setattr(sdd.subprocess, "run", resolver)
+
+    assert sdd.main(["--apply", "--create-if-missing", "--resolve-locks", "--pre-commit"]) == 0
+    assert lock.read_text() == original
+    assert project.read_text() == "[tool.ruff]\nline-length = 100\n"
+    resolver.assert_not_called()
+
+
 def test_sync_pyproject_rejects_package_without_project_section(tmp_path: Path) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
