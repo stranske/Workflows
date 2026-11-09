@@ -93,7 +93,6 @@ def test_ci_history_generates_metrics_when_missing(
             monkeypatch.delenv(key, raising=False)
 
     assert exit_code == 0
-    assert history_path.exists()
     record = json.loads(history_path.read_text(encoding="utf-8").strip())
     assert record["summary"]["tests"] == 3
     assert "metrics_path" not in record
