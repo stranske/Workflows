@@ -15,7 +15,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.parametrize("lookup_failure", ["unavailable", "missing-head"])
-def test_collector_failure_retains_reservation_through_completion_shell(tmp_path, lookup_failure):
+@pytest.mark.parametrize("advanced", [False, True])
+@pytest.mark.parametrize(
+    "helper_source",
+    [
+        ".github/scripts/autofix_metrics.js",
+        "templates/consumer-repo/.github/scripts/autofix_metrics.js",
+    ],
+)
+def test_collector_failure_retains_reservation_through_completion_shell(
+    tmp_path, lookup_failure, advanced, helper_source
+):
     """Run the shipped collector and shell, including the runner's receipt boundary."""
     workflow = yaml.safe_load(
         (
@@ -118,13 +128,47 @@ def test_collector_failure_retains_reservation_through_completion_shell(tmp_path
         assert "retain reservation" in result.stderr
         assert state.read_bytes() == original
 
-    # A successful measurement must reach persistence through the same harness.
-    env["METRICS_JSON"] = json.dumps({**metrics, "head_observed": True})
+    # Recover through the shipped observer rather than manufacturing its evidence
+    # flag. Gate telemetry can still fail after a valid PR-head observation.
+    observed_head = "b" * 40 if advanced else head
+    observed = subprocess.run(
+        [
+            "node",
+            "-e",
+            "const {observeAutofixHead} = require(process.env.OBSERVER_PATH);\n"
+            "const outputs = {};\n"
+            "const github = {rest: {pulls: {async get() {\n"
+            "  return {data: {head: {sha: process.env.OBSERVED_HEAD}, labels: []}};\n"
+            "}}, actions: {listWorkflowRuns() {}}}};\n"
+            "observeAutofixHead({github, context: {repo: {owner: 'owner', repo: 'repo'}},\n"
+            "  core: {warning() {}, info() {}, setOutput(k, v) {outputs[k] = v;}},\n"
+            "  withRetry: fn => fn(github),\n"
+            "  paginateWithRetry: async () => {throw new Error('Gate unavailable');},\n"
+            "  prNumber: 42, headShaBefore: process.env.HEAD_SHA,\n"
+            "  gateConclusionBefore: 'failure'\n"
+            "}).then(observation => process.stdout.write(JSON.stringify({\n"
+            "  ...JSON.parse(process.env.METRICS_JSON), ...observation, outputs\n"
+            "}))).catch(() => {process.exitCode = 1;});\n",
+        ],
+        env={**env, "OBSERVER_PATH": str(ROOT / helper_source), "OBSERVED_HEAD": observed_head},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    recovered = json.loads(observed.stdout)
+    assert recovered["head_observed"] is True
+    assert recovered["outputs"]["head_observed"] == "true"
+    assert recovered["head_sha_after"] == observed_head
+    assert recovered["fix_applied"] is advanced
+    assert recovered["gate_result_after"] == "failure"
+    env["METRICS_JSON"] = observed.stdout
     subprocess.run(["bash", "-c", completion["run"]], env=env, capture_output=True, check=True)
     recorded = json.loads(state.read_text())
     assert recorded["status"] == "completed"
-    assert recorded["productive"] is False
-    assert recorded["unproductive_completions"] == 2
+    assert recorded["productive"] is advanced
+    assert recorded["unproductive_completions"] == (0 if advanced else 2)
+    if advanced:
+        assert recorded["observed_head_sha"] == observed_head
 
 
 @pytest.mark.parametrize("advanced", [False, True])
