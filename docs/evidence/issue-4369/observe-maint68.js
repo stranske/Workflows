@@ -6,13 +6,27 @@ const fs = require('node:fs');
 const MAINT68 = '.github/workflows/maint-68-sync-consumer-repos.yml';
 const MAINT71 = '.github/workflows/maint-71-merge-sync-prs.yml';
 
+// Date.parse accepts local times and silently rolls invalid calendar dates
+// forward. Neither can establish an explicit UTC observation boundary. Limit
+// precision to what JavaScript can compare without losing interval gaps.
+function utcTimestamp(value) {
+  const match = typeof value === 'string'
+    && /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?(?:Z|\+00:00)$/.exec(value);
+  const parsed = match ? Date.parse(value) : NaN;
+  if (!Number.isFinite(parsed)
+    || new Date(parsed).toISOString() !== `${match[1]}.${(match[2] || '').padEnd(3, '0')}Z`) {
+    throw new Error('invalid UTC observation timestamp');
+  }
+  return parsed;
+}
+
 function observe({ start, end, pages, workflow_id, workflow_path = MAINT68 }) {
   if (workflow_path !== MAINT68 && workflow_path !== MAINT71) {
     throw new Error('unsupported observation workflow path');
   }
   const role = workflow_path === MAINT68 ? 'producer' : 'merger';
-  const lower = Date.parse(start), upper = Date.parse(end);
-  if (!Number.isFinite(lower) || !Number.isFinite(upper) || lower > upper) {
+  const lower = utcTimestamp(start), upper = utcTimestamp(end);
+  if (lower > upper) {
     throw new Error('invalid observation bounds');
   }
   if (!Array.isArray(pages) || !pages.length) throw new Error('missing inventory pages');
@@ -47,7 +61,7 @@ function observe({ start, end, pages, workflow_id, workflow_path = MAINT68 }) {
       throw new Error('incomplete or changing inventory');
     }
     for (const run of rows) {
-      const created = Date.parse(run.created_at);
+      const created = utcTimestamp(run.created_at);
       if (!Number.isSafeInteger(run.id) || run.id <= 0 || ids.has(run.id)
         || !Number.isFinite(created) || created < lower || created > upper
         || typeof run.path !== 'string' || typeof run.event !== 'string') {

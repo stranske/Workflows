@@ -55,6 +55,66 @@ function continuation(previous, count = 0) {
   return next;
 }
 
+function replaceTimestamp(input, field, value) {
+  if (field === 'created_at') {
+    input.pages[0].body.workflow_runs[0].created_at = value;
+  } else {
+    input[field] = value;
+    for (const page of input.pages) {
+      const url = new URL(page.url);
+      url.searchParams.set('created', `${input.start}..${input.end}`);
+      page.url = url.href;
+    }
+  }
+}
+
+for (const value of [
+  '2026-11-08', '2026-11-08T21:35:00', '2026-11-08T22:35:00+01:00',
+  '2026-11-08T21:35:00.000001Z', '2026-11-08T24:00:00Z',
+  '2026-02-30T21:35:00Z', 2026, null,
+]) {
+  for (const field of ['start', 'end', 'created_at']) {
+    test(`refuse non-UTC, normalized or imprecise ${field}: ${JSON.stringify(value)}`, () => {
+      const input = inventory(1);
+      // Keep normalized invalid dates inside the interval, so an out-of-bounds
+      // rejection cannot accidentally stand in for calendar validation.
+      replaceTimestamp(input, 'start', '2026-01-01T00:00:00Z');
+      replaceTimestamp(input, 'end', '2027-01-01T00:00:00Z');
+      replaceTimestamp(input, field, value);
+      assert.throws(() => observe(input), /timestamp/);
+    });
+  }
+}
+
+test('UTC timestamps accept explicit zero offsets, milliseconds and leap days', () => {
+  for (const [start, end] of [
+    ['2026-11-08T21:31:19+00:00', '2026-11-08T21:43:00+00:00'],
+    ['2026-11-08T21:31:19.1Z', '2026-11-08T21:31:19.123Z'],
+    ['2028-02-29T00:00:00Z', '2028-03-01T00:00:00Z'],
+  ]) {
+    const input = inventory(1);
+    replaceTimestamp(input, 'start', start);
+    replaceTimestamp(input, 'end', end);
+    replaceTimestamp(input, 'created_at', start);
+    const result = observe(input);
+    assert.equal(result.start, start);
+    assert.equal(result.end, end);
+    assert.equal(result.producers.length, 1);
+    assert.equal(result.chain_acceptance, false);
+  }
+});
+
+test('continuous observation compares equivalent UTC boundary representations', () => {
+  const first = inventory(1);
+  first.pages[0].body.workflow_runs[0].created_at = first.end;
+  const next = continuation(first, 1);
+  replaceTimestamp(next, 'start', first.end.replace('Z', '+00:00'));
+  const result = observeSequence([first, next]);
+  assert.equal(result.total_count, 1);
+  assert.equal(result.continuous, true);
+  assert.equal(result.chain_acceptance, false);
+});
+
 test('continuous observations deduplicate an unchanged run at the inclusive boundary', () => {
   const first = inventory(1);
   first.pages[0].body.workflow_runs[0].created_at = first.end;

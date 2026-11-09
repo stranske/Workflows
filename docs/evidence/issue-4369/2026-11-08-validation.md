@@ -2883,3 +2883,75 @@ authenticated automation origin and upstream non-PASS disposition remain
 unresolved. The existing local-loop controller owns exact-head CI readback and
 post-push review at least seven minutes after publication; no new job or hold
 is created by this evidence update.
+
+## Keepalive round 13: explicit UTC observation bounds — 2026-11-09
+
+Plan recorded before implementation at **2026-11-09T02:53:11Z**. Existing
+revision/delivery receipt tests pass (**124 Python tests**) and the direct Node
+observer suite passes (**47 tests**). The first unchecked revision-selection
+task is supported by the retained native receipts; the next unresolved task is
+the authenticated automation-started delivery chain. A fresh complete projected
+inventory covers **02:21:41Z–02:52:15Z**, pages of **100 and 67**, with no exact-path
+Maint 68/71 runs. No workflow was dispatched.
+
+The replay currently accepts timezone-less dates and normalizes impossible dates
+through `Date.parse`. Add regression tests and require explicit UTC timestamps
+with valid calendar dates for bounds and run creation times. Refuse precision
+beyond milliseconds rather than collapsing distinct interval boundaries.
+Validate with `node tests/scripts/test_issue_4369_origin_observation.js`, both
+JavaScript syntax checks, focused Python receipt tests with `-m "not slow"`,
+single/continuous CLI replays and `git diff --check`. Bound each command to
+120 seconds. Stop at the first unresolved step after three failed attempts or
+60 minutes, whichever occurs first; this round's deadline is **03:53:11Z**.
+No Python, production, workflow or consumer file change is planned.
+
+Implemented strict UTC/calendar validation in
+[`observe-maint68.js`](observe-maint68.js) with **26 additional cases** in
+[`test_issue_4369_origin_observation.js`](../../../tests/scripts/test_issue_4369_origin_observation.js).
+The observer accepts `Z` and explicit `+00:00`, valid leap days and millisecond
+precision; it refuses ambiguous local times, nonzero offsets, normalized invalid
+dates, non-string timestamps and precision that could hide a gap. The retained
+[pre-implementation regression log](runtime-4550/4558-round13-red.log) has
+**24 failing new cases**. Final validation has **73 passing Node tests**, **124
+passing Python receipt tests**, both syntax checks passing, and an invalid-input
+CLI exiting **2**. The [validation receipt](runtime-4550/4558-round13-validation.json)
+retains commands, interpreter resolution, bounds, timings, exits and log hashes.
+
+The [fresh projected native inventory](runtime-4550/4558-round13-origin-inventory.json)
+retains all **167** rows, stable total counts, complete pages of **100 and 67**,
+request URLs and the explicit field projection. Combined with rounds 10 and 11,
+the [producer replay](runtime-4550/4558-round13-sequence-cli.log) and
+[merger replay](runtime-4550/4558-round13-merger-sequence-cli.log) cover
+**2026-11-09T01:49:57Z–02:52:15Z**, **355 unique runs** across three adjacent
+complete inventories. Inclusive boundary duplicates agree. Both replays exit
+**0**, find zero exact-path matches and retain `chain_acceptance: false`.
+Input and implementation hashes are retained in the
+[input receipt](runtime-4550/4558-round13-inputs.json). No workflow was dispatched.
+
+Fresh [readback](runtime-4550/4558-round13-readback.json) confirms #4550 is closed,
+#4551 is merged at selected published main
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`, and #4558 remains open and ready
+at incoming head `94750ea2a373ff68ac049276ec557ec7d5c49209`. The three bounded
+Git ancestry commands exit **0**: required ancestor and salvaged repair head to
+selected revision, then selected revision to current published main
+`7a9d652445cee388cb5c39e15b8d2de53f0dda68`. The **124 passing receipt tests**
+also revalidate the retained hosted suite execution and merged-payload evidence.
+No full suite was rerun locally; no new acceptance revision was selected.
+Upstream non-PASS verification remains unresolved. The comment-observation
+boundary remains **02:45:58Z**; run observation does not extend it.
+
+- [x] Revalidate the selected published revision's required ancestry and salvaged
+  fix inclusion using read-only native/Git evidence and existing receipt tests.
+- [x] Implement and verify explicit UTC/calendar validation for delivery observation.
+- [ ] Observe an authenticated automation-started Maint 68 → Maint 71 chain.
+- [ ] Clear the upstream non-PASS verification disposition.
+
+Publication remains blocked: explicit-path `git add` exits **128** because
+`.git/index.lock` cannot be created on the read-only filesystem. No commit or
+push succeeded. Automatic approval review rejected both adding `needs-human`
+and posting the concrete blocker comment: `MCP tool call requires approval,
+but approval policy is never`. Neither remote mutation succeeded. The
+[publication receipt](runtime-4550/4558-round13-publication.json) and
+[blocker comment](runtime-4550/4558-round13-publication-blocker.md) retain the
+specific failure and proposed commit subject. The existing authorized writer
+must publish these local code/test changes. Overall acceptance remains incomplete.
