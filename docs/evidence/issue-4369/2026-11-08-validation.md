@@ -2570,3 +2570,76 @@ does not complete T5/A3 or clear upstream verification. Automatic approval revie
 also rejected the PR-body reconciliation because **"MCP tool call requires
 approval, but approval policy is never"**. The local checklist is reviewable;
 no remote checklist completion is claimed.
+
+## Local closer round 8: cancelled-run attribution and fresh receipts — 2026-11-09
+
+Outcome: **0 reproduced code failures from the cited Gate; T5/A3 remain
+unverified**. Check boundary: **2026-11-09T01:49:57Z**. The round's outcome
+command is the existing read-only observer:
+`node docs/evidence/issue-4369/observe-maint68.js docs/evidence/issue-4369/runtime-4550/4558-seat-round8-producer-inventory.json`.
+It prints `producers: []` and `chain_acceptance: false`. Execution bounds are
+60 seconds per GitHub read and 30 seconds per local receipt check. Stop at the
+first unresolved step after three failed attempts or 60 minutes, whichever
+comes first; this supplement does not restart the original acceptance run.
+No production code was changed.
+
+The [cited run receipt](runtime-4550/4558-seat-round8-cited-run.json) binds
+Gate run **42544364151** to **0b03620ce5bbc954b4a6385a1048df1ffbe6e759**,
+not incoming head **ab3593ad342906b33f9c660ee1951f56d777f9b4**. Its terminal
+conclusion is `cancelled`; the failed summary prints
+`Gate did not report explicit success: Python CI cancelled; waiting for rerun.`
+The [current run](runtime-4550/4558-seat-round8-current-run.json),
+**42545724638**, tests the incoming head and was still `in_progress` at readback.
+Its [job receipt](runtime-4550/4558-seat-round8-current-jobs.json) has both
+Python matrix jobs in progress and successful lint, typecheck, JavaScript,
+docs and test-quality jobs. Neither a new code defect nor Gate success can be
+inferred from the cancelled predecessor. No workflow repair or pin change is
+justified by that summary.
+
+The [producer inventory](runtime-4550/4558-seat-round8-producer-inventory.json)
+and [merger inventory](runtime-4550/4558-seat-round8-merger-inventory.json)
+cover **2026-11-09T01:23:40Z–2026-11-09T01:49:57Z** with exact workflow IDs,
+no event filter, and complete pagination. The observer exits 0 for each:
+[producer result](runtime-4550/4558-seat-round8-producer-observation.json)
+contains **0** runs; [merger result](runtime-4550/4558-seat-round8-merger-observation.json)
+contains **2** `workflow_dispatch` leads, **42545795504** and **42546550033**.
+Their caller origin remains `UNKNOWN`. No producer or artifact-derived causal
+chain is established, and no Maint 68 or Maint 71 dispatch was performed.
+
+The [verification receipt](runtime-4550/4558-seat-round8-verification.json)
+rechecks required-ancestor and salvaged-#4551-head ancestry of published main
+**0a06f1976db1dd7eb12853f493a3371ee4736bcf**, plus that revision's reachability
+from current `origin/main`. All three commands exit **0**. The complete Node
+and Python log hashes still match their exit-0 hosted-run receipts on that
+same immutable revision. No suite was rerun locally. The upstream non-PASS
+verification disposition remains unresolved, so this is not a claim that T1's
+full delivery-gate requirement is complete.
+
+Fresh source `git show` and consumer contents-API read at actual merge
+**1ff9e11cd51a456333c626cb354543b63202bef6** reproduce the retained **7,087-byte**
+payloads. Both identify blob **71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2**;
+[consumer blob metadata](runtime-4550/4558-seat-round8-consumer-blob.json)
+retains the immutable API URL. The recorded `cmp` exits **0** and the fresh
+payloads equal both retained comparison inputs.
+
+Applicable exact-head Maint 71 dispositions remain the terminal target report's
+zero active/blocking/nonblocking/unknown findings for candidate
+`a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, source
+`bbfc6ae604c8e8c4021138c5efe964a368482957`, generation `a478e45c16b6` in
+[the target report](runtime-4550/4557-maint71-target.json).
+Discussion **4434491702 is excluded**. A [fresh consumer PR thread read](runtime-4550/4558-seat-round8-consumer-threads.json)
+confirms the actual merge identity and **0** review threads with
+`hasNextPage=false`. The [complete issue-4369 comment observation](runtime-4550/4558-seat-round8-comments.json)
+retains pages of **49 and 0**, 49 unique IDs, and explicit UTC boundary
+**2026-11-09T01:49:57Z**. No discussion is marked resolved or waived.
+
+Focused receipt validation passes: ancestry exits, complete-log hashes,
+source/merged byte equality, bounded observer replays, comment ID uniqueness,
+empty terminal comment page, and complete consumer-thread pagination.
+`git diff --check` also passes. Blocking/drainable pair: **blocking=2**
+(automation-origin chain and upstream non-PASS verification), **drainable=1**
+(publish this evidence update on the existing branch). Cost: read-only GitHub
+and Git checks plus local receipt validation; **zero new runner executions,
+zero workflow dispatches, zero dependency-pin edits**. The existing controller
+owns the post-push review at least seven minutes after publication and the
+next exact-head CI readback; no new job, hold, or merge action is created.
