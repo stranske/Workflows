@@ -1,0 +1,128 @@
+{
+  "observed_at": "2026-11-09 12:25:47 UTC",
+  "issue": 4461,
+  "transport": {
+    "primary": "GitHub connector read-only REST and review-thread APIs",
+    "cli_attempt": "gh run list --repo stranske/Workflows --workflow maint-68-sync-consumer-repos.yml --limit 5 --json databaseId,headSha,status,conclusion,createdAt,url",
+    "cli_result": "error connecting to api.github.com; no CLI success is claimed for this round"
+  },
+  "source_fix": {
+    "url": "https://github.com/stranske/Workflows/pull/4448",
+    "merged_at": "2026-11-05T12:51:50Z",
+    "merge_commit_sha": "7b92760527da7c9a7a5282005009b75f7d01cd2e"
+  },
+  "regeneration": {
+    "url": "https://github.com/stranske/Workflows/actions/runs/42433992005",
+    "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+    "status": "completed",
+    "conclusion": "success",
+    "source_commit": "c2ac6f38d6f2ce73f000158fa6f729bfece82092",
+    "source_fix_ancestry": {
+      "status": "ahead",
+      "merge_base_commit": "7b92760527da7c9a7a5282005009b75f7d01cd2e"
+    },
+    "job_id": 128589139292,
+    "job_conclusion": "success",
+    "log_excerpts": [
+      "2026-11-08T01:24:38.5316934Z M\tscripts/langchain/pr_verifier.py",
+      "2026-11-08T01:24:51.0621524Z Created verified sync commit 08c150469cfa35afc9461ba668b8493fdc7a0405 using github-app-installation"
+    ]
+  },
+  "delivered_file": {
+    "path": "scripts/langchain/pr_verifier.py",
+    "source_ref": "c2ac6f38d6f2ce73f000158fa6f729bfece82092",
+    "consumer_ref": "08c150469cfa35afc9461ba668b8493fdc7a0405",
+    "source_blob_sha": "4dc7773da38b7cfdf73188a62c6afd9498403682",
+    "consumer_blob_sha": "4dc7773da38b7cfdf73188a62c6afd9498403682",
+    "effective_lookup": "payload = _load_object(_slot_path(), label=\"slot config\")",
+    "consumer_url": "https://github.com/stranske/Travel-Plan-Permission/blob/08c150469cfa35afc9461ba668b8493fdc7a0405/scripts/langchain/pr_verifier.py"
+  },
+  "consumer": {
+    "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1716",
+    "head_sha": "08c150469cfa35afc9461ba668b8493fdc7a0405",
+    "draft": false,
+    "state": "closed",
+    "merged": true,
+    "merged_at": "2026-11-08T04:31:40Z",
+    "merge_commit_sha": "71d6359516d9796b8ec586549779c34afc778d98"
+  },
+  "review_thread": {
+    "rest_url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/pulls/comments/4434491951",
+    "comment_id": 4434491951,
+    "thread_id": "PRRT_kwDOPrFQ5c6yXhhx",
+    "path": "scripts/langchain/pr_verifier.py",
+    "is_outdated": true,
+    "is_resolved": false,
+    "disposition": "superseded by the generated allowlist fix at 08c150469cfa35afc9461ba668b8493fdc7a0405",
+    "mutation_performed": false
+  },
+  "merge_report": {
+    "url": "https://github.com/stranske/Workflows/actions/runs/42447027509",
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "overall_conclusion": "failure",
+    "job_id": 128628029298,
+    "repository": "stranske/Travel-Plan-Permission",
+    "pr": 1716,
+    "head_sha": "08c150469cfa35afc9461ba668b8493fdc7a0405",
+    "source_commit": "c2ac6f38d6f2ce73f000158fa6f729bfece82092",
+    "plan_id": "sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da",
+    "review_finding_disposition": {
+      "schema": "sync-finding-evaluation/v1",
+      "binding": {
+        "repository": "stranske/Travel-Plan-Permission",
+        "pr": 1716,
+        "head_sha": "08c150469cfa35afc9461ba668b8493fdc7a0405",
+        "source_commit": "c2ac6f38d6f2ce73f000158fa6f729bfece82092",
+        "plan_id": "sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da",
+        "delivery_generation": "4017589cec3c"
+      },
+      "raw_active_count": 0,
+      "blocked": false,
+      "errors": [],
+      "findings": [],
+      "aggregates": {
+        "blocking": 0,
+        "nonblocking": 0,
+        "unknown": 0,
+        "by_disposition": {
+          "shared-source": 0,
+          "sync-caused": 0,
+          "unrelated": 0,
+          "unknown": 0
+        }
+      },
+      "disposition_thread_ids": {
+        "shared-source": [],
+        "sync-caused": [],
+        "unrelated": [],
+        "unknown": []
+      },
+      "blocking_thread_ids": [],
+      "nonblocking_thread_ids": [],
+      "unknown_thread_ids": [],
+      "unrelated_handoffs": []
+    },
+    "active_review_thread_count_before_merge": 0,
+    "status": "merged"
+  },
+  "sync_core": {
+    "comments_url": "https://api.github.com/repos/stranske/Workflows/issues/4370/comments?per_page=100",
+    "page_size": 100,
+    "returned_count": 33,
+    "pagination_complete": true,
+    "handoff_count": 8,
+    "last_handoff": {
+      "id": 6650988012,
+      "created_at": "2026-11-05T06:01:30Z",
+      "body": "<!-- sync-core/v1 handoff fp=08f20d972654 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `82c9762a4e61` (round 20261105T060113Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491951"
+    },
+    "handoffs_after_source_merge": [],
+    "independent_fixed_head_observation": {
+      "issue": 4366,
+      "id": 6685389472,
+      "created_at": "2026-11-06T13:00:07Z",
+      "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `3b51e44083d4` (round 20261106T125940Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933"
+    },
+    "positive_exact_head_observation": "maint-71 final report above; absence of comments alone is not acceptance"
+  }
+}
