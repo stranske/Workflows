@@ -94,7 +94,9 @@ to equal `'true'` in that step's condition.
 
 The `runner_lib record-completion` CLI also checks the existing `METRICS_JSON`
 environment variable before accessing receipt storage: it requires boolean
-`head_observed: true` bound to the reserved `head_sha_before`. Missing evidence,
+`head_observed: true` bound to the reserved `head_sha_before`, a valid measured
+head, and consistent fix/result values. The command-line head, productivity,
+and exit status must match that measurement. Missing or inconsistent evidence,
 malformed JSON and fallback-only metrics fail without writing a receipt or
 spending an unproductive retry. Callers without `METRICS_JSON` retain their
 existing completion contract. Until the workflow wiring lands, native autofix

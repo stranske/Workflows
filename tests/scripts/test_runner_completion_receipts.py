@@ -381,6 +381,62 @@ def test_native_autofix_cli_rejects_malformed_metrics_before_storage(
     assert "retain reservation" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "measurement,arguments",
+    [
+        ({"head_sha_after": None}, {}),
+        ({"head_sha_after": ""}, {}),
+        ({"head_sha_after": "b" * 39}, {}),
+        ({"head_sha_after": ["b" * 40]}, {}),
+        ({"fix_applied": None}, {}),
+        ({"fix_applied": "true"}, {}),
+        ({"fix_applied": False}, {}),
+        ({"head_sha_after": "a" * 40}, {}),
+        ({"autofix_result": None}, {}),
+        ({"autofix_result": "skipped"}, {}),
+        ({"autofix_result": ["success"]}, {}),
+        ({}, {"--observed-head-sha": ""}),
+        ({}, {"--observed-head-sha": "c" * 40}),
+        ({}, {"--produced-work": "false"}),
+        ({}, {"--produced-work": "unknown"}),
+        ({}, {"--exit-code": "1"}),
+        ({"autofix_result": "failure"}, {}),
+    ],
+)
+def test_native_autofix_cli_rejects_inconsistent_observations_before_storage(
+    monkeypatch, capsys, measurement, arguments
+):
+    """An observation flag alone cannot authorize a false completion verdict."""
+    metrics = {
+        "head_observed": True,
+        "head_sha_before": "a" * 40,
+        "head_sha_after": "b" * 40,
+        "fix_applied": True,
+        "autofix_result": "success",
+        **measurement,
+    }
+    monkeypatch.setenv("METRICS_JSON", json.dumps(metrics))
+    options = {
+        "--provider": "codex",
+        "--pr-number": "42",
+        "--head-sha": "a" * 40,
+        "--observed-head-sha": "b" * 40,
+        "--produced-work": "true",
+        "--exit-code": "0",
+        **arguments,
+    }
+
+    def unexpected_storage(_name):
+        pytest.fail("Incomplete measurement must retain the reservation without storage access")
+
+    monkeypatch.setattr(core, "_storage_from_name", unexpected_storage)
+    argv = ["record-completion"]
+    for name, value in options.items():
+        argv.extend([name, value])
+    assert core.main(argv) == 1
+    assert "retain reservation" in capsys.readouterr().err
+
+
 def test_long_comment_history_reads_from_tail_and_stops_at_latest_reservation():
     class LongHistoryApi(CommentApi):
         def __init__(self, current):

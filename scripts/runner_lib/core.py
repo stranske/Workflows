@@ -2299,6 +2299,16 @@ def _cmd_record_completion(args: argparse.Namespace) -> int:
             not isinstance(metrics, dict)
             or metrics.get("head_observed") is not True
             or metrics.get("head_sha_before") != args.head_sha
+            or re.fullmatch(r"[0-9a-f]{40}", args.head_sha) is None
+            or not isinstance(metrics.get("head_sha_after"), str)
+            or re.fullmatch(r"[0-9a-f]{40}", metrics["head_sha_after"]) is None
+            or not isinstance(metrics.get("fix_applied"), bool)
+            or metrics["fix_applied"] != (metrics["head_sha_after"] != args.head_sha)
+            or metrics.get("autofix_result") not in ("success", "failure", "cancelled")
+            or _parse_produced_work(args.produced_work) is not metrics["fix_applied"]
+            or args.observed_head_sha
+            != (metrics["head_sha_after"] if metrics["fix_applied"] else "")
+            or args.exit_code != ("0" if metrics["autofix_result"] == "success" else "1")
         ):
             raise ValueError(message)
     raw = ""
