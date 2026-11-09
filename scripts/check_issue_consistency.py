@@ -22,7 +22,7 @@ IGNORE_COMMIT_PATTERNS = (
     re.compile(r"^chore\(ledger\)", re.IGNORECASE),
     re.compile(r"^chore\(codex", re.IGNORECASE),
 )
-HEADER_SCAN_EXCLUDE_DIRS = {".github", "plans", "tests", "templates"}
+HEADER_SCAN_EXCLUDE_DIRS = {".agents", ".github", "plans", "tests", "templates"}
 
 
 def _is_pr_marker_before_hash(prefix: str) -> bool:
