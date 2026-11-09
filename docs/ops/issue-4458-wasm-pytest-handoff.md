@@ -1,4 +1,4 @@
-# Issue #4427: consumer WASM pytest pin handoff
+# Issue #4458: consumer WASM pytest pin handoff
 
 ## Current status (2026-11-09, local keepalive round 2/12)
 
@@ -46,11 +46,11 @@ registering a `trylast` collection hook that copies the stranded suffix into `No
 **Maint 71 report.** Fresh `maint-71-merge-sync-prs.yml` run
 [#42596605795](https://github.com/stranske/Workflows/actions/runs/42596605795) (2026-11-09T09:51:40Z)
 reports: `stranske/Trend_Model_Project@c6b85ffe: Consumer-declared delivery checks: 1 of 2 passed; 1 never started, merge blocked: Health 45 Agents Guard / guard; 1 also required, gated as required`.
-The delivery checks block is unrelated to #4427's WASM pin mismatch; it reflects
+The delivery checks block is unrelated to #4458's WASM pin mismatch; it reflects
 consumer-declared Gate requirements for the fleet. The candidate delivered by #6189
 is already on `main` and no longer recreates the original mismatch.
 
-**Sync-core observation.** Post-merge, sync-core has not posted a new round on #4427
+**Sync-core observation.** Post-merge, sync-core has not posted a new round on #4458
 for the #6189 head or subsequent heads; the issue was closed with #4446 and
 remains closed with the consumer delivery complete.
 
@@ -96,7 +96,7 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
   current dev-tool candidate (#42596605795 at 2026-11-09T09:51:40Z): report explicitly
   accounts for dev-tool candidate (Trend_Model_Project@c6b85ffe on main, post-#6189 merge)
   and stale #6186; review thread r4457616005 finding is resolved in #6189's tree.
-  Delivery checks block is unrelated to #4427 (Health 45 Agents Guard).
+  Delivery checks block is unrelated to #4458 (Health 45 Agents Guard).
 - [ ] Optional Maint 68 preview (expect no WASM workflow replacement):
 
   ```bash
@@ -133,7 +133,7 @@ gate validation per workflow contract. Current selection change (if any) would n
   from Trend_Model_Project `main` at b293200d (post-#6189 and #6192 merges).
 - Trend_Model_Project#6186 finding (r4457616005) has terminal disposition: PR closed
   unmerged, superseded by #6189 which merged with aligned pins.
-- Sync-core has not posted a new round on #4427 for the #6189 head or subsequent heads;
+- Sync-core has not posted a new round on #4458 for the #6189 head or subsequent heads;
   issue remains closed.
 
 ## Historical notes (prior agent sessions, not current blockers)
@@ -161,4 +161,4 @@ workflow pin rewriter and regenerated candidate #6189.
   #6189 is the native successor that addresses the finding without bypassing Gate.
 - Stale-candidate disposition: #6186 explicitly superseded and closed without merge.
 - Exact delivered head: Trend_Model_Project@3083f697e6e9bb675b67fe5dc5b71192935873fb (#6189).
-- Subsequent sync-core observation: No new rounds posted on #4427 post-#6189 merge.
+- Subsequent sync-core observation: No new rounds posted on #4458 post-#6189 merge.
