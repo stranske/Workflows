@@ -3594,3 +3594,26 @@ section on Workflows main as `75712a5bdf7c0f5791ec1b633f75b18bd3568562`
 at 08:04:51Z. No work from #4558 was redone, and no full suite was run locally.
 New evidence file hashes and the original terminal-run log hash are retained in
 [`4581-artifact-provenance.json`](runtime-4550/4557r2/4581-artifact-provenance.json).
+
+### PR 4582 keepalive round 2 — 2026-11-09
+
+Outcome 1: **PASS**, rechecked at **2026-11-09T09:16:59Z**. Live PAEM PR
+2488 readback still reports merge `e4ccdaf177e3271173ae534a710ebc23f29341e8`.
+Both retained payload comparisons and a fresh download at that merge SHA return
+`cmp` exit **0**. The chain receipt parses with `json.tool` exit **0**;
+producer 42564882056 independently reports event `schedule` and success, and
+terminal Maint 71 run 42585644980 reports success. Workflows main contains
+PR 4579's merge and the Closer repair 2 section. Orchestrator PR 1288 is merged
+with no unsuccessful checks; its exact merged archive's named model-table test
+again returns **1 passed in 0.44s**, exit **0**, no skip. All 3,888 archive files
+were checked unchanged against the previously hash-bound archive. The archive's
+missing Git metadata still limits the test-input tracking hook.
+
+The two checks reported as failures belong to CI Autofix Loop run
+42590017303: **Resolve Context** and **Record autofix dispatch completion** both
+have conclusion `cancelled` and empty step lists. This is no observed code-test
+failure and supplies no failing step to repair. No workflow change or manual
+Maint 68/71 dispatch was made. The fresh paginated issue-4369 observation retains
+49 comments in the [round-2 verification receipt](runtime-4550/4557r2/4582-round2-verification.json).
+The original observation and four unresolved historical concern classes remain
+preserved. **Blocking=0, drainable by Maint 71=0.**

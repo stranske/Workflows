@@ -1,0 +1,317 @@
+{
+  "observed_at_utc": "2026-11-09T09:17:25.991262+00:00",
+  "checked_head": "b0bbbea93ef6d0f57c2366fd749561ef628817e7",
+  "consumer_pr": {
+    "mergeCommit": {
+      "oid": "e4ccdaf177e3271173ae534a710ebc23f29341e8"
+    },
+    "mergedAt": "2026-11-09T08:25:48Z",
+    "state": "MERGED"
+  },
+  "producer_event": "schedule",
+  "cmp_exit_codes": {
+    "candidate-795155aa-subscription_llm.py.txt": 0,
+    "consumer-e4ccdaf1-subscription_llm.py.txt": 0,
+    "4582-consumer-merge.py": 0
+  },
+  "orchestrator_test": {
+    "command": "/opt/anaconda3/bin/python3 -m pytest -q tests/test_model_table.py::test_copy_matches_workflows_source",
+    "revision": "7568b39de2537655d84dbe119a30bd7e2c02774a",
+    "exit_code": 0,
+    "result": "1 passed in 0.44s; no skip",
+    "archive_sha256": "673d85f750046a4866c90bc7c90d255c006bc2a6137a1e8ccda9243c1f2ba5d9",
+    "archive_files_verified_unchanged": 3888,
+    "limitation": "GitHub source archive has no .git; test-input tracking NOT CHECKED"
+  },
+  "reported_failed_run": {
+    "conclusion": "cancelled",
+    "event": "pull_request_target",
+    "headSha": "b0bbbea93ef6d0f57c2366fd749561ef628817e7",
+    "jobs": [
+      {
+        "completedAt": "2026-11-09T09:00:11Z",
+        "conclusion": "cancelled",
+        "databaseId": 129069109826,
+        "name": "Resolve Context",
+        "startedAt": "2026-11-09T09:00:09Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/stranske/Workflows/actions/runs/42590017303/job/129069109826"
+      },
+      {
+        "completedAt": "2026-11-09T09:00:11Z",
+        "conclusion": "cancelled",
+        "databaseId": 129069124890,
+        "name": "Record autofix dispatch completion",
+        "startedAt": "2026-11-09T09:00:11Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/stranske/Workflows/actions/runs/42590017303/job/129069124890"
+      },
+      {
+        "completedAt": "2026-11-09T09:00:11Z",
+        "conclusion": "skipped",
+        "databaseId": 129069125401,
+        "name": "autofix",
+        "startedAt": "2026-11-09T09:00:12Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/stranske/Workflows/actions/runs/42590017303/job/129069125401"
+      }
+    ]
+  },
+  "issue_4369_comment_observation": {
+    "complete_pagination": true,
+    "count": 49,
+    "comments": [
+      {
+        "created_at": "2026-11-02T03:52:17Z",
+        "id": 6568623594,
+        "updated_at": "2026-11-02T03:52:17Z"
+      },
+      {
+        "created_at": "2026-11-02T03:52:21Z",
+        "id": 6568624416,
+        "updated_at": "2026-11-02T03:52:21Z"
+      },
+      {
+        "created_at": "2026-11-02T17:14:59Z",
+        "id": 6583452479,
+        "updated_at": "2026-11-02T17:14:59Z"
+      },
+      {
+        "created_at": "2026-11-02T17:15:04Z",
+        "id": 6583454319,
+        "updated_at": "2026-11-02T17:15:04Z"
+      },
+      {
+        "created_at": "2026-11-02T20:15:05Z",
+        "id": 6587416829,
+        "updated_at": "2026-11-02T20:15:05Z"
+      },
+      {
+        "created_at": "2026-11-02T21:14:01Z",
+        "id": 6588614972,
+        "updated_at": "2026-11-02T21:14:01Z"
+      },
+      {
+        "created_at": "2026-11-03T06:46:33Z",
+        "id": 6597301080,
+        "updated_at": "2026-11-03T06:46:33Z"
+      },
+      {
+        "created_at": "2026-11-03T06:46:42Z",
+        "id": 6597303042,
+        "updated_at": "2026-11-03T06:46:42Z"
+      },
+      {
+        "created_at": "2026-11-03T13:12:42Z",
+        "id": 6604754804,
+        "updated_at": "2026-11-03T13:12:42Z"
+      },
+      {
+        "created_at": "2026-11-04T05:15:36Z",
+        "id": 6623204937,
+        "updated_at": "2026-11-04T05:15:36Z"
+      },
+      {
+        "created_at": "2026-11-04T05:15:42Z",
+        "id": 6623206100,
+        "updated_at": "2026-11-04T05:15:42Z"
+      },
+      {
+        "created_at": "2026-11-04T05:15:48Z",
+        "id": 6623207637,
+        "updated_at": "2026-11-04T05:15:48Z"
+      },
+      {
+        "created_at": "2026-11-04T06:00:28Z",
+        "id": 6623828876,
+        "updated_at": "2026-11-04T06:00:28Z"
+      },
+      {
+        "created_at": "2026-11-04T06:00:35Z",
+        "id": 6623830468,
+        "updated_at": "2026-11-04T06:00:35Z"
+      },
+      {
+        "created_at": "2026-11-04T13:27:57Z",
+        "id": 6631874862,
+        "updated_at": "2026-11-04T13:27:57Z"
+      },
+      {
+        "created_at": "2026-11-04T13:29:30Z",
+        "id": 6631909094,
+        "updated_at": "2026-11-04T13:29:30Z"
+      },
+      {
+        "created_at": "2026-11-04T13:30:05Z",
+        "id": 6631921882,
+        "updated_at": "2026-11-04T13:30:05Z"
+      },
+      {
+        "created_at": "2026-11-04T13:31:09Z",
+        "id": 6631945201,
+        "updated_at": "2026-11-04T13:31:09Z"
+      },
+      {
+        "created_at": "2026-11-04T13:31:16Z",
+        "id": 6631947881,
+        "updated_at": "2026-11-04T13:31:16Z"
+      },
+      {
+        "created_at": "2026-11-04T13:32:50Z",
+        "id": 6631981306,
+        "updated_at": "2026-11-04T13:32:50Z"
+      },
+      {
+        "created_at": "2026-11-04T13:33:19Z",
+        "id": 6631991191,
+        "updated_at": "2026-11-04T13:33:19Z"
+      },
+      {
+        "created_at": "2026-11-04T13:33:35Z",
+        "id": 6631996865,
+        "updated_at": "2026-11-08T00:52:30Z"
+      },
+      {
+        "created_at": "2026-11-04T13:34:20Z",
+        "id": 6632013165,
+        "updated_at": "2026-11-04T13:34:20Z"
+      },
+      {
+        "created_at": "2026-11-04T13:35:19Z",
+        "id": 6632034602,
+        "updated_at": "2026-11-04T13:35:19Z"
+      },
+      {
+        "created_at": "2026-11-04T13:36:33Z",
+        "id": 6632061199,
+        "updated_at": "2026-11-04T13:36:33Z"
+      },
+      {
+        "created_at": "2026-11-04T13:40:07Z",
+        "id": 6632137960,
+        "updated_at": "2026-11-04T13:40:07Z"
+      },
+      {
+        "created_at": "2026-11-04T13:42:08Z",
+        "id": 6632181181,
+        "updated_at": "2026-11-04T13:42:08Z"
+      },
+      {
+        "created_at": "2026-11-04T13:45:37Z",
+        "id": 6632256111,
+        "updated_at": "2026-11-04T13:45:37Z"
+      },
+      {
+        "created_at": "2026-11-04T13:49:38Z",
+        "id": 6632343497,
+        "updated_at": "2026-11-04T13:49:38Z"
+      },
+      {
+        "created_at": "2026-11-04T13:52:59Z",
+        "id": 6632420613,
+        "updated_at": "2026-11-04T13:52:59Z"
+      },
+      {
+        "created_at": "2026-11-04T14:01:00Z",
+        "id": 6632598002,
+        "updated_at": "2026-11-04T14:01:00Z"
+      },
+      {
+        "created_at": "2026-11-04T14:04:28Z",
+        "id": 6632676828,
+        "updated_at": "2026-11-04T14:04:28Z"
+      },
+      {
+        "created_at": "2026-11-04T14:20:29Z",
+        "id": 6633050549,
+        "updated_at": "2026-11-04T14:20:29Z"
+      },
+      {
+        "created_at": "2026-11-04T14:24:20Z",
+        "id": 6633138780,
+        "updated_at": "2026-11-04T14:24:20Z"
+      },
+      {
+        "created_at": "2026-11-05T03:00:31Z",
+        "id": 6648485035,
+        "updated_at": "2026-11-05T03:00:31Z"
+      },
+      {
+        "created_at": "2026-11-05T03:17:04Z",
+        "id": 6648719968,
+        "updated_at": "2026-11-05T03:17:04Z"
+      },
+      {
+        "created_at": "2026-11-05T03:17:08Z",
+        "id": 6648720854,
+        "updated_at": "2026-11-05T03:17:08Z"
+      },
+      {
+        "created_at": "2026-11-05T03:46:43Z",
+        "id": 6649127583,
+        "updated_at": "2026-11-05T03:46:43Z"
+      },
+      {
+        "created_at": "2026-11-05T03:46:47Z",
+        "id": 6649128394,
+        "updated_at": "2026-11-05T03:46:47Z"
+      },
+      {
+        "created_at": "2026-11-05T03:46:52Z",
+        "id": 6649129537,
+        "updated_at": "2026-11-05T03:46:52Z"
+      },
+      {
+        "created_at": "2026-11-05T03:59:38Z",
+        "id": 6649299127,
+        "updated_at": "2026-11-05T03:59:38Z"
+      },
+      {
+        "created_at": "2026-11-05T04:45:07Z",
+        "id": 6649911684,
+        "updated_at": "2026-11-05T04:45:07Z"
+      },
+      {
+        "created_at": "2026-11-05T04:45:11Z",
+        "id": 6649912647,
+        "updated_at": "2026-11-05T04:45:11Z"
+      },
+      {
+        "created_at": "2026-11-05T04:45:15Z",
+        "id": 6649913432,
+        "updated_at": "2026-11-05T04:45:15Z"
+      },
+      {
+        "created_at": "2026-11-05T05:01:44Z",
+        "id": 6650145104,
+        "updated_at": "2026-11-05T05:01:44Z"
+      },
+      {
+        "created_at": "2026-11-08T00:51:55Z",
+        "id": 6715276022,
+        "updated_at": "2026-11-08T00:51:55Z"
+      },
+      {
+        "created_at": "2026-11-08T05:03:35Z",
+        "id": 6717526002,
+        "updated_at": "2026-11-08T05:03:35Z"
+      },
+      {
+        "created_at": "2026-11-08T05:04:54Z",
+        "id": 6717537084,
+        "updated_at": "2026-11-08T05:04:54Z"
+      },
+      {
+        "created_at": "2026-11-08T07:54:50Z",
+        "id": 6718971808,
+        "updated_at": "2026-11-08T07:54:50Z"
+      }
+    ]
+  },
+  "blocking": 0,
+  "drainable_by_maint71": 0,
+  "actions": "Read-only verification only; no Maint 68/71 dispatch, rerun, merge or lock release."
+}
