@@ -3047,3 +3047,81 @@ but the active approval policy is `never`
 The [concrete handoff](runtime-4550/4558-round14-publication-blocker.md) and exact
 reconciled body are retained for the authorized writer. Overall acceptance
 remains incomplete; no new source/runtime failure was inferred from this blocker.
+
+## Keepalive round 15: preserve UTC offsets in collection queries — 2026-11-09
+
+Plan recorded before implementation at **2026-11-09T03:25:25Z**. Review of
+recent commits and native ancestry checks confirms selected published main
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf` contains the required ancestor and
+salvaged #4551 head, and is an ancestor of current main
+`dc88475b617e52bb06f86ab4d79b01d21462ee67`. The focused Python receipt suite
+passes **124 tests** with `-m "not slow"`. The first unchecked revision-selection
+task and four corresponding suite/payload rows are already verified. Automatic
+approval review rejected the five-checkbox PR-body reconciliation because
+approval is required but approval policy is `never`; the exact proposed body is
+retained in [the reconciliation artifact](runtime-4550/4558-round15-pr-body-reconciled.md).
+[Fresh readback](runtime-4550/4558-round15-readback.json) retains #4550/#4551/main
+and PR 4558 open and ready. Upstream verifier attempt 1 is unchanged; Actions
+success does not clear the retained model non-PASS disposition.
+
+The next unresolved task is delivery observation. A complete unfiltered
+[projected run inventory](runtime-4550/4558-round15-origin-inventory.json)
+covers **03:01:54Z–03:25:25Z**, with stable total **190** and pages **100/90**.
+It contains Maint 71 run **42555977107**, created **03:21:43Z**, but no exact-path
+Maint 68 run. Bot actor and `workflow_dispatch` do not authenticate the caller
+or establish a producer relationship. No workflow was dispatched by this work.
+
+The collector interpolates explicit UTC `+00:00` offsets into a query without
+escaping the plus, although the timestamp validator accepts that representation.
+Add a failing transport regression for such bounds, then encode the query value
+and verify round-trip preservation and the CLI path. Commands:
+`node tests/scripts/test_issue_4369_origin_observation.js`, both JavaScript
+`node --check` commands, producer/merger inventory replays, focused Python receipt
+tests with `-m "not slow"`, and `git diff --check`. Bound each command to 120
+seconds. Stop at the first unresolved step after three failed attempts or 60
+minutes, whichever occurs first; deadline **2026-11-09T04:25:25Z**. No production
+source repair, workflow change, local full-suite execution or dispatch is planned.
+Original exact acceptance commands remain
+`node --test .github/scripts/__tests__/*.test.js` and
+`python3 -m pytest -q tests/` on the retained supported hosted runner and revision.
+
+The new regression fails before implementation with `inventory endpoint or page
+binding changed`, before the first transport call. `collect()` now encodes the
+entire `created` query value with `encodeURIComponent`, preserving accepted UTC
+offsets and millisecond bounds. The test verifies the decoded transport query,
+retained request URL, original bounds, complete pagination and non-acceptance for
+repository, producer-specific and merger-specific collection. No consumer payload
+or production source symbol changed, so the historical hosted-suite acceptance
+revision remains unchanged.
+
+The [validation receipt](runtime-4550/4558-round15-validation.json) retains exact
+argv, absolute executables, 120-second bounds, UTC timings, exit codes and complete
+stdout/stderr hashes. Observer tests: **81 passed**; Python receipt tests:
+**124 passed** with `-m "not slow"`; syntax, ancestry, byte comparison and diff
+checks all exit **0**. The [red log](runtime-4550/4558-round15-red.log) retains the
+pre-fix failure. No Python file changed.
+
+Combined with rounds 10/11/13/14, [producer](runtime-4550/4558-round15-producer-sequence-stdout.log)
+and [merger](runtime-4550/4558-round15-merger-sequence-stdout.log) replays cover
+**01:49:57Z–03:25:25Z**, **631 unique runs**, with five complete adjacent
+inventories. There are zero Maint 68 runs and one Maint 71 run in that interval.
+The [fresh merger readback](runtime-4550/4558-round15-merger-readback.json)
+retains its native metadata, job and artifact identity. This metadata does not
+establish a producer link, source/plan/candidate payload, or qualifying merge.
+Both replays retain `chain_acceptance: false`. The issue-comment observation
+boundary remains **02:45:58Z**; workflow inventory reads do not extend it.
+
+- [x] Reproduce and fix UTC-offset query preservation in bounded collection.
+- [ ] Authenticate the qualifying next automation-started Maint 68 → Maint 71 chain.
+- [ ] Clear the existing upstream model non-PASS verification disposition.
+
+Publication remains blocked: explicit-path `git add` exits **128** because
+`.git/index.lock` cannot be created on the read-only filesystem. No commit or push
+succeeded. Automatic approval review rejected the PR-body update, `needs-human`
+label and blocker comment: `MCP tool call requires approval, but approval policy
+is never`. No remote task checkbox was changed. The
+[publication receipt](runtime-4550/4558-round15-publication.json) retains the
+Git error, remote rejection results and final PR readback confirming open and
+ready (`isDraft=false`). The [concrete blocker note](runtime-4550/4558-round15-publication-blocker.md)
+and proposed PR body are retained for the existing authorized writer.
+Overall acceptance remains incomplete.

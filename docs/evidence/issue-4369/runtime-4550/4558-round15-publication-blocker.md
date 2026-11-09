@@ -1,0 +1,5 @@
+# Round 15 publication blocker
+
+Round 15 leaves acceptance incomplete. Fixed a reproduced observation-collector defect: explicit UTC +00:00 bounds now survive URL encoding. Validation passes: 81 observer tests, 124 focused Python receipt tests, JavaScript syntax, ancestry, byte equality, and diff checks. Complete run inventories through 2026-11-09T03:25:25Z contain a new Maint 71 run (42555977107) but no Maint 68 producer; automation origin/causal-chain proof and the upstream model non-PASS disposition remain unresolved. No Maint 68/71 dispatch or workflow edit was performed.
+
+Publication blocker: git add exits 128 because .git/index.lock is on a read-only filesystem; no commit or push succeeded. Automatic approval review rejected the five verified PR-body checkbox corrections (approval required, policy never). The exact proposed body is docs/evidence/issue-4369/runtime-4550/4558-round15-pr-body-reconciled.md. The existing authorized writer must publish the scoped JavaScript/test changes and receipts, then apply the verified reconciliation; missing chain/verification tasks must remain unchecked.

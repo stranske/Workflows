@@ -45,7 +45,10 @@ function collect({ start, end, workflow_id, workflow_path }, request = readInven
   const endpoint = workflow_id === undefined
     ? 'https://api.github.com/repos/stranske/Workflows/actions/runs'
     : `https://api.github.com/repos/stranske/Workflows/actions/workflows/${workflow_id}/runs`;
-  const urlFor = page => `${endpoint}?per_page=100&page=${page}&created=${start}..${end}`;
+  // Preserve explicit +00:00 UTC offsets; an unescaped plus becomes a space
+  // when the query is decoded, invalidating the requested observation bounds.
+  const created = encodeURIComponent(`${start}..${end}`);
+  const urlFor = page => `${endpoint}?per_page=100&page=${page}&created=${created}`;
   observe({ ...inventory,
     pages: [{ url: urlFor(1), body: { total_count: 0, workflow_runs: [] } }] });
   let total, last = 1;

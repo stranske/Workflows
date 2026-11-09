@@ -14,7 +14,7 @@ function inventory(count = 0) {
     path: '.github/workflows/maint-68-sync-consumer-repos.yml',
     actor: { login: 'github-actions[bot]' }, display_title: 'auto' }));
   return { start, end, pages: Array.from({ length: Math.floor(count / 100) + 1 }, (_, i) => ({
-    url: `https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=${i + 1}&created=${start}..${end}`,
+    url: `https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=${i + 1}&created=${encodeURIComponent(`${start}..${end}`)}`,
     body: { total_count: count, workflow_runs: rows.slice(i * 100, (i + 1) * 100) },
   })) };
 }
@@ -99,6 +99,30 @@ test('collector validates the query before making any request', () => {
     let requests = 0;
     assert.throws(() => collect(query, () => { requests++; }));
     assert.equal(requests, 0);
+  }
+});
+
+test('collector preserves explicit UTC offset bounds in the transport query and receipt', () => {
+  for (const make of [inventory, producerInventory, mergerInventory]) {
+    const input = make(1);
+    replaceTimestamp(input, 'start', '2026-11-08T21:31:19+00:00');
+    replaceTimestamp(input, 'end', '2026-11-08T21:43:00.123+00:00');
+    replaceTimestamp(input, 'created_at', input.start);
+    const { pages, ...query } = input;
+    let requests = 0;
+    const result = collect(query, url => {
+      requests++;
+      assert.equal(new URL(url).searchParams.get('created'), `${query.start}..${query.end}`);
+      assert.ok(!url.includes('+'), 'literal plus would be decoded as a space');
+      return structuredClone(pages[0].body);
+    });
+    assert.equal(requests, 1);
+    assert.equal(result.inventory.start, query.start);
+    assert.equal(result.inventory.end, query.end);
+    assert.equal(new URL(result.inventory.pages[0].url).searchParams.get('created'),
+      `${query.start}..${query.end}`);
+    assert.equal(result.observation.pagination_complete, true);
+    assert.equal(result.observation.chain_acceptance, false);
   }
 });
 
