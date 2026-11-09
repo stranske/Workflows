@@ -45,7 +45,18 @@ def _publish_scenario(
     base_ref="main",
     status_read_drift=None,
     publisher_attempt="2",
+    pull_requests=None,
+    open_prs=None,
+    pr=None,
 ):
+    if pr is None:
+        pr = {
+            "number": 4,
+            "state": "open",
+            "changed_files": 1,
+            "base": {"repo": {"id": 1}, "ref": base_ref},
+            "head": {"repo": {"id": 1 if same_repo else 2}, "sha": "abc"},
+        }
     initial_run = {
         "id": 9,
         "workflow_id": 7,
@@ -59,19 +70,13 @@ def _publish_scenario(
         "status": "completed",
         "conclusion": "success",
         "html_url": "https://example.test/runs/9",
-        "pull_requests": [{"number": 4}],
-    }
-    pr = {
-        "number": 4,
-        "state": "open",
-        "changed_files": 1,
-        "base": {"repo": {"id": 1}, "ref": base_ref},
-        "head": {"repo": {"id": 1 if same_repo else 2}, "sha": "abc"},
+        "pull_requests": [{"number": 4}] if pull_requests is None else pull_requests,
     }
     scenario = {
         "initialRun": initial_run,
         "finalRun": final_run or initial_run,
         "pr": pr,
+        "openPrs": [pr] if open_prs is None else open_prs,
         "statuses": (
             [
                 {
@@ -109,7 +114,7 @@ const github = {{
     }},
     pulls: {{
       get: async () => ({{data: currentPr}}),
-      list: endpoint([scenario.pr]),
+      list: endpoint(scenario.openPrs),
       listFiles: endpoint([{{filename: 'src/app.js', status: 'modified'}}]),
     }},
     repos: {{
@@ -289,6 +294,71 @@ def test_fork_gate_status_skips_same_repo_and_reuses_identical_status():
     replay = _publish_scenario(replay=True)
     assert replay["result"]["state"] == "success"
     assert replay["writes"] == []
+
+
+def test_fork_gate_status_skips_same_repo_when_no_matching_pr_head():
+    outcome = _publish_scenario(same_repo=True, pull_requests=[], open_prs=[])
+    assert outcome["result"] == {
+        "state": "skipped",
+        "description": "Same-repository PR",
+    }
+    assert outcome["writes"] == []
+
+
+def test_fork_gate_status_skips_when_zero_open_prs_match_head_sha():
+    outcome = _publish_scenario(same_repo=False, pull_requests=[], open_prs=[])
+    assert outcome["result"] == {
+        "state": "skipped",
+        "description": "No open PR at Gate head",
+    }
+    assert outcome["writes"] == []
+
+
+def test_fork_gate_status_skips_when_associated_pr_head_differs_and_zero_matching_open_prs():
+    mismatched_pr = {
+        "number": 4,
+        "state": "open",
+        "changed_files": 1,
+        "base": {"repo": {"id": 1}, "ref": "main"},
+        "head": {"repo": {"id": 2}, "sha": "subsequent-commit-sha"},
+    }
+    outcome = _publish_scenario(
+        same_repo=False,
+        pull_requests=[{"number": 4}],
+        pr=mismatched_pr,
+        open_prs=[],
+    )
+    assert outcome["result"] == {
+        "state": "skipped",
+        "description": "No open PR at Gate head",
+    }
+    assert outcome["writes"] == []
+
+
+def test_fork_gate_status_rejects_ambiguous_matching_open_prs():
+    pr2 = {
+        "number": 5,
+        "state": "open",
+        "changed_files": 1,
+        "base": {"repo": {"id": 1}, "ref": "main"},
+        "head": {"repo": {"id": 2}, "sha": "abc"},
+    }
+    outcome = _publish_scenario(
+        same_repo=False,
+        pull_requests=[],
+        open_prs=[
+            {
+                "number": 4,
+                "state": "open",
+                "changed_files": 1,
+                "base": {"repo": {"id": 1}, "ref": "main"},
+                "head": {"repo": {"id": 2}, "sha": "abc"},
+            },
+            pr2,
+        ],
+    )
+    assert outcome["error"] == "Expected one open PR at Gate head abc; found 2"
+    assert outcome["writes"] == []
 
 
 def test_fork_gate_status_rejects_non_default_base_branch():
