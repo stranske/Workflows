@@ -153,3 +153,48 @@ defect was in an Orchestrator-owned test fixture, which Orchestrator #1251
 fixed in its owning repo. `scripts/sync_core_shipment_finding.py` here is a
 one-off fingerprint check for #4508, not the classifier that produced this
 finding.
+
+## Continuation round (2026-11-09): completed checks vs. missing outcomes
+
+Completed checks (observed this round):
+
+- [x] `gh run view 42518195788 -R stranske/Orchestrator` re-read: conclusion
+  `success`, event `pull_request`, branch `sync/workflows-delivery`, head
+  `c0c5cb6aa8bf79aa855a54258c0ed423011cebeb`. Named jobs
+  `verify.py aggregate + combined coverage` (job 128847594079) and
+  `verify.py aggregate in the flat exec-mirror shape` (job 128847837873) both
+  report `success`. All 12 shard jobs succeeded. `reconcile the collection floor
+  (main only)` was skipped, as expected on a PR.
+- [x] Review thread `PRRT_kwDOQprj9M61Dwgw` re-read: it is outdated. Ledger tasks
+  08, 10, 13, 14 and 15 already carry `status: deferred` with notes, which is
+  the change it asked for. No source repair was duplicated.
+
+Missing outcomes (still unknown; the issue is **not** complete):
+
+- [ ] **Local repository suite: unclaimed.** Orchestrator's configured test
+  command is `python3 src/verify.py` (its CLAUDE.md says "Verify with
+  `python3 src/verify.py`"; CI runs the same script in shards with
+  `VERIFY_PYTEST_WORKERS=4`). One bounded attempt ran on a fresh, clean
+  Orchestrator clone at `27266f8165064f88256ee2a97f99762db51f129a` (the merge
+  commit of #1247). It used `/opt/anaconda3/bin/python3`, Python 3.12.2,
+  because the canonical clone has no virtual environment. The command was
+  `VERIFY_PYTEST_WORKERS=8 timeout 1500 /opt/anaconda3/bin/python3 src/verify.py`
+  and it exited **124** after 1500 s. verify.py buffers pytest output until it
+  finishes, so the killed run printed no terminal summary. The full record is
+  in [orchestrator-local-suite.txt](orchestrator-local-suite.txt). A timeout is
+  not a pass. The earlier
+  `timeout 300 python -m pytest tests/ -m 'not slow' -q -x` record
+  ([workflows-suite.txt](workflows-suite.txt)) does not name its repository or
+  head, and it is not Orchestrator's configured command. It is kept as history
+  only.
+- [ ] **Subsequent sync-core classification: none found; still deferred.**
+  Re-read on 2026-11-09: #4555's last comment is the auto-pilot handoff at
+  2026-11-08T20:28:23Z. Nothing was posted after #1247 merged at 20:49:16Z, and
+  none of its comments is a sync-core classification. Orchestrator #1247 has no
+  comment after 19:30Z. No later `sync/workflows-delivery` PR exists after #1247.
+  No Workflows issue created after #1247 merged references #1247 or #4555. No
+  protected workflow was triggered.
+
+The combined acceptance criterion ("passes on regenerated sync PR …; the
+repository's test command passes locally") has its remote half observed and
+its local half unclaimed. It must therefore stay unchecked.
