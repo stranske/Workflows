@@ -1,4 +1,4 @@
-"""Read-only, paginated GitHub evidence collector for issue #4515.
+"""Read-only, paginated GitHub evidence collector for issue #4458.
 
 Run this script with /opt/anaconda3/bin/python3 from the repository root.
 Only queries explicit repositories from the merge-commit consumer registry plus
@@ -218,7 +218,7 @@ def main():
     )
     provider_share = provider_numerator / denominator if denominator else None
     result = {
-        "schema": "workflows.issue-3988-routing-observations/v1",
+        "schema": "workflows.issue-4458-routing-observations/v1",
         "collected_at": collected_at,
         "merge_commit": MERGE,
         "window_start_inclusive": START,
@@ -268,7 +268,7 @@ def main():
             "numerator_upper_bound": provider_numerator + provider_ambiguous,
         },
         "acceptance_metric": {
-            "definition": "First routing label is not agent:codex, as specified in issue #3988; includes agent:auto. Same-second mixed labels use conservative bounds.",
+            "definition": "First routing label is not agent:codex, as specified in issue #4458; includes agent:auto. Same-second mixed labels use conservative bounds.",
             "numerator": numerator,
             "denominator": denominator,
             "share": share,
