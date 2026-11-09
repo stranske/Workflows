@@ -122,9 +122,7 @@ def classify_record(record, end=END):
     keepalive = [
         e
         for e in events
-        if e["event"] == "labeled"
-        and e["label"] == "agents:keepalive"
-        and e["created_at"] < end
+        if e["event"] == "labeled" and e["label"] == "agents:keepalive" and e["created_at"] < end
     ]
     routing = [
         e

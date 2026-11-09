@@ -27,7 +27,7 @@ def record(*events):
 class ClassificationTests(unittest.TestCase):
     def test_routing_at_end_is_excluded(self):
         kind, item = classify_record(record(event("agent:claude", END)))
-        self.assertEqual(kind, "eligible")
+        assert kind == "eligible"
         self.assertEqual(item["routing_status"], "absent")
         self.assertFalse(item["non_codex"])
 
@@ -39,7 +39,9 @@ class ClassificationTests(unittest.TestCase):
     def test_mixed_codex_non_codex_tie_is_conservative(self):
         for labels in [("agent:codex", "agent:claude"), ("agent:claude", "agent:codex")]:
             with self.subTest(labels=labels):
-                _, item = classify_record(record(*(event(label, event_id=i) for i, label in enumerate(labels))))
+                _, item = classify_record(
+                    record(*(event(label, event_id=i) for i, label in enumerate(labels)))
+                )
                 self.assertEqual(item["routing_status"], "ambiguous")
                 self.assertEqual(item["tied_first_labels"], ["agent:claude", "agent:codex"])
                 self.assertFalse(item["non_codex"])
@@ -52,15 +54,19 @@ class ClassificationTests(unittest.TestCase):
 
     def test_absent_routing_remains_eligible(self):
         kind, item = classify_record(record())
-        self.assertEqual(kind, "eligible")
+        assert kind == "eligible"
         self.assertEqual(item["routing_status"], "absent")
         self.assertFalse(item["non_codex"])
 
     def test_removed_labels_retain_historical_assignment(self):
-        data = record(event("agent:claude", EARLIER), event("agent:claude", action="unlabeled"), event("agents:keepalive", action="unlabeled"))
+        data = record(
+            event("agent:claude", EARLIER),
+            event("agent:claude", action="unlabeled"),
+            event("agents:keepalive", action="unlabeled"),
+        )
         before = copy.deepcopy(data)
         kind, item = classify_record(data)
-        self.assertEqual(kind, "eligible")
+        assert kind == "eligible"
         self.assertTrue(item["non_codex"])
         self.assertEqual(data, before)
 
