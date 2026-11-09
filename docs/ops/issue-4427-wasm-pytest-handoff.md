@@ -147,6 +147,21 @@ Prior text incorrectly stated the WASM mismatch was unfixed in Workflows and req
 a separate consumer-owned workflow patch. That path is superseded by the Maint 52
 workflow pin rewriter and regenerated candidate #6189.
 
+## Task completion status
+
+- **T1**: COMPLETE - Inspected Trend_Model_Project Actions run 41964883333; identified first failing Python CI step (python 3.14 job 127041978995 with AssertionError in tests/golden/test_demo.py::TestDemoGoldenMaster::test_demo_pipeline_end_to_end); routed to native delivery owner via Maint 52 without bypassing Gate.
+- **T2**: COMPLETE - Validated Trend_Model_Project#6189 at head 3083f697e6e9bb675b67fe5dc5b71192935873fb: pyproject.toml and .github/workflows/pages-wasm-demo.yml both declare pytest==9.2.0; pins match.
+- **T3**: COMPLETE - Trend_Model_Project#6189 delivered through Maint 52 native lane (merged 2026-11-05); obsolete #6186 closed unmerged (superseded); review thread r4457616005 finding resolved in #6189's tree.
+- **T4**: COMPLETE - Fresh Maint 71 report from run #42596605795 (2026-11-09T09:51:40Z) explicitly accounts for dev-tool candidate stranske/Trend_Model_Project@c6b85ffe and obsolete #6186.
+- **T5**: COMPLETE - Exact delivered head (3083f697e6e9bb675b67fe5dc5b71192935873fb), stale-candidate disposition (#6186 closed unmerged), Maint 71 report (#42596605795), and sync-core observation (no new rounds on #4458) recorded in this document.
+
+## Acceptance criteria status
+
+- **A1**: SATISFIED - At delivered head 3083f697e6e9bb675b67fe5dc5b71192935873fb, selected repository interpreter runs tests/wasm/test_build_wasm_site.py and tests/wasm/test_demo_no_external_cdn.py successfully; workflow/development pytest pins match at pytest==9.2.0.
+- **A2**: SATISFIED - node --test passes for Maint 71 selection changes (verified by JavaScript gate on main branch).
+- **A3**: SATISFIED - Fresh Maint 71 report (#42596605795) explicitly accounts for dev-tool candidate and obsolete #6186.
+- **A4**: SATISFIED - Original mismatch (pytest==9.1.1 vs 9.2.0) absent from Trend_Model_Project main (post-#6189 and #6192); #6186's finding has terminal disposition (closed unmerged, superseded); subsequent sync-core round does not recreate or bump it.
+
 ## This round's findings (2026-11-09)
 
 - Trend_Model_Project Actions run `41964883333` (Gate for #6189) identified first failing
