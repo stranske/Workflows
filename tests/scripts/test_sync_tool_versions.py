@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -380,51 +382,61 @@ def test_checked_in_templates_match_canonical_source() -> None:
 )
 def test_apply_repairs_ruff_drift_in_templates(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
     stale_templates: tuple[int, ...],
 ) -> None:
-    env_path = tmp_path / "pins.env"
+    """Exercise real CLI paths so a missing integration target cannot go unnoticed."""
+    script = Path(sync_tool_versions.__file__).resolve()
+    env_path = tmp_path / ".github/workflows/autofix-versions.env"
     pyproject_path = tmp_path / "pyproject.toml"
-    templates = [tmp_path / "consumer.env", tmp_path / "integration.env"]
+    templates = [
+        tmp_path / "templates" / repo / ".github/workflows/autofix-versions.env"
+        for repo in ("consumer-repo", "integration-repo")
+    ]
     versions = {cfg.env_key: "14.0" for cfg in sync_tool_versions.TOOL_CONFIGS}
     versions["RUFF_VERSION"] = "0.17.4"
+    env_path.parent.mkdir(parents=True)
     _write_env_file(env_path, versions)
     pyproject_path.write_text(_make_pyproject_content(versions), encoding="utf-8")
     canonical = env_path.read_bytes()
     stale = canonical.replace(b"RUFF_VERSION=0.17.4", b"RUFF_VERSION=0.17.3")
     for index, template in enumerate(templates):
+        template.parent.mkdir(parents=True)
         template.write_bytes(stale if index in stale_templates else canonical)
 
-    monkeypatch.setattr(sync_tool_versions, "PIN_FILE", env_path)
-    monkeypatch.setattr(sync_tool_versions, "PYPROJECT_FILE", pyproject_path)
-    monkeypatch.setattr(sync_tool_versions, "TEMPLATE_FILE", templates[0])
-    monkeypatch.setattr(sync_tool_versions, "INTEGRATION_TEMPLATE_FILE", templates[1])
+    def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(script), *args],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
 
-    assert sync_tool_versions.main([]) == 1
-    captured = capsys.readouterr()
+    result = run_cli()
+    assert result.returncode == 1, result.stderr
     for index, template in enumerate(templates):
         if index in stale_templates:
-            assert str(template) in captured.err
+            assert str(template.relative_to(tmp_path)) in result.stderr
             assert template.read_bytes() == stale
         else:
-            assert str(template) not in captured.err
+            assert str(template.relative_to(tmp_path)) not in result.stderr
             assert template.read_bytes() == canonical
 
-    assert sync_tool_versions.main(["--apply"]) == 0
-    captured = capsys.readouterr()
-    assert "template autofix-versions.env files synced from source" in captured.out
-    assert captured.err == ""
+    result = run_cli("--apply")
+    assert result.returncode == 0, result.stderr
+    assert "template autofix-versions.env files synced from source" in result.stdout
+    assert result.stderr == ""
     for template in templates:
         assert template.read_bytes() == canonical
 
-    assert sync_tool_versions.main([]) == 0
-    captured = capsys.readouterr()
-    assert captured.out == captured.err == ""
+    result = run_cli()
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == result.stderr == ""
 
-    assert sync_tool_versions.main(["--apply"]) == 0
-    captured = capsys.readouterr()
-    assert captured.out == captured.err == ""
+    result = run_cli("--apply")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == result.stderr == ""
     assert env_path.read_bytes() == canonical
     assert pyproject_path.read_text(encoding="utf-8") == _make_pyproject_content(versions)
 
