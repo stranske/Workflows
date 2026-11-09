@@ -3454,3 +3454,82 @@ in the sync lineage, not a payload delivery. The payload was delivered by PR 248
 unmerged), drainable=1 (a queued Maint 71 run can merge it). The PR body now says
 `Refs #4557`, so merging PR 4558 does not close #4557. Follow-up to file:
 "Observe automation-started Maint 68 → Maint 71 chain for PR 2488 and record merge SHA".
+
+## Closer repair 2: chain receipt and upstream concern reconciliation — 2026-11-09
+
+Observed read-only through **2026-11-09T07:41:55Z**. No Maint 68, Maint 71 or
+Maint 82 run was dispatched, rerun or cancelled, and no merge, schedule or lock
+changed. A1/A2/A4 evidence above is preserved and was not re-run. Receipts are
+under [`runtime-4550/4557r2/`](runtime-4550/4557r2/).
+
+### Automation-started chain for PR 2488
+
+[`chain-receipt.json`](runtime-4550/4557r2/chain-receipt.json) binds each link
+by artifact identity rather than timing:
+
+| Link | Identity | Retained |
+| --- | --- | --- |
+| Producer | Maint 68 run **42564882056**, event `schedule`, source `c7885e1a7d6add7bb866b2912794e7ba7466adf5`, success | [complete log](runtime-4550/4557r2/producer-42564882056.log), [all five artifacts](runtime-4550/4557r2/producer-42564882056-artifacts/) |
+| Plan | `sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb`, scope `full` | `sync-plan-scope.json`, `manifest.json`, PAEM sync result |
+| Candidate | PR **2488**, `sync/workflows-candidate` @ `795155aa9b1cdca5942bac2db3707c6b64dc57d3`, consumer base `b3b617e7` | PAEM sync result (`status: created_pr`) |
+| Maint 71 | Run **42565425171**, dispatched by the producer step "Dispatch Maint 71 for the generated lane"; its `IMMUTABLE_HANDOFF_JSON` and its PR 2488 result carry the same plan ID, source commit, head and delivery generation | [complete log](runtime-4550/4557r2/merger-42565425171.log), [both artifacts](runtime-4550/4557r2/merger-42565425171-artifacts/) |
+| Consumer-main merge | **none**: PR 2488 `OPEN`, `mergedAt=null`, `mergeCommit=null`, `isDraft=false`, `CLEAN` | `chain-receipt.json` `consumer_merge` |
+
+Eleven later Maint 71 runs (42566405464 … 42579302699) are summarised in
+`later_maint71_runs`. PR 2488 has been `campaign_prepared` /
+`merge-current-delivery` since 05:18Z. The latest run's
+[campaign authorization](runtime-4550/4557r2/maint71-42579302699-artifacts/sync-pr-merge-and-canary-evidence/sync-campaign-commit-authorization.json)
+is `authorized: false` with one error:
+`stranske/Orchestrator: campaign is not prepared (checks_failed)`. Twelve
+delivery-lane PRs of the same plan merged. The three candidate-lane PRs (PAEM 2488,
+Travel-Plan-Permission 1736, trip-planner 2021) are held. Orchestrator PR 1288 fails
+`tests/test_model_table.py::test_copy_matches_workflows_source` (Gate run 42566889073).
+That test compares Orchestrator's model table with the live Workflows main copy,
+which changed in 122b67ebd (#4576). PR 1288 does not touch that table.
+
+**Blocking=1, drainable by Maint 71=0.** Re-running Maint 71 cannot clear the hold.
+It clears only when an Orchestrator change refreshes its model-table copy and
+PR 1288's checks pass. No change was made here; that repository is out of scope.
+
+Payload: PR 2488 does not modify `tools/subscription_llm.py`. The candidate head's
+file was retained and compared:
+
+```
+cmp docs/evidence/issue-4369/runtime-4550/4557-source-subscription_llm.py.txt docs/evidence/issue-4369/runtime-4550/4557r2/candidate-795155aa-subscription_llm.py.txt
+exit 0
+```
+
+Candidate, consumer main `b3b617e7` and retained source all have blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. The eventual merged payload cannot be
+observed until PR 2488 merges.
+
+### Upstream verifier run 42522535899
+
+[`verifier-42522535899-concern-reconciliation.json`](runtime-4550/4557r2/verifier-42522535899-concern-reconciliation.json)
+maps all **89** anthropic (`claude-sonnet-5-5`, verdict **CONCERNS**) concerns and
+both openai (`gpt-6.1-sol`, **UNVERIFIABLE_INPUT** after a JSON validation error;
+raw verdict CONCERNS) concerns. The follow-up ledger records `verdict: concerns`,
+`disposition: needs-human`. The run's Actions `success` is not a verifier PASS, and
+no provider returned PASS.
+
+| Class | Count | Status | Evidence |
+| --- | --- | --- | --- |
+| Full suites | 17 + openai 1 | Resolved independently | Hosted run 42523162606 at `0a06f197`: `4557-exact-main/node-full.json` and `python-full.json`, both exit 0 |
+| Merged payload receipt | 22 + openai 1 | Payload resolved; automation origin **unresolved** | PR 2486 merge `1ff9e11`, `4558-byte-comparison.json` exit 0; producers were `workflow_dispatch`, and successor PR 2488 is unmerged |
+| `Closes #4550` / checked boxes | 6 | **Unresolved**, preserved | #4550 closed 20:54:58Z, two seconds after PR 4551 merged, while criteria 3 and 4 were still unmet |
+| Forbidden dispatch attempts | 7 | **Unresolved**, preserved | Failed attempts and forced run 42485644055 remain historical; this is why PR 2486 is not counted as automation-started |
+| Evidence integrity | 12 | **Unresolved**, preserved; acceptance no longer relies on these records | Records point to absent logs and uncommitted revisions; superseded for acceptance by the hash-bound hosted receipts |
+| codex-ainvoke test-side fix | 2 | **Unresolved**, substantive | `scripts/langchain/_llm_client.py` is unchanged since dbc2f4d59. Bounded termination is shown; the root cause is not diagnosed |
+| Maint 71 subject refusal | 2 | Addressed by changed code; root cause unproven | PR 4551 changed `maint71_merge_sync_prs.js` and added `maint71-delivery-receipts.test.js`; zero occurrences in the 2488-chain logs |
+| Noise, environment, informational | 21 | Not substantive, or resolved | e.g. repo-wide black: `4558-black-supported.log`, 978 files unchanged |
+
+### Remaining acceptance status
+
+- [ ] Producer → plan → candidate → Maint 71 → actual consumer-main merge: **NOT MET**.
+  The first break is the merge, held by the Orchestrator PR 1288 campaign failure
+  above. The terminal receipt is missing.
+- [x] Non-PASS concerns reconciled against changed files and retained evidence.
+  Four classes stay unresolved and are preserved, not waived.
+- [x] Validation report updated with this chain receipt and status.
+
+Issue #4557 stays open.

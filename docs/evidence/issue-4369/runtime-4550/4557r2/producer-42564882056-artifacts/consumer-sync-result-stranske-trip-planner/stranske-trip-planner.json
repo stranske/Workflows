@@ -1,0 +1,23 @@
+{
+  "changes_count": 2,
+  "consumer_head_sha": "aad55d8a0bb5a22638b60e04eb70884d397b1b4e",
+  "dry_run": false,
+  "expected_branch": "sync/workflows-candidate",
+  "force": false,
+  "has_changes": true,
+  "outcomes": {
+    "create_pr": "success",
+    "labels": "success",
+    "sync": "success"
+  },
+  "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+  "plan_scope": "full",
+  "pr": 2021,
+  "pr_url": "https://github.com/stranske/trip-planner/pull/2021",
+  "repo": "stranske/trip-planner",
+  "scope_base_sha": "",
+  "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+  "status": "created_pr",
+  "sync_phase": "canary",
+  "template_hash": "4947a11cfee1"
+}
