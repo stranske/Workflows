@@ -2225,3 +2225,63 @@ rule, the existing next scheduled closer round owns the review pass at least
 seven minutes after this push; it must read current-head CI, reviews and inline
 comments. This is a continuation handoff, not a newly scheduled job or a claim
 that post-push review has already passed.
+
+## Local seat round 5: single-writer dependency blocker — 2026-11-09
+
+Outcome: **9/11 verified; current-head CI fails**. Check date:
+**2026-11-09T00:17:55Z**. The prior acceptance campaign and its original
+21:46:00Z stop deadline remain unchanged. This bounded readback makes no code
+change and performs no acceptance rerun. Its outcome command is
+`/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py -m 'not slow'`,
+with a 120-second external bound; stop this readback at the first unresolved
+step after three failed attempts or 60 minutes, whichever comes first.
+
+The [round-5 receipt](runtime-4550/4558-seat-round5-readback.json) retains native
+CI run metadata and diagnostic excerpts from both complete downloaded job logs.
+[Run 42538048213](https://github.com/stranske/Workflows/actions/runs/42538048213)
+failed on incoming head `17a2ff3b86460d514079e7398e0d7053034d0197`.
+Compatibility jobs 128906720396 (3.13) and 128906720548 (3.14) each report
+**2 failed, 8 passed**: both failures require Ruff **0.17.4**, while
+`.github/workflows/autofix-versions.env` pins **0.17.3**. The Python Tests
+aggregate consequently fails. This is a dependency freshness blocker, not a
+reproduced failure in the issue's subscription payload or retained evidence.
+
+The owner assigns dependency pins exclusively to
+`.github/workflows/maint-auto-update-pypi-versions.yml`. No pin, test expectation,
+workflow schedule or skip condition is changed. The existing workflow schedules
+its routine proposal for Monday 03:00 UTC; this is configured scheduling, not a
+promise of execution or successful delivery. The latest three-run readback shows
+its latest run, 42147968635, failed on November 6. Its cause was not investigated
+in this scoped round. The designated writer must deliver its update through
+normal review and merge gates before this branch can incorporate it and obtain
+fresh CI evidence. No workflow was dispatched and no second pin writer started.
+
+Fresh local checks confirm required-ancestor inclusion, salvaged-head inclusion,
+and published-main reachability at acceptance revision
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`, each exiting 0. Both retained full
+suite logs still match their exit-0 receipt hashes on that immutable revision.
+The retained source and merged consumer files compare equal with `cmp` exit 0.
+These historical immutable-revision results do not establish green CI on the
+current PR head.
+
+Workflow-specific inventories cover **2026-11-09T00:01:34Z–00:17:55Z** without
+an event filter. Each returns `total_count: 0` and an empty first page:
+**0 Maint 68 runs, 0 Maint 71 runs**. T5/A3 remain unverified. The prior complete
+issue-4369 comment observation and exact-head finding dispositions remain at
+their recorded boundary; this round does not claim a fresh comment observation.
+T1/T2/T3/T4/T6/T7/A1/A2/A4 remain supported by the retained evidence. The
+separate upstream assessment remains non-PASS.
+
+Blocking/drainable pair: **blocking=3** (qualifying automation-origin chain,
+upstream assessment, designated-writer Ruff freshness update), **drainable=1**
+(publish this bounded blocker readback). Cost: read-only Git/GitHub queries,
+local evidence validation and documentation publication; **zero runner
+executions, zero dispatches, zero pin edits**. No gate or lock is created.
+The existing controller/closer owns continuation. Under the post-push-review
+skill's automation rule, the next scheduled round must inspect this push's CI,
+reviews and inline comments after the seven-minute floor; no review completion
+is claimed here.
+
+Round-5 local validation: the bounded focused command above exits **0**,
+**50 passed in 0.29s**. `git diff --check` exits 0. Only this validation record
+and its JSON readback receipt changed; no full suite was run locally.
