@@ -2271,6 +2271,8 @@ jobs:
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            scripts/runner_lib
+            scripts/state_fingerprint.py
           sparse-checkout-cone-mode: false
 
       - name: Collect metrics
@@ -2466,6 +2468,48 @@ jobs:
           name: agents-autofix-metrics
           path: autofix-metrics.ndjson
           retention-days: 30
+
+      - name: Record autofix completion
+        if: >-
+          always() &&
+          needs.prepare.outputs.dispatch_should_run == 'true' &&
+          steps.collect.outcome == 'success' &&
+          (needs.autofix.result != 'skipped' || needs.autofix-claude.result != 'skipped' ||
+           needs.autofix-cursor.result != 'skipped' || needs.autofix-muse.result != 'skipped')
+        env:
+          GH_TOKEN: ${{ env.WRITE_TOKEN }}
+          GITHUB_TOKEN: ${{ env.WRITE_TOKEN }}
+          PROVIDER: ${{ needs.prepare.outputs.agent_type }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
+          METRICS_JSON: ${{ steps.collect.outputs.metrics_json }}
+        run: |
+          set -euo pipefail
+          read -r OBSERVED_HEAD PRODUCED_WORK EXIT_CODE < <(node -e '
+            const m = JSON.parse(process.env.METRICS_JSON);
+            if (m.head_sha_before !== process.env.HEAD_SHA ||
+                !/^[0-9a-f]{40}$/.test(m.head_sha_after || "") ||
+                typeof m.fix_applied !== "boolean" ||
+                !["success", "failure", "cancelled"].includes(m.autofix_result)) {
+              throw new Error("Autofix completion measurement is incomplete; retain reservation.");
+            }
+            process.stdout.write(`${m.head_sha_after} ${m.fix_applied} ${m.autofix_result === "success" ? 0 : 1}\n`);
+          ')
+          # Autofix measures heads, without a checklist baseline. Only a changed
+          # head belongs in the combined head/checklist observation API.
+          set --
+          if [ "$OBSERVED_HEAD" != "$HEAD_SHA" ]; then
+            set -- --observed-head-sha "$OBSERVED_HEAD"
+          fi
+          python -m scripts.runner_lib record-completion \
+            --provider "$PROVIDER" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$HEAD_SHA" \
+            "$@" \
+            --produced-work "$PRODUCED_WORK" \
+            --summary "Native autofix completed; productivity measured by the metrics job." \
+            --exit-code "$EXIT_CODE" \
+            --storage auto
 
   generated-delivery-wakeup:
     name: Wake generated delivery reconciler

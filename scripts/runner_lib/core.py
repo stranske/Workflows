@@ -1140,7 +1140,9 @@ class PrCommentRunnerStorage:
         matching_receipt = receipts.get(_reservation_identity(reservation))
         return matching_receipt[1] if matching_receipt else reservation
 
-    def write_completion(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
+    def write_completion(
+        self, pr_number: int, provider: str, record: dict[str, Any], *, immutable: bool = False
+    ) -> bool:
         # A completion racing a newer reservation can leave evidence for its old
         # attempt, but cannot overwrite that newer pending owner.
         receipt = {
@@ -1161,7 +1163,14 @@ class PrCommentRunnerStorage:
             if _marker_re(pr_number, provider, marker_prefix=RESERVATION_MARKER_PREFIX).search(
                 comment_body
             ):
-                break
+                if not immutable:
+                    break
+                reservation = _extract_record(
+                    comment_body, pr_number, provider, marker_prefix=RESERVATION_MARKER_PREFIX
+                )
+                if reservation and _reservation_identity(reservation) == record["reservation_id"]:
+                    break
+                continue
             if not _marker_re(pr_number, provider, marker_prefix=COMPLETION_MARKER_PREFIX).search(
                 comment_body
             ):
@@ -1177,19 +1186,20 @@ class PrCommentRunnerStorage:
                 and existing.get("schema") == "runner-completion-receipt/v1"
                 and existing.get("reservation_id") == record["reservation_id"]
             ):
-                if existing == receipt:
-                    return
+                if existing == receipt or immutable:
+                    return False
                 self.api.request(
                     "PATCH",
                     f"/repos/{self.api.repo}/issues/comments/{comment['id']}",
                     {"body": body},
                 )
-                return
+                return True
         self.api.request(
             "POST",
             f"/repos/{self.api.repo}/issues/{pr_number}/comments",
             {"body": body},
         )
+        return True
 
     def write_record(self, pr_number: int, provider: str, record: dict[str, Any]) -> None:
         body = _build_marker(pr_number, provider, record, marker_prefix=RESERVATION_MARKER_PREFIX)
