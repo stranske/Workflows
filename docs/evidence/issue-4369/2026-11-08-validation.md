@@ -2285,3 +2285,58 @@ is claimed here.
 Round-5 local validation: the bounded focused command above exits **0**,
 **50 passed in 0.29s**. `git diff --check` exits 0. Only this validation record
 and its JSON readback receipt changed; no full suite was run locally.
+
+## Local seat round 6: unchanged designated-writer blocker — 2026-11-09
+
+Outcome: **9/11 acceptance items supported by retained evidence; current-head
+CI fails**. Check date: **2026-11-09T00:31:28Z**. This readback does not restart
+the original acceptance campaign or its stop deadline. Execution bounds for this
+round: 120 seconds per command; stop at the first unresolved step after three
+failed attempts or 60 minutes, whichever occurs first. The outcome command is
+`/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py -m 'not slow'`.
+No production code repair or full local suite is attempted.
+
+The [round-6 receipt](runtime-4550/4558-seat-round6-readback.json) binds failed
+[Selftest run 42539507760](https://github.com/stranske/Workflows/actions/runs/42539507760)
+to incoming head `48a2d6828122b8c8bdb8afd36b5aa6c0c09397f8`. Complete downloaded
+logs for jobs 128911206256 and 128911206258 again report **2 failed, 8 passed**:
+Ruff **0.17.3** is pinned and **0.17.4** is required. Their diagnostic excerpts
+and complete-download hashes are retained. The Python Tests aggregate fails
+because compatibility fails; it is not an independent subscription regression.
+
+Fetched main `bb9b5394df6a3dc3ecfb790e33c26216aed43a71` still pins Ruff 0.17.3.
+The open-PR title search for `update dev tool versions` returns no proposal;
+this bounded search is not a claim that every differently titled PR was checked.
+The designated writer's latest three runs are unchanged, most recently failed
+run 42147968635. No dispatch, pin edit, test weakening or schedule change was
+made. The existing Monday 03:00 UTC schedule remains configuration only.
+Continuation requires the designated writer
+`maint-auto-update-pypi-versions.yml` to deliver the pin update through its normal
+gates, then the existing closer to incorporate that published update and obtain
+fresh CI. This seat does not become a second pin writer.
+
+Workflow-specific inventories cover **00:17:55Z–00:31:28Z on 2026-11-09 UTC**,
+without an event filter. Both return zero total runs and empty first pages:
+**0 Maint 68, 0 Maint 71**; pagination is complete for this interval. T5/A3
+remain unverified. No new automation-origin causal evidence was available.
+Issue-4369 comment completeness remains at the previously recorded boundary;
+this round does not extend that claim.
+
+The required ancestor, salvaged head and selected acceptance revision remain
+reachable as recorded: all three ancestry commands exit 0. Both retained full
+suite logs still match the hashes in their exit-0 receipts on the same immutable
+main revision `0a06f1976db1dd7eb12853f493a3371ee4736bcf`. The retained exact
+source/merged-consumer comparison exits 0. Focused lifecycle validation exits
+**0**, **50 passed in 0.29s**. These verify retained acceptance evidence and do
+not establish passing CI on this PR head. Supported IDs remain
+**T1, T2, T3, T4, T6, T7, A1, A2, A4**; upstream assessment remains non-PASS.
+
+The readback retains 8 reviews and 15 inline comments, with complete single-page
+responses. Review nits are outside this CI repair's scope; no broad review
+completion is claimed. Only this validation record and the round-6 receipt
+changed. Blocking/drainable pair: **blocking=3** (automation-origin chain,
+upstream assessment, designated-writer pin update), **drainable=1** (publish
+this readback). Cost: read-only Git/GitHub checks and focused local validation;
+**zero new runner executions, zero dispatches, zero pin edits**. The existing
+controller/closer owns continuation and the next scheduled post-push review
+at least seven minutes after publication; no new job or hold is created.
