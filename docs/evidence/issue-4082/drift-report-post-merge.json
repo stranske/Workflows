@@ -1,0 +1,315 @@
+{
+  "counts": {
+    "drift": 0,
+    "errors": 1,
+    "missing": 0,
+    "obsolete": 0,
+    "unmeasured_create_only": 0
+  },
+  "drift": [],
+  "errors": [
+    "No GitHub token available for cross-repo reads"
+  ],
+  "follow_up": {
+    "all_repos_command": "gh workflow run maint-68-sync-consumer-repos.yml --repo stranske/Workflows --ref main",
+    "targeted_repos_command": "",
+    "workflow": "maint-68-sync-consumer-repos.yml"
+  },
+  "gate_triggers": [
+    "gate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Ready unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)",
+    "gate triggers: stranske/trip-planner unknown (Gate/tree unavailable)"
+  ],
+  "missing": [],
+  "obsolete": [],
+  "path_prefix_counts": {
+    "drift": {},
+    "errors": {
+      "No GitHub token available for cross-repo reads": 1
+    },
+    "missing": {},
+    "obsolete": {}
+  },
+  "repo_count": 14,
+  "repo_summaries": {
+    "stranske/Counter_Risk": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Deliverable-Render": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Doc-Lineage": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Fine-Art-Archive": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Inv-Man-Intake": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Manager-Mosaic": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Orchestrator": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Pension-Data": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Portable-Alpha-Extension-Model": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Ready": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Travel-Plan-Permission": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/Trend_Model_Project": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/learning-management-system": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    },
+    "stranske/trip-planner": {
+      "drift": 0,
+      "errors": 0,
+      "missing": 0,
+      "obsolete": 0
+    }
+  },
+  "repo_summary_count": 14,
+  "repos": [
+    "stranske/Counter_Risk",
+    "stranske/Deliverable-Render",
+    "stranske/Doc-Lineage",
+    "stranske/Fine-Art-Archive",
+    "stranske/Inv-Man-Intake",
+    "stranske/Manager-Mosaic",
+    "stranske/Orchestrator",
+    "stranske/Pension-Data",
+    "stranske/Portable-Alpha-Extension-Model",
+    "stranske/Ready",
+    "stranske/Travel-Plan-Permission",
+    "stranske/Trend_Model_Project",
+    "stranske/learning-management-system",
+    "stranske/trip-planner"
+  ],
+  "schema": "workflows-consumer-sync-drift/v1",
+  "skip_count": 0,
+  "skipped": [],
+  "status": "drift",
+  "summary_limits": {
+    "content_error_threshold_per_repo": 5,
+    "max_items_per_section": 50
+  },
+  "sync_remediation": {
+    "candidate_branch": "sync/workflows-candidate",
+    "coverage_lease_hours": 36,
+    "delivery_branch": "sync/workflows-delivery",
+    "expected_branch": "",
+    "global_errors": [
+      "No GitHub token available for cross-repo reads"
+    ],
+    "latest_open_pr": null,
+    "lookup_errors": [],
+    "open_pr_count": 0,
+    "open_prs": [],
+    "plan_id": "",
+    "repo_count": 0,
+    "repo_states": {
+      "stranske/Counter_Risk": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Deliverable-Render": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Doc-Lineage": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Fine-Art-Archive": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Inv-Man-Intake": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Manager-Mosaic": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Orchestrator": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Pension-Data": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Portable-Alpha-Extension-Model": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Ready": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Travel-Plan-Permission": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/Trend_Model_Project": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/learning-management-system": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      },
+      "stranske/trip-planner": {
+        "categories": [],
+        "global_errors": [
+          "No GitHub token available for cross-repo reads"
+        ],
+        "reason": "global comparison error",
+        "state": "blocked"
+      }
+    },
+    "stale_open_pr_count": 0,
+    "state": "drift"
+  },
+  "token_diagnostics": {
+    "attempted_sources": [],
+    "error": "no_token_candidates",
+    "probe_paths": [
+      ".github/workflows/agents-guard-fork-status.yml",
+      ".github/codex/prompts/keepalive_next_task.md",
+      ".github/scripts/gate-fork-status-publication.js",
+      ".github/codex/AGENT_INSTRUCTIONS.md",
+      ".github/copilot-instructions.md",
+      ".github/templates/keepalive-instruction.md",
+      ".github/actions/agent-event-eligibility/action.yml",
+      "docs/CI_FAILURE_PLAYBOOK.md",
+      "config/model_registry.json",
+      ".gitattributes",
+      ".github/ISSUE_TEMPLATE/agent_task.yml",
+      "WORKFLOW_USER_GUIDE.md"
+    ],
+    "probe_repos": [
+      "stranske/Counter_Risk",
+      "stranske/Deliverable-Render",
+      "stranske/Doc-Lineage"
+    ],
+    "rejected": [],
+    "schema": "workflows-drift-token-selection/v1",
+    "selected_source": ""
+  },
+  "top_repo_gaps": [],
+  "unmeasured_create_only": []
+}
