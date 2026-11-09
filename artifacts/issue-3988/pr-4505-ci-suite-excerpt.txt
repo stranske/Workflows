@@ -1,0 +1,4 @@
+2026-11-07T02:19:07.1148767Z ##[group]Run node --test .github/scripts/__tests__/*.test.js
+2026-11-07T02:19:07.3329984Z ✔ source: top pool shed and next exhausted -> highest remaining ok agent (8.034779ms)
+2026-11-07T02:19:07.3465908Z ✔ template: top pool shed and next exhausted -> highest remaining ok agent (1.451961ms)
+2026-11-07T02:19:07.3550220Z ✔ top pool shed -> next agent (0.161638ms)

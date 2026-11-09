@@ -1,0 +1,73 @@
+[
+  {
+    "repository": "stranske/Doc-Lineage",
+    "number": 173,
+    "url": "https://github.com/stranske/Doc-Lineage/pull/173",
+    "created_at": "2026-11-09T00:52:32Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Doc-Lineage/issues/173/timeline?per_page=100&page=1",
+        "count": 8
+      }
+    ],
+    "label_events": [],
+    "history_complete": true
+  },
+  {
+    "repository": "stranske/Doc-Lineage",
+    "number": 172,
+    "url": "https://github.com/stranske/Doc-Lineage/pull/172",
+    "created_at": "2026-11-08T16:39:08Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Doc-Lineage/issues/172/timeline?per_page=100&page=1",
+        "count": 23
+      }
+    ],
+    "label_events": [
+      {
+        "id": 35502009442,
+        "url": "https://api.github.com/repos/stranske/Doc-Lineage/issues/events/35502009442",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:39:09Z",
+        "label": "automated"
+      },
+      {
+        "id": 35502009489,
+        "url": "https://api.github.com/repos/stranske/Doc-Lineage/issues/events/35502009489",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:39:09Z",
+        "label": "sync"
+      },
+      {
+        "id": 35502009524,
+        "url": "https://api.github.com/repos/stranske/Doc-Lineage/issues/events/35502009524",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:39:09Z",
+        "label": "workflow:source-sync"
+      },
+      {
+        "id": 35502009567,
+        "url": "https://api.github.com/repos/stranske/Doc-Lineage/issues/events/35502009567",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:39:09Z",
+        "label": "sync:delivery-staging"
+      },
+      {
+        "id": 35502319575,
+        "url": "https://api.github.com/repos/stranske/Doc-Lineage/issues/events/35502319575",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:46:27Z",
+        "label": "sync:delivery-ready"
+      },
+      {
+        "id": 35512814123,
+        "url": "https://api.github.com/repos/stranske/Doc-Lineage/issues/events/35512814123",
+        "event": "unlabeled",
+        "created_at": "2026-11-08T20:49:30Z",
+        "label": "sync:delivery-staging"
+      }
+    ],
+    "history_complete": true
+  }
+]

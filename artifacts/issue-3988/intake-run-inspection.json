@@ -1,0 +1,359 @@
+{
+  "endpoint": "repos/stranske/Workflows/actions/workflows/agents-63-issue-intake.yml/runs?status=success&created=2026-11-07T02%3A51%3A20Z..2026-11-09T02%3A51%3A20Z&per_page=100",
+  "total_successful_runs": 29,
+  "runs": [
+    {
+      "id": 42533640420,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42533640420",
+      "created_at": "2026-11-08T23:07:42Z",
+      "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42533640420/job/128893205780",
+      "job_id": 128893205780,
+      "observed_execution_lines": [
+        "2026-11-08T23:11:15.1602777Z   DEFAULT_AGENT: ",
+        "2026-11-08T23:11:15.3343370Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale",
+        "2026-11-08T23:11:15.3356769Z Overriding bridge agent 'codex' with 'cursor' from labels."
+      ]
+    },
+    {
+      "id": 42533636607,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42533636607",
+      "created_at": "2026-11-08T23:07:39Z",
+      "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42533636607/job/128893157251",
+      "job_id": 128893157251,
+      "observed_execution_lines": [
+        "2026-11-08T23:09:32.4425312Z   DEFAULT_AGENT: ",
+        "2026-11-08T23:09:32.8717325Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale",
+        "2026-11-08T23:09:32.8744464Z Overriding bridge agent 'codex' with 'cursor' from labels."
+      ]
+    },
+    {
+      "id": 42472755494,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42472755494",
+      "created_at": "2026-11-08T10:45:20Z",
+      "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42472755494/job/128707207835",
+      "job_id": 128707207835,
+      "observed_execution_lines": [
+        "2026-11-08T10:45:36.0189919Z   DEFAULT_AGENT: ",
+        "2026-11-08T10:45:36.2717896Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale"
+      ]
+    },
+    {
+      "id": 42472053450,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42472053450",
+      "created_at": "2026-11-08T10:35:11Z",
+      "head_sha": "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42472053450/job/128704912603",
+      "job_id": 128704912603,
+      "observed_execution_lines": [
+        "2026-11-08T10:35:23.3779164Z   DEFAULT_AGENT: ",
+        "2026-11-08T10:35:23.6342069Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale"
+      ]
+    },
+    {
+      "id": 42461289427,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42461289427",
+      "created_at": "2026-11-08T08:03:29Z",
+      "head_sha": "e9516d152196e29110c8f581cc942b91aa708cf9",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42461289427/job/128670953400",
+      "job_id": 128670953400,
+      "observed_execution_lines": [
+        "2026-11-08T08:03:42.9114051Z   DEFAULT_AGENT: ",
+        "2026-11-08T08:03:43.2061564Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale"
+      ]
+    },
+    {
+      "id": 42460704117,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42460704117",
+      "created_at": "2026-11-08T07:54:53Z",
+      "head_sha": "e9516d152196e29110c8f581cc942b91aa708cf9",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42460704117/job/128669191160",
+      "job_id": 128669191160,
+      "observed_execution_lines": [
+        "2026-11-08T07:55:05.1364156Z   DEFAULT_AGENT: ",
+        "2026-11-08T07:55:05.5503996Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale",
+        "2026-11-08T07:55:05.5519593Z Overriding bridge agent 'codex' with 'claude' from labels."
+      ]
+    },
+    {
+      "id": 42443264004,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42443264004",
+      "created_at": "2026-11-08T03:34:08Z",
+      "head_sha": "cff9bcc8c49a52bc1e231d15f0a9a1c7800c0e1d",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42443264004/job/128616805042",
+      "job_id": 128616805042,
+      "observed_execution_lines": [
+        "2026-11-08T03:34:20.0679143Z   DEFAULT_AGENT: ",
+        "2026-11-08T03:34:20.3664467Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale"
+      ]
+    },
+    {
+      "id": 42436306752,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42436306752",
+      "created_at": "2026-11-08T01:55:21Z",
+      "head_sha": "cff9bcc8c49a52bc1e231d15f0a9a1c7800c0e1d",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42436306752/job/128595795146",
+      "job_id": 128595795146,
+      "observed_execution_lines": [
+        "2026-11-08T01:55:32.3595709Z   DEFAULT_AGENT: ",
+        "2026-11-08T01:55:32.5678634Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale"
+      ]
+    },
+    {
+      "id": 42380991219,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42380991219",
+      "created_at": "2026-11-07T14:18:39Z",
+      "head_sha": "2516f27c00180fc8dbe21058ff5a9a4565066de9",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42380991219/job/128428387769",
+      "job_id": 128428387769,
+      "observed_execution_lines": [
+        "2026-11-07T14:18:48.4558795Z   DEFAULT_AGENT: ",
+        "2026-11-07T14:18:48.6852144Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale",
+        "2026-11-07T14:18:48.6867445Z Overriding bridge agent 'codex' with 'gemini' from labels."
+      ]
+    },
+    {
+      "id": 42380937071,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42380937071",
+      "created_at": "2026-11-07T14:17:57Z",
+      "head_sha": "2516f27c00180fc8dbe21058ff5a9a4565066de9",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42380937071/job/128428232413",
+      "job_id": 128428232413,
+      "observed_execution_lines": [
+        "2026-11-07T14:18:08.9556064Z   DEFAULT_AGENT: ",
+        "2026-11-07T14:18:09.2342698Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale"
+      ]
+    },
+    {
+      "id": 42378030409,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42378030409",
+      "created_at": "2026-11-07T13:40:24Z",
+      "head_sha": "2516f27c00180fc8dbe21058ff5a9a4565066de9",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42378030409/job/128419602406",
+      "job_id": 128419602406,
+      "observed_execution_lines": [
+        "2026-11-07T13:40:39.7393658Z   DEFAULT_AGENT: ",
+        "2026-11-07T13:40:40.0436510Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale"
+      ]
+    },
+    {
+      "id": 42376633176,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42376633176",
+      "created_at": "2026-11-07T13:22:03Z",
+      "head_sha": "2516f27c00180fc8dbe21058ff5a9a4565066de9",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42376633176/job/128415462921",
+      "job_id": 128415462921,
+      "observed_execution_lines": [
+        "2026-11-07T13:22:12.9885240Z   DEFAULT_AGENT: ",
+        "2026-11-07T13:22:13.2213070Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale",
+        "2026-11-07T13:22:13.2288977Z Overriding bridge agent 'codex' with 'gemini' from labels."
+      ]
+    },
+    {
+      "id": 42374576009,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42374576009",
+      "created_at": "2026-11-07T12:55:06Z",
+      "head_sha": "2516f27c00180fc8dbe21058ff5a9a4565066de9",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42374576009/job/128409453201",
+      "job_id": 128409453201,
+      "observed_execution_lines": [
+        "2026-11-07T12:55:17.5364811Z   DEFAULT_AGENT: ",
+        "2026-11-07T12:55:17.8444001Z ##[warning]Intake agent chooser failed; using static default codex: Route-weights export unavailable or stale"
+      ]
+    },
+    {
+      "id": 42364353807,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42364353807",
+      "created_at": "2026-11-07T10:32:03Z",
+      "head_sha": "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42364353807/job/128379199382",
+      "job_id": 128379199382,
+      "observed_execution_lines": [
+        "2026-11-07T10:32:14.7163446Z   DEFAULT_AGENT: ",
+        "2026-11-07T10:32:14.9611271Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42361837435,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42361837435",
+      "created_at": "2026-11-07T09:56:49Z",
+      "head_sha": "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42361837435/job/128371692247",
+      "job_id": 128371692247,
+      "observed_execution_lines": [
+        "2026-11-07T09:57:01.5396917Z   DEFAULT_AGENT: ",
+        "2026-11-07T09:57:01.8500620Z Overriding bridge agent 'cursor' with 'gemini' from labels."
+      ]
+    },
+    {
+      "id": 42360005279,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42360005279",
+      "created_at": "2026-11-07T09:30:20Z",
+      "head_sha": "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42360005279/job/128366217887",
+      "job_id": 128366217887,
+      "observed_execution_lines": [
+        "2026-11-07T09:30:31.7029170Z   DEFAULT_AGENT: "
+      ]
+    },
+    {
+      "id": 42357954424,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42357954424",
+      "created_at": "2026-11-07T09:01:47Z",
+      "head_sha": "bffa368bb5792671aa918d6f9296accbf8827880",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42357954424/job/128360076491",
+      "job_id": 128360076491,
+      "observed_execution_lines": [
+        "2026-11-07T09:01:57.3537561Z   DEFAULT_AGENT: "
+      ]
+    },
+    {
+      "id": 42357429432,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42357429432",
+      "created_at": "2026-11-07T08:54:15Z",
+      "head_sha": "bffa368bb5792671aa918d6f9296accbf8827880",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42357429432/job/128358507481",
+      "job_id": 128358507481,
+      "observed_execution_lines": [
+        "2026-11-07T08:54:26.3356599Z   DEFAULT_AGENT: ",
+        "2026-11-07T08:54:26.5648995Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42354856307,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42354856307",
+      "created_at": "2026-11-07T08:17:37Z",
+      "head_sha": "d2106cc83e060d0063f63dd08ea94bbaa4104fbf",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42354856307/job/128350608716",
+      "job_id": 128350608716,
+      "observed_execution_lines": [
+        "2026-11-07T08:17:50.4647817Z   DEFAULT_AGENT: ",
+        "2026-11-07T08:17:50.7862119Z Overriding bridge agent 'cursor' with 'gemini' from labels."
+      ]
+    },
+    {
+      "id": 42353296252,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42353296252",
+      "created_at": "2026-11-07T07:55:49Z",
+      "head_sha": "d2106cc83e060d0063f63dd08ea94bbaa4104fbf",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413",
+      "job_id": 128345864413,
+      "observed_execution_lines": [
+        "2026-11-07T07:55:59.5555106Z   DEFAULT_AGENT: ",
+        "2026-11-07T07:55:59.7123093Z Overriding bridge agent 'cursor' with 'claude' from labels."
+      ]
+    },
+    {
+      "id": 42351883294,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42351883294",
+      "created_at": "2026-11-07T07:35:00Z",
+      "head_sha": "b03f97efffb3a04fea19a54c6ef3e24e3097fe52",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42351883294/job/128341605233",
+      "job_id": 128341605233,
+      "observed_execution_lines": [
+        "2026-11-07T07:35:12.3482965Z   DEFAULT_AGENT: ",
+        "2026-11-07T07:35:12.5581714Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42347491867,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42347491867",
+      "created_at": "2026-11-07T06:32:48Z",
+      "head_sha": "ef0e6beafd4acd8f3a9ead3ff43765dba513bbc9",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42347491867/job/128328308830",
+      "job_id": 128328308830,
+      "observed_execution_lines": [
+        "2026-11-07T06:32:59.5938120Z   DEFAULT_AGENT: ",
+        "2026-11-07T06:32:59.8118180Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42343211506,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42343211506",
+      "created_at": "2026-11-07T05:33:12Z",
+      "head_sha": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42343211506/job/128315264904",
+      "job_id": 128315264904,
+      "observed_execution_lines": [
+        "2026-11-07T05:33:22.2395857Z   DEFAULT_AGENT: ",
+        "2026-11-07T05:33:22.4175383Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42342067943,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42342067943",
+      "created_at": "2026-11-07T05:17:09Z",
+      "head_sha": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42342067943/job/128311732462",
+      "job_id": 128311732462,
+      "observed_execution_lines": [
+        "2026-11-07T05:17:20.4881342Z   DEFAULT_AGENT: ",
+        "2026-11-07T05:17:20.7444113Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42339510055,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42339510055",
+      "created_at": "2026-11-07T04:41:06Z",
+      "head_sha": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42339510055/job/128303864419",
+      "job_id": 128303864419,
+      "observed_execution_lines": [
+        "2026-11-07T04:41:16.7983968Z   DEFAULT_AGENT: ",
+        "2026-11-07T04:41:17.1599275Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42339068989,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42339068989",
+      "created_at": "2026-11-07T04:34:46Z",
+      "head_sha": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42339068989/job/128302505952",
+      "job_id": 128302505952,
+      "observed_execution_lines": [
+        "2026-11-07T04:34:57.2788483Z   DEFAULT_AGENT: ",
+        "2026-11-07T04:34:57.5429860Z Overriding bridge agent 'cursor' with 'gemini' from labels."
+      ]
+    },
+    {
+      "id": 42338266624,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42338266624",
+      "created_at": "2026-11-07T04:23:45Z",
+      "head_sha": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42338266624/job/128300029394",
+      "job_id": 128300029394,
+      "observed_execution_lines": [
+        "2026-11-07T04:23:54.3850059Z   DEFAULT_AGENT: ",
+        "2026-11-07T04:23:54.5826961Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42334928641,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42334928641",
+      "created_at": "2026-11-07T03:38:29Z",
+      "head_sha": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42334928641/job/128289625750",
+      "job_id": 128289625750,
+      "observed_execution_lines": [
+        "2026-11-07T03:38:42.5593922Z   DEFAULT_AGENT: ",
+        "2026-11-07T03:38:42.8110003Z Overriding bridge agent 'cursor' with 'codex' from labels."
+      ]
+    },
+    {
+      "id": 42333711980,
+      "url": "https://github.com/stranske/Workflows/actions/runs/42333711980",
+      "created_at": "2026-11-07T03:22:28Z",
+      "head_sha": "0fb506e6ab16f1b4105a587021d28d60c0f6eb8b",
+      "job_url": "https://github.com/stranske/Workflows/actions/runs/42333711980/job/128285807103",
+      "job_id": 128285807103,
+      "observed_execution_lines": [
+        "2026-11-07T03:22:56.2573396Z   DEFAULT_AGENT: "
+      ]
+    }
+  ],
+  "limitations": [
+    "Job logs prove a cursor default in several real runs via executed override messages. The check-run output.summary was null; public job HTML did not expose step summaries; browser host was unavailable. Posterior/pool values and the actual summary were not retrieved. These logs alone do not satisfy the required summary-and-condition criterion."
+  ]
+}

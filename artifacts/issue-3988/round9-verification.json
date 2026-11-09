@@ -1,0 +1,118 @@
+{
+  "checked_at": "2026-11-09T08:46:13.018646+00:00",
+  "checked_head": "97f7c03f4cfb482c777dab30f041024e0de8c706",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "--test",
+        "tests/scripts/test_agent_delegation_policy_intake.js"
+      ],
+      "exit_code": 0,
+      "stdout": "\u2714 source: top pool shed and next exhausted -> highest remaining ok agent (1.627458ms)\n\u2714 source: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.213791ms)\n\u2714 source: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.103458ms)\n\u2714 source: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.101375ms)\n\u2714 source: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.163833ms)\n\u2714 source: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.080708ms)\n\u2714 source: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.077917ms)\n\u2714 source: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.083292ms)\n\u2714 source: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.105041ms)\n\u2714 source: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.160208ms)\n\u2714 source: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.08175ms)\n\u2714 source: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.063583ms)\n\u2714 source: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.055292ms)\n\u2714 template: top pool shed and next exhausted -> highest remaining ok agent (0.437667ms)\n\u2714 template: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.078333ms)\n\u2714 template: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.09425ms)\n\u2714 template: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.074959ms)\n\u2714 template: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.072209ms)\n\u2714 template: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.081584ms)\n\u2714 template: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.069583ms)\n\u2714 template: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.087875ms)\n\u2714 template: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.064916ms)\n\u2714 template: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.066083ms)\n\u2714 template: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.054ms)\n\u2714 template: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.041792ms)\n\u2714 template: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.037875ms)\n\u2714 source: explicit false preserves insufficient-evidence reason and configured default (0.060042ms)\n\u2714 source: intake evidence string \"false\" (0.070792ms)\n\u2714 source: intake evidence missing (0.033459ms)\n\u2714 source: intake evidence boolean false (0.029334ms)\n\u2714 source: intake evidence null (0.028208ms)\n\u2714 source: intake evidence number zero (0.035875ms)\n\u2714 source: intake evidence number one (0.043167ms)\n\u2714 source: intake evidence string \"true\" (0.0885ms)\n\u2714 source: intake evidence boolean true (0.042875ms)\n\u2714 template: explicit false preserves insufficient-evidence reason and configured default (0.036167ms)\n\u2714 template: intake evidence string \"false\" (0.026958ms)\n\u2714 template: intake evidence missing (0.027833ms)\n\u2714 template: intake evidence boolean false (0.042792ms)\n\u2714 template: intake evidence null (0.022333ms)\n\u2714 template: intake evidence number zero (0.023083ms)\n\u2714 template: intake evidence number one (0.022125ms)\n\u2714 template: intake evidence string \"true\" (0.019375ms)\n\u2714 template: intake evidence boolean true (0.030292ms)\n\u2714 ok pools -> highest posterior wins (0.092ms)\n\u2714 top pool shed -> next agent (0.050875ms)\n\u2714 export stale -> static default (0.100083ms)\n\u2714 no runner -> skipped using the shipped registry (2.833958ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: empty input preserves the chooser default (5.641375ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: ok top pool selects and summarizes the eligible default (1.597542ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: shed top pool selects and summarizes the eligible default (1.414541ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.874583ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: explicit input bypasses the chooser (0.419167ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: require failure warns and retains static default (0.671375ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: registry failure warns and retains static default (0.504709ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: fetch failure warns and retains static default (1.128791ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: null-export failure warns and retains static default (0.781958ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: chooser failure warns and retains static default (1.26525ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: agent:auto remains a routing label (1.389459ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: empty input preserves the chooser default (1.169917ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: ok top pool selects and summarizes the eligible default (0.87875ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: shed top pool selects and summarizes the eligible default (0.569375ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.5035ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: explicit input bypasses the chooser (0.108292ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: require failure warns and retains static default (0.346667ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: registry failure warns and retains static default (0.169375ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: fetch failure warns and retains static default (0.568542ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: null-export failure warns and retains static default (0.65975ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: chooser failure warns and retains static default (0.571875ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: agent:auto remains a routing label (0.7875ms)\n\u2714 root preflight still requires exactly one agent label (2.788292ms)\n\u2714 root bridge dispatch retains normalized bridge input precedence (0.279666ms)\n\u2714 preflight-disabled muse cannot win intake using the shipped registry (0.734042ms)\n\u2714 preflight-disabled gemini cannot win intake using the shipped registry (0.424417ms)\n\u2139 tests 74\n\u2139 suites 0\n\u2139 pass 74\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 102.098709\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        ".github/scripts/__tests__/agent-delegation-policy-intake.test.js"
+      ],
+      "exit_code": 0,
+      "stdout": "\u2714 source: top pool shed and next exhausted -> highest remaining ok agent (1.583ms)\n\u2714 source: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.195875ms)\n\u2714 source: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.096959ms)\n\u2714 source: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.094083ms)\n\u2714 source: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.156334ms)\n\u2714 source: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.076167ms)\n\u2714 source: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.073125ms)\n\u2714 source: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.078292ms)\n\u2714 source: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.094416ms)\n\u2714 source: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.157208ms)\n\u2714 source: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.085667ms)\n\u2714 source: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.068041ms)\n\u2714 source: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.06275ms)\n\u2714 template: top pool shed and next exhausted -> highest remaining ok agent (0.44625ms)\n\u2714 template: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.078542ms)\n\u2714 template: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.09775ms)\n\u2714 template: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.075625ms)\n\u2714 template: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.077667ms)\n\u2714 template: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.086042ms)\n\u2714 template: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.090291ms)\n\u2714 template: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.081083ms)\n\u2714 template: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.064292ms)\n\u2714 template: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.084667ms)\n\u2714 template: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.058834ms)\n\u2714 template: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.04425ms)\n\u2714 template: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.039791ms)\n\u2714 source: explicit false preserves insufficient-evidence reason and configured default (0.063375ms)\n\u2714 source: intake evidence string \"false\" (0.069ms)\n\u2714 source: intake evidence missing (0.034583ms)\n\u2714 source: intake evidence boolean false (0.033083ms)\n\u2714 source: intake evidence null (0.028167ms)\n\u2714 source: intake evidence number zero (0.037584ms)\n\u2714 source: intake evidence number one (0.041875ms)\n\u2714 source: intake evidence string \"true\" (0.028166ms)\n\u2714 source: intake evidence boolean true (0.033709ms)\n\u2714 template: explicit false preserves insufficient-evidence reason and configured default (0.041375ms)\n\u2714 template: intake evidence string \"false\" (0.02975ms)\n\u2714 template: intake evidence missing (0.047667ms)\n\u2714 template: intake evidence boolean false (0.027416ms)\n\u2714 template: intake evidence null (0.025542ms)\n\u2714 template: intake evidence number zero (0.020167ms)\n\u2714 template: intake evidence number one (0.032041ms)\n\u2714 template: intake evidence string \"true\" (0.022375ms)\n\u2714 template: intake evidence boolean true (0.03025ms)\n\u2714 ok pools -> highest posterior wins (0.0875ms)\n\u2714 top pool shed -> next agent (0.05025ms)\n\u2714 export stale -> static default (0.096375ms)\n\u2714 no runner -> skipped using the shipped registry (1.971792ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: empty input preserves the chooser default (2.337084ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: ok top pool selects and summarizes the eligible default (1.275167ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: shed top pool selects and summarizes the eligible default (1.375209ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.846458ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: explicit input bypasses the chooser (0.410083ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: require failure warns and retains static default (0.465334ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: registry failure warns and retains static default (0.443292ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: fetch failure warns and retains static default (0.983167ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: null-export failure warns and retains static default (0.775791ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: chooser failure warns and retains static default (0.912459ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: agent:auto remains a routing label (1.180709ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: empty input preserves the chooser default (0.718875ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: ok top pool selects and summarizes the eligible default (0.608458ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: shed top pool selects and summarizes the eligible default (0.512959ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.490292ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: explicit input bypasses the chooser (0.122542ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: require failure warns and retains static default (0.2675ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: registry failure warns and retains static default (0.128792ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: fetch failure warns and retains static default (0.549834ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: null-export failure warns and retains static default (0.5075ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: chooser failure warns and retains static default (0.507375ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: agent:auto remains a routing label (0.761958ms)\n\u2714 root preflight still requires exactly one agent label (2.325584ms)\n\u2714 root bridge dispatch retains normalized bridge input precedence (0.225208ms)\n\u2714 preflight-disabled muse cannot win intake using the shipped registry (0.608334ms)\n\u2714 preflight-disabled gemini cannot win intake using the shipped registry (0.406083ms)\n\u2139 tests 74\n\u2139 suites 0\n\u2139 pass 74\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 98.731084\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3",
+        "artifacts/issue-3988/collect_observations.py",
+        "--from-saved"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"numerator\": 17, \"denominator\": 51, \"non_codex_share\": 0.3333333333333333, \"complete_coverage\": true, \"acceptance_metric\": {\"definition\": \"First routing label identifies a non-Codex provider; agent:auto is not credited. Same-second mixed labels use conservative bounds.\", \"numerator\": 13, \"denominator\": 51, \"share\": 0.2549019607843137, \"numerator_upper_bound\": 13}, \"verdict\": \"FAIL\"}\n",
+      "stderr": ""
+    }
+  ],
+  "saved_observations_byte_identical": true,
+  "candidate_check_run": {
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413",
+    "id": 128345864413,
+    "output": {
+      "annotations_count": 1,
+      "annotations_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128345864413/annotations",
+      "summary": null,
+      "text": null,
+      "title": null
+    }
+  },
+  "browser_result": "native pipe is closed; no production summary observed",
+  "workflow_inspection": {
+    ".github/workflows/agents-63-issue-intake.yml": {
+      "sha256": "ae206f8a7bef889ac8c884ba550f1d7f24b0c5e0fba1483f3675abfae5233142",
+      "lines": [
+        {
+          "line": 613,
+          "text": "await core.summary.write();"
+        },
+        {
+          "line": 1427,
+          "text": "intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);"
+        },
+        {
+          "line": 1433,
+          "text": "process.env.DEFAULT_AGENT = intakeChoice.agent;"
+        },
+        {
+          "line": 1435,
+          "text": "const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';"
+        },
+        {
+          "line": 1436,
+          "text": "await core.summary"
+        },
+        {
+          "line": 1450,
+          "text": "String(intakeChoice?.poolState || intakeChoice?.pool_state || 'static'),"
+        },
+        {
+          "line": 1454,
+          "text": ".write();"
+        }
+      ]
+    },
+    "templates/consumer-repo/.github/workflows/agents-issue-intake.yml": {
+      "sha256": "590f69b2092cbf45fbdf4954660c750e0a8fb384b2c76b722a165b9dc7ee6d8f",
+      "lines": [
+        {
+          "line": 161,
+          "text": "intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);"
+        },
+        {
+          "line": 167,
+          "text": "process.env.DEFAULT_AGENT = intakeChoice.agent;"
+        },
+        {
+          "line": 169,
+          "text": "const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';"
+        },
+        {
+          "line": 170,
+          "text": "await core.summary"
+        },
+        {
+          "line": 184,
+          "text": "String(intakeChoice?.poolState || intakeChoice?.pool_state || 'static'),"
+        },
+        {
+          "line": 188,
+          "text": ".write();"
+        }
+      ]
+    }
+  },
+  "remaining": {
+    "T3": "UNVERIFIED: qualifying live summary and condition absent",
+    "A3": "UNVERIFIED: qualifying live summary and condition absent",
+    "A4": "FAIL: 13/51 = 25.49%, complete fixed observation window"
+  }
+}

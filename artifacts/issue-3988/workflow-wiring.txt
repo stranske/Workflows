@@ -1,0 +1,90 @@
+3e7f75d3750e54a1453cf9ea0ce4ed048bf24288:.github/workflows/agents-63-issue-intake.yml
+1412:             let intakeChoice = {
+1413:               agent: 'codex',
+1414:               posterior: null,
+1415:               poolState: 'static',
+1416:               delegationSource: 'static',
+1417:             };
+1418:             if (!(process.env.DEFAULT_AGENT || '').trim()) {
+1419:               try {
+1420:                 const { loadAgentRegistry } = require(registryPath);
+1421:                 const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
+1422:                 const registry = loadAgentRegistry();
+1423:                 const routeWeights = await fetchRouteWeights();
+1424:                 if (!routeWeights) {
+1425:                   throw new Error('Route-weights export unavailable or stale');
+1426:                 }
+1427:                 intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+1428:               } catch (error) {
+1429:                 core.warning(`Intake agent chooser failed; using static default codex: ${error.message}`);
+1430:               }
+1431:             }
+1432:             if (!(process.env.DEFAULT_AGENT || '').trim() && intakeChoice?.agent) {
+1433:               process.env.DEFAULT_AGENT = intakeChoice.agent;
+1434:             }
+1435:             const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';
+1436:             await core.summary
+1437:               .addHeading('Intake Agent Selection', 3)
+1438:               .addTable([
+1439:                 [
+1440:                   { data: 'Chosen Agent', header: true },
+1441:                   { data: 'Posterior', header: true },
+1442:                   { data: 'Pool State', header: true },
+1443:                   { data: 'Default Agent', header: true },
+1444:                 ],
+1445:                 [
+1446:                   String(intakeChoice?.agent || defaultAgent),
+1447:                   intakeChoice?.posterior !== null && intakeChoice?.posterior !== undefined
+1448:                     ? String(intakeChoice.posterior)
+1449:                     : 'n/a',
+1450:                   String(intakeChoice?.poolState || intakeChoice?.pool_state || 'static'),
+1451:                   defaultAgent,
+1452:                 ],
+1453:               ])
+1454:               .write();
+
+3e7f75d3750e54a1453cf9ea0ce4ed048bf24288:templates/consumer-repo/.github/workflows/agents-issue-intake.yml
+146:             let intakeChoice = {
+147:               agent: 'codex',
+148:               posterior: null,
+149:               poolState: 'static',
+150:               delegationSource: 'static',
+151:             };
+152:             if (!(process.env.DEFAULT_AGENT || '').trim()) {
+153:               try {
+154:                 const { loadAgentRegistry } = require(registryPath);
+155:                 const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
+156:                 const registry = loadAgentRegistry();
+157:                 const routeWeights = await fetchRouteWeights();
+158:                 if (!routeWeights) {
+159:                   throw new Error('Route-weights export unavailable or stale');
+160:                 }
+161:                 intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+162:               } catch (error) {
+163:                 core.warning(`Intake agent chooser failed; using static default codex: ${error.message}`);
+164:               }
+165:             }
+166:             if (!(process.env.DEFAULT_AGENT || '').trim() && intakeChoice?.agent) {
+167:               process.env.DEFAULT_AGENT = intakeChoice.agent;
+168:             }
+169:             const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';
+170:             await core.summary
+171:               .addHeading('Intake Agent Selection', 3)
+172:               .addTable([
+173:                 [
+174:                   { data: 'Chosen Agent', header: true },
+175:                   { data: 'Posterior', header: true },
+176:                   { data: 'Pool State', header: true },
+177:                   { data: 'Default Agent', header: true },
+178:                 ],
+179:                 [
+180:                   String(intakeChoice?.agent || defaultAgent),
+181:                   intakeChoice?.posterior !== null && intakeChoice?.posterior !== undefined
+182:                     ? String(intakeChoice.posterior)
+183:                     : 'n/a',
+184:                   String(intakeChoice?.poolState || intakeChoice?.pool_state || 'static'),
+185:                   defaultAgent,
+186:                 ],
+187:               ])
+188:               .write();
+
