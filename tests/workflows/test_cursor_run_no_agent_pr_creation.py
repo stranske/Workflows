@@ -36,12 +36,21 @@ def test_cursor_cannot_create_prs_and_every_push_requires_an_open_target():
 def test_source_issue_comment_permissions_and_prompt_mirror():
     callers = [
         WORKFLOW,
-        ROOT / ".github/workflows/agents-keepalive-loop.yml",
-        ROOT / ".github/workflows/agents-autofix-loop.yml",
         ROOT / "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml",
     ]
     for path in callers:
         assert yaml.safe_load(path.read_text())["permissions"]["issues"] == "write", path
+    for name, job in (
+        ("agents-keepalive-loop.yml", "run-cursor"),
+        ("agents-autofix-loop.yml", "autofix-cursor"),
+    ):
+        caller = yaml.safe_load((ROOT / ".github/workflows" / name).read_text())
+        assert caller["permissions"].get("issues") != "write", name
+        permissions = caller["jobs"][job]["permissions"]
+        assert permissions["issues"] == "write", name
+        # Explicit job permissions must preserve everything required by the callee.
+        for scope, access in yaml.safe_load(WORKFLOW.read_text())["permissions"].items():
+            assert permissions[scope] == access, (name, scope)
     prompt = Path(".github/codex/prompts/keepalive_next_task.md")
     instruction = (
         b"Do not create branches or pull requests; commit only to the checked-out PR branch."
@@ -143,7 +152,9 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
     result = json.loads(completed.stdout)
     assert result["outputs"]["push_allowed"] == ("true" if scenario == "open" else "false")
     assert result["reads"] == (
-        [] if scenario == "no-pr" else [{"owner": "stranske", "repo": "Workflows", "pull_number": 42}]
+        []
+        if scenario == "no-pr"
+        else [{"owner": "stranske", "repo": "Workflows", "pull_number": 42}]
     )
     if scenario == "api-error":
         assert result["error"] == "PR lookup unavailable"

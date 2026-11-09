@@ -55,7 +55,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
   pull-requests: write
   actions: write
   models: read
@@ -1167,6 +1166,12 @@ jobs:
       (needs.evaluate.outputs.action == 'run' ||
        needs.evaluate.outputs.action == 'fix' ||
        needs.evaluate.outputs.action == 'conflict')
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+      models: read
     uses: stranske/Workflows/.github/workflows/reusable-cursor-run.yml@main
     secrets: inherit
     with:
