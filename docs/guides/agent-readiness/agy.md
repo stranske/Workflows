@@ -254,6 +254,37 @@ scored answer.
   experiment list is in `run-record.json`. Re-run order: replay, then audit, then testgen, with the
   Claude CLI logged in first.
 
+**Fourth pilot run (2026-10-31): replay passed; Flash audits as well as Claude but writes weaker tests.**
+Evidence: `docs/evidence/agy-pilots-20261031/`. Evidence class: fixture checks (archived experiments and
+seeded defects), not production use. Same 10 modules and 28 validated defects as the third run.
+
+| Pilot | agy model | agy result | Claude yardstick | Pass condition | Met? |
+| --- | --- | --- | --- | --- | --- |
+| 4. Evaluator replay, 32 experiments | agy default (Gemini 4 Argon Medium per agy's log; the file does not record it) | MAE 1.181 vs consensus, 32 of 32 usable | Claude CLI default model: MAE 1.065 | agy MAE no more than 1.5 times the real judges' leave-one-out MAE (1.332) | **Yes** (0.89 times) |
+| 3. Audit, single | gemini-3.8-flash-high | recall 1.00, precision 1.00, 23.5k tokens/item | claude-sonnet-5-5: recall 0.93, 6.6k | recall not below Claude's, citations resolving | **Yes** |
+| 3. Audit, batched | gemini-3.8-flash-high | recall 0.96, 15.2k tokens/item | Sonnet: recall 0.89, 4.6k | as above | **Yes** |
+| 5. Testgen, single | gemini-3.8-flash-high | kill 0.57, clean pass 0.60, 53.6k tokens/item | Sonnet: kill 0.89, clean 0.90, 16.9k | kill rate not below Claude's | **No** |
+| 5. Testgen, batched | gemini-3.8-flash-high | kill 0.11, 6 of 10 unusable; rerun 0.21, 8 unusable | Sonnet: kill 1.00, 16.2k | as above | **No** |
+
+- **Batched testgen fails structurally on Flash-high:** agy reports `exceeded the output token limit`
+  and its 8-minute print timeout, so most batches return nothing. Flash-medium batched did better (kill
+  0.61, clean 0.70) but is still below Sonnet.
+- **Argon audit and testgen were not measured:** the Argon run resumed at 20:09 UTC with the quota
+  spent, and 7 to 10 of 10 items per cell came back unusable. Its numbers in `pilot-audit-testgen.json`
+  are not a model result.
+- **Decision taken from this (owner, 2026-10-31):** test generation stays off Flash. Triage moved to
+  a live Flash-vs-Argon trial (Orchestrator#1037), because a fixture cannot settle production fitness.
+
+**What spends the Argon weekly quota (measured 2026-11-09).** The quota reset on 2026-11-07 at about
+03:40 UTC. Five lane `implement` dispatches at the full tier (`dispatch gemini/full`) ran between
+04:18 and 09:34 UTC that day. Two of them (Orchestrator#1223 and #1224) ran until agy's 40-minute print
+timeout. From 21:50 UTC every full-tier dispatch was refused with `Individual quota reached`. The
+Orchestrator's own routed runs used Argon twice in that week; the other 55 gemini runs were Flash.
+Lane runs log under the Orchestrator's agy home (`agent-runtime/gemini`), not `~/.gemini`, which is
+why the default agy logs showed no work. Consequence for pilots: an Argon pilot needs the lanes kept
+off the full tier for its window; a reset alone does not leave capacity for it.
+Orchestrator#1300 caps lane dispatches at Flash while an Argon quota marker is active.
+
 ### Rule checks
 
 - **Subscription over API spend:** every option uses the subscription login. One risk to close first:
