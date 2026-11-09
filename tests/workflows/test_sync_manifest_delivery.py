@@ -601,7 +601,7 @@ def test_maint68_reuses_stable_delivery_pr_without_resetting_an_unchanged_head()
         )
         > commit_push_guard
     )
-    assert "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3" in source
+    assert "actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3" in source
     assert "permission-contents: write" in source
     assert "permission-pull-requests: read" in source
     assert "permission-workflows: write" in source

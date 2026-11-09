@@ -73,6 +73,8 @@ const SOURCE_WORKFLOWS = new Set([
   // No-op deliveries keep the existing head's own source identity in the PR body; the source
   // checkout and its consumption are unchanged from the previous version (Workflows#4466 follow-up).
   'd6dfc503a0c90c7b40fdfc7e7ead7b0f3776a31a495c7967f723332665d91928',
+  // Actions updates: bump python-version to 3.15, create-github-app-token to v3.3.0, download-artifact to v8
+  '4dd33976c07f74d6520b163abf3da90bdb679df619c1aadbea0ff9b5cc5544a2',
 ]);
 
 async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch = 'main', candidates }) {

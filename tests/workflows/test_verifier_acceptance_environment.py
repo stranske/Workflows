@@ -199,7 +199,7 @@ def test_acceptance_runtime_is_explicit_and_security_boundary_unchanged(relative
     job = yaml.safe_load((ROOT / relative).read_text())["jobs"]["acceptance-gates"]
     setup = next(s for s in job["steps"] if s.get("name") == "Set up acceptance Python")
     assert setup["uses"].startswith("actions/setup-python@")
-    assert setup["with"]["python-version"] == "3.14"
+    assert setup["with"]["python-version"] == "3.15"
     assert job["permissions"] == {"contents": "read"}
     assert "secrets." not in str(job) and "PYTEST_DISABLE_PLUGIN_AUTOLOAD" not in str(job)
     checkout = next(s for s in job["steps"] if s.get("name") == "Checkout immutable merge commit")
