@@ -90,8 +90,16 @@ The protected consumer workflow still needs maintainer wiring: check out this
 helper in `metrics`, call `observeAutofixHead` from Collect metrics and include
 its returned fields in `metrics_json`, then use the helper's CLI for the
 completion step's validated read. Require `steps.collect.outputs.head_observed`
-to equal `'true'` in that step's condition. Until this wiring lands, the helper's
-regressions prove its behavior, not that the workflow retains reservations.
+to equal `'true'` in that step's condition.
+
+The `runner_lib record-completion` CLI also checks the existing `METRICS_JSON`
+environment variable before accessing receipt storage: it requires boolean
+`head_observed: true` bound to the reserved `head_sha_before`. Missing evidence,
+malformed JSON and fallback-only metrics fail without writing a receipt or
+spending an unproductive retry. Callers without `METRICS_JSON` retain their
+existing completion contract. Until the workflow wiring lands, native autofix
+metrics contain no observation evidence, so even successful runs retain their
+reservations and must await recovery or the existing stale-pending timeout.
 
 For a historical successful autofix on an already merged PR, run
 `python -m scripts.reconcile_runner_completion --repo OWNER/REPO --run-id ID --report`.

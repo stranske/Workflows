@@ -259,6 +259,128 @@ def test_receipt_cannot_invent_a_missing_reservation(monkeypatch):
     assert api.writes == []
 
 
+@pytest.mark.parametrize("advanced", [False, True])
+@pytest.mark.parametrize("outcome", ["success", "failure", "cancelled"])
+def test_native_autofix_cli_retains_reservation_until_head_observation_recovers(
+    monkeypatch, capsys, advanced, outcome
+):
+    """The workflow's existing METRICS_JSON must gate the real receipt writer."""
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setattr(core, "_workflow_attempt_id", lambda: "old")
+    before, after = "a" * 40, "b" * 40
+    pending = {
+        **reservation(),
+        "head_sha": before,
+        "key": core._runner_key(42, before, "codex"),
+        "unproductive_completions": 1,
+    }
+    api = CommentApi(pending)
+    storage = core.PrCommentRunnerStorage(api)
+    original = copy.deepcopy(api.reservation)
+    monkeypatch.setattr(core, "_storage_from_name", lambda _name: storage)
+
+    def complete(metrics):
+        monkeypatch.setenv("METRICS_JSON", json.dumps(metrics))
+        args = [
+            "record-completion",
+            "--provider",
+            "codex",
+            "--pr-number",
+            "42",
+            "--head-sha",
+            before,
+            "--produced-work",
+            str(metrics["fix_applied"]).lower(),
+            "--exit-code",
+            "0" if metrics["autofix_result"] == "success" else "1",
+            "--summary",
+            "Native autofix completed; productivity measured by the metrics job.",
+            "--storage",
+            "auto",
+        ]
+        if metrics["head_sha_after"] != before:
+            args.extend(["--observed-head-sha", metrics["head_sha_after"]])
+        return core.main(args)
+
+    fallback = {
+        "head_sha_before": before,
+        "head_sha_after": before,
+        "fix_applied": False,
+        "autofix_result": outcome,
+    }
+    # These fallback values pass the current workflow's inline validation, but
+    # must never become a durable completion or spend an unproductive retry.
+    for head_observed in [None, False, "true", 1]:
+        metrics = dict(fallback)
+        if head_observed is not None:
+            metrics["head_observed"] = head_observed
+        assert complete(metrics) == 1
+        assert "retain reservation" in capsys.readouterr().err
+        assert api.reservation == original
+        assert storage.read_record(42, "codex") == pending
+        assert api.receipts == []
+        assert api.writes == []
+
+    assert (
+        complete(
+            {
+                **fallback,
+                "head_observed": True,
+                "head_sha_after": after if advanced else before,
+                "fix_applied": advanced,
+            }
+        )
+        == 0
+    )
+    completed = storage.read_record(42, "codex")
+    assert completed["status"] == ("completed" if outcome == "success" else "error")
+    if outcome == "success":
+        assert completed["productive"] is advanced
+        assert completed["unproductive_completions"] == (0 if advanced else 2)
+    else:
+        assert completed["unproductive_completions"] == 1
+    assert api.reservation == original
+    assert api.writes == ["POST"]
+    assert len(api.receipts) == 1
+
+
+@pytest.mark.parametrize(
+    "raw_metrics",
+    [
+        "",
+        "{",
+        "null",
+        "[]",
+        "true",
+        json.dumps({"head_observed": True, "head_sha_before": "b" * 40}),
+    ],
+)
+def test_native_autofix_cli_rejects_malformed_metrics_before_storage(
+    monkeypatch, capsys, raw_metrics
+):
+    monkeypatch.setenv("METRICS_JSON", raw_metrics)
+
+    def unexpected_storage(_name):
+        pytest.fail("Unobserved autofix completion must not access receipt storage")
+
+    monkeypatch.setattr(core, "_storage_from_name", unexpected_storage)
+    assert (
+        core.main(
+            [
+                "record-completion",
+                "--provider",
+                "codex",
+                "--pr-number",
+                "42",
+                "--head-sha",
+                "a" * 40,
+            ]
+        )
+        == 1
+    )
+    assert "retain reservation" in capsys.readouterr().err
+
+
 def test_long_comment_history_reads_from_tail_and_stops_at_latest_reservation():
     class LongHistoryApi(CommentApi):
         def __init__(self, current):
