@@ -2792,3 +2792,94 @@ is never`. None of those remote mutations succeeded. The existing authorized
 writer must publish the local changes and apply reconciliation. The original
 acceptance remains incomplete; no workflow, security-sensitive path or consumer
 payload was edited.
+
+## Local keepalive round 9/12: exact-head Gate diagnosis — 2026-11-09
+
+Plan/check date: **2026-11-09T02:45:04Z**, before this round's edits.
+Outcome: both full-suite commands exit 0 on selected published main
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`, with complete hosted receipts;
+original overall acceptance still requires authenticated automation origin and
+upstream verification disposition. Reproduce receipt validation with
+`/opt/anaconda3/bin/python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py tests/scripts/test_issue_4369_downstream_evidence.py -m 'not slow'`.
+Reproduce the merged payload check with
+`cmp docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt`.
+Bound each local command and API call to 120 seconds. Stop at the first unresolved
+step after three failed attempts or 60 minutes, whichever occurs first; this
+round's deadline is **03:45:04Z**. Full suites run only on the supported non-local
+runner; no full local suite or workflow dispatch is planned. No code repair is
+justified by a cancelled predecessor run. Blocking/drainable pair:
+**blocking=2** (unproved automation origin; upstream non-PASS disposition),
+**drainable=1** (validate and publish exact-head diagnostic/evidence update).
+
+Outcome **A1=verified historical execution receipts; overall acceptance=incomplete**.
+The [cited native run](runtime-4550/4558-seat-round9-cited-run.json)
+42549415323 is **cancelled** at predecessor head
+`825337ce48bd897465f015219c8bc0f56fea609b`, not incoming head
+`a3b5f1539ad0be40a4f53ac380264781ff10fdc5`. Its Python 3.13 job
+128944827899 prints “The operation was canceled” and `PYTEST_OUTCOME=cancelled`
+([excerpt](runtime-4550/4558-seat-round9-cancellation-excerpt.log)); the
+[Gate summary](runtime-4550/4558-seat-round9-gate-excerpt.log) says
+“Python CI cancelled; waiting for rerun.” The cancellation initiator/cause is
+UNKNOWN. This does not demonstrate a failing source assertion. The actual
+[incoming-head Gate run](runtime-4550/4558-seat-round9-current-run.json)
+42551000234 is **queued**, with no conclusion at readback. No workflow or code
+was changed to address a predecessor cancellation, and no rerun was dispatched.
+
+The [verification receipt](runtime-4550/4558-seat-round9-verification.json)
+records three successful ancestry commands, both complete hosted-suite log
+hashes, immutable source readback, fresh consumer contents-API readback, and the
+exact `cmp` command exiting **0**. Selected published main remains
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`, containing required ancestor
+`b21fae85fe4f79e72c4133c29a3814b9d5950c3a` and salvaged #4551 head
+`154858c48424d7aa30c9edaf22ee3edb90066c5d`. The retained
+[hosted execution receipt](runtime-4550/4557-exact-main-run.json) and
+[Node](runtime-4550/4557-exact-main/node-full.json) /
+[Python](runtime-4550/4557-exact-main/python-full.json) receipts bind both exact
+commands to that same revision, supported runner, absolute interpreter paths,
+600/1800-second bounds, timings and exit **0**. These are historical executions,
+not full-suite executions of this PR head. Focused receipt validation using
+`/opt/anaconda3/bin/python3` exits **0**, **124 passed in 0.71s**
+([complete focused log](runtime-4550/4558-seat-round9-focused.log)).
+
+Outcome **A2=0 (equal bytes)**: source template at selected main and consumer
+`tools/subscription_llm.py` at actual PR 2486 merge
+`1ff9e11cd51a456333c626cb354543b63202bef6` both contain **7,087 bytes** and blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`
+([fresh consumer blob](runtime-4550/4558-seat-round9-consumer-blob.json),
+[original source/consumer receipts and comparison](runtime-4550/4558-byte-comparison.json)).
+Applicable exact-head Maint 71 finding disposition remains the
+[terminal target report](runtime-4550/4557-maint71-target.json)'s zero
+active/blocking/nonblocking/unknown findings for candidate
+`a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, source
+`bbfc6ae604c8e8c4021138c5efe964a368482957`, generation `a478e45c16b6`.
+Discussion **4434491702 is excluded**. A
+[fresh consumer review-thread read](runtime-4550/4558-seat-round9-consumer-threads.json)
+confirms the actual merged revision and zero threads, `hasNextPage=false`.
+No discussion was resolved or waived by this round.
+
+Outcome **A3=unproved**. Complete workflow-specific inventories cover
+**2026-11-09T02:21:41Z–2026-11-09T02:45:58Z** without an event filter:
+[producer inventory](runtime-4550/4558-seat-round9-producer-inventory.json),
+[merger inventory](runtime-4550/4558-seat-round9-merger-inventory.json).
+Both retain an explicit empty terminal page, total **0**, and matching exact
+workflow identities. The bounded observer replays exit **0** and find no runs
+([producer](runtime-4550/4558-seat-round9-producer-observation.json),
+[merger](runtime-4550/4558-seat-round9-merger-observation.json)). No new chain
+is established; original producer dispatch provenance remains UNKNOWN.
+
+Outcome **A4=observation refreshed**. The
+[complete issue-4369 comment observation](runtime-4550/4558-seat-round9-comments.json)
+retains pages of **49 and 0**, **49 unique IDs**, explicit UTC boundary
+**2026-11-09T02:45:58Z**, and an empty terminal page. This is a comment
+observation boundary independent of workflow-run timing. The applicable
+exact-head findings and merged-byte result are recorded above.
+
+The [PR readback](runtime-4550/4558-seat-round9-pr.json) confirms open and ready
+(`draft=false`) on the original branch. No pins, production code, workflow,
+consumer template or test changed. Cost: read-only API/Git checks and the focused
+receipt validator; **zero new runner executions, zero workflow dispatches,
+zero local full-suite runs**. Blocking/drainable remains **2/1** until publication:
+authenticated automation origin and upstream non-PASS disposition remain
+unresolved. The existing local-loop controller owns exact-head CI readback and
+post-push review at least seven minutes after publication; no new job or hold
+is created by this evidence update.

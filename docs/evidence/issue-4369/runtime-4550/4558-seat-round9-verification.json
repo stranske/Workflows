@@ -1,0 +1,125 @@
+{
+  "checked_at": "2026-11-09T02:46:43.328724+00:00",
+  "local_interpreter": "/opt/anaconda3/bin/python3",
+  "timeout_seconds_per_command": 120,
+  "checks": [
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "origin/main"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "node",
+        "docs/evidence/issue-4369/observe-maint68.js",
+        "docs/evidence/issue-4369/runtime-4550/4558-seat-round9-producer-inventory.json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"start\": \"2026-11-09T02:21:41Z\",\n  \"end\": \"2026-11-09T02:45:58Z\",\n  \"total_count\": 0,\n  \"pagination_complete\": true,\n  \"workflow_path\": \".github/workflows/maint-68-sync-consumer-repos.yml\",\n  \"inventory_scope\": \"producer\",\n  \"workflow_id\": 218845705,\n  \"producers\": [],\n  \"chain_acceptance\": false\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "node",
+        "docs/evidence/issue-4369/observe-maint68.js",
+        "docs/evidence/issue-4369/runtime-4550/4558-seat-round9-merger-inventory.json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"start\": \"2026-11-09T02:21:41Z\",\n  \"end\": \"2026-11-09T02:45:58Z\",\n  \"total_count\": 0,\n  \"pagination_complete\": true,\n  \"workflow_path\": \".github/workflows/maint-71-merge-sync-prs.yml\",\n  \"inventory_scope\": \"merger\",\n  \"workflow_id\": 221137962,\n  \"mergers\": [],\n  \"chain_acceptance\": false\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "cmp",
+        "docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt",
+        "docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "show",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf:templates/consumer-repo/tools/subscription_llm.py"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout_sha256": "ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca",
+      "stdout_bytes": 7087
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/stranske/Portable-Alpha-Extension-Model/contents/tools/subscription_llm.py?ref=1ff9e11cd51a456333c626cb354543b63202bef6"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout_sha256": "57a09e867ac28a8ae45a64910278b0b232a860b2e808d984dabd27eefd318ba8",
+      "stdout_bytes": 10969
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "graphql",
+        "-f",
+        "query=query { repository(owner:\"stranske\",name:\"Portable-Alpha-Extension-Model\") { pullRequest(number:2486) { state merged mergeCommit { oid } reviewThreads(first:100) { totalCount pageInfo { hasNextPage endCursor } nodes { id isResolved isOutdated comments(first:100) { pageInfo { hasNextPage } nodes { databaseId } } } } } } }"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"data\":{\"repository\":{\"pullRequest\":{\"state\":\"MERGED\",\"merged\":true,\"mergeCommit\":{\"oid\":\"1ff9e11cd51a456333c626cb354543b63202bef6\"},\"reviewThreads\":{\"totalCount\":0,\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null},\"nodes\":[]}}}}}",
+      "stderr": ""
+    }
+  ],
+  "suite_logs": [
+    {
+      "receipt": "4557-exact-main/node-full.json",
+      "sha256": "08b20d314f3e69489d5bc9e7c3cad198ace79fd2f925f8ca76fea14e481dcba3",
+      "hash_matches": true
+    },
+    {
+      "receipt": "4557-exact-main/python-full.json",
+      "sha256": "a0f8a82d67e4a6fb5f4777966fc3724e9aff54abdfd72368f97bcccdcb3e6d59",
+      "hash_matches": true
+    }
+  ],
+  "source_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "consumer_merge": "1ff9e11cd51a456333c626cb354543b63202bef6",
+  "blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+  "payload_bytes": 7087,
+  "manual_dispatches": 0,
+  "local_full_suites": 0
+}
