@@ -2,6 +2,9 @@
 
 import copy
 import json
+import os
+import subprocess
+from pathlib import Path
 
 import pytest
 from scripts.runner_lib import core
@@ -135,6 +138,99 @@ def test_matching_receipt_is_read_and_completion_retry_is_idempotent(monkeypatch
     assert first["unproductive_completions"] == second["unproductive_completions"] == 1
     assert api.reservation == original
     assert api.writes == ["POST"], "Identical retry reuses its existing receipt"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        ".github/scripts/autofix_metrics.js",
+        "templates/consumer-repo/.github/scripts/autofix_metrics.js",
+    ],
+)
+@pytest.mark.parametrize("observed_head", ["a" * 40, "b" * 40])
+@pytest.mark.parametrize("head_observed", [None, False])
+def test_autofix_observation_recovery_preserves_authoritative_retry_budget(
+    monkeypatch, source, observed_head, head_observed
+):
+    """Exercise the candidate validator with real receipt storage before workflow wiring."""
+    monkeypatch.setattr(core, "_workflow_attempt_id", lambda: "old")
+    before = "a" * 40
+    pending = {
+        **reservation(),
+        "head_sha": before,
+        "key": core._runner_key(42, before, "codex"),
+        "unproductive_completions": 1,
+    }
+    api = CommentApi(pending)
+    storage = core.PrCommentRunnerStorage(api)
+    original = copy.deepcopy(api.reservation)
+    helper = Path(__file__).resolve().parents[2] / source
+
+    def record_when_measured(metrics):
+        # The fail-fast read must finish before any receipt write is allowed.
+        measurement = subprocess.run(
+            [
+                "bash",
+                "-euo",
+                "pipefail",
+                "-c",
+                'read -r HEAD WORK EXIT_CODE < <(node "$HELPER")\n'
+                'printf "%s %s %s\\n" "$HEAD" "$WORK" "$EXIT_CODE"',
+            ],
+            env={
+                **os.environ,
+                "HELPER": str(helper),
+                "HEAD_SHA": before,
+                "METRICS_JSON": json.dumps(metrics),
+            },
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        head, work, exit_code = measurement.stdout.split()
+        return core.record_completion(
+            42,
+            before,
+            "codex",
+            {"success": exit_code == "0"},
+            storage=storage,
+            produced_work=work == "true",
+            observed_head_sha=head if head != before else "",
+        )
+
+    fallback = {
+        "head_sha_before": before,
+        "head_sha_after": before,
+        "fix_applied": False,
+        "autofix_result": "success",
+    }
+    if head_observed is not None:
+        fallback["head_observed"] = head_observed
+    # Repeated unavailable observations neither create receipts nor spend retries.
+    for _ in range(2):
+        with pytest.raises(subprocess.CalledProcessError) as error:
+            record_when_measured(fallback)
+        assert "retain reservation" in error.value.stderr
+        assert api.reservation == original
+        assert api.receipts == []
+        assert api.writes == []
+        assert storage.read_record(42, "codex") == pending
+
+    advanced = observed_head != before
+    completed = record_when_measured(
+        {
+            **fallback,
+            "head_observed": True,
+            "head_sha_after": observed_head,
+            "fix_applied": advanced,
+        }
+    )
+    assert completed["productive"] is advanced
+    assert completed["unproductive_completions"] == (0 if advanced else 2)
+    assert storage.read_record(42, "codex") == completed
+    assert api.reservation == original
+    assert api.writes == ["POST"]
+    assert len(api.receipts) == 1
 
 
 def test_receipts_are_found_on_older_cursor_page(monkeypatch):
