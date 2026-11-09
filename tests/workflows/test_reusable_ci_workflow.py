@@ -465,7 +465,9 @@ def test_pinned_verifier_history_fetch_deepens_the_checkout_ref(tmp_path: Path) 
         "GITHUB_REF": "refs/pull/1/merge",
     }
 
-    def git(cwd: Path, *args: str, input: str | None = None, check: bool = True):
+    def git(
+        cwd: Path, *args: str, input: str | None = None, check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["git", *args],
             cwd=cwd,
