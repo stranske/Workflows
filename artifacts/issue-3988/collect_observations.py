@@ -257,10 +257,17 @@ def main():
             "numerator_upper_bound": provider_numerator + provider_ambiguous,
         },
         "verdict": (
-            "UNKNOWN" if not complete or not elapsed or not denominator
-            else "PASS" if provider_share >= 0.30
-            else "FAIL" if (provider_numerator + provider_ambiguous) / denominator < 0.30
-            else "UNKNOWN"
+            "UNKNOWN"
+            if not complete or not elapsed or not denominator
+            else (
+                "PASS"
+                if provider_share >= 0.30
+                else (
+                    "FAIL"
+                    if (provider_numerator + provider_ambiguous) / denominator < 0.30
+                    else "UNKNOWN"
+                )
+            )
         ),
         "limitations": [
             "Observed label history does not establish a particular chooser invocation, pool capacity at assignment, or causal attribution to PR #4505.",

@@ -233,3 +233,21 @@ first-label provider threshold (25.49%); a closed historical window cannot be
 made to pass by rerunning collection or changing current labels.
 The preserved logs and first-label study do not fill that gap. The merged
 capacity fix is preserved; no unrelated workflow or policy repair was made.
+
+## Round 8 format repair — 2026-11-09
+
+Reproduced the reported Black failure on `collect_observations.py` using
+Black 26.10.1, then applied its formatting to the nested verdict expression.
+`/opt/anaconda3/bin/python3 -m black --check artifacts/issue-3988/collect_observations.py`
+passes. The Python 3.12 runtime warns about the configured Python 3.13 target;
+an explicit `ast.dump(ast.parse(...))` comparison of the original and formatted
+file also passes, establishing AST equivalence for this change.
+
+Both issue-named Node commands pass on the repaired branch (74/74 each).
+`gh pr checks 4505 --repo stranske/Workflows` still reports successful
+suite-bearing JavaScript CI and the separate failed post-merge Codex keepalive
+job. Saved-history replay via
+`/opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py --from-saved`
+produces byte-identical observation JSON: complete coverage, acceptance share
+13/51 (25.49%), verdict FAIL. T3/A3 remain unproved and A4 remains unsatisfied.
+No new fleet collection or production-routing change was made in this round.
