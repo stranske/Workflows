@@ -360,28 +360,33 @@ test('the declaration is read from the base branch, and only a 404 means none', 
 // The whole Maint 71 pass over #530 as it stood when it merged: its real
 // delivery record and check runs, Orchestrator's empty protection and
 // rulesets, and a base branch that does or does not declare its CI.
-async function runMaint71Over530(t, { declaration, checkReads = null, merge = null }) {
+async function runMaint71Over530(t, { declaration, checkReads = null, merge = null, missingPythonRecovery = null }) {
   const os = require('node:os');
   const { run } = require('../maint71_merge_sync_prs.js');
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-declared-'));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const reportPath = path.join(tempDir, 'report.json');
   const repository = 'stranske/Orchestrator';
-  const headSha = 'e57bc6b6292b4a18cb011e05c396251d034ad33e';
+  const headSha = missingPythonRecovery ? '6efd1db39f9ba919d0f0ff6f63e2c0056ca64172'
+    : 'e57bc6b6292b4a18cb011e05c396251d034ad33e';
   const record = {
     schema: 'sync-pr-delivery-record/v1',
     durable_issue_url: 'https://github.com/stranske/Workflows/issues/1836',
-    plan_id: 'dev-tool-ab725abacde7', generation: 'ab725abacde7', repository,
-    desired_tree_hash: '0fe8dbcc5a6714de304cc931117668b6737ee398',
-    source_commit: 'af65422cdf606647c4d10890d444d00cdde00828',
+    plan_id: missingPythonRecovery ? 'dev-tool-57431b7fe7a2' : 'dev-tool-ab725abacde7',
+    generation: missingPythonRecovery ? '57431b7fe7a2' : 'ab725abacde7', repository,
+    desired_tree_hash: missingPythonRecovery ? '410a231df0761ab06843b6f4a89eef0f54540117'
+      : '0fe8dbcc5a6714de304cc931117668b6737ee398',
+    source_commit: missingPythonRecovery ? '46d7b8a4166ba3e486b0cb05e7d9295bae2ab609'
+      : 'af65422cdf606647c4d10890d444d00cdde00828',
     lease_expires_at: '2099-10-14T21:36:08Z', predecessor_prs: [], successor_prs: [],
   };
   const pr530 = {
-    number: 530, title: 'deps: sync dev tool versions',
+    number: missingPythonRecovery ? 1289 : 530, title: 'deps: sync dev tool versions',
     body: `<!-- sync-pr-delivery-record:v1 ${JSON.stringify(record)} -->`,
     created_at: '2026-10-11T21:36:09Z', updated_at: '2026-10-11T21:36:09Z', state: 'open',
     base: { ref: 'main' },
-    head: { ref: 'deps/sync-dev-versions-ab725abacde7', sha: headSha },
+    head: { ref: missingPythonRecovery ? 'deps/sync-dev-versions-57431b7fe7a2'
+      : 'deps/sync-dev-versions-ab725abacde7', sha: headSha },
     user: { login: 'stranske' },
   };
   const contentReads = [];
@@ -403,6 +408,14 @@ async function runMaint71Over530(t, { declaration, checkReads = null, merge = nu
       } },
     }),
     rest: {
+      ...(missingPythonRecovery ? { actions: {
+        listWorkflowRuns: async ({ event }) => ({ data: { workflow_runs: event === 'pull_request'
+          ? [{ id: 42588005969, event, status: 'completed', conclusion: 'success', head_sha: headSha }]
+          : missingPythonRecovery.length ? [{ id: 42589659513, event, status: 'queued',
+            head_sha: headSha, head_branch: pr530.head.ref, created_at: new Date().toISOString() }] : [] } }),
+        createWorkflowDispatch: async params => { missingPythonRecovery.push(params); return { status: 204 }; },
+        reRunWorkflow: async () => assert.fail('the successful skipped PR Gate must not be rerun'),
+      } } : {}),
       pulls: {
         list: async () => ({ data: [pr530] }),
         get: async () => ({ data: pr530 }),
@@ -442,8 +455,8 @@ async function runMaint71Over530(t, { declaration, checkReads = null, merge = nu
   const env = {
     REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
     CLEANUP_BRANCHES_INPUT: 'false',
-    DRY_RUN_INPUT: merge ? 'false' : 'true',
-    AUTO_MERGE_INPUT: merge ? 'true' : 'false',
+    DRY_RUN_INPUT: merge || missingPythonRecovery ? 'false' : 'true',
+    AUTO_MERGE_INPUT: merge || missingPythonRecovery ? 'true' : 'false',
     ACTIVE_SYNC_HASH_INPUT: 'dev-tool', SYNC_HASH_INPUT: '',
     EXPECTED_PLAN_ID_INPUT: '', EXPECTED_PLAN_SCOPE_INPUT: '',
     EXPECTED_SCOPE_BASE_SHA_INPUT: '', EXPECTED_SOURCE_COMMIT_INPUT: '',
@@ -474,6 +487,24 @@ async function runMaint71Over530(t, { declaration, checkReads = null, merge = nu
     }
   }
 }
+
+test('parsed unsealed dev-tool record drains missing declared Python through the caller', async t => {
+  const dispatches = [];
+  const names = Array.from({ length: 6 }, (_, i) => ['3.13', '3.14']
+    .map(version => `python ci shard ${i + 1}/6 / python ${version}`)).flat();
+  const { report, failures } = await runMaint71Over530(t, {
+    declaration: { required_contexts: names }, missingPythonRecovery: dispatches,
+  });
+  const row = report.results[0];
+  assert.equal(row.pr, 1289);
+  assert.equal(row.status, 'checks_pending', 'absent mandatory checks cannot become passing');
+  assert.equal(row.gate_request.mode, 'dispatch');
+  assert.equal(row.gate_request.run_id, 42589659513);
+  assert.deepEqual(dispatches, [{ owner: 'stranske', repo: 'Orchestrator',
+    workflow_id: 'pr-00-gate.yml', ref: 'deps/sync-dev-versions-57431b7fe7a2', inputs: { pr_number: '1289' } }]);
+  assert.equal(report.summary.merged, 0);
+  assert.deepEqual(failures, []);
+});
 
 test('Maint 71 over #530: without a declaration the red head is merge-ready (the incident)', async (t) => {
   const { report, logs, failures } = await runMaint71Over530(t, { declaration: null });

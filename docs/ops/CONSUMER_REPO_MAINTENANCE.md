@@ -3949,3 +3949,7 @@ Health 85 refreshes the completed-run inventory daily, then reuses fully observe
 ## Idempotent sync branch cleanup
 
 GitHub may delete a merged sync branch before Maint 71's explicit cleanup. On a delete 404/422, Maint 71 re-reads the ref and confirms repository access. Only a missing ref with accessible repository is reported as successful cleanup (`branch_deleted`, `already_absent: true`). An existing/protected ref, inaccessible repository or uncertain write remains a failure. Dry runs and all publication/merge gates retain their existing behavior.
+
+## Starting a missing required Python matrix
+
+When a generated delivery declares required Gate Python contexts that never started, a successful ordinary PR Gate can still have skipped its Python parent job. Maint 71 requests the supported exact-head `pr-00-gate.yml` dispatch with that PR number instead of repeatedly rerunning the same skipped PR event. It preserves the current source, plan, seal and all mandatory checks. An active PR Gate or an existing same-head dispatch is reused; a completed dispatch does not authorize merging while a required context remains absent. This recovery applies only to the declared `python ci ... / python X.Y` contexts, and keeps other missing requirements unchanged.
