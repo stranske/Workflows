@@ -79,5 +79,10 @@ def test_exhausted_format_pause_schedules_bounded_automation_wakeup_job() -> Non
         assert "format-pause-wakeup:" in text
         assert "sleep 1800" in text
         assert "format_pause_wakeup == 'true'" in text
-        assert "workflow_id: 'agents-auto-pilot.yml'" in text
-        assert "force_step: 'format'" in text
+        # The redispatch and its retry budget live in the runtime-fetched module.
+        assert "autopilot_format_retry_budget.js" in text
+        assert "if: steps.budget.outputs.retry == 'true'" in text
+    budget = (ROOT / ".github/scripts/autopilot_format_retry_budget.js").read_text(encoding="utf-8")
+    assert "workflow_id: 'agents-auto-pilot.yml'" in budget
+    assert "force_step: 'format'" in budget
+    assert "const MAX_FORMAT_RETRIES = " in budget

@@ -1003,7 +1003,7 @@ jobs:
                   '',
                   'Auto-pilot counts: dispatched=0 formatted=0 paused=1 handed-to-human=0.',
                   '',
-                  'A bounded automation wakeup will clear `agents:auto-pilot-pause` and re-dispatch the format step after a 30-minute backoff unless the issue state changes first.',
+                  'A bounded automation wakeup will clear `agents:auto-pilot-pause` and re-dispatch the format step after a 30-minute backoff, within a fixed per-arming retry budget (autopilot_format_retry_budget.js), unless the issue closes, loses `agents:auto-pilot` or gains an open linked PR first. When the retries are spent the pause stays with a format-guard marker, and the opener lane rewrites the body and lifts it.',
                 ].join('\n'),
               }));
             })().catch((error) => { console.error(error); process.exit(1); });
@@ -4347,17 +4347,31 @@ jobs:
       actions: write
       issues: write
       contents: read
+      # The linked-PR lookup (closedByPullRequestsReferences) needs this in
+      # private consumer repos; without it the lookup reads as unknown.
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Bounded formatter pause backoff
-        run: |
-          echo "Waiting 30 minutes before automation-owned format retry..."
-          sleep 1800
+      # The retry budget lives in Workflows and is fetched at run time (manifest
+      # `runtime_fetched`), so every consumer applies the same bound.
+      - name: Checkout Workflows format retry budget
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: stranske/Workflows
+          sparse-checkout: |
+            .github/scripts/autopilot_format_retry_budget.js
+          sparse-checkout-cone-mode: false
+          path: workflows-lib
+          fetch-depth: 1
+          persist-credentials: false
 
-      - name: Clear pause and redispatch format step
+      # Decide before the backoff: a closed, disarmed, PR-linked or exhausted
+      # issue is settled at once instead of holding a runner for 30 minutes.
+      - name: Check format retry budget
+        id: budget
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           ISSUE_NUMBER: ${{ needs.auto-pilot.outputs.issue_number }}
@@ -4369,6 +4383,7 @@ jobs:
               return;
             }
             const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { runFormatWakeup } = require('./workflows-lib/.github/scripts/autopilot_format_retry_budget.js');
             const { withRetry } = await createTokenAwareRetry({
               github,
               core,
@@ -4376,45 +4391,51 @@ jobs:
               task: 'auto-pilot-format-pause-wakeup',
               capabilities: ['issues:write', 'actions:write', 'contents:read'],
             });
-            const { data: liveIssue } = await withRetry((client) => client.rest.issues.get({
+            const decision = await runFormatWakeup({
+              withRetry,
+              core,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: issueNumber,
-            }));
-            const labels = (liveIssue.labels || [])
-              .map((label) => (typeof label === 'string' ? label : label.name))
-              .filter(Boolean);
-            if (!labels.includes('agents:auto-pilot-pause')) {
-              core.info('Pause label already cleared; skipping wakeup dispatch.');
+              issueNumber,
+              dispatch: false,
+            });
+            core.setOutput('action', decision.action);
+            core.setOutput('retry', decision.action === 'retry' ? 'true' : 'false');
+
+      - name: Bounded formatter pause backoff
+        if: steps.budget.outputs.retry == 'true'
+        run: |
+          echo "Waiting 30 minutes before automation-owned format retry..."
+          sleep 1800
+
+      - name: Clear pause and redispatch format step
+        if: steps.budget.outputs.retry == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          ISSUE_NUMBER: ${{ needs.auto-pilot.outputs.issue_number }}
+        with:
+          script: |
+            const issueNumber = parseInt(process.env.ISSUE_NUMBER, 10);
+            if (!issueNumber) {
+              core.setFailed('Missing issue number for format pause wakeup');
               return;
             }
-            await withRetry((client) => client.rest.issues.removeLabel({
+            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry.js');
+            const { runFormatWakeup } = require('./workflows-lib/.github/scripts/autopilot_format_retry_budget.js');
+            const { withRetry } = await createTokenAwareRetry({
+              github,
+              core,
+              env: process.env,
+              task: 'auto-pilot-format-pause-wakeup',
+              capabilities: ['issues:write', 'actions:write', 'contents:read'],
+            });
+            // Re-read live state after the backoff: the issue may have closed,
+            // been disarmed, gained a linked PR, or been retried by another run.
+            await runFormatWakeup({
+              withRetry,
+              core,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: issueNumber,
-              name: 'agents:auto-pilot-pause',
-            }));
-            const { data: repoInfo } = await withRetry((client) => client.rest.repos.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            }));
-            await withRetry((client) => client.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'agents-auto-pilot.yml',
-              ref: repoInfo.default_branch || 'main',
-              inputs: {
-                issue_number: String(issueNumber),
-                force_step: 'format',
-              },
-            }));
-            await withRetry((client) => client.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              body: [
-                '🤖 **Auto-pilot format retry scheduled.**',
-                '',
-                'Cleared `agents:auto-pilot-pause` after the bounded backoff and re-dispatched the format step.',
-              ].join('\n'),
-            }));
+              issueNumber,
+              dispatch: true,
+            });
