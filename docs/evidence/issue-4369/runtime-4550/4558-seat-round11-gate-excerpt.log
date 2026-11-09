@@ -1,0 +1,3 @@
+summary	Enforce explicit Gate success	2026-11-09T03:46:03.8851580Z   GATE_SUMMARY_DESCRIPTION: Python CI cancelled; waiting for rerun.
+summary	Enforce explicit Gate success	2026-11-09T03:46:03.9047221Z Gate did not report explicit success: Python CI cancelled; waiting for rerun.
+summary	Enforce explicit Gate success	2026-11-09T03:46:03.9052114Z ##[error]Process completed with exit code 1.

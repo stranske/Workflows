@@ -3284,3 +3284,74 @@ with a [concrete handoff](runtime-4550/4558-round16-publication-blocker.md) and
 confirms PR 4558 is open and ready (`isDraft=false`) at incoming head
 `b818bbd881d5d9999937b2e2e2181e43d8092403`. The authenticated delivery chain
 and upstream non-PASS verification disposition remain unresolved.
+
+## Local seat round 11: distinguish cancelled Gate from failure — 2026-11-09
+
+Plan recorded before collection/edits on **2026-11-09**. Outcome:
+print an exact-head Gate diagnosis, revalidate the retained published-main suite
+receipts and merged bytes, and refresh the outstanding read-only delivery and
+comment observations. Acceptance commands remain `node --test
+.github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the
+supported hosted runner at immutable published main
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`. No local full suite is authorized.
+Verification commands: native Git ancestry, retained payload `cmp`, raw-log
+SHA-256 checks, focused receipt tests using `/opt/anaconda3/bin/python3`, and
+`git diff --check`, bounded to 120 seconds each. Read-only `gh` requests are
+bounded to 30 seconds each and ten pages. Stop at the first unresolved step after
+three failed attempts or 60 minutes, whichever occurs first; deadline
+**2026-11-09T05:02:49Z** (60 minutes from collection start). No production repair is justified without a reproduced
+failure. Pending CI blocks merge; its drain is the existing exact-head run while
+read-only evidence collection proceeds. No workflow dispatch, cancellation,
+rerun, schedule change or merge is planned.
+
+The supplied Gate run **42557039655** is terminal **cancelled**, belongs to
+predecessor `b818bbd881d5d9999937b2e2e2181e43d8092403`, and its
+[summary excerpt](runtime-4550/4558-seat-round11-gate-excerpt.log) prints
+`Python CI cancelled; waiting for rerun.` The
+[full job readback](runtime-4550/4558-seat-round11-42557039655-run.json)
+records both Python jobs cancelled. This is not an assertion failure and does
+not justify a code repair. The incoming-head run **42558056987**, bound to
+`f36e687f7b5b3b329469b625034578b18b1198d5`, is still running in the
+[retained readback](runtime-4550/4558-seat-round11-42558056987-run.json), with
+both Python jobs in progress. Cancellation cause remains **UNKNOWN**. Publishing
+this evidence creates another head, so this readback cannot establish its CI
+result. The continuation must let the newest head finish rather than treating
+superseded cancellations as reproduced source defects.
+
+[Verification](runtime-4550/4558-seat-round11-verification.json) rechecks all
+three ancestry relationships, both complete hosted raw-log hashes against their
+original receipts, exit-0 retained payload `cmp`, and **124 focused receipt tests
+passed** in 0.63 seconds. Selected published main remains
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`; no local full suite or production
+repair was run. These receipts continue to support A1/A2 without asserting a
+full-suite run on this evidence-only PR head.
+
+The complete workflow-specific inventory covers
+**2026-11-09T03:30:44Z–04:02:49.512954Z**. The
+[producer inventory](runtime-4550/4558-seat-round11-producer-inventory.json)
+contains zero Maint 68 runs. The
+[merger inventory](runtime-4550/4558-seat-round11-merger-inventory.json)
+contains successful workflow-dispatch runs **42557538415** and **42558127073**.
+Their retained [first report](runtime-4550/4558-seat-round11-42557538415-sync-pr-merge-report.json)
+and [second report](runtime-4550/4558-seat-round11-42558127073-sync-pr-merge-report.json)
+are dev-tool deliveries. The first records `no_prs` for the target consumer;
+the second has no target-consumer result. Neither supplies the qualifying
+subscription-payload producer/plan/candidate/merge chain. The
+[artifact summary](runtime-4550/4558-seat-round11-artifact-summary.json)
+retains report hashes and target results. Caller origin remains **UNKNOWN**;
+T5/A3 remain incomplete. No Maint 68/71/82 dispatch was performed by this seat.
+
+The fresh [issue-comment receipt](runtime-4550/4558-seat-round11-comments.json)
+retains all **49** comments through **2026-11-09T04:02:49.512954Z**, with explicit
+page sizes **49, 0** and complete pagination; no new comment since the preceding
+complete observation is present. The fresh
+[consumer thread receipt](runtime-4550/4558-seat-round11-consumer-threads.json)
+confirms head `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, actual merge
+`1ff9e11cd51a456333c626cb354543b63202bef6`, and zero review threads with
+`hasNextPage=false`. There are zero applicable active exact-head Maint 71
+findings, excluding discussion **4434491702**. The exact source and merged
+consumer revisions/blob receipts remain in the
+[byte comparison](runtime-4550/4558-byte-comparison.json), revalidated this round.
+T7/A4 are refreshed; the upstream non-PASS verifier remains unresolved and overall
+acceptance remains incomplete. No dependency pin, production source, lock,
+schedule, review gate or merge policy changed.

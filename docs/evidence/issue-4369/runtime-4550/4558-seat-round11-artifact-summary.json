@@ -1,0 +1,20 @@
+[
+  {
+    "run_id": "42558127073",
+    "report_sha256": "f0cd6226849f6f0275a26db84dcb12e70acaf034360c3f958e5a6f5cd5120913",
+    "target_results": [],
+    "sync_hash": "dev-tool"
+  },
+  {
+    "run_id": "42557538415",
+    "report_sha256": "de0d0ee73ac635a4e1fa4411cde848cd0fff2b88bdefa1648c2107f9acde9e1c",
+    "target_results": [
+      {
+        "owner": "stranske",
+        "repo": "Portable-Alpha-Extension-Model",
+        "status": "no_prs"
+      }
+    ],
+    "sync_hash": "dev-tool"
+  }
+]
