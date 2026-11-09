@@ -234,6 +234,39 @@ def test_transport_uses_only_get_and_parses_json(monkeypatch):
     assert audit.gh_json("repos/stranske/Example/pulls/12") == {"merged_at": None}
 
 
+@pytest.mark.parametrize("failed_read", ["fix", "search", "pull"])
+@pytest.mark.parametrize("payload", ["null", "[]", '"unexpected"', "false", "0", "{"])
+def test_cli_rejects_invalid_successful_transport_responses(
+    monkeypatch, capsys, failed_read, payload
+):
+    api = GitHub([pull()])
+    collect = audit.collect
+    failed_endpoint = {
+        "fix": "repos/stranske/Workflows/pulls/4564",
+        "search": "search/issues?",
+        "pull": "repos/stranske/Example/pulls/1",
+    }[failed_read]
+
+    def run(command, **kwargs):
+        endpoint = command[-1]
+        result = api(endpoint)
+        stdout = payload if endpoint.startswith(failed_endpoint) else json.dumps(result)
+        return subprocess.CompletedProcess(command, 0, stdout=stdout)
+
+    monkeypatch.setattr(audit.subprocess, "run", run)
+    monkeypatch.setattr(
+        audit,
+        "collect",
+        lambda fix_pr, **kwargs: collect(fix_pr, now=START + timedelta(days=14)),
+    )
+    assert audit.main(["--fix-pr", FIX]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "unknown"
+    assert result["blocking"] == result["drainable"] == 1
+    assert api.calls[-1].startswith(failed_endpoint)
+    assert len(api.calls) == {"fix": 1, "search": 2, "pull": 3}[failed_read]
+
+
 @pytest.mark.parametrize("value", ["2026-11-09T12:00:00", "invalid", None])
 def test_missing_or_invalid_timezone_cannot_establish_a_window(value):
     with pytest.raises(ValueError):
