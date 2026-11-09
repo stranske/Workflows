@@ -5903,7 +5903,7 @@ async function run({ github, context, core }) {
         const missingGate = missingDeclaredContexts.length
           ? currentGateRequest || (autoMerge && !dryRun && deliveryRecord
             ? await requestSealedGate({ owner, repo, pr, withRetry,
-              sealedAt: deliveryRecord.sealed_at, missingDeclaredContexts, context }) : undefined)
+              sealedAt: deliveryRecord.sealed_at || undefined, missingDeclaredContexts, context }) : undefined)
           : undefined;
         results.push({
           ...deliveryContext,
