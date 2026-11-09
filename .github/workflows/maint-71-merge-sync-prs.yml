@@ -510,17 +510,22 @@ jobs:
                 return;
               }
             }
+            // One frozen source per producer run. Further source groups remain
+            // in the durable exact-head handoff until this producer finishes.
+            const selected = decision.source_requests[0];
             await withRetry((client) => client.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'maint-52-sync-dev-versions.yml',
               ref: context.payload.repository?.default_branch || 'main',
               inputs: {
-                repos: decision.repositories.join(','),
+                repos: selected.repositories.join(','),
                 dry_run: 'false',
+                source_sha: selected.source_commit,
               },
             }));
-            core.notice(`Dispatched Maint 52 producer refresh for ${decision.repositories.join(', ')}`);
+            core.notice(`Dispatched Maint 52 producer refresh for ${selected.repositories.join(', ')} ` +
+              `from frozen source ${selected.source_commit}; ${decision.source_requests.length - 1} source groups deferred`);
 
       - name: Authorize exact-head fleet commit
         id: campaign_authorization

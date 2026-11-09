@@ -657,6 +657,7 @@ test('dev-tool base drift hands off only leased producer refreshes', () => {
     owner: 'stranske', repo: 'Ready', branch: 'deps/sync-dev-versions-1234',
     delivery_lane: 'dev-tool-sync', status: 'dev_tool_base_refresh_required',
     blocker_owner: 'maint-52', next_command: 'dispatch-maint-52-scoped',
+    source_commit: '46d7b8a4166ba3e486b0cb05e7d9295bae2ab609',
   };
   const report = {
     inputs: { sync_hash: 'dev-tool', auto_merge: true, dry_run: false },
@@ -667,7 +668,25 @@ test('dev-tool base drift hands off only leased producer refreshes', () => {
   assert.deepEqual(devToolBaseRefreshDecision({ report }), {
     eligible: true, errors: [],
     repositories: ['stranske/Ready', 'stranske/learning-management-system'],
+    source_requests: [{
+      source_commit: request.source_commit,
+      repositories: ['stranske/Ready', 'stranske/learning-management-system'],
+    }],
   });
+  for (const source_commit of ['', 'main', 'abcd']) {
+    assert.equal(devToolBaseRefreshDecision({
+      report: { ...report, results: [{ ...request, source_commit }] },
+    }).eligible, false, 'a moving or missing source cannot refresh an existing wave');
+  }
+  const mixed = devToolBaseRefreshDecision({
+    report: { ...report, results: [request, {
+      ...request, repo: 'Orchestrator', source_commit: 'a'.repeat(40),
+    }] },
+  });
+  assert.deepEqual(mixed.source_requests, [
+    { source_commit: request.source_commit, repositories: ['stranske/Ready'] },
+    { source_commit: 'a'.repeat(40), repositories: ['stranske/Orchestrator'] },
+  ]);
   assert.equal(devToolBaseRefreshDecision({
     report: { ...report, inputs: { ...report.inputs, sync_hash: '' } },
   }).eligible, true, 'unscoped reconciliation can encounter leased dev-tool PRs');

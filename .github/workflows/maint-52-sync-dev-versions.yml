@@ -34,6 +34,10 @@ on:
         description: 'Preview changes without creating PRs'
         type: boolean
         default: false
+      source_sha:
+        description: 'Immutable source commit for replaying an existing dev-tool wave'
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -48,9 +52,19 @@ jobs:
     name: Report version freshness
     runs-on: ubuntu-latest
     steps:
+      - name: Validate frozen source input
+        env:
+          FROZEN_SOURCE_SHA: ${{ inputs.source_sha || '' }}
+        run: |
+          if [ -n "$FROZEN_SOURCE_SHA" ] && ! [[ "$FROZEN_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::source_sha must be an immutable 40-character commit SHA"
+            exit 1
+          fi
+
       - name: Checkout Workflows
         uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           sparse-checkout: |
             .github/workflows/autofix-versions.env
             scripts/update_versions_from_pypi.py
@@ -80,6 +94,7 @@ jobs:
       - name: Checkout Workflows
         uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           sparse-checkout: |
             .github/workflows/autofix-versions.env
             .github/workflows/maint-68-sync-consumer-repos.yml
