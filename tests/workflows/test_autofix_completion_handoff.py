@@ -5,12 +5,15 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
+from scripts.runner_lib import core
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_consumer_autofix_records_its_own_completion(tmp_path):
+@pytest.mark.parametrize("advanced", [False, True])
+def test_consumer_autofix_records_its_own_completion(tmp_path, monkeypatch, advanced):
     workflow = yaml.safe_load(
         (
             ROOT / "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
@@ -54,8 +57,10 @@ def test_consumer_autofix_records_its_own_completion(tmp_path):
         "METRICS_JSON": json.dumps(
             {
                 "head_sha_before": "f27f30c19b225fcc0c248ef57a31e5df2bc4730c",
-                "head_sha_after": "f27f30c19b225fcc0c248ef57a31e5df2bc4730c",
-                "fix_applied": False,
+                "head_sha_after": (
+                    "b" * 40 if advanced else "f27f30c19b225fcc0c248ef57a31e5df2bc4730c"
+                ),
+                "fix_applied": advanced,
                 "autofix_result": "success",
             }
         ),
@@ -66,7 +71,46 @@ def test_consumer_autofix_records_its_own_completion(tmp_path):
     args = calls[0]
     assert args[:3] == ["-m", "scripts.runner_lib", "record-completion"]
     assert args[args.index("--head-sha") + 1] == env["HEAD_SHA"]
-    assert args[args.index("--observed-head-sha") + 1] == env["HEAD_SHA"]
-    assert args[args.index("--produced-work") + 1] == "false"
+    assert args[args.index("--produced-work") + 1] == str(advanced).lower()
     assert args[args.index("--exit-code") + 1] == "0"
     assert "GITHUB_RUN_ID=" not in completion["run"]
+
+    class Memory:
+        row = {
+            "provider": "codex",
+            "pr_number": 1286,
+            "head_sha": env["HEAD_SHA"],
+            "status": "pending",
+            "key": core._runner_key(1286, env["HEAD_SHA"], "codex"),
+            "workflow_attempt_id": "test-source",
+        }
+
+        def read_record(self, *_):
+            return dict(self.row)
+
+        def write_record(self, _pr, _provider, record):
+            self.row = dict(record)
+
+    storage = Memory()
+    monkeypatch.setattr(core, "_workflow_attempt_id", lambda: "test-source")
+    observed = args[args.index("--observed-head-sha") + 1] if "--observed-head-sha" in args else ""
+    result = core.record_completion(
+        1286,
+        env["HEAD_SHA"],
+        "codex",
+        {"success": True},
+        storage=storage,
+        produced_work=advanced,
+        observed_head_sha=observed,
+    )
+    assert (
+        result.get("productive") is advanced
+    ), "measured autofix productivity must not become unmeasured terminal completion"
+    if advanced:
+        assert result["observed_head_sha"] == "b" * 40
+        assert result["completion_incomplete"] is False
+        return
+    monkeypatch.setattr(core, "_workflow_attempt_id", lambda: "test-next")
+    decision = core.should_dispatch(1286, env["HEAD_SHA"], "codex", storage=storage)
+    assert decision.should_dispatch
+    assert decision.reason == "retry-unproductive-completion"

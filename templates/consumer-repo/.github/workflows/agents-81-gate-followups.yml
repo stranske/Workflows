@@ -2495,11 +2495,17 @@ jobs:
             }
             process.stdout.write(`${m.head_sha_after} ${m.fix_applied} ${m.autofix_result === "success" ? 0 : 1}\n`);
           ')
+          # Autofix measures heads, without a checklist baseline. Only a changed
+          # head belongs in the combined head/checklist observation API.
+          set --
+          if [ "$OBSERVED_HEAD" != "$HEAD_SHA" ]; then
+            set -- --observed-head-sha "$OBSERVED_HEAD"
+          fi
           python -m scripts.runner_lib record-completion \
             --provider "$PROVIDER" \
             --pr-number "$PR_NUMBER" \
             --head-sha "$HEAD_SHA" \
-            --observed-head-sha "$OBSERVED_HEAD" \
+            "$@" \
             --produced-work "$PRODUCED_WORK" \
             --summary "Native autofix completed; productivity measured by the metrics job." \
             --exit-code "$EXIT_CODE" \
