@@ -3844,3 +3844,37 @@ writing the receipt; the completed acceptance run above is the retained result.
 Post-push review continuation: the next scheduled pass must inspect PR 4582's
 inline comments and checks at least seven minutes after this round's push.
 New-head CI is not claimed by these local acceptance results.
+
+### PR 4582 keepalive round 11 — 2026-11-09
+
+Outcome 1: **A1–A4 PASS**, observed at **2026-11-09T12:17:37.895415+00:00**.
+The [round-11 receipt](runtime-4550/4557r2/4582-round11-verification.json)
+records actual execution of the acceptance commands against parent head
+`71e7a827b4ed33d71cfeb32dc3d816702576187f`. PAEM PR 2488 is merged at
+`e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the chain receipt.
+`/opt/anaconda3/bin/python3 -m json.tool` and all three `cmp` commands,
+including a fresh consumer download at the merge SHA, exit **0**. The live
+producer run has event `schedule` and conclusion `success`.
+
+Orchestrator PR 1288 is merged with no unsuccessful checks. Its retained merged
+archive passes `/opt/anaconda3/bin/python3 -m pytest -q
+tests/test_model_table.py::test_copy_matches_workflows_source`: **1 passed in
+0.38s**, exit **0**, without skip against live Workflows main. All **3,888**
+archive files match the retained archive. Its missing Git metadata leaves the
+test-input tracking hook **NOT CHECKED**; the named model-table test did run.
+
+PR 4579's merge, chain receipt and Closer repair 2 section are present on
+Workflows main. The fresh fully paginated issue-4369 comment observation has
+**49** comments at the boundary above. T1, T2, T4 and T5 remain verified.
+T3's schedule-started terminal-run requirement remains **UNKNOWN**: terminal
+Maint 71 run 42585644980 used `workflow_dispatch`, and its dispatcher is not
+established. **Blocking=1, drainable by Maint 71=0**; the available drain is
+read-only dispatch provenance investigation without redispatch. The existing
+provenance-map review nit remains follow-up under this acceptance-only scope.
+
+No failed acceptance command required a code repair. Only this report and the
+round-11 receipt changed. No dependency pins, dispatches, schedules or merges
+changed. The preceding head's inline review comments and CI were re-read; no
+new finding required an acceptance repair. Post-push review belongs to the next
+scheduled pass, at least seven minutes after this push. New-head CI remains
+unverified until that pass observes it.
