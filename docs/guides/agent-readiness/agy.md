@@ -225,6 +225,66 @@ of the drain queue (option 2) so they spend only leftover capacity.
 Option 6 (batching) is not a separate project: its number is units per item, batched against single,
 reported by pilots 3 and 5.
 
+**Third pilot run (2026-10-30): no pass number was measured.**
+Evidence: `docs/evidence/agy-pilots-20261030/` (`judge-replay-agy.json`, `judge-replay-claude.json`,
+`run-record.json`). This is a run record, not replay or seeded-defect evidence: no backend returned a
+scored answer.
+
+| Pilot | Planned work | Pass number | agy result | Claude yardstick | Met? |
+| --- | --- | --- | --- | --- | --- |
+| 4. Evaluator replay | 32 archived experiments (the 8 from 2026-10-17 plus 24 evenly spaced from the 135 with at least 3 scored real judges, at least 3 members and a prompt of at most 60k characters) | agy mean error vs consensus no more than 1.5 times the real judges' leave-one-out error | 0 of 32 usable: quota error on the first call, other 31 not sent | 0 of 32 usable: the CLI login had expired | Not measured |
+| 3. Read-only audit | 10 modules, 28 validated seeded defects | agy recall not below Claude's, citations resolving | Not run: quota | Not run | Not measured |
+| 5. Test generation | The same 10 modules | agy kill rate not below Claude's | Not run: quota | Not run | Not measured |
+
+- **Quota consumed by this run: one agy call.** That call returned `Individual quota reached ...
+  Resets in 8h6m57s` (RESOURCE_EXHAUSTED) at about 18:40 UTC, so the seat was already out before the
+  pilots started. The harness stopped there and did not retry. The weekly reset expected around
+  2026-10-23 had happened, so other use, probably normal Orchestrator routing, used up the allowance
+  again within a week. Whether the 8-hour reset is the five-hour block or the weekly ceiling is
+  **unknown**. Either way, the larger pilots cannot rely on a reset alone. They need capacity set
+  aside for them, such as the drain queue (option 2) or a pause in agy routing before the run.
+- **Claude yardstick: 32 calls, 0 tokens.** The standalone Claude CLI was logged out (`claude auth
+  status`: not logged in). The backend reported only "Claude CLI error", which hid the cause, the same
+  failure class as the earlier quota-reported-as-empty defect. It now names the CLI's own message, and
+  a test pins this.
+- **Ready for the next run (no model calls needed):** the module set was validated locally (seed 7,
+  3 mutants per module, each kept only if the module's own tests fail on it). The 9 earlier modules
+  plus `coverage_trend` give 10 modules and 28 defects. `stable_pass_cases`,
+  `verifier_standards_model` and `verifier_compare_run_receipt` produced no validated mutants. The
+  experiment list is in `run-record.json`. Re-run order: replay, then audit, then testgen, with the
+  Claude CLI logged in first.
+
+**Fourth pilot run (2026-10-31): replay passed; Flash audits as well as Claude but writes weaker tests.**
+Evidence: `docs/evidence/agy-pilots-20261031/`. Evidence class: fixture checks (archived experiments and
+seeded defects), not production use. Same 10 modules and 28 validated defects as the third run.
+
+| Pilot | agy model | agy result | Claude yardstick | Pass condition | Met? |
+| --- | --- | --- | --- | --- | --- |
+| 4. Evaluator replay, 32 experiments | agy default (Gemini 4 Argon Medium per agy's log; the file does not record it) | MAE 1.181 vs consensus, 32 of 32 usable | Claude CLI default model: MAE 1.065 | agy MAE no more than 1.5 times the real judges' leave-one-out MAE (1.332) | **Yes** (0.89 times) |
+| 3. Audit, single | gemini-3.8-flash-high | recall 1.00, precision 1.00, 23.5k tokens/item | claude-sonnet-5-5: recall 0.93, 6.6k | recall not below Claude's, citations resolving | **Yes** |
+| 3. Audit, batched | gemini-3.8-flash-high | recall 0.96, 15.2k tokens/item | Sonnet: recall 0.89, 4.6k | as above | **Yes** |
+| 5. Testgen, single | gemini-3.8-flash-high | kill 0.57, clean pass 0.60, 53.6k tokens/item | Sonnet: kill 0.89, clean 0.90, 16.9k | kill rate not below Claude's | **No** |
+| 5. Testgen, batched | gemini-3.8-flash-high | kill 0.11, 6 of 10 unusable; rerun 0.21, 8 unusable | Sonnet: kill 1.00, 16.2k | as above | **No** |
+
+- **Batched testgen fails structurally on Flash-high:** agy reports `exceeded the output token limit`
+  and its 8-minute print timeout, so most batches return nothing. Flash-medium batched did better (kill
+  0.61, clean 0.70) but is still below Sonnet.
+- **Argon audit and testgen were not measured:** the Argon run resumed at 20:09 UTC with the quota
+  spent, and 7 to 10 of 10 items per cell came back unusable. Its numbers in `pilot-audit-testgen.json`
+  are not a model result.
+- **Decision taken from this (owner, 2026-10-31):** test generation stays off Flash. Triage moved to
+  a live Flash-vs-Argon trial (Orchestrator#1037), because a fixture cannot settle production fitness.
+
+**What spends the Argon weekly quota (measured 2026-11-09).** The quota reset on 2026-11-07 at about
+03:40 UTC. Five lane `implement` dispatches at the full tier (`dispatch gemini/full`) ran between
+04:18 and 09:34 UTC that day. Two of them (Orchestrator#1223 and #1224) ran until agy's 40-minute print
+timeout. From 21:50 UTC every full-tier dispatch was refused with `Individual quota reached`. The
+Orchestrator's own routed runs used Argon twice in that week; the other 55 gemini runs were Flash.
+Lane runs log under the Orchestrator's agy home (`agent-runtime/gemini`), not `~/.gemini`, which is
+why the default agy logs showed no work. Consequence for pilots: an Argon pilot needs the lanes kept
+off the full tier for its window; a reset alone does not leave capacity for it.
+Orchestrator#1300 caps lane dispatches at Flash while an Argon quota marker is active.
+
 ### Rule checks
 
 - **Subscription over API spend:** every option uses the subscription login. One risk to close first:

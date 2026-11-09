@@ -1,0 +1,289 @@
+{
+  "schema": "workflows-agy-pilot/v1",
+  "evidence_class": "exploratory-cli-seeded-defects",
+  "modules": [
+    {
+      "name": "disable_legacy_workflows",
+      "mutants": [
+        {
+          "line": 19,
+          "from": "-",
+          "to": "+"
+        },
+        {
+          "line": 74,
+          "from": "<",
+          "to": "<="
+        }
+      ]
+    },
+    {
+      "name": "discover_model_catalog",
+      "mutants": [
+        {
+          "line": 104,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 124,
+          "from": "==",
+          "to": "!="
+        },
+        {
+          "line": 188,
+          "from": "+",
+          "to": "-"
+        }
+      ]
+    },
+    {
+      "name": "ensure_workflow_timeout_variables",
+      "mutants": [
+        {
+          "line": 112,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 118,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 253,
+          "from": "and",
+          "to": "or"
+        }
+      ]
+    },
+    {
+      "name": "integration_repo",
+      "mutants": [
+        {
+          "line": 35,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 50,
+          "from": "True",
+          "to": "False"
+        },
+        {
+          "line": 77,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "refresh_model_eval_candidates",
+      "mutants": [
+        {
+          "line": 63,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 96,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 177,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "resolve_mypy_pin",
+      "mutants": [
+        {
+          "line": 77,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 92,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "verifier_artifact_capture",
+      "mutants": [
+        {
+          "line": 92,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 110,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 111,
+          "from": "or",
+          "to": "and"
+        }
+      ]
+    },
+    {
+      "name": "verifier_proof_resource_plan",
+      "mutants": [
+        {
+          "line": 117,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 130,
+          "from": "+",
+          "to": "-"
+        },
+        {
+          "line": 210,
+          "from": "+",
+          "to": "-"
+        }
+      ]
+    },
+    {
+      "name": "verifier_semantic_execution",
+      "mutants": [
+        {
+          "line": 58,
+          "from": "==",
+          "to": "!="
+        },
+        {
+          "line": 234,
+          "from": "True",
+          "to": "False"
+        },
+        {
+          "line": 264,
+          "from": "False",
+          "to": "True"
+        }
+      ]
+    },
+    {
+      "name": "coverage_trend",
+      "mutants": [
+        {
+          "line": 123,
+          "from": "+",
+          "to": "-"
+        },
+        {
+          "line": 308,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 349,
+          "from": "True",
+          "to": "False"
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "backend": "agy",
+      "kind": "testgen",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 8,
+      "errors": [
+        "agy status ERROR"
+      ],
+      "tokens_in": 138624,
+      "tokens_out": 190518,
+      "tokens_per_item": 32914,
+      "latency_s": 1224.5,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": false,
+          "mutants": 2,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "integration_repo",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": false,
+          "mutants": 2,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 0.214,
+        "clean_pass_rate": 0.2
+      }
+    }
+  ]
+}
