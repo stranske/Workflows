@@ -483,10 +483,13 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
     # Keep it byte-identical rather than inventing an extras/platform scope.
     if not command:
         managed = _build_lockfile_targets(pins)
-        if not any(
-            match.group("name").lower() in managed
+        entries = [
+            LOCKFILE_PATTERN.fullmatch(line)
             for line in content.splitlines()
-            if (match := LOCKFILE_PATTERN.match(line.rstrip().removesuffix("\\").rstrip()))
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        if all(
+            match is not None and match.group("name").lower() not in managed for match in entries
         ):
             return [], []
     try:
