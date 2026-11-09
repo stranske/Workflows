@@ -291,8 +291,9 @@ def test_mid_run_evidence_records_timing_without_claiming_full_acceptance(mid_ru
     }
 
 
-def test_valid_event_does_not_clear_a_search_regression(mid_run_api):
-    event_api, _, _ = mid_run_api
+@pytest.mark.parametrize("comment_id", [None, 73])
+def test_valid_event_does_not_clear_a_search_regression(receipt_api, comment_id):
+    event_api, _, _ = receipt_api
     search_api = GitHub([pull()])
 
     def api(endpoint):
@@ -301,7 +302,12 @@ def test_valid_event_does_not_clear_a_search_regression(mid_run_api):
         return event_api(endpoint)
 
     result = audit.collect(
-        FIX, now=START + timedelta(days=14), api=api, target_pr=TARGET, job_id=91
+        FIX,
+        now=START + timedelta(days=14),
+        api=api,
+        target_pr=TARGET,
+        job_id=91,
+        receipt_comment_id=comment_id,
     )
     assert result["status"] == "regression"
     assert len(result["matches"]) == 1
@@ -402,11 +408,178 @@ def test_unmerged_fix_never_reads_candidate_event():
 
 
 def test_cli_passes_candidate_arguments_to_collector(monkeypatch, capsys):
-    def collect(fix_pr, *, now, target_pr, job_id):
-        assert (fix_pr, target_pr, job_id) == (FIX, TARGET, 91)
+    def collect(fix_pr, *, now, target_pr, job_id, receipt_comment_id):
+        assert (fix_pr, target_pr, job_id, receipt_comment_id) == (FIX, TARGET, 91, 73)
         assert now.tzinfo == UTC
         return {"status": "pending"}
 
     monkeypatch.setattr(audit, "collect", collect)
-    assert audit.main(["--fix-pr", FIX, "--target-pr", TARGET, "--job-id", "91"]) == 2
+    assert (
+        audit.main(
+            ["--fix-pr", FIX, "--target-pr", TARGET, "--job-id", "91", "--receipt-comment-id", "73"]
+        )
+        == 2
+    )
     assert json.loads(capsys.readouterr().out)["status"] == "pending"
+
+
+@pytest.fixture
+def receipt_api(mid_run_api):
+    api, target, job = mid_run_api
+    # Metadata must win over unrelated synchronized body references and the head.
+    target.update(body="<!-- meta:issue:9 -->\nCloses #8", head={"ref": "cursor/issue-7"})
+    created = (START + timedelta(hours=1, minutes=10, seconds=30)).isoformat()
+    comment = {
+        "id": 73,
+        "user": {"login": "github-actions[bot]", "type": "Bot"},
+        "issue_url": "https://api.github.com/repos/stranske/Example/issues/9",
+        "html_url": "https://github.com/stranske/Example/issues/9#issuecomment-73",
+        "created_at": created,
+        "updated_at": created,
+        "body": (
+            "<!-- cursor-target-closed:12:42 -->\n"
+            "skipped: target PR merged/closed mid-run\n\n"
+            "Target PR: #12\n"
+            "Run: https://github.com/stranske/Example/actions/runs/42\n\n"
+            "Unpushed commits created during this run:\n"
+            f"- `{'a' * 40}`\n- `{'b' * 40}`"
+        ),
+    }
+
+    def with_receipt(endpoint):
+        if endpoint == "repos/stranske/Example/issues/comments/73":
+            return comment
+        return api(endpoint)
+
+    return with_receipt, target, comment
+
+
+@pytest.mark.parametrize("age,status", [(2, "pending"), (14, "clear_search")])
+def test_receipt_links_target_run_and_source_and_retains_reported_commits(receipt_api, age, status):
+    api, _, comment = receipt_api
+    result = audit.collect(
+        FIX,
+        now=START + timedelta(days=age),
+        api=api,
+        target_pr=TARGET,
+        job_id=91,
+        receipt_comment_id=73,
+    )
+    assert result["status"] == status
+    event = result["mid_run_merge_verification"]
+    assert event["source_issue_receipt"] == {
+        "source_issue": "stranske/Example#9",
+        "receipt_url": comment["html_url"],
+        "reported_unpushed_commit_shas": ["a" * 40, "b" * 40],
+    }
+    assert event["target_run_association"] == "verified from the source-issue receipt"
+    assert "required separately" in event["next_target_verification"]
+
+
+def test_receipt_explicitly_reporting_no_commits_is_retained(receipt_api):
+    api, _, comment = receipt_api
+    comment["body"] = comment["body"].rsplit("\n", 2)[0] + "\n- None."
+    result = audit.collect(
+        FIX,
+        now=START + timedelta(days=14),
+        api=api,
+        target_pr=TARGET,
+        job_id=91,
+        receipt_comment_id=73,
+    )
+    assert (
+        result["mid_run_merge_verification"]["source_issue_receipt"][
+            "reported_unpushed_commit_shas"
+        ]
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        ("cursor-target-closed:12:42", "cursor-target-closed:13:42"),
+        ("cursor-target-closed:12:42", "cursor-target-closed:12:43"),
+        ("Target PR: #12", "Target PR: #13"),
+        ("Example/actions/runs/42", "Other/actions/runs/42"),
+        ("Example/actions/runs/42", "Example/actions/runs/43"),
+        ("skipped: target PR merged/closed mid-run", "success"),
+        (f"- `{'a' * 40}`\n- `{'b' * 40}`", ""),
+        (f"- `{'a' * 40}`", "- `abcdef0`"),
+        (f"- `{'b' * 40}`", f"- `{'a' * 40}`"),
+        (f"- `{'a' * 40}`", "- None."),
+    ],
+)
+def test_receipt_with_wrong_run_or_missing_commit_evidence_is_rejected(receipt_api, old, new):
+    api, _, comment = receipt_api
+    comment["body"] = comment["body"].replace(old, new)
+    with pytest.raises(subprocess.CalledProcessError):
+        audit.collect(
+            FIX,
+            now=START + timedelta(days=14),
+            api=api,
+            target_pr=TARGET,
+            job_id=91,
+            receipt_comment_id=73,
+        )
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"id": 74},
+        {"id": True},
+        {"user": {"login": "someone-else", "type": "User"}},
+        {"user": {"login": "github-actions[bot]", "type": "User"}},
+        {"issue_url": "https://api.github.com/repos/stranske/Example/issues/8"},
+        {"issue_url": "https://api.github.com/repos/stranske/Other/issues/9"},
+        {"html_url": "https://github.com/stranske/Example/issues/9#issuecomment-74"},
+        {"created_at": (START + timedelta(minutes=69)).isoformat()},
+        {"created_at": (START + timedelta(minutes=72)).isoformat()},
+        {"updated_at": (START + timedelta(minutes=72)).isoformat()},
+    ],
+)
+def test_unbound_edited_or_out_of_step_receipt_cannot_prove_association(receipt_api, patch):
+    api, _, comment = receipt_api
+    comment.update(patch)
+    with pytest.raises((ValueError, subprocess.CalledProcessError)):
+        audit.collect(
+            FIX,
+            now=START + timedelta(days=14),
+            api=api,
+            target_pr=TARGET,
+            job_id=91,
+            receipt_comment_id=73,
+        )
+
+
+@pytest.mark.parametrize("body", ["Closes #8\nCloses #9", ""])
+def test_receipt_requires_unambiguous_source_resolution(receipt_api, body):
+    api, target, _ = receipt_api
+    target.update(body=body, head={"ref": "unrelated"})
+    with pytest.raises(subprocess.CalledProcessError):
+        audit.collect(
+            FIX,
+            now=START + timedelta(days=14),
+            api=api,
+            target_pr=TARGET,
+            job_id=91,
+            receipt_comment_id=73,
+        )
+
+
+@pytest.mark.parametrize(
+    "target,job_id,comment_id", [(None, None, 73), (TARGET, 91, 0), (TARGET, 91, True)]
+)
+def test_invalid_receipt_arguments_are_rejected_before_api_reads(target, job_id, comment_id):
+    api = GitHub()
+    with pytest.raises(ValueError, match="Receipt comment ID"):
+        audit.collect(
+            FIX,
+            now=START,
+            api=api,
+            target_pr=target,
+            job_id=job_id,
+            receipt_comment_id=comment_id,
+        )
+    assert api.calls == []

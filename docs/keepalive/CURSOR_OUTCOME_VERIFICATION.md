@@ -45,7 +45,22 @@ the 14-day search window or change a search regression into success.
 
 The `timing_verified` record is a candidate event, not full acceptance. Job
 metadata does not identify the checked-out target reliably for dispatched
-keepalive runs. Separately match the source-issue receipt's
-`cursor-target-closed:PR_NUMBER:RUN_ID` marker, target PR, run URL, skip outcome,
-and retained commit SHAs. Also establish that this was the **next** eligible
-mid-run merge; supplying a later convenient job does not prove that condition.
+keepalive runs. To verify the source-issue receipt as well, supply its numeric
+comment ID (the `issuecomment-ID` portion of its URL):
+
+```bash
+python scripts/check_cursor_pr_outcome.py --fix-pr stranske/Workflows#4564 \
+  --target-pr OWNER/REPO#NUMBER --job-id JOB_ID --receipt-comment-id COMMENT_ID
+```
+
+This uses Node and the workflow's actual `extractIssueNumberFromPull` resolver
+to require a workflow-bot comment on the resolved source issue. The receipt
+must be unedited and created during the guard step; its marker, target PR,
+run URL and skip outcome must match the candidate. The JSON retains the receipt
+URL, source issue and reported full commit SHAs (or an explicit empty list).
+These are reported SHAs, not independent proof of the commits' contents.
+Invalid receipts cannot establish the target/run association and exit 2.
+
+Also establish that this was the **next** eligible mid-run merge; supplying a
+later convenient job does not prove that condition. Even a valid receipt leaves
+that ordering requirement explicit and cannot shorten the observation window.

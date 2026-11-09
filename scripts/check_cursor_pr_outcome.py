@@ -9,8 +9,9 @@ the next keepalive target merging during Run Cursor; this command cannot prove
 that event. All PR states are searched, including closed orphan PRs.
 
 Optional --target-pr owner/repository#number --job-id ID records merge timing
-and the completed guard/push steps. The source-issue receipt is still required
-to link that job to the target PR; timing alone cannot establish acceptance.
+and the completed guard/push steps. Add --receipt-comment-id ID to verify the
+source-issue receipt linking that job to the target PR and retain reported SHAs.
+The next-target ordering still needs separate evidence.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import json
 import re
 import subprocess
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlencode
 
 SLUG_BRANCH = re.compile(r"cursor/issue-[1-9][0-9]*-[A-Za-z0-9][A-Za-z0-9_-]*")
@@ -60,12 +62,23 @@ def pr_reference(value: str) -> tuple[str, str]:
 
 
 def collect_mid_run_merge(
-    target_pr: str, job_id: int, *, start: datetime, end: datetime, now: datetime, api=gh_json
+    target_pr: str,
+    job_id: int,
+    *,
+    start: datetime,
+    end: datetime,
+    now: datetime,
+    api=gh_json,
+    receipt_comment_id: int | None = None,
 ) -> dict:
-    """Check timing and step outcomes, without claiming the job targeted this PR."""
+    """Check timing and optionally bind the target/run via its source-issue receipt."""
     repo, number = pr_reference(target_pr)
     if type(job_id) is not int or job_id <= 0:
         raise ValueError("Job ID must be a positive integer")
+    if receipt_comment_id is not None and (
+        type(receipt_comment_id) is not int or receipt_comment_id <= 0
+    ):
+        raise ValueError("Receipt comment ID must be a positive integer")
     pull = api(f"repos/{repo}/pulls/{number}")
     merged = timestamp(pull["merged_at"])
     job = api(f"repos/{repo}/actions/jobs/{job_id}")
@@ -101,7 +114,7 @@ def collect_mid_run_merge(
         and cursor["number"] < guard["number"] < push["number"]
     ):
         raise ValueError("Merge was not demonstrably during Run Cursor after deployment")
-    return {
+    evidence = {
         "status": "timing_verified",
         "target_pr": target_pr,
         "merged_at": pull["merged_at"],
@@ -114,6 +127,31 @@ def collect_mid_run_merge(
         "target_run_association": "required separately from the source-issue receipt",
         "next_target_verification": "required separately; this may not be the next matching run",
     }
+    if receipt_comment_id is not None:
+        comment = api(f"repos/{repo}/issues/comments/{receipt_comment_id}")
+        if type(comment["id"]) is not int or comment["id"] != receipt_comment_id:
+            raise ValueError("Receipt comment ID does not match the requested comment")
+        created = timestamp(comment["created_at"])
+        if not guard_start <= created <= guard_end or timestamp(comment["updated_at"]) != created:
+            raise ValueError("Receipt must be unedited and created during the guard step")
+        # A fixed local Node entry point shares the workflow's actual source
+        # resolver. JSON travels on stdin, never through shell interpolation.
+        result = subprocess.run(
+            ["node", str(Path(__file__).with_name("check_cursor_receipt.js"))],
+            input=json.dumps(
+                {"pull": pull, "comment": comment, "repo": repo, "number": number, "runId": run_id}
+            ),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+        receipt = json.loads(result.stdout)
+        evidence.update(
+            source_issue_receipt=receipt,
+            target_run_association="verified from the source-issue receipt",
+        )
+    return evidence
 
 
 def collect(
@@ -123,12 +161,17 @@ def collect(
     api=gh_json,
     target_pr: str | None = None,
     job_id: int | None = None,
+    receipt_comment_id: int | None = None,
 ) -> dict:
     """Search a fixed 14-day window; reject incomplete or truncated evidence."""
     repo, number = pr_reference(fix_pr)
     owner = repo.split("/")[0]
     if (target_pr is None) != (job_id is None):
         raise ValueError("Supply both target PR and job ID")
+    if receipt_comment_id is not None and (
+        target_pr is None or type(receipt_comment_id) is not int or receipt_comment_id <= 0
+    ):
+        raise ValueError("Receipt comment ID requires a target/job and must be a positive integer")
     if target_pr is not None:
         target_repo, _ = pr_reference(target_pr)
         if target_repo.split("/")[0].lower() != owner.lower():
@@ -218,7 +261,13 @@ def collect(
         report.update(status="clear_search", reason="no matching PRs in the full 14-day window")
     if target_pr is not None:
         report["mid_run_merge_verification"] = collect_mid_run_merge(
-            target_pr, job_id, start=start, end=end, now=now, api=api
+            target_pr,
+            job_id,
+            start=start,
+            end=end,
+            now=now,
+            api=api,
+            receipt_comment_id=receipt_comment_id,
         )
     return report
 
@@ -230,10 +279,17 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--job-id", type=int, help="Completed Cursor job ID in the target repository"
     )
+    parser.add_argument(
+        "--receipt-comment-id", type=int, help="Source-issue comment ID for the candidate run"
+    )
     args = parser.parse_args(argv)
     try:
         report = collect(
-            args.fix_pr, now=datetime.now(UTC), target_pr=args.target_pr, job_id=args.job_id
+            args.fix_pr,
+            now=datetime.now(UTC),
+            target_pr=args.target_pr,
+            job_id=args.job_id,
+            receipt_comment_id=args.receipt_comment_id,
         )
     except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError):
         # Do not print subprocess output: it can include authentication details.
