@@ -3355,3 +3355,68 @@ consumer revisions/blob receipts remain in the
 T7/A4 are refreshed; the upstream non-PASS verifier remains unresolved and overall
 acceptance remains incomplete. No dependency pin, production source, lock,
 schedule, review gate or merge policy changed.
+
+## Local seat round 12: exact-head diagnosis and bounded observation — 2026-11-09
+
+Outcome A1/A2: revalidated; overall acceptance: incomplete. Check date:
+**2026-11-09** UTC. Before collection, the outcome was defined as an exact-head
+Gate diagnosis plus verification of retained hosted full-suite and merged-byte
+receipts. Acceptance commands remain `node --test
+.github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the
+supported hosted runner at published main
+`0a06f1976db1dd7eb12853f493a3371ee4736bcf`. No local full suite was run.
+Execution bounds: 30 seconds per read, ten pages per inventory, 120 seconds per
+focused check. Stop at the first unresolved step after three failed attempts or
+60 minutes, whichever occurs first. Collection began **04:15:43.557153Z**;
+the maximum deadline is **05:15:43.557153Z**. No production code was changed.
+
+The supplied [Gate run 42558056987](runtime-4550/4558-seat-round12-42558056987-run.json)
+is terminal **cancelled** and belongs to predecessor
+`f36e687f7b5b3b329469b625034578b18b1198d5`, not incoming head
+`e7381722f2ca843b7611dccaf05a36180c7110a5`. Both Python matrix jobs were
+cancelled. Its [summary excerpt](runtime-4550/4558-seat-round12-gate-excerpt.log)
+prints `Python CI cancelled; waiting for rerun.` The
+[incoming-head run 42559738777](runtime-4550/4558-seat-round12-42559738777-run.json)
+was still in progress at collection. No test assertion failure was reproduced;
+cancellation cause is UNKNOWN. This evidence commit creates a new head, whose
+CI must be assessed independently. No rerun, cancellation, dispatch, schedule
+change, merge or dependency-pin edit was performed by this seat.
+
+[Verification](runtime-4550/4558-seat-round12-verification.json) confirms required
+ancestor inclusion, salvaged PR 4551 head inclusion, and reachability from fetched
+`origin/main`, each exit 0. Both complete hosted raw-log SHA-256 hashes match
+the original receipts, and both receipts bind exit 0 to the same selected main
+revision. The retained payload `cmp` exits 0. Focused receipt checks using
+`/opt/anaconda3/bin/python3` pass **124 tests**. These checks validate the retained
+acceptance evidence; they do not claim the full suites ran on this PR head.
+
+The complete [producer inventory](runtime-4550/4558-seat-round12-producer-inventory.json)
+and [merger inventory](runtime-4550/4558-seat-round12-merger-inventory.json)
+cover **2026-11-09T04:02:49Z–04:15:43.557153Z** with no event filter and complete
+pagination. There are **zero Maint 68 runs** and one Maint 71 run,
+**42559723593**, completed successfully with event `workflow_dispatch`.
+That event and its actor metadata do not authenticate the caller or establish
+producer causality. T5/A3 remain incomplete. No qualifying next producer chain
+was observed; the existing source/plan/candidate/merge receipts remain partial
+with respect to automation origin.
+
+The fresh [issue-4369 comment receipt](runtime-4550/4558-seat-round12-comments.json)
+retains all **49** comments through **2026-11-09T04:15:43.557153Z**, with explicit
+page sizes **49, 0** and complete pagination. The
+[consumer thread readback](runtime-4550/4558-seat-round12-consumer-threads.json)
+confirms candidate `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, actual PR 2486
+merge `1ff9e11cd51a456333c626cb354543b63202bef6`, and zero review threads with
+`hasNextPage=false`. Applicable exact-head Maint 71 findings remain zero;
+discussion **4434491702** is excluded. Both retained payloads have blob
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`; their revision identities, comparison
+command and exit code remain in the [byte receipt](runtime-4550/4558-byte-comparison.json).
+This supplies the refreshed T7/A4 observation without claiming T5/A3.
+
+The [upstream verifier readback](runtime-4550/4558-seat-round12-verifier-readback.json)
+remains attempt 1. Its Actions success does not clear the previously retained
+non-PASS model verdict. T1's ancestry/fix inclusion is verified, but its required
+verification-gate delivery clause remains unresolved. Blocking/drainable pair:
+**blocking=2** (qualifying producer-origin chain and upstream verification),
+**drainable=1** (read-only observation while the existing current-head CI runs).
+No lock or gate was introduced or released. Stop this finite collection here;
+no speculative code fix or unrelated observer expansion is justified.
