@@ -2684,6 +2684,41 @@ def _requirement_sections(text: str) -> list[str]:
     return [section.strip() for section in sections if section.strip()]
 
 
+@lru_cache(maxsize=512)
+def _cached_evidence_normalization(
+    acceptance: str, normalizers: tuple[Callable[[str], str], ...]
+) -> str:
+    for normalize in normalizers:
+        acceptance = normalize(acceptance)
+    return acceptance
+
+
+def _normalize_evidence_acceptance(acceptance: str) -> str:
+    # Both classifiers use the same pure grammar transforms. Cache immutable
+    # small results; function identity keeps substitutions from reusing old output.
+    normalizers = (
+        _normalize_capability_deliveries,
+        _normalize_leading_review_destination_quantifier,
+        _normalize_review_comment_destinations,
+        _normalize_plain_artifact_destinations,
+        _normalize_bare_artifact_destinations,
+        _normalize_destination_first_checklist,
+        _normalize_passive_product_capabilities,
+        _normalize_evidence_source_filename_qualifiers,
+        _normalize_review_content_qualifiers,
+        _normalize_plain_artifact_destinations,
+        _normalize_bare_artifact_destinations,
+        _normalize_passive_review_agents,
+        _normalize_relative_review_presence,
+        _normalize_product_destination_lists,
+    )
+    if len(acceptance) <= _EVIDENCE_CACHE_MAX_CHARS:
+        return _cached_evidence_normalization(acceptance, normalizers)
+    for normalize in normalizers:
+        acceptance = normalize(acceptance)
+    return acceptance
+
+
 def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True) -> set[str]:
     """Identify explicit evidence deliverables without treating negations as requirements."""
 
@@ -2695,20 +2730,7 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
                 for section in sections
             )
         )
-    acceptance = _normalize_capability_deliveries(acceptance)
-    acceptance = _normalize_leading_review_destination_quantifier(acceptance)
-    acceptance = _normalize_review_comment_destinations(acceptance)
-    acceptance = _normalize_plain_artifact_destinations(acceptance)
-    acceptance = _normalize_bare_artifact_destinations(acceptance)
-    acceptance = _normalize_destination_first_checklist(acceptance)
-    acceptance = _normalize_passive_product_capabilities(acceptance)
-    acceptance = _normalize_evidence_source_filename_qualifiers(acceptance)
-    acceptance = _normalize_review_content_qualifiers(acceptance)
-    acceptance = _normalize_plain_artifact_destinations(acceptance)
-    acceptance = _normalize_bare_artifact_destinations(acceptance)
-    acceptance = _normalize_passive_review_agents(acceptance)
-    acceptance = _normalize_relative_review_presence(acceptance)
-    acceptance = _normalize_product_destination_lists(acceptance)
+    acceptance = _normalize_evidence_acceptance(acceptance)
     channels: set[str] = set()
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
@@ -5866,20 +5888,7 @@ def _classify_evidence_options(acceptance: str) -> list[set[str]]:
                 for right in _classify_evidence_options(section)
             }
         return [set(option) for option in sorted(options, key=lambda value: sorted(value))]
-    acceptance = _normalize_capability_deliveries(acceptance)
-    acceptance = _normalize_leading_review_destination_quantifier(acceptance)
-    acceptance = _normalize_review_comment_destinations(acceptance)
-    acceptance = _normalize_plain_artifact_destinations(acceptance)
-    acceptance = _normalize_bare_artifact_destinations(acceptance)
-    acceptance = _normalize_destination_first_checklist(acceptance)
-    acceptance = _normalize_passive_product_capabilities(acceptance)
-    acceptance = _normalize_evidence_source_filename_qualifiers(acceptance)
-    acceptance = _normalize_review_content_qualifiers(acceptance)
-    acceptance = _normalize_plain_artifact_destinations(acceptance)
-    acceptance = _normalize_bare_artifact_destinations(acceptance)
-    acceptance = _normalize_passive_review_agents(acceptance)
-    acceptance = _normalize_relative_review_presence(acceptance)
-    acceptance = _normalize_product_destination_lists(acceptance)
+    acceptance = _normalize_evidence_acceptance(acceptance)
     acceptance = _normalize_standalone_review_comment_alternatives(acceptance)
     preposition = _EVIDENCE_DESTINATION_PREPOSITION
     destination = (
