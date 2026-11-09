@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -7,11 +8,13 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parents[3] / ".github" / "scripts"
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-
-import resolve_alert_issue as rai  # noqa: E402
+SCRIPT_PATH = Path(__file__).resolve().parents[3] / ".github" / "scripts" / "resolve_alert_issue.py"
+# Loaded by path (not `import`) so the helper is not mistaken for a third-party
+# test dependency by scripts/sync_test_dependencies.py.
+_spec = importlib.util.spec_from_file_location("resolve_alert_issue", SCRIPT_PATH)
+rai = importlib.util.module_from_spec(_spec)
+sys.modules["resolve_alert_issue"] = rai
+_spec.loader.exec_module(rai)
 
 ALERT = "🚨 Consumer Repo Sync Failed - Action Required"
 
