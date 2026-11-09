@@ -85,8 +85,8 @@
         73,
         83
       ],
-      "status": "payload_resolved_by_independent_evidence; automation_origin_unresolved",
-      "evidence": "PR 2486 merged as 1ff9e11cd51a456333c626cb354543b63202bef6; runtime-4550/4558-byte-comparison.json cmp exit 0, blob 71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2. PR 2486's producers (42485644055, 42499084007) were workflow_dispatch, so the automation-started chain is NOT established by it; successor chain 42564882056 -> PR 2488 is unmerged (see 4557r2/chain-receipt.json)."
+      "status": "resolved_by_independent_payload_and_successor_chain_evidence",
+      "evidence": "PR 2486 delivered the payload as 1ff9e11cd51a456333c626cb354543b63202bef6. Schedule-started producer 42564882056 created causal sync successor PR 2488, merged by Maint 71 run 42585644980 as e4ccdaf177e3271173ae534a710ebc23f29341e8 at 2026-11-09T08:25:48Z. chain-receipt.json binds producer plan/source/candidate to the terminal merged handoff and independent PR JSON. 4581-byte-comparison.json records cmp exit 0 for candidate and actual merge payload against the retained source. PR 2488 does not first introduce the payload. The providers original verdicts and remaining unresolved classes are preserved."
     },
     "C3_closing_keyword_and_checkboxes": {
       "ids": [
