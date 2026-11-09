@@ -4,8 +4,13 @@
 // workflow_dispatch, actor names and run titles never authenticate the caller.
 const fs = require('node:fs');
 const MAINT68 = '.github/workflows/maint-68-sync-consumer-repos.yml';
+const MAINT71 = '.github/workflows/maint-71-merge-sync-prs.yml';
 
-function observe({ start, end, pages, workflow_id }) {
+function observe({ start, end, pages, workflow_id, workflow_path = MAINT68 }) {
+  if (workflow_path !== MAINT68 && workflow_path !== MAINT71) {
+    throw new Error('unsupported observation workflow path');
+  }
+  const role = workflow_path === MAINT68 ? 'producer' : 'merger';
   const lower = Date.parse(start), upper = Date.parse(end);
   if (!Number.isFinite(lower) || !Number.isFinite(upper) || lower > upper) {
     throw new Error('invalid observation bounds');
@@ -13,11 +18,11 @@ function observe({ start, end, pages, workflow_id }) {
   if (!Array.isArray(pages) || !pages.length) throw new Error('missing inventory pages');
   if (workflow_id !== undefined
     && (!Number.isSafeInteger(workflow_id) || workflow_id <= 0)) {
-    throw new Error('invalid producer workflow identity');
+    throw new Error(`invalid ${role} workflow identity`);
   }
   // A workflow-specific inventory avoids the repository-wide search cap. Bind
   // every page and row to the same explicit workflow identity; filters that
-  // could hide a producer event remain forbidden.
+  // could hide a producer or merger event remain forbidden.
   const endpoint = workflow_id === undefined
     ? '/repos/stranske/Workflows/actions/runs'
     : `/repos/stranske/Workflows/actions/workflows/${workflow_id}/runs`;
@@ -49,8 +54,8 @@ function observe({ start, end, pages, workflow_id }) {
         throw new Error('invalid, duplicate or out-of-bounds run');
       }
       if (workflow_id !== undefined
-        && (run.workflow_id !== workflow_id || run.path !== MAINT68)) {
-        throw new Error('producer workflow identity changed');
+        && (run.workflow_id !== workflow_id || run.path !== workflow_path)) {
+        throw new Error(`${role} workflow identity changed`);
       }
       ids.add(run.id);
       runs.push(run);
@@ -61,12 +66,13 @@ function observe({ start, end, pages, workflow_id }) {
   if (runs.length !== total || pages.length !== Math.floor(total / 100) + 1) {
     throw new Error('inventory pagination is incomplete');
   }
-  const producers = runs.filter(run => run.path === MAINT68)
+  const selected = runs.filter(run => run.path === workflow_path)
     .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id - b.id);
   return { start, end, total_count: total, pagination_complete: true,
-    inventory_scope: workflow_id === undefined ? 'repository' : 'producer',
+    workflow_path,
+    inventory_scope: workflow_id === undefined ? 'repository' : role,
     ...(workflow_id === undefined ? {} : { workflow_id }),
-    producers: producers.map(run => ({ id: run.id, created_at: run.created_at,
+    [`${role}s`]: selected.map(run => ({ id: run.id, created_at: run.created_at,
       event: run.event, automation_origin: run.event === 'schedule' ? 'schedule' : 'UNKNOWN' })),
     chain_acceptance: false };
 }

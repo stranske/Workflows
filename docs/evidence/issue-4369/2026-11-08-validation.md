@@ -2492,3 +2492,81 @@ Automatic approval review also rejected the requested PR blocker comment and
 `needs-human` label: **"MCP tool call requires approval, but approval policy is
 never"**. Neither mutation succeeded. No remote PR state, label or checklist
 was changed. The last native PR read remains open, ready (`draft=false`).
+
+## Keepalive round 9: producer and merger inventory replay — 2026-11-09
+
+Pre-code check: **2026-11-09T01:24:11Z**. Recent commits, issue 4550 and
+merged PR 4551 were read before implementation. The retained acceptance revision
+remains `0a06f1976db1dd7eb12853f493a3371ee4736bcf`; baseline focused lifecycle
+validation passes **71 tests**, and direct Node observer validation passes
+**20 tests**. The first task is already verified. Six unchecked remote entries
+(T1, T3, T6, A1, A2, A4) have supporting retained evidence, also bound by the
+round-8 native fix inventory. The [reconciled PR body](runtime-4550/4558-round9-pr-body-reconciled.md)
+checks those entries only; T5/A3 and the upstream-verification task stay open.
+Automatic approval review rejected the PR-body update: **"MCP tool call requires
+approval, but approval policy is never"**. No remote checklist was changed;
+no alternate mutation transport will be used to bypass that decision.
+
+The next incomplete task needs complete Maint 68 and Maint 71 inventories.
+This scoped code change will extend the existing read-only observer to select
+the exact Maint 71 workflow as well as Maint 68, retaining strict endpoint,
+workflow identity, pagination and UTC-bound checks. Merger runs will remain
+leads; timing, bot names and dispatch titles cannot authenticate causality.
+No producer-origin or delivery acceptance will be inferred from a merger run.
+
+Planned checks: direct `node tests/scripts/test_issue_4369_origin_observation.js`
+and `node --test tests/scripts/test_issue_4369_origin_observation.js` (each
+120 seconds), replay the complete retained live inventory for both workflow
+paths (30 seconds), and focused Python lifecycle validation (120 seconds).
+No Python files, protected files, dependency pins or workflow dispatches are
+part of this change. Stop at the first unresolved step after three failed
+attempts at that step or 60 minutes, whichever occurs first. This bounded
+supplement does not restart the original expired acceptance campaign.
+
+Shell GitHub reads could not connect; connector workflow-specific inventory
+URLs were unsupported. The repository-wide connector fallback succeeded and
+retains [both native-page projections](runtime-4550/4558-round9-origin-inventory.json):
+182 distinct runs on pages of 100 and 82, with stable totals, through
+**2026-11-09T01:23:40Z**, starting at the preceding boundary
+**2026-11-09T01:04:17Z**. No fresh issue-comment completeness is claimed.
+
+The implementation accepts only the exact Maint 68 or Maint 71 workflow path.
+Existing Maint 68 callers keep their default selection. Maint 71 observations
+emit a separate `mergers` list; workflow-specific pages bind every row to both
+the supplied workflow ID and selected exact path. Twelve new tests cover
+empty and paginated merger inventories, wrong identities/paths, filtered or
+incomplete pages, duplicate/out-of-bounds runs, chronological ordering and the
+actual retained round-9 inventory. Every observation retains
+`chain_acceptance=false`; no artifact-derived causal proof is invented.
+
+The [validation receipts](runtime-4550/4558-round9-tests.json) retain exact
+commands, bounds, timings, exit codes and complete-log hashes. Direct Node
+validation passes **32 tests**; the Node test runner also exits 0. Focused
+Python lifecycle validation passes **71 tests**. Both CLI replays exit 0:
+[producer observation](runtime-4550/4558-round9-producer-replay.json) and
+[merger observation](runtime-4550/4558-round9-merger-replay.json). The merger
+input is the retained inventory with `workflow_path` set to the exact Maint 71
+path; its temporary local copy was removed after replay. No Python source file
+was changed, so the conditional Python pre-commit formatting gate does not apply.
+
+The [readback](runtime-4550/4558-round9-readback.json) records the single merger
+lead, [run 42544857435](https://github.com/stranske/Workflows/actions/runs/42544857435),
+with `event=workflow_dispatch`, actor and triggering actor
+`stranske-automation-bot`. Those fields alone do not authenticate the caller.
+No producer occurred in the complete interval, so there is no qualifying
+producer → merger chain to inspect. T5/A3 remain unverified; upstream verifier
+disposition is unchanged. No workflow was dispatched, no protected file edited,
+and neither full suite was rerun. PR 4558 remains **open, `draft=false`** on
+incoming head `0b03620ce5bbc954b4a6385a1048df1ffbe6e759` at the final native read.
+`git diff --check` exits 0. The local reconciled body also describes the current
+observer and regression-test changes; the remote body is unchanged.
+
+Publication is blocked: explicit-path `git add` exited **128** with
+`fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system`.
+No commit or push succeeded, and no repository-metadata workaround was attempted.
+The meaningful JavaScript source/test changes and receipts remain in the working
+tree for an authorized writer. This round advances T5's observation tooling but
+does not complete T5/A3 or clear upstream verification. Automatic approval review
+also rejected the PR-body reconciliation because **"MCP tool call requires
+approval, but approval policy is never"**. The local checklist is reviewable;
+no remote checklist completion is claimed.

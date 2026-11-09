@@ -3,6 +3,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { observe } = require('../../docs/evidence/issue-4369/observe-maint68');
+const MAINT68 = '.github/workflows/maint-68-sync-consumer-repos.yml';
+const MAINT71 = '.github/workflows/maint-71-merge-sync-prs.yml';
 
 function inventory(count = 0) {
   const start = '2026-11-08T21:31:19Z', end = '2026-11-08T21:43:00Z';
@@ -25,6 +27,85 @@ function producerInventory(count = 0) {
   }
   return input;
 }
+
+function mergerInventory(count = 0) {
+  const input = producerInventory(count);
+  input.workflow_path = MAINT71;
+  input.workflow_id = 221137962;
+  for (const page of input.pages) {
+    page.url = page.url.replace('/218845705/', `/${input.workflow_id}/`);
+    for (const run of page.body.workflow_runs) {
+      run.workflow_id = input.workflow_id;
+      run.path = MAINT71;
+    }
+  }
+  return input;
+}
+
+test('merger observations validate empty, exact-boundary and multi-page inventories', () => {
+  for (const count of [0, 100, 101]) {
+    const result = observe(mergerInventory(count));
+    assert.equal(result.workflow_path, MAINT71);
+    assert.equal(result.workflow_id, 221137962);
+    assert.equal(result.inventory_scope, 'merger');
+    assert.equal(result.pagination_complete, true);
+    assert.equal(result.mergers.length, count);
+    assert.equal(Object.hasOwn(result, 'producers'), false);
+    assert.ok(result.mergers.every(run => run.automation_origin === 'UNKNOWN'));
+    assert.equal(result.chain_acceptance, false);
+  }
+});
+
+for (const [name, mutate] of [
+  ['unsupported workflow path', x => { x.workflow_path = '.github/workflows/maint-71-auto-fix-integration.yml'; }],
+  ['non-string workflow path', x => { x.workflow_path = null; }],
+  ['producer path on merger rows', x => { x.pages[0].body.workflow_runs[0].path = MAINT68; }],
+  ['producer workflow identity on merger rows', x => { x.pages[0].body.workflow_runs[0].workflow_id = 218845705; }],
+  ['producer inventory endpoint', x => { x.pages[0].url = x.pages[0].url.replace('/221137962/', '/218845705/'); }],
+  ['filtered merger inventory', x => { x.pages[0].url += '&event=workflow_dispatch'; }],
+  ['incomplete merger pagination', x => { x.pages.pop(); }],
+  ['duplicate merger run', x => { x.pages[0].body.workflow_runs[1].id = 1; }],
+  ['merger run outside bounds', x => { x.pages[0].body.workflow_runs[0].created_at = '2026-11-08T21:00:00Z'; }],
+]) {
+  test(`refuse ${name}`, () => {
+    const input = mergerInventory(101);
+    mutate(input);
+    assert.throws(() => observe(input));
+  });
+}
+
+test('repository inventories select exact merger paths without treating chronology as causality', () => {
+  const input = inventory(4);
+  input.workflow_path = MAINT71;
+  const rows = input.pages[0].body.workflow_runs;
+  rows[0].path = rows[2].path = MAINT71;
+  rows[0].created_at = input.end;
+  rows[2].event = 'schedule';
+  rows[3].path = '.github/workflows/maint-71-auto-fix-integration.yml';
+  const result = observe(input);
+  assert.equal(result.inventory_scope, 'repository');
+  assert.deepEqual(result.mergers.map(run => run.id), [3, 1]);
+  assert.deepEqual(result.mergers.map(run => run.automation_origin), ['schedule', 'UNKNOWN']);
+  assert.equal(result.chain_acceptance, false);
+  delete input.workflow_path;
+  assert.deepEqual(observe(input).producers.map(run => run.id), [2]);
+});
+
+test('retained round-9 inventory observes a merger dispatch without a producer or causal proof', () => {
+  const input = require('../../docs/evidence/issue-4369/runtime-4550/4558-round9-origin-inventory.json');
+  const producer = observe(input);
+  const merger = observe({ ...input, workflow_path: MAINT71 });
+  assert.equal(producer.total_count, 182);
+  assert.equal(producer.pagination_complete, true);
+  assert.deepEqual(producer.producers, []);
+  assert.equal(merger.pagination_complete, true);
+  assert.deepEqual(merger.mergers, [{
+    id: 42544857435, created_at: '2026-11-09T01:18:15Z',
+    event: 'workflow_dispatch', automation_origin: 'UNKNOWN',
+  }]);
+  assert.equal(producer.chain_acceptance, false);
+  assert.equal(merger.chain_acceptance, false);
+});
 
 test('workflow-specific inventory supports empty and paginated producer observations', () => {
   assert.equal(observe(producerInventory()).producers.length, 0);
