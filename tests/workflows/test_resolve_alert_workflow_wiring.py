@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-WORKFLOWS = Path(__file__).resolve().parents[3] / ".github" / "workflows"
+WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 
 
 def _load(name: str) -> dict:
