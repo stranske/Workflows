@@ -1,0 +1,2593 @@
+{
+  "schema": "workflows.issue-3988-routing-observations/v1",
+  "collected_at": "2026-11-09T06:50:06.148909+00:00",
+  "merge_commit": "3e7f75d3750e54a1453cf9ea0ce4ed048bf24288",
+  "window_start_inclusive": "2026-11-07T02:51:20Z",
+  "window_end_exclusive": "2026-11-09T02:51:20Z",
+  "window_elapsed": true,
+  "fleet_source": "3e7f75d3750e54a1453cf9ea0ce4ed048bf24288:.github/workflows/maint-68-sync-consumer-repos.yml REGISTERED_CONSUMER_REPOS plus source Workflows",
+  "method": "Enumerate all PRs by creation time, including closed PRs; exhaust each in-window PR timeline. Eligible means keepalive-labeled before window end, even if later removed. Literal first routing includes agent:auto, matching the named suite's routing-label contract. Complete histories without any routing label count in the denominator but not the numerator. Mixed same-second first labels produce conservative numerator bounds. Later delegation is never substituted for the first label. A separate provider metric excludes agent:auto. Histories are stored per repository. No search index or present-day-label filter.",
+  "repository_coverage": [
+    {
+      "repository": "stranske/Workflows",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Workflows/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:19:43Z",
+          "oldest_created_at": "2026-11-04T05:19:56Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 43,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Travel-Plan-Permission",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Travel-Plan-Permission/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:05:39Z",
+          "oldest_created_at": "2026-09-23T00:48:37Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 3,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Template",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Template/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:26:27Z",
+          "oldest_created_at": "2026-08-10T15:28:44Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 2,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Counter_Risk",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Counter_Risk/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:22:48Z",
+          "oldest_created_at": "2026-09-24T19:29:00Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 2,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Pension-Data",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Pension-Data/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:23:54Z",
+          "oldest_created_at": "2026-09-08T05:55:10Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 3,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Inv-Man-Intake",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Inv-Man-Intake/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:28:07Z",
+          "oldest_created_at": "2026-09-08T05:55:04Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 2,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Ready",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Ready/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:23:53Z",
+          "oldest_created_at": "2026-09-04T02:48:41Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 3,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/trip-planner/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:04:47Z",
+          "oldest_created_at": "2026-10-16T16:19:10Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 11,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Manager-Database",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Manager-Database/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:22:06Z",
+          "oldest_created_at": "2026-10-11T16:08:13Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 4,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Portable-Alpha-Extension-Model/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:04:00Z",
+          "oldest_created_at": "2026-10-16T07:38:51Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 3,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Trend_Model_Project/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:27:55Z",
+          "oldest_created_at": "2026-10-15T00:41:03Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 12,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/learning-management-system",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/learning-management-system/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:26:54Z",
+          "oldest_created_at": "2026-09-20T20:40:31Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 3,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Fine-Art-Archive",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Fine-Art-Archive/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:25:59Z",
+          "oldest_created_at": "2026-09-24T19:29:17Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 2,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Orchestrator/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T06:26:27Z",
+          "oldest_created_at": "2026-11-05T12:52:05Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 48,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Doc-Lineage",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Doc-Lineage/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:27:25Z",
+          "oldest_created_at": "2026-09-19T13:33:39Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 2,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Deliverable-Render",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Deliverable-Render/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:26:33Z",
+          "oldest_created_at": "2026-09-05T05:47:39Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 2,
+      "histories_complete": true
+    },
+    {
+      "repository": "stranske/Manager-Mosaic",
+      "pull_pages": [
+        {
+          "endpoint": "repos/stranske/Manager-Mosaic/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+          "count": 100,
+          "newest_created_at": "2026-11-09T05:27:47Z",
+          "oldest_created_at": "2026-09-08T08:27:30Z"
+        }
+      ],
+      "complete": true,
+      "window_pr_count": 2,
+      "histories_complete": true
+    }
+  ],
+  "complete_coverage": true,
+  "eligible_keepalive_prs": [
+    {
+      "repository": "stranske/Workflows",
+      "number": 4559,
+      "url": "https://github.com/stranske/Workflows/pull/4559",
+      "created_at": "2026-11-08T21:01:57Z",
+      "first_keepalive_event": {
+        "id": 35513336129,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35513336129",
+        "event": "labeled",
+        "created_at": "2026-11-08T21:02:01Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": null,
+      "tied_first_labels": [],
+      "routing_status": "absent",
+      "non_codex": false,
+      "first_concrete_routing_event": null,
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4556,
+      "url": "https://github.com/stranske/Workflows/pull/4556",
+      "created_at": "2026-11-08T19:38:35Z",
+      "first_keepalive_event": {
+        "id": 35510135201,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35510135201",
+        "event": "labeled",
+        "created_at": "2026-11-08T19:46:59Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35509774441,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35509774441",
+        "event": "labeled",
+        "created_at": "2026-11-08T19:38:37Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35509774441,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35509774441",
+        "event": "labeled",
+        "created_at": "2026-11-08T19:38:37Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4551,
+      "url": "https://github.com/stranske/Workflows/pull/4551",
+      "created_at": "2026-11-08T10:59:16Z",
+      "first_keepalive_event": {
+        "id": 35488377601,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35488377601",
+        "event": "labeled",
+        "created_at": "2026-11-08T10:59:19Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35488377000,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35488377000",
+        "event": "labeled",
+        "created_at": "2026-11-08T10:59:18Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35488377000,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35488377000",
+        "event": "labeled",
+        "created_at": "2026-11-08T10:59:18Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4549,
+      "url": "https://github.com/stranske/Workflows/pull/4549",
+      "created_at": "2026-11-08T08:15:42Z",
+      "first_keepalive_event": {
+        "id": 35482876720,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35482876720",
+        "event": "labeled",
+        "created_at": "2026-11-08T08:15:45Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35482876092,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35482876092",
+        "event": "labeled",
+        "created_at": "2026-11-08T08:15:44Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35482876092,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35482876092",
+        "event": "labeled",
+        "created_at": "2026-11-08T08:15:44Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4542,
+      "url": "https://github.com/stranske/Workflows/pull/4542",
+      "created_at": "2026-11-08T03:46:53Z",
+      "first_keepalive_event": {
+        "id": 35474543916,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35474543916",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:46:56Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35474543274,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35474543274",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:46:55Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35474543274,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35474543274",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:46:55Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4539,
+      "url": "https://github.com/stranske/Workflows/pull/4539",
+      "created_at": "2026-11-08T00:58:41Z",
+      "first_keepalive_event": {
+        "id": 35468771799,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35468771799",
+        "event": "labeled",
+        "created_at": "2026-11-08T00:58:47Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35468771201,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35468771201",
+        "event": "labeled",
+        "created_at": "2026-11-08T00:58:46Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35468771201,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35468771201",
+        "event": "labeled",
+        "created_at": "2026-11-08T00:58:46Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4538,
+      "url": "https://github.com/stranske/Workflows/pull/4538",
+      "created_at": "2026-11-08T00:58:38Z",
+      "first_keepalive_event": {
+        "id": 35468769789,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35468769789",
+        "event": "labeled",
+        "created_at": "2026-11-08T00:58:44Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35468769169,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35468769169",
+        "event": "labeled",
+        "created_at": "2026-11-08T00:58:43Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35468769169,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35468769169",
+        "event": "labeled",
+        "created_at": "2026-11-08T00:58:43Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4532,
+      "url": "https://github.com/stranske/Workflows/pull/4532",
+      "created_at": "2026-11-07T14:28:53Z",
+      "first_keepalive_event": {
+        "id": 35437752340,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35437752340",
+        "event": "labeled",
+        "created_at": "2026-11-07T14:28:59Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35437751635,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35437751635",
+        "event": "labeled",
+        "created_at": "2026-11-07T14:28:58Z",
+        "label": "agent:gemini"
+      },
+      "tied_first_labels": [
+        "agent:gemini"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35437751635,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35437751635",
+        "event": "labeled",
+        "created_at": "2026-11-07T14:28:58Z",
+        "label": "agent:gemini"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4531,
+      "url": "https://github.com/stranske/Workflows/pull/4531",
+      "created_at": "2026-11-07T14:28:50Z",
+      "first_keepalive_event": {
+        "id": 35437749825,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35437749825",
+        "event": "labeled",
+        "created_at": "2026-11-07T14:28:56Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35437748859,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35437748859",
+        "event": "labeled",
+        "created_at": "2026-11-07T14:28:55Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35437748859,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35437748859",
+        "event": "labeled",
+        "created_at": "2026-11-07T14:28:55Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4530,
+      "url": "https://github.com/stranske/Workflows/pull/4530",
+      "created_at": "2026-11-07T13:46:57Z",
+      "first_keepalive_event": {
+        "id": 35435739482,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35435739482",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:46:59Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35435738704,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35435738704",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:46:58Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35435738704,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35435738704",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:46:58Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4529,
+      "url": "https://github.com/stranske/Workflows/pull/4529",
+      "created_at": "2026-11-07T13:29:47Z",
+      "first_keepalive_event": {
+        "id": 35435055648,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35435055648",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:29:49Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35435055078,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35435055078",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:29:48Z",
+        "label": "agent:gemini"
+      },
+      "tied_first_labels": [
+        "agent:gemini"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35435055078,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35435055078",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:29:48Z",
+        "label": "agent:gemini"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4528,
+      "url": "https://github.com/stranske/Workflows/pull/4528",
+      "created_at": "2026-11-07T13:15:48Z",
+      "first_keepalive_event": {
+        "id": 35434473862,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35434473862",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:15:53Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35434473195,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35434473195",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:15:52Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35434473195,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35434473195",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:15:52Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4527,
+      "url": "https://github.com/stranske/Workflows/pull/4527",
+      "created_at": "2026-11-07T10:43:45Z",
+      "first_keepalive_event": {
+        "id": 35427693693,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35427693693",
+        "event": "labeled",
+        "created_at": "2026-11-07T10:43:47Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35427692976,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35427692976",
+        "event": "labeled",
+        "created_at": "2026-11-07T10:43:46Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35427692976,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35427692976",
+        "event": "labeled",
+        "created_at": "2026-11-07T10:43:46Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4526,
+      "url": "https://github.com/stranske/Workflows/pull/4526",
+      "created_at": "2026-11-07T10:14:17Z",
+      "first_keepalive_event": {
+        "id": 35426591290,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35426591290",
+        "event": "labeled",
+        "created_at": "2026-11-07T10:14:20Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35426590735,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35426590735",
+        "event": "labeled",
+        "created_at": "2026-11-07T10:14:19Z",
+        "label": "agent:gemini"
+      },
+      "tied_first_labels": [
+        "agent:gemini"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35426590735,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35426590735",
+        "event": "labeled",
+        "created_at": "2026-11-07T10:14:19Z",
+        "label": "agent:gemini"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4525,
+      "url": "https://github.com/stranske/Workflows/pull/4525",
+      "created_at": "2026-11-07T09:17:16Z",
+      "first_keepalive_event": {
+        "id": 35424387895,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35424387895",
+        "event": "labeled",
+        "created_at": "2026-11-07T09:17:19Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35424387362,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35424387362",
+        "event": "labeled",
+        "created_at": "2026-11-07T09:17:18Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35424387362,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35424387362",
+        "event": "labeled",
+        "created_at": "2026-11-07T09:17:18Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4524,
+      "url": "https://github.com/stranske/Workflows/pull/4524",
+      "created_at": "2026-11-07T08:29:42Z",
+      "first_keepalive_event": {
+        "id": 35422500276,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35422500276",
+        "event": "labeled",
+        "created_at": "2026-11-07T08:29:45Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35422499538,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35422499538",
+        "event": "labeled",
+        "created_at": "2026-11-07T08:29:44Z",
+        "label": "agent:gemini"
+      },
+      "tied_first_labels": [
+        "agent:gemini"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35422499538,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35422499538",
+        "event": "labeled",
+        "created_at": "2026-11-07T08:29:44Z",
+        "label": "agent:gemini"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4521,
+      "url": "https://github.com/stranske/Workflows/pull/4521",
+      "created_at": "2026-11-07T07:33:09Z",
+      "first_keepalive_event": {
+        "id": 35420766632,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35420766632",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:46:47Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35420765987,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35420765987",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:46:46Z",
+        "label": "agent:vibe"
+      },
+      "tied_first_labels": [
+        "agent:vibe"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35420765987,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35420765987",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:46:46Z",
+        "label": "agent:vibe"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4520,
+      "url": "https://github.com/stranske/Workflows/pull/4520",
+      "created_at": "2026-11-07T06:44:06Z",
+      "first_keepalive_event": {
+        "id": 35418473477,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35418473477",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:44:08Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35418472984,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35418472984",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:44:07Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35418472984,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35418472984",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:44:07Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4519,
+      "url": "https://github.com/stranske/Workflows/pull/4519",
+      "created_at": "2026-11-07T05:46:32Z",
+      "first_keepalive_event": {
+        "id": 35416437912,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35416437912",
+        "event": "labeled",
+        "created_at": "2026-11-07T05:46:35Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35416437300,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35416437300",
+        "event": "labeled",
+        "created_at": "2026-11-07T05:46:34Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35416437300,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35416437300",
+        "event": "labeled",
+        "created_at": "2026-11-07T05:46:34Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4518,
+      "url": "https://github.com/stranske/Workflows/pull/4518",
+      "created_at": "2026-11-07T05:30:33Z",
+      "first_keepalive_event": {
+        "id": 35415914291,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35415914291",
+        "event": "labeled",
+        "created_at": "2026-11-07T05:30:36Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35415913826,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35415913826",
+        "event": "labeled",
+        "created_at": "2026-11-07T05:30:35Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35415913826,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35415913826",
+        "event": "labeled",
+        "created_at": "2026-11-07T05:30:35Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4517,
+      "url": "https://github.com/stranske/Workflows/pull/4517",
+      "created_at": "2026-11-07T04:47:30Z",
+      "first_keepalive_event": {
+        "id": 35414314256,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35414314256",
+        "event": "labeled",
+        "created_at": "2026-11-07T04:47:33Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35414313675,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35414313675",
+        "event": "labeled",
+        "created_at": "2026-11-07T04:47:32Z",
+        "label": "agent:gemini"
+      },
+      "tied_first_labels": [
+        "agent:gemini"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35414313675,
+        "url": "https://api.github.com/repos/stranske/Workflows/issues/events/35414313675",
+        "event": "labeled",
+        "created_at": "2026-11-07T04:47:32Z",
+        "label": "agent:gemini"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Pension-Data",
+      "number": 1014,
+      "url": "https://github.com/stranske/Pension-Data/pull/1014",
+      "created_at": "2026-11-07T12:48:03Z",
+      "first_keepalive_event": {
+        "id": 35434471812,
+        "url": "https://api.github.com/repos/stranske/Pension-Data/issues/events/35434471812",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:15:50Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35434471117,
+        "url": "https://api.github.com/repos/stranske/Pension-Data/issues/events/35434471117",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:15:49Z",
+        "label": "agent:vibe"
+      },
+      "tied_first_labels": [
+        "agent:vibe"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35434471117,
+        "url": "https://api.github.com/repos/stranske/Pension-Data/issues/events/35434471117",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:15:49Z",
+        "label": "agent:vibe"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2013,
+      "url": "https://github.com/stranske/trip-planner/pull/2013",
+      "created_at": "2026-11-08T14:33:10Z",
+      "first_keepalive_event": {
+        "id": 35496656742,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35496656742",
+        "event": "labeled",
+        "created_at": "2026-11-08T14:33:43Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35496638031,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35496638031",
+        "event": "labeled",
+        "created_at": "2026-11-08T14:33:15Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35496638031,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35496638031",
+        "event": "labeled",
+        "created_at": "2026-11-08T14:33:15Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2010,
+      "url": "https://github.com/stranske/trip-planner/pull/2010",
+      "created_at": "2026-11-08T06:23:16Z",
+      "first_keepalive_event": {
+        "id": 35480085636,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35480085636",
+        "event": "labeled",
+        "created_at": "2026-11-08T06:46:22Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35479386517,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35479386517",
+        "event": "labeled",
+        "created_at": "2026-11-08T06:23:20Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35479386517,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35479386517",
+        "event": "labeled",
+        "created_at": "2026-11-08T06:23:20Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2008,
+      "url": "https://github.com/stranske/trip-planner/pull/2008",
+      "created_at": "2026-11-08T05:39:45Z",
+      "first_keepalive_event": {
+        "id": 35478199304,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35478199304",
+        "event": "labeled",
+        "created_at": "2026-11-08T05:43:36Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35478084329,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35478084329",
+        "event": "labeled",
+        "created_at": "2026-11-08T05:39:47Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35478084329,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35478084329",
+        "event": "labeled",
+        "created_at": "2026-11-08T05:39:47Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2005,
+      "url": "https://github.com/stranske/trip-planner/pull/2005",
+      "created_at": "2026-11-08T03:04:05Z",
+      "first_keepalive_event": {
+        "id": 35473080138,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35473080138",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:04:40Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35473483714,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35473483714",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:15:37Z",
+        "label": "agent:vibe"
+      },
+      "tied_first_labels": [
+        "agent:vibe"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35473483714,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35473483714",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:15:37Z",
+        "label": "agent:vibe"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2004,
+      "url": "https://github.com/stranske/trip-planner/pull/2004",
+      "created_at": "2026-11-07T07:17:48Z",
+      "first_keepalive_event": {
+        "id": 35419873369,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35419873369",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:21:31Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35419754094,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35419754094",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:17:52Z",
+        "label": "agent:claude"
+      },
+      "tied_first_labels": [
+        "agent:claude"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35419754094,
+        "url": "https://api.github.com/repos/stranske/trip-planner/issues/events/35419754094",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:17:52Z",
+        "label": "agent:claude"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Manager-Database",
+      "number": 1899,
+      "url": "https://github.com/stranske/Manager-Database/pull/1899",
+      "created_at": "2026-11-07T12:33:00Z",
+      "first_keepalive_event": {
+        "id": 35432688408,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35432688408",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:34:36Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35432619132,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35432619132",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:33:05Z",
+        "label": "agent:gemini"
+      },
+      "tied_first_labels": [
+        "agent:gemini"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35432619132,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35432619132",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:33:05Z",
+        "label": "agent:gemini"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "number": 2485,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2485",
+      "created_at": "2026-11-07T03:33:23Z",
+      "first_keepalive_event": {
+        "id": 35411577804,
+        "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/issues/events/35411577804",
+        "event": "labeled",
+        "created_at": "2026-11-07T03:35:00Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35411519506,
+        "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/issues/events/35411519506",
+        "event": "labeled",
+        "created_at": "2026-11-07T03:33:28Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35411519506,
+        "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/issues/events/35411519506",
+        "event": "labeled",
+        "created_at": "2026-11-07T03:33:28Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6203,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6203",
+      "created_at": "2026-11-08T11:02:12Z",
+      "first_keepalive_event": {
+        "id": 35488501750,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35488501750",
+        "event": "labeled",
+        "created_at": "2026-11-08T11:02:52Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35488480062,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35488480062",
+        "event": "labeled",
+        "created_at": "2026-11-08T11:02:17Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35488480062,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35488480062",
+        "event": "labeled",
+        "created_at": "2026-11-08T11:02:17Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6201,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6201",
+      "created_at": "2026-11-08T04:01:21Z",
+      "first_keepalive_event": {
+        "id": 35475544560,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35475544560",
+        "event": "labeled",
+        "created_at": "2026-11-08T04:16:06Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35475544114,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35475544114",
+        "event": "labeled",
+        "created_at": "2026-11-08T04:16:05Z",
+        "label": "agent:vibe"
+      },
+      "tied_first_labels": [
+        "agent:vibe"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35475544114,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35475544114",
+        "event": "labeled",
+        "created_at": "2026-11-08T04:16:05Z",
+        "label": "agent:vibe"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6200,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6200",
+      "created_at": "2026-11-08T03:57:17Z",
+      "first_keepalive_event": {
+        "id": 35474945514,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35474945514",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:58:39Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35474944924,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35474944924",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:58:38Z",
+        "label": "agent:vibe"
+      },
+      "tied_first_labels": [
+        "agent:vibe"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35474944924,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35474944924",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:58:38Z",
+        "label": "agent:vibe"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6198,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6198",
+      "created_at": "2026-11-07T12:22:10Z",
+      "first_keepalive_event": {
+        "id": 35432194286,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35432194286",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:23:32Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35432129392,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35432129392",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:22:15Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35432129392,
+        "url": "https://api.github.com/repos/stranske/Trend_Model_Project/issues/events/35432129392",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:22:15Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1275,
+      "url": "https://github.com/stranske/Orchestrator/pull/1275",
+      "created_at": "2026-11-09T00:26:46Z",
+      "first_keepalive_event": {
+        "id": 35522494609,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35522494609",
+        "event": "labeled",
+        "created_at": "2026-11-09T00:26:47Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35522494512,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35522494512",
+        "event": "labeled",
+        "created_at": "2026-11-09T00:26:47Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:auto",
+        "agent:codex"
+      ],
+      "routing_status": "ambiguous",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35522494512,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35522494512",
+        "event": "labeled",
+        "created_at": "2026-11-09T00:26:47Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1272,
+      "url": "https://github.com/stranske/Orchestrator/pull/1272",
+      "created_at": "2026-11-08T23:28:06Z",
+      "first_keepalive_event": {
+        "id": 35524260872,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35524260872",
+        "event": "labeled",
+        "created_at": "2026-11-09T01:03:18Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35522873832,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35522873832",
+        "event": "labeled",
+        "created_at": "2026-11-09T00:34:00Z",
+        "label": "agent:auto"
+      },
+      "tied_first_labels": [
+        "agent:auto"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": null,
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1271,
+      "url": "https://github.com/stranske/Orchestrator/pull/1271",
+      "created_at": "2026-11-08T23:23:02Z",
+      "first_keepalive_event": {
+        "id": 35519969568,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35519969568",
+        "event": "labeled",
+        "created_at": "2026-11-08T23:34:03Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35519508764,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35519508764",
+        "event": "labeled",
+        "created_at": "2026-11-08T23:23:06Z",
+        "label": "agent:cursor"
+      },
+      "tied_first_labels": [
+        "agent:cursor"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": {
+        "id": 35519508764,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35519508764",
+        "event": "labeled",
+        "created_at": "2026-11-08T23:23:06Z",
+        "label": "agent:cursor"
+      },
+      "concrete_non_codex": true
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1263,
+      "url": "https://github.com/stranske/Orchestrator/pull/1263",
+      "created_at": "2026-11-08T20:14:01Z",
+      "first_keepalive_event": {
+        "id": 35511496483,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35511496483",
+        "event": "labeled",
+        "created_at": "2026-11-08T20:19:01Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35511287920,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35511287920",
+        "event": "labeled",
+        "created_at": "2026-11-08T20:14:03Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35511287920,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35511287920",
+        "event": "labeled",
+        "created_at": "2026-11-08T20:14:03Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1255,
+      "url": "https://github.com/stranske/Orchestrator/pull/1255",
+      "created_at": "2026-11-08T18:02:39Z",
+      "first_keepalive_event": {
+        "id": 35505700671,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35505700671",
+        "event": "labeled",
+        "created_at": "2026-11-08T18:03:32Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35505666906,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35505666906",
+        "event": "labeled",
+        "created_at": "2026-11-08T18:02:44Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35505666906,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35505666906",
+        "event": "labeled",
+        "created_at": "2026-11-08T18:02:44Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1251,
+      "url": "https://github.com/stranske/Orchestrator/pull/1251",
+      "created_at": "2026-11-08T17:08:03Z",
+      "first_keepalive_event": {
+        "id": 35504234313,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35504234313",
+        "event": "labeled",
+        "created_at": "2026-11-08T17:31:04Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35503261135,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35503261135",
+        "event": "labeled",
+        "created_at": "2026-11-08T17:08:05Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35503261135,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35503261135",
+        "event": "labeled",
+        "created_at": "2026-11-08T17:08:05Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1245,
+      "url": "https://github.com/stranske/Orchestrator/pull/1245",
+      "created_at": "2026-11-08T16:21:33Z",
+      "first_keepalive_event": {
+        "id": 35501294460,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35501294460",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:22:24Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35501262640,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35501262640",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:21:39Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35501262640,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35501262640",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:21:39Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1236,
+      "url": "https://github.com/stranske/Orchestrator/pull/1236",
+      "created_at": "2026-11-08T03:18:40Z",
+      "first_keepalive_event": {
+        "id": 35473609093,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35473609093",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:19:15Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35473592597,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35473592597",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:18:46Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35473592597,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35473592597",
+        "event": "labeled",
+        "created_at": "2026-11-08T03:18:46Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1233,
+      "url": "https://github.com/stranske/Orchestrator/pull/1233",
+      "created_at": "2026-11-07T21:21:48Z",
+      "first_keepalive_event": {
+        "id": 35463314445,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35463314445",
+        "event": "labeled",
+        "created_at": "2026-11-07T22:33:00Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35463190617,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35463190617",
+        "event": "labeled",
+        "created_at": "2026-11-07T22:29:55Z",
+        "label": "agent:auto"
+      },
+      "tied_first_labels": [
+        "agent:auto"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": null,
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1231,
+      "url": "https://github.com/stranske/Orchestrator/pull/1231",
+      "created_at": "2026-11-07T20:51:37Z",
+      "first_keepalive_event": {
+        "id": 35459255043,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35459255043",
+        "event": "labeled",
+        "created_at": "2026-11-07T20:53:07Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35459193758,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35459193758",
+        "event": "labeled",
+        "created_at": "2026-11-07T20:51:41Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35459193758,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35459193758",
+        "event": "labeled",
+        "created_at": "2026-11-07T20:51:41Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1230,
+      "url": "https://github.com/stranske/Orchestrator/pull/1230",
+      "created_at": "2026-11-07T14:47:51Z",
+      "first_keepalive_event": {
+        "id": 35443520521,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35443520521",
+        "event": "labeled",
+        "created_at": "2026-11-07T16:19:52Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35443316191,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35443316191",
+        "event": "labeled",
+        "created_at": "2026-11-07T16:15:51Z",
+        "label": "agent:auto"
+      },
+      "tied_first_labels": [
+        "agent:auto"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": null,
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1228,
+      "url": "https://github.com/stranske/Orchestrator/pull/1228",
+      "created_at": "2026-11-07T11:34:46Z",
+      "first_keepalive_event": {
+        "id": 35434819051,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35434819051",
+        "event": "labeled",
+        "created_at": "2026-11-07T13:24:14Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35433219536,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35433219536",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:47:17Z",
+        "label": "agent:auto"
+      },
+      "tied_first_labels": [
+        "agent:auto"
+      ],
+      "routing_status": "observed",
+      "non_codex": true,
+      "first_concrete_routing_event": null,
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1226,
+      "url": "https://github.com/stranske/Orchestrator/pull/1226",
+      "created_at": "2026-11-07T11:17:21Z",
+      "first_keepalive_event": {
+        "id": 35429352979,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35429352979",
+        "event": "labeled",
+        "created_at": "2026-11-07T11:18:49Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35429279538,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35429279538",
+        "event": "labeled",
+        "created_at": "2026-11-07T11:17:26Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35429279538,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35429279538",
+        "event": "labeled",
+        "created_at": "2026-11-07T11:17:26Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1225,
+      "url": "https://github.com/stranske/Orchestrator/pull/1225",
+      "created_at": "2026-11-07T08:26:01Z",
+      "first_keepalive_event": {
+        "id": 35422418269,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35422418269",
+        "event": "labeled",
+        "created_at": "2026-11-07T08:27:39Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35422365102,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35422365102",
+        "event": "labeled",
+        "created_at": "2026-11-07T08:26:05Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35422365102,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35422365102",
+        "event": "labeled",
+        "created_at": "2026-11-07T08:26:05Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1224,
+      "url": "https://github.com/stranske/Orchestrator/pull/1224",
+      "created_at": "2026-11-07T07:19:44Z",
+      "first_keepalive_event": {
+        "id": 35419875634,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35419875634",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:21:35Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35419819079,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35419819079",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:19:49Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35419819079,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35419819079",
+        "event": "labeled",
+        "created_at": "2026-11-07T07:19:49Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1223,
+      "url": "https://github.com/stranske/Orchestrator/pull/1223",
+      "created_at": "2026-11-07T06:24:57Z",
+      "first_keepalive_event": {
+        "id": 35417906534,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35417906534",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:26:35Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35417853018,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35417853018",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:25:02Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35417853018,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35417853018",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:25:02Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1222,
+      "url": "https://github.com/stranske/Orchestrator/pull/1222",
+      "created_at": "2026-11-07T06:24:33Z",
+      "first_keepalive_event": {
+        "id": 35417908149,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35417908149",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:26:38Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35417985485,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35417985485",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:29:05Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35417985485,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35417985485",
+        "event": "labeled",
+        "created_at": "2026-11-07T06:29:05Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1221,
+      "url": "https://github.com/stranske/Orchestrator/pull/1221",
+      "created_at": "2026-11-07T03:18:40Z",
+      "first_keepalive_event": {
+        "id": 35411013797,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35411013797",
+        "event": "labeled",
+        "created_at": "2026-11-07T03:20:32Z",
+        "label": "agents:keepalive"
+      },
+      "first_routing_event": {
+        "id": 35410947629,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35410947629",
+        "event": "labeled",
+        "created_at": "2026-11-07T03:18:44Z",
+        "label": "agent:codex"
+      },
+      "tied_first_labels": [
+        "agent:codex"
+      ],
+      "routing_status": "observed",
+      "non_codex": false,
+      "first_concrete_routing_event": {
+        "id": 35410947629,
+        "url": "https://api.github.com/repos/stranske/Orchestrator/issues/events/35410947629",
+        "event": "labeled",
+        "created_at": "2026-11-07T03:18:44Z",
+        "label": "agent:codex"
+      },
+      "concrete_non_codex": false
+    }
+  ],
+  "exclusions": [
+    {
+      "repository": "stranske/Workflows",
+      "number": 4572,
+      "url": "https://github.com/stranske/Workflows/pull/4572",
+      "created_at": "2026-11-09T02:28:10Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4571,
+      "url": "https://github.com/stranske/Workflows/pull/4571",
+      "created_at": "2026-11-09T01:18:10Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4570,
+      "url": "https://github.com/stranske/Workflows/pull/4570",
+      "created_at": "2026-11-09T01:05:29Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4567,
+      "url": "https://github.com/stranske/Workflows/pull/4567",
+      "created_at": "2026-11-09T00:01:36Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4566,
+      "url": "https://github.com/stranske/Workflows/pull/4566",
+      "created_at": "2026-11-08T23:51:56Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4565,
+      "url": "https://github.com/stranske/Workflows/pull/4565",
+      "created_at": "2026-11-08T23:41:18Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4564,
+      "url": "https://github.com/stranske/Workflows/pull/4564",
+      "created_at": "2026-11-08T23:38:59Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4563,
+      "url": "https://github.com/stranske/Workflows/pull/4563",
+      "created_at": "2026-11-08T23:31:13Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4561,
+      "url": "https://github.com/stranske/Workflows/pull/4561",
+      "created_at": "2026-11-08T23:16:50Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4558,
+      "url": "https://github.com/stranske/Workflows/pull/4558",
+      "created_at": "2026-11-08T20:53:46Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4553,
+      "url": "https://github.com/stranske/Workflows/pull/4553",
+      "created_at": "2026-11-08T16:19:55Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4552,
+      "url": "https://github.com/stranske/Workflows/pull/4552",
+      "created_at": "2026-11-08T15:39:08Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4547,
+      "url": "https://github.com/stranske/Workflows/pull/4547",
+      "created_at": "2026-11-08T07:10:19Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4546,
+      "url": "https://github.com/stranske/Workflows/pull/4546",
+      "created_at": "2026-11-08T07:09:10Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4545,
+      "url": "https://github.com/stranske/Workflows/pull/4545",
+      "created_at": "2026-11-08T06:38:15Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4544,
+      "url": "https://github.com/stranske/Workflows/pull/4544",
+      "created_at": "2026-11-08T05:50:20Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4540,
+      "url": "https://github.com/stranske/Workflows/pull/4540",
+      "created_at": "2026-11-08T01:06:21Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4537,
+      "url": "https://github.com/stranske/Workflows/pull/4537",
+      "created_at": "2026-11-08T00:55:09Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4536,
+      "url": "https://github.com/stranske/Workflows/pull/4536",
+      "created_at": "2026-11-08T00:35:41Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4535,
+      "url": "https://github.com/stranske/Workflows/pull/4535",
+      "created_at": "2026-11-07T22:40:48Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4533,
+      "url": "https://github.com/stranske/Workflows/pull/4533",
+      "created_at": "2026-11-07T15:02:51Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Workflows",
+      "number": 4516,
+      "url": "https://github.com/stranske/Workflows/pull/4516",
+      "created_at": "2026-11-07T03:41:43Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Travel-Plan-Permission",
+      "number": 1735,
+      "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1735",
+      "created_at": "2026-11-09T00:54:02Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Travel-Plan-Permission",
+      "number": 1734,
+      "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1734",
+      "created_at": "2026-11-08T16:18:50Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Travel-Plan-Permission",
+      "number": 1733,
+      "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1733",
+      "created_at": "2026-11-08T05:02:55Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Template",
+      "number": 1102,
+      "url": "https://github.com/stranske/Template/pull/1102",
+      "created_at": "2026-11-09T00:50:33Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Template",
+      "number": 1101,
+      "url": "https://github.com/stranske/Template/pull/1101",
+      "created_at": "2026-11-08T16:37:47Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Counter_Risk",
+      "number": 1239,
+      "url": "https://github.com/stranske/Counter_Risk/pull/1239",
+      "created_at": "2026-11-09T00:51:40Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Counter_Risk",
+      "number": 1238,
+      "url": "https://github.com/stranske/Counter_Risk/pull/1238",
+      "created_at": "2026-11-08T16:39:08Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Pension-Data",
+      "number": 1016,
+      "url": "https://github.com/stranske/Pension-Data/pull/1016",
+      "created_at": "2026-11-09T00:51:43Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Pension-Data",
+      "number": 1015,
+      "url": "https://github.com/stranske/Pension-Data/pull/1015",
+      "created_at": "2026-11-08T16:39:03Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Inv-Man-Intake",
+      "number": 1068,
+      "url": "https://github.com/stranske/Inv-Man-Intake/pull/1068",
+      "created_at": "2026-11-09T00:48:11Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Inv-Man-Intake",
+      "number": 1067,
+      "url": "https://github.com/stranske/Inv-Man-Intake/pull/1067",
+      "created_at": "2026-11-08T16:38:55Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Ready",
+      "number": 671,
+      "url": "https://github.com/stranske/Ready/pull/671",
+      "created_at": "2026-11-09T01:51:41Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Ready",
+      "number": 670,
+      "url": "https://github.com/stranske/Ready/pull/670",
+      "created_at": "2026-11-09T00:52:24Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Ready",
+      "number": 669,
+      "url": "https://github.com/stranske/Ready/pull/669",
+      "created_at": "2026-11-08T16:37:52Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2018,
+      "url": "https://github.com/stranske/trip-planner/pull/2018",
+      "created_at": "2026-11-09T01:22:52Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2016,
+      "url": "https://github.com/stranske/trip-planner/pull/2016",
+      "created_at": "2026-11-09T01:07:35Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2015,
+      "url": "https://github.com/stranske/trip-planner/pull/2015",
+      "created_at": "2026-11-09T00:46:43Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2014,
+      "url": "https://github.com/stranske/trip-planner/pull/2014",
+      "created_at": "2026-11-08T16:18:39Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2011,
+      "url": "https://github.com/stranske/trip-planner/pull/2011",
+      "created_at": "2026-11-08T12:10:08Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "number": 2006,
+      "url": "https://github.com/stranske/trip-planner/pull/2006",
+      "created_at": "2026-11-08T05:02:54Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Manager-Database",
+      "number": 1902,
+      "url": "https://github.com/stranske/Manager-Database/pull/1902",
+      "created_at": "2026-11-09T00:52:12Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Manager-Database",
+      "number": 1901,
+      "url": "https://github.com/stranske/Manager-Database/pull/1901",
+      "created_at": "2026-11-08T16:36:31Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Manager-Database",
+      "number": 1900,
+      "url": "https://github.com/stranske/Manager-Database/pull/1900",
+      "created_at": "2026-11-08T05:03:00Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "number": 2487,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2487",
+      "created_at": "2026-11-09T00:53:42Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "number": 2486,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2486",
+      "created_at": "2026-11-08T13:36:19Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6213,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6213",
+      "created_at": "2026-11-09T00:49:01Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6212,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6212",
+      "created_at": "2026-11-09T00:38:10Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6210,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6210",
+      "created_at": "2026-11-08T23:08:30Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6209,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6209",
+      "created_at": "2026-11-08T22:48:21Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6207,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6207",
+      "created_at": "2026-11-08T20:10:29Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6206,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6206",
+      "created_at": "2026-11-08T19:36:57Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6204,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6204",
+      "created_at": "2026-11-08T16:40:08Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Trend_Model_Project",
+      "number": 6199,
+      "url": "https://github.com/stranske/Trend_Model_Project/pull/6199",
+      "created_at": "2026-11-08T03:27:20Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/learning-management-system",
+      "number": 822,
+      "url": "https://github.com/stranske/learning-management-system/pull/822",
+      "created_at": "2026-11-09T00:51:24Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/learning-management-system",
+      "number": 821,
+      "url": "https://github.com/stranske/learning-management-system/pull/821",
+      "created_at": "2026-11-08T16:36:49Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/learning-management-system",
+      "number": 820,
+      "url": "https://github.com/stranske/learning-management-system/pull/820",
+      "created_at": "2026-11-08T06:36:38Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Fine-Art-Archive",
+      "number": 878,
+      "url": "https://github.com/stranske/Fine-Art-Archive/pull/878",
+      "created_at": "2026-11-09T00:47:46Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Fine-Art-Archive",
+      "number": 877,
+      "url": "https://github.com/stranske/Fine-Art-Archive/pull/877",
+      "created_at": "2026-11-08T16:39:42Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1283,
+      "url": "https://github.com/stranske/Orchestrator/pull/1283",
+      "created_at": "2026-11-09T02:32:46Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1282,
+      "url": "https://github.com/stranske/Orchestrator/pull/1282",
+      "created_at": "2026-11-09T02:15:31Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1281,
+      "url": "https://github.com/stranske/Orchestrator/pull/1281",
+      "created_at": "2026-11-09T02:12:29Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1280,
+      "url": "https://github.com/stranske/Orchestrator/pull/1280",
+      "created_at": "2026-11-09T02:11:36Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1279,
+      "url": "https://github.com/stranske/Orchestrator/pull/1279",
+      "created_at": "2026-11-09T01:32:35Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1278,
+      "url": "https://github.com/stranske/Orchestrator/pull/1278",
+      "created_at": "2026-11-09T01:26:11Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1277,
+      "url": "https://github.com/stranske/Orchestrator/pull/1277",
+      "created_at": "2026-11-09T01:11:50Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1274,
+      "url": "https://github.com/stranske/Orchestrator/pull/1274",
+      "created_at": "2026-11-08T23:52:19Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1273,
+      "url": "https://github.com/stranske/Orchestrator/pull/1273",
+      "created_at": "2026-11-08T23:46:27Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1269,
+      "url": "https://github.com/stranske/Orchestrator/pull/1269",
+      "created_at": "2026-11-08T23:04:13Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1268,
+      "url": "https://github.com/stranske/Orchestrator/pull/1268",
+      "created_at": "2026-11-08T23:02:14Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1267,
+      "url": "https://github.com/stranske/Orchestrator/pull/1267",
+      "created_at": "2026-11-08T20:43:32Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1265,
+      "url": "https://github.com/stranske/Orchestrator/pull/1265",
+      "created_at": "2026-11-08T20:39:29Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1264,
+      "url": "https://github.com/stranske/Orchestrator/pull/1264",
+      "created_at": "2026-11-08T20:31:14Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1261,
+      "url": "https://github.com/stranske/Orchestrator/pull/1261",
+      "created_at": "2026-11-08T19:59:51Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1260,
+      "url": "https://github.com/stranske/Orchestrator/pull/1260",
+      "created_at": "2026-11-08T19:37:33Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1259,
+      "url": "https://github.com/stranske/Orchestrator/pull/1259",
+      "created_at": "2026-11-08T19:35:27Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1258,
+      "url": "https://github.com/stranske/Orchestrator/pull/1258",
+      "created_at": "2026-11-08T19:29:49Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1256,
+      "url": "https://github.com/stranske/Orchestrator/pull/1256",
+      "created_at": "2026-11-08T18:32:29Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1254,
+      "url": "https://github.com/stranske/Orchestrator/pull/1254",
+      "created_at": "2026-11-08T17:53:54Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1252,
+      "url": "https://github.com/stranske/Orchestrator/pull/1252",
+      "created_at": "2026-11-08T17:18:22Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1249,
+      "url": "https://github.com/stranske/Orchestrator/pull/1249",
+      "created_at": "2026-11-08T16:54:13Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1247,
+      "url": "https://github.com/stranske/Orchestrator/pull/1247",
+      "created_at": "2026-11-08T16:37:31Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1246,
+      "url": "https://github.com/stranske/Orchestrator/pull/1246",
+      "created_at": "2026-11-08T16:27:39Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1243,
+      "url": "https://github.com/stranske/Orchestrator/pull/1243",
+      "created_at": "2026-11-08T15:29:56Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1241,
+      "url": "https://github.com/stranske/Orchestrator/pull/1241",
+      "created_at": "2026-11-08T12:15:50Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1239,
+      "url": "https://github.com/stranske/Orchestrator/pull/1239",
+      "created_at": "2026-11-08T08:53:14Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1238,
+      "url": "https://github.com/stranske/Orchestrator/pull/1238",
+      "created_at": "2026-11-08T07:06:40Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1237,
+      "url": "https://github.com/stranske/Orchestrator/pull/1237",
+      "created_at": "2026-11-08T06:23:47Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Orchestrator",
+      "number": 1234,
+      "url": "https://github.com/stranske/Orchestrator/pull/1234",
+      "created_at": "2026-11-08T00:52:21Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Doc-Lineage",
+      "number": 173,
+      "url": "https://github.com/stranske/Doc-Lineage/pull/173",
+      "created_at": "2026-11-09T00:52:32Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Doc-Lineage",
+      "number": 172,
+      "url": "https://github.com/stranske/Doc-Lineage/pull/172",
+      "created_at": "2026-11-08T16:39:08Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Deliverable-Render",
+      "number": 130,
+      "url": "https://github.com/stranske/Deliverable-Render/pull/130",
+      "created_at": "2026-11-09T00:48:08Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Deliverable-Render",
+      "number": 129,
+      "url": "https://github.com/stranske/Deliverable-Render/pull/129",
+      "created_at": "2026-11-08T16:38:29Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Manager-Mosaic",
+      "number": 146,
+      "url": "https://github.com/stranske/Manager-Mosaic/pull/146",
+      "created_at": "2026-11-09T00:51:52Z",
+      "reason": "no agents:keepalive label event before window end"
+    },
+    {
+      "repository": "stranske/Manager-Mosaic",
+      "number": 145,
+      "url": "https://github.com/stranske/Manager-Mosaic/pull/145",
+      "created_at": "2026-11-08T16:37:47Z",
+      "reason": "no agents:keepalive label event before window end"
+    }
+  ],
+  "unavailable_histories": [],
+  "numerator": 17,
+  "denominator": 51,
+  "non_codex_share": 0.3333333333333333,
+  "numerator_upper_bound": 18,
+  "share_upper_bound": 0.35294117647058826,
+  "same_second_ambiguous_pr_count": 1,
+  "no_routing_label_count": 1,
+  "concrete_provider_metric": {
+    "numerator": 13,
+    "denominator": 51,
+    "share": 0.2549019607843137,
+    "no_concrete_routing_label_count": 5
+  },
+  "threshold": 0.3,
+  "verdict": "PASS",
+  "limitations": [
+    "Observed label history does not establish a particular chooser invocation, pool capacity at assignment, or causal attribution to PR #4505.",
+    "agent:auto is a routing label in the named test contract, but does not identify a concrete non-Codex provider. Literal-label PASS does not establish the intended redistribution of work."
+  ]
+}

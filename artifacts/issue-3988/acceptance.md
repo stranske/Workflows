@@ -1,0 +1,193 @@
+# Workflows #3988 operational acceptance evidence
+
+Follow-up: [#4515](https://github.com/stranske/Workflows/issues/4515).
+Checked 2026-11-09 UTC. **Overall acceptance: NOT ESTABLISHED.** The actual
+production step summary and its posterior/capacity condition remain unverified.
+No production repair is demonstrated or included in this evidence PR.
+
+## Outcome, command and stop rule
+
+The real-input outcome is a non-Codex first-routing-label share of at least 30%
+over the complete first 48 hours after [PR #4505](https://github.com/stranske/Workflows/pull/4505)
+merged, accompanied by a real non-Codex intake default under the specified
+posterior/capacity condition. Merge commit:
+`3e7f75d3750e54a1453cf9ea0ce4ed048bf24288`.
+
+The observation window is **[2026-11-07T02:51:20Z, 2026-11-09T02:51:20Z)**;
+the complete window had elapsed before collection. The read-only collector
+prints the numerator, denominator, share, coverage and literal-label verdict:
+
+```sh
+/opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py
+```
+
+It invokes `gh api` for explicitly approved repository PR lists and each
+in-window PR's timeline. To reproduce the calculation without further API reads:
+
+```sh
+/opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py --from-saved
+```
+
+Stop rule recorded before implementation: at most two attempts per failed
+evidence query and 60 minutes total. Summary retrieval stopped after the API
+returned no summary and the available web/browser routes failed to expose it.
+No local full suite, new production dispatch, label mutation, or routing repair
+was run. Only the two issue-named Node test commands were executed locally.
+
+## Acceptance matrix
+
+| Criterion | Observed result | Status |
+| --- | --- | --- |
+| Both named Node commands on the merge commit; successful CI containing the suite | Both pass 74/74; successful suite-bearing CI linked below | PASS |
+| Deliberate-break and restored-green transcripts in the implementing PR body | Isolated mutation produces the named top-pool-shed failures; restored bytes pass 74/74; full transcripts included in PR body | PASS |
+| Real post-merge non-Codex DEFAULT_AGENT summary under the specified condition | Real logs establish a Cursor default, but actual summary and posterior/pool values were not retrieved | UNVERIFIED |
+| Complete 48-hour non-Codex first-routing-label share >=30% | Literal label lower bound 17/51 = 33.33%; four are `agent:auto`; concrete provider share is 13/51 = 25.49% | PASS for literal labels only; provider redistribution not established |
+
+## Exact-merge tests and deliberate break
+
+An isolated archive of the merge commit was extracted under
+`/private/tmp/issue-4515-merge`. Node version: `v24.3.0`.
+
+| Command | Original merge | After restoration |
+| --- | --- | --- |
+| `node --test tests/scripts/test_agent_delegation_policy_intake.js` | exit 0, 74 passed, 0 failed | exit 0, 74 passed, 0 failed |
+| `node --test .github/scripts/__tests__/agent-delegation-policy-intake.test.js` | exit 0, 74 passed, 0 failed | exit 0, 74 passed, 0 failed |
+
+In **both isolated policy copies only**, temporarily replace
+`const poolState = getAgentPoolState(routeWeights, candidate, row);` with
+`const poolState = 'ok';`. Run the first named command unchanged. It exits 1:
+55 passed, 19 failed. The source and template
+`top pool shed and next exhausted -> highest remaining ok agent` tests select
+Claude (0.88) instead of the expected Codex (0.62). The named
+`top pool shed -> next agent` test also fails with `'claude' !== 'cursor'`.
+
+Restore both originals in a `finally` block, verify byte equality against
+`git show <merge>:<path>`, and rerun both named commands green. No mutation
+entered the provisioned branch. Hashes, commands and exit codes are in
+[provenance.json](provenance.json). Full original, mutation and restored
+transcripts are retained in this directory; historical evidence was not
+replaced (no versioned `artifacts/issue-3988/` files existed on the provisioned
+base or merge commit).
+
+## PR #4505 CI
+
+Executed the issue-named command:
+
+```sh
+gh pr checks 4505 --repo stranske/Workflows
+```
+
+The [Selftest CI run](https://github.com/stranske/Workflows/actions/runs/42328604172)
+succeeded. Its [JavaScript Tests job](https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684942)
+ran the discovery glob and logged passing source/template top-pool-shed tests.
+[The retained log excerpt](pr-4505-ci-suite-excerpt.txt) proves the suite was
+actually present; the discovery wrapper requires the issue's direct suite.
+This CI run is on the PR head `ae822033ad6e23baa44070b0ab91fe81da593158`,
+before merge; the local narrow runs above are on the exact merge commit.
+
+The checks command exits 1 because the later **Keepalive next task (Codex)**
+job failed. Therefore this report does **not** claim that every PR check passed.
+The full checks readback is retained in [pr-4505-checks.txt](pr-4505-checks.txt).
+
+## Direct workflow inspection and real intake evidence
+
+Directly inspected the merge-commit source and consumer workflow copies:
+
+- [Source intake workflow](https://github.com/stranske/Workflows/blob/3e7f75d3750e54a1453cf9ea0ce4ed048bf24288/.github/workflows/agents-63-issue-intake.yml#L1418): when the bridge input is empty, fetch weights, load the registry, and call `chooseAgentForIntake('implement', routeWeights, registry.agents)` before resolving `defaultAgent`.
+- [Consumer intake workflow](https://github.com/stranske/Workflows/blob/3e7f75d3750e54a1453cf9ea0ce4ed048bf24288/templates/consumer-repo/.github/workflows/agents-issue-intake.yml#L152): the same chooser/default/summary sequence.
+
+Both assign `intakeChoice.agent` to `process.env.DEFAULT_AGENT` only when the
+bridge input is empty, then resolve `defaultAgent`. Both await `core.summary`
+writing Chosen Agent, Posterior, Pool State and Default Agent. Explicit input
+and existing routing labels retain their documented precedence. The actual
+merge-commit excerpts and line numbers are in [workflow-wiring.txt](workflow-wiring.txt).
+This is direct source inspection, not a claim that a production summary was seen.
+
+A real post-merge candidate is [intake run 42353296252](https://github.com/stranske/Workflows/actions/runs/42353296252),
+[Validate Codex issue labels job](https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413),
+created 2026-11-07T07:55:49Z on `d2106cc83e060d0063f63dd08ea94bbaa4104fbf`.
+The executed log, with an empty bridge input, says:
+
+```text
+2026-11-07T07:55:59.5554356Z   INPUT_ISSUE: 4523
+2026-11-07T07:55:59.5555106Z   DEFAULT_AGENT:
+2026-11-07T07:55:59.7123093Z Overriding bridge agent 'cursor' with 'claude' from labels.
+```
+
+The override message establishes that `defaultAgent` was Cursor before the
+existing issue label selected Claude. It does not establish final routing to
+Cursor. See [live-intake-log-excerpt.txt](live-intake-log-excerpt.txt).
+
+**Unresolved:** the REST check-run `output.summary` is null, the public HTML
+does not expose the step summary, and the browser host was unavailable. The
+actual table and the historical posterior/pool condition could not be read.
+Do not substitute the log inference or a synthetic run for that criterion.
+All 29 successful source intake runs in the window were inspected; retained
+execution lines are in [intake-run-inspection.json](intake-run-inspection.json).
+Later runs also show static fallback because the export was unavailable or
+stale. Their non-Codex label overrides are not capacity-aware chooser evidence.
+
+## Complete fleet observation
+
+Fleet scope: the 16 consumers in `REGISTERED_CONSUMER_REPOS` at the merge
+commit, plus source Workflows. Direct owner exclusions are applied before API
+requests or inventory output. All 17 repositories were accessible. All 147
+in-window PRs, open and closed, were enumerated by creation time. Every PR's
+timeline was exhausted: **zero unavailable histories**. Per-repository saved
+histories include label additions and removals, IDs, timestamps, source URLs,
+and pagination counts. This avoids survivorship bias from current labels.
+
+Eligibility requires an in-window creation time and an `agents:keepalive`
+addition before the window ends, even if subsequently removed. There are
+51 eligible PRs and 96 explicit non-keepalive exclusions. No branch name,
+author, current label, or later delegation substitutes for a first label.
+
+| Repository | All in-window PRs | Eligible keepalive PRs | Guaranteed non-Codex first labels |
+| --- | ---: | ---: | ---: |
+| Workflows | 43 | 21 | 6 |
+| Travel-Plan-Permission | 3 | 0 | 0 |
+| Template | 2 | 0 | 0 |
+| Counter_Risk | 2 | 0 | 0 |
+| Pension-Data | 3 | 1 | 1 |
+| Inv-Man-Intake | 2 | 0 | 0 |
+| Ready | 3 | 0 | 0 |
+| trip-planner | 11 | 5 | 2 |
+| Manager-Database | 4 | 1 | 1 |
+| Portable-Alpha-Extension-Model | 3 | 1 | 0 |
+| Trend_Model_Project | 12 | 4 | 2 |
+| learning-management-system | 3 | 0 | 0 |
+| Fine-Art-Archive | 2 | 0 | 0 |
+| Orchestrator | 48 | 18 | 5 |
+| Doc-Lineage | 2 | 0 | 0 |
+| Deliverable-Render | 2 | 0 | 0 |
+| Manager-Mosaic | 2 | 0 | 0 |
+| **Total** | **147** | **51** | **17** |
+
+The named suite explicitly treats `agent:auto` as a routing label. Counting
+literal first `agent:*` labels therefore yields a conservative **17/51 =
+33.33%**, including four `agent:auto` first labels. Orchestrator #1275 has
+same-second `agent:codex`/`agent:auto` events: its ordering is treated as
+ambiguous, contributing zero to the guaranteed numerator. The upper bound is
+18/51 = 35.29%; the lower bound already exceeds 30%. Workflows #4559 has no
+routing-label event; its complete history establishes absence within the
+window, so it remains in the denominator and contributes zero.
+
+This literal result is weaker than demonstrated provider redistribution.
+Excluding `agent:auto`, **13/51 = 25.49%** first name a non-Codex provider:
+six Gemini, five Vibe, one Claude, one Cursor. Five PRs have no concrete
+provider-routing label in the window. Counting auto-selection intent as a
+non-Codex execution would overstate what was observed.
+
+The complete machine-readable result, coverage, individual eligible PRs,
+first events, exclusions, numerator/denominator and timestamps are in
+[routing-observations.json](routing-observations.json). The evidence measures
+labels, not provider execution, pool state at assignment, or causal effect
+of PR #4505. The original issue's separate zero-shed-assignment aspiration
+cannot be evaluated without historical capacity at each assignment.
+
+## Outstanding evidence
+
+The production summary and its historical posterior/capacity condition still
+need direct evidence before overall acceptance can be marked complete.
+The preserved logs and first-label study do not fill that gap. The merged
+capacity fix is preserved; no unrelated workflow or policy repair was made.

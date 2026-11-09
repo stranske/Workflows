@@ -1,0 +1,7 @@
+GET repos/stranske/Workflows/actions/jobs/128345864413/logs
+https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413
+
+2026-11-07T07:55:59.5554356Z   INPUT_ISSUE: 4523
+2026-11-07T07:55:59.5555106Z   DEFAULT_AGENT: 
+2026-11-07T07:55:59.7111192Z Using labels from event payload (no API call needed).
+2026-11-07T07:55:59.7123093Z Overriding bridge agent 'cursor' with 'claude' from labels.
