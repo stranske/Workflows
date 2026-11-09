@@ -3125,3 +3125,79 @@ Git error, remote rejection results and final PR readback confirming open and
 ready (`isDraft=false`). The [concrete blocker note](runtime-4550/4558-round15-publication-blocker.md)
 and proposed PR body are retained for the existing authorized writer.
 Overall acceptance remains incomplete.
+
+## Local seat round 10: current-head Gate readback — 2026-11-09
+
+Check date: **2026-11-09**. Plan recorded before evidence collection. Outcome:
+retain a correct exact-head Gate diagnosis and refresh the remaining read-only
+Maint 68/71 and issue-comment observations. Acceptance commands remain the two
+full suites named above on the selected immutable published main revision;
+no local full suite or new source repair is planned. Run the existing focused
+receipt tests with `/opt/anaconda3/bin/python3 -m pytest -q
+ tests/scripts/test_issue_4369_delivery_lifecycle.py
+ tests/scripts/test_issue_4369_downstream_evidence.py -m "not slow"`, ancestry
+checks, byte comparison, observer replay and `git diff --check`, each bounded to
+120 seconds. Read requests are bounded to 30 seconds and ten pages per inventory.
+Stop at the first unresolved step after three failed attempts or 60 minutes,
+whichever occurs first (deadline **2026-11-09T04:30:11Z**).
+
+The cited run **42553729063** belongs to predecessor head
+`8d9f9348f23e62f4c87a97a581748f4023659f20`, rather than incoming head
+`60e0985b655311222259bee533fd936eb362f8ed`. Its summary prints
+`Python CI cancelled; waiting for rerun.` Its Python 3.13/3.14 jobs were
+cancelled. Current-head Gate **42554760270** is still running at initial
+readback. Cancellation is not a reproduced source failure. Do not repair a
+source symbol or weaken the Gate based on this signal. Pending CI blocks merge;
+the drain is to let the already-running exact-head Gate finish while collecting
+read-only evidence. No rerun, dispatch, cancellation or merge is requested.
+
+The [verification receipt](runtime-4550/4558-seat-round10-verification.json)
+records **124 focused receipt tests passed** in 0.59 seconds, all three Git
+ancestry checks exiting 0, and retained source/consumer `cmp` exiting 0. Both
+full-suite log hashes and hosted execution receipts remain valid at published
+main `0a06f1976db1dd7eb12853f493a3371ee4736bcf`; this does not claim suites ran
+on this evidence-only PR head. No production source or dependency pin changed.
+
+The complete workflow-specific inventories cover
+**2026-11-09T03:01:54Z–03:30:44Z**. The
+[producer inventory](runtime-4550/4558-seat-round10-producer-inventory.json)
+and [replay](runtime-4550/4558-seat-round10-producer-observation.json) contain
+zero Maint 68 runs. The
+[merger inventory](runtime-4550/4558-seat-round10-merger-inventory.json)
+and [replay](runtime-4550/4558-seat-round10-merger-observation.json) contain
+two Maint 71 workflow-dispatch runs, **42555977107** and **42556352733**.
+Their caller origin remains **UNKNOWN**. Their downloaded reports
+([first](runtime-4550/4558-seat-round10-42555977107-sync-pr-merge-report.json),
+[second](runtime-4550/4558-seat-round10-42556352733-sync-pr-merge-report.json))
+are scoped to another consumer and contain no Portable-Alpha-Extension-Model
+candidate or causal-successor receipt. They do not satisfy T5/A3. No Maint 68
+or Maint 71 was dispatched by this work. The drain remains read-only observation
+of the next qualifying producer and its artifact-bound merger; no schedule or
+writer lock changed.
+
+The fresh [issue-4369 comment receipt](runtime-4550/4558-seat-round10-comments.json)
+retains all **49** comments through **2026-11-09T03:30:44Z**, with explicit page
+sizes **49, 0** and complete pagination. The fresh
+[consumer thread readback](runtime-4550/4558-seat-round10-consumer-threads.json)
+confirms PR 2486 head `a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9`, actual merge
+`1ff9e11cd51a456333c626cb354543b63202bef6`, and zero review threads with
+`hasNextPage=false`. There are zero applicable active exact-head Maint 71
+findings; discussion **4434491702** remains excluded. The retained source and
+consumer blobs both remain `71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2` and the
+[exact byte comparison](runtime-4550/4558-byte-comparison.json) is revalidated
+by this round's exit-0 `cmp`.
+
+The [current-head job receipt](runtime-4550/4558-seat-round10-current-jobs.json)
+subsequently shows Python 3.13/3.14 cancelled as well. The run was still queued
+with no terminal conclusion at readback; completed logs were unavailable.
+Cancellation cause is **UNKNOWN**. The
+[cited predecessor excerpt](runtime-4550/4558-seat-round10-gate-excerpt.log)
+retains the actual summary error. No test assertion failure was reproduced and
+no source repair is warranted by these receipts. The upstream non-PASS verifier
+remains unresolved. Overall acceptance remains incomplete.
+
+Before publication, remote keepalive commit `523b4c04f` arrived. Rebased onto
+that commit, preserving both appended evidence sections and its collector fix.
+The [post-rebase checks](runtime-4550/4558-seat-round10-post-rebase.json) pass:
+**81 observer tests**, **124 receipt tests**, and `git diff --check` exit 0.
+The initial non-fast-forward push was rejected without changing remote history.
