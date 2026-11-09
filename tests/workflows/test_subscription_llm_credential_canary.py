@@ -190,6 +190,8 @@ def test_subscription_analysis_credential_canary(
                 'model_reasoning_effort="low"',
                 "-c",
                 'web_search="disabled"',
+                "-c",
+                "agents.enabled=false",
                 *[arg for feature in EXPECTED_DISABLED_FEATURES for arg in ("--disable", feature)],
                 "-",  # stdin only
             ]

@@ -267,6 +267,12 @@ on:
       llm-quality-warnings:
         description: 'JSON array of quality warnings from BS detector'
         value: ${{ jobs.codex.outputs.llm-quality-warnings }}
+  pull_request:
+    paths:
+      - '.github/workflows/reusable-codex-run.yml'
+      - 'tools/subscription_llm.py'
+      - 'templates/consumer-repo/tools/subscription_llm.py'
+      - 'tests/workflows/test_subscription_llm_pinned_cli_canary.py'
 
 permissions:
   contents: write
@@ -284,7 +290,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
-    if: ${{ !inputs.skip }}
+    if: ${{ github.event_name == 'workflow_call' && !inputs.skip }}
     outputs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
       final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
@@ -2233,3 +2239,55 @@ jobs:
             } catch (error) {
               console.log(`Could not add label: ${error.message}`);
             }
+
+  codex-pinned-canary:
+    name: Pinned Codex CLI Canary
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_call' && !inputs.skip && github.repository == 'stranske/Workflows') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.workflows_ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+
+      - name: Expose cached Codex CLI
+        run: echo "${{ runner.temp }}/agent-cli/codex/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Codex CLI
+        id: codex_cli_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/agent-cli/codex
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-codex-cli-${{ inputs.codex_cli_version || '0.160.0' }}
+
+      - name: Install Codex CLI
+        if: steps.codex_cli_cache.outputs.cache-hit != 'true'
+        env:
+          NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/codex
+          CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.160.0' }}
+        run: |
+          set -euo pipefail
+          echo "Installing Codex CLI..."
+          npm install -g "@openai/codex@${CODEX_CLI_VERSION}"
+          echo "Installed Codex CLI version: $(codex --version)"
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip pytest pytest-asyncio pyyaml
+
+      - name: Run pinned Codex CLI canary
+        if: ${{ hashFiles('tests/workflows/test_subscription_llm_pinned_cli_canary.py') != '' }}
+        env:
+          WORKFLOWS_PINNED_CODEX_BIN: ${{ runner.temp }}/agent-cli/codex/bin/codex
+        run: |
+          python -m pytest tests/workflows/test_subscription_llm_pinned_cli_canary.py -vv

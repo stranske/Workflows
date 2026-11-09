@@ -117,6 +117,8 @@ class SubscriptionClient:
                 "-c",
                 'web_search="disabled"',
             ]
+            if "multi_agent" in _CODEX_DISABLED_FEATURES:
+                command.extend(["-c", "agents.enabled=false"])
             for feature in _CODEX_DISABLED_FEATURES:
                 command.extend(["--disable", feature])
             command.append("-")
