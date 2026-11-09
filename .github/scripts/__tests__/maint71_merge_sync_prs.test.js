@@ -582,7 +582,7 @@ function sealedGateHarness(t) {
       reads.push(params);
       if (state.lookupError) throw Object.assign(new Error('history denied'), { status: 403 });
       return { data: { workflow_runs: params.event === 'pull_request' ? state.runs
-        : dispatches.length ? [{ ...run, event: 'workflow_dispatch', status: 'queued', created_at: new Date().toISOString() }] : [] } };
+        : state.dispatchRuns || (dispatches.length ? [{ ...run, event: 'workflow_dispatch', status: 'queued', created_at: new Date().toISOString() }] : []) } };
     },
     listJobsForWorkflowRun() {},
     reRunWorkflow: async params => {
@@ -672,6 +672,50 @@ test('missing PR Gate uses dispatch fallback; unreadable history fails closed', 
   assert.ok(api.logs.includes('seal: stranske/Ready#4104 gate dispatch fallback'));
   assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
   assert.equal(api.dispatches.length, 1);
+});
+
+for (const sealed of [false, true]) {
+  test(`missing declared Python contexts drain a successful skipped Gate (sealed=${sealed})`, async t => {
+    // Real Orchestrator1289: ordinary Gate42588005969 succeeded with its Python
+    // parent skipped; exact-head dispatch42589659513 supplied all twelve contexts.
+    const api = sealedGateHarness(t);
+    api.args.repo = 'Orchestrator';
+    api.args.pr.number = 1289;
+    api.args.pr.head.ref = sealed ? 'sync/workflows-delivery' : 'deps/sync-dev-versions-57431b7fe7a2';
+    api.args.pr.head.sha = '6efd1db39f9ba919d0f0ff6f63e2c0056ca64172';
+    Object.assign(api.run, { head_sha: api.args.pr.head.sha, head_branch: api.args.pr.head.ref,
+      conclusion: 'success', run_started_at: '2026-10-17T11:00:01Z' });
+    if (!sealed) api.args.sealedAt = undefined;
+    api.args.missingDeclaredContexts = Array.from({ length: 6 }, (_, i) =>
+      ['3.13', '3.14'].map(version => `python ci shard ${i + 1}/6 / python ${version}`)).flat();
+    const result = await requestSealedGate(api.args);
+    assert.equal(result.mode, 'dispatch');
+    assert.equal(api.reruns.length, 0, 'rerunning the same PR event repeats its skipped matrix');
+    assert.deepEqual(api.dispatches, [{ owner: 'stranske', repo: 'Orchestrator',
+      workflow_id: 'pr-00-gate.yml', ref: api.args.pr.head.ref, inputs: { pr_number: '1289' } }]);
+    for (const status of ['queued', 'in_progress', 'completed']) {
+      api.state.dispatchRuns = [{ ...api.run, id: 42589659513, event: 'workflow_dispatch', status,
+        conclusion: status === 'completed' ? 'success' : null, created_at: new Date().toISOString() }];
+      assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 42589659513 });
+    }
+    assert.equal(api.dispatches.length, 1, 'same-head native dispatch is reused even without a seal');
+  });
+}
+
+test('missing declared Python contexts never duplicate an active PR Gate', async t => {
+  const api = sealedGateHarness(t);
+  api.state.runs[0].status = 'in_progress';
+  api.args.missingDeclaredContexts = ['python ci / python 3.14'];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+  assert.equal(api.dispatches.length, 0);
+});
+
+test('missing declared Python recovery leaves other required contexts alone', async t => {
+  const api = sealedGateHarness(t);
+  Object.assign(api.state.runs[0], { conclusion: 'success', run_started_at: '2026-10-17T11:00:01Z' });
+  api.args.missingDeclaredContexts = ['CodeQL', 'python ci / lint-ruff'];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+  assert.equal(api.dispatches.length, 0);
 });
 
 function refreshCanary(overrides = {}) {

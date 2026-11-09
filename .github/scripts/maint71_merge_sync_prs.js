@@ -1585,11 +1585,18 @@ function normalizeReviewPolicy(policy = {}) {
   };
 }
 
-// Recover the PR-event checks; dispatch alone skips Gate's PR-only jobs.
-async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
+function gateOwnedPythonContexts(names) {
+  return Array.isArray(names) ? names.filter(name => typeof name === 'string'
+    && /^python ci(?: shard \d+\/\d+)? \/ python \d+\.\d+$/.test(name)) : [];
+}
+
+// PR-only checks retain their PR event. A successful event that skipped its
+// required Python matrix needs the supported exact-head dispatch instead.
+async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt, missingDeclaredContexts = [] }) {
   const identity = `seal: ${owner}/${repo}#${pr.number}`;
   const query = { owner, repo, workflow_id: 'pr-00-gate.yml',
     head_sha: pr.head?.sha, per_page: 100 };
+  const missingPython = gateOwnedPythonContexts(missingDeclaredContexts).length > 0;
   let refusal = {};
   const receipt = result => ({ ...result, ...refusal });
   try {
@@ -1603,7 +1610,13 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     if (!Array.isArray(data?.workflow_runs)) throw new Error('Gate history unreadable');
     const exact = data.workflow_runs.filter(run => run.id && run.event === 'pull_request'
       && run.head_sha === pr.head.sha).sort((a, b) => Number(b.id) - Number(a.id));
-    const latest = exact[0];
+    let latest = exact[0];
+    if (missingPython && latest?.status === 'completed' && latest.conclusion === 'success') {
+      const active = exact.find(run => run.status !== 'completed');
+      if (active) return { mode: 'existing', run_id: active.id };
+      console.log(`${identity} required Python matrix never started; use exact-head dispatch`);
+      latest = null;
+    }
     if (latest) {
       // A queued/in-progress attempt or a completed post-seal evaluation must
       // settle through the ordinary checks path, not create a rerun loop.
@@ -1652,14 +1665,14 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     // No PR-event run exists, or GitHub refused to retry it. A dispatch provides
     // canary evidence only: it skips PR-only jobs and cannot waive merge checks.
     // Debounce using the same seal boundary, including queued runs.
-    if (sealedAt) {
+    if (sealedAt || missingPython) {
       const { data: fallback } = await withRetry(client => client.rest.actions.listWorkflowRuns({
         ...query, event: 'workflow_dispatch',
       }));
       const existing = fallback?.workflow_runs?.find(run => run.id
         && run.event === 'workflow_dispatch' && run.head_sha === pr.head.sha
         && run.head_branch === pr.head.ref
-        && (run.status !== 'completed' || gateEvaluatesSeal(run, sealedAt)));
+        && (run.status !== 'completed' || !sealedAt || gateEvaluatesSeal(run, sealedAt)));
       if (existing) {
         if (refusal.blocked) console.log(`${identity} gate rerun refused; dispatched run=${existing.id} (existing)`);
         return receipt({ mode: 'existing', run_id: existing.id });
@@ -5342,6 +5355,7 @@ async function run({ github, context, core }) {
       const failedChecks = classification.failed;
       const pendingChecks = classification.pending;
       let deliveryRecord = parseDeliveryRecord(pr.body || '');
+      let currentGateRequest;
       const reviewResolution = await resolveProvenReviewDebt({
         owner,
         repo,
@@ -5849,8 +5863,10 @@ async function run({ github, context, core }) {
         // All restage/readiness/reviewer decisions precede recovery. This
         // applies equally to candidate and promoted delivery branches.
         const gateRequest = autoMerge && !dryRun
-          ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at, context })
+          ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at,
+            missingDeclaredContexts: classification.declared_contexts?.never_started, context })
           : undefined;
+        currentGateRequest = gateRequest;
         if (expectedPresealGateHold || gateRequest?.blocked || (gateRequest && gateRequest.mode !== 'existing')) {
           if (canary) canary.seal_state = gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';
           results.push({ ...deliveryContext, status: 'delivery_sealed_checks_pending',
@@ -5881,9 +5897,19 @@ async function run({ github, context, core }) {
   
       if (classification.status === 'checks_pending') {
         console.log('Waiting for checks to complete');
+        const missingDeclaredContexts = gateOwnedPythonContexts(
+          classification.declared_contexts?.never_started,
+        );
+        const missingGate = missingDeclaredContexts.length
+          ? currentGateRequest || (autoMerge && !dryRun && deliveryRecord
+            ? await requestSealedGate({ owner, repo, pr, withRetry,
+              sealedAt: deliveryRecord.sealed_at || undefined, missingDeclaredContexts, context }) : undefined)
+          : undefined;
         results.push({
           ...deliveryContext,
           status: 'checks_pending',
+          ...(missingGate ? { gate_request: missingGate,
+            next_command: 'rerun-after-missing-declared-python-gate' } : {}),
           pending_checks: pendingChecks.map((check) => ({
             name: check.name,
             conclusion: check.conclusion,
