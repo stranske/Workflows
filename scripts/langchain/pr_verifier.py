@@ -2731,6 +2731,22 @@ def _classify_evidence_channels(acceptance: str, *, _bind_attached: bool = True)
             )
         )
     acceptance = _normalize_evidence_acceptance(acceptance)
+    if len(acceptance) > _EVIDENCE_CACHE_MAX_CHARS:
+        return _classify_normalized_evidence_channels(acceptance, _bind_attached=_bind_attached)
+    return set(_cached_normalized_evidence_channels(acceptance, _bind_attached))
+
+
+@lru_cache(maxsize=512)
+def _cached_normalized_evidence_channels(acceptance: str, bind_attached: bool) -> frozenset[str]:
+    return frozenset(
+        _classify_normalized_evidence_channels(acceptance, _bind_attached=bind_attached)
+    )
+
+
+def _classify_normalized_evidence_channels(
+    acceptance: str, *, _bind_attached: bool = True
+) -> set[str]:
+    """Classify the exact normalized criterion after section handling is complete."""
     channels: set[str] = set()
     response_operation = (
         r"(?:include|contain|have|return|display|show|store|emit|render|expose|provide)\w*\b"
