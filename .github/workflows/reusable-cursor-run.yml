@@ -1226,7 +1226,8 @@ jobs:
               core.warning('No unambiguous source issue; unpushed commits retained in the run summary.');
               return;
             }
-            // A notification failure must not fail the successful closed-target skip.
+            // # best-effort: a notification failure must not fail the successful
+            // closed-target skip; the run summary and recovery artifact keep the evidence.
             try {
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner, repo, issue_number: issueNumber, per_page: 100,
