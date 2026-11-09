@@ -1,0 +1,87 @@
+[
+  {
+    "repository": "stranske/Travel-Plan-Permission",
+    "number": 1735,
+    "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1735",
+    "created_at": "2026-11-09T00:54:02Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Travel-Plan-Permission/issues/1735/timeline?per_page=100&page=1",
+        "count": 5
+      }
+    ],
+    "label_events": [],
+    "history_complete": true
+  },
+  {
+    "repository": "stranske/Travel-Plan-Permission",
+    "number": 1734,
+    "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1734",
+    "created_at": "2026-11-08T16:18:50Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Travel-Plan-Permission/issues/1734/timeline?per_page=100&page=1",
+        "count": 16
+      }
+    ],
+    "label_events": [
+      {
+        "id": 35501145283,
+        "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/issues/events/35501145283",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:18:51Z",
+        "label": "sync"
+      },
+      {
+        "id": 35501145320,
+        "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/issues/events/35501145320",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:18:51Z",
+        "label": "automated"
+      },
+      {
+        "id": 35501145363,
+        "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/issues/events/35501145363",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:18:51Z",
+        "label": "workflow:source-sync"
+      },
+      {
+        "id": 35501145395,
+        "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/issues/events/35501145395",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:18:51Z",
+        "label": "sync:delivery-staging"
+      },
+      {
+        "id": 35501204968,
+        "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/issues/events/35501204968",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:20:15Z",
+        "label": "sync:delivery-ready"
+      },
+      {
+        "id": 35512699935,
+        "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/issues/events/35512699935",
+        "event": "unlabeled",
+        "created_at": "2026-11-08T20:46:52Z",
+        "label": "sync:delivery-staging"
+      }
+    ],
+    "history_complete": true
+  },
+  {
+    "repository": "stranske/Travel-Plan-Permission",
+    "number": 1733,
+    "url": "https://github.com/stranske/Travel-Plan-Permission/pull/1733",
+    "created_at": "2026-11-08T05:02:55Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Travel-Plan-Permission/issues/1733/timeline?per_page=100&page=1",
+        "count": 5
+      }
+    ],
+    "label_events": [],
+    "history_complete": true
+  }
+]

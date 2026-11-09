@@ -1,0 +1,130 @@
+[
+  {
+    "repository": "stranske/Manager-Database",
+    "number": 1902,
+    "url": "https://github.com/stranske/Manager-Database/pull/1902",
+    "created_at": "2026-11-09T00:52:12Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Manager-Database/issues/1902/timeline?per_page=100&page=1",
+        "count": 5
+      }
+    ],
+    "label_events": [],
+    "history_complete": true
+  },
+  {
+    "repository": "stranske/Manager-Database",
+    "number": 1901,
+    "url": "https://github.com/stranske/Manager-Database/pull/1901",
+    "created_at": "2026-11-08T16:36:31Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Manager-Database/issues/1901/timeline?per_page=100&page=1",
+        "count": 16
+      }
+    ],
+    "label_events": [
+      {
+        "id": 35501900784,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35501900784",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:36:32Z",
+        "label": "sync"
+      },
+      {
+        "id": 35501900818,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35501900818",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:36:32Z",
+        "label": "automated"
+      },
+      {
+        "id": 35501900848,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35501900848",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:36:32Z",
+        "label": "workflow:source-sync"
+      },
+      {
+        "id": 35501900887,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35501900887",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:36:32Z",
+        "label": "sync:delivery-staging"
+      },
+      {
+        "id": 35502282913,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35502282913",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:45:36Z",
+        "label": "sync:delivery-ready"
+      },
+      {
+        "id": 35512758494,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35512758494",
+        "event": "unlabeled",
+        "created_at": "2026-11-08T20:48:13Z",
+        "label": "sync:delivery-staging"
+      }
+    ],
+    "history_complete": true
+  },
+  {
+    "repository": "stranske/Manager-Database",
+    "number": 1900,
+    "url": "https://github.com/stranske/Manager-Database/pull/1900",
+    "created_at": "2026-11-08T05:03:00Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Manager-Database/issues/1900/timeline?per_page=100&page=1",
+        "count": 5
+      }
+    ],
+    "label_events": [],
+    "history_complete": true
+  },
+  {
+    "repository": "stranske/Manager-Database",
+    "number": 1899,
+    "url": "https://github.com/stranske/Manager-Database/pull/1899",
+    "created_at": "2026-11-07T12:33:00Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Manager-Database/issues/1899/timeline?per_page=100&page=1",
+        "count": 27
+      }
+    ],
+    "label_events": [
+      {
+        "id": 35432619132,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35432619132",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:33:05Z",
+        "label": "agent:gemini"
+      },
+      {
+        "id": 35432688408,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35432688408",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:34:36Z",
+        "label": "agents:keepalive"
+      },
+      {
+        "id": 35432688439,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35432688439",
+        "event": "labeled",
+        "created_at": "2026-11-07T12:34:36Z",
+        "label": "autofix"
+      },
+      {
+        "id": 35437299365,
+        "url": "https://api.github.com/repos/stranske/Manager-Database/issues/events/35437299365",
+        "event": "labeled",
+        "created_at": "2026-11-07T14:19:25Z",
+        "label": "agent:auto"
+      }
+    ],
+    "history_complete": true
+  }
+]
