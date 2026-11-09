@@ -77,9 +77,57 @@ function observe({ start, end, pages, workflow_id, workflow_path = MAINT68 }) {
     chain_acceptance: false };
 }
 
+// Inclusive REST intervals share their boundary. A sequence proves continuous
+// observation only when every window is complete and boundary rows agree.
+function observeSequence(inventories) {
+  if (!Array.isArray(inventories) || !inventories.length) {
+    throw new Error('missing observation inventories');
+  }
+  const observations = inventories.map(observe);
+  const first = observations[0], seen = new Map();
+  const role = first.workflow_path === MAINT68 ? 'producers' : 'mergers';
+  const selected = [];
+  const identity = run => JSON.stringify([run.id, run.created_at, run.path, run.event, run.workflow_id]);
+  let previousRows = [];
+  for (const [index, observation] of observations.entries()) {
+    if (observation.workflow_path !== first.workflow_path
+      || observation.inventory_scope !== first.inventory_scope
+      || observation.workflow_id !== first.workflow_id) {
+      throw new Error('observation workflow or inventory scope changed');
+    }
+    if (index && Date.parse(observation.start) !== Date.parse(observations[index - 1].end)) {
+      throw new Error('observation windows have a gap, overlap or reversed order');
+    }
+    const rows = inventories[index].pages.flatMap(page => page.body.workflow_runs);
+    const boundary = candidates => JSON.stringify(candidates
+      .filter(run => Date.parse(run.created_at) === Date.parse(observation.start))
+      .map(identity).sort());
+    if (index && boundary(previousRows) !== boundary(rows)) {
+      throw new Error('observation boundary inventory changed');
+    }
+    const leads = new Map(observation[role].map(run => [run.id, run]));
+    for (const run of rows) {
+      if (seen.has(run.id)) {
+        if (seen.get(run.id) !== identity(run)
+          || Date.parse(run.created_at) !== Date.parse(observation.start)) {
+          throw new Error('conflicting observation boundary run');
+        }
+      } else {
+        seen.set(run.id, identity(run));
+        if (leads.has(run.id)) selected.push(leads.get(run.id));
+      }
+    }
+    previousRows = rows;
+  }
+  return { ...first, end: observations.at(-1).end, total_count: seen.size,
+    observation_count: observations.length, continuous: true,
+    [role]: selected.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id - b.id) };
+}
+
 if (require.main === module) {
   try {
-    const result = observe(JSON.parse(fs.readFileSync(process.argv[2], 'utf8')));
+    const input = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+    const result = Array.isArray(input) ? observeSequence(input) : observe(input);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } catch (error) {
     process.stderr.write(`Observation refused: ${error.message}\n`);
@@ -87,4 +135,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { observe };
+module.exports = { observe, observeSequence };

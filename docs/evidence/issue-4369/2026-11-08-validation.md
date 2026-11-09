@@ -2714,3 +2714,81 @@ Posting the concrete PR blocker comment and adding `needs-human` were each
 rejected with `MCP tool call requires approval, but approval policy is never`.
 Neither remote mutation succeeded. The
 [blocker note](runtime-4550/4558-round10-publication-blocker.md) is retained locally.
+
+## Keepalive round 11: continuous origin observation — 2026-11-09
+
+Plan recorded before implementation at **2026-11-09T02:21:41Z**. Existing receipt
+validation passes (124 Python tests; 32 direct Node observer tests). The first
+unchecked ancestry task is already supported by native receipts; no new acceptance
+revision or full-suite execution is needed. Next unresolved task: observe the next
+automation-started Maint 68 → Maint 71 chain without dispatching either workflow.
+Add a read-only observer operation that combines adjacent complete inventories,
+rejects gaps and inconsistent boundary duplicates, and preserves UNKNOWN dispatch
+provenance and false chain acceptance. Run targeted Node tests with a 120-second
+bound; retain the fresh interval inventory and combined replay. Stop at the first
+unresolved step after three failed attempts or 60 minutes, whichever occurs first
+(this continuation deadline 03:21:41Z). No protected-file or production repair is
+planned. The upstream non-PASS disposition is not cleared by receipt validation.
+
+Reconciliation: verified tasks 1, 3 and 6 and acceptance criteria 1, 2 and 4 are
+eligible to be checked. PR-body update was attempted after validation but rejected
+by automatic approval review: `MCP tool call requires approval, but approval policy
+is never`. The remote checkboxes remain unchanged; a proposed body is retained
+alongside this round's receipts.
+
+Implemented continuous inventory replay in
+[`observe-maint68.js`](observe-maint68.js), with **15 additional regression
+tests** in
+[`test_issue_4369_origin_observation.js`](../../../tests/scripts/test_issue_4369_origin_observation.js).
+Adjacent complete windows must agree on every run at their inclusive boundary;
+missing/conflicting rows, gaps, overlaps, changed scopes and incomplete pages are
+refused. Single-inventory CLI behavior is preserved; a JSON array invokes the new
+sequence operation. Bot names and dispatch titles do not authenticate origin,
+and sequence results retain `chain_acceptance: false`.
+
+Verification: **47 Node tests pass**, both JavaScript syntax checks pass, and
+`git diff --check` exits **0**. The existing Python receipt tests passed before
+implementation: **124 passed** with `-m "not slow"`. No Python file was changed.
+The [validation receipt](runtime-4550/4558-round11-validation.json) retains final
+commands, bounds, timings, exits and log hashes. The new positive sequence cases
+failed before implementation because the operation was absent; the complete
+post-implementation test run passes.
+
+The [fresh projected API inventory](runtime-4550/4558-round11-origin-inventory.json)
+retains **97 unique runs**, one complete page with matching total count, from
+**2026-11-09T02:01:37Z through 02:21:41Z**. Together with the prior round's
+101-run inventory, the
+[continuous replay](runtime-4550/4558-round11-continuous-observation.json)
+covers **01:49:57Z–02:21:41Z**, **198 unique runs**, and zero exact-path Maint 68
+or Maint 71 matches. Input hashes are retained. To reproduce the CLI replay,
+load the two named input JSON files in order into a JSON array, then run
+`node docs/evidence/issue-4369/observe-maint68.js /path/to/array.json`.
+No qualifying automation-started causal chain is established. No workflow was
+dispatched. The issue-comment observation boundary remains **01:49:57Z**;
+the run-inventory boundary does not extend comment observation.
+
+[Readback](runtime-4550/4558-round11-readback.json) retains current main
+`7a9d652445cee388cb5c39e15b8d2de53f0dda68` and PR 4558 open and ready at
+`825337ce48bd897465f015219c8bc0f56fea609b`. Upstream run 42522535899 remains
+attempt 1, completed with Actions conclusion success; its previously retained
+model non-PASS disposition was not reevaluated or cleared. Existing complete
+suite receipts remain historical proof for selected main `0a06f1976db1dd7eb12853f493a3371ee4736bcf`,
+not execution of this working tree.
+
+- [x] Revalidate required-ancestor and salvaged-fix inclusion, exact hosted suite
+  receipts, and merged-byte receipts before proposing checkbox reconciliation.
+- [x] Implement and verify continuous read-only inventory observation.
+- [ ] Authenticate the qualifying next automation-started Maint 68 → Maint 71 chain.
+- [ ] Clear the upstream non-PASS verification disposition.
+- [ ] Publish this iteration's code/tests and remote checkbox reconciliation.
+
+Publication: explicit-path `git add` exits **128** because `.git/index.lock`
+cannot be created on the read-only filesystem. No commit or push succeeded.
+The [proposed PR body](runtime-4550/4558-round11-pr-body-reconciled.md) checks only
+the six verified stale task/acceptance rows. Updating the PR body, posting the
+concrete blocker comment, and adding `needs-human` were each rejected by
+automatic approval review: `MCP tool call requires approval, but approval policy
+is never`. None of those remote mutations succeeded. The existing authorized
+writer must publish the local changes and apply reconciliation. The original
+acceptance remains incomplete; no workflow, security-sensitive path or consumer
+payload was edited.

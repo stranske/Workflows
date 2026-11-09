@@ -1,0 +1,30 @@
+{
+  "checked_at": "2026-11-09T02:21:41Z",
+  "main": {
+    "name": "main",
+    "sha": "7a9d652445cee388cb5c39e15b8d2de53f0dda68"
+  },
+  "upstream_run": {
+    "id": 42522535899,
+    "status": "completed",
+    "conclusion": "success",
+    "run_attempt": 1,
+    "note": "Actions success is unchanged; previously retained non-PASS model disposition remains unresolved."
+  },
+  "pr": {
+    "url": "https://github.com/stranske/Workflows/pull/4558",
+    "state": "open",
+    "draft": false,
+    "head_sha": "825337ce48bd897465f015219c8bc0f56fea609b"
+  },
+  "body_update_result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ],
+    "isError": true
+  },
+  "workflow_dispatches_performed": 0
+}

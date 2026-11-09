@@ -1,0 +1,35 @@
+{
+  "input_files": [
+    "4558-round10-origin-inventory.json",
+    "4558-round11-origin-inventory.json"
+  ],
+  "input_sha256": [
+    "26a01983e66d3e90d7828d7c82182684c35be774476809f693deddf27c70abaf",
+    "e4f856f05240c404d5d0d90d1f0a5863819c096e397b5de2ab074805dac66a1f"
+  ],
+  "producer": {
+    "start": "2026-11-09T01:49:57Z",
+    "end": "2026-11-09T02:21:41Z",
+    "total_count": 198,
+    "pagination_complete": true,
+    "workflow_path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+    "inventory_scope": "repository",
+    "producers": [],
+    "chain_acceptance": false,
+    "observation_count": 2,
+    "continuous": true
+  },
+  "merger": {
+    "start": "2026-11-09T01:49:57Z",
+    "end": "2026-11-09T02:21:41Z",
+    "total_count": 198,
+    "pagination_complete": true,
+    "workflow_path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "inventory_scope": "repository",
+    "mergers": [],
+    "chain_acceptance": false,
+    "observation_count": 2,
+    "continuous": true
+  },
+  "workflow_dispatches_performed": 0
+}

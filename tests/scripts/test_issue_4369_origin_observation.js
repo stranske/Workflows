@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { observe } = require('../../docs/evidence/issue-4369/observe-maint68');
+const { observe, observeSequence } = require('../../docs/evidence/issue-4369/observe-maint68');
 const MAINT68 = '.github/workflows/maint-68-sync-consumer-repos.yml';
 const MAINT71 = '.github/workflows/maint-71-merge-sync-prs.yml';
 
@@ -41,6 +41,92 @@ function mergerInventory(count = 0) {
   }
   return input;
 }
+
+function continuation(previous, count = 0) {
+  const next = inventory(count);
+  next.start = previous.end;
+  next.end = new Date(Date.parse(next.start) + 60000).toISOString();
+  for (const page of next.pages) {
+    const url = new URL(page.url);
+    url.searchParams.set('created', `${next.start}..${next.end}`);
+    page.url = url.href;
+    for (const run of page.body.workflow_runs) run.created_at = next.start;
+  }
+  return next;
+}
+
+test('continuous observations deduplicate an unchanged run at the inclusive boundary', () => {
+  const first = inventory(1);
+  first.pages[0].body.workflow_runs[0].created_at = first.end;
+  const next = continuation(first, 1);
+  const result = observeSequence([first, next]);
+  assert.equal(result.start, first.start);
+  assert.equal(result.end, next.end);
+  assert.equal(result.observation_count, 2);
+  assert.equal(result.total_count, 1);
+  assert.equal(result.producers.length, 1);
+  assert.equal(result.producers[0].automation_origin, 'UNKNOWN');
+  assert.equal(result.continuous, true);
+  assert.equal(result.pagination_complete, true);
+  assert.equal(result.chain_acceptance, false);
+});
+
+test('continuous empty observations preserve merger identity and do not establish a chain', () => {
+  const first = mergerInventory();
+  const next = structuredClone(first);
+  next.start = first.end;
+  next.end = new Date(Date.parse(first.end) + 60000).toISOString();
+  const url = new URL(next.pages[0].url);
+  url.searchParams.set('created', `${next.start}..${next.end}`);
+  next.pages[0].url = url.href;
+  const result = observeSequence([first, next]);
+  assert.equal(result.workflow_path, MAINT71);
+  assert.equal(result.workflow_id, first.workflow_id);
+  assert.deepEqual(result.mergers, []);
+  assert.equal(result.chain_acceptance, false);
+});
+
+test('continuous observations retain distinct chronological leads without inferring causality', () => {
+  const first = inventory(1);
+  first.pages[0].body.workflow_runs[0].event = 'schedule';
+  const next = continuation(first, 2);
+  next.pages[0].body.workflow_runs[0].id = 3;
+  next.pages[0].body.workflow_runs[1].path = MAINT71;
+  for (const run of next.pages[0].body.workflow_runs) run.created_at = next.end;
+  const result = observeSequence([first, next]);
+  assert.equal(result.total_count, 3);
+  assert.deepEqual(result.producers.map(run => run.id), [1, 3]);
+  assert.deepEqual(result.producers.map(run => run.automation_origin), ['schedule', 'UNKNOWN']);
+  assert.equal(result.chain_acceptance, false);
+});
+
+for (const [name, mutate] of [
+  ['gap', x => { x[1] = continuation(continuation(x[0])); }],
+  ['overlap', x => { x[1] = structuredClone(x[0]); }],
+  ['reversed windows', x => { x.reverse(); }],
+  ['changed workflow', x => { x[1].workflow_path = MAINT71; }],
+  ['changed inventory scope', x => { x[0] = producerInventory(); }],
+  ['incomplete continuation', x => { x[1].pages = []; }],
+  ['missing boundary run in continuation', x => { x[1] = continuation(x[0]); }],
+  ['missing boundary run in preceding window', x => { x[0] = inventory(); }],
+  ['conflicting boundary event', x => { x[1].pages[0].body.workflow_runs[0].event = 'schedule'; }],
+  ['conflicting boundary workflow', x => { x[1].pages[0].body.workflow_runs[0].path = MAINT71; }],
+  ['conflicting boundary identity', x => { x[1].pages[0].body.workflow_runs[0].workflow_id = 1; }],
+]) {
+  test(`continuous observation refuses ${name}`, () => {
+    const first = inventory(1);
+    first.pages[0].body.workflow_runs[0].created_at = first.end;
+    const input = [first, continuation(first, 1)];
+    mutate(input);
+    assert.throws(() => observeSequence(input), /observation|inventory/);
+  });
+}
+
+test('continuous observation requires at least one complete inventory', () => {
+  assert.throws(() => observeSequence([]));
+  assert.throws(() => observeSequence(null));
+  assert.equal(observeSequence([inventory()]).observation_count, 1);
+});
 
 test('merger observations validate empty, exact-boundary and multi-page inventories', () => {
   for (const count of [0, 100, 101]) {

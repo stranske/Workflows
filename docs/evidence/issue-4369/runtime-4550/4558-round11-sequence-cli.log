@@ -1,0 +1,12 @@
+{
+  "start": "2026-11-09T01:49:57Z",
+  "end": "2026-11-09T02:21:41Z",
+  "total_count": 198,
+  "pagination_complete": true,
+  "workflow_path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+  "inventory_scope": "repository",
+  "producers": [],
+  "chain_acceptance": false,
+  "observation_count": 2,
+  "continuous": true
+}
