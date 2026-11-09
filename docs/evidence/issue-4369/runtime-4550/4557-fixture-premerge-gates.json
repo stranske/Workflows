@@ -1286,5 +1286,5 @@
       }
     ]
   },
-  "writer_release_log": "~/.codex/handoff/dispatch-logs/stranske__Workflows_4551.claude.log; terminal released=true target=stranske/Workflows#4551"
+  "writer_release_log": "redacted-local-path; terminal released=true target=stranske/Workflows#4551"
 }

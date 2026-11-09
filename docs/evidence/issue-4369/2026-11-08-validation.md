@@ -3420,3 +3420,37 @@ verification-gate delivery clause remains unresolved. Blocking/drainable pair:
 **drainable=1** (read-only observation while the existing current-head CI runs).
 No lock or gate was introduced or released. Stop this finite collection here;
 no speculative code fix or unrelated observer expansion is justified.
+
+## Final continuation: automation-started Maint 68 → Maint 71 chain state — 2026-11-09
+
+Observed read-only at **2026-11-09T05:37:26Z**; receipt:
+[`4558-chain-2488-observation.json`](runtime-4550/4558-chain-2488-observation.json).
+No Maint 68, Maint 71 or Maint 82 run was dispatched, and no gate was touched.
+
+| Link | Exists | Evidence |
+| --- | --- | --- |
+| Source | yes | Maint 68 run **42564882056**, event `schedule`, created 2026-11-09T05:01:06Z, source `c7885e1a`, success |
+| Plan | yes | Job "Prepare sync from manifest", 05:01:55Z–05:02:39Z, success |
+| Candidate | yes | `sync/workflows-candidate` at `795155aa9b1cdca5942bac2db3707c6b64dc57d3`, synced 05:04:09Z |
+| Consumer PR | yes | Portable-Alpha-Extension-Model PR **2488**, created 05:04:00Z, **OPEN**, `CLEAN`; Gate run 42565151499 success at 05:16:51Z |
+| Merge SHA | **no** | PR 2488 `mergedAt=null`, `mergeCommit=null` |
+| Maint 71 observation | yes | Run **42565425171** (05:06:59Z), dispatched by 42564882056's "Dispatch Maint 71 for the generated lane" step, processed PR 2488: sealed, checks pending, `Merged: 0` |
+
+Later Maint 71 run 42566405464 (05:17:08Z, `workflow_dispatch`) also processed
+PR 2488 (`campaign_prepared`, `Merged: 0`). Runs 42567929461 (dispatch) and
+42567963797 (schedule) were still queued at observation. Promote run
+**42566563553** (Maint 68, `workflow_dispatch`, 05:18:45Z–05:32:51Z, source
+`a222b225`, success) is a manual dispatch with no Portable-Alpha sync job, so it is
+not part of this chain.
+
+PR 2488 changes `.github/workflows/agents-auto-pilot.yml`, `docs/LABELS.md` and
+`scripts/langchain/pr_verifier.py`; it does **not** change
+`tools/subscription_llm.py`. When it merges, the chain will be a causal successor
+in the sync lineage, not a payload delivery. The payload was delivered by PR 2486
+(merge `1ff9e11`), whose producer runs 42485644055 and 42499084007 were
+`workflow_dispatch`, so PR 2486 itself is not claimed as automation-started.
+
+**Criterion 3 remains NOT MET.** First break: merge SHA. Blocking=1 (PR 2488
+unmerged), drainable=1 (a queued Maint 71 run can merge it). The PR body now says
+`Refs #4557`, so merging PR 4558 does not close #4557. Follow-up to file:
+"Observe automation-started Maint 68 → Maint 71 chain for PR 2488 and record merge SHA".
