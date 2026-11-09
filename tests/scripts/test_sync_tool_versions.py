@@ -364,17 +364,15 @@ def test_integration_template_sync_detects_mismatch(
     assert str(integration_template) in captured.err
 
 
-def test_integration_template_ruff_pin_matches_canonical_source() -> None:
-    """Keep the checked-in integration template aligned with the source pin."""
+def test_checked_in_templates_match_canonical_source() -> None:
+    """Keep both checked-in templates aligned with the complete source pin file."""
     repo_root = Path(__file__).parents[2]
-    canonical = sync_tool_versions.parse_env_file(
-        repo_root / ".github/workflows/autofix-versions.env"
-    )
-    integration_template = sync_tool_versions.parse_env_file(
-        repo_root / "templates/integration-repo/.github/workflows/autofix-versions.env"
-    )
-
-    assert integration_template["RUFF_VERSION"] == canonical["RUFF_VERSION"]
+    canonical = (repo_root / ".github/workflows/autofix-versions.env").read_bytes()
+    for template in ("consumer-repo", "integration-repo"):
+        template_path = (
+            repo_root / "templates" / template / ".github/workflows/autofix-versions.env"
+        )
+        assert template_path.read_bytes() == canonical, str(template_path)
 
 
 @pytest.mark.parametrize(
