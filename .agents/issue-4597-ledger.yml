@@ -1,0 +1,162 @@
+version: 1
+issue: 4597
+base: main
+branch: codex/issue-4597
+tasks:
+  - id: task-01
+    title: Fix `.github/workflows/agents-81-gate-followups.yml` to expose and require
+      successful PR-head observation before recording completion, retaining the reservation
+      when observation is unavailable.
+    status: doing
+    started_at: '2026-11-09T14:53:35Z'
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-02
+    title: 'Update the Collect metrics step to expose an explicit output such as head_observed
+      that is true only when the PR lookup succeeds (verify: confirm completion in
+      repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-03
+    title: 'Update the completion validation to require head_observed to be true before
+      recording a completion receipt (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-04
+    title: 'Fix the failure path so the reservation is retained (verify: confirm completion
+      in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-05
+    title: 'no unproductive retry is consumed when the PR-head observation is unavailable
+      (verify: confirm completion in repo)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-06
+    title: Add or extend a test beside `.github/workflows/agents-81-gate-followups.yml`
+      that fails on the reported behavior and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-07
+    title: 'Both named gates pass on the source fix: `node --test .github/scripts/__tests__/*.test.js`
+      for JavaScript source and `python3 -m pytest -q tests/` for Python source.'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-08
+    title: Reintroducing the reported behavior makes the regression test fail; reverting
+      the deliberate break restores passing results.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-09
+    title: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates
+      the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml`
+      run reports stranske/Portable-Alpha-Extension-Model#2490 without this review
+      thread, and sync-core stops bumping this issue.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-10
+    title: 'Fix the finding at its source in `stranske/Workflows`: `.github/workflows/agents-81-gate-followups.yml`
+      (the consumer PR stranske/Portable-Alpha-Extension-Model#2490 is generated from
+      it by `.github/workflows/maint-68-sync-consumer-repos.yml` and must not be edited
+      by hand).'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-11
+    title: Add or extend a test beside `.github/workflows/agents-81-gate-followups.yml`
+      that fails on the behaviour the reviewer describes and passes after the fix.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-12
+    title: Let `.github/workflows/maint-68-sync-consumer-repos.yml` regenerate the
+      sync candidate and confirm the review thread on stranske/Portable-Alpha-Extension-Model#2490
+      is resolved.
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-13
+    title: Fix `.github/workflows/agents-81-gate-followups.yml` to expose and require
+      successful PR-head observation before recording completion, retaining the reservation
+      when observation is unavailable. (The file is under `.github/workflows/*.yml`,
+      which the agent cannot modify because it is protected. | Have a human maintainer
+      or a privileged workflow apply the YAML change. Alternatively, move the observation
+      and validation logic into a non-protected script, e.g. `.github/scripts/*.js`,
+      that the workflow calls, so the agent can implement and test the fix there.
+      The workflow edit would then be a minimal wiring change made by a human.)
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-14
+    title: 'Add or extend a test beside `.github/workflows/agents-81-gate-followups.yml`
+      that fails on the reported behavior and passes after the fix. (The agent can
+      write the test, but it depends on the blocked workflow fix. It is also ambiguous
+      where the test should live: ''beside'' a workflow file is not a test location,
+      and the gates run `node --test .github/scripts/__tests__/*.test.js` and `python3
+      -m pytest -q tests/`. Testing YAML behavior may require extracting the logic
+      into a testable script. | Specify the exact test path, e.g. `tests/workflows/test_agents_81_gate_followups.py`
+      or `.github/scripts/__tests__/gate-followups.test.js`. State whether the test
+      parses the YAML structurally or exercises an extracted script.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-15
+    title: 'Acceptance criterion: after `maint-68-sync-consumer-repos.yml` regenerates
+      the sync candidate, the next `maint-71-merge-sync-prs.yml` run reports PR #2490
+      without this review thread. (This depends on running or waiting for external
+      workflows and on a reviewer thread being resolved in another repository. The
+      agent cannot trigger or retry CI pipelines or observe a future run. | Move this
+      to a post-merge verification step for a human or sync-core. Keep the agent''s
+      scope to the source fix and the local gates.)'
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
+  - id: task-16
+    title: "Deliberate-break \u2192 revert verification (Re-introducing the bug, confirming\
+      \ the test fails, and reverting would again require editing the protected workflow\
+      \ file. It is only feasible if the logic lives in a non-protected script. |\
+      \ Express this as a test property, e.g. the test asserts the fallback-only path\
+      \ yields no completion receipt, so the check is built into the test and no manual\
+      \ break/revert cycle is needed.)"
+    status: todo
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes: []
