@@ -85,6 +85,7 @@ tasks:
       - 'Deferred: local-suite portion remains unmet. Bounded local command `timeout 300 python -m pytest tests/ -m ''not slow'' -q -x` exited 124 after 300 seconds at ~4% progress. No terminal pytest summary, no full-suite pass.'
       - 'Leave no impossible executable todo: local full-suite pass is unclaimed.'
       - 'Continuation 2026-11-09: configured command `VERIFY_PYTEST_WORKERS=8 timeout 1500 /opt/anaconda3/bin/python3 src/verify.py` on clean Orchestrator 27266f8165064f88256ee2a97f99762db51f129a exited 124 with no terminal summary; local pass still unclaimed (docs/evidence/issue-4555/orchestrator-local-suite.txt).'
+      - 'Closer repair 2026-11-09: run 42518195788 re-read (success, c0c5cb6). Named regression passed on Orchestrator b26e642 (exit 0). Configured local command not re-run: declared stop rule of zero attempts, because the owner 10-minute cap is below the measured >1500 s exit-124 run on 27266f8. The local half is still unclaimed and the criterion stays unchecked.'
   - id: task-09
     title: Reintroducing the reported behavior makes the named test fail; reverting
       it makes the test pass.
@@ -99,14 +100,15 @@ tasks:
   - id: task-10
     title: The next sync-core round classifies stranske/Orchestrator#1247 without
       this finding.
-    status: deferred
+    status: done
     started_at: null
-    finished_at: null
-    commit: ''
+    finished_at: '2026-11-09T03:30:00Z'
+    commit: '7bb2e1aa974c43175bf840409225909725918bdc'
     notes:
       - 'External-only: depends on sync-core process. Deferred with sync-core ownership.'
       - 'Missing classifier observation: no sync-core comment appeared on #4555 after Orchestrator #1247 merged at 2026-11-08T20:49:16Z.'
       - '#1247 has merged, so the finding can no longer reappear on that head. A sync-core comment confirming the clearance was not observed when this was written.'
+      - 'Closer repair 2026-11-09: sync-core receipt observed (docs/evidence/issue-4555/sync-core-1247-receipt.txt). Round 20261108T201627Z (first after run 42518195788 on c0c5cb6) is ready-for-maint71 with no failing check; rounds 20261108T205305Z/205926Z are terminal delivered (merged, 0 mismatches), target ledger head c0c5cb6aa8bf79aa855a54258c0ed423011cebeb. The classifier has no retired target disposition; delivered is the terminal.'
   - id: task-11
     title: 'Fix the failure named in the title (`shipment-caused: verify.py aggregate
       + combined coverage on sync PR st`) at its source; the failing check''s log
@@ -147,21 +149,23 @@ tasks:
       - 'Deferred: sync PR regeneration and check confirmation left to human/sync-core. Agent verifiable scope limited to local test command.'
       - 'Local-suite portion remains unmet: bounded local command `timeout 300 python -m pytest tests/ -m ''not slow'' -q -x` exited 124 after 300 seconds at ~4% progress.'
       - 'Continuation 2026-11-09: gh run view 42518195788 re-read (head c0c5cb6, both named aggregate jobs success). Configured local verify.py run exited 124 after 1500s; local half unclaimed, so the combined criterion stays unchecked.'
+      - 'Closer repair 2026-11-09: run 42518195788 re-read (success, c0c5cb6). Named regression passed on Orchestrator b26e642 (exit 0). Configured local command not re-run: declared stop rule of zero attempts, because the owner 10-minute cap is below the measured >1500 s exit-124 run on 27266f8. The local half is still unclaimed and the criterion stays unchecked.'
   - id: task-14
     title: 'Acceptance criterion: The next sync-core round classifies stranske/Orchestrator#1247
       without this finding. (This depends on an external process (sync-core) and a
       workflow run that the agent cannot trigger, retry, or observe. | Move this to
       a post-merge manual verification step or a human-owned checklist item, not an
       agent-completed criterion.)'
-    status: deferred
+    status: done
     started_at: null
-    finished_at: null
-    commit: ''
+    finished_at: '2026-11-09T03:30:00Z'
+    commit: '7bb2e1aa974c43175bf840409225909725918bdc'
     notes:
       - 'External-only: depends on sync-core process. Deferred with sync-core ownership.'
       - 'Missing classifier observation: no sync-core comment appeared on #4555 after Orchestrator #1247 merged at 2026-11-08T20:49:16Z.'
       - '#1247 has merged, so the finding can no longer reappear on that head. A sync-core comment confirming the clearance was not observed when this was written.'
       - 'Continuation 2026-11-09: re-read #4555, #1247 and later sync PRs/issues; no subsequent sync-core classification exists. Still deferred.'
+      - 'Closer repair 2026-11-09: sync-core receipt observed (docs/evidence/issue-4555/sync-core-1247-receipt.txt). Round 20261108T201627Z (first after run 42518195788 on c0c5cb6) is ready-for-maint71 with no failing check; rounds 20261108T205305Z/205926Z are terminal delivered (merged, 0 mismatches), target ledger head c0c5cb6aa8bf79aa855a54258c0ed423011cebeb. The classifier has no retired target disposition; delivered is the terminal.'
   - id: task-15
     title: 'Implementation note: Let `.github/workflows/maint-68-sync-consumer-repos.yml`
       regenerate the sync PR. (The workflow file is protected and the agent cannot

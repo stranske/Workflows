@@ -8,7 +8,10 @@ duplicate consumer repair is justified. The source owner's
 explicitly requests regeneration without duplicating that repair.
 
 **PR Status Distinction**: 
-- **Workflows PR #4556** (this PR): Currently **open**, delivers evidence and bookkeeping only. No production code changes.
+- **Workflows PR #4556**: **Merged** at 2026-11-09T03:03:01Z (merge commit
+  `cd30d3f58784ffcf759a0b8c65961ac0b2be407f`, head `d263beb62a38c0488027b64e470e02e09f46a6e3`).
+  It delivered evidence and bookkeeping only, with no production code changes. Its merge closed #4555.
+  It was open when the earlier sections were written.
 - **Orchestrator PR #1247** (consumer/sync PR): **Merged** at 2026-11-08T20:49:16Z with successful CI (run 42518195788).
 
 ## Root cause
@@ -117,8 +120,9 @@ was made to force acceptance.
 **Timeout Disclosure**: Local full repository-suite pass remains **unclaimed**. The timeout disclosure is preserved as evidence that the local-suite portion cannot be completed within 300 seconds.
 
 No protected workflow was edited or triggered, no CI was retried, and no
-consumer PR was edited. Workflows #4556 and Orchestrator #1247 were both
-confirmed open and ready for review (`draft=false`). No new source commit is
+consumer PR was edited. At that time Workflows #4556 and Orchestrator #1247 were both
+confirmed open and ready for review (`draft=false`). Both have since merged (see the
+closer repair section at the end). No new source commit is
 claimed: the source repair is already merged in its owning repository.
 
 Updating Workflows #4556's managed task block was attempted after verification.
@@ -198,3 +202,89 @@ Missing outcomes (still unknown; the issue is **not** complete):
 The combined acceptance criterion ("passes on regenerated sync PR …; the
 repository's test command passes locally") has its remote half observed and
 its local half unclaimed. It must therefore stay unchecked.
+
+## Closer repair round 1 (2026-11-09): lifecycle, sync-core receipt, local suite
+
+### Lifecycle and review thread
+
+- Workflows #4556 merged at 2026-11-09T03:03:01Z (`cd30d3f5`), and its merge closed
+  #4555. Orchestrator #1251 merged at 2026-11-08T18:59:16Z (`f141cf33`).
+  Orchestrator #1247 merged at 2026-11-08T20:49:16Z (`27266f81`, head `c0c5cb6a`).
+- The #1251 `tests/test_closer_pipeline.py` diff was re-read. It monkeypatches
+  `time.time` and wraps `run_pipeline` so that wall time crosses the 0.06 s
+  deadline after `run()` computes it. It passes the same logical clock as
+  `now=` and keeps `receipt["targets"]["a"]`. It adds the capacity evidence and
+  `validate_stop` assertions and a resumed run that completes `a`. No assertion
+  was removed. This matches the root-cause section above.
+- Review thread `PRRT_kwDOQprj9M61Dwgw` (Codex P2: defer tasks the worker cannot
+  perform) is `isResolved=true` and `isOutdated=true`. Its objection was
+  substantive, and it has been met: tasks 08, 10, 13, 14 and 15 were `deferred`
+  with notes when the thread was resolved. Task 10/14 now move to `done` only
+  because of the receipt below. Task 08/13 stays deferred.
+- `gh run view 42518195788 -R stranske/Orchestrator`: success on
+  `c0c5cb6aa8bf79aa855a54258c0ed423011cebeb`. Created 20:04:14Z, finished
+  20:13:38Z. `verify.py aggregate + combined coverage` (1m23s) and
+  `verify.py aggregate in the flat exec-mirror shape` (1m12s) both succeeded.
+  All 12 shards succeeded.
+
+### Named regression on current Orchestrator main
+
+`timeout 300 /opt/anaconda3/bin/python3 -m pytest tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers -q -p no:cacheprovider`
+on a clean clone at `b26e6421232cd64893d8d7f4b7e4f75193c56f42`: **1 passed, exit 0**.
+No virtual environment exists in the canonical Orchestrator clone, so
+`/opt/anaconda3/bin/python3` (3.12.2) was used. Output:
+[named-regression-b26e642.txt](named-regression-b26e642.txt).
+
+### Subsequent sync-core disposition: observed
+
+The receipt was read from the local sync-core state. No workflow and no
+sync-core run was triggered. It is in
+[sync-core-1247-receipt.txt](sync-core-1247-receipt.txt).
+
+- The finding round was `20261108T192823Z`: `shipment-caused`, owner
+  stranske/Workflows, handoff #4555. It came from classification `6e7ea8f8…` on
+  head `7ba7006d`.
+- Rounds `20261108T194358Z` (`seal-pending`) and `20261108T195953Z`
+  (`pre-existing`, the `summary` check, handed to Orchestrator #1262) no longer
+  carry the shipment-caused label. They still list the old head's verify.py
+  failure as `failed, unclassified`, so they do **not** count as a clearance.
+- Round `20261108T201627Z` is the first round after run 42518195788 finished.
+  It is `ready-for-maint71` and lists no failing check.
+- Rounds `20261108T205305Z` and `20261108T205926Z` are terminal **`delivered`**:
+  "merged 2026-11-08T20:49:16Z; 2 files, 0 mismatches". The target ledger
+  records head `c0c5cb6aa8bf79aa855a54258c0ed423011cebeb`, `last_round`
+  `20261108T205926Z`, `terminal: delivered`.
+- Retired-target disposition: **not supported by the classifier.**
+  `~/.codex/sync-core/sync_core.py` line 51 defines target terminals as
+  `delivered, delivered-mismatch, superseded, handed-off, pin-held,
+  not-a-sync-pr`. `retired` exists only as a repairs-ledger state, and #1247
+  has no repairs row. `delivered` is the explicit terminal disposition.
+- Limitation: `rounds.jsonl` records no per-round head. The head attribution of
+  rounds 631–633 is inferred from the GitHub run timestamps, which are in the
+  receipt. The terminal head comes from the target ledger.
+
+The acceptance criterion "the next sync-core round classifies
+stranske/Orchestrator#1247 without this finding" is met by machine receipt.
+Rounds 633–637 carry no finding, and the target is terminal `delivered`.
+
+### Configured local repository test command: still incomplete
+
+Stop rule, declared before execution: **zero new attempts.** Reasoning:
+
+- The owner's ten-minute check limit caps any local attempt at 600 s.
+- The only measured local run of this exact command,
+  `VERIFY_PYTEST_WORKERS=8 /opt/anaconda3/bin/python3 src/verify.py` on clean
+  `27266f81`, ran past 1500 s with no terminal summary
+  ([orchestrator-local-suite.txt](orchestrator-local-suite.txt)).
+- CI's coverage shape alone takes 28.5 shard-minutes at 4 workers.
+- Four other agents' pytest processes were running on this 10-core machine
+  (load 3.2).
+
+A 600 s attempt cannot reach a terminal result on that measured basis. It would
+only repeat the exit-124 evidence at a cost to the other agents.
+
+The criterion therefore stays **unchecked**, and the exact observed failure is
+unchanged: exit 124 after 1500 s, no summary. The first unresolved step is the
+configured local command not finishing within any permitted local window.
+Ownership is human or CI. The remote half (run 42518195788, 15042 passed) is
+observed. No production logic or test was changed.
