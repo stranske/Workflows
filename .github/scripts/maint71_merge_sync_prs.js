@@ -39,6 +39,28 @@ function rethrowPrimaryRateLimit(error) {
   if (isPrimaryRateLimitExhausted(error)) throw error;
 }
 
+// GitHub may auto-delete a merged head before this cleanup runs. A failed
+// delete is success only when a fresh ref read says absent AND repo access
+// still works; a repository-level 404 must never masquerade as a missing ref.
+async function deleteSyncBranch({ owner, repo, branch, withRetry }) {
+  try {
+    await withRetry(client => client.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` }));
+    return { already_absent: false };
+  } catch (error) {
+    rethrowPrimaryRateLimit(error);
+    if (![404, 422].includes(Number(error.status || error.response?.status))) throw error;
+    try {
+      await withRetry(client => client.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }));
+    } catch (readError) {
+      rethrowPrimaryRateLimit(readError);
+      if (Number(readError.status || readError.response?.status) !== 404) throw readError;
+      await withRetry(client => client.rest.repos.get({ owner, repo }));
+      return { already_absent: true };
+    }
+    throw error;
+  }
+}
+
 function canaryHasBlockingReviewDebt(canary) {
   return require('./sync_pr_merge_contract').canaryReviewDebtIsBlocking({ ...canary,
     repo: canary.owner ? `${canary.owner}/${canary.repo}` : canary.repo });
@@ -4615,13 +4637,9 @@ async function run({ github, context, core }) {
             }
   
             try {
-              await withRetry((client) => client.rest.git.deleteRef({
-                owner,
-                repo,
-                ref: `heads/${branch}`,
-              }));
+              const cleanup = await deleteSyncBranch({ owner, repo, branch, withRetry });
               console.log(`✓ Deleted leftover branch ${branch}`);
-              results.push({ owner, repo, branch, status: 'branch_deleted' });
+              results.push({ owner, repo, branch, status: 'branch_deleted', ...cleanup });
             } catch (branchErr) {
               rethrowPrimaryRateLimit(branchErr);
               console.log(
@@ -5007,11 +5025,7 @@ async function run({ github, context, core }) {
               // Delete branch only when this shipment permits cleanup.
               if (cleanupBranches) {
                 try {
-                  await withRetry((client) => client.rest.git.deleteRef({
-                    owner,
-                    repo,
-                    ref: `heads/${stalePR.head.ref}`
-                  }));
+                  await deleteSyncBranch({ owner, repo, branch: stalePR.head.ref, withRetry });
                   console.log('✓ Branch deleted');
                 } catch (delErr) {
                   rethrowPrimaryRateLimit(delErr);
@@ -6296,15 +6310,12 @@ async function run({ github, context, core }) {
         // Delete the branch only when this shipment explicitly permits cleanup.
         if (cleanupBranches) {
           try {
-            await withRetry((client) => client.rest.git.deleteRef({
-              owner,
-              repo,
-              ref: `heads/${pr.head.ref}`
-            }));
+            const cleanup = await deleteSyncBranch({ owner, repo, branch: pr.head.ref, withRetry });
             console.log('✓ Branch deleted');
             results.push({
               ...deliveryContext,
               status: 'branch_deleted',
+              ...cleanup,
             });
           } catch (e) {
             rethrowPrimaryRateLimit(e);
@@ -6502,6 +6513,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  deleteSyncBranch,
   preserveFrozenCanaryRefresh,
   repositoryConversationGate,
   syncMergeFailureDisposition,
