@@ -76,6 +76,23 @@ a matching completion. A failed productivity measurement still prevents recordin
 The workflow names, reusable runner inputs, state fingerprint and authority
 signing protocol remain unchanged.
 
+The consumer autofix `metrics` job also acknowledges the reservation created by
+`prepare`. Its completion step runs after metrics/artifact reporting, including
+when artifact upload fails, and requires a dispatched, non-skipped worker and a
+successful head-movement measurement. It records the actual workflow attempt;
+the keepalive finish job cannot substitute for this independent autofix result.
+
+For a historical successful autofix on an already merged PR, run
+`python -m scripts.reconcile_runner_completion --repo OWNER/REPO --run-id ID --report`.
+The read-only report validates the native workflow/attempt, terminal worker,
+digest-bound metrics archive and original reservation. `--apply` appends an
+immutable receipt with the original worker completion time and a separately
+identified observer. It never impersonates the source workflow, overwrites a
+newer reservation, or releases an open PR's writer. Retries reuse the receipt.
+This historical acknowledgment proves terminal execution, not that an old head
+survived a later rebase or supplied the delivered changes. Missing or ambiguous
+evidence fails closed and remains available for evidence-based reconciliation.
+
 ## 1. Activation Guardrails
 
 Keepalive **must not** dispatch an agent unless *all* conditions hold:

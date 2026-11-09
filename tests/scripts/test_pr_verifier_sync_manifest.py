@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 from pathlib import Path
 
 import pytest
 import yaml
 from scripts.langchain import pr_verifier
+from scripts.scope_consumer_sync_plan import select_plan
+from scripts.sync_manifest_compiler import compile_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / ".github" / "sync-manifest.yml"
@@ -50,6 +53,41 @@ def test_pr_verifier_api_client_is_available_in_consumer_template() -> None:
 def test_pr_verifier_source_and_consumer_template_are_identical() -> None:
     template = ROOT / "templates/consumer-repo/scripts/langchain/pr_verifier.py"
     assert template.read_bytes() == PR_VERIFIER.read_bytes()
+
+
+@pytest.mark.parametrize("mode", ["full", "source-delta"])
+def test_verifier_fix_remains_in_travel_plan_permission_generation(mode: str) -> None:
+    """A source fix must overwrite the consumer verifier through either sync scope.
+
+    Source/template equality alone cannot prove delivery: a runtime-only entry,
+    renamed target, create-only policy or consumer exclusion could strand #4370's
+    fixed payload outside the generation used for Travel-Plan-Permission#1716.
+    Live run/head evidence remains a separate operational acceptance check.
+    """
+    source = "scripts/langchain/pr_verifier.py"
+    consumer = "stranske/Travel-Plan-Permission"
+    plan = compile_manifest(MANIFEST, repo_root=ROOT).to_plan()
+    scoped, evidence = select_plan(
+        plan,
+        mode=mode,
+        changed_paths=[source, f"templates/consumer-repo/{source}"],
+        base_sha="1" * 40,
+        source_commit="2" * 40,
+    )
+    entries = [entry for entry in scoped["entries"] if entry["target"] == source]
+
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry["delivery"] == "copy"
+    assert entry["resolved_source"] == source
+    assert entry["source_tree"] == "root"
+    assert entry["sync_mode"] is None
+    assert not entry["include_repos"] or consumer in entry["include_repos"]
+    assert consumer not in entry["skip_repos"]
+    assert (
+        entry["content_sha256"] == "sha256:" + hashlib.sha256(PR_VERIFIER.read_bytes()).hexdigest()
+    )
+    assert source in evidence["matched_changed_paths"]
 
 
 def test_capture_obligation_dependency_is_managed_and_identical() -> None:
