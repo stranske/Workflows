@@ -5,6 +5,24 @@ Checked 2026-11-09 UTC. **Overall acceptance: NOT ESTABLISHED.** The actual
 production step summary and its posterior/capacity condition remain unverified.
 No production repair is demonstrated or included in this evidence PR.
 
+Round 6 validation (2026-11-09): the issue-consistency gate reproduced a
+header mismatch because the collector's example invocation contained the
+historical artifact directory's issue slug. Rewording that docstring leaves
+collector behavior unchanged. The following command now exits 0 and reports
+`Issue consistency check passed for #4515`:
+
+```sh
+/opt/anaconda3/bin/python3 scripts/check_issue_consistency.py --base-sha d17b088aa5c97e6b024101c39252480c622e8395 --pr-title 'Record #4515 routing acceptance evidence and remaining live-proof gap' --head-ref orch/issue-4515
+```
+
+Both named Node commands were rerun on a fresh archive of the exact merge
+commit and each passed 74/74. PR #4505 checks still show the successful
+suite-bearing JavaScript job and the separate failed keepalive job. Both full
+mutation/restoration transcripts were matched against the current PR body.
+Saved-history replay still reports 17/51 and complete coverage. The production
+summary/condition gap remains unresolved; this gate repair does not establish
+overall acceptance. Stop rule for this repair: two attempts or 20 minutes.
+
 ## Outcome, command and stop rule
 
 The real-input outcome is a non-Codex first-routing-label share of at least 30%

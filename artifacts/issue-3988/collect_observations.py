@@ -1,6 +1,6 @@
 """Read-only, paginated GitHub evidence collector for issue #4515.
 
-Run with /opt/anaconda3/bin/python3 artifacts/issue-3988/collect_observations.py.
+Run this script with /opt/anaconda3/bin/python3 from the repository root.
 Only queries explicit repositories from the merge-commit consumer registry plus
 Workflows. Does not use search, current labels for eligibility, or branch names
 to infer routing. No GitHub mutations.
