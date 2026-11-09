@@ -7,6 +7,10 @@ Exit codes: 0 = complete search window with no matches, 1 = regression,
 2 = pending or unavailable evidence. Even exit 0 requires separate evidence of
 the next keepalive target merging during Run Cursor; this command cannot prove
 that event. All PR states are searched, including closed orphan PRs.
+
+Optional --target-pr owner/repository#number --job-id ID records merge timing
+and the completed guard/push steps. The source-issue receipt is still required
+to link that job to the target PR; timing alone cannot establish acceptance.
 """
 
 from __future__ import annotations
@@ -45,15 +49,90 @@ def gh_json(endpoint: str) -> dict:
     return data
 
 
-def collect(fix_pr: str, *, now: datetime, api=gh_json) -> dict:
-    """Search a fixed 14-day window; reject incomplete or truncated evidence."""
-    match = re.fullmatch(r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([1-9][0-9]*)", fix_pr)
+def pr_reference(value: str) -> tuple[str, str]:
+    match = re.fullmatch(r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#([1-9][0-9]*)", value)
     if not match:
-        raise ValueError("Use owner/repository#number for --fix-pr")
+        raise ValueError("Use owner/repository#number for PR references")
     repo, number = match.groups()
     if repo.lower() in EXCLUDED_REPOS:
-        raise ValueError("Fix PR repository is excluded by owner policy")
+        raise ValueError("PR repository is excluded by owner policy")
+    return repo, number
+
+
+def collect_mid_run_merge(
+    target_pr: str, job_id: int, *, start: datetime, end: datetime, now: datetime, api=gh_json
+) -> dict:
+    """Check timing and step outcomes, without claiming the job targeted this PR."""
+    repo, number = pr_reference(target_pr)
+    if type(job_id) is not int or job_id <= 0:
+        raise ValueError("Job ID must be a positive integer")
+    pull = api(f"repos/{repo}/pulls/{number}")
+    merged = timestamp(pull["merged_at"])
+    job = api(f"repos/{repo}/actions/jobs/{job_id}")
+    if job["id"] != job_id or job["status"] != "completed" or job["conclusion"] != "success":
+        raise ValueError("Expected the requested job to have completed successfully")
+    run_id = job["run_id"]
+    if type(run_id) is not int or run_id <= 0:
+        raise ValueError("Invalid job run ID")
+    evidence_steps = []
+    for name, conclusion in (
+        ("Run Cursor", "success"),
+        ("Check target PR before pushing", "success"),
+        ("Commit and push changes", "skipped"),
+    ):
+        matching = [step for step in job["steps"] if step["name"] == name]
+        if len(matching) != 1:
+            raise ValueError("Missing or ambiguous Cursor evidence step")
+        step = matching[0]
+        if step["status"] != "completed" or step["conclusion"] != conclusion:
+            raise ValueError("Cursor guard/push outcomes do not establish a successful skip")
+        if type(step["number"]) is not int or step["number"] <= 0:
+            raise ValueError("Invalid Cursor step number")
+        evidence_steps.append(step)
+    cursor, guard, push = evidence_steps
+    cursor_start = timestamp(cursor["started_at"])
+    cursor_end = timestamp(cursor["completed_at"])
+    guard_start = timestamp(guard["started_at"])
+    guard_end = timestamp(guard["completed_at"])
+    # Equal merge/step boundaries are ambiguous at GitHub's timestamp precision.
+    if not (
+        start <= cursor_start < merged < cursor_end <= guard_start <= guard_end <= now
+        and merged <= end
+        and cursor["number"] < guard["number"] < push["number"]
+    ):
+        raise ValueError("Merge was not demonstrably during Run Cursor after deployment")
+    return {
+        "status": "timing_verified",
+        "target_pr": target_pr,
+        "merged_at": pull["merged_at"],
+        "job_id": job_id,
+        "run_url": f"https://github.com/{repo}/actions/runs/{run_id}",
+        "cursor_started_at": cursor["started_at"],
+        "cursor_completed_at": cursor["completed_at"],
+        "guard_conclusion": guard["conclusion"],
+        "push_conclusion": push["conclusion"],
+        "target_run_association": "required separately from the source-issue receipt",
+        "next_target_verification": "required separately; this may not be the next matching run",
+    }
+
+
+def collect(
+    fix_pr: str,
+    *,
+    now: datetime,
+    api=gh_json,
+    target_pr: str | None = None,
+    job_id: int | None = None,
+) -> dict:
+    """Search a fixed 14-day window; reject incomplete or truncated evidence."""
+    repo, number = pr_reference(fix_pr)
     owner = repo.split("/")[0]
+    if (target_pr is None) != (job_id is None):
+        raise ValueError("Supply both target PR and job ID")
+    if target_pr is not None:
+        target_repo, _ = pr_reference(target_pr)
+        if target_repo.split("/")[0].lower() != owner.lower():
+            raise ValueError("Target PR must belong to the fix repository owner")
     report = {
         "fix_pr": fix_pr,
         "observed_at": now.isoformat(),
@@ -137,15 +216,25 @@ def collect(fix_pr: str, *, now: datetime, api=gh_json) -> dict:
         report["reason"] = "14-day observation window is still open"
     else:
         report.update(status="clear_search", reason="no matching PRs in the full 14-day window")
+    if target_pr is not None:
+        report["mid_run_merge_verification"] = collect_mid_run_merge(
+            target_pr, job_id, start=start, end=end, now=now, api=api
+        )
     return report
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fix-pr", required=True, help="Merged fix PR: owner/repository#number")
+    parser.add_argument("--target-pr", help="Candidate mid-run merged PR: owner/repository#number")
+    parser.add_argument(
+        "--job-id", type=int, help="Completed Cursor job ID in the target repository"
+    )
     args = parser.parse_args(argv)
     try:
-        report = collect(args.fix_pr, now=datetime.now(UTC))
+        report = collect(
+            args.fix_pr, now=datetime.now(UTC), target_pr=args.target_pr, job_id=args.job_id
+        )
     except (ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError):
         # Do not print subprocess output: it can include authentication details.
         report = {"status": "unknown", "reason": "GitHub evidence unavailable or incomplete"}

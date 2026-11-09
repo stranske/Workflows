@@ -26,3 +26,26 @@ Record that target's PR URL, merge timestamp, run URL, `Run Cursor` start/end
 timestamps, and the closed-target guard's skip result and retained commit SHAs.
 The search command does not establish that event or prove its ordering. Local
 tests and an empty search before deployment do not satisfy production acceptance.
+
+To check a candidate event's timing and job steps, add the target PR and the
+numeric **job ID** (rather than the run ID):
+
+```bash
+python scripts/check_cursor_pr_outcome.py --fix-pr stranske/Workflows#4564 \
+  --target-pr OWNER/REPO#NUMBER --job-id JOB_ID
+```
+
+This reads the target PR and the job in that target's repository. It requires a
+successful completed job, a merge strictly between the `Run Cursor` start/end
+timestamps after deployment and within the observation window, a subsequent
+successful `Check target PR before pushing` step, and a skipped `Commit and push
+changes` step. Equal merge/step timestamps are ambiguous and cannot establish
+ordering. Invalid or unavailable evidence exits 2; valid timing does not shorten
+the 14-day search window or change a search regression into success.
+
+The `timing_verified` record is a candidate event, not full acceptance. Job
+metadata does not identify the checked-out target reliably for dispatched
+keepalive runs. Separately match the source-issue receipt's
+`cursor-target-closed:PR_NUMBER:RUN_ID` marker, target PR, run URL, skip outcome,
+and retained commit SHAs. Also establish that this was the **next** eligible
+mid-run merge; supplying a later convenient job does not prove that condition.
