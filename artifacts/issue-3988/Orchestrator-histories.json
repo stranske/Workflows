@@ -101,7 +101,7 @@
     "timeline_pages": [
       {
         "endpoint": "repos/stranske/Orchestrator/issues/1278/timeline?per_page=100&page=1",
-        "count": 29
+        "count": 32
       }
     ],
     "label_events": [
@@ -159,7 +159,7 @@
     "timeline_pages": [
       {
         "endpoint": "repos/stranske/Orchestrator/issues/1275/timeline?per_page=100&page=1",
-        "count": 54
+        "count": 60
       }
     ],
     "label_events": [
@@ -209,7 +209,7 @@
     "timeline_pages": [
       {
         "endpoint": "repos/stranske/Orchestrator/issues/1274/timeline?per_page=100&page=1",
-        "count": 58
+        "count": 62
       }
     ],
     "label_events": [
@@ -581,7 +581,11 @@
     "timeline_pages": [
       {
         "endpoint": "repos/stranske/Orchestrator/issues/1255/timeline?per_page=100&page=1",
-        "count": 95
+        "count": 100
+      },
+      {
+        "endpoint": "repos/stranske/Orchestrator/issues/1255/timeline?per_page=100&page=2",
+        "count": 17
       }
     ],
     "label_events": [

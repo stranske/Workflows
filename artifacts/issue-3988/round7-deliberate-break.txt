@@ -1,0 +1,412 @@
+✖ source: top pool shed and next exhausted -> highest remaining ok agent (3.564583ms)
+✔ source: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.219584ms)
+✔ source: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.090583ms)
+✔ source: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.090167ms)
+✖ source: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.243917ms)
+✖ source: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.1245ms)
+✖ source: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.100791ms)
+✔ source: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.077417ms)
+✔ source: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.104167ms)
+✔ source: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.182167ms)
+✖ source: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.12125ms)
+✖ source: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.097333ms)
+✖ source: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.080708ms)
+✖ template: top pool shed and next exhausted -> highest remaining ok agent (0.498542ms)
+✔ template: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.078417ms)
+✔ template: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.08475ms)
+✔ template: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.065875ms)
+✖ template: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.116875ms)
+✖ template: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.114834ms)
+✖ template: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.093833ms)
+✔ template: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.062792ms)
+✔ template: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.191958ms)
+✔ template: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.107667ms)
+✖ template: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.124959ms)
+✖ template: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.078416ms)
+✖ template: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.071958ms)
+✔ source: explicit false preserves insufficient-evidence reason and configured default (0.07025ms)
+✔ source: intake evidence string "false" (0.066125ms)
+✔ source: intake evidence missing (0.028959ms)
+✔ source: intake evidence boolean false (0.031708ms)
+✔ source: intake evidence null (0.032583ms)
+✔ source: intake evidence number zero (0.03925ms)
+✔ source: intake evidence number one (0.0375ms)
+✔ source: intake evidence string "true" (0.0255ms)
+✔ source: intake evidence boolean true (0.029125ms)
+✔ template: explicit false preserves insufficient-evidence reason and configured default (0.039375ms)
+✔ template: intake evidence string "false" (0.031708ms)
+✔ template: intake evidence missing (0.044417ms)
+✔ template: intake evidence boolean false (0.024708ms)
+✔ template: intake evidence null (0.021292ms)
+✔ template: intake evidence number zero (0.01975ms)
+✔ template: intake evidence number one (0.019334ms)
+✔ template: intake evidence string "true" (0.019792ms)
+✔ template: intake evidence boolean true (0.027875ms)
+✔ ok pools -> highest posterior wins (0.083083ms)
+✖ top pool shed -> next agent (0.60125ms)
+✔ export stale -> static default (0.101625ms)
+✔ no runner -> skipped using the shipped registry (1.373583ms)
+✔ .github/workflows/agents-63-issue-intake.yml: empty input preserves the chooser default (7.025292ms)
+✔ .github/workflows/agents-63-issue-intake.yml: ok top pool selects and summarizes the eligible default (1.254709ms)
+✖ .github/workflows/agents-63-issue-intake.yml: shed top pool selects and summarizes the eligible default (1.262458ms)
+✖ .github/workflows/agents-63-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.820916ms)
+✔ .github/workflows/agents-63-issue-intake.yml: explicit input bypasses the chooser (0.386209ms)
+✔ .github/workflows/agents-63-issue-intake.yml: require failure warns and retains static default (0.42375ms)
+✔ .github/workflows/agents-63-issue-intake.yml: registry failure warns and retains static default (0.323166ms)
+✔ .github/workflows/agents-63-issue-intake.yml: fetch failure warns and retains static default (0.940958ms)
+✔ .github/workflows/agents-63-issue-intake.yml: null-export failure warns and retains static default (0.692208ms)
+✔ .github/workflows/agents-63-issue-intake.yml: chooser failure warns and retains static default (3.550208ms)
+✔ .github/workflows/agents-63-issue-intake.yml: agent:auto remains a routing label (1.355208ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: empty input preserves the chooser default (0.738208ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: ok top pool selects and summarizes the eligible default (0.607542ms)
+✖ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: shed top pool selects and summarizes the eligible default (0.514125ms)
+✖ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (1.993792ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: explicit input bypasses the chooser (0.169416ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: require failure warns and retains static default (0.13ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: registry failure warns and retains static default (0.109875ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: fetch failure warns and retains static default (0.582625ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: null-export failure warns and retains static default (0.468292ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: chooser failure warns and retains static default (0.460375ms)
+✔ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: agent:auto remains a routing label (1.695875ms)
+✔ root preflight still requires exactly one agent label (2.284084ms)
+✔ root bridge dispatch retains normalized bridge input precedence (0.228625ms)
+✔ preflight-disabled muse cannot win intake using the shipped registry (0.627708ms)
+✔ preflight-disabled gemini cannot win intake using the shipped registry (0.394208ms)
+ℹ tests 74
+ℹ suites 0
+ℹ pass 55
+ℹ fail 19
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 110.733708
+
+✖ failing tests:
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:50:3
+✖ source: top pool shed and next exhausted -> highest remaining ok agent (3.564583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   agent: 'claude',
+  -   agent: 'codex',
+      delegationSource: 'route_weights',
+      poolState: 'ok',
+      pool_state: 'ok',
+  +   posterior: 0.88,
+  -   posterior: 0.62,
+      reason: 'route-weights'
+    }
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:77:12)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:332:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { agent: 'claude', posterior: 0.88, poolState: 'ok', pool_state: 'ok', delegationSource: 'route_weights', reason: 'route-weights' },
+    expected: { agent: 'codex', posterior: 0.62, poolState: 'ok', pool_state: 'ok', delegationSource: 'route_weights', reason: 'route-weights' },
+    operator: 'deepStrictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ source: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.243917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ source: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.1245ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ source: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.100791ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ source: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.12125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ source: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.097333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ source: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.080708ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:50:3
+✖ template: top pool shed and next exhausted -> highest remaining ok agent (0.498542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   agent: 'claude',
+  -   agent: 'codex',
+      delegationSource: 'route_weights',
+      poolState: 'ok',
+      pool_state: 'ok',
+  +   posterior: 0.88,
+  -   posterior: 0.62,
+      reason: 'route-weights'
+    }
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:77:12)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { agent: 'claude', posterior: 0.88, poolState: 'ok', pool_state: 'ok', delegationSource: 'route_weights', reason: 'route-weights' },
+    expected: { agent: 'codex', posterior: 0.62, poolState: 'ok', pool_state: 'ok', delegationSource: 'route_weights', reason: 'route-weights' },
+    operator: 'deepStrictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ template: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.116875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ template: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.114834ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ template: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.093833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ template: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.124959ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ template: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.078416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:120:7
+✖ template: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.071958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:145:16)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:255:1
+✖ top pool shed -> next agent (0.60125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'claude' !== 'cursor'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:277:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1062:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:752:18)
+      at Test.postRun (node:internal/test_runner/test:1191:19)
+      at Test.run (node:internal/test_runner/test:1119:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'claude',
+    expected: 'cursor',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:461:5
+✖ .github/workflows/agents-63-issue-intake.yml: shed top pool selects and summarizes the eligible default (1.262458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'codex' !== 'claude'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:477:14)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'codex',
+    expected: 'claude',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:461:5
+✖ .github/workflows/agents-63-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.820916ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'codex' !== 'claude'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:477:14)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'codex',
+    expected: 'claude',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:461:5
+✖ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: shed top pool selects and summarizes the eligible default (0.514125ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'codex' !== 'claude'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:477:14)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'codex',
+    expected: 'claude',
+    operator: 'strictEqual'
+  }
+
+test at tests/scripts/test_agent_delegation_policy_intake.js:461:5
+✖ templates/consumer-repo/.github/workflows/agents-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (1.993792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'codex' !== 'claude'
+  
+      at TestContext.<anonymous> (/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4515-round7-i2uikbpw/tests/scripts/test_agent_delegation_policy_intake.js:477:14)
+      at async Test.run (node:internal/test_runner/test:1069:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:752:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'codex',
+    expected: 'claude',
+    operator: 'strictEqual'
+  }

@@ -1,6 +1,6 @@
 {
   "schema": "workflows.issue-3988-routing-observations/v1",
-  "collected_at": "2026-11-09T06:50:06.148909+00:00",
+  "collected_at": "2026-11-09T08:17:31.467793+00:00",
   "merge_commit": "3e7f75d3750e54a1453cf9ea0ce4ed048bf24288",
   "window_start_inclusive": "2026-11-07T02:51:20Z",
   "window_end_exclusive": "2026-11-09T02:51:20Z",
@@ -14,8 +14,8 @@
         {
           "endpoint": "repos/stranske/Workflows/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
           "count": 100,
-          "newest_created_at": "2026-11-09T05:19:43Z",
-          "oldest_created_at": "2026-11-04T05:19:56Z"
+          "newest_created_at": "2026-11-09T07:43:34Z",
+          "oldest_created_at": "2026-11-04T13:35:02Z"
         }
       ],
       "complete": true,
@@ -196,8 +196,8 @@
         {
           "endpoint": "repos/stranske/Orchestrator/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
           "count": 100,
-          "newest_created_at": "2026-11-09T06:26:27Z",
-          "oldest_created_at": "2026-11-05T12:52:05Z"
+          "newest_created_at": "2026-11-09T08:16:02Z",
+          "oldest_created_at": "2026-11-05T13:21:48Z"
         }
       ],
       "complete": true,
@@ -2585,7 +2585,15 @@
     "no_concrete_routing_label_count": 5
   },
   "threshold": 0.3,
-  "verdict": "PASS",
+  "literal_label_verdict": "PASS",
+  "acceptance_metric": {
+    "definition": "First routing label identifies a non-Codex provider; agent:auto is not credited. Same-second mixed labels use conservative bounds.",
+    "numerator": 13,
+    "denominator": 51,
+    "share": 0.2549019607843137,
+    "numerator_upper_bound": 13
+  },
+  "verdict": "FAIL",
   "limitations": [
     "Observed label history does not establish a particular chooser invocation, pool capacity at assignment, or causal attribution to PR #4505.",
     "agent:auto is a routing label in the named test contract, but does not identify a concrete non-Codex provider. Literal-label PASS does not establish the intended redistribution of work."

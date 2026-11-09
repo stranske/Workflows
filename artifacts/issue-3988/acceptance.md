@@ -5,6 +5,28 @@ Checked 2026-11-09 UTC. **Overall acceptance: NOT ESTABLISHED.** The actual
 production step summary and its posterior/capacity condition remain unverified.
 No production repair is demonstrated or included in this evidence PR.
 
+Round 7 verification (2026-11-09): **T2 and T4 verified; T3/A3 remain
+UNVERIFIED; A4 FAILS.** Repeated the isolated merge-commit mutation: 55/74
+passed and 19 failed, including the named source/template top-pool-shed cases.
+Restored both policy files byte-for-byte (SHA-256 receipts in
+[round7-verification.json](round7-verification.json)); both named commands then
+passed 74/74. New full transcripts are retained as `round7-*.txt`, alongside
+all earlier transcripts. The PR body retains the original full transcripts.
+Direct inspection of both current workflow files confirms the chooser,
+DEFAULT_AGENT propagation and awaited summary writing remain present.
+The live candidate check-run API again returned `output.summary: null`; see
+[round7-check-run-summary.json](round7-check-run-summary.json). Therefore no
+qualifying production summary/condition is asserted and T3 is not complete.
+
+The previous literal-label PASS is insufficient for A4: `agent:auto` names no
+provider and may select Codex. The acceptance metric now requires the **first**
+routing label to name a non-Codex provider, conservatively handling same-second
+mixed labels. This is 13/51 = 25.49%, below 30%. The historical literal-label
+metric (17/51) and later first-concrete-label metric are retained separately;
+neither replaces the first-label acceptance calculation. This corrects an
+evidence verdict, not production routing. Stop rule: one evidence pass and
+one mutation/restoration cycle, within 30 minutes. No production repair.
+
 Round 6 validation (2026-11-09): the issue-consistency gate reproduced a
 header mismatch because the collector's example invocation contained the
 historical artifact directory's issue slug. Rewording that docstring leaves
@@ -59,7 +81,7 @@ was run. Only the two issue-named Node test commands were executed locally.
 | Both named Node commands on the merge commit; successful CI containing the suite | Both pass 74/74; successful suite-bearing CI linked below | PASS |
 | Deliberate-break and restored-green transcripts in the implementing PR body | Isolated mutation produces the named top-pool-shed failures; restored bytes pass 74/74; full transcripts included in PR body | PASS |
 | Real post-merge non-Codex DEFAULT_AGENT summary under the specified condition | Real logs establish a Cursor default, but actual summary and posterior/pool values were not retrieved | UNVERIFIED |
-| Complete 48-hour non-Codex first-routing-label share >=30% | Literal label lower bound 17/51 = 33.33%; four are `agent:auto`; concrete provider share is 13/51 = 25.49% | PASS for literal labels only; provider redistribution not established |
+| Complete 48-hour non-Codex first-routing-label share >=30% | First-label non-Codex provider share 13/51 = 25.49%; four `agent:auto` labels are not provider evidence | FAIL; below 30% |
 
 ## Exact-merge tests and deliberate break
 
@@ -206,6 +228,8 @@ cannot be evaluated without historical capacity at each assignment.
 ## Outstanding evidence
 
 The production summary and its historical posterior/capacity condition still
-need direct evidence before overall acceptance can be marked complete.
+need direct evidence before T3/A3 can be marked complete. A4 fails the measured
+first-label provider threshold (25.49%); a closed historical window cannot be
+made to pass by rerunning collection or changing current labels.
 The preserved logs and first-label study do not fill that gap. The merged
 capacity fix is preserved; no unrelated workflow or policy repair was made.

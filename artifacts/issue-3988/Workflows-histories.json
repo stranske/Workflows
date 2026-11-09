@@ -115,7 +115,7 @@
     "timeline_pages": [
       {
         "endpoint": "repos/stranske/Workflows/issues/4564/timeline?per_page=100&page=1",
-        "count": 36
+        "count": 40
       }
     ],
     "label_events": [

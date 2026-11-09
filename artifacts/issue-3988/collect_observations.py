@@ -194,6 +194,18 @@ def main():
         END.replace("Z", "+00:00")
     )
     share = numerator / denominator if denominator else None
+    # A3/A4 require a non-Codex agent; automatic selection alone identifies none.
+    provider_numerator = sum(
+        bool(r["tied_first_labels"])
+        and all(label not in ("agent:auto", "agent:codex") for label in r["tied_first_labels"])
+        for r in eligible
+    )
+    provider_ambiguous = sum(
+        any(label not in ("agent:auto", "agent:codex") for label in r["tied_first_labels"])
+        and any(label in ("agent:auto", "agent:codex") for label in r["tied_first_labels"])
+        for r in eligible
+    )
+    provider_share = provider_numerator / denominator if denominator else None
     result = {
         "schema": "workflows.issue-3988-routing-observations/v1",
         "collected_at": collected_at,
@@ -228,7 +240,7 @@ def main():
             ),
         },
         "threshold": 0.30,
-        "verdict": (
+        "literal_label_verdict": (
             "UNKNOWN"
             if not complete or not elapsed or not denominator
             else (
@@ -236,6 +248,19 @@ def main():
                 if share >= 0.30
                 else "FAIL" if (numerator + ambiguous) / denominator < 0.30 else "UNKNOWN"
             )
+        ),
+        "acceptance_metric": {
+            "definition": "First routing label identifies a non-Codex provider; agent:auto is not credited. Same-second mixed labels use conservative bounds.",
+            "numerator": provider_numerator,
+            "denominator": denominator,
+            "share": provider_share,
+            "numerator_upper_bound": provider_numerator + provider_ambiguous,
+        },
+        "verdict": (
+            "UNKNOWN" if not complete or not elapsed or not denominator
+            else "PASS" if provider_share >= 0.30
+            else "FAIL" if (provider_numerator + provider_ambiguous) / denominator < 0.30
+            else "UNKNOWN"
         ),
         "limitations": [
             "Observed label history does not establish a particular chooser invocation, pool capacity at assignment, or causal attribution to PR #4505.",
@@ -252,6 +277,7 @@ def main():
                     "denominator",
                     "non_codex_share",
                     "complete_coverage",
+                    "acceptance_metric",
                     "verdict",
                 )
             }

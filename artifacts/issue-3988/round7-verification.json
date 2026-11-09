@@ -1,0 +1,31 @@
+{
+  "checked_at": "2026-11-09T08:17:04.011665+00:00",
+  "merge_commit": "3e7f75d3750e54a1453cf9ea0ce4ed048bf24288",
+  "runs": [
+    {
+      "command": "node --test tests/scripts/test_agent_delegation_policy_intake.js",
+      "exit_code": 1,
+      "transcript": "round7-deliberate-break.txt"
+    },
+    {
+      "command": "node --test tests/scripts/test_agent_delegation_policy_intake.js",
+      "exit_code": 0,
+      "transcript": "round7-restored-green.txt"
+    },
+    {
+      "command": "node --test .github/scripts/__tests__/agent-delegation-policy-intake.test.js",
+      "exit_code": 0,
+      "transcript": "round7-restored-discovery-green.txt"
+    }
+  ],
+  "restored_files": {
+    ".github/scripts/agent_delegation_policy.js": {
+      "sha256": "6a914624c3c4f868a36df465227519be7efa488602f3c2b8a1f2171409fc4b80",
+      "matches_merge": true
+    },
+    "templates/consumer-repo/.github/scripts/agent_delegation_policy.js": {
+      "sha256": "6a914624c3c4f868a36df465227519be7efa488602f3c2b8a1f2171409fc4b80",
+      "matches_merge": true
+    }
+  }
+}
