@@ -3476,7 +3476,7 @@ by artifact identity rather than timing:
 | Plan | `sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb`, scope `full` | `sync-plan-scope.json`, `manifest.json`, PAEM sync result |
 | Candidate | PR **2488**, `sync/workflows-candidate` @ `795155aa9b1cdca5942bac2db3707c6b64dc57d3`, consumer base `b3b617e7` | PAEM sync result (`status: created_pr`) |
 | Maint 71 | Run **42565425171**, dispatched by the producer step "Dispatch Maint 71 for the generated lane"; its `IMMUTABLE_HANDOFF_JSON` and its PR 2488 result carry the same plan ID, source commit, head and delivery generation | [complete log](runtime-4550/4557r2/merger-42565425171.log), [both artifacts](runtime-4550/4557r2/merger-42565425171-artifacts/) |
-| Terminal Maint 71 | Run **42585644980**, same plan, source, candidate head and delivery generation; terminal handoff `merged` | [report](runtime-4550/4557r2/maint71-42585644980-sync-pr-merge-report.json), [authorization](runtime-4550/4557r2/maint71-42585644980-sync-campaign-commit-authorization.json), [log excerpt](runtime-4550/4557r2/maint71-42585644980-paem-excerpt.log) |
+| Terminal Maint 71 | Run **42585644980**, event `workflow_dispatch`, dispatcher unknown; same plan, source, candidate head and delivery generation; terminal handoff `merged` | [run receipt](runtime-4550/4557r2/maint71-42585644980-run.json), [report](runtime-4550/4557r2/maint71-42585644980-sync-pr-merge-report.json), [authorization](runtime-4550/4557r2/maint71-42585644980-sync-campaign-commit-authorization.json), [log excerpt](runtime-4550/4557r2/maint71-42585644980-paem-excerpt.log) |
 | Consumer-main merge | PR 2488 **MERGED**, `e4ccdaf177e3271173ae534a710ebc23f29341e8`, 2026-11-09T08:25:48Z | [PR JSON](runtime-4550/4557r2/consumer-pr-2488-merged.json), [merge commit](runtime-4550/4557r2/consumer-merge-e4ccdaf1.json), [main reachability](runtime-4550/4557r2/consumer-main-reachability.json) |
 
 Eleven later Maint 71 runs (42566405464 … 42579302699) are summarised in
@@ -3651,8 +3651,8 @@ records execution of A1–A4 against real input. PAEM PR 2488 remains merged at
 `e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching `consumer_merge` in the
 chain receipt. `json.tool` exits **0**. Producer 42564882056 independently
 reports event `schedule` and success; terminal Maint 71 run 42585644980 reports
-success. Its `workflow_dispatch` event is the retained producer-triggered handoff,
-not a manual dispatch by this seat.
+success. Its event is `workflow_dispatch`; the terminal dispatcher is unknown.
+This seat performed no manual dispatch.
 
 Both retained payload comparisons and the comparison against a fresh download
 of `tools/subscription_llm.py` at the actual consumer merge SHA exit **0**.
@@ -3704,8 +3704,8 @@ commands did not recur. Live PAEM PR 2488 remains `MERGED` at
 `e4ccdaf177e3271173ae534a710ebc23f29341e8`, mergedAt
 `2026-11-09T08:25:48Z`, matching the chain receipt. `json.tool` exits **0**;
 producer 42564882056 reports event `schedule` and success. Terminal Maint 71
-run 42585644980 reports success; its producer-triggered `workflow_dispatch`
-handoff remains distinct from a manual dispatch by this seat.
+run 42585644980 reports success with event `workflow_dispatch`; its dispatcher
+is unknown. This seat performed no manual dispatch.
 
 Both retained payload comparisons and `cmp` against a fresh consumer download
 at the merge SHA exit **0**. Orchestrator PR 1288 is merged with no unsuccessful
@@ -3730,9 +3730,9 @@ records execution of A1–A4. Live PAEM PR 2488 is `MERGED` at
 `e4ccdaf177e3271173ae534a710ebc23f29341e8`, mergedAt
 `2026-11-09T08:25:48Z`, matching the chain receipt. `json.tool` exits **0**;
 producer 42564882056 reports event `schedule` and success. Terminal Maint 71
-run 42585644980 reports success. Its producer-triggered `workflow_dispatch`
-is retained separately from the scheduled producer event; this seat dispatched
-neither workflow.
+run 42585644980 reports success. Its event is `workflow_dispatch`; its dispatcher
+is unknown. The scheduled producer event is independently verified; this seat
+dispatched neither workflow.
 
 Both retained payload comparisons and `cmp` against a fresh consumer download
 at that merge SHA exit **0**. Orchestrator PR 1288 is merged with no unsuccessful
@@ -3772,6 +3772,37 @@ main. Criterion 3 remains met at the merge SHA above; the complete issue-4369
 comment read contains **49** comments at this new UTC boundary. No acceptance
 failure required a code repair. Only this report and the round-8 receipt changed.
 **Blocking=0, drainable by Maint 71=0.**
+
+Post-push review continuation: the next scheduled pass must inspect PR 4582's
+inline comments and checks at least seven minutes after this round's push.
+New-head CI is not claimed by these local acceptance results.
+
+### PR 4582 keepalive round 9 — 2026-11-09
+
+Outcome 1: **A1–A4 PASS**, rechecked at **2026-11-09T11:47:25.155220+00:00**.
+The [round-9 verification receipt](runtime-4550/4557r2/4582-round9-verification.json)
+records successful execution of the named acceptance commands. PAEM PR 2488
+is merged at `e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the chain
+receipt. `json.tool` and all three `cmp` commands exit **0**, including a fresh
+consumer download at the merge SHA. Orchestrator PR 1288 has no unsuccessful
+checks; its named model-table test returns **1 passed in 0.35s**, without skip.
+All **3,888** archive files match the retained hash-bound source; missing Git
+metadata leaves the test-input tracking hook **NOT CHECKED**.
+
+The scheduled producer and successful terminal Maint 71 run are verified, but
+the terminal run's `workflow_dispatch` origin is **UNKNOWN**. The producer's
+retained dispatch binds an earlier Maint 71 run, not terminal run 42585644980.
+The terminal row and rounds 4, 6 and 7 above correct the unsupported attribution.
+Thus A1–A4 pass, while T3's stronger schedule-started terminal-run condition is
+not fully established. This seat dispatched neither workflow. No factual waiver
+is inferred from the earlier checked boxes or criterion-3 MET statements.
+
+Workflows main retains PR 4579's merge, chain receipt and Closer repair 2 section.
+The fresh complete issue-4369 observation contains **49** comments at the UTC
+boundary above. Follow-up only: the review request to add the chain receipt to
+the provenance map remains open; no existing hash receipt was rewritten.
+**Blocking=1** (terminal dispatcher provenance), **drainable by Maint 71=0**;
+read-only provenance investigation remains available without redispatch.
 
 Post-push review continuation: the next scheduled pass must inspect PR 4582's
 inline comments and checks at least seven minutes after this round's push.
