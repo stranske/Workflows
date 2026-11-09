@@ -82,6 +82,17 @@ when artifact upload fails, and requires a dispatched, non-skipped worker and a
 successful head-movement measurement. It records the actual workflow attempt;
 the keepalive finish job cannot substitute for this independent autofix result.
 
+The shared `.github/scripts/autofix_metrics.js` helper provides explicit
+`head_observed` evidence and rejects fallback-only completion measurements before
+the runner receipt is written. A valid PR head remains observed if subsequent
+Gate telemetry or label cleanup fails. Its consumer copy is sync-managed.
+The protected consumer workflow still needs maintainer wiring: check out this
+helper in `metrics`, call `observeAutofixHead` from Collect metrics and include
+its returned fields in `metrics_json`, then use the helper's CLI for the
+completion step's validated read. Require `steps.collect.outputs.head_observed`
+to equal `'true'` in that step's condition. Until this wiring lands, the helper's
+regressions prove its behavior, not that the workflow retains reservations.
+
 For a historical successful autofix on an already merged PR, run
 `python -m scripts.reconcile_runner_completion --repo OWNER/REPO --run-id ID --report`.
 The read-only report validates the native workflow/attempt, terminal worker,
