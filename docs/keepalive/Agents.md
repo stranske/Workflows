@@ -193,6 +193,13 @@ sandbox, and the post-run read does not prevent a later concurrent merge.
 Issue #4562's production acceptance still requires a mid-run merge observation
 and 14 days without new orphan slug-branch PRs after deployment.
 
+Run `python scripts/check_cursor_pr_outcome.py --fix-pr stranske/Workflows#4564`
+to collect the read-only PR search. JSON includes blocking and drainable counts;
+exit 0 (`clear_search`) means a full clear 14-day window, 1 means a matching PR,
+and 2 means pending or unavailable evidence. Pending evidence drains through a
+later read; matching PRs require follow-up investigation. The acceptance box
+still needs a separately observed mid-run merge; a clear search cannot check it.
+
 ### Hosted agent startup recovery
 
 The pinned Cursor archive is installed in `runner.temp/agent-cli/cursor` and

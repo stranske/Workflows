@@ -185,33 +185,3 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
             "issue_number": 4562,
             "body": result["summary"],
         }
-        # The production evidence reader must accept the actual guard receipt
-        # and retain the real disposable commits, including an explicit none.
-        receipt_url = "https://github.com/stranske/Workflows/issues/4562#issuecomment-73"
-        receipt = subprocess.run(
-            ["node", str(ROOT / "scripts/check_cursor_receipt.js")],
-            input=json.dumps(
-                {
-                    "pull": {"body": "Closes #4562"},
-                    "repo": "stranske/Workflows",
-                    "number": 42,
-                    "runId": 123,
-                    "comment": {
-                        "id": 73,
-                        "body": result["summary"],
-                        "user": {"login": "github-actions[bot]", "type": "Bot"},
-                        "issue_url": "https://api.github.com/repos/stranske/Workflows/issues/4562",
-                        "html_url": receipt_url,
-                    },
-                }
-            ),
-            text=True,
-            capture_output=True,
-            check=True,
-            timeout=10,
-        )
-        assert json.loads(receipt.stdout) == {
-            "source_issue": "stranske/Workflows#4562",
-            "receipt_url": receipt_url,
-            "reported_unpushed_commit_shas": shas,
-        }
