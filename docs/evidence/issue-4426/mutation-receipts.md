@@ -108,3 +108,8 @@ builds `gpt-blocked`. The paired mutant returns that client in the list.
 OpenAI model is constructed for Anthropic. `empty-channel-cache-hit` and
 `empty-option-cache-hit` clear the cache on every lookup, so the second call
 stays a miss.
+
+
+## Frozen historical source
+
+The November 6 receipts and their original checked date remain unchanged. The exact checked verifier bytes are retained in `frozen/pr_verifier-f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478.py.gz` (the filename identifies the uncompressed SHA-256). The audit reads that frozen source and additionally requires each named current production function to match its checked version. A changed named function requires a fresh current receipt; an unrelated change elsewhere in the module does not rewrite the historical proof. Current normalization-cache behavior has its own deliberate-break regression and full affected grammar tests.
