@@ -312,7 +312,10 @@ jobs:
         needs.detect.outputs.run_core == 'true'
       }}
     uses: ./.github/workflows/reusable-10-ci-python.yml
-    secrets: inherit
+    secrets:
+      pypi-token: ${{ secrets.PYPI_TOKEN }}
+      workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
+      workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}
     permissions:
       contents: read
       actions: read
