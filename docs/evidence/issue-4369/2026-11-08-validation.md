@@ -3807,3 +3807,40 @@ read-only provenance investigation remains available without redispatch.
 Post-push review continuation: the next scheduled pass must inspect PR 4582's
 inline comments and checks at least seven minutes after this round's push.
 New-head CI is not claimed by these local acceptance results.
+
+### PR 4582 keepalive round 10 — 2026-11-09
+
+Outcome 1: **A1–A4 PASS**, rechecked at **2026-11-09T12:02:20.543927+00:00**.
+The [round-10 verification receipt](runtime-4550/4557r2/4582-round10-verification.json)
+records execution of the named acceptance commands on this branch. PAEM PR 2488
+is merged at `e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the chain
+receipt. `/opt/anaconda3/bin/python3 -m json.tool` exits **0** for the chain
+receipt, whose producer event is `schedule`. Both retained payload comparisons
+and `cmp` against a fresh consumer download at that merge SHA exit **0**.
+
+Orchestrator PR 1288 is merged with no unsuccessful checks. In its retained
+merged archive, `/opt/anaconda3/bin/python3 -m pytest -q
+tests/test_model_table.py::test_copy_matches_workflows_source` returns
+**1 passed in 0.25s**, exit **0**, without skip against live Workflows main.
+All **3,888** archive files still match the hash-bound source. Missing Git metadata
+leaves the test-input tracking hook **NOT CHECKED**; the model-table test ran.
+
+Workflows main contains PR 4579's merge, the chain receipt and Closer repair 2
+section. The fresh fully paginated issue-4369 comment observation contains
+**49** comments at the UTC boundary above. The consumer merge and byte equality
+remain established; T3's stronger schedule-started terminal-run requirement
+remains **UNKNOWN** because terminal Maint 71 run 42585644980 has event
+`workflow_dispatch` with no established dispatcher. No manual dispatch occurred.
+**Blocking=1, drainable by Maint 71=0**; the available drain is read-only terminal
+dispatch provenance investigation. The two existing review findings were read:
+the unsupported attribution was corrected in round 9; the provenance-map nit
+remains follow-up only under this round's acceptance-only scope.
+
+No acceptance failure required a code repair. This round changes only this report
+and its verification receipt. No dependency pins, schedules or workflow settings
+changed. The temporary receipt collector's field lookup error was corrected before
+writing the receipt; the completed acceptance run above is the retained result.
+
+Post-push review continuation: the next scheduled pass must inspect PR 4582's
+inline comments and checks at least seven minutes after this round's push.
+New-head CI is not claimed by these local acceptance results.
