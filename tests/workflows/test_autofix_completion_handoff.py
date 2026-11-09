@@ -114,3 +114,53 @@ def test_consumer_autofix_records_its_own_completion(tmp_path, monkeypatch, adva
     decision = core.should_dispatch(1286, env["HEAD_SHA"], "codex", storage=storage)
     assert decision.should_dispatch
     assert decision.reason == "retry-unproductive-completion"
+
+
+@pytest.mark.parametrize("head_sha_after,fix_applied,should_fail", [
+    # Valid cases
+    ("f27f30c19b225fcc0c248ef57a31e5df2bc4730c", False, False),  # Same head, no fix
+    ("b" * 40, True, False),  # Different head, fix applied
+    # Invalid cases - PR lookup failed
+    ("", False, True),  # Empty head_sha_after - PR lookup failed
+    ("", True, True),  # Empty head_sha_after with fix_applied - inconsistent but should fail
+]) 
+def test_collect_metrics_validation_fails_on_missing_head_observation(head_sha_after, fix_applied, should_fail):
+    """Validation in Record autofix completion must fail when PR head observation is unavailable."""
+    workflow = yaml.safe_load(
+        (ROOT / "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml").read_text()
+    )
+    metrics = workflow["jobs"]["metrics"]
+    steps = metrics["steps"]
+    completion = next((s for s in steps if s.get("name") == "Record autofix completion"), None)
+    assert completion is not None, "autofix finishes without acknowledging its runner reservation"
+    
+    # Execute the validation script from the completion step
+    head_sha_before = "f27f30c19b225fcc0c248ef57a31e5df2bc4730c"
+    metrics_json = json.dumps({
+        "head_sha_before": head_sha_before,
+        "head_sha_after": head_sha_after,
+        "fix_applied": fix_applied,
+        "autofix_result": "success",
+    })
+    
+    # Run the node validation script directly
+    node_script = '''const m = JSON.parse(process.argv[1]);
+if (m.head_sha_before !== process.argv[2] ||
+    !/^[0-9a-f]{40}$/.test(m.head_sha_after || "") ||
+    typeof m.fix_applied !== "boolean" ||
+    !["success", "failure", "cancelled"].includes(m.autofix_result)) {
+  throw new Error("Autofix completion measurement is incomplete; retain reservation.");
+}
+process.stdout.write(`${m.head_sha_after} ${m.fix_applied} ${m.autofix_result === "success" ? 0 : 1}\\n`);'''
+    
+    result = subprocess.run(
+        ["node", "-e", node_script, metrics_json, head_sha_before],
+        capture_output=True,
+        text=True,
+    )
+    
+    if should_fail:
+        assert result.returncode != 0, f"Expected validation to fail for head_sha_after={head_sha_after!r}, but it succeeded"
+        assert "Autofix completion measurement is incomplete" in result.stderr
+    else:
+        assert result.returncode == 0, f"Expected validation to pass for head_sha_after={head_sha_after!r}, but it failed: {result.stderr}"

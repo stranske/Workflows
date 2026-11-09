@@ -2390,6 +2390,7 @@ jobs:
                 }
               } catch (error) {
                 core.warning(`Failed to resolve PR or gate status: ${error.message}`);
+                headShaAfter = '';
               }
             }
 
