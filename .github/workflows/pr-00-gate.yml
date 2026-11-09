@@ -130,6 +130,8 @@ jobs:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
           owner: ${{ github.repository_owner }}
+          permission-contents: read
+          permission-issues: write
 
       - name: Checkout workflow helpers
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -730,6 +732,8 @@ jobs:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
           owner: ${{ github.repository_owner }}
+          permission-contents: read
+          permission-issues: write
 
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -815,6 +819,8 @@ jobs:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
           owner: ${{ github.repository_owner }}
+          permission-contents: read
+          permission-issues: write
 
       - name: Checkout workflow helpers
         uses: actions/checkout@v7

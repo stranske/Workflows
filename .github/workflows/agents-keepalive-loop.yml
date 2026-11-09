@@ -2053,6 +2053,8 @@ jobs:
           client-id: ${{ secrets.KEEPALIVE_APP_ID }}
           private-key: ${{ secrets.KEEPALIVE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          permission-contents: read
+          permission-issues: write
 
       # Handle rate limit failures by notifying the PR with KEEPALIVE_APP token
       # This token has a separate rate limit pool (5000/hr) from the exhausted GITHUB_TOKEN

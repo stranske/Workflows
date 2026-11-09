@@ -134,6 +134,8 @@ jobs:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
           owner: ${{ github.repository_owner }}
+          permission-contents: read
+          permission-issues: write
 
       - name: Checkout base ref for safety validation
         if: >-

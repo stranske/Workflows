@@ -136,6 +136,9 @@ jobs:
           client-id: ${{ secrets.WORKFLOWS_APP_ID || '0' }}
           private-key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY || 'dummy' }}
           owner: ${{ github.repository_owner }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
 
       - name: Check if auto-pilot is enabled
         id: check_enabled

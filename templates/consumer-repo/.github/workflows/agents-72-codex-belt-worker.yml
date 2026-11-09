@@ -140,6 +140,8 @@ jobs:
           client-id: ${{ env.WORKFLOWS_APP_ID }}
           private-key: ${{ env.WORKFLOWS_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+          permission-contents: read
+          permission-issues: write
 
       - name: Select authentication token (app > PAT > GITHUB_TOKEN)
         id: select_token

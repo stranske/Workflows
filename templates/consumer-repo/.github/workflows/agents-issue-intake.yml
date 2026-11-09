@@ -131,6 +131,10 @@ jobs:
             .github/scripts/agent_registry.js
             config/model_registry.json
           sparse-checkout-cone-mode: false
+      - name: Set up Python
+        uses: actions/setup-python@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v7
+        with:
+          python-version: '3.15'
       - name: Check labels and extract info
         id: check
         env:

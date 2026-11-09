@@ -254,7 +254,7 @@
   "conclusion": "No reachable typed effect admission in these authored versions and no observed deployed typed source/run; no genuine unknown THIS-producer issue creation or dispatch identified. Do not infer anything about unrelated legacy effects.",
   "future_dynamic_main": "A later helper source change could alter imported behavior; inert split explicitly blocks production host factories and effect job independently of authentication defaults.",
   "legacy_job_sha256": {
-    ".github/workflows/agents-verify-to-new-pr.yml": "6baaa1e87860a9c777f745a372af50bb69afbdcc707022f941beeb931dbcfae7",
-    "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml": "6baaa1e87860a9c777f745a372af50bb69afbdcc707022f941beeb931dbcfae7"
+    ".github/workflows/agents-verify-to-new-pr.yml": "742e7a3771adbc4f7c78a022a2b10080be109c09092a87291ac0b375bbe0cdc2",
+    "templates/consumer-repo/.github/workflows/agents-verify-to-new-pr.yml": "742e7a3771adbc4f7c78a022a2b10080be109c09092a87291ac0b375bbe0cdc2"
   }
 }
