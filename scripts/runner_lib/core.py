@@ -2271,10 +2271,9 @@ def _cmd_should_dispatch(args: argparse.Namespace) -> int:
 def _parse_produced_work(raw: str) -> bool | None:
     """Parse the caller's productivity verdict, treating anything unrecognized as unmeasured.
 
-    Deliberately does NOT reuse ``_parse_optional_bool``: that helper raises on an unknown
-    value, and a workflow that could not read the branch head (API hiccup, token scope) would
-    then fail to record the completion at all — a worse outcome than the debounce defect this
-    field exists to fix. Unmeasured must degrade to the pre-#3433 behavior, not to an error.
+    Legacy callers retain the unmeasured behavior for unknown values rather than raising
+    through ``_parse_optional_bool``. Native autofix has a separate observation requirement:
+    its METRICS_JSON must prove the head was observed before this fallback can be used.
     """
     normalized = (raw or "").strip().lower()
     if normalized in {"1", "true", "yes", "on"}:
@@ -2285,6 +2284,33 @@ def _parse_produced_work(raw: str) -> bool | None:
 
 
 def _cmd_record_completion(args: argparse.Namespace) -> int:
+    # Native autofix already passes METRICS_JSON to this command. Its fallback
+    # head/fix values are telemetry, not evidence that the PR head was read.
+    # Enforce this before opening storage, even while an older workflow still
+    # uses inline validation that accepts those defaults. Other runner callers
+    # do not provide this autofix-specific environment variable.
+    if "METRICS_JSON" in os.environ:
+        message = "Autofix completion measurement is incomplete; retain reservation."
+        try:
+            metrics = json.loads(os.environ["METRICS_JSON"])
+        except (ValueError, TypeError):
+            raise ValueError(message) from None
+        if (
+            not isinstance(metrics, dict)
+            or metrics.get("head_observed") is not True
+            or metrics.get("head_sha_before") != args.head_sha
+            or re.fullmatch(r"[0-9a-f]{40}", args.head_sha) is None
+            or not isinstance(metrics.get("head_sha_after"), str)
+            or re.fullmatch(r"[0-9a-f]{40}", metrics["head_sha_after"]) is None
+            or not isinstance(metrics.get("fix_applied"), bool)
+            or metrics["fix_applied"] != (metrics["head_sha_after"] != args.head_sha)
+            or metrics.get("autofix_result") not in ("success", "failure", "cancelled")
+            or _parse_produced_work(args.produced_work) is not metrics["fix_applied"]
+            or args.observed_head_sha
+            != (metrics["head_sha_after"] if metrics["fix_applied"] else "")
+            or args.exit_code != ("0" if metrics["autofix_result"] == "success" else "1")
+        ):
+            raise ValueError(message)
     raw = ""
     if args.raw_output_file:
         path = Path(args.raw_output_file)

@@ -2268,6 +2268,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           sparse-checkout: |
+            .github/scripts/autofix_metrics.js
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
@@ -2333,67 +2334,19 @@ jobs:
                         ? cursorAutofixResult
                         : museAutofixResult));
 
-            const { owner, repo } = context.repo;
-            let fixApplied = false;
-            // An unavailable PR read is unmeasured, never proof of no work.
-            // The completion writer rejects an absent observed head.
-            let headShaAfter = '';
-            let gateResultAfter = gateConclusionBefore || 'unknown';
-
-            if (prNumber) {
-              try {
-                const { data: pr } = await withRetry((client) => client.rest.pulls.get({
-                  owner,
-                  repo,
-                  pull_number: prNumber,
-                }));
-                headShaAfter = pr.head?.sha || '';
-                  fixApplied = Boolean(
-                    headShaBefore && headShaAfter && headShaBefore !== headShaAfter
-                  );
-
-                // Remove autofix:escalated label when fixes are applied
-                // This allows re-escalation to the agent if Gate fails again
-                if (fixApplied) {
-                  const prLabels = pr.labels?.map(l => l.name) || [];
-                  if (prLabels.includes('autofix:escalated')) {
-                    try {
-                      await withRetry((client) => client.rest.issues.removeLabel({
-                        owner,
-                        repo,
-                        issue_number: prNumber,
-                        name: 'autofix:escalated',
-                      }));
-                      core.info(
-                        '✅ Removed autofix:escalated label - allows re-escalation ' +
-                          'if Gate fails again'
-                      );
-                    } catch (labelError) {
-                      core.warning(
-                        `Failed to remove autofix:escalated label: ${labelError.message}`
-                      );
-                    }
-                  }
-                }
-
-                const gateWorkflow = 'pr-00-gate.yml';
-                const runs = await paginateWithRetry(github.rest.actions.listWorkflowRuns, {
-                  owner,
-                  repo,
-                  workflow_id: gateWorkflow,
-                  head_sha: headShaAfter,
-                  per_page: 20,
-                });
-                const latestGateRun = runs[0];
-                if (latestGateRun) {
-                  gateResultAfter = latestGateRun.conclusion || latestGateRun.status || 'unknown';
-                } else {
-                  gateResultAfter = 'not-found';
-                }
-              } catch (error) {
-                core.warning(`Failed to resolve PR or gate status: ${error.message}`);
-              }
-            }
+            // Head observation is the completion evidence; Gate status and label
+            // cleanup are telemetry that cannot invalidate an observed head.
+            const { observeAutofixHead } = require('./.github/scripts/autofix_metrics.js');
+            const observation = await observeAutofixHead({
+              github,
+              context,
+              core,
+              withRetry,
+              paginateWithRetry,
+              prNumber,
+              headShaBefore,
+              gateConclusionBefore,
+            });
 
             const metrics = {
               workflow_run_id: gateRunId,
@@ -2403,14 +2356,12 @@ jobs:
               trigger_reason: triggerReason || 'unknown',
               trigger_job: triggerJob,
               trigger_step: triggerStep,
-              fix_applied: fixApplied,
-              gate_result_after: gateResultAfter || 'unknown',
               gate_conclusion_before: gateConclusionBefore || 'unknown',
               stop_reason: stopReason || '',
               autofix_result: autofixResult || 'unknown',
               head_sha_before: headShaBefore,
-              head_sha_after: headShaAfter,
               recorded_at: new Date().toISOString(),
+              ...observation,
             };
 
             core.setOutput('metrics_json', JSON.stringify(metrics));
@@ -2476,6 +2427,7 @@ jobs:
           always() &&
           needs.prepare.outputs.dispatch_should_run == 'true' &&
           steps.collect.outcome == 'success' &&
+          steps.collect.outputs.head_observed == 'true' &&
           (needs.autofix.result != 'skipped' || needs.autofix-claude.result != 'skipped' ||
            needs.autofix-cursor.result != 'skipped' || needs.autofix-muse.result != 'skipped')
         env:
@@ -2487,16 +2439,9 @@ jobs:
           METRICS_JSON: ${{ steps.collect.outputs.metrics_json }}
         run: |
           set -euo pipefail
-          read -r OBSERVED_HEAD PRODUCED_WORK EXIT_CODE < <(node -e '
-            const m = JSON.parse(process.env.METRICS_JSON);
-            if (m.head_sha_before !== process.env.HEAD_SHA ||
-                !/^[0-9a-f]{40}$/.test(m.head_sha_after || "") ||
-                typeof m.fix_applied !== "boolean" ||
-                !["success", "failure", "cancelled"].includes(m.autofix_result)) {
-              throw new Error("Autofix completion measurement is incomplete; retain reservation.");
-            }
-            process.stdout.write(`${m.head_sha_after} ${m.fix_applied} ${m.autofix_result === "success" ? 0 : 1}\n`);
-          ')
+          read -r OBSERVED_HEAD PRODUCED_WORK EXIT_CODE < <(
+            node .github/scripts/autofix_metrics.js
+          )
           # Autofix measures heads, without a checklist baseline. Only a changed
           # head belongs in the combined head/checklist observation API.
           set --
