@@ -1342,3 +1342,40 @@ The focused command
 exited 0 with 18 passed and 25 deselected in 3.33 seconds wall time. Native
 recovery admission remains blocked. Authenticated artifact readback and
 provider-free diagnostics remain available.
+
+## Local keepalive round 11 — 2026-11-10
+
+**T5 outcome: 0 accepted recoveries; still incomplete.** Stop rule: two
+validation attempts or 20 minutes. On source
+`69d86be50e8acdbaeaa186952557c310faac553a`, authenticated metadata and a fresh
+download of artifact `13556839741` again bound the unexpired 18,725-byte ZIP
+to Workflows run `42330898168`. Its SHA-256 matched the API digest above and
+the retained fixture byte for byte.
+
+Using `/opt/anaconda3/bin/python3`, the existing provider-free commands were
+run against the freshly downloaded, unchanged members:
+
+- `python3 -m tools.verifier_event_recovery --manifest verification-event-manifest.json --step-outcome success`:
+  exit 0, `validated_no_evaluation`, 0.334 seconds.
+- `python3 -m tools.verifier_event_recovery --revalidate-retained`:
+  exit 1, missing `verification-recovery-origin.json`, 0.051 seconds.
+
+The first broken step is authenticated recovery-origin admission. No origin
+was manufactured. Blocking/drainable pair: native recovery remains blocked;
+authenticated download, byte validation and provider-free classification remain
+available and succeeded. The ZIP, all nine members, preexisting Actions output,
+and original event
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`
+remained unchanged. All six required capture gaps remain. Both retained models,
+`gpt-6.1-sol` and `claude-sonnet-5-5`, record `used_llm=false`,
+`files_reviewed=null`, and both `scripts/ci_history.py` and
+`tests/scripts/test_ci_history.py` as not reviewed: actual provider coverage is
+0/2 files each. Verdict: `UNVERIFIABLE_INPUT`; output unavailable. No provider
+evaluation occurred. Green CI cannot establish T5 or complete capture (A2).
+
+With `/opt/anaconda3/bin` first in `PATH`, the issue-named Node command exited
+0 with 332 passed in 5.291 seconds wall time. The focused command
+`python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function`
+exited 0 with 18 passed, 25 deselected, in 3.329 seconds wall time.
+This round changes only this evidence report; recovery code, tests, fixtures,
+original verification state and dependency pins remain unchanged.
