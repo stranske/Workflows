@@ -138,7 +138,7 @@ def test_exact_4509_without_provider_output_cannot_recover_a_review(
 
 
 def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_coverage(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, capsys
 ):
     from scripts.langchain import pr_verifier
 
@@ -174,6 +174,24 @@ def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_co
     assert obligations["sufficient"] is False
     assert obligations["gaps"] == snapshot["capture_obligations"]["gaps"]
     assert "acceptance_evidence:artifacts:unavailable" in obligations["gaps"]
+    # Replay the production recorder against the unchanged snapshot, rather
+    # than only rebuilding obligations in memory. Its emitted contracts must
+    # retain all six gaps and exactly bind the original context/diff ranges.
+    recorded = record_capture_obligations(
+        tmp_path / "verifier-context.md", diff_path=tmp_path / "verifier-pr-diff.patch"
+    )
+    assert recorded == obligations
+    assert len(recorded["gaps"]) == 6
+    sidecars = {
+        "verifier-capture-obligation-manifest.json": "capture_obligations",
+        "verifier-capture-byte-inventory.json": "capture_byte_inventory",
+        "verifier-capture-reassembly-contract.json": "capture_reassembly_contract",
+    }
+    for name, field in sidecars.items():
+        assert json.loads((tmp_path / name).read_bytes()) == snapshot[field]
+    contract = json.loads((tmp_path / "verifier-capture-reassembly-contract.json").read_bytes())
+    assert contract["sufficient"] is False
+    assert [gap["value"] for gap in contract["gaps"]] == recorded["gaps"]
     metadata = event_metadata(tmp_path / "verification-event-manifest.json")
     assert metadata["verification_event"] == manifest["verification_event"]
     assert metadata["assessment_identity"] == manifest["assessment_identity"]
@@ -203,7 +221,24 @@ def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_co
     source.write_bytes(original)
     with pytest.raises(FileNotFoundError, match="verification-recovery-origin.json"):
         revalidate_retained(directory=tmp_path)
-    assert {entry.name for entry in tmp_path.iterdir()} == set(files) | {source.name}
+    # The operational revalidation CLI must fail before publishing any verdict
+    # to Actions, even after its separate recorder successfully emitted files.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["verifier_event_recovery.py", "--revalidate-retained"])
+    output_path = tmp_path / "actions-output"
+    original_output = "existing_output=preserved\n"
+    output_path.write_text(original_output)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+    with pytest.raises(FileNotFoundError, match="verification-recovery-origin.json"):
+        verifier_event_recovery.main()
+    output = capsys.readouterr()
+    assert output.out == output.err == ""
+    assert output_path.read_text() == original_output
+    assert not (tmp_path / "verification-revalidation-receipt.json").exists()
+    assert not (tmp_path / "retained-source").exists()
+    assert {entry.name for entry in tmp_path.iterdir()} == (
+        set(files) | set(sidecars) | {source.name, output_path.name}
+    )
     assert all((tmp_path / name).read_bytes() == raw for name, raw in files.items())
     assert source.read_bytes() == original
     assert archive_path.read_bytes() == original

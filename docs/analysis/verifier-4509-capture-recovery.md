@@ -880,3 +880,62 @@ pair: native recovery admission remains blocked; exact-byte offline validation
 remains available and passed. This round changes only this evidence report.
 The controller continuation owns current-head CI and the seven-minute post-push
 review readback; no merge is attempted here.
+
+## Exact snapshot recorder and recovery CLI regression — managed runner
+
+Validation on 2026-11-10 uses base
+`4a426b2d037252d5a440ddff29facd36b614c297` plus the scoped Python test change.
+The exact-capture regression now runs `record_capture_obligations` against the
+original context, diff and input snapshot. All three emitted sidecars exactly
+match the retained obligation manifest, byte inventory and reassembly contract.
+All six required gaps remain; every original ZIP member, including the snapshot,
+event and provider outputs, remains byte-identical. Provider construction is
+guarded by failing sentinels.
+
+The regression also exercises `main --revalidate-retained` after recording those
+sidecars. Missing authenticated origin still raises `FileNotFoundError`; the CLI
+prints no successful result, preserves an existing Actions output file, and
+creates neither a recovery receipt nor a retained-source directory. Successful
+sidecar generation supplies no recovery authority. Both provider slots retain
+`used_llm=false`, zero reviewed files and both named files in `files_not_reviewed`.
+The verdict remains `UNVERIFIABLE_INPUT`; successful admission is unverified.
+
+Fresh authenticated artifact discovery for run `42326161711` confirms the next
+incomplete archive, `13555815325` / `selftest-autofix-3.14`, remains unexpired:
+532,745 bytes, digest
+`sha256:5d24350bca5ac35e29b36dbb36785fc8017beea7c61c58fcad276de98e292112`,
+same repository/head identity as recorded above. The connector returned a remote
+download reference; direct `gh api` acquisition into this runner exited 1 with
+`error connecting to api.github.com`. No local archive bytes were obtained or
+admitted, and no original gap was cleared.
+
+Validation with approved Python 3.14.10:
+
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  exit 0, **8 passed**, 25 deselected, 2.03 seconds.
+- Recovery/artifact suites with `-m 'not slow' --no-cov -q --tb=short`:
+  exit 1, **38 passed / 6 failed**, 6.46 seconds; the same previously recorded
+  two publisher and four retry lifecycle cases fail.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  exit 0, **31 passed**, 13.09 seconds; the script's `Cover` row is **73.55%**.
+  This code coverage is separate from the unchanged provider review coverage of
+  **0/2 files per slot** for `scripts/ci_history.py` and `tests/scripts/test_ci_history.py`.
+- The named combined Node command selects
+  `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3` and exits **1**, **5.600
+  seconds** total wall time. Direct context-file execution reports 193 passed /
+  17 failed, including `spawnSync git EPERM` and `spawnSync python3 EPERM`.
+  Direct cross-repository execution passes **122 tests**. No JavaScript changed.
+- Black formats the scoped Python file; Ruff and `git diff --check` pass.
+
+No additional task or acceptance checkbox is complete. Required follow-up remains
+authenticated native recovery origin and complete required evidence before any
+provider evaluation. PR #4631 readback confirms open, `draft=false`.
+
+After sequentially checking Black's CLI-selected sources and populating its
+verified cache to avoid stalled worker scheduling, the required full command
+passed: `BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+— exit 0, **999 files unchanged**. Staging the scoped test/report changes then
+exited 128: `.git/index.lock` cannot be created on the read-only Git metadata
+filesystem. No commit was created. Automatic approval review rejected both the
+requested `needs-human` label and blocker comment with `MCP tool call requires
+approval, but approval policy is never`. The changes and blocker remain local.
