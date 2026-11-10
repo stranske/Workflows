@@ -438,6 +438,34 @@ the deployed report after the repair reaches main. Post-push review belongs
 to the next scheduled closer pass, no earlier than seven minutes after push;
 this round does not claim that review or current-head CI is complete.
 
+## Round 12 production report check (2026-11-10T18:44Z)
+
+Outcome: **A2 unsatisfied; T1 pending**. Acceptance requires a newly dispatched
+Maint 71 run whose `gh run view <id> --repo stranske/Workflows --log` output
+explicitly accounts for both candidates. Stop rule: two dispatch attempts or
+20 minutes. The explicit guard refusal ended dispatch work after attempt one.
+
+The exact requested `gh workflow run maint-71-merge-sync-prs.yml --repo
+stranske/Workflows --ref main` exited 77. The Orchestrator guard explicitly
+reserves production starts for schedules/sync-core and directs this seat to
+leave the required run undone. No run was created or alternate route attempted.
+Blocking/drainable pair: production dispatch blocked; readback, focused local
+validation and this evidence update drainable.
+
+The fresh run list still ends at successful run
+[42789507724](https://github.com/stranske/Workflows/actions/runs/42789507724),
+head `9dcc645ba2b51f6db655486cec7e06e1f7d5e5b4`. Its freshly downloaded full log
+has five `6189|6186` matches, all timestamp fragments, and zero matches for
+`#6189|#6186|/pull/6189|/pull/6186|Trend_Model_Project`. These do not satisfy A2.
+The exact A1 two-file Node command passed: **243 passed, zero failed**, 617.67 ms.
+
+Cost: one refused dispatch, zero production runs created, one run-list read,
+one full-log read and one focused test run. No source or pin changes were made.
+T1/A2 remain unchecked. The native scheduler/sync-core owner must obtain the
+report after the source repair reaches main; repeating this seat cannot cross
+the production-start boundary. Current-head CI and the seven-minute post-push
+review remain unverified here; the next scheduled closer pass owns that review.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
