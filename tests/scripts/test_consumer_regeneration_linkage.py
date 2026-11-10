@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import os
 import subprocess
 from pathlib import Path
 
@@ -69,9 +70,11 @@ def _commit_present(sha: str) -> bool:
 
 
 def test_source_commit_contains_merged_3900() -> None:
-    # Gate Python CI checks out with fetch-depth 1, so historical SHAs are absent.
-    # Exit 128 from merge-base is "not a valid commit", not a failed ancestry check.
+    # Required Python CI fetches the fixed historical source before pytest.
+    # Ad hoc shallow checkouts may skip; required validation must fail closed.
     if not _commit_present(DEPENDENCY) or not _commit_present(SOURCE):
+        if os.environ.get("WORKFLOWS_REQUIRE_3900_ANCESTRY") == "1":
+            pytest.fail("required dependency and source history is absent")
         pytest.skip("dependency and source commits are absent from this checkout")
     completed = subprocess.run(
         ["git", "merge-base", "--is-ancestor", DEPENDENCY, SOURCE],
@@ -89,6 +92,13 @@ def test_commands_name_the_plan_source_dependency_and_runs() -> None:
     assert DEPENDENCY in rendered
     for run_id in (41128486728, 41128622575, 41132061438):
         assert str(run_id) in rendered
+
+
+def test_required_ancestry_cannot_skip_missing_history(monkeypatch) -> None:
+    monkeypatch.setenv("WORKFLOWS_REQUIRE_3900_ANCESTRY", "1")
+    monkeypatch.setattr(f"{__name__}._commit_present", lambda _sha: False)
+    with pytest.raises(pytest.fail.Exception, match="required dependency and source history"):
+        test_source_commit_contains_merged_3900()
 
 
 def test_missing_stage_is_unlinked() -> None:
