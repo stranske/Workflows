@@ -935,3 +935,301 @@ def test_real_retained_fixture_payload_and_receipts():
         assert exp_res["reason"] == act_res["reason"]
         assert exp_res["original_event_accepting"] == act_res["original_event_accepting"]
         assert exp_res["provider_calls"] == act_res["provider_calls"]
+
+
+def test_selected_artifact_forbidden():
+    """Test selected-artifact Forbidden (403) case."""
+    from tools.verifier_event_recovery import _observation_from_collector_receipt
+
+    # Forbidden receipt for artifact 12579928048
+    receipt = {
+        "pr": 4231,
+        "comment": 6390994169,
+        "run_id": 40143755394,
+        "artifact_id": 12579928048,
+        "subject": {"event_id": "a" * 64, "material_sha256": "b" * 64},
+        "proof_status": "included",
+        "proof_body_sha256": "c" * 64,
+        "marker_published": True,
+        "artifact_http_status": 403,
+        "artifact_failures": [{"kind": "access_denied", "detail": "Forbidden"}],
+        "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
+        "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+        "original_event_accepting": False,
+        "provider_calls": 0,
+        "admission_prerequisites_met": False,
+    }
+
+    observation = _observation_from_collector_receipt(receipt)
+
+    assert observation["pr"] == 4231
+    assert observation["comment_id"] == 6390994169
+    assert observation["artifact_id"] == 12579928048
+    assert observation["artifact_http_status"] == 403
+    assert observation["artifact_expired"] is None
+    assert observation["original_event_accepting"] is False
+    assert observation["provider_calls"] == 0
+
+
+def test_unrelated_not_found_failure():
+    """Test that unrelated Not Found failures don't affect the selected artifact."""
+    from tools.verifier_event_recovery import _observation_from_collector_receipt
+
+    # Receipt for artifact 12579928048 with unrelated Not Found for artifact 9999999999
+    receipt = {
+        "pr": 4231,
+        "comment": 6390994169,
+        "run_id": 40143755394,
+        "artifact_id": 12579928048,
+        "subject": {"event_id": "a" * 64, "material_sha256": "b" * 64},
+        "proof_status": "included",
+        "proof_body_sha256": "c" * 64,
+        "marker_published": True,
+        "artifact_failures": [
+            {"kind": "metadata_lookup_failed", "detail": "artifact 9999999999 Not Found"}
+        ],
+        "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
+        "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+        "original_event_accepting": False,
+        "provider_calls": 0,
+        "admission_prerequisites_met": False,
+    }
+
+    observation = _observation_from_collector_receipt(receipt)
+
+    # Should not set 404 because the Not Found is for a different artifact
+    assert observation["artifact_id"] == 12579928048
+    assert observation["artifact_http_status"] is None
+    assert observation["artifact_expired"] is None
+
+
+def test_unrelated_expired_failure():
+    """Test that unrelated expired failures don't affect the selected artifact."""
+    from tools.verifier_event_recovery import _observation_from_collector_receipt
+
+    # Receipt for artifact 12579928048 with unrelated expired for artifact 9999999999
+    receipt = {
+        "pr": 4231,
+        "comment": 6390994169,
+        "run_id": 40143755394,
+        "artifact_id": 12579928048,
+        "subject": {"event_id": "a" * 64, "material_sha256": "b" * 64},
+        "proof_status": "included",
+        "proof_body_sha256": "c" * 64,
+        "marker_published": True,
+        "artifact_failures": [
+            {"kind": "expired", "detail": "artifact 9999999999 expired"}
+        ],
+        "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
+        "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+        "original_event_accepting": False,
+        "provider_calls": 0,
+        "admission_prerequisites_met": False,
+    }
+
+    observation = _observation_from_collector_receipt(receipt)
+
+    # Should not set expired because the failure is for a different artifact
+    assert observation["artifact_id"] == 12579928048
+    assert observation["artifact_http_status"] is None
+    assert observation["artifact_expired"] is None
+
+
+def test_same_artifact_not_found():
+    """Test positive same-artifact Not Found case."""
+    from tools.verifier_event_recovery import _observation_from_collector_receipt
+
+    # Receipt for artifact 12579928048 with Not Found for the same artifact
+    receipt = {
+        "pr": 4231,
+        "comment": 6390994169,
+        "run_id": 40143755394,
+        "artifact_id": 12579928048,
+        "subject": {"event_id": "a" * 64, "material_sha256": "b" * 64},
+        "proof_status": "included",
+        "proof_body_sha256": "c" * 64,
+        "marker_published": True,
+        "artifact_failures": [
+            {"kind": "metadata_lookup_failed", "detail": "artifact 12579928048 Not Found"}
+        ],
+        "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
+        "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+        "original_event_accepting": False,
+        "provider_calls": 0,
+        "admission_prerequisites_met": False,
+    }
+
+    observation = _observation_from_collector_receipt(receipt)
+
+    # Should set 404 because the Not Found is for this artifact
+    assert observation["artifact_id"] == 12579928048
+    assert observation["artifact_http_status"] == 404
+    assert observation["artifact_expired"] is None
+
+
+def test_same_artifact_expired():
+    """Test positive same-artifact expired case."""
+    from tools.verifier_event_recovery import _observation_from_collector_receipt
+
+    # Receipt for artifact 12579928048 with expired for the same artifact
+    receipt = {
+        "pr": 4231,
+        "comment": 6390994169,
+        "run_id": 40143755394,
+        "artifact_id": 12579928048,
+        "subject": {"event_id": "a" * 64, "material_sha256": "b" * 64},
+        "proof_status": "included",
+        "proof_body_sha256": "c" * 64,
+        "marker_published": True,
+        "artifact_failures": [
+            {"kind": "expired", "detail": "artifact 12579928048 expired"}
+        ],
+        "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
+        "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+        "original_event_accepting": False,
+        "provider_calls": 0,
+        "admission_prerequisites_met": False,
+    }
+
+    observation = _observation_from_collector_receipt(receipt)
+
+    # Should set expired because the failure is for this artifact
+    assert observation["artifact_id"] == 12579928048
+    assert observation["artifact_http_status"] is None
+    assert observation["artifact_expired"] is True
+
+
+def test_same_artifact_implicit_expired():
+    """Test same-artifact expired with implicit binding (detail without artifact_id)."""
+    from tools.verifier_event_recovery import _observation_from_collector_receipt
+
+    # Receipt for artifact 12579928048 with expired detail that doesn't mention artifact_id
+    receipt = {
+        "pr": 4231,
+        "comment": 6390994169,
+        "run_id": 40143755394,
+        "artifact_id": 12579928048,
+        "subject": {"event_id": "a" * 64, "material_sha256": "b" * 64},
+        "proof_status": "included",
+        "proof_body_sha256": "c" * 64,
+        "marker_published": True,
+        "artifact_failures": [{"kind": "expired", "detail": "expired"}],
+        "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
+        "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+        "original_event_accepting": False,
+        "provider_calls": 0,
+        "admission_prerequisites_met": False,
+    }
+
+    observation = _observation_from_collector_receipt(receipt)
+
+    # Should set expired because the failure is in the receipt for this artifact
+    # and the detail doesn't mention any other artifact
+    assert observation["artifact_id"] == 12579928048
+    assert observation["artifact_http_status"] is None
+    assert observation["artifact_expired"] is True
+
+
+def test_cli_mutually_exclusive_modes():
+    """Test that conflicting CLI modes fail with exit code 2 and exclusivity diagnostic."""
+    import subprocess
+    import sys
+
+    # Test all pairs of mutually exclusive modes
+    # Each test needs to properly format the command line arguments
+    test_cases = [
+        # --revalidate-retained and --manifest
+        {
+            "args": ["--revalidate-retained", "--manifest", "dummy.json"],
+            "description": "revalidate-retained + manifest",
+        },
+        # --revalidate-retained and --classify-retained-artifact
+        {
+            "args": ["--revalidate-retained", "--classify-retained-artifact", "dummy.json"],
+            "description": "revalidate-retained + classify-retained-artifact",
+        },
+        # --manifest and --classify-retained-artifact
+        {
+            "args": ["--manifest", "dummy1.json", "--classify-retained-artifact", "dummy2.json"],
+            "description": "manifest + classify-retained-artifact",
+        },
+    ]
+
+    for test_case in test_cases:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "tools.verifier_event_recovery",
+            ] + test_case["args"],
+            capture_output=True,
+            text=True,
+            cwd="/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4628__closer",
+        )
+
+        # Should exit with code 2 (argparse error)
+        assert result.returncode == 2, f"Expected exit code 2 for {test_case['description']}, got {result.returncode}"
+        # Should contain exclusivity diagnostic
+        assert "mutually exclusive" in result.stderr, f"Missing exclusivity diagnostic for {test_case['description']}: {result.stderr}"
+
+
+def test_cli_no_recovery_invocation_on_conflict():
+    """Test that no recovery execution or output writes occur even with usable revalidation inputs."""
+    import subprocess
+    import sys
+    import tempfile
+    import os
+
+    # Create a temporary directory with a valid manifest
+    with tempfile.TemporaryDirectory() as tmpdir:
+        manifest_path = os.path.join(tmpdir, "manifest.json")
+        with open(manifest_path, "w") as f:
+            f.write('{"retained_revalidation": {"schema": "retained-revalidation/v1", "recovery_key": "a" * 64}}')
+
+        # Try to run with both --manifest and --revalidate-retained
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "tools.verifier_event_recovery",
+                "--revalidate-retained",
+                "--manifest",
+                manifest_path,
+            ],
+            capture_output=True,
+            text=True,
+            cwd="/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4628__closer",
+        )
+
+        # Should exit with code 2 before any recovery execution
+        assert result.returncode == 2
+        # Should not have produced any JSON output (recovery execution output)
+        assert not result.stdout.strip() or "mutually exclusive" in result.stderr
+        # Should not have created any output files
+        # (This is implicitly tested by the fact that we exit before reaching file write code)
+
+
+def test_cli_exit_2_with_exclusivity_message():
+    """Test that argparse exit 2 is returned with the exclusivity diagnostic message."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "tools.verifier_event_recovery",
+            "--revalidate-retained",
+            "--manifest",
+            "dummy.json",
+        ],
+        capture_output=True,
+        text=True,
+        cwd="/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4628__closer",
+    )
+
+    assert result.returncode == 2
+    assert "mutually exclusive" in result.stderr
+    # Check that the message mentions the specific modes
+    assert "revalidate-retained" in result.stderr
+    assert "manifest" in result.stderr

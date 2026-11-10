@@ -706,6 +706,18 @@ def main() -> int:
     parser.add_argument("--classify-retained-artifact", type=Path)
     parser.add_argument("--receipt", type=Path)
     args = parser.parse_args()
+    
+    # Validate mutually exclusive modes immediately after argument parsing,
+    # before any recovery execution or file writes.
+    mode_args = [
+        ("revalidate-retained", args.revalidate_retained),
+        ("manifest", args.manifest is not None),
+        ("classify-retained-artifact", args.classify_retained_artifact is not None),
+    ]
+    active_modes = [name for name, is_active in mode_args if is_active]
+    if len(active_modes) > 1:
+        parser.error(f"mutually exclusive modes: {' and '.join(active_modes)}")
+    
     if args.revalidate_retained:
         result = revalidate_retained(directory=Path.cwd())
         if os.environ.get("GITHUB_OUTPUT"):
@@ -714,8 +726,6 @@ def main() -> int:
         print(json.dumps(result, sort_keys=True))
         return 0
     if args.classify_retained_artifact:
-        if args.revalidate_retained or args.manifest:
-            parser.error("--classify-retained-artifact is exclusive")
         payload = json.loads(args.classify_retained_artifact.read_text(encoding="utf-8"))
         result = classify_retained_artifact_report(payload)
         if args.receipt:
@@ -1047,9 +1057,29 @@ def _observation_from_collector_receipt(row: dict[str, Any]) -> dict[str, Any]:
     if inventory:
         artifact_id = inventory[0].get("artifact_id")
     artifact_id = row.get("artifact_id", artifact_id)
-    details = " ".join(str(item.get("detail") or "") for item in row.get("artifact_failures") or [])
-    not_found = artifact_id is not None and str(artifact_id) in details and "Not Found" in details
-    expired = any(item.get("kind") == "expired" for item in row.get("artifact_failures") or [])
+    
+    # Bind artifact identity to Not Found status: only set if a failure detail
+    # explicitly mentions this artifact_id along with "Not Found".
+    not_found = False
+    if artifact_id is not None:
+        for item in row.get("artifact_failures") or []:
+            detail = str(item.get("detail") or "")
+            if str(artifact_id) in detail and "Not Found" in detail:
+                not_found = True
+                break
+    
+    # Bind artifact identity to expired status: only set if a failure has
+    # kind "expired" and either the detail explicitly mentions this artifact_id
+    # or the detail does not mention any artifact (implied for receipt's artifact).
+    expired = False
+    if artifact_id is not None:
+        for item in row.get("artifact_failures") or []:
+            if item.get("kind") == "expired":
+                detail = str(item.get("detail") or "")
+                if str(artifact_id) in detail or "artifact " not in detail:
+                    expired = True
+                    break
+    
     return {
         "pr": row.get("pr"),
         "comment_id": row.get("comment") or row.get("comment_id"),

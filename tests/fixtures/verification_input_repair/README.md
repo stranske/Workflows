@@ -103,18 +103,35 @@ integer zero. The 2026-11-06 owner decision is no fresh provider evaluation.
 ### Executable collector invocation
 
 The real authenticated read-only collector is invoked via Node.js using the
-`fetchVerifierEvidence` function from `.github/scripts/agents_verifier_context.js`:
+`fetchVerifierEvidence` function from `.github/scripts/agents_verifier_context.js`.
+For the two retained subjects (PRs #4231 and #4235), the invocation is:
 
 ```bash
-node -e 'require("./.github/scripts/agents_verifier_context.js").fetchVerifierEvidence({
-  github: <authenticated_octokit_client>,
+# For PR #4231 (comment 6390994169, artifact 12579928048)
+GITHUB_TOKEN=<read_only_pat> node -e '
+const { Octokit } = require("@octokit/rest");
+const { fetchVerifierEvidence } = require("./.github/scripts/agents_verifier_context.js");
+const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+fetchVerifierEvidence({
+  github,
   owner: "stranske",
   repo: "Workflows",
-  pullNumber: <pr_number>,
-  pullRequestBody: <pr_body>,
-  associatedCommitShas: [<commit_shas>],
-  evaluatedSha: <evaluated_sha>
-})'
+  pullNumber: 4231
+}).then(console.log).catch(console.error);
+'
+
+# For PR #4235 (comment 6392557346, artifact 12584318436)
+GITHUB_TOKEN=<read_only_pat> node -e '
+const { Octokit } = require("@octokit/rest");
+const { fetchVerifierEvidence } = require("./.github/scripts/agents_verifier_context.js");
+const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
+fetchVerifierEvidence({
+  github,
+  owner: "stranske",
+  repo: "Workflows",
+  pullNumber: 4235
+}).then(console.log).catch(console.error);
+'
 ```
 
 This performs authenticated Actions archive lookup and returns the retained evidence
