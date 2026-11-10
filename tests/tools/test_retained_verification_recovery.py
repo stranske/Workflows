@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from tools import verifier_event_recovery
 from tools.verifier_artifact_capture import load_artifact_capture
 from tools.verifier_capture_obligation_manifest import (
     build_capture_obligation_manifest,
@@ -36,7 +37,9 @@ def sha(raw):
 
 
 @pytest.mark.parametrize("profile", ["standard", "expanded"])
-def test_exact_4509_without_provider_output_cannot_recover_a_review(tmp_path, monkeypatch, profile):
+def test_exact_4509_without_provider_output_cannot_recover_a_review(
+    tmp_path, monkeypatch, capsys, profile
+):
     from scripts.langchain import pr_verifier
     from tools.verifier_corpus_evidence import settled_verdict
 
@@ -83,6 +86,27 @@ def test_exact_4509_without_provider_output_cannot_recover_a_review(tmp_path, mo
     cause = incomplete_cause(manifest, directory=tmp_path, step_outcome="success")
     assert cause["retry_kind"] == "known_no_evaluation"
     assert cause["failure_cause"] == "validated_no_evaluation"
+    # The operational CLI may succeed at classification while recovery remains
+    # inadmissible. Its retry hint is not an accepted review or provider authority.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "verifier_event_recovery.py",
+            "--manifest",
+            str(tmp_path / "verification-event-manifest.json"),
+            "--step-outcome",
+            "success",
+        ],
+    )
+    assert verifier_event_recovery.main() == 0
+    output = capsys.readouterr()
+    assert output.err == ""
+    assert json.loads(output.out) == {
+        "retry_kind": "known_no_evaluation",
+        "retryable": True,
+        "failure_cause": "validated_no_evaluation",
+    }
     identity = {
         key: metadata["verification_event"][key]
         for key in ("repo", "pr", "head_sha", "evaluated_sha")

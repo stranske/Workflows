@@ -771,3 +771,54 @@ Both provider slots still reviewed **0/2** requested files, retaining
 The only change is this durable verification record. The next scheduled
 controller continuation owns the seven-minute post-push review and current-head
 CI readback; this local round does not claim those pending checks passed.
+
+## Exact-capture recovery CLI validation — 2026-11-10
+
+Working-tree validation based on `4e50159db653dc37f1ae0052f6490e0884d36942`
+extends the existing exact-capture regression through the operational
+`verifier_event_recovery.main` entry point. Both `standard` and `expanded`
+profiles return exit 0 for classification, with `known_no_evaluation`,
+`validated_no_evaluation` and `retryable=true`. This successful classification
+does not supply an admitted decision: the settled verdict remains
+`UNVERIFIABLE_INPUT`. Provider construction, invocation and final parsing remain
+forbidden by sentinels. The ZIP and all nine extracted members, including the
+original event, remain byte-identical. Each provider still reviewed **0 of 2**
+named files. No capture acquisition was repeated, origin manufactured or
+acceptance checkbox marked complete.
+
+Validation with Python 3.14.10:
+
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  **8 passed**, 25 deselected, exit 0, 2.50 seconds after the final import edit.
+- Recovery/artifact suites with `-m 'not slow' --no-cov -q --tb=short`:
+  **38 passed, 6 failed**, exit 1. The failures are the same two publisher and
+  four retry lifecycle cases previously documented above.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  **31 passed**, exit 0; the `scripts/ci_history.py` table row reports **73.55%**
+  code coverage. This does not change the separate provider review coverage.
+- Named Node command selecting
+  `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`: exit 1,
+  **8.182 seconds** total wall time. The cross-repository file passes; the
+  context file fails. Direct context-test execution reports `spawnSync git EPERM`.
+  The historical passing source result is not superseded.
+- Black formatted the changed test at line length 100. Ruff and
+  `git diff --check` pass; full formatting-gate results are recorded below.
+
+Staging the test change exited 128: `.git/index.lock` cannot be created on the
+read-only Git metadata filesystem. No commit was created. The connector rejected
+both the `needs-human` label and the blocker comment with
+`MCP tool call requires approval, but approval policy is never`; this report
+retains the blocker locally. Complete-capture admission and usable original
+provider output remain absent, so successful recovery is not claimed.
+
+Sequential checking of all 999 files selected by Black's CLI completed with
+every file unchanged, populating Black's normal verified cache after worker
+scheduling stalled. The required command then passed against that cache:
+
+```sh
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Exit 0, **999 files unchanged**. Final PR readback: open, `draft=false`, head
+`4e50159db653dc37f1ae0052f6490e0884d36942`. The tested changes remain uncommitted
+because Git metadata is read-only.
