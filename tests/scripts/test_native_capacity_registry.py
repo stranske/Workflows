@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -277,7 +278,14 @@ def test_native_facts_and_helper_are_managed_with_exact_template_parity():
         "scripts/langchain/pr_verifier.py",
     ):
         assert f"- source: {name}" in manifest
-        assert (ROOT / name).read_bytes() == (ROOT / "templates/consumer-repo" / name).read_bytes()
+        source_bytes = (ROOT / name).read_bytes()
+        template_bytes = (ROOT / "templates/consumer-repo" / name).read_bytes()
+        # Compare digests first to avoid difflib assertion hangs on multi-thousand-line files (Workflows#4619).
+        assert (
+            hashlib.sha256(source_bytes).hexdigest()
+            == hashlib.sha256(template_bytes).hexdigest()
+        )
+        assert source_bytes == template_bytes
     registry = json.loads(REGISTRY.read_text())
     supported = {
         (r["provider"], r["model_id"]) for r in registry["models"] if "native_capacity" in r

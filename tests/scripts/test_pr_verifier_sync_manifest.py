@@ -52,6 +52,11 @@ def test_pr_verifier_api_client_is_available_in_consumer_template() -> None:
 
 def test_pr_verifier_source_and_consumer_template_are_identical() -> None:
     template = ROOT / "templates/consumer-repo/scripts/langchain/pr_verifier.py"
+    # Compare digests first to avoid difflib assertion hangs on multi-thousand-line files (Workflows#4619).
+    assert (
+        hashlib.sha256(template.read_bytes()).hexdigest()
+        == hashlib.sha256(PR_VERIFIER.read_bytes()).hexdigest()
+    )
     assert template.read_bytes() == PR_VERIFIER.read_bytes()
 
 
@@ -93,7 +98,13 @@ def test_verifier_fix_remains_in_travel_plan_permission_generation(mode: str) ->
 def test_capture_obligation_dependency_is_managed_and_identical() -> None:
     source = "tools/verifier_capture_obligation_manifest.py"
     assert source in _manifest_sources()
-    assert (ROOT / "templates/consumer-repo" / source).read_bytes() == (ROOT / source).read_bytes()
+    template_bytes = (ROOT / "templates/consumer-repo" / source).read_bytes()
+    source_bytes = (ROOT / source).read_bytes()
+    assert (
+        hashlib.sha256(template_bytes).hexdigest()
+        == hashlib.sha256(source_bytes).hexdigest()
+    )
+    assert template_bytes == source_bytes
 
 
 def test_pr_verifier_copy_delivery_includes_doc_lineage() -> None:
