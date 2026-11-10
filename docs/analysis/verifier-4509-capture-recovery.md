@@ -1136,3 +1136,37 @@ the controller to commit from a writable checkout.
 Automatic approval review also rejected the requested `needs-human` label and
 blocker comment with the same approval-policy reason. PR #4631 readback remains
 open, `draft=false`. No provider evaluation or remote mutation occurred.
+
+## Local keepalive round 7 — 2026-11-10
+
+**Accepted recoveries: 0.** On source
+`5672a62598ffc28e33d0c61f2574da12e988e808`, authenticated download of
+Workflows artifact `13556839741` from run `42330898168` matched the
+checked-in capture byte for byte and the API's recorded SHA-256. The existing
+`python3 -m tools.verifier_event_recovery --manifest verification-event-manifest.json --step-outcome success`
+classifier exited 0 with `validated_no_evaluation`. The same module's
+`--revalidate-retained` command exited 1 at the missing
+`verification-recovery-origin.json`. The authenticated source comparison
+against main `e0cff78a8537be83e296761536fbda3038b4ca2d` still reports
+`diverged`. Native admission requires canonical origin. Offline
+classification and byte validation remain available and passed.
+
+The archive and all nine members passed SHA-256 readback after both commands.
+The original event remains
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+The original capture has six required gaps. Both retained provider slots
+reviewed 0 of 2 files, `scripts/ci_history.py` and
+`tests/scripts/test_ci_history.py`. The verdict remains `UNVERIFIABLE_INPUT`.
+No provider was invoked.
+
+With `/opt/anaconda3/bin` first in `PATH`:
+
+- `node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`:
+  exit 0, 332 passed, 5.174 seconds wall time.
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function`:
+  exit 0, 16 passed, 25 deselected, 3.066 seconds wall time.
+
+Gate run `42913510716` was cancelled on the preceding head `73b9c89c`.
+Its summary reported cancelled Python CI awaiting rerun. Gate run
+`42914527241` was active on `5672a625` during this readback. The supplied
+failure provides no evidence of a failing test assertion on the tested head.
