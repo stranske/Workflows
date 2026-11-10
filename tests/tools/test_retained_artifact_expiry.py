@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from tools.verifier_event_recovery import (
     AUTHENTICATED_RETAINED_READBACK,
     EXPLICIT_EXPIRED_ARTIFACT_REJECTION,
@@ -21,7 +20,6 @@ from tools.verifier_event_recovery import (
     classify_retained_artifact_report,
     inspect_digest_bound_archive,
 )
-
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 
