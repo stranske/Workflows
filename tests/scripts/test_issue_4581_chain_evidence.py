@@ -90,6 +90,19 @@ def test_terminal_run_dispatch_lineage_is_bound() -> None:
     assert dispatcher["dispatch_notice_at"] > run["createdAt"]
     assert lineage["binding"]["plan_id"] == _load("chain-receipt.json")["plan"]["plan_id"]
 
+    chain_receipt = _load("chain-receipt.json")
+    terminal = chain_receipt["terminal_merger"]
+    terminal_excerpt_path = EVIDENCE / terminal["log_excerpt"]
+    terminal_excerpt = terminal_excerpt_path.read_text(encoding="utf-8")
+    handoff_line = [
+        line for line in terminal_excerpt.splitlines()
+        if "IMMUTABLE_HANDOFF_JSON" in line
+    ][0]
+    handoff_json_str = handoff_line.split("IMMUTABLE_HANDOFF_JSON: ", 1)[1]
+    handoff = json.loads(handoff_json_str)
+    assert handoff["plan_id"] == lineage["binding"]["plan_id"]
+    assert handoff["source_commit"] == lineage["binding"]["source_commit"]
+
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q", "-W", "ignore::pytest.PytestDeprecationWarning"]))
