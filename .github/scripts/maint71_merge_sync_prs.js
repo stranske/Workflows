@@ -2801,38 +2801,59 @@ function selectReconciliationTargets({
 }
 
 // Reporting only: keep historical dev-tool observations out of merge selection,
-// cleanup and this run's merged/stale counters. One bounded search also finds
-// closed generated heads that the stable-branch recovery inventory omits.
+// cleanup and this run's merged/stale counters. Bounded paginated search also
+// finds closed generated heads that the stable-branch recovery inventory omits.
+// Pagination matters: a single updated-desc page silently drops older delivered
+// or superseded candidates (e.g. a merged delivery and the PR it obsoleted) once
+// a consumer accumulates more than one page of dev-tool PRs, which would make a
+// deployed report omit exactly the history it exists to name.
+const DEV_TOOL_ACCOUNTING_MAX_PAGES = 3;
 async function readDevToolCandidateAccounting({ owner, repo, withRetry, trustedActors = [] }) {
   const repository = `${owner}/${repo}`;
   try {
-    const data = await withRetry((client) => client.graphql(`
-      query($query:String!){search(query:$query,type:ISSUE,first:100){
-        pageInfo{hasNextPage} nodes{... on PullRequest{
-          number state headRefName headRefOid author{login}
-          repository{nameWithOwner} headRepository{nameWithOwner}
-        }}
-      }}`, { query: `repo:${repository} is:pr head:deps/sync-dev-versions- sort:updated-desc` }),
-    { rateResource: 'graphql' });
-    const search = data?.search;
-    if (!Array.isArray(search?.nodes) || typeof search?.pageInfo?.hasNextPage !== 'boolean') {
-      throw new Error('dev-tool candidate inventory incomplete');
+    const nodes = [];
+    let after = null;
+    let truncated = false;
+    for (let page = 0; page < DEV_TOOL_ACCOUNTING_MAX_PAGES; page += 1) {
+      const data = await withRetry((client) => client.graphql(`
+        query($query:String!,$after:String){search(query:$query,type:ISSUE,first:100,after:$after){
+          pageInfo{hasNextPage endCursor} nodes{... on PullRequest{
+            number state headRefName headRefOid author{login}
+            repository{nameWithOwner} headRepository{nameWithOwner}
+          }}
+        }}`, { query: `repo:${repository} is:pr head:deps/sync-dev-versions- sort:updated-desc`, after }),
+      { rateResource: 'graphql' });
+      const search = data?.search;
+      if (!Array.isArray(search?.nodes) || typeof search?.pageInfo?.hasNextPage !== 'boolean') {
+        throw new Error('dev-tool candidate inventory incomplete');
+      }
+      if (search.nodes.some(pr => !pr || !Number.isInteger(pr.number)
+        || !['OPEN', 'CLOSED', 'MERGED'].includes(pr.state)
+        || !pr.repository?.nameWithOwner || !pr.author?.login
+        || typeof pr.headRefName !== 'string' || !/^[a-f0-9]{40}$/.test(pr.headRefOid))) {
+        throw new Error('dev-tool candidate identity incomplete');
+      }
+      nodes.push(...search.nodes);
+      if (!search.pageInfo.hasNextPage) break;
+      const cursor = search.pageInfo.endCursor;
+      if (typeof cursor !== 'string' || !cursor || cursor === after
+        || page === DEV_TOOL_ACCOUNTING_MAX_PAGES - 1) {
+        truncated = true;
+        break;
+      }
+      after = cursor;
     }
-    if (search.nodes.some(pr => !pr || !Number.isInteger(pr.number)
-      || !['OPEN', 'CLOSED', 'MERGED'].includes(pr.state)
-      || !pr.repository?.nameWithOwner || !pr.author?.login
-      || typeof pr.headRefName !== 'string' || !/^[a-f0-9]{40}$/.test(pr.headRefOid))) {
-      throw new Error('dev-tool candidate identity incomplete');
-    }
-    const candidates = search.nodes.filter(pr => pr
+    const seen = new Set();
+    const candidates = nodes.filter(pr => pr
       && pr.repository?.nameWithOwner === repository
       && pr.headRepository?.nameWithOwner === repository
       && pr.headRefName?.startsWith('deps/sync-dev-versions-')
       && trustedActors.includes(pr.author?.login)
       && ['OPEN', 'CLOSED', 'MERGED'].includes(pr.state))
+      .filter(pr => !seen.has(pr.number) && seen.add(pr.number))
       .map(pr => ({ pr: pr.number, head_sha: pr.headRefOid, branch: pr.headRefName,
         status: pr.state === 'MERGED' ? 'merged' : pr.state === 'CLOSED' ? 'closed unmerged' : 'open' }));
-    return { repository, status: search.pageInfo.hasNextPage ? 'truncated' : 'complete', candidates };
+    return { repository, status: truncated ? 'truncated' : 'complete', candidates };
   } catch (error) {
     return { repository, status: 'unknown', candidates: [], error: String(error.message || error) };
   }

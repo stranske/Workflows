@@ -187,3 +187,49 @@ test('dev-tool accounting bounds history and never presents partial reads as non
     }
   }
 });
+
+test('dev-tool accounting follows cursors so older candidates beyond page one are still named', async () => {
+  const { readDevToolCandidateAccounting } = require('../maint71_merge_sync_prs');
+  const repository = 'stranske/Trend_Model_Project';
+  const candidate = (number, state) => ({ number, state, headRefName: branch, headRefOid: head,
+    author: { login: 'stranske' }, repository: { nameWithOwner: repository },
+    headRepository: { nameWithOwner: repository } });
+  const pages = [
+    { search: { pageInfo: { hasNextPage: true, endCursor: 'cursor-1' },
+      nodes: [candidate(6213, 'MERGED'), candidate(6189, 'MERGED')] } },
+    { search: { pageInfo: { hasNextPage: false, endCursor: 'cursor-2' },
+      nodes: [candidate(6189, 'MERGED'), candidate(6186, 'CLOSED')] } },
+  ];
+  const afters = [];
+  const row = await readDevToolCandidateAccounting({ owner: 'stranske', repo: 'Trend_Model_Project',
+    trustedActors: ['stranske'], withRetry: async fn => fn({ graphql: async (query, variables) => {
+      assert.match(query, /first:100/);
+      afters.push(variables.after);
+      return pages[afters.length - 1];
+    } }) });
+  assert.deepEqual(afters, [null, 'cursor-1']);
+  assert.equal(row.status, 'complete');
+  assert.deepEqual(row.candidates.map(c => c.pr), [6213, 6189, 6186],
+    'page-two candidates are collected and duplicates are not repeated');
+  const summary = buildMarkdownSummary({ dev_tool_candidates: [row] });
+  assert.match(summary, /stranske\/Trend_Model_Project.*dev-tool:.*#6189 merged.*#6186 closed unmerged/);
+});
+
+test('dev-tool accounting stops at its page bound and stays truncated, never none open', async () => {
+  const { readDevToolCandidateAccounting } = require('../maint71_merge_sync_prs');
+  const repository = 'stranske/Trend_Model_Project';
+  let calls = 0;
+  const row = await readDevToolCandidateAccounting({ owner: 'stranske', repo: 'Trend_Model_Project',
+    trustedActors: ['stranske'], withRetry: async fn => fn({ graphql: async () => {
+      calls++;
+      return { search: { pageInfo: { hasNextPage: true, endCursor: `cursor-${calls}` },
+        nodes: [{ number: 6189, state: 'MERGED', headRefName: branch, headRefOid: head,
+          author: { login: 'stranske' }, repository: { nameWithOwner: repository },
+          headRepository: { nameWithOwner: repository } }] } };
+    } }) });
+  assert.equal(calls, 3, 'reporting must keep a bounded page count');
+  assert.equal(row.status, 'truncated');
+  const summary = buildMarkdownSummary({ dev_tool_candidates: [row] });
+  assert.match(summary, /#6189 merged; accounting truncated/);
+  assert.doesNotMatch(summary, /none open/);
+});

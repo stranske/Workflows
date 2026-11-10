@@ -466,6 +466,42 @@ report after the source repair reaches main; repeating this seat cannot cross
 the production-start boundary. Current-head CI and the seven-minute post-push
 review remain unverified here; the next scheduled closer pass owns that review.
 
+## Round 13 report-pagination repair (2026-11-10)
+
+The deployed-report risk addressed this round is pagination, not dispatch.
+`readDevToolCandidateAccounting` previously read a single
+`first:100 sort:updated-desc` search page and marked the row `truncated`
+when more pages existed. Older candidates such as Trend_Model_Project#6189
+(merged) and #6186 (closed unmerged) age down that ordering as new dev-tool
+PRs arrive, so a deployed unscoped run could eventually print a truncated
+row naming neither — the same omission as runs 42596605795/42762829524,
+through a different mechanism.
+
+The accounting now follows `endCursor` for at most three bounded pages
+(300 candidates), de-duplicates PRs repeated across pages, keeps
+`truncated` (never `none open`) when the bound or a non-advancing cursor
+stops the read, and keeps `unknown` for incomplete or malformed pages.
+Historical rows still never enter merge selection, cleanup, handoffs or
+this run's merge counters. Regression coverage in
+`maint71_devtool_final_binding.test.js` adds a two-page inventory whose
+second page carries #6186, and a page-bound case that must stop at three
+calls and stay `truncated`.
+
+**T1 and A2 remain pending.** No production dispatch was obtained this
+round; the Orchestrator production-job guard refusal recorded in Rounds
+5–12 still assigns that start to the scheduler/sync-core owner after this
+repair reaches main. A passing local regression is not production
+acceptance, and the acceptance grep must still be run against a newly
+dispatched run's full log.
+
+Verification status for this round: the exact two-file Node command and
+the Black gate could not be executed in this seat — every shell invocation
+failed at sandbox startup (`bwrap: loopback: Failed RTM_NEWADDR`), in both
+the primary and a delegated session. The new tests are committed-ready but
+unrun here; the next seat with a working shell must run
+`node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js`
+before merging, and must not cite a pass count for Round 13 until it does.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
