@@ -33,6 +33,7 @@ jobs:
             .github/scripts/error_classifier.js
             .github/scripts/github-api-with-retry.js
             .github/scripts/token_load_balancer.js
+            .github/scripts/resolve_alert_issue.py
           sparse-checkout-cone-mode: false
 
       - name: Setup API client
@@ -257,6 +258,22 @@ jobs:
             );
 
             console.log(`Created issue: ${title}`);
+
+      - name: Close resolved auth-expiring issue
+        if: steps.check.outputs.status == 'ok'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # `auth-expiring` is used only by this workflow. A token that checks
+          # ok (not expiring, not expired) means the refresh landed.
+          python3 .github/scripts/resolve_alert_issue.py \
+            --repo "${{ github.repository }}" \
+            --label auth-expiring \
+            --title-prefix "🚨 CODEX_AUTH_JSON has expired" \
+            --title-prefix "⚠️ CODEX_AUTH_JSON expires in " \
+            --workflow "Health Codex Auth Check" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Summary
         env:

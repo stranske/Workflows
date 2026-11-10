@@ -3450,16 +3450,21 @@ in the sync lineage, not a payload delivery. The payload was delivered by PR 248
 (merge `1ff9e11`), whose producer runs 42485644055 and 42499084007 were
 `workflow_dispatch`, so PR 2486 itself is not claimed as automation-started.
 
-**Criterion 3 remains NOT MET.** First break: merge SHA. Blocking=1 (PR 2488
-unmerged), drainable=1 (a queued Maint 71 run can merge it). The PR body now says
-`Refs #4557`, so merging PR 4558 does not close #4557. Follow-up to file:
-"Observe automation-started Maint 68 → Maint 71 chain for PR 2488 and record merge SHA".
+**Criterion 3: consumer merge recorded at the 2026-11-09T08:49:48.032611Z observation boundary:**
+PR 2488 merged as `e4ccdaf177e3271173ae534a710ebc23f29341e8` at
+2026-11-09T08:25:48Z in Maint 71 run **42585644980**. The earlier 05:37Z
+snapshot above remains historical. The terminal receipt and fresh issue-4369
+comment observation are retained below. The terminal run's event is
+`workflow_dispatch` with an unknown dispatcher, so the schedule-started origin of
+the terminal merge is **not established** (follow-up on #4581).
 
 ## Closer repair 2: chain receipt and upstream concern reconciliation — 2026-11-09
 
-Observed read-only through **2026-11-09T07:41:55Z**. No Maint 68, Maint 71 or
-Maint 82 run was dispatched, rerun or cancelled, and no merge, schedule or lock
-changed. A1/A2/A4 evidence above is preserved and was not re-run. Receipts are
+Initially observed through 2026-11-09T07:41:55Z; terminal receipts refreshed for
+issue #4581 at **2026-11-09T08:49:48.032611Z**. No Maint 68, Maint 71 or
+Maint 82 run was dispatched, rerun or cancelled by this collection, and it made no
+merge, schedule or lock change. The hosted full-suite receipts above are preserved;
+only #4581's acceptance commands were run. Receipts are
 under [`runtime-4550/4557r2/`](runtime-4550/4557r2/).
 
 ### Automation-started chain for PR 2488
@@ -3473,23 +3478,43 @@ by artifact identity rather than timing:
 | Plan | `sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb`, scope `full` | `sync-plan-scope.json`, `manifest.json`, PAEM sync result |
 | Candidate | PR **2488**, `sync/workflows-candidate` @ `795155aa9b1cdca5942bac2db3707c6b64dc57d3`, consumer base `b3b617e7` | PAEM sync result (`status: created_pr`) |
 | Maint 71 | Run **42565425171**, dispatched by the producer step "Dispatch Maint 71 for the generated lane"; its `IMMUTABLE_HANDOFF_JSON` and its PR 2488 result carry the same plan ID, source commit, head and delivery generation | [complete log](runtime-4550/4557r2/merger-42565425171.log), [both artifacts](runtime-4550/4557r2/merger-42565425171-artifacts/) |
-| Consumer-main merge | **none**: PR 2488 `OPEN`, `mergedAt=null`, `mergeCommit=null`, `isDraft=false`, `CLEAN` | `chain-receipt.json` `consumer_merge` |
+| Terminal Maint 71 | Run **42585644980**, event `workflow_dispatch`, dispatcher unknown; same plan, source, candidate head and delivery generation; terminal handoff `merged` | [run receipt](runtime-4550/4557r2/maint71-42585644980-run.json), [report](runtime-4550/4557r2/maint71-42585644980-sync-pr-merge-report.json), [authorization](runtime-4550/4557r2/maint71-42585644980-sync-campaign-commit-authorization.json), [log excerpt](runtime-4550/4557r2/maint71-42585644980-paem-excerpt.log) |
+| Consumer-main merge | PR 2488 **MERGED**, `e4ccdaf177e3271173ae534a710ebc23f29341e8`, 2026-11-09T08:25:48Z | [PR JSON](runtime-4550/4557r2/consumer-pr-2488-merged.json), [merge commit](runtime-4550/4557r2/consumer-merge-e4ccdaf1.json), [main reachability](runtime-4550/4557r2/consumer-main-reachability.json) |
 
 Eleven later Maint 71 runs (42566405464 … 42579302699) are summarised in
-`later_maint71_runs`. PR 2488 has been `campaign_prepared` /
-`merge-current-delivery` since 05:18Z. The latest run's
+`later_maint71_runs`. PR 2488 was `campaign_prepared` /
+`merge-current-delivery` from 05:18Z. The earlier run's
 [campaign authorization](runtime-4550/4557r2/maint71-42579302699-artifacts/sync-pr-merge-and-canary-evidence/sync-campaign-commit-authorization.json)
-is `authorized: false` with one error:
+was `authorized: false` with one error:
 `stranske/Orchestrator: campaign is not prepared (checks_failed)`. Twelve
-delivery-lane PRs of the same plan merged. The three candidate-lane PRs (PAEM 2488,
-Travel-Plan-Permission 1736, trip-planner 2021) are held. Orchestrator PR 1288 fails
+delivery-lane PRs of the same plan had merged. The three candidate-lane PRs (PAEM 2488,
+Travel-Plan-Permission 1736, trip-planner 2021) were held. Orchestrator PR 1288 failed
 `tests/test_model_table.py::test_copy_matches_workflows_source` (Gate run 42566889073).
 That test compares Orchestrator's model table with the live Workflows main copy,
 which changed in 122b67ebd (#4576). PR 1288 does not touch that table.
 
-**Blocking=1, drainable by Maint 71=0.** Re-running Maint 71 cannot clear the hold.
-It clears only when an Orchestrator change refreshes its model-table copy and
-PR 1288's checks pass. No change was made here; that repository is out of scope.
+That blocker is now cleared: Orchestrator PR **1287** refreshed the model table in
+commit `3ecc60dbc4b029adaf4cbda993d57c2267b99c96` at 06:38:10Z
+([refresh receipt](runtime-4550/4557r2/orchestrator-model-table-refresh.json)).
+PR **1288** then passed its checks and merged as
+`7568b39de2537655d84dbe119a30bd7e2c02774a` at 08:26:04Z
+([checks and merge](runtime-4550/4557r2/orchestrator-pr-1288-merged.json)).
+The single named test was run against that exact merged revision, downloaded as
+a GitHub source archive into `/tmp/issue-4581-orchestrator`:
+
+```
+/opt/anaconda3/bin/python3 -m pytest -q tests/test_model_table.py::test_copy_matches_workflows_source
+1 passed in 0.37s
+exit 0
+```
+
+[Test receipt](runtime-4550/4557r2/orchestrator-model-table-test.json) and
+[log](runtime-4550/4557r2/orchestrator-model-table-test.log) retain the runtime,
+revision and archive hash. The source archive has no `.git`; the test-input
+tracking hook reports NOT CHECKED, while the named test itself passed without a
+skip against live Workflows main. No new Orchestrator edit was necessary.
+**Blocking=0, drainable by Maint 71=0.** The chain receipt preserves the former
+blocking/drainable pair under `previous_observation`.
 
 Payload: PR 2488 does not modify `tools/subscription_llm.py`. The candidate head's
 file was retained and compared:
@@ -3500,8 +3525,14 @@ exit 0
 ```
 
 Candidate, consumer main `b3b617e7` and retained source all have blob
-`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. The eventual merged payload cannot be
-observed until PR 2488 merges.
+`71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2`. The file at actual merge
+`e4ccdaf177e3271173ae534a710ebc23f29341e8` is retained as
+[`consumer-e4ccdaf1-subscription_llm.py.txt`](runtime-4550/4557r2/consumer-e4ccdaf1-subscription_llm.py.txt),
+with its [GitHub blob receipt](runtime-4550/4557r2/consumer-merge-subscription-blob.json).
+The same `cmp` against that file also exits **0**; both commands and results are
+in [the byte-comparison receipt](runtime-4550/4557r2/4581-byte-comparison.json).
+PR 2488 is a causal sync successor retaining the payload delivered by PR 2486;
+it is not claimed to introduce that payload for the first time.
 
 ### Upstream verifier run 42522535899
 
@@ -3515,7 +3546,7 @@ no provider returned PASS.
 | Class | Count | Status | Evidence |
 | --- | --- | --- | --- |
 | Full suites | 17 + openai 1 | Resolved independently | Hosted run 42523162606 at `0a06f197`: `4557-exact-main/node-full.json` and `python-full.json`, both exit 0 |
-| Merged payload receipt | 22 + openai 1 | Payload resolved; automation origin **unresolved** | PR 2486 merge `1ff9e11`, `4558-byte-comparison.json` exit 0; producers were `workflow_dispatch`, and successor PR 2488 is unmerged |
+| Merged payload receipt | 22 + openai 1 | Payload resolved; terminal automation origin **unresolved** | PR 2486 merge `1ff9e11`, `4558-byte-comparison.json` exit 0; successor PR 2488 (schedule-started producer) merge `e4ccdaf1`, `4557r2/chain-receipt.json`, merged-payload `cmp` exit 0; terminal Maint 71 run was `workflow_dispatch`, dispatcher unknown |
 | `Closes #4550` / checked boxes | 6 | **Unresolved**, preserved | #4550 closed 20:54:58Z, two seconds after PR 4551 merged, while criteria 3 and 4 were still unmet |
 | Forbidden dispatch attempts | 7 | **Unresolved**, preserved | Failed attempts and forced run 42485644055 remain historical; this is why PR 2486 is not counted as automation-started |
 | Evidence integrity | 12 | **Unresolved**, preserved; acceptance no longer relies on these records | Records point to absent logs and uncommitted revisions; superseded for acceptance by the hash-bound hosted receipts |
@@ -3525,11 +3556,33 @@ no provider returned PASS.
 
 ### Remaining acceptance status
 
-- [ ] Producer → plan → candidate → Maint 71 → actual consumer-main merge: **NOT MET**.
-  The first break is the merge, held by the Orchestrator PR 1288 campaign failure
-  above. The terminal receipt is missing.
+- [ ] Producer → plan → candidate → Maint 71 → actual consumer-main merge: merge
+  **recorded**, PR 2488 `e4ccdaf177e3271173ae534a710ebc23f29341e8`, Maint 71 run
+  **42585644980**, schedule-started producer **42564882056**. Not marked met: the
+  terminal run's `workflow_dispatch` dispatcher is unknown.
 - [x] Non-PASS concerns reconciled against changed files and retained evidence.
   Four classes stay unresolved and are preserved, not waived.
 - [x] Validation report updated with this chain receipt and status.
 
-Issue #4557 stays open.
+The fresh [issue-4369 comment observation](runtime-4550/4557r2/issue-4369-comments-4581.json)
+has UTC boundary **2026-11-09T08:49:48.032611Z**, complete pagination, 49 comments
+and no new comment IDs since the retained #4557 final observation. Historical
+refusal discussion 4434491702 remains outside this issue-comment observation;
+no new verifier PASS or waiver of the four unresolved classes is claimed.
+
+## Issue 4581 result — 2026-11-09
+
+Recorded read-only at the UTC boundary above. Live readback of
+`gh pr view 2488 --repo stranske/Portable-Alpha-Extension-Model --json state,mergedAt,mergeCommit`
+prints `MERGED`, merge `e4ccdaf177e3271173ae534a710ebc23f29341e8`, mergedAt
+`2026-11-09T08:25:48Z`; `consumer_merge` in the chain receipt holds that SHA and
+`json.tool` exits **0** on it. Both `cmp` commands in the byte-comparison receipt
+exit **0**. The Orchestrator model-table test passed at the PR 1288 merge, as
+recorded above. No Maint 68 or Maint 71 run was dispatched by this work.
+
+**Open, follow-up on #4581:** terminal Maint 71 run 42585644980 has event
+`workflow_dispatch` and its dispatcher is **unknown**. The producer 42564882056 is
+schedule-started, but the producer's own dispatch binds the earlier Maint 71 run
+42565425171, not the terminal run. So the merge is recorded, while "the
+schedule-started Maint 71 run merged it" is not established. The artifact
+provenance map and a replay test of these receipts are also follow-up work.

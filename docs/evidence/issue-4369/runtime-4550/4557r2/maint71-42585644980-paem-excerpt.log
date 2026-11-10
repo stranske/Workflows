@@ -1,0 +1,21 @@
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-09T08:24:11.5792845Z   IMMUTABLE_HANDOFF_JSON: {"plan_id":"sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb","plan_scope":"full","scope_base_sha":"","source_commit":"c7885e1a7d6add7bb866b2912794e7ba7466adf5"}
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:33.2689106Z === stranske/Portable-Alpha-Extension-Model ===
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:34.9935439Z 
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:34.9936037Z Processing active PR #2488: chore: sync workflow templates
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:34.9936921Z Branch: sync/workflows-candidate
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:34.9937262Z Created: 2026-11-09T05:04:00Z
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:37.8730999Z GET /repos/stranske/Portable-Alpha-Extension-Model/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 102B:26DEBF:1B3EA99:1E04396:6AF18381 in 141ms
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:37.8748426Z stranske/Portable-Alpha-Extension-Model@795155aa9b1c: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:38.0773779Z Checks (branch-protection): 2 gating, 0 failed, 0 pending
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:39.4390901Z Runtime AC merge guard passed for PR #2488.
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:42.4400128Z GET /repos/stranske/Portable-Alpha-Extension-Model/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 102B:26DEBF:1B3EDA0:1E046EB:6AF18386 in 124ms
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:42.4417189Z stranske/Portable-Alpha-Extension-Model@795155aa9b1c: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:43.3025325Z PUT /repos/stranske/Portable-Alpha-Extension-Model/pulls/2488/merge - 405 with id 1028:28AC43:1A427FF:1D09414:6AF18386 in 860ms
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:43.3028415Z ⚠ Merge attempt failed (method=merge): Merge commits are not allowed on this repository. - https://docs.github.com/rest/pulls/pulls#merge-a-pull-request
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:46.7354848Z GET /repos/stranske/Portable-Alpha-Extension-Model/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 102B:26DEBF:1B3F034:1E049B2:6AF1838A in 133ms
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:46.7369745Z stranske/Portable-Alpha-Extension-Model@795155aa9b1c: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:49.6513768Z ✓ Merged successfully (method=squash)
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:51.4707458Z DELETE /repos/stranske/Portable-Alpha-Extension-Model/git/refs/heads%2Fsync%2Fworkflows-candidate - 422 with id 102B:26DEBF:1B3F304:1E04CF0:6AF1838F in 248ms
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:51.7155079Z GET /repos/stranske/Portable-Alpha-Extension-Model/git/ref/heads%2Fsync%2Fworkflows-candidate - 404 with id 1028:28AC43:1A42D86:1D09A25:6AF1838D in 245ms
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:51.9692608Z ✓ Branch deleted
+merge_sync_prs	Commit prepared sync campaign	2026-11-09T08:25:51.9692887Z 

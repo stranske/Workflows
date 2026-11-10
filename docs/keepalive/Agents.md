@@ -1,5 +1,10 @@
 # Agents Guidance — Keepalive Changes
 
+Autofix completion acknowledges measured PR heads only. A failed PR lookup or
+missing head leaves `head_sha_after` empty, and the completion step retains the
+reservation. A successful unchanged head is measured no-progress; a later Gate
+status lookup failure does not invalidate that head observation.
+
 Automation agents touching **any** keepalive code path must consult the following documents before making changes. Keepalive is **multi-agent** by design—Codex, Claude, Cursor and Muse share the same orchestration surfaces (see [Adding a New Coding Agent](../guides/ADD_NEW_AGENT.md) for the full list of per-agent wiring)—so every change must read from `.github/agents/registry.yml` (or `agent_registry.js`) instead of hard-coding provider-specific behavior.
 
 ## Required Reading

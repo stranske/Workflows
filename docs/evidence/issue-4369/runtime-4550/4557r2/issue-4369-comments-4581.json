@@ -1,0 +1,458 @@
+{
+  "boundary_utc": "2026-11-09T08:49:48.032611Z",
+  "observation_completed_at": "2026-11-09T08:49:48.489482Z",
+  "command": "gh api repos/stranske/Workflows/issues/4369/comments?per_page=100 --paginate --slurp",
+  "pagination_complete": true,
+  "pages": [
+    {
+      "page": 1,
+      "returned": 49,
+      "ids": [
+        6568623594,
+        6568624416,
+        6583452479,
+        6583454319,
+        6587416829,
+        6588614972,
+        6597301080,
+        6597303042,
+        6604754804,
+        6623204937,
+        6623206100,
+        6623207637,
+        6623828876,
+        6623830468,
+        6631874862,
+        6631909094,
+        6631921882,
+        6631945201,
+        6631947881,
+        6631981306,
+        6631991191,
+        6631996865,
+        6632013165,
+        6632034602,
+        6632061199,
+        6632137960,
+        6632181181,
+        6632256111,
+        6632343497,
+        6632420613,
+        6632598002,
+        6632676828,
+        6633050549,
+        6633138780,
+        6648485035,
+        6648719968,
+        6648720854,
+        6649127583,
+        6649128394,
+        6649129537,
+        6649299127,
+        6649911684,
+        6649912647,
+        6649913432,
+        6650145104,
+        6715276022,
+        6717526002,
+        6717537084,
+        6718971808
+      ]
+    }
+  ],
+  "comments": [
+    {
+      "id": 6568623594,
+      "created_at": "2026-11-02T03:52:17Z",
+      "updated_at": "2026-11-02T03:52:17Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6568623594",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `3e13566a73e9` (round 20261102T035200Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6568624416,
+      "created_at": "2026-11-02T03:52:21Z",
+      "updated_at": "2026-11-02T03:52:21Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6568624416",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `e1075176de36` (round 20261102T035200Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6583452479,
+      "created_at": "2026-11-02T17:14:59Z",
+      "updated_at": "2026-11-02T17:14:59Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6583452479",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `128edded1e54` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6583454319,
+      "created_at": "2026-11-02T17:15:04Z",
+      "updated_at": "2026-11-02T17:15:04Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6583454319",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `e1d8a8ed8a87` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6587416829,
+      "created_at": "2026-11-02T20:15:05Z",
+      "updated_at": "2026-11-02T20:15:05Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6587416829",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `0a5873df007f` (round 20261102T201439Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6588614972,
+      "created_at": "2026-11-02T21:14:01Z",
+      "updated_at": "2026-11-02T21:14:01Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6588614972",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `c485222f949a` (round 20261102T211340Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6597301080,
+      "created_at": "2026-11-03T06:46:33Z",
+      "updated_at": "2026-11-03T06:46:33Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6597301080",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `021a094497a1` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6597303042,
+      "created_at": "2026-11-03T06:46:42Z",
+      "updated_at": "2026-11-03T06:46:42Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6597303042",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `66242eb3268c` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6604754804,
+      "created_at": "2026-11-03T13:12:42Z",
+      "updated_at": "2026-11-03T13:12:42Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6604754804",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Starting issue formatting...\n\nRunning formatter inline (not via label trigger).\n"
+    },
+    {
+      "id": 6623204937,
+      "created_at": "2026-11-04T05:15:36Z",
+      "updated_at": "2026-11-04T05:15:36Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623204937",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `f36c82cd6a83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6623206100,
+      "created_at": "2026-11-04T05:15:42Z",
+      "updated_at": "2026-11-04T05:15:42Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623206100",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `7e233b3c1e83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6623207637,
+      "created_at": "2026-11-04T05:15:48Z",
+      "updated_at": "2026-11-04T05:15:48Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623207637",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `ecff077a0504` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6623828876,
+      "created_at": "2026-11-04T06:00:28Z",
+      "updated_at": "2026-11-04T06:00:28Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623828876",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `c1add4c24991` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6623830468,
+      "created_at": "2026-11-04T06:00:35Z",
+      "updated_at": "2026-11-04T06:00:35Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623830468",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `58e7e3bdfe8b` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6631874862,
+      "created_at": "2026-11-04T13:27:57Z",
+      "updated_at": "2026-11-04T13:27:57Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631874862",
+      "author": "agents-workflows-bot[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Starting issue formatting...\n\nRunning formatter inline (not via label trigger).\n"
+    },
+    {
+      "id": 6631909094,
+      "created_at": "2026-11-04T13:29:30Z",
+      "updated_at": "2026-11-04T13:29:30Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631909094",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Analyzing issue for improvements...\n\nRunning optimizer inline (not via label trigger).\n"
+    },
+    {
+      "id": 6631921882,
+      "created_at": "2026-11-04T13:30:05Z",
+      "updated_at": "2026-11-04T13:30:05Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631921882",
+      "author": "stranske-keepalive[bot]",
+      "body": "## Issue Optimization Suggestions\n\nReview the suggestions below. If you want the agent to apply them, add the\n`agents:apply-suggestions` label to this issue.\n\n### Task splitting\n- Add or extend a test beside `tools/subscription_llm.py` that fails for the reported behavior and passes after the fix. (The task bundles writing a regression test with the 'fails before / passes after' verification. It also leaves open whether to add a new test or extend an existing one. Both are achievable, but separating them makes each step verifiable. This is a minor concern, not a hard blocker.). Suggested split: Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory containing only a credentials file and asserts available() returns True, Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR is set to a directory without credentials, Verify the new test fails against the unfixed available() logic and passes after the fix is applied.\n\n### Blocked tasks\n- Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue. (This depends on workflow runs the agent cannot trigger, retry or modify (the workflows are protected, and agents cannot retry CI pipelines). It also depends on the external sync-core system and on a review thread in another repository being resolved. It is a post-merge live verification, not an agent-completable task. | Move this to a separate 'Post-merge verification (human/maintainer)' checklist outside the agent's scope. Keep only the source fix and the test in the agent-owned tasks.)\n- Deliberate-break \u2192 revert: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass. (The agent can do this locally, but it is a process step and not a deliverable. It leaves no artifact in the PR and cannot be verified from the final diff. It is also a mutation-testing step that may be awkward to run inside a CI-driven agent loop. | Rephrase it as an objective check. For example, the regression test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation. Optionally have the agent record the before/after pytest output in the PR description.)\n\n### Objective acceptance criteria\n- Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass. (The criterion is objective, but it is ambiguous. The source file is Python, so the JavaScript gate is likely irrelevant. The pytest path `tests/` may also not match 'a test beside tools/subscription_llm.py' as stated in the tasks. | State that `python3 -m pytest -q tests/` must pass, and that the new test lives in a path that this command collects (or specify the exact path, e.g. `tests/tools/test_subscription_llm.py`). Treat the JS gate as 'no regressions' only.)\n- Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass. (It is verifiable only by manual mutation and leaves no artifact. | Replace with: 'A test named e.g. test_available_uses_claude_config_dir exists, sets CLAUDE_CONFIG_DIR to a temp dir containing a credentials file, and asserts available() is True; it fails on the pre-fix commit.')\n- ...the next maint-71 run reports PR #2454 without this review thread, and sync-core stops bumping this issue. (It depends on external systems and timing, so it is not verifiable within the source PR. | Make it a non-blocking follow-up. The in-scope criterion should be: 'available() returns True when credentials exist only under $CLAUDE_CONFIG_DIR, and still falls back to the default ~/.claude location when the variable is unset.')\n\n### Missing sections\n- None\n\n### Formatting issues\n- The body contains both a rewritten top section and an 'Original Issue' block that repeats the Why, Tasks, Acceptance Criteria and Non-Goals content. The duplication adds noise, though it is collapsed in a <details> block and acceptable as provenance.\n- The Scope section is a single sentence and its wording is awkward: 'when present in the source file'. It should say that `CLAUDE_CONFIG_DIR`, when set, determines where the credentials file is looked up, and name the file (e.g. `.credentials.json`).\n- The Tasks section omits the third original task (regenerate the sync candidate and confirm the thread is resolved). It appears only as an acceptance criterion, which is a good change, but the Acceptance Criteria item still mixes agent-verifiable and external checks.\n- The Acceptance Criteria mix a generic, template-style gate (the JS and Python gates) with issue-specific behavior. Only the Python gate is relevant.\n- Task wording uses the 'stranske/Workflows:tools/subscription_llm.py' notation, which is not a valid path inside the repo. The agent should work on `tools/subscription_llm.py`.\n- Missing specifics: the issue does not state the expected fallback behavior when CLAUDE_CONFIG_DIR is unset or empty, or the credentials filename.\n\n### Notes\n- The issue is mostly agent-compatible. It has a clear, narrow code fix (honor CLAUDE_CONFIG_DIR in available()), a clear non-goal (do not edit the consumer PR) and a regression-test requirement. Why, Scope, Non-Goals and Implementation Notes are all present, so none are missing. The main problems are (1) the acceptance criteria include live-system checks on workflow runs the agent cannot trigger or control, (2) the JS gate is irrelevant to a Python fix, and (3) the intended behavior is underspecified (credentials filename, unset or empty variable, tilde expansion). Recommended rewrite of the tasks: (a) Fix available() in tools/subscription_llm.py to look for the credentials file under $CLAUDE_CONFIG_DIR when it is set and non-empty, falling back to the default location otherwise. (b) Add a pytest regression test using monkeypatch and tmp_path that covers the set, unset and empty cases. (c) Run `python3 -m pytest -q tests/` and confirm it passes. Move the maint-68/maint-71 verification to a human-owned follow-up.\n\n<!-- suggestions-json: {\"task_splitting\": [{\"task\": \"Add or extend a test beside `tools/subscription_llm.py` that fails for the reported behavior and passes after the fix.\", \"reason\": \"The task bundles writing a regression test with the 'fails before / passes after' verification. It also leaves open whether to add a new test or extend an existing one. Both are achievable, but separating them makes each step verifiable. This is a minor concern, not a hard blocker.\", \"split_suggestions\": [\"Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory containing only a credentials file and asserts available() returns True\", \"Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR is set to a directory without credentials\", \"Verify the new test fails against the unfixed available() logic and passes after the fix is applied\"]}], \"blocked_tasks\": [{\"task\": \"Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue.\", \"reason\": \"This depends on workflow runs the agent cannot trigger, retry or modify (the workflows are protected, and agents cannot retry CI pipelines). It also depends on the external sync-core system and on a review thread in another repository being resolved. It is a post-merge live verification, not an agent-completable task.\", \"suggested_action\": \"Move this to a separate 'Post-merge verification (human/maintainer)' checklist outside the agent's scope. Keep only the source fix and the test in the agent-owned tasks.\"}, {\"task\": \"Deliberate-break \\u2192 revert: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass.\", \"reason\": \"The agent can do this locally, but it is a process step and not a deliverable. It leaves no artifact in the PR and cannot be verified from the final diff. It is also a mutation-testing step that may be awkward to run inside a CI-driven agent loop.\", \"suggested_action\": \"Rephrase it as an objective check. For example, the regression test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation. Optionally have the agent record the before/after pytest output in the PR description.\"}], \"objective_criteria\": [{\"criterion\": \"Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass.\", \"issue\": \"The criterion is objective, but it is ambiguous. The source file is Python, so the JavaScript gate is likely irrelevant. The pytest path `tests/` may also not match 'a test beside tools/subscription_llm.py' as stated in the tasks.\", \"suggestion\": \"State that `python3 -m pytest -q tests/` must pass, and that the new test lives in a path that this command collects (or specify the exact path, e.g. `tests/tools/test_subscription_llm.py`). Treat the JS gate as 'no regressions' only.\"}, {\"criterion\": \"Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass.\", \"issue\": \"It is verifiable only by manual mutation and leaves no artifact.\", \"suggestion\": \"Replace with: 'A test named e.g. test_available_uses_claude_config_dir exists, sets CLAUDE_CONFIG_DIR to a temp dir containing a credentials file, and asserts available() is True; it fails on the pre-fix commit.'\"}, {\"criterion\": \"...the next maint-71 run reports PR #2454 without this review thread, and sync-core stops bumping this issue.\", \"issue\": \"It depends on external systems and timing, so it is not verifiable within the source PR.\", \"suggestion\": \"Make it a non-blocking follow-up. The in-scope criterion should be: 'available() returns True when credentials exist only under $CLAUDE_CONFIG_DIR, and still falls back to the default ~/.claude location when the variable is unset.'\"}], \"missing_sections\": [], \"formatting_issues\": [\"The body contains both a rewritten top section and an 'Original Issue' block that repeats the Why, Tasks, Acceptance Criteria and Non-Goals content. The duplication adds noise, though it is collapsed in a <details> block and acceptable as provenance.\", \"The Scope section is a single sentence and its wording is awkward: 'when present in the source file'. It should say that `CLAUDE_CONFIG_DIR`, when set, determines where the credentials file is looked up, and name the file (e.g. `.credentials.json`).\", \"The Tasks section omits the third original task (regenerate the sync candidate and confirm the thread is resolved). It appears only as an acceptance criterion, which is a good change, but the Acceptance Criteria item still mixes agent-verifiable and external checks.\", \"The Acceptance Criteria mix a generic, template-style gate (the JS and Python gates) with issue-specific behavior. Only the Python gate is relevant.\", \"Task wording uses the 'stranske/Workflows:tools/subscription_llm.py' notation, which is not a valid path inside the repo. The agent should work on `tools/subscription_llm.py`.\", \"Missing specifics: the issue does not state the expected fallback behavior when CLAUDE_CONFIG_DIR is unset or empty, or the credentials filename.\"], \"overall_notes\": \"The issue is mostly agent-compatible. It has a clear, narrow code fix (honor CLAUDE_CONFIG_DIR in available()), a clear non-goal (do not edit the consumer PR) and a regression-test requirement. Why, Scope, Non-Goals and Implementation Notes are all present, so none are missing. The main problems are (1) the acceptance criteria include live-system checks on workflow runs the agent cannot trigger or control, (2) the JS gate is irrelevant to a Python fix, and (3) the intended behavior is underspecified (credentials filename, unset or empty variable, tilde expansion). Recommended rewrite of the tasks: (a) Fix available() in tools/subscription_llm.py to look for the credentials file under $CLAUDE_CONFIG_DIR when it is set and non-empty, falling back to the default location otherwise. (b) Add a pytest regression test using monkeypatch and tmp_path that covers the set, unset and empty cases. (c) Run `python3 -m pytest -q tests/` and confirm it passes. Move the maint-68/maint-71 verification to a human-owned follow-up.\"} -->"
+    },
+    {
+      "id": 6631945201,
+      "created_at": "2026-11-04T13:31:09Z",
+      "updated_at": "2026-11-04T13:31:09Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631945201",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Applying optimization suggestions...\n\nRunning apply inline (not via label trigger).\n"
+    },
+    {
+      "id": 6631947881,
+      "created_at": "2026-11-04T13:31:16Z",
+      "updated_at": "2026-11-04T13:31:16Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631947881",
+      "author": "github-actions[bot]",
+      "body": "\u26a0\ufe0f **Workflow failed**\n\nThe agents-issue-optimizer workflow encountered an error.\n\n**Details**: [View workflow run](https://github.com/stranske/Workflows/actions/runs/41838664145)\n"
+    },
+    {
+      "id": 6631981306,
+      "created_at": "2026-11-04T13:32:50Z",
+      "updated_at": "2026-11-04T13:32:50Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631981306",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Issue prepared! Assigning to agent...\n\nAdding `agent:codex` label. The capability check will run automatically.\n\n\u23f3 Agent will create a PR shortly."
+    },
+    {
+      "id": 6631991191,
+      "created_at": "2026-11-04T13:33:19Z",
+      "updated_at": "2026-11-04T13:33:19Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631991191",
+      "author": "agents-workflows-bot[bot]",
+      "body": "Belt dispatcher queued this issue and created branch `codex/issue-4369`. Health 40 will reclaim this claim after 24 hours if no linked open or merged PR exists."
+    },
+    {
+      "id": 6631996865,
+      "created_at": "2026-11-04T13:33:35Z",
+      "updated_at": "2026-11-08T00:52:30Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631996865",
+      "author": "github-actions[bot]",
+      "body": "### \u26a0\ufe0f Capability Check: Some tasks may need human assistance\n\n**Recommendation:** REVIEW_NEEDED\n\n**\u26a0\ufe0f Partial Tasks (9):**\n- Inspect Claude's `available()` implementation and child-CLI environment handling in `tools/subscription_llm.py`, identifying the existing credentials filename and default directory.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Add regression tests to the existing test module covering `tools/subscription_llm.py`, with test names containing `claude_config_dir`; isolate environment variables, home-directory credentials, CLI discovery, and other availability prerequisites so the tests exercise credential-path resolution without requiring a real subscription or invoking Claude.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a temporary directory containing only the expected credentials file and assert that Claude's `available()` returns `True`.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a directory without credentials and assert that Claude's `available()` returns `False`, including when credentials exist in the default directory.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Fix Claude's `available()` in `tools/subscription_llm.py` to resolve the credentials file relative to `CLAUDE_CONFIG_DIR` when set, consistently with the directory supplied to the child CLI.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Extend the tests covering `tools/subscription_llm.py` to verify that the existing default-directory behavior remains intact when `CLAUDE_CONFIG_DIR` is absent.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Run `python3 -m pytest -q tests/ -k claude_config_dir` against the pre-fix implementation, against the fix, and after deliberately restoring and then reverting the reported faulty path resolution; record commands, test names, exit codes, and before/after output in the implementation report.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Run `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the source fix and record their results.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- After source delivery and regeneration by `.github/workflows/maint-68-sync-consumer-repos.yml`, inspect the next `.github/workflows/maint-71-merge-sync-prs.yml` run and the review thread on stranske/Portable-Alpha-Extension-Model#2454; record the consumer head, workflow run, thread state, and sync-core evidence, or explicitly report which live evidence is still pending.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n\n**\ud83d\udc64 Human Actions Needed:**\n- Split task into smaller steps: Inspect Claude's `available()` implementation and child-CLI environment handling in `tools/subscription_llm.py`, identifying the existing credentials filename and default directory.\n- Split task into smaller steps: Add regression tests to the existing test module covering `tools/subscription_llm.py`, with test names containing `claude_config_dir`; isolate environment variables, home-directory credentials, CLI discovery, and other availability prerequisites so the tests exercise credential-path resolution without requiring a real subscription or invoking Claude.\n- Split task into smaller steps: In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a temporary directory containing only the expected credentials file and assert that Claude's `available()` returns `True`.\n- Split task into smaller steps: In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a directory without credentials and assert that Claude's `available()` returns `False`, including when credentials exist in the default directory.\n- Split task into smaller steps: Fix Claude's `available()` in `tools/subscription_llm.py` to resolve the credentials file relative to `CLAUDE_CONFIG_DIR` when set, consistently with the directory supplied to the child CLI.\n- Split task into smaller steps: Extend the tests covering `tools/subscription_llm.py` to verify that the existing default-directory behavior remains intact when `CLAUDE_CONFIG_DIR` is absent.\n- Split task into smaller steps: Run `python3 -m pytest -q tests/ -k claude_config_dir` against the pre-fix implementation, against the fix, and after deliberately restoring and then reverting the reported faulty path resolution; record commands, test names, exit codes, and before/after output in the implementation report.\n- Split task into smaller steps: Run `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the source fix and record their results.\n- Split task into smaller steps: After source delivery and regeneration by `.github/workflows/maint-68-sync-consumer-repos.yml`, inspect the next `.github/workflows/maint-71-merge-sync-prs.yml` run and the review thread on stranske/Portable-Alpha-Extension-Model#2454; record the consumer head, workflow run, thread state, and sync-core evidence, or explicitly report which live evidence is still pending.\n- LLM provider unavailable\n\n---\n*Auto-generated by capability check*"
+    },
+    {
+      "id": 6632013165,
+      "created_at": "2026-11-04T13:34:20Z",
+      "updated_at": "2026-11-04T13:34:20Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632013165",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Branch ready, waiting for commits\n\nBranch `codex/issue-4369` exists but has no commits yet.\n\u2705 Dispatched the belt worker to generate changes.\n\n\ud83d\udcca Stall count: 1/5 (pauses after 5)\n\n\u23f3 Auto-pilot will check again on next trigger."
+    },
+    {
+      "id": 6632034602,
+      "created_at": "2026-11-04T13:35:19Z",
+      "updated_at": "2026-11-04T13:35:19Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632034602",
+      "author": "agents-workflows-bot[bot]",
+      "body": "Opened PR #4444 via belt worker."
+    },
+    {
+      "id": 6632061199,
+      "created_at": "2026-11-04T13:36:33Z",
+      "updated_at": "2026-11-04T13:36:33Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632061199",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n\ud83d\udcca Stall count: 1/5\n\n\u23f3 Auto-pilot will check again on next trigger."
+    },
+    {
+      "id": 6632137960,
+      "created_at": "2026-11-04T13:40:07Z",
+      "updated_at": "2026-11-04T13:40:07Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632137960",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot**: Backoff delay (2m)\n\nMonitoring PR status. Attempt 2/5.\nWaiting before retry..."
+    },
+    {
+      "id": 6632181181,
+      "created_at": "2026-11-04T13:42:08Z",
+      "updated_at": "2026-11-04T13:42:08Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632181181",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n\ud83d\udcca Stall count: 2/5\n\n\u23f3 Auto-pilot will check again on next trigger."
+    },
+    {
+      "id": 6632256111,
+      "created_at": "2026-11-04T13:45:37Z",
+      "updated_at": "2026-11-04T13:45:37Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632256111",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot**: Backoff delay (4m)\n\nMonitoring PR status. Attempt 3/5.\nWaiting before retry..."
+    },
+    {
+      "id": 6632343497,
+      "created_at": "2026-11-04T13:49:38Z",
+      "updated_at": "2026-11-04T13:49:38Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632343497",
+      "author": "stranske-keepalive[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n\ud83d\udcca Stall count: 3/5\n\n\u23f3 Auto-pilot will check again on next trigger."
+    },
+    {
+      "id": 6632420613,
+      "created_at": "2026-11-04T13:52:59Z",
+      "updated_at": "2026-11-04T13:52:59Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632420613",
+      "author": "agents-workflows-bot[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot**: Backoff delay (8m)\n\nMonitoring PR status. Attempt 4/5.\nWaiting before retry..."
+    },
+    {
+      "id": 6632598002,
+      "created_at": "2026-11-04T14:01:00Z",
+      "updated_at": "2026-11-04T14:01:00Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632598002",
+      "author": "agents-workflows-bot[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n\ud83d\udcca Stall count: 4/5\n\n\u23f3 Auto-pilot will check again on next trigger."
+    },
+    {
+      "id": 6632676828,
+      "created_at": "2026-11-04T14:04:28Z",
+      "updated_at": "2026-11-04T14:04:28Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632676828",
+      "author": "agents-workflows-bot[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot**: Backoff delay (16m)\n\nMonitoring PR status. Attempt 5/5.\nWaiting before retry..."
+    },
+    {
+      "id": 6633050549,
+      "created_at": "2026-11-04T14:20:29Z",
+      "updated_at": "2026-11-04T14:20:29Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6633050549",
+      "author": "agents-workflows-bot[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n\ud83d\udcca Stall count: 5/5\n\n\u23f3 Auto-pilot will check again on next trigger."
+    },
+    {
+      "id": 6633138780,
+      "created_at": "2026-11-04T14:24:20Z",
+      "updated_at": "2026-11-04T14:24:20Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6633138780",
+      "author": "agents-workflows-bot[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot step 1**: handing off to agent delegation after stall\n\nPR monitoring stalled after 5 attempts. Added `agent:auto` so the keepalive delegation policy can rotate to an alternative agent (eligible: codex, claude, cursor, muse, gemini).\n\n`needs-human` is withheld until delegation has also been exhausted."
+    },
+    {
+      "id": 6648485035,
+      "created_at": "2026-11-05T03:00:31Z",
+      "updated_at": "2026-11-05T03:00:31Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648485035",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `3512f549a602` (round 20261105T030005Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6648719968,
+      "created_at": "2026-11-05T03:17:04Z",
+      "updated_at": "2026-11-05T03:17:04Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648719968",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `86de5e1c244b` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6648720854,
+      "created_at": "2026-11-05T03:17:08Z",
+      "updated_at": "2026-11-05T03:17:08Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648720854",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `97baeaec5950` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6649127583,
+      "created_at": "2026-11-05T03:46:43Z",
+      "updated_at": "2026-11-05T03:46:43Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649127583",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `75aaabae989a` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6649128394,
+      "created_at": "2026-11-05T03:46:47Z",
+      "updated_at": "2026-11-05T03:46:47Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649128394",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `082d0e77cbf0` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6649129537,
+      "created_at": "2026-11-05T03:46:52Z",
+      "updated_at": "2026-11-05T03:46:52Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649129537",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `be40cedb1f5e` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6649299127,
+      "created_at": "2026-11-05T03:59:38Z",
+      "updated_at": "2026-11-05T03:59:38Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649299127",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `cf3a664378b6` (round 20261105T035909Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6649911684,
+      "created_at": "2026-11-05T04:45:07Z",
+      "updated_at": "2026-11-05T04:45:07Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649911684",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `39a3dc939133` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6649912647,
+      "created_at": "2026-11-05T04:45:11Z",
+      "updated_at": "2026-11-05T04:45:11Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649912647",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `15c797646f4e` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6649913432,
+      "created_at": "2026-11-05T04:45:15Z",
+      "updated_at": "2026-11-05T04:45:15Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649913432",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `eb24149b6f0f` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6650145104,
+      "created_at": "2026-11-05T05:01:44Z",
+      "updated_at": "2026-11-05T05:01:44Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6650145104",
+      "author": "stranske",
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `1bddd0cbe9a8` (round 20261105T050113Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6715276022,
+      "created_at": "2026-11-08T00:51:55Z",
+      "updated_at": "2026-11-08T00:51:55Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6715276022",
+      "author": "stranske",
+      "body": "<!-- opener-core/v1 action=start target=stranske/Workflows#4369 agent=codex mode=remote round=20261108T004659Z -->\nopener-core started codex (remote) on this issue."
+    },
+    {
+      "id": 6717526002,
+      "created_at": "2026-11-08T05:03:35Z",
+      "updated_at": "2026-11-08T05:03:35Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6717526002",
+      "author": "agents-workflows-bot[bot]",
+      "body": "\ud83e\udd16 **Auto-pilot**: Issue closed.\nTriggering verification on PR #4539...\n\nVerifier dispatch or existing PR/head run confirmed; recording handoff labels."
+    },
+    {
+      "id": 6717537084,
+      "created_at": "2026-11-08T05:04:54Z",
+      "updated_at": "2026-11-08T05:04:54Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6717537084",
+      "author": "stranske-keepalive[bot]",
+      "body": "## \u2705 Auto-Pilot Complete\n\nThis issue has been fully processed:\n- \u2705 Issue formatted and optimized\n- \u2705 Agent assigned and PR created\n- \u2705 PR merged\n- \u2705 verification triggered on a merged source PR (PR-bound handoff recorded)\n\nThank you for using auto-pilot! \ud83d\ude80"
+    },
+    {
+      "id": 6718971808,
+      "created_at": "2026-11-08T07:54:50Z",
+      "updated_at": "2026-11-08T07:54:50Z",
+      "url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6718971808",
+      "author": "stranske",
+      "body": "<!-- closer-core/v1 action=followup target=stranske/Workflows#4369 disposition=followup round=20261108T074414Z followup=#4548 -->\ncloser-core checked the closed issue stranske/Workflows#4369: unmet criteria moved to #4548"
+    }
+  ],
+  "new_comment_ids_since_4557_final": []
+}

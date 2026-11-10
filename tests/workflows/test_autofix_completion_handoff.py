@@ -69,7 +69,7 @@ def test_collector_failure_retains_reservation_through_completion_shell(
         ["node", str(collector)], cwd=tmp_path, capture_output=True, text=True, check=True
     )
     metrics = json.loads(measured.stdout)
-    assert metrics["head_sha_after"] == head
+    assert metrics["head_sha_after"] == ""
     assert metrics["fix_applied"] is False
 
     # Keep the real CLI validation and persistence code, substituting only its
@@ -169,6 +169,83 @@ def test_collector_failure_retains_reservation_through_completion_shell(
     assert recorded["unproductive_completions"] == (0 if advanced else 2)
     if advanced:
         assert recorded["observed_head_sha"] == observed_head
+
+
+@pytest.mark.parametrize(
+    "observation", ["lookup-failed", "missing-head", "unchanged", "changed", "gate-failed"]
+)
+def test_metrics_completion_requires_observed_head(tmp_path, observation):
+    """Run the real metrics script and completion shell, including failed reads."""
+    workflow = yaml.safe_load(
+        (
+            ROOT / "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"
+        ).read_text()
+    )
+    steps = workflow["jobs"]["metrics"]["steps"]
+    collect = next(s for s in steps if s.get("name") == "Collect metrics")
+    completion = next(s for s in steps if s.get("name") == "Record autofix completion")
+    # Authentic dispatch head from native run 42575919772, retained by the
+    # historical recovery tests. Fault injection changes only the API response.
+    head = "f27f30c19b225fcc0c248ef57a31e5df2bc4730c"
+    values = {
+        "needs.prepare.outputs.pr_number || 0": "1286",
+        "needs.prepare.outputs.head_sha": head,
+        "needs.autofix.result": "success",
+    }
+    script = re.sub(
+        r"\$\{\{\s*(.*?)\s*\}\}", lambda m: values.get(m[1], ""), collect["with"]["script"]
+    )
+    harness = (
+        """
+const observation = process.env.OBSERVATION;
+const outputs = {};
+const core = {info(){}, warning(){}, setOutput(k,v){outputs[k]=v;}};
+const context = {repo:{owner:'stranske',repo:'Orchestrator'},payload:{}};
+const github = {rest:{pulls:{get:async()=>{
+  if(observation==='lookup-failed') throw new Error('injected PR read failure');
+  return {data:{head:observation==='missing-head'?{}:{sha:observation==='changed'?'b'.repeat(40):process.env.HEAD_SHA}}};
+}},actions:{listWorkflowRuns:async()=>{
+  if(observation==='gate-failed') throw new Error('injected Gate read failure');
+  return {data:{workflow_runs:[]}};
+}}}};
+"""
+        + "(async()=>{\n"
+        + script
+        + "\nprocess.stdout.write(outputs.metrics_json);})().catch(e=>{console.error(e);process.exit(1)});"
+    )
+    env = {**os.environ, "OBSERVATION": observation, "HEAD_SHA": head}
+    measured = subprocess.run(
+        ["node", "-e", harness], cwd=tmp_path, env=env, check=True, capture_output=True, text=True
+    )
+    metrics = json.loads(measured.stdout)
+    binary = tmp_path / "bin"
+    binary.mkdir()
+    marker = tmp_path / "completion-called"
+    wrapper = binary / "python"
+    wrapper.write_text('#!/bin/sh\ntouch "$COMPLETION_MARKER"\n')
+    wrapper.chmod(0o755)
+    result = subprocess.run(
+        ["bash", "-c", completion["run"]],
+        cwd=tmp_path,
+        env={
+            **env,
+            "PATH": str(binary) + ":" + env["PATH"],
+            "COMPLETION_MARKER": str(marker),
+            "METRICS_JSON": measured.stdout,
+            "PROVIDER": "codex",
+            "PR_NUMBER": "1286",
+        },
+        capture_output=True,
+        text=True,
+    )
+    if observation in {"lookup-failed", "missing-head"}:
+        assert result.returncode != 0, "unobserved PR head must retain the reservation"
+        assert not marker.exists(), "unmeasured fallback must never write completion"
+        return
+    assert result.returncode == 0, result.stderr
+    assert marker.exists()
+    assert metrics["head_sha_after"] == ("b" * 40 if observation == "changed" else head)
+    assert metrics["fix_applied"] is (observation == "changed")
 
 
 @pytest.mark.parametrize("advanced", [False, True])

@@ -2335,7 +2335,9 @@ jobs:
 
             const { owner, repo } = context.repo;
             let fixApplied = false;
-            let headShaAfter = headShaBefore;
+            // An unavailable PR read is unmeasured, never proof of no work.
+            // The completion writer rejects an absent observed head.
+            let headShaAfter = '';
             let gateResultAfter = gateConclusionBefore || 'unknown';
 
             if (prNumber) {
@@ -2345,7 +2347,7 @@ jobs:
                   repo,
                   pull_number: prNumber,
                 }));
-                headShaAfter = pr.head?.sha || headShaAfter;
+                headShaAfter = pr.head?.sha || '';
                   fixApplied = Boolean(
                     headShaBefore && headShaAfter && headShaBefore !== headShaAfter
                   );

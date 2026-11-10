@@ -1,6 +1,6 @@
 {
   "schema": "issue-4557/automation-chain-receipt/v1",
-  "observed_at_utc": "2026-11-09T07:41:55Z",
+  "observed_at_utc": "2026-11-09T08:50:13.247231Z",
   "read_only": true,
   "actions_taken": "none: no dispatch, rerun, cancel, merge, schedule change or lock release",
   "producer": {
@@ -208,29 +208,20 @@
     }
   ],
   "consumer_merge": {
-    "pr_state": "OPEN",
-    "mergedAt": null,
-    "mergeCommit": null,
-    "isDraft": false,
-    "mergeStateStatus": "CLEAN",
-    "command": "gh pr view 2488 -R stranske/Portable-Alpha-Extension-Model --json state,mergedAt,mergeCommit,headRefOid,body",
-    "terminal_receipt": false
-  },
-  "blocker": {
-    "first_break": "actual consumer-main merge",
-    "cause": "Maint 71 campaign commit authorization for plan sha256:4947a11cfee1... is all-or-nothing; latest run 42579302699 reports authorized=false with the single error 'stranske/Orchestrator: campaign is not prepared (checks_failed)'. The authorization lists 15 rows (Orchestrator is not among them); the 12 delivery-lane rows merged and the 3 candidate-lane rows (PAEM 2488, Travel-Plan-Permission 1736, trip-planner 2021) stay campaign_prepared.",
-    "orchestrator_pr": {
-      "repo": "stranske/Orchestrator",
-      "pr": 1288,
-      "head_sha": "5f1b6125f336ceaf72e189a7853f6a335936d3dc",
-      "gate_run": 42566889073,
-      "failing_test": "tests/test_model_table.py::test_copy_matches_workflows_source",
-      "message": "model_table.TABLE_JSON differs from stranske/Workflows main .github/agents/model-table.json",
-      "likely_trigger": "Workflows main changed .github/agents/model-table.json in 122b67ebd (#4576); PR 1288 does not touch the model table"
+    "pr_state": "MERGED",
+    "mergedAt": "2026-11-09T08:25:48Z",
+    "mergeCommit": {
+      "oid": "e4ccdaf177e3271173ae534a710ebc23f29341e8"
     },
-    "blocking": 1,
-    "drainable_by_maint71": 0,
-    "drain": "an Orchestrator change that refreshes src/model_table.py to Workflows main (or a passing rerun of PR 1288 after it) lets the next Maint 71 run authorize the campaign; Maint 71 alone cannot clear it"
+    "isDraft": false,
+    "head_sha": "795155aa9b1cdca5942bac2db3707c6b64dc57d3",
+    "maint71_run_id": 42585644980,
+    "merge_method": "squash",
+    "command": "gh pr view 2488 --repo stranske/Portable-Alpha-Extension-Model --json state,mergedAt,mergeCommit",
+    "terminal_receipt": true,
+    "pr_receipt": "consumer-pr-2488-merged.json",
+    "commit_receipt": "consumer-merge-e4ccdaf1.json",
+    "main_reachability_receipt": "consumer-main-reachability.json"
   },
   "payload_equality": {
     "note": "PR 2488 does not modify tools/subscription_llm.py",
@@ -239,6 +230,90 @@
     "candidate_blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
     "consumer_main_b3b617e7_blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
     "retained_source_blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
-    "eventual_merged_payload": "not observable: PR 2488 unmerged"
-  }
+    "eventual_merged_payload": "consumer-e4ccdaf1-subscription_llm.py.txt",
+    "consumer_merge_blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+    "merge_comparison": {
+      "command": "cmp docs/evidence/issue-4369/runtime-4550/4557-source-subscription_llm.py.txt docs/evidence/issue-4369/runtime-4550/4557r2/consumer-e4ccdaf1-subscription_llm.py.txt",
+      "receipt": "4581-byte-comparison.json"
+    }
+  },
+  "previous_observation": {
+    "observed_at_utc": "2026-11-09T07:41:55Z",
+    "consumer_merge": {
+      "pr_state": "OPEN",
+      "mergedAt": null,
+      "mergeCommit": null,
+      "isDraft": false,
+      "mergeStateStatus": "CLEAN",
+      "command": "gh pr view 2488 -R stranske/Portable-Alpha-Extension-Model --json state,mergedAt,mergeCommit,headRefOid,body",
+      "terminal_receipt": false
+    },
+    "blocker": {
+      "first_break": "actual consumer-main merge",
+      "cause": "Maint 71 campaign commit authorization for plan sha256:4947a11cfee1... is all-or-nothing; latest run 42579302699 reports authorized=false with the single error 'stranske/Orchestrator: campaign is not prepared (checks_failed)'. The authorization lists 15 rows (Orchestrator is not among them); the 12 delivery-lane rows merged and the 3 candidate-lane rows (PAEM 2488, Travel-Plan-Permission 1736, trip-planner 2021) stay campaign_prepared.",
+      "orchestrator_pr": {
+        "repo": "stranske/Orchestrator",
+        "pr": 1288,
+        "head_sha": "5f1b6125f336ceaf72e189a7853f6a335936d3dc",
+        "gate_run": 42566889073,
+        "failing_test": "tests/test_model_table.py::test_copy_matches_workflows_source",
+        "message": "model_table.TABLE_JSON differs from stranske/Workflows main .github/agents/model-table.json",
+        "likely_trigger": "Workflows main changed .github/agents/model-table.json in 122b67ebd (#4576); PR 1288 does not touch the model table"
+      },
+      "blocking": 1,
+      "drainable_by_maint71": 0,
+      "drain": "an Orchestrator change that refreshes src/model_table.py to Workflows main (or a passing rerun of PR 1288 after it) lets the next Maint 71 run authorize the campaign; Maint 71 alone cannot clear it"
+    }
+  },
+  "terminal_merger": {
+    "run_id": 42585644980,
+    "event": "workflow_dispatch",
+    "run_receipt": "maint71-42585644980-run.json",
+    "artifact_receipt": "maint71-42585644980-artifact.json",
+    "report": "maint71-42585644980-sync-pr-merge-report.json",
+    "authorization": "maint71-42585644980-sync-campaign-commit-authorization.json",
+    "log_excerpt": "maint71-42585644980-paem-excerpt.log",
+    "artifact_linkage": "IMMUTABLE_HANDOFF_JSON, report merged result and terminal handoff bind the same producer plan_id, source_commit, candidate head_sha and delivery_generation; the log records squash success at 08:25:49Z, matching the PR merge at 08:25:48Z. The earlier merge-method attempt returned 405 because merge commits are disabled.",
+    "handoff": {
+      "schema": "workflows-generated-delivery-handoff/v1",
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2488,
+      "branch": "sync/workflows-candidate",
+      "head_sha": "795155aa9b1cdca5942bac2db3707c6b64dc57d3",
+      "delivery_generation": "4947a11cfee1",
+      "lane": "sync",
+      "disposition": "merged",
+      "blocker_owner": "none",
+      "next_command": "none",
+      "check_state": "ready",
+      "review_state": "clear",
+      "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "canary_baseline_evidence_json": "",
+      "campaign_no_change_evidence_json": "{\"schema\":\"workflows.consumer-sync-no-change-evidence/v1\",\"version\":1,\"results\":[]}",
+      "cleanup_branches": true,
+      "continuation": {
+        "class": "terminal",
+        "lane": "campaign",
+        "reason": "merged",
+        "resume_after": "",
+        "key": "7b867ca52e50a56b61f7"
+      },
+      "observed_at": "2026-11-09T08:26:10.927Z"
+    }
+  },
+  "blocking": 0,
+  "drainable_by_maint71": 0,
+  "blocker_resolution": {
+    "model_table_refresh_commit": "3ecc60dbc4b029adaf4cbda993d57c2267b99c96",
+    "model_table_refresh_pr": 1287,
+    "orchestrator_pr": 1288,
+    "orchestrator_merge_sha": "7568b39de2537655d84dbe119a30bd7e2c02774a",
+    "checks_receipt": "orchestrator-pr-1288-merged.json",
+    "test_receipt": "orchestrator-model-table-test.json",
+    "note": "The refresh and both merges had already happened before this seat. No cross-repository code edit, merge or dispatch was needed."
+  },
+  "comment_observation": "issue-4369-comments-4581.json"
 }
