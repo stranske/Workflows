@@ -87,108 +87,72 @@ source remains byte-exact; this change adds fixtures, coverage and receipts.
 
 ## Expiry classifier evidence
 
-`2026-11-06-expiry-receipts.json` records the historical classified retained-artifact outcome
-for comments `6390994169` and `6392557346` using the real authenticated read-only collector
-invocation from `fetchVerifierEvidence` in `.github/scripts/agents_verifier_context.js`.
-The separate dated receipt `2026-11-10-expiry-receipts.json` records the operational rerun
-produced from the executable retained payload `2026-11-10-retained-payload.json`.
+Historical `2026-11-06-expiry-receipts.json`,
+`2026-11-10-retained-payload.json` and `2026-11-10-expiry-receipts.json` are
+preserved unchanged. The latter two reproduce an **offline** explicit
+expired-artifact classification. Their provider-call and acceptance fields are
+retained assertions, not freshly collected execution evidence. They must not be
+used to claim current collector rejection, authenticated archive readback or
+native admission.
 
-The offline classifier outcome is `explicit expired-artifact rejection` for
-comments `6390994169` and `6392557346`. The supported collector's explicit
-expiry rejection remains unestablished. Published markers and local `comparison.json`
-bytes are recorded and are not authenticated Actions readback or native
-admission. Both original events stay nonaccepting. Observed provider calls are
-integer zero. The 2026-11-06 owner decision is no fresh provider evaluation.
+### Authenticated continuation, checked 2026-11-10
 
-### Executable collector invocation
+`2026-11-10-authenticated-continuation/` retains a new read-only execution:
 
-The real authenticated read-only collector is invoked via Node.js using the
-`fetchVerifierEvidence` function from `.github/scripts/agents_verifier_context.js`.
-For the two retained subjects (PRs #4231 and #4235), the invocation is:
+- `4231-collector.json` and `4235-collector.json`: complete actual JSON returned
+  by `fetchVerifierEvidence` from the checkout's
+  `.github/scripts/agents_verifier_context.js`.
+- `execution.json`: UTC start/finish, source HEAD, collector and harness digests,
+  Node version, explicit selectors, output digests, and every HTTP GET URL/status.
+- `payload.json`: selected artifact identities, unchanged native diagnostics,
+  authenticated required-comment status/digest, observed marker publication,
+  and historical event identity. Execution evidence remains explicitly unknown.
+- `receipt.json`: classifier output from that payload.
 
-```bash
-# For PR #4231 (comment 6390994169, artifact 12579928048)
-GITHUB_TOKEN=<read_only_pat> node -e '
-const { Octokit } = require("@octokit/rest");
-const { fetchVerifierEvidence } = require("./.github/scripts/agents_verifier_context.js");
-const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
-fetchVerifierEvidence({
-  github,
-  owner: "stranske",
-  repo: "Workflows",
-  pullNumber: 4231
-}).then(console.log).catch(console.error);
-'
-
-# For PR #4235 (comment 6392557346, artifact 12584318436)
-GITHUB_TOKEN=<read_only_pat> node -e '
-const { Octokit } = require("@octokit/rest");
-const { fetchVerifierEvidence } = require("./.github/scripts/agents_verifier_context.js");
-const github = new Octokit({ auth: process.env.GITHUB_TOKEN });
-fetchVerifierEvidence({
-  github,
-  owner: "stranske",
-  repo: "Workflows",
-  pullNumber: 4235
-}).then(console.log).catch(console.error);
-'
-```
-
-This performs authenticated Actions archive lookup and returns the retained evidence
-for both comments 6390994169 and 6392557346, including HTTP 404 status, proof status,
-and marker publication state. The collector outputs are then converted to observation
-format and fed into the classifier.
-
-### Executable classifier invocation
+The executable `collect-retained-evidence.cjs` uses Node fetch with an
+in-memory token obtained from `gh auth token`; it retains no token. Its API
+adapter allows only GET requests in `stranske/Workflows` and contains no provider
+adapter. Both calls explicitly select the proof comment, `comparison.json` and
+`comparison-execution.json` in the retained artifact. Optional run and artifact
+discovery are bounded to one record; native limit and unselected diagnostics are
+retained without upgrading completeness.
 
 ```bash
-python3 tools/verifier_event_recovery.py \
-  --classify-retained-artifact tests/fixtures/verification_input_repair/2026-11-10-retained-payload.json \
-  --receipt tests/fixtures/verification_input_repair/2026-11-10-expiry-receipts.json
+# Use a new, absent output directory for each authenticated collection.
+node tests/fixtures/verification_input_repair/collect-retained-evidence.cjs \
+  tests/fixtures/verification_input_repair/2026-11-10-authenticated-continuation
+
+/opt/anaconda3/bin/python3 tools/verifier_event_recovery.py \
+  --classify-retained-artifact tests/fixtures/verification_input_repair/2026-11-10-authenticated-continuation/payload.json \
+  --receipt tests/fixtures/verification_input_repair/2026-11-10-authenticated-continuation/receipt.json
 ```
 
-Where `tests/fixtures/verification_input_repair/2026-11-10-retained-payload.json` contains
-the observation rows with `comment_id` and `marker_published` (with `marker_published` set to `true`),
-using the retained subject, proof, HTTP 404 and local `4231-original/comparison.json` /
-`4235-original/comparison.json` paths under this fixture tree.
+**Fresh outcome: `incomplete evidence`; 0/2 authenticated retained readbacks or
+native admissions.** Both required proof comments were included. Exact selected
+artifact metadata lookups returned HTTP 404 (`selected artifact ID: Not Found`),
+with `selected_metadata_lookup_failed` inventory entries. Each collector also
+reported an unrelated unselected metrics artifact. The classifier consumes the
+native `diagnostics.failures` and `diagnostics.archive_inventory`, binding each
+failure to the exact selected artifact within that same record. Ambiguous or
+unbound failures remain unknown.
 
-### Observation keys
+The collector is an evidence reader. It does not establish execution-wide
+provider-call counts or original-event acceptance. The new payload therefore
+leaves both `provider_calls` and `original_event_accepting` null; the receipt
+preserves both missing-evidence reasons. The probe itself constructed no provider
+adapter and made only the recorded GET requests. No archive bytes were downloaded,
+no new evaluation was requested, and no admission was attempted. The historical
+2026-11-06 owner decision remains no fresh provider evaluation.
 
-- `comment_id`: The GitHub issue comment ID (`6390994169` for #4231, `6392557346` for #4235)
-- `marker_published`: Boolean indicating whether the verifier-input-repair marker was published (`true` for this receipt)
-- `artifact_http_status`: HTTP status code from the Actions archive lookup (`404` = not found)
-- `original_event_accepting`: Boolean acceptance status of the original event (`false`)
-- `provider_calls`: Integer count of provider invocations (`0` for no provider calls observed)
-- `published_archive_sha256`: SHA-256 digest of the published archive
-- `subject`: Contains `event_id`, `material_sha256`, `head_sha`, `evaluated_sha`, `request_sha256`
-- `proof_status`: Status of the proof comment (`included`)
-- `proof_body_sha256`: SHA-256 digest of the proof comment body
-- `local_archive_path`: Relative path to local comparison bytes
+Blocking/drainable pair: selected retained archives and execution evidence are
+unavailable / offline classification and focused regression checks remain usable.
+Native admission requires the supported collector to authenticate the exact
+retained result and execution receipt. Local historical result bytes and published
+markers cannot replace that prerequisite. HTTP 404 establishes unavailability
+under these credentials; it does not independently prove a retention-policy expiry.
 
-### Classifier output vs collector rejection
-
-The classifier produces offline classification based on retained evidence. It distinguishes:
-- **Explicit expired-artifact rejection**: HTTP 404 or explicit expiry marker with no provider calls
-- **Authenticated retained readback**: Archive bytes match published digest with valid evidence
-- **Identity mismatch**: Comment/artifact identity doesn't match known retained artifacts
-- **Missing status**: Required status fields are absent
-- **Incomplete evidence**: Missing or invalid `provider_calls` or `original_event_accepting`
-
-Collector rejection (`fetchVerifierEvidence`) occurs when archive bytes are unavailable,
-which is a prerequisite failure, not a classifier outcome. The classifier only runs
-after the collector succeeds or with pre-authenticated local fixtures.
-
-### Historical receipts and proof gaps
-
-Historical receipts from the original runs are preserved in `4231-original/` and
-`4235-original/`. The proof gaps (unavailable archives) are documented in the
-`remaining_gaps` field of the expiry receipt. No new hash is substituted for fresh
-observations; the original published archive digests are retained.
-
-### Source revision and working-tree state
-
-- Source revision: `3079e58ab89019832be4a1c8dc8a0f25f40aca64`
-- Working-tree state: Clean, with no uncommitted changes
-- Both comment outcomes: Explicit expired-artifact rejection
-- Explicit provider-call evidence: 0 (no provider calls observed)
-- Cumulative stop-rule result: Not exhausted (1/2 attempts used)
+Acceptance stop rule for this continuation: two failures at the same acceptance
+step or 60 minutes. The first Python invocation stopped during pytest plugin
+startup; disabling unrelated plugin autoload allowed the focused suite to run.
+The historical offline receipts remain reproducible and separate from this new
+live evidence.

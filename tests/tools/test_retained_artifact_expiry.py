@@ -8,6 +8,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from tools.verifier_event_recovery import (
     AUTHENTICATED_RETAINED_READBACK,
     EXPLICIT_EXPIRED_ARTIFACT_REJECTION,
@@ -19,6 +21,9 @@ from tools.verifier_event_recovery import (
     classify_retained_artifact_report,
     inspect_digest_bound_archive,
 )
+
+
+CHECKOUT = Path(__file__).resolve().parents[2]
 
 
 def _sha(raw: bytes) -> str:
@@ -351,7 +356,7 @@ def test_collector_receipt_conversion():
         "proof_body_sha256": "c" * 64,
         "marker_published": True,
         "artifact_http_status": 404,
-        "artifact_failures": [{"kind": "expired", "detail": "expired"}],
+        "artifact_failures": [{"kind": "expired", "detail": "artifact 12579928048"}],
         "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
         "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
         "original_event_accepting": False,
@@ -1017,9 +1022,7 @@ def test_unrelated_expired_failure():
         "proof_status": "included",
         "proof_body_sha256": "c" * 64,
         "marker_published": True,
-        "artifact_failures": [
-            {"kind": "expired", "detail": "artifact 9999999999 expired"}
-        ],
+        "artifact_failures": [{"kind": "expired", "detail": "artifact 9999999999 expired"}],
         "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
         "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
         "original_event_accepting": False,
@@ -1081,9 +1084,7 @@ def test_same_artifact_expired():
         "proof_status": "included",
         "proof_body_sha256": "c" * 64,
         "marker_published": True,
-        "artifact_failures": [
-            {"kind": "expired", "detail": "artifact 12579928048 expired"}
-        ],
+        "artifact_failures": [{"kind": "expired", "detail": "artifact 12579928048 expired"}],
         "archive_inventory": [{"run_id": 40143755394, "artifact_id": 12579928048}],
         "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
         "original_event_accepting": False,
@@ -1099,8 +1100,8 @@ def test_same_artifact_expired():
     assert observation["artifact_expired"] is True
 
 
-def test_same_artifact_implicit_expired():
-    """Test same-artifact expired with implicit binding (detail without artifact_id)."""
+def test_unbound_expired_stays_unknown():
+    """A receipt identity cannot bind an otherwise unbound failure."""
     from tools.verifier_event_recovery import _observation_from_collector_receipt
 
     # Receipt for artifact 12579928048 with expired detail that doesn't mention artifact_id
@@ -1123,11 +1124,9 @@ def test_same_artifact_implicit_expired():
 
     observation = _observation_from_collector_receipt(receipt)
 
-    # Should set expired because the failure is in the receipt for this artifact
-    # and the detail doesn't mention any other artifact
     assert observation["artifact_id"] == 12579928048
     assert observation["artifact_http_status"] is None
-    assert observation["artifact_expired"] is True
+    assert observation["artifact_expired"] is None
 
 
 def test_cli_mutually_exclusive_modes():
@@ -1161,52 +1160,70 @@ def test_cli_mutually_exclusive_modes():
                 sys.executable,
                 "-m",
                 "tools.verifier_event_recovery",
-            ] + test_case["args"],
+            ]
+            + test_case["args"],
             capture_output=True,
             text=True,
-            cwd="/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4628__closer",
+            cwd=CHECKOUT,
         )
 
         # Should exit with code 2 (argparse error)
-        assert result.returncode == 2, f"Expected exit code 2 for {test_case['description']}, got {result.returncode}"
+        assert (
+            result.returncode == 2
+        ), f"Expected exit code 2 for {test_case['description']}, got {result.returncode}"
         # Should contain exclusivity diagnostic
-        assert "mutually exclusive" in result.stderr, f"Missing exclusivity diagnostic for {test_case['description']}: {result.stderr}"
+        assert (
+            "mutually exclusive" in result.stderr
+        ), f"Missing exclusivity diagnostic for {test_case['description']}: {result.stderr}"
 
 
-def test_cli_no_recovery_invocation_on_conflict():
-    """Test that no recovery execution or output writes occur even with usable revalidation inputs."""
+def test_cli_no_recovery_invocation_on_conflict(tmp_path, monkeypatch):
+    """Valid recovery inputs cannot cause writes when CLI modes conflict."""
     import subprocess
     import sys
-    import tempfile
-    import os
 
-    # Create a temporary directory with a valid manifest
-    with tempfile.TemporaryDirectory() as tmpdir:
-        manifest_path = os.path.join(tmpdir, "manifest.json")
-        with open(manifest_path, "w") as f:
-            f.write('{"retained_revalidation": {"schema": "retained-revalidation/v1", "recovery_key": "a" * 64}}')
+    from tests.tools.test_retained_verification_recovery import setup_case
 
-        # Try to run with both --manifest and --revalidate-retained
+    setup_case(tmp_path, monkeypatch, mode="compare")
+    manifest = tmp_path / "verification-event-manifest.json"
+    payload = tmp_path / "payload.json"
+    payload.write_text(json.dumps({"observations": [_known(6390994169), _known(6392557346)]}))
+    receipt = tmp_path / "receipt.json"
+    github_output = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(github_output))
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+    modes = [
+        ["--revalidate-retained", "--manifest", str(manifest)],
+        ["--revalidate-retained", "--classify-retained-artifact", str(payload)],
+        ["--manifest", str(manifest), "--classify-retained-artifact", str(payload)],
+    ]
+    for args in modes:
         result = subprocess.run(
             [
                 sys.executable,
-                "-m",
-                "tools.verifier_event_recovery",
-                "--revalidate-retained",
-                "--manifest",
-                manifest_path,
+                str(CHECKOUT / "tools/verifier_event_recovery.py"),
+                *args,
+                "--receipt",
+                str(receipt),
             ],
             capture_output=True,
             text=True,
-            cwd="/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4628__closer",
+            cwd=tmp_path,
         )
-
-        # Should exit with code 2 before any recovery execution
         assert result.returncode == 2
-        # Should not have produced any JSON output (recovery execution output)
-        assert not result.stdout.strip() or "mutually exclusive" in result.stderr
-        # Should not have created any output files
-        # (This is implicitly tested by the fact that we exit before reaching file write code)
+        assert "mutually exclusive" in result.stderr
+        assert result.stdout == ""
+        for name in (
+            "receipt.json",
+            "github-output",
+            "retained-source",
+            "comparison.json",
+            "comparison-execution.json",
+            "comparison-comment.md",
+            "verification-revalidation-receipt.json",
+        ):
+            assert not (tmp_path / name).exists()
+        assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
 
 
 def test_cli_exit_2_with_exclusivity_message():
@@ -1225,7 +1242,7 @@ def test_cli_exit_2_with_exclusivity_message():
         ],
         capture_output=True,
         text=True,
-        cwd="/Users/teacher/.codex/orchestrator/worktrees/stranske__Workflows__4628__closer",
+        cwd=CHECKOUT,
     )
 
     assert result.returncode == 2
@@ -1233,3 +1250,140 @@ def test_cli_exit_2_with_exclusivity_message():
     # Check that the message mentions the specific modes
     assert "revalidate-retained" in result.stderr
     assert "manifest" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        {"kind": "expired", "detail": "expired"},
+        {
+            "kind": "artifact_transport",
+            "detail": "artifact 12579928048: Forbidden; unrelated Not Found",
+        },
+        {"kind": "expired", "detail": "artifact_id=999 expired"},
+        {"kind": "expired", "detail": "artifact 999 expired"},
+        {"kind": "artifact_transport", "detail": "selected artifact 999: Not Found"},
+        {"kind": "expired", "detail": "artifact 125799280480 expired"},
+        {"kind": "expired", "detail": "artifact 912579928048 expired"},
+        {"kind": "artifact_transport", "detail": "selected artifact 125799280480: Not Found"},
+        {"kind": "artifact_transport", "detail": "selected artifact 912579928048: Not Found"},
+        {"kind": "expired", "detail": "artifact 12579928048 and artifact 999 expired"},
+    ],
+)
+def test_ambiguous_or_unrelated_failures_cannot_establish_expiry(failure):
+    from tools.verifier_event_recovery import _observation_from_collector_receipt
+
+    row = _known(6390994169)
+    row.pop("artifact_http_status")
+    row["artifact_failures"] = [
+        {"kind": "artifact_transport", "detail": "selected artifact 12579928048: Forbidden"},
+        failure,
+    ]
+    observation = _observation_from_collector_receipt(row)
+    assert observation["artifact_http_status"] is None
+    assert observation["artifact_expired"] is None
+    assert classify_retained_artifact_outcome(observation)["outcome"] == MISSING_STATUS
+
+
+def test_native_collector_diagnostics_select_exact_inventory_identity():
+    from tools.verifier_event_recovery import _observation_from_collector_receipt
+
+    row = _known(6390994169)
+    row.pop("artifact_http_status")
+    row["diagnostics"] = {
+        "archive_inventory": [
+            {"run_id": 999, "artifact_id": 999},
+            {"run_id": row["run_id"], "artifact_id": row["artifact_id"]},
+        ],
+        "failures": [
+            {
+                "channel": "artifacts",
+                "kind": "artifact_transport",
+                "detail": "selected artifact 12579928048: Not Found",
+            }
+        ],
+    }
+    observation = _observation_from_collector_receipt(row)
+    assert observation["run_id"] == row["run_id"]
+    assert observation["artifact_http_status"] == 404
+    row["diagnostics"]["failures"] = [
+        {
+            "channel": "artifacts",
+            "kind": "expired",
+            "artifact_id": row["artifact_id"],
+            "detail": "expired",
+        }
+    ]
+    assert _observation_from_collector_receipt(row)["artifact_expired"] is True
+    row.pop("artifact_id")
+    assert _observation_from_collector_receipt(row)["artifact_expired"] is None
+
+
+@pytest.mark.parametrize(
+    "over,missing,stops",
+    [
+        (
+            {"original_event_accepting": None, "provider_calls": None},
+            [
+                "artifact_status_missing",
+                "missing_original_event_acceptance",
+                "missing_or_invalid_provider_calls",
+            ],
+            [],
+        ),
+        (
+            {"original_event_accepting": None, "provider_calls": 1},
+            ["artifact_status_missing", "missing_original_event_acceptance"],
+            ["provider_call_forbidden"],
+        ),
+        (
+            {"original_event_accepting": True, "provider_calls": None},
+            ["artifact_status_missing", "missing_or_invalid_provider_calls"],
+            ["original_event_must_stay_nonaccepting"],
+        ),
+        (
+            {"original_event_accepting": True, "provider_calls": 1},
+            ["artifact_status_missing"],
+            ["provider_call_forbidden", "original_event_must_stay_nonaccepting"],
+        ),
+    ],
+)
+def test_all_missing_evidence_survives_recovery_stops(over, missing, stops):
+    result = classify_retained_artifact_outcome(
+        _known(6390994169, artifact_http_status=None, **over)
+    )
+    assert result["missing_evidence_reasons"] == missing
+    assert result["recovery_stop_reasons"] == stops
+    assert all(reason in result["reason"] for reason in missing + stops)
+    assert result["authenticated_readback"] is False
+
+
+def test_fresh_receipt_retains_native_diagnostics_without_execution_claims():
+    directory = (
+        CHECKOUT / "tests/fixtures/verification_input_repair/2026-11-10-authenticated-continuation"
+    )
+    execution = json.loads((directory / "execution.json").read_text())
+    payload = json.loads((directory / "payload.json").read_text())
+    receipt = json.loads((directory / "receipt.json").read_text())
+    assert len(execution["subjects"]) == len(payload["receipts"]) == 2
+    assert all(call["method"] == "GET" for call in execution["calls"])
+    for selected, row in zip(execution["subjects"], payload["receipts"], strict=True):
+        raw = (directory / selected["output"]).read_bytes()
+        assert _sha(raw) == selected["sha256"] == row["collector_sha256"]
+        assert row["diagnostics"] == json.loads(raw)["diagnostics"]
+        assert row["provider_calls"] is None
+        assert row["original_event_accepting"] is None
+        assert {
+            entry["path"] for entry in selected["selectors"] if entry["kind"] == "artifact_member"
+        } == {"comparison.json", "comparison-execution.json"}
+    assert classify_retained_artifact_report(payload) == receipt
+    assert receipt["operational_outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+    assert receipt["provider_calls"] is None
+    for result in receipt["results"]:
+        assert result["actions_archive"]["http_status"] == 404
+        assert result["missing_evidence_reasons"] == [
+            "missing_original_event_acceptance",
+            "missing_or_invalid_provider_calls",
+        ]
+        assert result["authenticated_readback"] is False
+        assert result["native_admission_succeeded"] is False

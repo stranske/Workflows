@@ -1,0 +1,185 @@
+{
+  "status": "unavailable",
+  "body": {
+    "status": "present",
+    "complete": true,
+    "text": ":robot: I have created a release *beep* *boop*\n---\n\n\n## [1.44.17](https://github.com/stranske/Workflows/compare/v1.44.16...v1.44.17) (2026-10-25)\n\n\n### Bug Fixes\n\n* **verifier:** resolve selected artifact IDs beyond discovery bounds ([8fa4129](https://github.com/stranske/Workflows/commit/8fa41299a394fe2af46e910acbb0f733dc415b23))\n* **verifier:** retain selected baseline proof through repeat events ([7bd37e7](https://github.com/stranske/Workflows/commit/7bd37e731a7906565ed6d2231724ca3bf5fefa83))\n* **verifier:** retain selected comparison proof through recovery ([c503640](https://github.com/stranske/Workflows/commit/c5036409d5ce5b83f4fa288b583d909e10892a1f))\n\n---\nThis PR was generated with [Release Please](https://github.com/googleapis/release-please). See [documentation](https://github.com/googleapis/release-please#release-please).\n\n## Scope\nPublish Workflows 1.44.17 release metadata for the merged verifier capture fixes in #4234.\n\n## Tasks\n- [x] Set the root release-please manifest version to 1.44.17.\n- [x] Add the 1.44.17 changelog entries for selected baseline proof, comparison recovery proof, and artifact ID lookup beyond discovery bounds.\n\n## Acceptance criteria\n- [x] Changes are limited to `.release-please-manifest.json` and `CHANGELOG.md`, and both identify 1.44.17.\n- [x] Changelog entries identify source commits 7bd37e731a7906565ed6d2231724ca3bf5fefa83, c5036409d5ce5b83f4fa288b583d909e10892a1f and 8fa41299a394fe2af46e910acbb0f733dc415b23.\n- [x] The canonical exact-head merge guard confirms passing required checks, zero active review threads and the full seven-minute review floor before merge.\n\nThese criteria describe release metadata only. Product-source acceptance is separate.\n\nDelivery proof: https://github.com/stranske/Workflows/pull/4235#issuecomment-6392557346 (guarded merge and published v1.44.17).",
+    "reason": ""
+  },
+  "comments": {
+    "status": "present",
+    "complete": true,
+    "records": [
+      {
+        "source": "explicit required conversation comment",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392557346",
+        "body": "Release metadata merged through the canonical exact-head guard: head `af7c09ac2b61ac70c3460bfc4856cf9d83e713b0`, required checks SUCCESS, zero active non-outdated unresolved review threads, seven-minute floor satisfied (review age 2976s). Squash merge `206b761c594ad3367f345a6c9cac92216e0daa00` completed at 2026-10-25T02:38:54Z. Workflows v1.44.17 published at 02:39:06Z. The two changed files are the release manifest and changelog. This is release-metadata delivery evidence; merge-bound comparison and broader source acceptance are separate.",
+        "author": "stranske",
+        "author_id": 23046322,
+        "comment_id": 6392557346,
+        "created_at": "2026-10-25T02:39:54Z",
+        "updated_at": "2026-10-25T02:39:54Z",
+        "required_material": true
+      },
+      {
+        "author": "coderabbitai[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392020130",
+        "body": "<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: skip review by coderabbit.ai -->\n\n> [!IMPORTANT]\n> ## Review skipped\n> \n> Ignore keyword(s) in the title.\n> \n> <details>\n> <summary><strong>:no_entry: Ignored keywords: 3</strong></summary>\n> <dl>\n> <dd>\n> \n> * chore(main): release\n> * chore: sync workflow templates\n> * sync workflow templates\n> \n> </dd>\n> </dl>\n> </details>\n> \n> Please check the settings in the CodeRabbit UI or the `.coderabbit.yaml` file in this repository. To trigger a single review, invoke the `@coderabbitai review` command.\n> \n> <details>\n> <summary><strong><picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://storage.googleapis.com/coderabbit_public_assets/review-comment-icons-v1/cog-dark.svg\"><img src=\"https://storage.googleapis.com/coderabbit_public_assets/review-comment-icons-v1/cog.svg\" width=\"16\" height=\"16\" align=\"absmiddle\" alt=\"\"></picture> Run configuration</strong></summary>\n> <dl>\n> <dd>\n> \n> - **Source mode**: Auto\n> - **Repository**: [stranske/Workflows](<https://github.com/stranske/Workflows>)\n> - **Branch**: [main](<https://github.com/stranske/Workflows/tree/main>)\n> - **File**: [.coderabbit.yaml](<https://github.com/stranske/Workflows/blob/c5036409d5ce5b83f4fa288b583d909e10892a1f/.coderabbit.yaml>)\n> - **Commit**: [c503640](<https://github.com/stranske/Workflows/commit/c5036409d5ce5b83f4fa288b583d909e10892a1f>)\n> - **Layers**: Repository YAML\n> - **Review profile**: ASSERTIVE\n> - **Plan**: Advanced\n> - **Run ID**: `0b52bcd7-1f8d-4cd2-9c54-bdb9d84f7975`\n> \n> </dd>\n> </dl>\n> </details>\n> \n> You can disable this status message by setting the `reviews.review_status` to `false` in the CodeRabbit configuration file.\n> \n> Use the checkbox below for a quick retry:\n> - [ ] <!-- {\"checkboxId\":\"e9bb8d72-00e8-4f67-9cb2-caf3b22574fe\"} --> 🔍 Trigger review\n\n<!-- end of auto-generated comment: skip review by coderabbit.ai -->\n\n<!-- autopilot:start -->\n- [ ] <!-- {\"checkboxId\":\"2708ad07-9f24-4260-9c11-7dc76a49f2e3\"} --> <strong title=\"Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\">Autofix</strong> · Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\n<!-- autopilot:end -->\n<!-- tips_start -->\n\n\n\n\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+        "source": "conversation comments"
+      },
+      {
+        "author": "chatgpt-codex-connector[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392020326",
+        "body": "<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {\"code_review\":{\"commit_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"has_any_findings\":false,\"has_unresolved_findings\":false,\"status\":\"completed\"},\"security_review\":{\"commit_sha\":null,\"has_any_findings\":null,\"has_unresolved_findings\":null,\"status\":null}} -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ✅ **Completed** <relative-time datetime=\"2026-10-25T01:37:12.051613Z\">2026-10-25T01:37:12.051613Z</relative-time> | `af7c09a` | PR opened |\n\n\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.\n\n</details>",
+        "source": "conversation comments"
+      },
+      {
+        "author": "agents-workflows-bot[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392128817",
+        "body": "<!-- gate-summary: pr=4235 head=e04a53c57643 -->\n## Automated Status Summary\n**Head SHA:** e04a53c57643bda6c0e9f850406e8d8b4f868047\n**Latest Runs:** ⏳ pending — Gate\n**Required contexts:** summary\n**Required:** core tests (3.12): ⏳ pending, core tests (3.13): ⏳ pending, docker smoke: ⏳ pending, gate: ⏳ pending\n\n| Workflow / Job | Result | Logs |\n|----------------|--------|------|\n| _(no jobs reported)_ | ⏳ pending | — |\n\n### Coverage Overview\n- Coverage history entries: 1\n## Coverage Trend\n\n| Metric | Value |\n|--------|-------|\n| Current | 90.83% |\n| Baseline | 85.00% |\n| Delta | +5.83% |\n| Minimum | 70.00% |\n| Status | ✅ Pass |\n\n### Top Coverage Hotspots (lowest coverage)\n\n| File | Coverage | Missing |\n|------|----------|---------|\n| `scripts/issue_dedup_smoke.py` | 0.0% | 2 |\n| `scripts/runner_lib/__main__.py` | 0.0% | 1 |\n| `tools/codex_session_analyzer.py` | 49.7% | 52 |\n| `tools/verifier_event_recovery.py` | 53.2% | 81 |\n| `scripts/langchain/verdict_extract.py` | 54.4% | 20 |\n| `scripts/select_consumer_sync_phase.py` | 56.6% | 67 |\n| `scripts/guard_stable_plan_rotation.py` | 57.9% | 14 |\n| `scripts/analyze_codex_session.py` | 59.3% | 73 |\n| `scripts/cleanup_labels.py` | 61.3% | 52 |\n| `scripts/scope_consumer_sync_plan.py` | 61.9% | 49 |\n| `tools/verifier_corpus_evidence.py` | 63.1% | 76 |\n| `scripts/langchain/integration_layer.py` | 63.8% | 30 |\n| `scripts/model_profile_trial_contract.py` | 64.0% | 112 |\n| `scripts/orchestrator_runtime/consumer_sync_report.py` | 64.4% | 17 |\n| `tools/enforce_gate_branch_protection.py` | 64.8% | 141 |\n### Low Coverage Files (<50.0%)\n\n| File | Coverage | Missing |\n|------|----------|---------|\n| `scripts/issue_dedup_smoke.py` | 0.0% | 2 |\n| `scripts/runner_lib/__main__.py` | 0.0% | 1 |\n| `tools/codex_session_analyzer.py` | 49.7% | 52 |\n\n_Updated automatically; will refresh on subsequent CI/Docker completions._\n\n\n---\n### Keepalive checklist\n\n#### Scope\n_No scope information available_\n\n#### Tasks\n- [ ] _No tasks defined_\n\n#### Acceptance criteria\n- [ ] _No acceptance criteria defined_",
+        "source": "conversation comments"
+      },
+      {
+        "author": "github-actions[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392599897",
+        "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"status\":\"pending\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true},\"execution_binding\":{\"schema\":\"verifier-execution-binding/v1\",\"workflow_path\":\".github/workflows/agents-verifier.yml\",\"job_name\":\"Run post-merge verifier\",\"pending_step\":\"Record verification event pending\",\"evaluator_step\":\"Run multi-provider comparison\"}} -->",
+        "source": "conversation comments"
+      },
+      {
+        "author": "github-actions[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392609578",
+        "body": "**Verdict:** UNVERIFIABLE_INPUT\n\n## Provider Comparison Report\n\n- openai: files reviewed 2 of 2\n- anthropic: files reviewed 2 of 2\n\n### Provider Summary\n| Provider | Model | Verdict | Confidence | Summary |\n| --- | --- | --- | --- | --- |\n| openai | gpt-5.6-terra | UNVERIFIABLE_INPUT | 93% | Both reviewed changed files are limited to the required release metadata. The manifest correctly changes the root version from 1.44.16 to 1.44.17. CHANGELOG.md adds a 1.44.17 section with the requi... |\n| anthropic | claude-sonnet-5-5 | PASS | 93% | The diff changes only `.release-please-manifest.json` and `CHANGELOG.md`, as the first acceptance criterion requires. The manifest moves from 1.44.16 to 1.44.17. `CHANGELOG.md` gains a 1.44.17 sect... |\n\n<details>\n<summary>📋 Full Provider Details (click to expand)</summary>\n\n#### openai\n- **Model:** gpt-5.6-terra\n- **Verdict:** UNVERIFIABLE_INPUT\n- **Confidence:** 93%\n- **Scores:**\n  - Correctness: 10.0/10\n  - Completeness: 8.0/10\n  - Quality: 10.0/10\n  - Testing: 10.0/10\n  - Risks: 10.0/10\n- **Summary:** Both reviewed changed files are limited to the required release metadata. The manifest correctly changes the root version from 1.44.16 to 1.44.17. CHANGELOG.md adds a 1.44.17 section with the required three verifier fixes and links to all required full source commit IDs: 8fa41299a394fe2af46e910acbb0f733dc415b23, 7bd37e731a7906565ed6d2231724ca3bf5fefa83, and c5036409d5ce5b83f4fa288b583d909e10892a1f. The edit is well-formed, minimal, consistent with existing changelog style, and needs no product-code tests. A PASS cannot be issued because the separately explicit merge-guard delivery evidence is not verifiable in the supplied, truncated/unavailable acceptance evidence.\n- **Concerns:**\n  - The code diff satisfies the release-metadata requirements, but the explicit acceptance criterion requiring the canonical exact-head merge-guard evidence cannot be verified from the supplied evidence. The relevant acceptance-evidence retrieval is marked unavailable/truncated, and the linked delivery-proof comment content is not included for inspection. This is an evidence-verifiability gap, not a CI-status concern.\n\n#### anthropic\n- **Model:** claude-sonnet-5-5\n- **Verdict:** PASS\n- **Confidence:** 93%\n- **Scores:**\n  - Correctness: 10.0/10\n  - Completeness: 9.0/10\n  - Quality: 9.0/10\n  - Testing: 8.0/10\n  - Risks: 10.0/10\n- **Summary:** The diff changes only `.release-please-manifest.json` and `CHANGELOG.md`, as the first acceptance criterion requires. The manifest moves from 1.44.16 to 1.44.17. `CHANGELOG.md` gains a 1.44.17 section dated 2026-10-25, with a compare link and three verifier bug-fix entries. Those entries cover artifact ID resolution beyond discovery bounds, baseline proof retention through repeat events, and comparison proof retention through recovery. They link the full commit hashes 8fa41299…, 7bd37e73… and c5036409…, which match the required source commits. The section sits above the 1.44.16 entry in the expected format. No code is changed, so there are no functional risks. The merge-guard criterion is process evidence outside the diff.\n- **Concerns:**\n  - The third acceptance criterion (the exact-head merge guard confirming passing checks, zero review threads and the seven-minute floor) is a process criterion. It cannot be confirmed from the diff. The PR body links delivery proof in a comment, and I did not check that comment's content against the criterion.\n  - Several selftest artifacts were truncated during extraction, and the selftest-ci run is shown as cancelled. These are CI and artifact matters unrelated to the release metadata, and the PR does not require them as deliverables.\n\n</details>\n\n### Agreement\n- Correctness: scores within 1 point (avg 10.0/10, range 10.0-10.0)\n- Completeness: scores within 1 point (avg 8.5/10, range 8.0-9.0)\n- Quality: scores within 1 point (avg 9.5/10, range 9.0-10.0)\n- Risks: scores within 1 point (avg 10.0/10, range 10.0-10.0)\n\n### Disagreement\n| Dimension | openai | anthropic |\n| --- | --- | --- |\n| Verdict | UNVERIFIABLE_INPUT | PASS |\n| Testing | 10.0/10 | 8.0/10 |\n\n### Unique Insights\n- openai: The code diff satisfies the release-metadata requirements, but the explicit acceptance criterion requiring the canonical exact-head merge-guard evidence cannot be verified from the supplied evidence. The relevant acceptance-evidence retrieval is marked unavailable/truncated, and the linked delivery-proof comment content is not included for inspection. This is an evidence-verifiability gap, not a CI-status concern.\n- anthropic: The third acceptance criterion (the exact-head merge guard confirming passing checks, zero review threads and the seven-minute floor) is a process criterion. It cannot be confirmed from the diff. The PR body links delivery proof in a comment, and I did not check that comment's content against the criterion.; Several selftest artifacts were truncated during extraction, and the selftest-ci run is shown as cancelled. These are CI and artifact matters unrelated to the release metadata, and the PR does not require them as deliverables.\n\n### 🔍 LangSmith Traces\n- [openai](https://smith.langchain.com/r/resp_00e976228e01c99a006add6d61b2e087d1bce82dff386c1a53)\n- [anthropic](https://smith.langchain.com/r/lc_run--01a170f3-612d-76b2-8b9e-59fa0b8085d4-0)\n\n",
+        "source": "conversation comments"
+      },
+      {
+        "author": "github-actions[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392609730",
+        "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"status\":\"incomplete\",\"failure_cause\":\"retained_provider_evaluation\",\"retry_kind\":\"recover_existing_evaluation\",\"retryable\":false,\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true}} -->",
+        "source": "conversation comments"
+      },
+      {
+        "author": "github-actions[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6398029735",
+        "body": "<!-- verifier-input-repair/v1 {\"schema\":\"verifier-input-repair/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true},\"original_material\":{\"schema\":\"verification-material/v1\",\"code\":{\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"diff_sha256\":\"ec5035f0cb13abd11abd037bedf565969b4e66e5bc9970e46094506237eeb5a4\"},\"ci_hard_gate\":{\"schema\":\"verification-ci-hard-gate/v1\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"results\":[{\"workflow_id\":\"selftest-ci.yml\",\"binding_status\":\"bound\",\"head_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":40155249524,\"run_attempt\":1,\"conclusion\":\"cancelled\"},{\"workflow_id\":\"pr-11-ci-smoke.yml\",\"binding_status\":\"bound\",\"head_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":40155249335,\"run_attempt\":1,\"conclusion\":\"success\"}]},\"required_evidence\":[]},\"result\":{\"path\":\"comparison.json\",\"raw_sha256\":\"82ca92af1626088b9535eaed404a7abb8aa8c2a1811bc94cebbc109ae439b260\",\"bytes\":13107},\"receipt\":{\"path\":\"comparison-execution.json\",\"raw_sha256\":\"fdfd86a2191ff849640b15f0b730ae91d622d0cff731980db0fd58487be50bd2\"},\"provider_verdicts\":[{\"provider\":\"anthropic\",\"model\":\"claude-sonnet-5-5\",\"verdict\":\"PASS\"},{\"provider\":\"openai\",\"model\":\"gpt-5.6-terra\",\"verdict\":\"UNVERIFIABLE_INPUT\"}],\"input_repair_id\":\"03a1ccc0784ad0cd77f3df541bf293e1f349e825281478f7cfaa37fa79819f87\"} -->\n<!-- verifier-input-repair-publication/v1 {\"schema\":\"verifier-input-repair-publication/v1\",\"input_repair_id\":\"03a1ccc0784ad0cd77f3df541bf293e1f349e825281478f7cfaa37fa79819f87\",\"source_run_id\":\"40155311407\",\"source_run_attempt\":\"1\",\"artifact_id\":12584318436,\"archive_sha256\":\"526dcef67f26160ece176b800e7a4d18a2e6d6883d7a2e4294b07570570486ab\",\"publisher_run_id\":\"40196137333\",\"publisher_run_attempt\":\"1\",\"provider_generation_performed\":false,\"verdict_authority\":false,\"acceptance_authority\":false,\"retry_authority\":false} -->\nInput-repair provenance for run 40155311407 attempt 1. Provenance only: no verdict, acceptance or retry authority.\n",
+        "source": "conversation comments"
+      }
+    ],
+    "reason": ""
+  },
+  "artifacts": {
+    "status": "unavailable",
+    "complete": false,
+    "records": [],
+    "reason": "artifact_transport: selected artifact 12584318436: Not Found; unselected_member: artifact 12584408430 outside selected material scope"
+  },
+  "referencedRunIds": [
+    40155311407
+  ],
+  "diagnostics": {
+    "counters": {
+      "comment_pages": 3,
+      "comment_records": 9,
+      "comment_chars": 16327,
+      "body_chars": 1842,
+      "artifact_chars": 0,
+      "run_pages": 0,
+      "run_records": 0,
+      "artifact_pages": 1,
+      "artifact_records": 1,
+      "archive_bytes": 0,
+      "extracted_bytes": 0,
+      "entries": 0,
+      "unsupported_payloads": 0,
+      "provenance_failures": 0
+    },
+    "failures": [
+      {
+        "channel": "artifacts",
+        "kind": "artifact_transport",
+        "detail": "selected artifact 12584318436: Not Found"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "unselected_member",
+        "detail": "artifact 12584408430 outside selected material scope"
+      }
+    ],
+    "required_comments": [
+      {
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392557346",
+        "status": "included",
+        "chars": 545,
+        "body_sha256": "09aa18e7aae4828cd77545ff3a0afb304bca72943023959281b03ff4e7604397"
+      }
+    ],
+    "references": {
+      "requested_run_ids": [
+        40155311407
+      ],
+      "explicit_run_ids": [
+        40155311407
+      ],
+      "selected_run_ids": [
+        40155311407
+      ],
+      "run_lookups": [
+        {
+          "repository": "stranske/Workflows",
+          "run_id": 40155311407,
+          "status": "authenticated",
+          "head_sha": "af7c09ac2b61ac70c3460bfc4856cf9d83e713b0",
+          "run_attempt": 1,
+          "conclusion": "success",
+          "evidence_role": "exact-source"
+        }
+      ],
+      "reference_sources_complete": true
+    },
+    "archive_inventory": [
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 40155311407,
+        "head_sha": "af7c09ac2b61ac70c3460bfc4856cf9d83e713b0",
+        "artifact_id": 12584318436,
+        "status": "unavailable",
+        "members": null,
+        "reason": "selected_metadata_lookup_failed"
+      },
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 40155311407,
+        "head_sha": "af7c09ac2b61ac70c3460bfc4856cf9d83e713b0",
+        "artifact_id": 12584408430,
+        "name": "agents-verifier-metrics",
+        "status": "unselected",
+        "members": null
+      }
+    ],
+    "manual_target_bindings": []
+  },
+  "event_history": {
+    "schema": "verifier-event-history/v1",
+    "complete": true,
+    "records": [
+      {
+        "author": "github-actions[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392599897",
+        "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"status\":\"pending\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true},\"execution_binding\":{\"schema\":\"verifier-execution-binding/v1\",\"workflow_path\":\".github/workflows/agents-verifier.yml\",\"job_name\":\"Run post-merge verifier\",\"pending_step\":\"Record verification event pending\",\"evaluator_step\":\"Run multi-provider comparison\"}} -->",
+        "source": "conversation comments"
+      },
+      {
+        "author": "github-actions[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392609730",
+        "body": "<!-- verifier-event-state/v1 {\"schema\":\"verifier-event-state/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"status\":\"incomplete\",\"failure_cause\":\"retained_provider_evaluation\",\"retry_kind\":\"recover_existing_evaluation\",\"retryable\":false,\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true}} -->",
+        "source": "conversation comments"
+      },
+      {
+        "author": "github-actions[bot]",
+        "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6398029735",
+        "body": "<!-- verifier-input-repair/v1 {\"schema\":\"verifier-input-repair/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":\"40155311407\",\"run_attempt\":\"1\",\"verification_event\":{\"schema\":\"verification-event/v1\",\"repo\":\"stranske/workflows\",\"pr\":\"4235\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"request_sha256\":\"9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3\",\"material_sha256\":\"02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da\",\"event_id\":\"5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616\"},\"assessment_identity\":{\"mode\":\"compare\",\"provider\":\"\",\"model\":\"\",\"model2\":\"\",\"canonical\":true},\"original_material\":{\"schema\":\"verification-material/v1\",\"code\":{\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"diff_sha256\":\"ec5035f0cb13abd11abd037bedf565969b4e66e5bc9970e46094506237eeb5a4\"},\"ci_hard_gate\":{\"schema\":\"verification-ci-hard-gate/v1\",\"head_sha\":\"af7c09ac2b61ac70c3460bfc4856cf9d83e713b0\",\"evaluated_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"results\":[{\"workflow_id\":\"selftest-ci.yml\",\"binding_status\":\"bound\",\"head_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":40155249524,\"run_attempt\":1,\"conclusion\":\"cancelled\"},{\"workflow_id\":\"pr-11-ci-smoke.yml\",\"binding_status\":\"bound\",\"head_sha\":\"206b761c594ad3367f345a6c9cac92216e0daa00\",\"run_id\":40155249335,\"run_attempt\":1,\"conclusion\":\"success\"}]},\"required_evidence\":[]},\"result\":{\"path\":\"comparison.json\",\"raw_sha256\":\"82ca92af1626088b9535eaed404a7abb8aa8c2a1811bc94cebbc109ae439b260\",\"bytes\":13107},\"receipt\":{\"path\":\"comparison-execution.json\",\"raw_sha256\":\"fdfd86a2191ff849640b15f0b730ae91d622d0cff731980db0fd58487be50bd2\"},\"provider_verdicts\":[{\"provider\":\"anthropic\",\"model\":\"claude-sonnet-5-5\",\"verdict\":\"PASS\"},{\"provider\":\"openai\",\"model\":\"gpt-5.6-terra\",\"verdict\":\"UNVERIFIABLE_INPUT\"}],\"input_repair_id\":\"03a1ccc0784ad0cd77f3df541bf293e1f349e825281478f7cfaa37fa79819f87\"} -->",
+        "source": "conversation comments"
+      }
+    ],
+    "reason": ""
+  }
+}

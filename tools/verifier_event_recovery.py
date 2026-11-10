@@ -706,7 +706,7 @@ def main() -> int:
     parser.add_argument("--classify-retained-artifact", type=Path)
     parser.add_argument("--receipt", type=Path)
     args = parser.parse_args()
-    
+
     # Validate mutually exclusive modes immediately after argument parsing,
     # before any recovery execution or file writes.
     mode_args = [
@@ -717,7 +717,7 @@ def main() -> int:
     active_modes = [name for name, is_active in mode_args if is_active]
     if len(active_modes) > 1:
         parser.error(f"mutually exclusive modes: {' and '.join(active_modes)}")
-    
+
     if args.revalidate_retained:
         result = revalidate_retained(directory=Path.cwd())
         if os.environ.get("GITHUB_OUTPUT"):
@@ -988,26 +988,27 @@ def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str,
         original_accepting = None
 
     missing_reasons = []
+    if http_status is None and actions_raw is None and expired is not True:
+        missing_reasons.append("artifact_status_missing")
     if original_accepting is None:
         missing_reasons.append("missing_original_event_acceptance")
     if provider_calls is None:
         missing_reasons.append("missing_or_invalid_provider_calls")
 
-    stop_reason = None
+    stop_reasons = []
     if provider_calls is not None and provider_calls != 0:
         outcome = "provider call observed; recovery stopped"
-        stop_reason = "provider_call_forbidden"
+        stop_reasons.append("provider_call_forbidden")
     if original_accepting is True:
         outcome = "original event accepting; recovery stopped"
-        stop_reason = "original_event_must_stay_nonaccepting"
+        stop_reasons.append("original_event_must_stay_nonaccepting")
 
-    if stop_reason is not None:
-        reason = stop_reason
-        if missing_reasons:
-            reason += ";" + ",".join(missing_reasons)
+    if stop_reasons:
+        reason = ";".join(stop_reasons + missing_reasons)
     elif missing_reasons:
-        outcome = INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
-        reason = missing_reasons[0]
+        if original_accepting is None or provider_calls is None:
+            outcome = INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+        reason = ";".join(missing_reasons)
 
     result = {
         "schema": "retained-artifact-outcome/v1",
@@ -1017,6 +1018,8 @@ def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str,
         "artifact_id": observation.get("artifact_id"),
         "outcome": outcome,
         "reason": reason,
+        "missing_evidence_reasons": missing_reasons,
+        "recovery_stop_reasons": stop_reasons,
         "authenticated_readback": outcome == AUTHENTICATED_RETAINED_READBACK,
         "native_admission_succeeded": False,
         "original_event_accepting": original_accepting,
@@ -1052,38 +1055,49 @@ def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str,
 
 def _observation_from_collector_receipt(row: dict[str, Any]) -> dict[str, Any]:
     """Map the existing fetchVerifierEvidence receipt onto the classifier input."""
-    artifact_id = None
-    inventory = row.get("archive_inventory") or []
-    if inventory:
-        artifact_id = inventory[0].get("artifact_id")
-    artifact_id = row.get("artifact_id", artifact_id)
-    
-    # Bind artifact identity to Not Found status: only set if a failure detail
-    # explicitly mentions this artifact_id along with "Not Found".
+    diagnostics = row.get("diagnostics") or {}
+    inventory = row.get("archive_inventory", diagnostics.get("archive_inventory")) or []
+    # An inventory can contain unrelated artifacts. Only an explicit selection or
+    # a single unambiguous inventory identity can bind a receipt.
+    identities = {(item.get("run_id"), item.get("artifact_id")) for item in inventory}
+    selected = next(iter(identities)) if len(identities) == 1 else (None, None)
+    artifact_id = row.get("artifact_id", selected[1])
+    run_id = row.get("run_id", selected[0])
     not_found = False
-    if artifact_id is not None:
-        for item in row.get("artifact_failures") or []:
-            detail = str(item.get("detail") or "")
-            if str(artifact_id) in detail and "Not Found" in detail:
-                not_found = True
-                break
-    
-    # Bind artifact identity to expired status: only set if a failure has
-    # kind "expired" and either the detail explicitly mentions this artifact_id
-    # or the detail does not mention any artifact (implied for receipt's artifact).
     expired = False
-    if artifact_id is not None:
-        for item in row.get("artifact_failures") or []:
-            if item.get("kind") == "expired":
-                detail = str(item.get("detail") or "")
-                if str(artifact_id) in detail or "artifact " not in detail:
-                    expired = True
-                    break
-    
+    for item in row.get("artifact_failures", diagnostics.get("failures")) or []:
+        if item.get("channel") not in (None, "artifacts"):
+            continue
+        detail = str(item.get("detail") or "")
+        # Native collector details start with "[selected/downstream] artifact ID".
+        # Accept an explicit structured identity too, but reject conflicting or
+        # multiple identities in the same failure instead of guessing its scope.
+        ids = re.findall(r"\bartifact(?:_id\s*=\s*|\s+)([0-9]+)\b", detail)
+        structured_id = item.get("artifact_id")
+        if structured_id is not None:
+            ids.append(str(structured_id))
+        native_detail = re.match(r"^(?:(?:selected|downstream) )?artifact [0-9]+(?:\b|:)", detail)
+        bound = (
+            artifact_id is not None
+            and bool(ids)
+            and set(ids) == {str(artifact_id)}
+            and (structured_id is not None or native_detail is not None)
+            and (item.get("run_id") is None or item["run_id"] == run_id)
+        )
+        if not bound:
+            continue
+        native_not_found = re.fullmatch(
+            r"(?:(?:selected|downstream) )?artifact [0-9]+:?[ ]+Not Found", detail
+        )
+        if native_not_found or item.get("http_status") == 404:
+            not_found = True
+        if item.get("kind") == "expired":
+            expired = True
+
     return {
         "pr": row.get("pr"),
         "comment_id": row.get("comment") or row.get("comment_id"),
-        "run_id": (inventory[0].get("run_id") if inventory else None) or row.get("run_id"),
+        "run_id": run_id,
         "artifact_id": artifact_id,
         "subject": row.get("subject"),
         "proof_status": row.get("proof_status"),
