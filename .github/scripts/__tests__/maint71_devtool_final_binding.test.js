@@ -3,8 +3,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { independentVerificationDeliveryUnchanged: unchanged } = require('../maint71_merge_sync_prs');
 const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
+const { buildMarkdownSummary } = require('../sync_pr_merge_contract');
 
 const head = '39ab28414db3944adcb74f73daee66806921edfc';
 const record = {
@@ -61,4 +63,201 @@ test('controller uses the same binding guard on REST and immediately-pre-resolut
   assert.match(source, /previous: currentRecord, current: latestRecord/);
   assert.match(source, /currentPr\.head\?\.sha !== pr\.head\.sha/);
   assert.match(source, /latest\?\.headRefOid !== pr\.head\.sha \|\| !finalVerification\.ok/);
+});
+
+test('Maint 71 summary names dev-tool candidate and obsolete PRs explicitly', () => {
+  const report = {
+    schema: 'sync-pr-merge-report/v1',
+    inputs: { repos: ['stranske/Trend_Model_Project'], auto_merge: true, dry_run: false },
+    summary: { merged: 1, stale_closed: 1, no_prs: 0 },
+    results: [
+      {
+        owner: 'stranske',
+        repo: 'Trend_Model_Project',
+        pr: 6189,
+        branch: 'deps/sync-dev-versions-91791b44e525',
+        delivery_lane: 'dev-tool-sync',
+        delivery_disposition: 'merged',
+        status: 'merged',
+      },
+      {
+        owner: 'stranske',
+        repo: 'Trend_Model_Project',
+        pr: 6186,
+        branch: 'deps/sync-dev-versions-91791b44e525',
+        status: 'stale_closed',
+      },
+    ],
+  };
+  const summary = buildMarkdownSummary(report);
+  assert.match(summary, /6189/);
+  assert.match(summary, /#6186 closed unmerged/);
+  report.results[1].dry_run = true;
+  assert.match(buildMarkdownSummary(report), /#6186 would close unmerged/);
+});
+
+test('Maint 71 accounts for closed dev-tool candidates when no generated PR is open', async (t) => {
+  const repository = 'stranske/Trend_Model_Project';
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maint71-devtool-accounting-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const env = {
+    REGISTERED_REPOS_INPUT: repository, REPOS_INPUT: repository,
+    CLEANUP_BRANCHES_INPUT: 'false', DRY_RUN_INPUT: 'true', AUTO_MERGE_INPUT: 'false',
+    ACTIVE_SYNC_HASH_INPUT: '', SYNC_HASH_INPUT: '', EXPECTED_PLAN_ID_INPUT: '',
+    EXPECTED_SOURCE_COMMIT_INPUT: '', OWNER_PR_PAT: 'test-owner-token',
+    TRUSTED_SYNC_ACTORS: 'stranske', SYNC_PR_MERGE_REPORT_JSON: path.join(dir, 'report.json'),
+  };
+  const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+  const cwd = process.cwd();
+  t.after(() => {
+    process.chdir(cwd);
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+  Object.assign(process.env, env);
+  process.chdir(dir);
+  const rows = [
+    { number: 6189, state: 'MERGED', headRefName: 'deps/sync-dev-versions-91791b44e525',
+      headRefOid: 'ad09728581df4a27d421f272f9e307efaa581e63' },
+    { number: 6186, state: 'CLOSED', headRefName: 'deps/sync-dev-versions-44505f50de37',
+      headRefOid: '73120b9a594e0348033bcdc008409bb3e75af67a' },
+  ].map(pr => ({ ...pr,
+    author: { login: 'stranske' }, repository: { nameWithOwner: repository },
+    headRepository: { nameWithOwner: repository } }));
+  const github = {
+    paginate: async () => [],
+    rest: { pulls: { list: async () => ({ data: [] }) } },
+    graphql: async (_query, variables) => {
+      assert.equal('query' in variables, false, 'Octokit rejects reserved query options');
+      assert.match(variables.searchQuery, /repo:stranske\/Trend_Model_Project/);
+      return { search: { nodes: rows, pageInfo: { hasNextPage: false } } };
+    },
+  };
+  t.mock.method(require('../github-api-with-retry'), 'createTokenAwareRetry', async () => null);
+  const logs = [];
+  t.mock.method(console, 'log', (...args) => logs.push(args.join(' ')));
+  let summary = '';
+  await require('../maint71_merge_sync_prs').run({ github,
+    context: { repo: { owner: 'stranske', repo: 'Workflows' }, payload: {} },
+    core: { notice() {}, warning() {}, setFailed(message) { assert.fail(message); },
+      summary: { addRaw(text) { summary += text; return this; }, async write() {} } },
+  });
+  assert.match(summary, /stranske\/Trend_Model_Project.*dev-tool:.*#6189 merged.*#6186 closed unmerged/);
+  assert.match(logs.join('\n'), /dev-tool:.*#6189 merged.*#6186 closed unmerged/);
+  const report = JSON.parse(fs.readFileSync(env.SYNC_PR_MERGE_REPORT_JSON, 'utf8'));
+  assert.deepEqual(report.results, [{ owner: 'stranske', repo: 'Trend_Model_Project', status: 'no_prs' }]);
+  assert.equal(report.summary.merged || 0, 0, 'historical merges must not count as this run merging');
+});
+
+test('dev-tool accounting bounds history and never presents partial reads as none open', async () => {
+  const { readDevToolCandidateAccounting } = require('../maint71_merge_sync_prs');
+  const repository = 'stranske/Trend_Model_Project';
+  const candidate = { number: 6189, state: 'MERGED', headRefName: branch, headRefOid: head,
+    author: { login: 'stranske' }, repository: { nameWithOwner: repository },
+    headRepository: { nameWithOwner: repository } };
+  for (const defect of ['truncated', 'missing-page', 'missing-identity', 'unavailable', 'open', 'untrusted', 'fork']) {
+    let calls = 0;
+    const row = await readDevToolCandidateAccounting({ owner: 'stranske', repo: 'Trend_Model_Project',
+      trustedActors: ['stranske'], withRetry: async fn => fn({ graphql: async query => {
+        calls++;
+        assert.match(query, /first:100/);
+        if (defect === 'unavailable') throw new Error('API unavailable');
+        return { search: { pageInfo: defect === 'missing-page' ? null : { hasNextPage: defect === 'truncated' },
+          nodes: [{ ...candidate,
+            ...(defect === 'missing-identity' ? { headRefOid: null } : {}),
+            ...(defect === 'open' ? { state: 'OPEN' } : {}),
+            ...(defect === 'untrusted' ? { author: { login: 'unknown' } } : {}),
+            ...(defect === 'fork' ? { headRepository: { nameWithOwner: 'other/Trend_Model_Project' } } : {}),
+          }] } };
+      } }) });
+    const summary = buildMarkdownSummary({ dev_tool_candidates: [row] });
+    assert.equal(calls, 1, 'reporting must use one bounded search');
+    if (['missing-page', 'missing-identity', 'unavailable'].includes(defect)) {
+      assert.equal(row.status, 'unknown');
+      assert.match(summary, /accounting unknown/);
+      assert.doesNotMatch(summary, /none open/);
+    } else if (defect === 'truncated') {
+      assert.match(summary, /#6189 merged; accounting truncated/);
+      assert.doesNotMatch(summary, /none open/);
+    } else if (defect === 'open') {
+      assert.match(summary, /#6189 open/);
+      assert.doesNotMatch(summary, /none open/);
+    } else {
+      assert.equal(row.status, 'complete');
+      assert.deepEqual(row.candidates, []);
+    }
+  }
+});
+
+test('dev-tool accounting follows cursors so older candidates beyond page one are still named', async () => {
+  const { readDevToolCandidateAccounting } = require('../maint71_merge_sync_prs');
+  const repository = 'stranske/Trend_Model_Project';
+  const candidate = (number, state) => ({ number, state, headRefName: branch, headRefOid: head,
+    author: { login: 'stranske' }, repository: { nameWithOwner: repository },
+    headRepository: { nameWithOwner: repository } });
+  const pages = [
+    { search: { pageInfo: { hasNextPage: true, endCursor: 'cursor-1' },
+      nodes: [candidate(6213, 'MERGED'), candidate(6189, 'MERGED')] } },
+    { search: { pageInfo: { hasNextPage: false, endCursor: 'cursor-2' },
+      nodes: [candidate(6189, 'MERGED'), candidate(6186, 'CLOSED')] } },
+  ];
+  const afters = [];
+  const row = await readDevToolCandidateAccounting({ owner: 'stranske', repo: 'Trend_Model_Project',
+    trustedActors: ['stranske'], withRetry: async fn => fn({ graphql: async (query, variables) => {
+      assert.match(query, /first:100/);
+      assert.match(query, /\$searchQuery:String!/);
+      assert.equal('query' in variables, false, 'Octokit rejects reserved query options');
+      assert.equal(variables.searchQuery, `repo:${repository} is:pr head:deps/sync-dev-versions- sort:updated-desc`);
+      afters.push(variables.after);
+      return pages[afters.length - 1];
+    } }) });
+  assert.deepEqual(afters, [null, 'cursor-1']);
+  assert.equal(row.status, 'complete');
+  assert.deepEqual(row.candidates.map(c => c.pr), [6213, 6189, 6186],
+    'page-two candidates are collected and duplicates are not repeated');
+  const summary = buildMarkdownSummary({ dev_tool_candidates: [row] });
+  assert.match(summary, /stranske\/Trend_Model_Project.*dev-tool:.*#6189 merged.*#6186 closed unmerged/);
+});
+
+test('dev-tool accounting stops at its page bound and stays truncated, never none open', async () => {
+  const { readDevToolCandidateAccounting } = require('../maint71_merge_sync_prs');
+  const repository = 'stranske/Trend_Model_Project';
+  let calls = 0;
+  const row = await readDevToolCandidateAccounting({ owner: 'stranske', repo: 'Trend_Model_Project',
+    trustedActors: ['stranske'], withRetry: async fn => fn({ graphql: async () => {
+      calls++;
+      return { search: { pageInfo: { hasNextPage: true, endCursor: `cursor-${calls}` },
+        nodes: [{ number: 6189, state: 'MERGED', headRefName: branch, headRefOid: head,
+          author: { login: 'stranske' }, repository: { nameWithOwner: repository },
+          headRepository: { nameWithOwner: repository } }] } };
+    } }) });
+  assert.equal(calls, 3, 'reporting must keep a bounded page count');
+  assert.equal(row.status, 'truncated');
+  const summary = buildMarkdownSummary({ dev_tool_candidates: [row] });
+  assert.match(summary, /#6189 merged; accounting truncated/);
+  assert.doesNotMatch(summary, /none open/);
+});
+
+test('dev-tool accounting preserves trusted observations alongside incomplete identities', async () => {
+  const { readDevToolCandidateAccounting } = require('../maint71_merge_sync_prs');
+  const repository = 'stranske/Trend_Model_Project';
+  const candidate = (number, state) => ({ number, state, headRefName: branch, headRefOid: head,
+    author: { login: 'stranske' }, repository: { nameWithOwner: repository },
+    headRepository: { nameWithOwner: repository } });
+  for (const missing of ['author', 'headRepository', 'headRefOid']) {
+    const row = await readDevToolCandidateAccounting({ owner: 'stranske', repo: 'Trend_Model_Project',
+      trustedActors: ['stranske'], withRetry: async fn => fn({ graphql: async (_query, variables) => {
+        assert.equal('query' in variables, false, 'Octokit rejects reserved query options');
+        return { search: { pageInfo: { hasNextPage: false }, nodes: [
+          candidate(6189, 'MERGED'), { ...candidate(6200, 'OPEN'), [missing]: null },
+          candidate(6186, 'CLOSED'),
+        ] } };
+      } }) });
+    assert.equal(row.status, 'unknown');
+    assert.deepEqual(row.candidates.map(c => c.pr), [6189, 6186]);
+    const summary = buildMarkdownSummary({ dev_tool_candidates: [row] });
+    assert.match(summary, /stranske\/Trend_Model_Project.*#6189 merged.*#6186 closed unmerged.*accounting unknown/);
+    assert.doesNotMatch(summary, /none open/);
+  }
 });

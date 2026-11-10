@@ -134,6 +134,16 @@ behavior.
 
 ## Delivery scope and production checks
 
+Maint 71 unscoped and `dev-tool` reports account for recent trusted same-repository
+`deps/sync-dev-versions-*` candidates, including merged and closed-unmerged PRs.
+A read-only GraphQL search per target follows cursors for at most three pages
+(100 candidates per page, 300 total), de-duplicating repeated PRs. The JSON
+report retains these observations under `dev_tool_candidates`; repository-qualified
+disposition lines appear in both the run log and job summary. Unavailable or
+truncated history is explicitly marked and cannot establish `none open`.
+These historical observations do not enter merge selection, branch cleanup,
+handoffs, or counts of actions performed by the current run.
+
 Sync and dev-tool/dependency maintenance distribute a fixed source revision and
 payload to a finite consumer roster. Main advancing or a new incidental finding
 does not change that shipment. Complete it with actual merged/no-change results,

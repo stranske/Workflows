@@ -2085,6 +2085,43 @@ function buildMarkdownSummary(report) {
     const restage = result.gate_request?.forced_restage;
     if (restage) lines.push('', `seal: ${result.owner ? `${result.owner}/` : ''}${result.repo}#${result.pr_number || result.pr} rerun refused; forced restage ${restage.state} run=${restage.run_id || 'unknown'}${restage.reason ? ` (${restage.reason})` : ''}`);
   }
+  
+  // Historical observations are separate from actions performed by this run.
+  for (const row of report.dev_tool_candidates || []) {
+    const dispositions = row.candidates.map(candidate => `#${candidate.pr} ${candidate.status}`).join(', ');
+    const noneOpen = row.status === 'complete' && !row.candidates.some(candidate => candidate.status === 'open');
+    lines.push('', `${row.repository} dev-tool: ${noneOpen ? 'none open; ' : ''}` +
+      `${dispositions || (row.status === 'complete' ? 'no candidates' : 'inventory unavailable')}` +
+      `${row.status === 'complete' ? '' : `; accounting ${row.status}`}`);
+  }
+
+  // Retain dispositions for candidates acted on during this run.
+  const devToolByRepo = new Map();
+  for (const result of report.results || []) {
+    if ((result.delivery_lane || generatedDeliveryLane(result.branch)) === 'dev-tool-sync' && result.pr) {
+      const repoKey = `${result.owner}/${result.repo}`;
+      if (!devToolByRepo.has(repoKey)) {
+        devToolByRepo.set(repoKey, []);
+      }
+      devToolByRepo.get(repoKey).push({
+        pr: result.pr,
+        status: result.status,
+        dry_run: result.dry_run,
+      });
+    }
+  }
+  for (const [repo, candidates] of devToolByRepo) {
+    if (candidates.length > 0) {
+      const dispositions = candidates.map(c => {
+        const statusLabel = c.status === 'merged' ? 'merged' :
+                          c.status === 'stale_closed' ? (c.dry_run ? 'would close unmerged' : 'closed unmerged') :
+                          c.status;
+        return `#${c.pr} ${statusLabel}`;
+      }).join(', ');
+      lines.push('', `${repo} dev-tool: ${dispositions}`);
+    }
+  }
+  
   lines.push('', 'Artifact: `sync-pr-merge-report`');
   return `${lines.join('\n')}\n`;
 }
