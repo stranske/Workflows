@@ -987,3 +987,53 @@ created on the read-only filesystem; no commit was created. Automatic approval
 review rejected both the requested `needs-human` label and blocker comment with
 `MCP tool call requires approval, but approval policy is never`. The scoped test
 and report changes remain in the working tree for the controller to commit.
+
+## Exact archive/member authentication regression — managed runner
+
+On 2026-11-10, base `82613bbb45d1e9a449322623b96854a290439d2d`, six
+new exact-capture cases exercise the existing provider-free recovery classifier's
+`inspect_digest_bound_archive`. The pinned original ZIP authenticates all nine
+members, including empty stderr. A conflicting claim for the event, context,
+diff, comparison result or empty stderr fails member authentication despite the
+matching archive digest. Every case preserves the original ZIP, all six required
+capture gaps, `UNVERIFIABLE_INPUT` and zero reviewed files in both provider slots.
+This archive authentication supplies neither native recovery origin nor a
+successful admission; no production collector or provider configuration changed.
+
+Validation with approved Python 3.14.10:
+
+- Exact-capture tests: **15 passed**, 25 deselected, 2.51 seconds, exit 0
+  (`python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`).
+- Existing artifact-classifier suite: **51 passed**, 3.56 seconds, exit 0
+  (`python3 -m pytest tests/tools/test_retained_artifact_expiry.py -m 'not slow' --no-cov -q`).
+- Targeted `tests/scripts/test_ci_history.py --cov=scripts.ci_history
+  --cov-report=term-missing -m 'not slow' -q`: **31 passed**, 14.22 seconds,
+  exit 0; `scripts/ci_history.py` **Cover = 73.55%**. Retained provider coverage
+  remains **0/2 files per slot** for `scripts/ci_history.py` and
+  `tests/scripts/test_ci_history.py`; both slots have `used_llm=false`.
+- The issue-named combined Node command with the approved Python directory first
+  in `PATH`: exit **1**, **6.272 seconds**. Direct context-suite execution reports
+  **193 passed / 17 failed**, including `spawnSync git EPERM`, `spawnSync zip EPERM`
+  and `spawnSync python3 EPERM`. Direct cross-repository execution: **122 passed**.
+- Scoped Black formatting, Ruff and `git diff --check` pass.
+
+Recent-commit reconciliation confirms no successful-admission task is complete.
+The automated summary's checked no-required-gaps acceptance criterion contradicts
+the retained evidence and should be unchecked. Automatic approval review rejected
+that PR-body correction: `MCP tool call requires approval, but approval policy is
+never`. PR #4631 readback remains open, `draft=false`, at the recorded base.
+The original event remains
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+
+Staging the scoped test/report changes exits **128** because `.git/index.lock`
+cannot be created on the read-only Git metadata filesystem; no commit was
+created. Automatic approval review also rejected the requested `needs-human`
+label and blocker comment with the same approval-policy reason. The scoped
+changes and reconciliation notes remain local for the controller.
+
+After sequential checks using the repository's Black configuration populated
+its verified cache, the required full formatting gate passed:
+`BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+— exit 0, **999 files unchanged**. The initial uncached CLI stalled and was
+interrupted; the final command uses the repository's configured exclusions and
+Python target. No frozen evidence or unrelated source was reformatted.

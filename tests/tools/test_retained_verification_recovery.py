@@ -36,6 +36,64 @@ def sha(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+@pytest.mark.parametrize(
+    "mismatched_member",
+    [
+        None,
+        "verification-event-manifest.json",
+        "verifier-context.md",
+        "verifier-pr-diff.patch",
+        "comparison.json",
+        "comparison-stderr.log",
+    ],
+)
+def test_exact_4509_archive_authentication_does_not_establish_admission(mismatched_member):
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    identity = json.loads((fixtures / "verifier-4509-capture-identity.json").read_bytes())
+    capture = fixtures / "verifier-4509-capture.zip"
+    original = capture.read_bytes()
+    digest = identity["capture"]["digest"].removeprefix("sha256:")
+    assert sha(original) == digest
+    assert len(original) == identity["capture"]["size_in_bytes"]
+    with zipfile.ZipFile(io.BytesIO(original)) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    claims = [{"path": name, "raw_sha256": sha(raw)} for name, raw in files.items()]
+    assert len(claims) == 9
+    assert files["comparison-stderr.log"] == b""
+    if mismatched_member is not None:
+        claim = next(row for row in claims if row["path"] == mismatched_member)
+        claim["raw_sha256"] = "0" * 64
+
+    # Exercise the recovery classifier's existing digest/member validator with
+    # the pinned original ZIP, including its empty diagnostic member. A valid
+    # archive digest must not suppress a conflicting member claim.
+    result = verifier_event_recovery.inspect_digest_bound_archive(original, digest, claims)
+    assert result["available"] is True
+    assert result["sha256"] == digest
+    assert result["authenticated"] is (mismatched_member is None)
+    assert result["reason"] == (
+        "digest_match" if mismatched_member is None else "member_digest_mismatch"
+    )
+    assert result["members"] == [
+        {"path": name, "match": name != mismatched_member} for name in files
+    ]
+    # Archive authentication and native admission are separate. Neither changes
+    # the exact capture's required gaps or supplies a missing provider review.
+    obligations = build_capture_obligation_manifest(
+        files["verifier-context.md"].decode(), full_diff_bytes=files["verifier-pr-diff.patch"]
+    )
+    assert obligations["sufficient"] is False
+    assert len(obligations["gaps"]) == 6
+    rows, verdict, available = validated_payload(
+        json.loads(files["comparison.json"]), mode="compare"
+    )
+    assert verdict == "UNVERIFIABLE_INPUT"
+    assert available is False
+    assert len(rows) == 2
+    assert all(row["used_llm"] is False and row["files_reviewed"] is None for row in rows)
+    assert capture.read_bytes() == original
+
+
 @pytest.mark.parametrize("profile", ["standard", "expanded"])
 def test_exact_4509_without_provider_output_cannot_recover_a_review(
     tmp_path, monkeypatch, capsys, profile
