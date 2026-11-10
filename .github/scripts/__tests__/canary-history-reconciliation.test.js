@@ -8,6 +8,7 @@ const retained = require('./fixtures/legacy-canary-baseline.json');
 // three merged canary heads/default trees, and three newer open deliveries.
 function fixture({ openOwners = false } = {}) {
   const data = structuredClone(retained), reads = [];
+  const baselinePayload = structuredClone(data.payload);
   if (!openOwners) for (const row of data.baselines) { row.open = []; row.ref = null; }
   const runs = [data.producer, ...data.unknowns];
   data.producer.delivery_digest = data.payload.digest;
@@ -47,10 +48,11 @@ function fixture({ openOwners = false } = {}) {
       [method, async args => { reads.push({ group, method, args }); return { data: handler(args) }; }]))])) };
   const args = { withRetry: fn => fn(client), context: { repo: { owner: 'stranske', repo: 'Workflows' },
     payload: { repository: { default_branch: 'main' } } }, runs, candidates: data.scope.canaries,
-  refreshPlan: request, payload: data.payload, verifyPlan: native.verifiedCanaryRefreshPlan };
+  refreshPlan: request, payload: data.payload, verifyPlan: native.verifiedCanaryRefreshPlan,
+  readBaselinePayload: async () => baselinePayload };
   const decide = extra => native.canaryRefreshDecision({ runs, sha: request.source_commit,
     candidates: data.scope.canaries, refreshPlan: request, deliveryDigest: data.payload.digest, ...extra });
-  return { data, current, reads, runs, request, args, decide, client,
+  return { data, current, reads, runs, request, args, decide, client, baselinePayload,
     reconcile: () => native.reconcileLegacyCanaryHistory(args) };
 }
 
@@ -127,6 +129,11 @@ for (const [name, change] of [
   }],
   ['baseline only preserved existing selected files', f => {
     for (const entry of f.data.producer.refresh_plan.plan.entries) entry.sync_mode = 'create_only';
+  }],
+  ['directory child absent from producer source', f => {
+    const row = f.data.baselines[0], file = 'scripts/runner_lib/later_child.py';
+    f.data.payload.files[row.repository][file] = {};
+    for (const tree of row.trees) tree.tree.push({ path: file, type: 'blob', mode: '100644', sha: 'e'.repeat(40) });
   }],
   ['changed selected file', f => { differentDefaultTree(f).tree[0].sha = 'e'.repeat(40); }],
   ['retired selected file', f => { differentDefaultTree(f).tree.shift(); }],

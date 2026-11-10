@@ -34,7 +34,8 @@ function currentBaselineOwnerConflict(runs, request, digest) {
 }
 
 async function reconcileLegacyCanaryHistory({ withRetry, context, runs, candidates,
-  refreshPlan, payload, verifyPlan, ignoreRunId, ignoreRunAttempt }) {
+  refreshPlan, payload, verifyPlan, ignoreRunId, ignoreRunAttempt,
+  readBaselinePayload = (...args) => require('./consumer_delivery_digest').readDeliveryPayload(...args) }) {
   const unknown = runs.filter(run => run.refresh_unknown);
   for (const run of unknown) coverage.delete(run);
   const result = { schema: 'workflows.canary-history-reconciliation/v1',
@@ -70,6 +71,7 @@ async function reconcileLegacyCanaryHistory({ withRetry, context, runs, candidat
     }
     const latestUnknown = Math.max(...current.map(run => Date.parse(run.updated_at)));
     const observations = [];
+    const producerPayloads = new Map();
     let baselinePlan;
     for (const repositoryName of candidates) {
       const [owner, repo] = repositoryName.split('/');
@@ -154,8 +156,14 @@ async function reconcileLegacyCanaryHistory({ withRetry, context, runs, candidat
       const producerPlan = producer.refresh_plan?.plan;
       need(producerPlan?.plan_id === binding.plan_id && Array.isArray(producerPlan.entries),
         'baseline_compiled_projection_missing');
+      if (!producerPayloads.has(tuple)) producerPayloads.set(tuple,
+        await readBaselinePayload(binding.source_commit, candidates, producer.refresh_plan));
+      const delivered = producerPayloads.get(tuple)?.files?.[repositoryName];
       const blobs = {};
       for (const file of paths) {
+        need(delivered && Object.hasOwn(delivered, file) && delivered[file]
+          && !delivered[file].remove && !delivered[file].create_only,
+        'baseline_source_did_not_deliver_selected_file');
         need(producerPlan.entries.some(entry => entry.delivery === 'copy'
           && (!entry.include_repos?.length || entry.include_repos.includes(repositoryName))
           && !entry.skip_repos?.includes(repositoryName)
