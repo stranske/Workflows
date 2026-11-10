@@ -387,6 +387,34 @@ existing-run log read and one focused test run. This round changes documentation
 only; T1 and A2 remain unchecked. Repeating this seat cannot establish production
 acceptance while its dispatch is refused and the source repair is undeployed.
 
+## Round 10 production report check (2026-11-10T18:17Z)
+
+Outcome: **A2 unsatisfied; T1 pending**. The acceptance command remains
+`gh run view <new-run-id> --repo stranske/Workflows --log`, with explicit
+dispositions for Trend_Model_Project#6189 and #6186. Stop rule: one dispatch
+and at most 15 minutes of observation, stopping on dispatch refusal.
+
+The exact requested command,
+`gh workflow run maint-71-merge-sync-prs.yml --repo stranske/Workflows --ref main`,
+exited 77. The Orchestrator guard reserves shared production starts for schedules
+and sync-core and explicitly directs this seat to leave the required run undone.
+No new run was created. The stop rule tripped at production dispatch.
+Blocking/drainable pair: production dispatch is blocked; existing-run readback,
+focused validation and this evidence update remain drainable.
+
+The latest listed run is still
+[42789507724](https://github.com/stranske/Workflows/actions/runs/42789507724),
+successful at `9dcc645ba2b51f6db655486cec7e06e1f7d5e5b4`.
+Its freshly read full log has five literal `6189|6186` timestamp matches and
+zero matches for `#6189|#6186|/pull/6189|/pull/6186|Trend_Model_Project`.
+These numeric matches do not establish candidate dispositions or satisfy A2.
+The exact A1 two-file Node command passed: **243 passed, zero failed**, 628.59 ms.
+
+Cost: one refused dispatch, zero new production runs, one run-list read, one
+existing-run log read and one focused test run. This round changes documentation
+only. T1 and A2 remain unchecked; production continuation belongs to the
+scheduler/sync-core owner after the report repair reaches main.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
