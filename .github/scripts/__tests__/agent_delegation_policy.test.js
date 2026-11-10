@@ -1048,3 +1048,88 @@ test('named exploration acceptance test fails when exploration is disabled and p
   fs.writeFileSync(policyPath, original);
   runAcceptance(0);
 });
+
+test('follows comparative_rank only when route_enabled is true', () => {
+  const routeWeightsWithComparative = {
+    schema: 'orchestrator.route-weights/v1',
+    generated_at: now,
+    comparative: { route_enabled: true },
+    task_types: {
+      implement: {
+        evidence_ok: true,
+        ranking: [
+          { agent: 'cursor', posterior: 0.76, comparative_rank: 2 },
+          { agent: 'claude', posterior: 0.67, comparative_rank: 1 },
+        ],
+      },
+    },
+  };
+
+  const result = selectAgentFromRouteWeights({
+    routeWeights: routeWeightsWithComparative,
+    taskType: 'implement',
+    currentAgent: 'codex',
+    availableAgents: ['cursor', 'claude', 'codex'],
+    agents: mockRegistry.agents,
+  });
+
+  assert.equal(result.agent, 'claude');
+  assert.equal(result.delegationSource, 'route_weights_comparative');
+});
+
+test('an export without route_enabled keeps posterior order', () => {
+  const routeWeightsWithoutFlag = {
+    schema: 'orchestrator.route-weights/v1',
+    generated_at: now,
+    comparative: { route_enabled: false },
+    task_types: {
+      implement: {
+        evidence_ok: true,
+        ranking: [
+          { agent: 'cursor', posterior: 0.76, comparative_rank: 2 },
+          { agent: 'claude', posterior: 0.67, comparative_rank: 1 },
+        ],
+      },
+    },
+  };
+
+  const result = selectAgentFromRouteWeights({
+    routeWeights: routeWeightsWithoutFlag,
+    taskType: 'implement',
+    currentAgent: 'codex',
+    availableAgents: ['cursor', 'claude', 'codex'],
+    agents: mockRegistry.agents,
+  });
+
+  assert.equal(result.agent, 'cursor');
+  assert.equal(result.delegationSource, 'route_weights');
+});
+
+test('null comparative_rank rows sort last', () => {
+  const routeWeightsWithNulls = {
+    schema: 'orchestrator.route-weights/v1',
+    generated_at: now,
+    comparative: { route_enabled: true },
+    task_types: {
+      implement: {
+        evidence_ok: true,
+        ranking: [
+          { agent: 'cursor', posterior: 0.76, comparative_rank: 2 },
+          { agent: 'claude', posterior: 0.67, comparative_rank: null },
+          { agent: 'codex', posterior: 0.55, comparative_rank: 1 },
+        ],
+      },
+    },
+  };
+
+  const result = selectAgentFromRouteWeights({
+    routeWeights: routeWeightsWithNulls,
+    taskType: 'implement',
+    currentAgent: 'gemini',
+    availableAgents: ['cursor', 'claude', 'codex', 'gemini'],
+    agents: mockRegistry.agents,
+  });
+
+  assert.equal(result.agent, 'codex');
+  assert.equal(result.delegationSource, 'route_weights_comparative');
+});
