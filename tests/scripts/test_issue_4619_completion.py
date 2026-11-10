@@ -425,3 +425,87 @@ def test_evaluate_native_daily_observations_validates_seven_day_series() -> None
     bad_id["stranske/Workflows"]["daily_observations"]["2026-11-10"]["run_id"] = 0
     with pytest.raises(ValueError, match="invalid native observation identity"):
         evaluate_native_daily_observations(bad_id, now)
+
+
+def test_reconcile_completion_and_main_with_published_budget(tmp_path: Path) -> None:
+    report = _qualifying_report()
+    report["p50_series_minutes"] = {row["date"]: 9.0 for row in report["observations"]}
+    published_ok = {
+        "stranske/Workflows": {
+            "p50_series": {row["date"]: 9.0 for row in report["observations"]},
+            "daily_observations": {
+                "2026-01-01": "not-a-dict",
+                report["observations"][0]["date"]: {
+                    "run_id": 6000,
+                    "p50_minutes": None,
+                },
+            },
+        }
+    }
+    # Add run_id and p50_minutes to first observation so native check matches
+    report["observations"][0]["run_id"] = 6000
+    report["observations"][0]["p50_minutes"] = None
+    decision = reconcile_completion(
+        _issue_for(report),
+        _load(GATE),
+        report,
+        published_budget=published_ok,
+    )
+    assert decision["published_budget_aligned"] is True
+    assert decision["completion_reconciled"] is True
+
+    published_bad = {
+        "stranske/Workflows": {
+            "p50_series": {report["observations"][0]["date"]: 12.0},
+        }
+    }
+    decision_bad = reconcile_completion(
+        _issue_for(report),
+        _load(GATE),
+        report,
+        published_budget=published_bad,
+    )
+    assert decision_bad["published_budget_aligned"] is False
+    assert decision_bad["completion_reconciled"] is False
+    assert decision_bad["sustained_performance_criterion"] == "incomplete"
+
+    pub_file = tmp_path / "published.json"
+    pub_file.write_text(json.dumps(published_ok), encoding="utf-8")
+    out_file = tmp_path / "out.json"
+    assert (
+        main(
+            [
+                "--issue-view",
+                str(ISSUE_VIEW),
+                "--gate-evidence",
+                str(GATE),
+                "--budget",
+                str(BUDGET),
+                "--published-budget",
+                str(pub_file),
+                "--output",
+                str(out_file),
+            ]
+        )
+        == 0
+    )
+
+    bad_pub_file = tmp_path / "bad_pub.json"
+    bad_pub_file.write_text("[]\n", encoding="utf-8")
+    assert (
+        main(
+            [
+                "--issue-view",
+                str(ISSUE_VIEW),
+                "--gate-evidence",
+                str(GATE),
+                "--budget",
+                str(BUDGET),
+                "--published-budget",
+                str(bad_pub_file),
+                "--output",
+                str(out_file),
+            ]
+        )
+        == 1
+    )

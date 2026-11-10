@@ -346,6 +346,7 @@ def reconcile_completion(
     *,
     checked_on: str = "2026-11-10",
     expected_run_id: int = DEFAULT_POST_CHANGE_RUN_ID,
+    published_budget: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Decide whether #4619 completion is supported. This function does not edit GitHub."""
     state = issue.get("state")
@@ -357,8 +358,13 @@ def reconcile_completion(
     series_ok, series_failures = sustained_series_supported(report)
     matched_dates, match_failures = matching_observation_dates(report, issue)
     match_ok = not match_failures
-    both = gate_ok and series_ok and match_ok
-    failures = [*gate_failures, *series_failures, *match_failures]
+    pub_ok, pub_failures = (
+        verify_published_ci_budget_alignment(published_budget, report)
+        if published_budget is not None
+        else (True, [])
+    )
+    both = gate_ok and series_ok and match_ok and pub_ok
+    failures = [*gate_failures, *series_failures, *match_failures, *pub_failures]
     if sustained_checkbox_checked(issue) and not both:
         failures.append("issue body checks the Health 85 gate without qualifying evidence")
     decision = {
@@ -377,10 +383,14 @@ def reconcile_completion(
         "completion_reconciled": both,
         "action": "mark_complete" if both else "leave_incomplete",
         "issue_mutation": "none",
-        "sustained_performance_criterion": "complete" if series_ok and match_ok else "incomplete",
+        "sustained_performance_criterion": (
+            "complete" if series_ok and match_ok and pub_ok else "incomplete"
+        ),
         "matched_dates": matched_dates,
         "failures": failures,
     }
+    if published_budget is not None:
+        decision["published_budget_aligned"] = pub_ok
     decision["comment"] = reconciliation_comment(decision)
     return decision
 
@@ -402,13 +412,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--issue-view", type=Path, required=True)
     parser.add_argument("--gate-evidence", type=Path, required=True)
     parser.add_argument("--budget", type=Path, required=True)
+    parser.add_argument("--published-budget", type=Path, default=None)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--checked-on", default="2026-11-10")
     args = parser.parse_args(argv)
     issue = _load_object(args.issue_view)
     evidence = _load_object(args.gate_evidence)
     report = _load_object(args.budget)
-    if issue is None or evidence is None or report is None:
+    published = _load_object(args.published_budget) if args.published_budget is not None else None
+    if (
+        issue is None
+        or evidence is None
+        or report is None
+        or (args.published_budget is not None and published is None)
+    ):
         return 1
     try:
         decision = reconcile_completion(
@@ -416,6 +433,7 @@ def main(argv: list[str] | None = None) -> int:
             evidence,
             report,
             checked_on=args.checked_on,
+            published_budget=published,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
