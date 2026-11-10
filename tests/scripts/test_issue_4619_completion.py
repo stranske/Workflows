@@ -10,14 +10,18 @@ from pathlib import Path
 from scripts.health85_budget_observations import HEALTH85_PATH, build_report, report_json
 from scripts.issue_4619_completion import (
     DEFAULT_POST_CHANGE_RUN_ID,
+    DEFAULT_PRE_CHANGE_RUN_ID,
+    compare_before_after_gate_runs,
     main,
     reconcile_completion,
+    verify_published_ci_budget_alignment,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs" / "evidence" / "issue-4619"
 OBSERVATIONS = EVIDENCE / "health85-daily-observations.json"
 ISSUE_VIEW = EVIDENCE / "issue-view-4619.json"
+PRE_GATE = EVIDENCE / "gate-run-41771220527.json"
 GATE = EVIDENCE / "gate-run-42820421600.json"
 BUDGET = EVIDENCE / "ci-budget-report.json"
 DECISION = EVIDENCE / "completion-reconciliation.json"
@@ -178,3 +182,170 @@ def test_main_writes_the_retained_4619_decision(tmp_path: Path) -> None:
     )
     assert code == 0
     assert json.loads(output.read_text(encoding="utf-8")) == _load(DECISION)
+
+
+def test_before_after_gate_runs_demonstrate_measured_reduction() -> None:
+    before = _load(PRE_GATE)
+    after = _load(GATE)
+    comparison = compare_before_after_gate_runs(before, after)
+    assert comparison["measured_reduction"] is True
+    assert comparison["failures"] == []
+    assert comparison["before_run_id"] == DEFAULT_PRE_CHANGE_RUN_ID
+    assert comparison["after_run_id"] == DEFAULT_POST_CHANGE_RUN_ID
+    assert comparison["before_job_seconds"] == 2304.0
+    assert comparison["after_job_seconds"] == 349.0
+    assert comparison["job_reduction_seconds"] == 1955.0
+    assert comparison["before_pytest_seconds"] == 2263.0
+    assert comparison["after_pytest_seconds"] == 298.0
+    assert comparison["pytest_reduction_seconds"] == 1965.0
+
+
+def test_compare_before_after_gate_runs_detects_missing_or_regressed_timings() -> None:
+    before = _load(PRE_GATE)
+    after = deepcopy(_load(GATE))
+    after["run_id"] = 999
+    after["gh_run_view"]["jobs"] = []
+    comparison = compare_before_after_gate_runs(before, after)
+    assert comparison["measured_reduction"] is False
+    assert any("after run_id is 999" in f for f in comparison["failures"])
+    assert any("after run missing embedded job" in f for f in comparison["failures"])
+
+
+def test_verify_published_ci_budget_alignment_matches_retained_series() -> None:
+    retained = _load(BUDGET)
+    published = {
+        "stranske/Workflows": {
+            "p50": 11.241666666666667,
+            "p50_series": {
+                "2026-11-04": 11.85,
+                "2026-11-05": None,
+                "2026-11-06": None,
+                "2026-11-07": None,
+                "2026-11-10": 11.241666666666667,
+            },
+        }
+    }
+    ok, failures = verify_published_ci_budget_alignment(published, retained)
+    assert ok is True
+    assert failures == []
+
+    mismatched = deepcopy(published)
+    mismatched["stranske/Workflows"]["p50_series"]["2026-11-10"] = 9.5
+    ok_bad, failures_bad = verify_published_ci_budget_alignment(mismatched, retained)
+    assert ok_bad is False
+    assert any("date 2026-11-10 p50 mismatch" in f for f in failures_bad)
+
+    missing_day = deepcopy(published)
+    missing_day["stranske/Workflows"]["p50_series"]["2026-11-11"] = 9.0
+    ok_miss, failures_miss = verify_published_ci_budget_alignment(missing_day, retained)
+    assert ok_miss is False
+    assert any("published date 2026-11-11 missing" in f for f in failures_miss)
+
+    assert verify_published_ci_budget_alignment({}, retained)[0] is False
+    assert verify_published_ci_budget_alignment({"stranske/Workflows": {}}, retained)[0] is False
+    assert verify_published_ci_budget_alignment(published, {})[0] is False
+
+
+def test_compare_before_after_edge_cases() -> None:
+    before = deepcopy(_load(PRE_GATE))
+    after = deepcopy(_load(GATE))
+    before["run_id"] = 111
+    before["gh_run_view"] = "invalid"
+    res = compare_before_after_gate_runs(before, after)
+    assert res["measured_reduction"] is False
+    assert any("before run_id is 111" in f for f in res["failures"])
+    assert any("before run missing embedded job" in f for f in res["failures"])
+
+    before_non_list = deepcopy(_load(PRE_GATE))
+    before_non_list["gh_run_view"]["jobs"] = "invalid"
+    assert compare_before_after_gate_runs(before_non_list, after)["measured_reduction"] is False
+
+    # Test non-decreasing job and pytest step durations
+    slow_after = deepcopy(_load(GATE))
+    for job in slow_after["gh_run_view"]["jobs"]:
+        if job["name"] == "python ci / python 3.13":
+            job["startedAt"] = "2026-11-10T13:00:00Z"
+            job["completedAt"] = "2026-11-10T14:00:00Z"
+            for step in job["steps"]:
+                if step["name"].startswith("Pytest (unit tests"):
+                    step["startedAt"] = "2026-11-10T13:00:00Z"
+                    step["completedAt"] = "2026-11-10T14:00:00Z"
+    res_slow = compare_before_after_gate_runs(_load(PRE_GATE), slow_after)
+    assert res_slow["measured_reduction"] is False
+    assert any("job duration did not decrease" in f for f in res_slow["failures"])
+    assert any("Pytest step duration did not decrease" in f for f in res_slow["failures"])
+
+
+def test_gate_run_supported_and_cli_error_branches(tmp_path: Path) -> None:
+    from scripts.issue_4619_completion import _flag, gate_run_supported
+
+    assert _flag("other") == "other"
+    ok, failures = gate_run_supported(
+        {
+            "run_id": 123,
+            "passed": False,
+            "failures": ["custom failure"],
+            "jobs": [
+                {
+                    "name": "python ci / python 3.13",
+                    "seconds": True,
+                    "status": "in_progress",
+                    "conclusion": "failure",
+                    "url": "invalid",
+                }
+            ],
+        }
+    )
+    assert ok is False
+    assert any("run_id is 123" in f for f in failures)
+    assert any("missing job python ci / python 3.14" in f for f in failures)
+    assert any("has no duration" in f for f in failures)
+    assert any("is not completed/success" in f for f in failures)
+    assert any("has no job URL" in f for f in failures)
+    assert "custom failure" in failures
+
+    ok2, failures2 = gate_run_supported(
+        {
+            "run_id": DEFAULT_POST_CHANGE_RUN_ID,
+            "passed": False,
+            "jobs": deepcopy(_load(GATE)["jobs"]),
+        }
+    )
+    assert ok2 is False
+    assert "gate evidence passed flag is false" in failures2
+
+    bad_json = tmp_path / "bad.json"
+    bad_json.write_text("[]\n", encoding="utf-8")
+    out = tmp_path / "out.json"
+    assert (
+        main(
+            [
+                "--issue-view",
+                str(bad_json),
+                "--gate-evidence",
+                str(GATE),
+                "--budget",
+                str(BUDGET),
+                "--output",
+                str(out),
+            ]
+        )
+        == 1
+    )
+    empty_state = tmp_path / "empty_state.json"
+    empty_state.write_text('{"state": ""}\n', encoding="utf-8")
+    assert (
+        main(
+            [
+                "--issue-view",
+                str(empty_state),
+                "--gate-evidence",
+                str(GATE),
+                "--budget",
+                str(BUDGET),
+                "--output",
+                str(out),
+            ]
+        )
+        == 1
+    )

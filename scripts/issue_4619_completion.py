@@ -19,6 +19,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from scripts.check_gate_python_job_timings import (
+    job_duration_seconds,
+    pytest_step_duration_seconds,
+)
 from scripts.gate_run_view_evidence import DEFAULT_MAX_SECONDS, NAMED_JOBS
 from scripts.issue_4284_completion import (
     followup_issue,
@@ -28,6 +32,7 @@ from scripts.issue_4284_completion import (
 )
 
 ISSUE_NUMBER = 4619
+DEFAULT_PRE_CHANGE_RUN_ID = 41771220527
 DEFAULT_POST_CHANGE_RUN_ID = 42820421600
 SCHEMA = "issue-4619-completion-reconciliation/v1"
 ISSUE_VIEW_COMMAND = "gh issue view 4619 --repo stranske/Workflows --json state,body,comments"
@@ -35,6 +40,122 @@ _CHECKED_HEALTH85_RE = re.compile(
     r"(?m)^- \[x\] (?:Live-verification gate: )?Health 85 reports",
     re.IGNORECASE,
 )
+
+
+def _find_embedded_job(evidence: Mapping[str, Any], job_name: str) -> dict[str, Any] | None:
+    view = evidence.get("gh_run_view")
+    if not isinstance(view, Mapping):
+        return None
+    jobs = view.get("jobs")
+    if not isinstance(jobs, list):
+        return None
+    for job in jobs:
+        if isinstance(job, dict) and job.get("name") == job_name:
+            return job
+    return None
+
+
+def compare_before_after_gate_runs(
+    before_evidence: Mapping[str, Any],
+    after_evidence: Mapping[str, Any],
+    *,
+    job_name: str = "python ci / python 3.13",
+    expected_before_run_id: int = DEFAULT_PRE_CHANGE_RUN_ID,
+    expected_after_run_id: int = DEFAULT_POST_CHANGE_RUN_ID,
+) -> dict[str, Any]:
+    """Compare before/after Gate run job and Pytest step timings for the target job."""
+    failures: list[str] = []
+    if before_evidence.get("run_id") != expected_before_run_id:
+        failures.append(
+            f"before run_id is {before_evidence.get('run_id')!r}, expected {expected_before_run_id}"
+        )
+    if after_evidence.get("run_id") != expected_after_run_id:
+        failures.append(
+            f"after run_id is {after_evidence.get('run_id')!r}, expected {expected_after_run_id}"
+        )
+    before_job = _find_embedded_job(before_evidence, job_name)
+    after_job = _find_embedded_job(after_evidence, job_name)
+    if before_job is None:
+        failures.append(f"before run missing embedded job {job_name!r}")
+    if after_job is None:
+        failures.append(f"after run missing embedded job {job_name!r}")
+
+    before_job_sec = job_duration_seconds(before_job) if before_job else None
+    after_job_sec = job_duration_seconds(after_job) if after_job else None
+    before_pytest_sec = pytest_step_duration_seconds(before_job) if before_job else None
+    after_pytest_sec = pytest_step_duration_seconds(after_job) if after_job else None
+
+    if before_job_sec is None or after_job_sec is None:
+        failures.append(f"missing job duration for {job_name!r}")
+    elif after_job_sec >= before_job_sec:
+        failures.append(
+            f"{job_name} job duration did not decrease: {before_job_sec:.1f}s -> {after_job_sec:.1f}s"
+        )
+    if before_pytest_sec is None or after_pytest_sec is None:
+        failures.append(f"missing Pytest step duration for {job_name!r}")
+    elif after_pytest_sec >= before_pytest_sec:
+        failures.append(
+            f"{job_name} Pytest step duration did not decrease: "
+            f"{before_pytest_sec:.1f}s -> {after_pytest_sec:.1f}s"
+        )
+
+    after_ok, after_failures = gate_run_supported(
+        after_evidence, expected_run_id=expected_after_run_id
+    )
+    if not after_ok:
+        failures.extend(after_failures)
+
+    job_reduction_sec = (
+        round(before_job_sec - after_job_sec, 1)
+        if before_job_sec is not None and after_job_sec is not None
+        else None
+    )
+    pytest_reduction_sec = (
+        round(before_pytest_sec - after_pytest_sec, 1)
+        if before_pytest_sec is not None and after_pytest_sec is not None
+        else None
+    )
+    return {
+        "job_name": job_name,
+        "before_run_id": before_evidence.get("run_id"),
+        "after_run_id": after_evidence.get("run_id"),
+        "before_job_seconds": before_job_sec,
+        "after_job_seconds": after_job_sec,
+        "job_reduction_seconds": job_reduction_sec,
+        "before_pytest_seconds": before_pytest_sec,
+        "after_pytest_seconds": after_pytest_sec,
+        "pytest_reduction_seconds": pytest_reduction_sec,
+        "measured_reduction": not failures,
+        "failures": failures,
+    }
+
+
+def verify_published_ci_budget_alignment(
+    published_budget: Mapping[str, Any],
+    retained_report: Mapping[str, Any],
+    *,
+    repo: str = "stranske/Workflows",
+) -> tuple[bool, list[str]]:
+    """Verify that the retained Health 85 report matches the published ci-budget.json entry."""
+    failures: list[str] = []
+    entry = published_budget.get(repo)
+    if not isinstance(entry, Mapping):
+        return False, [f"published ci-budget.json missing {repo!r} object"]
+    published_series = entry.get("p50_series")
+    if not isinstance(published_series, Mapping):
+        return False, [f"published ci-budget.json for {repo!r} missing p50_series"]
+    retained_series = retained_report.get("p50_series_minutes")
+    if not isinstance(retained_series, Mapping):
+        return False, ["retained report missing p50_series_minutes"]
+    for day, value in published_series.items():
+        if day not in retained_series:
+            failures.append(f"published date {day} missing from retained report")
+            continue
+        if retained_series[day] != value:
+            failures.append(
+                f"date {day} p50 mismatch: published={value!r}, retained={retained_series[day]!r}"
+            )
+    return not failures, failures
 
 
 def sustained_checkbox_checked(issue: Mapping[str, Any]) -> bool:
@@ -226,9 +347,11 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "DEFAULT_POST_CHANGE_RUN_ID",
+    "DEFAULT_PRE_CHANGE_RUN_ID",
     "ISSUE_NUMBER",
     "ISSUE_VIEW_COMMAND",
     "SCHEMA",
+    "compare_before_after_gate_runs",
     "decision_json",
     "followup_issue",
     "gate_run_supported",
@@ -239,6 +362,7 @@ __all__ = [
     "reconciliation_comment",
     "sustained_checkbox_checked",
     "sustained_series_supported",
+    "verify_published_ci_budget_alignment",
 ]
 
 
