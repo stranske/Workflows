@@ -40,6 +40,11 @@ on:
         required: false
         type: string
         default: "all"
+      agents_guard_recovery_json:
+        description: 'Exact repository/PR/head targets for Guard-only recovery (no merge or source refresh)'
+        required: false
+        type: string
+        default: ""
       auto_merge:
         description: "Auto-merge if checks pass"
         required: false
@@ -89,6 +94,11 @@ on:
         default: ""
   workflow_call:
     inputs:
+      agents_guard_recovery_json:
+        description: 'Exact repository/PR/head targets for Guard-only recovery'
+        required: false
+        type: string
+        default: ""
       repos:
         description: "Repos to check (comma-separated, or 'all')"
         required: false
@@ -179,12 +189,64 @@ permissions:
 # Maint 82 dispatch (2026-11-06: three of five requests cancelled before any job ran),
 # so it serializes only with other reassessment requests (its job-level group).
 concurrency:
-  group: ${{ github.event.action == 'maint71-review-reassessment' && format('maint71-review-reassessment-dispatch-{0}', github.repository) || format('consumer-sync-stable-pr-writers-{0}', github.repository) }}
+  group: ${{ inputs.agents_guard_recovery_json == '' && github.event.action == 'maint71-review-reassessment' && format('maint71-review-reassessment-dispatch-{0}', github.repository) || format('consumer-sync-stable-pr-writers-{0}', github.repository) }}
   cancel-in-progress: false
 
 jobs:
+  recover_agents_guard:
+    if: ${{ inputs.agents_guard_recovery_json != '' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+      pull-requests: read
+      statuses: read
+    steps:
+      - name: Checkout deployed recovery source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Setup API client
+        # actionlint 1.7.3 lacks $/ support; the preceding checkout pins these bytes.
+        uses: ./.github/actions/setup-api-client # zizmor: ignore[self-repository]
+        with:
+          github_token: ${{ github.token }}
+          owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
+          service_bot_pat: ${{ secrets.SERVICE_BOT_PAT }}
+      - name: Recover original jobless Guard events
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          GUARD_RECOVERY_TARGETS: ${{ inputs.agents_guard_recovery_json }}
+          GUARD_RECOVERY_DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          github-token: ${{ secrets.OWNER_PR_PAT }}
+          script: |
+            const fs = require('fs');
+            const retryHelpers = require('./.github/scripts/github-api-with-retry.js');
+            const { runAgentsGuardRecoveryTargets } = require('./.github/scripts/maint71_merge_sync_prs');
+            if (!String(process.env.OWNER_PR_PAT || '').trim()) {
+              throw new Error('Guard recovery requires OWNER_PR_PAT for cross-repository mutations');
+            }
+            // Match the normal Maint 71 writer: never rotate a mutation to a narrower installation.
+            const withRetry = (fn, options = {}) => retryHelpers.withRetry(fn, { github, core, ...options });
+            const report = await runAgentsGuardRecoveryTargets({ withRetry, context,
+              targets: JSON.parse(process.env.GUARD_RECOVERY_TARGETS),
+              dryRunMode: process.env.GUARD_RECOVERY_DRY_RUN === 'true' });
+            fs.mkdirSync('artifacts', { recursive: true });
+            fs.writeFileSync('artifacts/agents-guard-recovery.json', `${JSON.stringify(report, null, 2)}\n`);
+            core.notice(`Guard recovery: requested=${report.requests} blocking=${report.blocking}; no merge or source refresh`);
+      - name: Upload Guard recovery result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: agents-guard-recovery
+          path: artifacts/agents-guard-recovery.json
+          retention-days: 30
+          if-no-files-found: error
   merge_sync_prs:
-    if: ${{ github.event.action != 'maint71-review-reassessment' }}
+    if: ${{ github.event.action != 'maint71-review-reassessment' && inputs.agents_guard_recovery_json == '' }}
     runs-on: ubuntu-latest
     env:
       MAINT68_RECEIPT_CACHE: ${{ github.ref == 'refs/heads/main' && '.cache/maint68-scoped-receipts' || '' }}

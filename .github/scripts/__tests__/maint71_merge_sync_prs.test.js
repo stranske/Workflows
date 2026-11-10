@@ -1298,7 +1298,7 @@ test('review routing finds the latest source PR behind direct commits across his
   assert.equal(api.comments.length, 1, 'the PR comment must still be deduplicated on retry');
 });
 
-async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, overlappingBlockers = false } = {}) {
+async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, overlappingBlockers = false, guardRecovery = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `maint71-${state}-canary-`));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const repository = require('../../../config/consumer_sync_canaries.json').canaries[0].repo;
@@ -1381,7 +1381,8 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
       }] : [] } }),
       getBranchProtection: async () => ({ data: { required_status_checks: {
         contexts: presealDual ? ['Gate / gate', 'gate-summary', ...(sealRecovery ? ['generated delivery seal', 'classify changed paths'] : []),
-          ...(realFailure ? ['production tests'] : [])] : ['Gate / gate'],
+          ...(realFailure ? ['production tests'] : [])] : ['Gate / gate',
+          ...(guardRecovery && guardRecovery !== 'unqualified' ? ['Health 45 Agents Guard / guard'] : [])],
       } } }),
       getCommit: async ({ ref }) => ({ data: { sha: ref === 'main' && !producerSucceeded ? 'a'.repeat(40) : source, commit: { committer: { date: observed } } } }),
       getContent: async ({ path: filePath }) => {
@@ -1458,6 +1459,8 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
         details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/2` },
     ];
     if (method === github.rest.checks.listForRef) return (preseal || state === 'no_change_merged') ? [] : [
+      ...(guardRecovery === 'unqualified' ? [{ name: 'guard', status: 'completed', conclusion: 'success',
+        app: { slug: 'github-actions' }, details_url: `https://github.com/${owner}/${repo}/actions/runs/123/job/1` }] : []),
       { name: 'Gate / gate', status: 'completed',
         conclusion: ['checks_failed', 'producer_success_red'].includes(state) ? 'failure' : 'success' },
     ];
@@ -1502,6 +1505,14 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
         status: 'completed', conclusion: 'success' }] : [] } });
   }
   const retryHelpers = require('../github-api-with-retry');
+  const guardRequests = [];
+  if (guardRecovery) t.mock.method(require('../maint71_agents_guard_recovery'), 'recoverCancelledAgentsGuard', async args => {
+    guardRequests.push(args);
+    return { mode: guardRecovery === 'refused' ? 'refused' : 'requested', run_id: 999, blocking: 1, drainable: 1,
+      reason: guardRecovery === 'refused' ? 'guard_repeated_cancellation' : 'requested',
+      next_command: guardRecovery === 'refused' ? 'repair-workflow-admission-then-trigger-a-new-original-pr-event'
+        : 'reread-original-agents-guard-run-and-qualified-status' };
+  });
   t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
   t.mock.method(retryHelpers, 'withRetry', async (fn) => fn(github));
   const logs = [];
@@ -1547,7 +1558,15 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
   assert.deepEqual(failures, refreshDispatchStatus
     ? ['canary_refresh_failed:candidate refresh unavailable'] : [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
-    && (!['aged_green', 'seal_drained'].includes(state) || row.status === 'merged'));
+    && (!['aged_green', 'seal_drained'].includes(state) || guardRecovery || row.status === 'merged'));
+  if (guardRecovery) {
+    assert.equal(guardRequests.length, 1, JSON.stringify(report.results));
+    assert.equal(row.status, 'checks_pending');
+    assert.equal(row.agents_guard_request.mode, guardRecovery === 'refused' ? 'refused' : 'requested');
+    if (guardRecovery === 'refused') assert.equal(row.next_command, 'repair-workflow-admission-then-trigger-a-new-original-pr-event');
+    assert.equal(merges.length, 0); assert.equal(dispatches.length, 0); assert.equal(updates.length, 0);
+    return;
+  }
   if (['behind', 'checks_failed', 'review_blocked', 'stale'].includes(state)) {
     const red = Number(state === 'checks_failed');
     const reviewBlocked = Number(overlappingBlockers || state === 'review_blocked');
@@ -1727,6 +1746,13 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
     `review_blocked=${Number(state === 'review_blocked')} ` +
     `stale=${Number(state === 'stale')} refresh_dispatched=1 held_plan=${plan} drainable=0\n`));
 }
+
+test('actual executor routes missing qualified Guard to recovery without merge or source refresh', t =>
+  assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: true }));
+test('actual executor inspects unqualified raw Guard success with Gate-only protection', t =>
+  assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: 'unqualified' }));
+test('actual executor preserves actionable repeated-cancellation refusal in its handoff', t =>
+  assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: 'refused' }));
 
 for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
   test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
