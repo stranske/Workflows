@@ -80,7 +80,7 @@ A live read of that query returned 58 candidates, `hasNextPage=false`, including
 #6189 merged and #6186 closed unmerged. This is API-read evidence, not a deployed
 Maint 71 acceptance run.
 
-**A3 remains pending:** after this source change ships, the native production
+**A2 remains pending:** after this source change ships, the native production
 owner must obtain a new unscoped/dev-tool report and record its run id. The issue's
 acceptance command must print both candidate numbers:
 
@@ -119,7 +119,7 @@ sync-core classification above and does not substitute for it.
 
 ## Delivered-head pin and WASM check (2026-11-10)
 
-An isolated archive at `/tmp/workflows-4612-consumer` contains exact delivered
+An isolated archive at `/tmp/4629-consumer-exact` contains exact delivered
 head `ad09728581df4a27d421f272f9e307efaa581e63`; the consumer checkout was not changed.
 The selected repository interpreter is
 `/Users/teacher/Library/CloudStorage/Dropbox/Learning/Code/Trend_Model_Project/.venv/bin/python`
@@ -130,7 +130,7 @@ grep -n 'pytest==' pyproject.toml .github/workflows/pages-wasm-demo.yml
 # pyproject.toml:115:    "pytest==9.2.0",
 # .github/workflows/pages-wasm-demo.yml:48:        run: python -m pip install "pytest==9.2.0" "pytest-xdist==3.8.0"
 /Users/teacher/Library/CloudStorage/Dropbox/Learning/Code/Trend_Model_Project/.venv/bin/python -m pytest -q tests/wasm/test_build_wasm_site.py tests/wasm/test_demo_no_external_cdn.py
-# 23 passed in 0.35s
+# 23 passed in 0.39s
 ```
 
 The two requested files pass. This existing local interpreter is older than the
@@ -141,7 +141,7 @@ CI compatibility or the installed environment's pytest version matching the decl
 
 ```bash
 node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js
-# 243 tests, 243 passed, 0 failed; 537.49 ms
+# 243 tests, 243 passed, 0 failed; 604.34 ms
 ```
 
 Before the collector repair, the new end-to-end regression
@@ -204,28 +204,57 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
     -f phase=preview -f repos=stranske/Trend_Model_Project -f dry_run=true
   ```
 
-## Task completion status
+## Round 4 CI readback (2026-11-10)
 
-- **T1**: Evidenced - Gate run `41964883333` for #6189 inspected; first failing step was
-  Python CI / python 3.14 job `127041978995` (golden demo CSV race), fixed natively by
-  Trend_Model_Project#6192 without bypassing Gate.
-- **T2**: Evidenced at delivered head `ad097285`: both pins are `pytest==9.2.0`,
-  and the two requested WASM test files pass (23 tests, interpreter/limitations above).
-- **T3**: Evidenced - #6189 merged via the Maint 52 native lane
-  (2026-11-08T05:33:47Z, merge commit `9937ec14`); #6186 closed unmerged
-  (2026-11-05T05:34:58Z).
-- **T4**: Report collector/formatter repaired locally; the named regression command
-  passes. Production observation remains pending because dispatch was refused.
-- **T5**: Delivered-head and sync-core evidence recorded; production report still pending.
+The reported failure run [42849929470](https://github.com/stranske/Workflows/actions/runs/42849929470)
+on head `dd5ef628caf450d0003373753394de283bf860ad` concluded `cancelled`.
+Both Resolve Context and Record autofix dispatch completion have no executed
+steps; neither is evidence of a code failure. Later same-head run
+[42849931115](https://github.com/stranske/Workflows/actions/runs/42849931115)
+concluded `success`: Resolve Context succeeded, and autofix/completion were skipped.
+No workflow change is justified by those cancellations.
 
-## Acceptance criteria status
+The exact requested Maint 71 dispatch was retried in round 4 and again refused
+by the production guard (exit 77). No new run was created. Latest inspected run
+[42789507724](https://github.com/stranske/Workflows/actions/runs/42789507724)
+concluded `success` but its full log contains neither #6189 nor #6186.
+Blocking/drainable pair: production dispatch blocked in this seat; focused local
+verification and this evidence update are drainable. The native scheduler or
+sync-core owner must obtain the post-deployment report; no bypass was attempted.
 
-- **A1**: Observed at delivered head `ad097285`: matching pins and 23 requested WASM
-  tests passed with the quoted repository interpreter; supported-runtime limitation above.
-- **A2**: Satisfied locally: the exact two-file Node command passes, 243 tests.
-  Historical report accounting does not alter merge selection.
-- **A3**: **pending**: no qualifying deployed Maint 71 report names both candidates.
+The delivered-head test archive was freshly created with `git archive
+ad09728581df4a27d421f272f9e307efaa581e63`, then the pin grep and exact two-file
+WASM command above were rerun. Round 4 also re-read the first retained local
+sync-core round, its target receipt, #6186 and r4457616005 timestamps, and the
+post-merge dev-tool PR inventory; the observations above remain unchanged.
+The local round's summary references Maint 71 run `42445636759`, created
+2026-11-08T04:09:17Z; that earlier hosted run is not the post-merge local round id.
+
+## Task completion status (issue #4612, current task IDs)
+
+- **T1: pending.** The exact dispatch was refused; existing run logs do not
+  establish the requested newly dispatched report.
+- **T2: locally verified.** The closed-candidate omission was reproduced before
+  the collector repair (recorded above). The current two-file Node command passes
+  all 243 tests, including per-candidate log/summary dispositions. Deployment
+  observation is tracked separately under A2.
+- **T3: observed with a hosting limitation.** First retained local sync-core round
+  `20261108T054334Z` saw delivered head `ad09728581df4a27d421f272f9e307efaa581e63`,
+  recorded zero mismatches and no handoff. No #6186/thread bump was found.
+  Sync-core is local; the hosted Maint 82 campaign is distinct. Its run id and
+  the local receipt are recorded above rather than inventing a hosted sync-core id.
+- **T4: verified.** Fresh delivered-head archive: both pin lines read `pytest==9.2.0`
+  and 23 WASM tests pass using the quoted repository interpreter.
+
+## Acceptance criteria status (issue #4612, current criterion IDs)
+
+- **A1: locally verified.** Exact two-file Node command: 243 passed, zero failed;
+  covers the collector and report changes. Historical rows do not select merges.
+- **A2: pending.** No qualifying deployed Maint 71 report names both candidates.
   A passing local regression is not production acceptance.
-- **A4**: Observed: delivered state is aligned; #6186 is closed unmerged, its finding
-  is absent from the delivered head, and round `20261108T054334Z` delivered #6189
-  with zero mismatches and no handoff. No post-merge old-finding bump was found.
+- **A3: verified.** This handoff records the local sync-core round id and result,
+  distinguishes the hosted campaign run, and explicitly marks production report
+  acceptance pending. Status IDs here match the current issue #4612 instructions.
+- **A4 (scope-only reference): observed locally.** The retained post-merge round
+  and exact delivered head are recorded above; this does not certify a hosted
+  sync-core workflow run or future recurrence prevention.
