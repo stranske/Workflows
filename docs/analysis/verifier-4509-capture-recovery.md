@@ -212,3 +212,9 @@ archive transport cannot clear that independent historical acceptance boundary.
   recovery admission have not been established. No provider evaluation was
   attempted while those gaps remain. This PR must not be treated as proof that
   the exact #4509 operational recovery succeeded.
+
+Final named-command readback on committed test source
+`b38f75409ac41e17baff6a13f1f4e6086ac8d85b` (2026-11-10): **exit 0,
+325 passed / 0 failed, total wall time 5.025 seconds**. `PATH` selected
+`/opt/anaconda3/bin/python3`. The subsequent documentation-only commit records
+this result; test/fixture/collector bytes are unchanged. No full suite was run.
