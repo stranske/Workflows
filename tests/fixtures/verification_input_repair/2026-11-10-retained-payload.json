@@ -1,0 +1,100 @@
+{
+  "context": {
+    "baseline_checked_at": "2026-11-06T13:26:24.960Z",
+    "baseline_git_head": "b10ab7de60959489524b990f094d77c515b5cc12",
+    "check_date": "2026-11-10",
+    "checked_at": "2026-11-10T15:45:00.000Z",
+    "classifier_git_head": "8c678c19a4f9f60fa5be6a00f08794a9626c87bd",
+    "classifier_sha256": "7fd383e6895c257f8f35391367686a1218bd32c4b9bcdcb73a78ee440986ef71",
+    "collector_raw_json_retained": false,
+    "commands": [
+      "node -e 'require(\"./.github/scripts/agents_verifier_context.js\").fetchVerifierEvidence(...)' (or workflow entry) invoking fetchVerifierEvidence with authenticated Octokit for PRs 4231 and 4235; historical raw collector JSON for this run was not retained as a separate file",
+      "python3 tools/verifier_event_recovery.py --classify-retained-artifact tests/fixtures/verification_input_repair/2026-11-10-retained-payload.json --receipt tests/fixtures/verification_input_repair/2026-11-10-expiry-receipts.json",
+      "node --test tests/scripts/test_verification_event.js tests/scripts/test_verification_input_repair.js"
+    ],
+    "current_read_only_payload_note": "Classifier rerun 2026-11-10 uses the observation rows with retained subject, proof, HTTP 404, marker_published true, and local comparison.json fixture paths under this directory.",
+    "discovered_prechange_commands": [
+      "python3 .workflows-lib/tools/verifier_event_recovery.py --revalidate-retained",
+      "python3 .workflows-lib/tools/verifier_event_recovery.py --manifest verification-event-manifest.json --step-outcome <EVALUATOR_STEP_OUTCOME> --publication-outcome <RECOVERY_PUBLICATION_OUTCOME> --publication-effect <RECOVERY_PUBLICATION_EFFECT>",
+      "Build verifier context step requires .github/scripts/agents_verifier_context.js buildVerifierContext, which calls fetchVerifierEvidence"
+    ],
+    "evidence_source": "github-actions-api read-only collector plus local fixture inspection",
+    "existing_behavior_on_main": {
+      "artifact_digest_equality": "authenticateInputRepair compares found[0].raw_sha256 to claim.raw_sha256",
+      "authenticatePredecessor": true,
+      "changed_necessary_material": true,
+      "guardExistingEvent": true,
+      "missing_behavior_implemented": "explicit #4231/#4235 artifact-expiry classification in tools/verifier_event_recovery.py",
+      "predecessor_event_id_propagation": true,
+      "resulting_event_dedup": true,
+      "revision_inspected": "b10ab7de60959489524b990f094d77c515b5cc12"
+    },
+    "first_broken_step_before_repair": "fetchVerifierEvidence recorded HTTP 404 as selected_metadata_lookup_failed, and buildVerificationEvent rejected with 'Required verification artifact member is absent, ambiguous or incomplete' without an explicit expired-artifact outcome. python tools/verifier_event_recovery.py --revalidate-retained stopped at missing verification-recovery-origin.json. python tools/verifier_event_recovery.py --manifest on local fixture result bytes emitted input_repair without Actions archive authentication.",
+    "fixture_admission_source": "tests/scripts/test_verification_input_repair.js repeating the changed event deduplicates and preserves predecessor lineage",
+    "git_head_at_collection": "b10ab7de60959489524b990f094d77c515b5cc12",
+    "live_native_admission": "not attempted; authenticated Actions archive bytes were unavailable",
+    "provider_calls": 0,
+    "remaining_gaps": [
+      "Actions artifacts 12579928048 and 12584318436 remain HTTP 404, so no live authenticated retained readback or native admission exists",
+      "Local comparison.json files are result bytes, not the published zip archives",
+      "No fresh provider evaluation was authorized or performed"
+    ],
+    "repair_attempts_used": 1,
+    "stop_rule": "at most two repair attempts or 60 minutes, whichever occurs first",
+    "stop_rule_result": "not exhausted; repair attempt 1 produced the explicit expiry outcome",
+    "verification_event_sha256": "d2b0e789efba0e966f5c68789e0e5ec8533e615660a7afad26513df67ef1785b",
+    "working_tree_state": "clean"
+  },
+  "observations": [
+    {
+      "artifact_expired": null,
+      "artifact_http_status": 404,
+      "artifact_id": 12579928048,
+      "comment_id": 6390994169,
+      "local_archive_path": "tests/fixtures/verification_input_repair/4231-original/comparison.json",
+      "marker_published": true,
+      "original_event_accepting": false,
+      "pr": 4231,
+      "proof_body_sha256": "5a206ddd69d2aa7dd5bfdf8e576ba0b09742fc309ef1d6b35552a38e13471853",
+      "proof_status": "included",
+      "provider_calls": 0,
+      "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+      "run_id": 40143755394,
+      "subject": {
+        "evaluated_sha": "d16bb488edb0a3f25135762ed114bc8cabd397ec",
+        "event_id": "adcfbf65b031d530c51ef3480df2b40fd8f57967feb0318e58bcbc66c5ce25df",
+        "head_sha": "75b2d8c529b7c64a7b73e4a9337b43b33a3441da",
+        "material_sha256": "87a3bb5de2f1e0c00910c8584e9b509a521d7821e72551d671cb17f6c113c57e",
+        "pr": "4231",
+        "repo": "stranske/workflows",
+        "request_sha256": "9781006dac538363f44d33583dba56f55e89cad2ddc01baa39b8f39585ce2f79",
+        "schema": "verification-event/v1"
+      }
+    },
+    {
+      "artifact_expired": null,
+      "artifact_http_status": 404,
+      "artifact_id": 12584318436,
+      "comment_id": 6392557346,
+      "local_archive_path": "tests/fixtures/verification_input_repair/4235-original/comparison.json",
+      "marker_published": true,
+      "original_event_accepting": false,
+      "pr": 4235,
+      "proof_body_sha256": "09aa18e7aae4828cd77545ff3a0afb304bca72943023959281b03ff4e7604397",
+      "proof_status": "included",
+      "provider_calls": 0,
+      "published_archive_sha256": "526dcef67f26160ece176b800e7a4d18a2e6d6883d7a2e4294b07570570486ab",
+      "run_id": 40155311407,
+      "subject": {
+        "evaluated_sha": "206b761c594ad3367f345a6c9cac92216e0daa00",
+        "event_id": "5106858cb3907e898cb09b12f4d6fbff40cfaa4be1fd9a16bd7b4891ba849616",
+        "head_sha": "af7c09ac2b61ac70c3460bfc4856cf9d83e713b0",
+        "material_sha256": "02bee127a5b50fe5632a62aa5c578dc0e01202edbd0a00ddcb0db9b1d1be05da",
+        "pr": "4235",
+        "repo": "stranske/workflows",
+        "request_sha256": "9ba1d980f5d1a39583e027804344d13c6b0ef94b02cf014ee04d2a409a23a0a3",
+        "schema": "verification-event/v1"
+      }
+    }
+  ]
+}

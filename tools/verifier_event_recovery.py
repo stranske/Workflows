@@ -703,6 +703,8 @@ def main() -> int:
     parser.add_argument("--step-outcome", default="")
     parser.add_argument("--publication-outcome", default="")
     parser.add_argument("--publication-effect", default="")
+    parser.add_argument("--classify-retained-artifact", type=Path)
+    parser.add_argument("--receipt", type=Path)
     args = parser.parse_args()
     if args.revalidate_retained:
         result = revalidate_retained(directory=Path.cwd())
@@ -710,6 +712,17 @@ def main() -> int:
             with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
                 stream.write(f"verdict={result['verdict']}\n")
         print(json.dumps(result, sort_keys=True))
+        return 0
+    if args.classify_retained_artifact:
+        if args.revalidate_retained or args.manifest:
+            parser.error("--classify-retained-artifact is exclusive")
+        payload = json.loads(args.classify_retained_artifact.read_text(encoding="utf-8"))
+        result = classify_retained_artifact_report(payload)
+        if args.receipt:
+            args.receipt.write_text(
+                json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+        print(result["operational_outcome"])
         return 0
     if not args.manifest:
         parser.error("--manifest or --revalidate-retained is required")
@@ -726,6 +739,411 @@ def main() -> int:
         result = _cause("uncertain_execution", "execution_manifest_invalid_or_unavailable")
     print(json.dumps(result, sort_keys=True))
     return 0
+
+
+# These two retained comparison archives are the #4231/#4235 subjects. The
+# published digest is a claim to check, not a substitute for archive bytes.
+KNOWN_RETAINED_ARTIFACTS = {
+    6390994169: {
+        "pr": 4231,
+        "run_id": 40143755394,
+        "artifact_id": 12579928048,
+        "published_archive_sha256": "c432b89fca7af092f08bc6cddf032b62b2f15ac0c727e75b9fcb30b9695e9d58",
+    },
+    6392557346: {
+        "pr": 4235,
+        "run_id": 40155311407,
+        "artifact_id": 12584318436,
+        "published_archive_sha256": "526dcef67f26160ece176b800e7a4d18a2e6d6883d7a2e4294b07570570486ab",
+    },
+}
+EXPLICIT_EXPIRED_ARTIFACT_REJECTION = "explicit expired-artifact rejection"
+AUTHENTICATED_RETAINED_READBACK = "authenticated retained readback"
+IDENTITY_MISMATCH = "identity mismatch; cannot produce expiry outcome"
+MISSING_STATUS = "missing status evidence; cannot produce expiry outcome"
+INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE = "incomplete evidence"
+OWNER_EXPIRY_DECISION = {
+    "date": "2026-11-06",
+    "fresh_provider_evaluation": False,
+    "statement": "no fresh provider evaluation",
+}
+
+
+def inspect_digest_bound_archive(
+    raw: bytes | None,
+    published_sha256: str | None,
+    member_claims: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Apply the existing archive digest and member-hash rules to bytes in hand.
+
+    Absence is recorded. This does not fetch an artifact or assume a path exists.
+    """
+    if raw is None:
+        return {"available": False, "authenticated": False, "sha256": None, "reason": "absent"}
+    if len(raw) > 8388608:
+        return {
+            "available": False,
+            "authenticated": False,
+            "sha256": None,
+            "reason": "archive_byte_bound",
+        }
+    import math
+
+    digest = _sha(raw)
+    published = (
+        published_sha256
+        if isinstance(published_sha256, str) and re.fullmatch(r"[0-9a-f]{64}", published_sha256)
+        else ""
+    )
+    if digest != published:
+        return {
+            "available": True,
+            "authenticated": False,
+            "sha256": digest,
+            "reason": "digest_mismatch" if published else "published_digest_unavailable",
+        }
+    member_results: list[dict[str, Any]] = []
+    if member_claims:
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as opened:
+                names = opened.namelist()
+                infos = opened.infolist()
+                if (
+                    len(names) != len(set(names))
+                    or len(infos) > 80
+                    or sum(info.file_size for info in infos) > 33554432
+                    or any(
+                        info.flag_bits & 1
+                        or info.is_dir()
+                        or name.startswith("/")
+                        or ".." in name.split("/")
+                        for info, name in zip(infos, names, strict=True)
+                    )
+                ):
+                    raise ValueError("unsafe archive")
+                for claim in member_claims:
+                    path = claim.get("path")
+                    expect = claim.get("raw_sha256")
+                    matched = (
+                        names.count(path) == 1
+                        and isinstance(expect, str)
+                        and re.fullmatch(r"[0-9a-f]{64}", expect) is not None
+                        and _sha(opened.read(path)) == expect
+                    )
+                    member_results.append({"path": path, "match": matched})
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+            return {
+                "available": True,
+                "authenticated": False,
+                "sha256": digest,
+                "reason": "member_authentication_failed",
+            }
+        if any(row["match"] is False for row in member_results):
+            return {
+                "available": True,
+                "authenticated": False,
+                "sha256": digest,
+                "members": member_results,
+                "reason": "member_digest_mismatch",
+            }
+    return {
+        "available": True,
+        "authenticated": True,
+        "sha256": digest,
+        "members": member_results,
+        "reason": "digest_match",
+    }
+
+
+def _read_local_archive(path_value: Any) -> tuple[bytes | None, dict[str, Any]]:
+    """Return optional local archive bytes; report absence when the path is unusable."""
+    if path_value in (None, ""):
+        return None, {
+            "available": False,
+            "authenticated": False,
+            "sha256": None,
+            "reason": "absent",
+        }
+    path = Path(path_value)
+    if path.is_symlink() or not path.is_file():
+        return None, {
+            "available": False,
+            "authenticated": False,
+            "sha256": None,
+            "reason": "absent",
+        }
+    return path.read_bytes(), {}
+
+
+def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str, Any]:
+    """Classify one retained #4231/#4235 artifact without calling a provider.
+
+    A published provenance marker is not authentication of archive bytes. Local
+    bytes are inspected only when a path is supplied; `incomplete_cause` input
+    repair on result files is a different, local binding and is not reused here.
+
+    Missing status, identity mismatch, incomplete observation sets and missing or
+    invalid execution evidence cannot produce a complete pair expiry outcome.
+    Both input formats preserve unknown provider-call and original-event acceptance
+    evidence; aggregation validates counts.
+    """
+    import math
+
+    comment_id = int(observation["comment_id"])
+    known = KNOWN_RETAINED_ARTIFACTS.get(comment_id)
+    published = observation.get("published_archive_sha256") or (
+        known["published_archive_sha256"] if known else None
+    )
+    identity_ok = known is None or (
+        int(observation.get("pr") or 0) == known["pr"]
+        and int(observation.get("run_id") or 0) == known["run_id"]
+        and int(observation.get("artifact_id") or 0) == known["artifact_id"]
+        and (
+            observation.get("published_archive_sha256") in (None, "")
+            or observation.get("published_archive_sha256") == known["published_archive_sha256"]
+        )
+    )
+
+    http_status = observation.get("artifact_http_status")
+    expired = observation.get("artifact_expired")
+    member_claims = observation.get("member_claims")
+
+    local_raw, local_report = _read_local_archive(observation.get("local_archive_path"))
+    if local_raw is not None:
+        local_report = inspect_digest_bound_archive(local_raw, published, member_claims)
+    actions_raw = observation.get("actions_archive_bytes")
+    actions_report = inspect_digest_bound_archive(
+        actions_raw if isinstance(actions_raw, bytes) else None,
+        published,
+        member_claims,
+    )
+    actions_authenticated = (
+        identity_ok
+        and http_status == 200
+        and expired is False
+        and actions_report["authenticated"] is True
+    )
+
+    if not identity_ok:
+        outcome = IDENTITY_MISMATCH
+        reason = (
+            "known_subject_identity_mismatch_missing_status"
+            if actions_raw is None and http_status is None
+            else "known_subject_identity_mismatch"
+        )
+    elif expired is True:
+        outcome = EXPLICIT_EXPIRED_ARTIFACT_REJECTION
+        reason = "artifact_expired_or_unavailable"
+    elif http_status is None and actions_raw is None:
+        outcome = MISSING_STATUS
+        reason = "artifact_status_missing"
+    elif actions_authenticated:
+        outcome = AUTHENTICATED_RETAINED_READBACK
+        reason = "actions_archive_digest_match"
+    elif http_status == 404:
+        outcome = EXPLICIT_EXPIRED_ARTIFACT_REJECTION
+        reason = "artifact_expired_or_unavailable"
+    else:
+        outcome = "unauthenticated retained evidence"
+        reason = actions_report["reason"]
+
+    provider_calls_raw = observation.get("provider_calls")
+    if (
+        provider_calls_raw is None
+        or isinstance(provider_calls_raw, bool)
+        or not isinstance(provider_calls_raw, (int, float))
+        or (isinstance(provider_calls_raw, float) and (math.isnan(provider_calls_raw) or math.isinf(provider_calls_raw)))
+        or (isinstance(provider_calls_raw, float) and provider_calls_raw != int(provider_calls_raw))
+    ):
+        provider_calls: int | None = None
+    else:
+        try:
+            provider_calls = int(provider_calls_raw)
+            if provider_calls < 0:
+                provider_calls = None
+        except (OverflowError, ValueError):
+            provider_calls = None
+
+    original_accepting_raw = observation.get("original_event_accepting")
+    if original_accepting_raw is None:
+        original_accepting: bool | None = None
+    elif type(original_accepting_raw) is bool:
+        original_accepting = original_accepting_raw
+    else:
+        original_accepting = None
+
+    missing_reasons = []
+    if original_accepting is None:
+        missing_reasons.append("missing_original_event_acceptance")
+    if provider_calls is None:
+        missing_reasons.append("missing_or_invalid_provider_calls")
+
+    stop_reason = None
+    if provider_calls is not None and provider_calls != 0:
+        outcome = "provider call observed; recovery stopped"
+        stop_reason = "provider_call_forbidden"
+    if original_accepting is True:
+        outcome = "original event accepting; recovery stopped"
+        stop_reason = "original_event_must_stay_nonaccepting"
+
+    if stop_reason is not None:
+        reason = stop_reason
+        if missing_reasons:
+            reason += ";" + ",".join(missing_reasons)
+    elif missing_reasons:
+        outcome = INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+        reason = missing_reasons[0]
+
+    result = {
+        "schema": "retained-artifact-outcome/v1",
+        "pr": observation.get("pr"),
+        "comment_id": comment_id,
+        "run_id": observation.get("run_id"),
+        "artifact_id": observation.get("artifact_id"),
+        "outcome": outcome,
+        "reason": reason,
+        "authenticated_readback": outcome == AUTHENTICATED_RETAINED_READBACK,
+        "native_admission_succeeded": False,
+        "original_event_accepting": original_accepting,
+        "provider_calls": provider_calls,
+        "provider_generation_performed": False,
+        "marker_published": bool(observation.get("marker_published")),
+        "marker_authenticates_archive": False,
+        "collected_subject": observation.get("subject"),
+        "comment_readback": {
+            "status": observation.get("proof_status"),
+            "body_sha256": observation.get("proof_body_sha256"),
+        },
+        "published_archive_sha256": published,
+        "actions_archive": {
+            "http_status": http_status,
+            "expired": expired,
+            **actions_report,
+        },
+        "local_archive": local_report,
+        "owner_decision": (
+            None
+            if not identity_ok or not known
+            else (OWNER_EXPIRY_DECISION if not actions_authenticated else None)
+        ),
+    }
+    if (
+        outcome == AUTHENTICATED_RETAINED_READBACK
+        and observation.get("admission_result_evidence") is True
+    ):
+        result["native_admission_succeeded"] = True
+    return result
+
+
+def _observation_from_collector_receipt(row: dict[str, Any]) -> dict[str, Any]:
+    """Map the existing fetchVerifierEvidence receipt onto the classifier input."""
+    artifact_id = None
+    inventory = row.get("archive_inventory") or []
+    if inventory:
+        artifact_id = inventory[0].get("artifact_id")
+    artifact_id = row.get("artifact_id", artifact_id)
+    details = " ".join(str(item.get("detail") or "") for item in row.get("artifact_failures") or [])
+    not_found = artifact_id is not None and str(artifact_id) in details and "Not Found" in details
+    expired = any(item.get("kind") == "expired" for item in row.get("artifact_failures") or [])
+    return {
+        "pr": row.get("pr"),
+        "comment_id": row.get("comment") or row.get("comment_id"),
+        "run_id": (inventory[0].get("run_id") if inventory else None) or row.get("run_id"),
+        "artifact_id": artifact_id,
+        "subject": row.get("subject"),
+        "proof_status": row.get("proof_status"),
+        "proof_body_sha256": row.get("proof_body_sha256"),
+        "marker_published": row.get("marker_published", False),
+        "artifact_http_status": 404 if not_found else row.get("artifact_http_status"),
+        "artifact_expired": True if expired else row.get("artifact_expired"),
+        "published_archive_sha256": row.get("published_archive_sha256"),
+        "local_archive_path": row.get("local_archive_path"),
+        "member_claims": row.get("member_claims"),
+        "original_event_accepting": row.get("original_event_accepting"),
+        "provider_calls": row.get("provider_calls"),
+        "admission_prerequisites_met": row.get("admission_prerequisites_met", False),
+    }
+
+
+def classify_retained_artifact_report(payload: dict[str, Any]) -> dict[str, Any]:
+    """Classify a collector payload and print one operational outcome for the pair.
+
+    Require both KNOWN_RETAINED_ARTIFACTS comment IDs exactly once for a pair outcome.
+    Preserve observed provider-call and original-event recovery-stop outcomes while
+    recording missing evidence. Reject duplicates, extras and incomplete pairs.
+    """
+    if "observations" in payload:
+        rows = payload["observations"]
+    else:
+        rows = [_observation_from_collector_receipt(row) for row in payload.get("receipts") or []]
+    classified = [classify_retained_artifact_outcome(row) for row in rows]
+    comment_ids = [row["comment_id"] for row in classified]
+    known_comment_ids = set(KNOWN_RETAINED_ARTIFACTS.keys())
+    
+    has_duplicates = len(comment_ids) != len(set(comment_ids))
+    has_extra = any(cid not in known_comment_ids for cid in comment_ids)
+    pair_complete = len(classified) == 2 and set(comment_ids) == known_comment_ids and not has_duplicates
+    
+    any_incomplete = any(
+        row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE for row in classified
+    )
+    outcomes = {row["outcome"] for row in classified}
+    clean = bool(classified) and all(
+        row["original_event_accepting"] is False and row["provider_calls"] == 0
+        for row in classified
+    )
+    only_known_comments = bool(comment_ids) and all(cid in known_comment_ids for cid in comment_ids)
+    incomplete_observation_set = not pair_complete and (
+        not classified or (only_known_comments and set(comment_ids) != known_comment_ids)
+    )
+    
+    pair_expiry = (
+        pair_complete
+        and clean
+        and not any_incomplete
+        and outcomes == {EXPLICIT_EXPIRED_ARTIFACT_REJECTION}
+        and all(
+            row["authenticated_readback"] is False and row["native_admission_succeeded"] is False
+            for row in classified
+        )
+    )
+    pair_readback = (
+        pair_complete
+        and clean
+        and not any_incomplete
+        and outcomes == {AUTHENTICATED_RETAINED_READBACK}
+    )
+    any_missing_counts = any(row["provider_calls"] is None for row in classified)
+
+    if not classified or any_incomplete or incomplete_observation_set or has_duplicates or has_extra:
+        phrase = INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+        total_provider_calls = None
+    elif pair_expiry:
+        phrase = EXPLICIT_EXPIRED_ARTIFACT_REJECTION
+        total_provider_calls = sum(row["provider_calls"] for row in classified)
+    elif pair_readback:
+        phrase = AUTHENTICATED_RETAINED_READBACK
+        total_provider_calls = sum(row["provider_calls"] for row in classified)
+    elif outcomes in (
+        {EXPLICIT_EXPIRED_ARTIFACT_REJECTION},
+        {AUTHENTICATED_RETAINED_READBACK},
+    ):
+        phrase = INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
+        total_provider_calls = None
+    elif len(outcomes) == 1:
+        phrase = next(iter(outcomes))
+        total_provider_calls = None if any_missing_counts else sum(row["provider_calls"] for row in classified)
+    else:
+        phrase = "mixed retained-artifact outcomes"
+        total_provider_calls = None if any_missing_counts else sum(row["provider_calls"] for row in classified)
+
+    return {
+        "schema": "retained-artifact-report/v1",
+        "operational_outcome": phrase,
+        "provider_calls": total_provider_calls,
+        "context": payload.get("context") or {},
+        "results": classified,
+    }
 
 
 if __name__ == "__main__":

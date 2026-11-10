@@ -75,3 +75,72 @@ exit 0
 contains full command output. Separate broader regression validation passed
 122 tests, with one optional downloaded #4238 archive test skipped. Production
 source remains byte-exact; this change adds fixtures, coverage and receipts.
+
+## Expiry classifier evidence
+
+`2026-11-06-expiry-receipts.json` records the historical classified retained-artifact outcome
+for comments `6390994169` and `6392557346` using the real authenticated read-only collector
+invocation from `fetchVerifierEvidence` in `.github/scripts/agents_verifier_context.js`.
+The separate dated receipt `2026-11-10-expiry-receipts.json` records the operational rerun
+produced from the executable retained payload `2026-11-10-retained-payload.json`.
+
+The offline classifier outcome is `explicit expired-artifact rejection` for
+comments `6390994169` and `6392557346`. The supported collector's explicit
+expiry rejection remains unestablished. Published markers and local `comparison.json`
+bytes are recorded and are not authenticated Actions readback or native
+admission. Both original events stay nonaccepting. Observed provider calls are
+integer zero. The 2026-11-06 owner decision is no fresh provider evaluation.
+
+### Executable classifier invocation
+
+```bash
+python3 tools/verifier_event_recovery.py \
+  --classify-retained-artifact tests/fixtures/verification_input_repair/2026-11-10-retained-payload.json \
+  --receipt tests/fixtures/verification_input_repair/2026-11-10-expiry-receipts.json
+```
+
+Where `tests/fixtures/verification_input_repair/2026-11-10-retained-payload.json` contains
+the observation rows with `comment_id` and `marker_published` (with `marker_published` set to `true`),
+using the retained subject, proof, HTTP 404 and local `4231-original/comparison.json` /
+`4235-original/comparison.json` paths under this fixture tree.
+
+### Observation keys
+
+- `comment_id`: The GitHub issue comment ID (`6390994169` for #4231, `6392557346` for #4235)
+- `marker_published`: Boolean indicating whether the verifier-input-repair marker was published (`true` for this receipt)
+- `artifact_http_status`: HTTP status code from the Actions archive lookup (`404` = not found)
+- `original_event_accepting`: Boolean acceptance status of the original event (`false`)
+- `provider_calls`: Integer count of provider invocations (`0` for no provider calls observed)
+- `published_archive_sha256`: SHA-256 digest of the published archive
+- `subject`: Contains `event_id`, `material_sha256`, `head_sha`, `evaluated_sha`, `request_sha256`
+- `proof_status`: Status of the proof comment (`included`)
+- `proof_body_sha256`: SHA-256 digest of the proof comment body
+- `local_archive_path`: Relative path to local comparison bytes
+
+### Classifier output vs collector rejection
+
+The classifier produces offline classification based on retained evidence. It distinguishes:
+- **Explicit expired-artifact rejection**: HTTP 404 or explicit expiry marker with no provider calls
+- **Authenticated retained readback**: Archive bytes match published digest with valid evidence
+- **Identity mismatch**: Comment/artifact identity doesn't match known retained artifacts
+- **Missing status**: Required status fields are absent
+- **Incomplete evidence**: Missing or invalid `provider_calls` or `original_event_accepting`
+
+Collector rejection (`fetchVerifierEvidence`) occurs when archive bytes are unavailable,
+which is a prerequisite failure, not a classifier outcome. The classifier only runs
+after the collector succeeds or with pre-authenticated local fixtures.
+
+### Historical receipts and proof gaps
+
+Historical receipts from the original runs are preserved in `4231-original/` and
+`4235-original/`. The proof gaps (unavailable archives) are documented in the
+`remaining_gaps` field of the expiry receipt. No new hash is substituted for fresh
+observations; the original published archive digests are retained.
+
+### Source revision and working-tree state
+
+- Source revision: `8c678c19a4f9f60fa5be6a00f08794a9626c87bd`
+- Working-tree state: Clean, with no uncommitted changes
+- Both comment outcomes: Explicit expired-artifact rejection
+- Explicit provider-call evidence: 0 (no provider calls observed)
+- Cumulative stop-rule result: Not exhausted (1/2 attempts used)
