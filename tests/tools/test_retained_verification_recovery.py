@@ -19,7 +19,12 @@ from tools.verifier_capture_obligation_manifest import (
     validate_capture_byte_inventory,
 )
 from tools.verifier_corpus_evidence import admitted_decision, event_metadata, validated_payload
-from tools.verifier_event_recovery import revalidate_retained, verify_revalidation_admission
+from tools.verifier_event_recovery import (
+    incomplete_cause,
+    original_final_projection,
+    revalidate_retained,
+    verify_revalidation_admission,
+)
 
 
 def encoded(value):
@@ -28,6 +33,84 @@ def encoded(value):
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+def test_exact_4509_without_provider_output_cannot_recover_a_review(tmp_path, monkeypatch, profile):
+    from scripts.langchain import pr_verifier
+    from tools.verifier_corpus_evidence import settled_verdict
+
+    def unexpected_evaluation(*args, **kwargs):
+        pytest.fail("No provider output exists to invoke or parse during retained recovery")
+
+    for name in (
+        "get_llm_client",
+        "get_llm_clients",
+        "_get_llm_client",
+        "_get_llm_clients",
+        "_build_semantic_clients",
+        "_invoke_llm",
+        "_parse_semantic_evaluation_payload",
+    ):
+        monkeypatch.setattr(pr_verifier, name, unexpected_evaluation)
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", profile)
+    # Use the retained configured pair, independent of runner model overrides.
+    for name in ("VERIFIER_MODEL", "VERIFIER_MODEL2", "LANGCHAIN_MODEL", "LANGCHAIN_SLOT_CONFIG"):
+        monkeypatch.delenv(name, raising=False)
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    capture_path = fixtures / "verifier-4509-capture.zip"
+    original = capture_path.read_bytes()
+    with zipfile.ZipFile(io.BytesIO(original)) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    for name, raw in files.items():
+        assert Path(name).name == name
+        (tmp_path / name).write_bytes(raw)
+    manifest = json.loads(files["verification-event-manifest.json"])
+    payload = json.loads(files["comparison.json"])
+    metadata = event_metadata(tmp_path / "verification-event-manifest.json")
+    rows, verdict, available = validated_payload(payload, mode="compare")
+    assert available is False
+    assert verdict != "PASS"
+    assert len(rows) == 2
+    for row in rows:
+        assert row["used_llm"] is False
+        assert row["raw_content"] is None
+        assert row["files_reviewed"] is None
+        assert row["files_not_reviewed"] == [
+            "scripts/ci_history.py",
+            "tests/scripts/test_ci_history.py",
+        ]
+    cause = incomplete_cause(manifest, directory=tmp_path, step_outcome="success")
+    assert cause["retry_kind"] == "known_no_evaluation"
+    assert cause["failure_cause"] == "validated_no_evaluation"
+    identity = {
+        key: metadata["verification_event"][key]
+        for key in ("repo", "pr", "head_sha", "evaluated_sha")
+    }
+    identity.update(run_id="42330898168", run_attempt="1")
+    decision = admitted_decision(
+        tmp_path / "comparison.json",
+        tmp_path / "comparison-execution.json",
+        identity,
+        mode="compare",
+        ci_failed="false",
+    )
+    assert decision is None
+    assert settled_verdict(decision) == "UNVERIFIABLE_INPUT"
+
+    # Even the supported historical parser cannot project a nonexistent final.
+    # This digest selects a parser compatibility case only; it is NOT an origin
+    # claim for #4509 and supplies no native recovery/publication authority.
+    with pytest.raises(ValueError, match="^No audited original parse failure to project$"):
+        original_final_projection(
+            payload,
+            mode="compare",
+            validator_sha256="5e8f7a842231f16d8f5ba3ae1a48ed7625afa2feafe774963cdba066196fd0b8",
+            assessment=metadata["assessment_identity"],
+        )
+    assert payload == json.loads(files["comparison.json"])
+    assert capture_path.read_bytes() == original
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == files
 
 
 def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_coverage(

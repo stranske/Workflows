@@ -667,3 +667,63 @@ Final PR readback: open, `draft=false`, head
 `7824e504730eb715d4654c633acc85b71147a354`. Completion requires writable Git
 metadata, functioning archive downloads and authenticated complete-capture native
 admission; local test success supplies none of those missing authorities.
+
+## Retained no-evaluation boundary — 2026-11-10
+
+Reconciled commits `47a2a605`, `7824e504` and `e6b0330c` against PR #4631:
+completed work is already checked. The four admission/completeness checkboxes
+remain unmet. No archive acquisition was repeated after the recorded download
+failures and investigation stop rule.
+
+The exact archive establishes a third independent limitation: neither retained
+provider slot contains a final answer (`used_llm=false`, `raw_content=null`).
+The existing provider-free **retained-output** recovery path requires a usable
+existing evaluation; it cannot create the first review. Canonical-origin
+admission and complete archive acquisition alone therefore cannot turn this
+retained comparison into a recovered review. Complete-input acquisition and any
+subsequent authorized provider evaluation must preserve the original event and
+its no-evaluation record; this regression grants no such authority.
+
+Two new exact-archive cases exercise the existing no-evaluation classifier,
+decision admission, settled verdict and historical-final projection in both
+`standard` and `expanded` profiles. The classifier reports
+`known_no_evaluation` / `validated_no_evaluation`; decision admission returns
+no decision, retaining `UNVERIFIABLE_INPUT`. Even the supported historical parser
+refuses with `No audited original parse failure to project`. The parser digest
+in this compatibility test is explicitly hypothetical, not a claim about #4509's
+producer or native origin. Provider construction, invocation and final parsing
+are forbidden by sentinels. All nine extracted members and the ZIP remain
+unchanged, with no origin or revalidation receipt created. Actual provider
+review coverage remains **0 of 2 named files per slot**.
+
+Validation based on source `e6b0330c`, Python 3.14.10:
+
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  **8 passed**, 25 deselected, exit 0.
+- Recovery/artifact suites with `-m 'not slow' --no-cov -q --tb=short`:
+  **38 passed, 6 failed**, exit 1; the same two authored publisher and four
+  authored retry cases recorded above remain failing.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  **31 passed**, exit 0; the `scripts/ci_history.py` table row reports **73.55%**
+  code coverage. This is separate from provider review coverage of both files.
+- Named Node command selecting `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`:
+  exit 1, **4.476 seconds** total wall time. The cross-repository test file passes;
+  the context test file fails. This does not supersede the historical passing
+  committed-source result. No JavaScript, workflow or fixture bytes changed.
+
+The connector rejected the PR-body reconciliation update, `needs-human` label
+and blocker comment with `MCP tool call requires approval, but approval policy
+is never`. No additional operational checkbox was marked complete.
+
+Black formatted the changed test at line length 100. After sequentially checking
+the CLI-selected sources to avoid stalled worker scheduling, the required full
+command passed with its verified cache:
+`BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+— exit 0, **999 files unchanged**. Ruff and `git diff --check` also pass.
+Direct context-test execution confirms `spawnSync git EPERM` in this restricted
+runner.
+
+The scoped commit attempt stopped at staging: `git add` exited 128 because
+`.git/index.lock` is on a read-only filesystem. No commit was created; the tested
+changes remain in the working tree. Final PR readback: open, `draft=false`, head
+`e6b0330cc64c1005f36231d0dbccdee71bbcc77c`. No recovery or acceptance is claimed.
