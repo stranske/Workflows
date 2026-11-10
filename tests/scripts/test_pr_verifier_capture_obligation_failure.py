@@ -2,22 +2,39 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from scripts.langchain import pr_verifier
 
 
+@pytest.fixture
+def merge_patch_4509():
+    root = Path(__file__).resolve().parents[2]
+    fixture = json.loads(
+        (root / ".github/scripts/__tests__/fixtures/verifier-4509-merge.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    patch = fixture["patch"].encode("utf-8")
+    assert hashlib.sha256(patch).hexdigest() == (
+        "fe6672ef4ff28986e3fe79f91575f60092dbc45ec9e2d3fd9f322adb4885bc8a"
+    )
+    assert fixture["patch_sha256"] == hashlib.sha256(patch).hexdigest()
+    return patch.decode("utf-8")
+
+
 @pytest.mark.parametrize("failure_kind", ["provenance", "extraction_byte", "character"])
-def test_4509_capture_gaps_withhold_review_of_both_changed_files(failure_kind):
+def test_4509_capture_gaps_withhold_review_of_both_changed_files(failure_kind, merge_patch_4509):
     """Replay the original failure classes against the exact merged two-file diff.
 
     This is an admission regression, not the original input bundle or a provider
     assessment. Complete changed code cannot cure unavailable required proof.
     """
-    root = Path(__file__).resolve().parents[2]
-    patch = (root / ".github/scripts/__tests__/fixtures/verifier-4509-merge.patch").read_text()
+    patch = merge_patch_4509
     coverage = {
         "schema": "verifier-context-source-coverage/v1",
         "stage": "generated-context",
@@ -72,6 +89,75 @@ def test_4509_capture_gaps_withhold_review_of_both_changed_files(failure_kind):
         "tests/scripts/test_ci_history.py",
     ]
     assert result.input_coverage["files_complete"] == 0
+
+
+@pytest.mark.parametrize("mode", ["evaluate", "compare"])
+@pytest.mark.parametrize(
+    "omitted",
+    [
+        [],
+        ["scripts/ci_history.py"],
+        ["tests/scripts/test_ci_history.py"],
+        ["scripts/ci_history.py", "tests/scripts/test_ci_history.py"],
+    ],
+)
+def test_4509_provider_pass_requires_review_of_both_changed_files(
+    monkeypatch, merge_patch_4509, mode, omitted
+):
+    """Synthetic provider replies test review accounting, not live acceptance.
+
+    A provider returning PASS while declining either assigned file must still
+    yield a non-PASS report, even when the exact merged diff is supplied in full.
+    """
+    monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+    monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    monkeypatch.setenv("VERIFIER_DIFF_BUDGET_TOKENS", "16000")
+    context = "Review both changed files for the duplicate-annotation fix and its regression."
+    calls = []
+
+    def invoke(client, prompt, **kwargs):
+        calls.append(kwargs)
+        assert merge_patch_4509.strip() in prompt
+        return (
+            SimpleNamespace(
+                content=json.dumps(
+                    {
+                        "verdict": "PASS",
+                        "summary": "Synthetic review.",
+                        "files_not_reviewed": omitted,
+                    }
+                )
+            ),
+            None,
+            None,
+        )
+
+    monkeypatch.setattr(pr_verifier, "_invoke_llm", invoke)
+    client = object()
+    if mode == "compare":
+        coverage = pr_verifier.prompt_coverage(context, merge_patch_4509)
+        runner = pr_verifier.ComparisonRunner(
+            context,
+            merge_patch_4509,
+            pr_verifier._prepare_prompt(context, merge_patch_4509),
+            [],
+            coverage,
+        )
+        result = runner.run_single(client, "fixture", "fixture")
+    else:
+        monkeypatch.setattr(pr_verifier, "_get_llm_client", lambda **kwargs: (client, "fixture"))
+        result = pr_verifier.evaluate_pr(context, merge_patch_4509)
+
+    assert len(calls) == 1
+    assert result.used_llm is True
+    assert result.files_not_reviewed == omitted
+    assert result.input_coverage["files_total"] == 2
+    assert result.input_coverage["files_complete"] == 2 - len(omitted)
+    assert result.verdict == ("UNVERIFIABLE_INPUT" if omitted else "PASS")
+    report = pr_verifier.format_comparison_report([result])
+    assert f"files reviewed {2 - len(omitted)} of 2" in report
+    for name in omitted:
+        assert name in report
 
 
 def _argv(monkeypatch, tmp_path, context: object, *args: str) -> None:

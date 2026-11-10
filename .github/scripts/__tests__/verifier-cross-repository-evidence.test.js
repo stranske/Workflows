@@ -47,8 +47,22 @@ function makeArchive(entries) {
 
 // This is the exact two-file merge patch, not a reconstruction of the unavailable
 // original input bundle. The large proof members below are explicitly synthetic.
-const mergePatch = fs.readFileSync(path.join(__dirname, 'fixtures/verifier-4509-merge.patch'), 'utf8');
+const mergeFixture = require('./fixtures/verifier-4509-merge.json');
+const mergePatch = mergeFixture.patch;
 const changedPaths = ['scripts/ci_history.py', 'tests/scripts/test_ci_history.py'];
+
+test('retained #4509 merge patch preserves the exact two-file review input', () => {
+  // git diff --no-ext-diff --no-color --no-renames --full-index MERGE^1 MERGE
+  // The retained bytes work in a clean checkout without fetching historical refs.
+  assert.equal(mergeFixture.repository, 'stranske/Workflows');
+  assert.equal(mergeFixture.pr_number, 4509);
+  assert.equal(mergeFixture.head_sha, HEAD);
+  assert.equal(mergeFixture.evaluated_sha, MERGE);
+  assert.equal(sha256(mergePatch), 'fe6672ef4ff28986e3fe79f91575f60092dbc45ec9e2d3fd9f322adb4885bc8a');
+  assert.equal(mergeFixture.patch_sha256, sha256(mergePatch));
+  assert.deepEqual([...mergePatch.matchAll(/^\+\+\+ b\/(.+)$/gm)].map(match => match[1]), changedPaths);
+});
+
 function captureContext(collector, evidence) {
   const plan = '### Acceptance criteria\n- [ ] Attach consumer validation artifacts.';
   const coverage = collector.buildContextSourceCoverage({

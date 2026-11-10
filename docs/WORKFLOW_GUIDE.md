@@ -524,7 +524,10 @@ It exercises both collectors and the standard-library Python raw-capture admissi
 with synthetic large archives and the exact #4509 merge patch. Missing or tampered
 sidecars and extraction limits remain gaps. The Python evaluator regression in
 `tests/scripts/test_pr_verifier_capture_obligation_failure.py` also verifies that
-these gaps withhold review credit for both changed files. These tests do not
+these gaps withhold review credit for both changed files, and that a provider's
+declared omission of either file withholds PASS in evaluate and compare modes.
+The shared JSON fixture retains the exact patch bytes and source/head identities,
+with its SHA-256 checked by both test suites. These tests do not
 certify repair of the original #4509 input bundle or a live provider assessment.
 In evaluate mode, a generic evidence duty
 requires enough available material to reason: one complete present body, comments,
