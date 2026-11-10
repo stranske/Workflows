@@ -246,9 +246,12 @@ def test_template_repeat_bypasses_only_coarse_fingerprint_and_threads_all_inputs
     )
     assert "event_complete" in template["jobs"]["persist-fingerprint"]["if"]
     assert reusable["concurrency"]["cancel-in-progress"] == "false"
-    assert (ROOT / ".github/scripts/verification_event.js").read_bytes() == (
+    source_bytes = (ROOT / ".github/scripts/verification_event.js").read_bytes()
+    template_bytes = (
         ROOT / "templates/consumer-repo/.github/scripts/verification_event.js"
     ).read_bytes()
+    assert hashlib.sha256(source_bytes).hexdigest() == hashlib.sha256(template_bytes).hexdigest()
+    assert source_bytes == template_bytes
 
 
 def incomplete_state(result):

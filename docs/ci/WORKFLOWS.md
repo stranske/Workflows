@@ -480,7 +480,8 @@ the pytest step at 6.7–13.3 minutes (Workflows#3904). The Gate passes only whe
 calls pass; `tests/test_ci_gate_budget.py` keeps the ignore list equal to the
 grammar call's files, so the two calls still discover the full suite. Coverage
 percentages therefore exclude lines only those suites reach. In addition,
-parity checks on large managed files (such as `scripts/langchain/pr_verifier.py`)
+parity checks on large managed files (such as `scripts/langchain/pr_verifier.py`,
+`.github/scripts/keepalive_loop.js`, and `.github/scripts/verification_event.js`)
 assert content digests before byte equality so assertion failures cannot trigger
 multi-minute difflib stalls during Gate runs (Workflows#4619).
 The reusable appends `-n 4 --dist=loadgroup`, which remain effective; these

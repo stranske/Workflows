@@ -59,14 +59,20 @@ def test_grammar_call_partitions_the_full_suite() -> None:
 
 
 def test_synced_large_file_parity_checks_guard_against_difflib_hangs() -> None:
-    """Parity checks on large managed files (e.g. pr_verifier.py) must compare digests.
+    """Parity checks on large managed files (e.g. pr_verifier.py, keepalive_loop.js) must compare digests.
 
     Comparing raw byte strings directly in pytest causes unconstrained difflib
     ndiff calculations on assertion failure, which can stall a test worker for
     over 30 minutes (Workflows#4619). Tests asserting template parity must check
     digest equality first so failures report immediately.
     """
-    verifier_manifest_test = (ROOT / "tests/scripts/test_pr_verifier_sync_manifest.py").read_text()
-    native_capacity_test = (ROOT / "tests/scripts/test_native_capacity_registry.py").read_text()
-    assert "hashlib.sha256(" in verifier_manifest_test
-    assert "hashlib.sha256(" in native_capacity_test
+    parity_test_files = (
+        "tests/scripts/test_pr_verifier_sync_manifest.py",
+        "tests/scripts/test_native_capacity_registry.py",
+        "tests/workflows/test_keepalive_authority_delivery.py",
+        "tests/workflows/test_repeat_verification_lifecycle.py",
+        "tests/tools/test_verifier_request_correlation.py",
+    )
+    for rel_path in parity_test_files:
+        content = (ROOT / rel_path).read_text(encoding="utf-8")
+        assert "hashlib.sha256(" in content, rel_path
