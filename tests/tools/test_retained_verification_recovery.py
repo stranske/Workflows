@@ -10,7 +10,11 @@ from pathlib import Path
 
 import pytest
 import yaml
-from tools.verifier_corpus_evidence import admitted_decision
+from tools.verifier_capture_obligation_manifest import (
+    build_capture_obligation_manifest,
+    validate_capture_byte_inventory,
+)
+from tools.verifier_corpus_evidence import admitted_decision, event_metadata, validated_payload
 from tools.verifier_event_recovery import revalidate_retained, verify_revalidation_admission
 
 
@@ -20,6 +24,78 @@ def encoded(value):
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_coverage(
+    tmp_path, monkeypatch
+):
+    from scripts.langchain import pr_verifier
+
+    def unexpected_provider(*args, **kwargs):
+        pytest.fail("Retained input validation must never construct a provider client")
+
+    for name in ("get_llm_client", "get_llm_clients", "_get_llm_client", "_get_llm_clients"):
+        monkeypatch.setattr(pr_verifier, name, unexpected_provider)
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "standard")
+    monkeypatch.setenv("VERIFICATION_MATERIAL", "[]")
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "0")
+    monkeypatch.delenv("VERIFIER_EVIDENCE_CAPTURE_DIR", raising=False)
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    identity = json.loads((fixtures / "verifier-4509-capture-identity.json").read_bytes())
+    archive_path = fixtures / "verifier-4509-capture.zip"
+    original = archive_path.read_bytes()
+    assert f"sha256:{sha(original)}" == identity["capture"]["digest"]
+    assert len(original) == identity["capture"]["size_in_bytes"]
+    with zipfile.ZipFile(io.BytesIO(original)) as archive:
+        # Read exact members, without executing or trusting archive-provided code.
+        files = {name: archive.read(name) for name in archive.namelist()}
+    for name, raw in files.items():
+        assert Path(name).name == name
+        (tmp_path / name).write_bytes(raw)
+    snapshot = json.loads(files["verifier-input-manifest.json"])
+    manifest = json.loads(files["verification-event-manifest.json"])
+    comparison = json.loads(files["comparison.json"])
+    context, diff = files["verifier-context.md"], files["verifier-pr-diff.patch"]
+    validate_capture_byte_inventory(
+        snapshot["capture_byte_inventory"], {"context": context, "diff": diff}
+    )
+    obligations = build_capture_obligation_manifest(context.decode(), full_diff_bytes=diff)
+    assert obligations["sufficient"] is False
+    assert obligations["gaps"] == snapshot["capture_obligations"]["gaps"]
+    assert "acceptance_evidence:artifacts:unavailable" in obligations["gaps"]
+    metadata = event_metadata(tmp_path / "verification-event-manifest.json")
+    assert metadata["verification_event"] == manifest["verification_event"]
+    assert metadata["assessment_identity"] == manifest["assessment_identity"]
+    assert (
+        metadata["verification_event"]["event_id"]
+        == "872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c"
+    )
+    rows, verdict, available = validated_payload(comparison, mode="compare")
+    assert verdict == "UNVERIFIABLE_INPUT"
+    assert available is False
+    assert len(rows) == 2
+    for row, retained in zip(rows, comparison["results"], strict=True):
+        assert (row["provider_used"], row["model"]) == (
+            retained["provider_used"],
+            retained["model"],
+        )
+        assert row["used_llm"] is False
+        assert row["verdict"] == "UNVERIFIABLE_INPUT"
+        assert row["files_reviewed"] is None
+        assert row["files_not_reviewed"] == [
+            "scripts/ci_history.py",
+            "tests/scripts/test_ci_history.py",
+        ]
+    # The exact local archive cannot supply the native origin refused by the JS
+    # collector. Exercise recovery without manufacturing that missing authority.
+    source = tmp_path / "verification-recovery-source.zip"
+    source.write_bytes(original)
+    with pytest.raises(FileNotFoundError, match="verification-recovery-origin.json"):
+        revalidate_retained(directory=tmp_path)
+    assert {entry.name for entry in tmp_path.iterdir()} == set(files) | {source.name}
+    assert all((tmp_path / name).read_bytes() == raw for name, raw in files.items())
+    assert source.read_bytes() == original
+    assert archive_path.read_bytes() == original
 
 
 def setup_case(tmp_path, monkeypatch, *, mode="evaluate"):

@@ -7,7 +7,7 @@ const {execFileSync} = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const {readRetainedArchive} = require('../verifier_pending_execution');
+const {acquireRetainedExecution, readRetainedArchive} = require('../verifier_pending_execution');
 const {validateEvent} = require('../verification_event');
 const native = require('./fixtures/verifier-4509-run-identity.json');
 const retained = require('./fixtures/verifier-4509-capture-identity.json');
@@ -74,6 +74,53 @@ test('exact #4509 retained capture preserves event, extraction gaps and zero pro
     assert.equal(result.verdict, 'UNVERIFIABLE_INPUT');
     assert.deepEqual(result.files_not_reviewed, ['scripts/ci_history.py', 'tests/scripts/test_ci_history.py']);
     assert.equal(result.files_reviewed, null);
+  }
+});
+
+test('exact #4509 replay refuses noncanonical origin before acquiring recovery authority', {timeout: 10000}, async () => {
+  const files = readRetainedArchive(originalCapture);
+  const manifest = JSON.parse(files.get('verification-event-manifest.json'));
+  const run = retained.authenticated_gets[2].data;
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-4509-origin-'));
+  const calls = [];
+  const respond = (endpoint, data) => {
+    calls.push(endpoint);
+    return Promise.resolve({data: structuredClone(data)});
+  };
+  // Replay the selected native observations documented in the evidence report.
+  // This adapter has no provider, artifact-download, or publication capability.
+  const canonicalHead = 'e99195408b0d916c14c2c2f34a4b7a0a91ef8fb9';
+  const github = {rest: {
+    actions: {
+      getWorkflowRun: ({owner, repo, run_id}) =>
+        respond(`repos/${owner}/${repo}/actions/runs/${run_id}`, run),
+      getWorkflowRunAttempt: ({owner, repo, run_id, attempt_number}) =>
+        respond(`repos/${owner}/${repo}/actions/runs/${run_id}/attempts/${attempt_number}`, run),
+    },
+    repos: {
+      get: ({owner, repo}) => respond(`repos/${owner}/${repo}`,
+        {full_name: 'stranske/Workflows', default_branch: 'main'}),
+      getCommit: ({owner, repo, ref}) => respond(`repos/${owner}/${repo}/commits/${ref}`,
+        {sha: canonicalHead}),
+      compareCommitsWithBasehead: ({owner, repo, basehead}) =>
+        respond(`repos/${owner}/${repo}/compare/${basehead}`, {status: 'diverged',
+          base_commit: {sha: HEAD},
+          merge_base_commit: {sha: '75d4c8360c7a31db51366ca08d736cf4be1bc894'},
+        }),
+    },
+  }};
+  try {
+    await assert.rejects(acquireRetainedExecution({github,
+      event: manifest.verification_event, assessment: manifest.assessment_identity,
+      selector: {run_id: run.id, run_attempt: run.run_attempt, artifact_id: retained.capture.id},
+      // A local ordering sentinel, never a claim of an authenticated Actions job.
+      currentRun: run.id + 1, directory,
+    }), {message: retained.recovery_validation.error});
+    assert.deepEqual(calls, retained.recovery_validation.calls);
+    assert.deepEqual(fs.readdirSync(directory), []);
+    assert.equal(`sha256:${sha256(originalCapture)}`, retained.capture.digest);
+  } finally {
+    fs.rmSync(directory, {recursive: true, force: true});
   }
 });
 

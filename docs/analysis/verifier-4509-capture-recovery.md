@@ -218,3 +218,73 @@ Final named-command readback on committed test source
 325 passed / 0 failed, total wall time 5.025 seconds**. `PATH` selected
 `/opt/anaconda3/bin/python3`. The subsequent documentation-only commit records
 this result; test/fixture/collector bytes are unchanged. No full suite was run.
+
+## Managed-runner regression follow-up (2026-11-10)
+
+Two executable regressions now cover the previously recorded provider-free
+investigation. The Node regression in
+[`verifier-cross-repository-evidence.test.js`](../../.github/scripts/__tests__/verifier-cross-repository-evidence.test.js)
+replays the five recorded native observations through `acquireRetainedExecution`.
+It checks the exact canonical-origin refusal and confirms that no recovery archive
+or origin receipt is written. These are offline observations, not a fresh native
+admission. The source and consumer collectors remain unchanged.
+
+The Python regression in
+[`test_retained_verification_recovery.py`](../../tests/tools/test_retained_verification_recovery.py)
+validates the exact retained ZIP digest and byte inventory, recomputes its required
+gaps, checks the original event/assessment, and classifies both retained provider
+slots through `validated_payload`. Provider-client builders fail the test if called.
+The actual coverage remains **0 of 2 files for each provider**, with
+`UNVERIFIABLE_INPUT` and output unavailable. Passing the exact archive to
+`revalidate_retained` without an authenticated origin raises `FileNotFoundError`
+for `verification-recovery-origin.json`; every original member remains unchanged.
+This verifies the refusal, not successful native admission or complete capture.
+
+This runner mounts `.git` read-only. `git add` failed before staging with
+`Unable to create .../.git/index.lock: Read-only file system`, so no new commit
+was created. The tested working tree is based on
+`70bae977e1491aa29b979e449bea12b53d7e2bde`, with these changed test identities:
+
+| File | Working-tree SHA-256 |
+| --- | --- |
+| `.github/scripts/__tests__/verifier-cross-repository-evidence.test.js` | `3ae023d133cf6b0a1ca56776caa0f958359bd97ad2bb3f6d10d81c6a9994edd6` |
+| `tests/tools/test_retained_verification_recovery.py` | `13284226db4f0c1eb5512ec0beadc74c8bbdb1398cfa6d4faae2690206d13758` |
+
+Validation in this runner:
+
+- `PATH=/opt/hostedtoolcache/Python/3.14.10/x64/bin:$PATH node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`:
+  **exit 1, total wall time 2.74 seconds**. The cross-repository file passes;
+  the existing context file fails. Direct execution of the context file exposes
+  `spawnSync git EPERM` and `spawnSync python3 EPERM` from existing subprocess
+  tests. The pre-edit named-command baseline also failed (exit 1, 3.01 seconds,
+  approved Python 3.13.18). This runner result does not replace the historical
+  passing result on `b38f75409ac41e17baff6a13f1f4e6086ac8d85b` above.
+- `PATH=/opt/hostedtoolcache/Python/3.14.10/x64/bin:$PATH node .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`:
+  exit 0, **116 passed**, 0 failed.
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  exit 0, **1 passed**. Running the entire recovery test file gives 20 passed,
+  6 failed; its unchanged HEAD version reproduces the same six lifecycle
+  failures (19 passed, 6 failed). No existing test was disabled or changed.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  exit 0, **31 passed**, `scripts/ci_history.py` code coverage **73.55%**
+  (95 statements, 23 missed, 26 branches, 3 partial). This supplemental code
+  coverage is separate from the retained providers' zero review coverage.
+- Black formatted the changed Python file at line length 100. Its default
+  worker pool could not open its local socket; a sequential Black API check
+  using the same CLI source selection verified all 999 files and populated a
+  writable cache. The required full command then passed with
+  `BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`:
+  exit 0, **999 files unchanged**. `git diff --check` also passed.
+
+Successful native admission and complete required evidence remain unresolved.
+No provider evaluation or public verification-state change was attempted, and
+no additional operational acceptance checkbox is complete.
+
+The requested `needs-human` label and blocker comment on PR #4631 were both
+attempted but rejected by the connector: `MCP tool call requires approval, but
+approval policy is never`. This report therefore retains the blocker locally.
+Required follow-up is a runner with writable Git metadata and permitted local
+subprocess IPC to commit and rerun these changes, plus authenticated canonical
+recovery origin and complete required capture evidence before evaluation.
+Final readback confirms PR #4631 is open with `draft=false`, still at
+`70bae977e1491aa29b979e449bea12b53d7e2bde`.
