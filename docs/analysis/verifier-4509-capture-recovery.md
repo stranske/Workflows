@@ -1379,3 +1379,35 @@ With `/opt/anaconda3/bin` first in `PATH`, the issue-named Node command exited
 exited 0 with 18 passed, 25 deselected, in 3.329 seconds wall time.
 This round changes only this evidence report; recovery code, tests, fixtures,
 original verification state and dependency pins remain unchanged.
+
+## Local keepalive round 12 — 2026-11-10
+
+**T5 outcome: 0 accepted recoveries.** On source
+`4b3ff34524cb144ec8f5faeef7df4844e8745df7`, authenticated readback bound
+unexpired artifact `13556839741` to Workflows run `42330898168`. The fresh
+download matched the API SHA-256 and checked-in capture byte for byte. GitHub
+still reported the run's source head as diverged from main at
+`a54f412a4aea3a49241b502abf415bf769e08dea`, with merge base
+`75d4c8360c7a31db51366ca08d736cf4be1bc894`.
+
+Using `/opt/anaconda3/bin/python3` against the downloaded members:
+
+- `python3 -m tools.verifier_event_recovery --manifest verification-event-manifest.json --step-outcome success`
+  exited 0 in 0.307 seconds and returned `validated_no_evaluation`.
+- `python3 -m tools.verifier_event_recovery --revalidate-retained`
+  exited 1 in 0.055 seconds at the missing authenticated
+  `verification-recovery-origin.json`.
+
+The second command reached the two-attempt stop rule. Native recovery is
+blocked at origin admission. Authenticated download and provider-free
+classification succeeded. The capture obligations remain insufficient.
+Both retained providers reported `used_llm=false` and reviewed 0 of the 2
+required files, `scripts/ci_history.py` and `tests/scripts/test_ci_history.py`.
+The retained verdict is `UNVERIFIABLE_INPUT` and provider output is unavailable.
+The archive, all nine members, and preexisting Actions output were byte-identical
+after both commands, including original verification event
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+
+With `/opt/anaconda3/bin` first in `PATH`,
+`node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`
+exited 0 with 332 passing tests in 5.200 seconds wall time.
