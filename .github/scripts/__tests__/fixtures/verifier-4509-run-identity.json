@@ -1,0 +1,37 @@
+{
+  "description": "Authenticated GitHub connector GET observations, 2026-11-10; selected native identity fields only. No provider assessment.",
+  "consumer": {
+    "endpoint": "repos/stranske/trip-planner/actions/runs/42327976097",
+    "http_status": 200,
+    "data": {
+      "id": 42327976097,
+      "name": "CI",
+      "head_sha": "948406465cf7cd65d1ac92206b4514aaad455443",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "path": ".github/workflows/ci.yml",
+      "html_url": "https://github.com/stranske/trip-planner/actions/runs/42327976097",
+      "referenced_workflows": [
+        {
+          "path": "stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main",
+          "sha": "37e230009cdba04743376410c9f72356b85fb64f",
+          "ref": "refs/heads/main"
+        }
+      ],
+      "repository": {
+        "id": 993784438,
+        "full_name": "stranske/trip-planner"
+      },
+      "head_repository": {
+        "id": 993784438,
+        "full_name": "stranske/trip-planner"
+      }
+    }
+  },
+  "wrong_repository": {
+    "endpoint": "repos/stranske/Workflows/actions/runs/42327976097",
+    "http_status": 404,
+    "authoritative_for_consumer": false
+  }
+}

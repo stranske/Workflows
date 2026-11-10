@@ -2125,7 +2125,8 @@ test('explicit artifact scope requires complete reference sources even with comp
             assert.equal(evidence.artifacts.status, complete ? 'present' : 'unavailable', defect);
             assert.equal(evidence.artifacts.complete, complete, defect);
             assert.deepEqual(discovered, complete ? [] : [sha], defect);
-            assert.deepEqual(inspected, [123], defect);
+            // A local SHA listing cannot override an explicit identity failure.
+            assert.deepEqual(inspected, ['invalid-provenance', 'failed-provenance'].includes(defect) ? [] : [123], defect);
           }
         }
       });
