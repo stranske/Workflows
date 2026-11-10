@@ -36,14 +36,40 @@ Issue #4619 identified an extreme duration bottleneck in `python ci / python 3.1
   - Gate total duration: 7m 44s (464s) — **below 10 min target**
   - Result: success across all 44 jobs
 
-## Health 85 Daily Observations Series
-Health 85 report source: `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`
-- 2026-11-04: 11.85 min (run 41822549611)
-- 2026-11-05: null (run 42020576555 failed)
-- 2026-11-06: null (run 42211705537 failed)
-- 2026-11-07: null (run 42369042318 failed)
-- 2026-11-10: 11.24 min (run 42809051886)
+## Health 85 Daily Observations Series (2026-11-04 to 2026-11-10)
+Health 85 is workflow id `387854305` (`Health 85 CI Time Budget`, `.github/workflows/health-85-ci-time-budget.yml`).
+Published report inspected: `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json` blob `e3c490b336175e61a944bf30257e81eebcdac76b` (commit `0b343e44edbbdcd36be51246c1b6f9c99c3c5c81`).
+
+| Date | p50 minutes | p50 seconds | Within 600s | Health 85 run |
+| --- | ---: | ---: | --- | --- |
+| 2026-11-04 | 11.85 | 711.0 | no | https://github.com/stranske/Workflows/actions/runs/41822549611 |
+| 2026-11-05 | missing | missing | no | https://github.com/stranske/Workflows/actions/runs/42020576555 |
+| 2026-11-06 | missing | missing | no | https://github.com/stranske/Workflows/actions/runs/42211705537 |
+| 2026-11-07 | missing | missing | no | https://github.com/stranske/Workflows/actions/runs/42369018128 |
+| 2026-11-08 | missing | missing | no | https://github.com/stranske/Workflows/actions/runs/42476617447 |
+| 2026-11-09 | missing | missing | no | https://github.com/stranske/Workflows/actions/runs/42610608867 |
+| 2026-11-10 | 11.241666666666667 | 674.5 | no | https://github.com/stranske/Workflows/actions/runs/42809062881 |
+
+### Reproducing the Retained Evidence & Reconciliation
+Evaluate the 7-day Health 85 series:
+```bash
+python -m scripts.health85_budget_observations 
+  --workflows workflows.json 
+  --observations docs/evidence/issue-4619/health85-daily-observations.json 
+  --output docs/evidence/issue-4619/ci-budget-report.json 
+  --report-blob-sha e3c490b336175e61a944bf30257e81eebcdac76b 
+  --issue 4619
+```
+
+Reconcile completion status:
+```bash
+python -m scripts.issue_4619_completion 
+  --issue-view docs/evidence/issue-4619/issue-view-4619.json 
+  --gate-evidence docs/evidence/issue-4619/gate-run-42820421600.json 
+  --budget docs/evidence/issue-4619/ci-budget-report.json 
+  --output docs/evidence/issue-4619/completion-reconciliation.json 
+  --checked-on 2026-11-10
+```
 
 ### Status of Sustained Gate (A4)
-Current trailing-7-day Gate p50 is 11.24 min because pre-split runs remain in the 7-day window. As recent sub-8-minute Gate runs accumulate over the 7-day trailing window, Health 85 will drain below 10 min.
-Per instructions, A4 requires 7 consecutive daily measurements <= 10 min, which cannot be simulated or marked done early.
+Current trailing-7-day Gate p50 is 11.24 min (674.5s) because pre-split runs remain in the 7-day window, and 2026-11-05 through 2026-11-09 lack valid measurements. `completion-reconciliation.json` records `action=leave_incomplete` and leaves the sustained-performance acceptance criterion unchecked until Health 85 reports seven consecutive daily measurements <= 10 min.

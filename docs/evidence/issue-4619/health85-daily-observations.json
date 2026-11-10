@@ -4,7 +4,6 @@
     "p50_minutes": 11.85,
     "run_id": 41822549611,
     "run_conclusion": "success",
-    "within_target": false,
     "note": "Health 85 log: stranske/Workflows: p50=11.85 target=10.0"
   },
   {
@@ -12,31 +11,41 @@
     "p50_minutes": null,
     "run_id": 42020576555,
     "run_conclusion": "failure",
-    "within_target": false,
-    "note": "Health 85 measurement unavailable; job failed"
+    "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-05 11:46:09 UTC. p50 is null."
   },
   {
     "date": "2026-11-06",
     "p50_minutes": null,
     "run_id": 42211705537,
     "run_conclusion": "failure",
-    "within_target": false,
-    "note": "Health 85 measurement unavailable; rate-limited"
+    "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-06 11:58:23 UTC. p50 is null."
   },
   {
     "date": "2026-11-07",
     "p50_minutes": null,
-    "run_id": 42369042318,
+    "run_id": 42369018128,
     "run_conclusion": "failure",
-    "within_target": false,
-    "note": "Health 85 measurement unavailable; timeout"
+    "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-07 11:49:06 UTC. p50 is null."
+  },
+  {
+    "date": "2026-11-08",
+    "p50_minutes": null,
+    "run_id": 42476617447,
+    "run_conclusion": "cancelled",
+    "note": "Health 85 run cancelled before publishing a daily measurement. p50 is null."
+  },
+  {
+    "date": "2026-11-09",
+    "p50_minutes": null,
+    "run_id": 42610608867,
+    "run_conclusion": "cancelled",
+    "note": "Health 85 run cancelled before publishing a daily measurement. p50 is null."
   },
   {
     "date": "2026-11-10",
     "p50_minutes": 11.241666666666667,
-    "run_id": 42809051886,
+    "run_id": 42809062881,
     "run_conclusion": "success",
-    "within_target": false,
-    "note": "Health 85 published report: trailing-7-day Gate p50=11.24 min; target=10.0 min. Drainable in 7 days."
+    "note": "Health 85 published report: trailing-7-day Gate p50=11.241666666666667 min; target=10.0 min; distance=0.124; share=3.53%; drainable_in=7."
   }
 ]

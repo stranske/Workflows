@@ -142,13 +142,18 @@ def build_report(
     report_branch: str,
     report_blob_sha: str,
     repo: str = DEFAULT_REPO,
+    issue: int = 4284,
+    schema: str | None = None,
 ) -> dict[str, Any]:
     """Combine the Health 85 identity with evaluated daily observations."""
     workflow = find_health85(workflows)
     series = build_observations(rows, repo=repo)
+    resolved_schema = schema or (
+        SCHEMA if issue == 4284 else f"issue-{issue}-health85-observations/v1"
+    )
     return {
-        "schema": SCHEMA,
-        "issue": 4284,
+        "schema": resolved_schema,
+        "issue": issue,
         "source": {
             "workflow": workflow,
             "report_repo": repo,
@@ -173,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report-branch", default="ci-time-budget")
     parser.add_argument("--report-blob-sha", required=True)
+    parser.add_argument("--issue", type=int, default=4284)
     args = parser.parse_args(argv)
     workflows = json.loads(args.workflows.read_text(encoding="utf-8"))
     rows = json.loads(args.observations.read_text(encoding="utf-8"))
@@ -184,6 +190,7 @@ def main(argv: list[str] | None = None) -> int:
         rows,
         report_branch=args.report_branch,
         report_blob_sha=args.report_blob_sha,
+        issue=args.issue,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report_json(report), encoding="utf-8")
