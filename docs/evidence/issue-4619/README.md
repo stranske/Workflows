@@ -68,7 +68,7 @@ python -m scripts.issue_4619_completion
   --gate-evidence docs/evidence/issue-4619/gate-run-42820421600.json 
   --budget docs/evidence/issue-4619/ci-budget-report.json 
   --output docs/evidence/issue-4619/completion-reconciliation.json 
-  --checked-on 2026-11-10
+  --checked-on 2026-11-10 18:30 UTC
 ```
 
 ### Status of Sustained Gate (A4)
