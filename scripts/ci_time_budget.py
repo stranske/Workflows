@@ -239,6 +239,25 @@ def observation(previous: dict, measured: dict | None, now: datetime) -> dict:
         if p50 is None or p50 > TARGET_MINUTES:
             break
         healthy += 1
+    # Numeric history alone cannot identify the native observation that produced it.
+    # Preserve actual dates only; a canceled/missed daily run contributes no date.
+    observations = dict(previous.get("daily_observations", {}))
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    if run_id.isdigit() and os.environ.get("GITHUB_REPOSITORY") == SOURCE_REPO:
+        observations[today.isoformat()] = {
+            "date": today.isoformat(),
+            "p50_minutes": measured["p50"] if measured else None,
+            "run_id": int(run_id),
+            "run_attempt": int(os.environ.get("GITHUB_RUN_ATTEMPT", "1")),
+            "measured_at": now.isoformat(),
+            "window_start": (now - timedelta(days=7)).isoformat(),
+            "source_run_url": f"https://github.com/{SOURCE_REPO}/actions/runs/{run_id}",
+        }
+    observations = {
+        day: value
+        for day, value in sorted(observations.items())
+        if today - timedelta(days=29) <= date.fromisoformat(day) <= today
+    }
     distance = max(0, measured["p50"] / TARGET_MINUTES - 1) if measured else None
     row = {
         **previous,
@@ -252,6 +271,7 @@ def observation(previous: dict, measured: dict | None, now: datetime) -> dict:
         "share": share(distance) if distance is not None else None,
         "drainable_in": RECOVERY_DAYS - healthy,
         "p50_series": history,
+        "daily_observations": observations,
         "measured_at": now.isoformat(),
         "status": "measured" if measured else "unknown",
     }
