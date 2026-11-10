@@ -2271,10 +2271,10 @@ jobs:
         env:
           NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/codex
           CODEX_CLI_VERSION: '0.160.0'
-        run: |
+        run: | # zizmor: ignore[adhoc-packages]
           set -euo pipefail
           echo "Installing Codex CLI..."
-          npm install -g "@openai/codex@${CODEX_CLI_VERSION}" # zizmor: ignore[adhoc-packages]
+          npm install -g "@openai/codex@${CODEX_CLI_VERSION}"
           echo "Installed Codex CLI version: $(codex --version)"
 
       - name: Setup Python
