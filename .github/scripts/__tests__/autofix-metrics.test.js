@@ -111,6 +111,42 @@ for (const source of sources) {
     assert.equal(f.calls.length, 0);
   });
 
+  for (const recoveredHead of [before, after]) {
+    test(`recovered observation replaces stale head evidence: ${recoveredHead} (${source})`, async () => {
+      const f = setup({ head: after });
+      async function measure() {
+        return { head_sha_before: before, autofix_result: 'success',
+          ...await observeAutofixHead(f.options) };
+      }
+      assert.equal(formatAutofixCompletion(await measure(), before), `${after} true 0\n`);
+      assert.equal(f.outputs.head_observed, 'true');
+
+      f.options.github.rest.pulls.get = async () => { throw new Error('API unavailable'); };
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const metrics = await measure();
+        // A prior successful lookup cannot authorize a later fallback-only
+        // measurement, including when the step output object is reused.
+        assert.equal(f.outputs.head_observed, 'false');
+        assert.equal(metrics.head_observed, false);
+        assert.equal(metrics.head_sha_after, '');
+        assert.equal(metrics.fix_applied, false);
+        assert.throws(() => formatAutofixCompletion(metrics, before), /retain reservation/);
+      }
+      assert.equal(f.warnings.length, 2);
+
+      f.options.github.rest.pulls.get = async () => ({ data: {
+        head: { sha: recoveredHead }, labels: [],
+      } });
+      const recovered = await measure();
+      assert.equal(f.outputs.head_observed, 'true');
+      assert.equal(recovered.head_observed, true);
+      assert.equal(recovered.head_sha_after, recoveredHead);
+      assert.equal(recovered.fix_applied, recoveredHead !== before);
+      assert.equal(formatAutofixCompletion(recovered, before),
+        `${recoveredHead} ${recoveredHead !== before} 0\n`);
+    });
+  }
+
   for (const head of [before, after]) {
     for (const autofixResult of ['success', 'failure', 'cancelled']) {
       test(`observed ${head === before ? 'unchanged' : 'changed'} head, ${autofixResult} (${source})`, async () => {
