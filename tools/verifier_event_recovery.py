@@ -260,7 +260,7 @@ _ORIGINAL_FENCED_FINAL_PRODUCERS = frozenset(
     {"5e8f7a842231f16d8f5ba3ae1a48ed7625afa2feafe774963cdba066196fd0b8"}
 )
 _ORIGINAL_PARSE_ERROR = (
-    "Schema repair policy escalated verifier output: " "Failed to parse JSON response after repair:"
+    "Schema repair policy escalated verifier output: Failed to parse JSON response after repair:"
 )
 
 
@@ -787,7 +787,6 @@ def inspect_digest_bound_archive(
             "sha256": None,
             "reason": "archive_byte_bound",
         }
-    import math
 
     digest = _sha(raw)
     published = (
@@ -952,15 +951,16 @@ def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str,
         provider_calls_raw is None
         or isinstance(provider_calls_raw, bool)
         or not isinstance(provider_calls_raw, (int, float))
-        or (isinstance(provider_calls_raw, float) and (math.isnan(provider_calls_raw) or math.isinf(provider_calls_raw)))
+        or (
+            isinstance(provider_calls_raw, float)
+            and (math.isnan(provider_calls_raw) or math.isinf(provider_calls_raw))
+        )
     ):
         provider_calls: int | None = None
     elif isinstance(provider_calls_raw, float):
         try:
             provider_calls = int(provider_calls_raw)
-            if provider_calls != provider_calls_raw:
-                provider_calls = None
-            elif provider_calls < 0:
+            if provider_calls != provider_calls_raw or provider_calls < 0:
                 provider_calls = None
         except (OverflowError, ValueError):
             provider_calls = None
@@ -1084,11 +1084,13 @@ def classify_retained_artifact_report(payload: dict[str, Any]) -> dict[str, Any]
     classified = [classify_retained_artifact_outcome(row) for row in rows]
     comment_ids = [row["comment_id"] for row in classified]
     known_comment_ids = set(KNOWN_RETAINED_ARTIFACTS.keys())
-    
+
     has_duplicates = len(comment_ids) != len(set(comment_ids))
     has_extra = any(cid not in known_comment_ids for cid in comment_ids)
-    pair_complete = len(classified) == 2 and set(comment_ids) == known_comment_ids and not has_duplicates
-    
+    pair_complete = (
+        len(classified) == 2 and set(comment_ids) == known_comment_ids and not has_duplicates
+    )
+
     any_incomplete = any(
         row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE for row in classified
     )
@@ -1101,7 +1103,6 @@ def classify_retained_artifact_report(payload: dict[str, Any]) -> dict[str, Any]
     incomplete_observation_set = not pair_complete and (
         not classified or (only_known_comments and set(comment_ids) != known_comment_ids)
     )
-    
     pair_expiry = (
         pair_complete
         and clean
@@ -1120,7 +1121,13 @@ def classify_retained_artifact_report(payload: dict[str, Any]) -> dict[str, Any]
     )
     any_missing_counts = any(row["provider_calls"] is None for row in classified)
 
-    if not classified or any_incomplete or incomplete_observation_set or has_duplicates or has_extra:
+    if (
+        not classified
+        or any_incomplete
+        or incomplete_observation_set
+        or has_duplicates
+        or has_extra
+    ):
         phrase = INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
         total_provider_calls = None
     elif pair_expiry:
@@ -1137,10 +1144,14 @@ def classify_retained_artifact_report(payload: dict[str, Any]) -> dict[str, Any]
         total_provider_calls = None
     elif len(outcomes) == 1:
         phrase = next(iter(outcomes))
-        total_provider_calls = None if any_missing_counts else sum(row["provider_calls"] for row in classified)
+        total_provider_calls = (
+            None if any_missing_counts else sum(row["provider_calls"] for row in classified)
+        )
     else:
         phrase = "mixed retained-artifact outcomes"
-        total_provider_calls = None if any_missing_counts else sum(row["provider_calls"] for row in classified)
+        total_provider_calls = (
+            None if any_missing_counts else sum(row["provider_calls"] for row in classified)
+        )
 
     return {
         "schema": "retained-artifact-report/v1",

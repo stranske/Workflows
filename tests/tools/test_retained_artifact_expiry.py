@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import io
 import json
-import math
 import zipfile
 from pathlib import Path
+from typing import Any
 
 from tools.verifier_event_recovery import (
     AUTHENTICATED_RETAINED_READBACK,
@@ -259,7 +259,14 @@ def test_cli_rejects_classify_with_manifest():
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "tools/verifier_event_recovery.py"
     completed = subprocess.run(
-        [sys.executable, str(script), "--classify-retained-artifact", "x.json", "--manifest", "y.json"],
+        [
+            sys.executable,
+            str(script),
+            "--classify-retained-artifact",
+            "x.json",
+            "--manifest",
+            "y.json",
+        ],
         check=False,
         capture_output=True,
         text=True,
@@ -267,7 +274,13 @@ def test_cli_rejects_classify_with_manifest():
     assert completed.returncode != 0
 
     completed_revalidate = subprocess.run(
-        [sys.executable, str(script), "--classify-retained-artifact", "x.json", "--revalidate-retained"],
+        [
+            sys.executable,
+            str(script),
+            "--classify-retained-artifact",
+            "x.json",
+            "--revalidate-retained",
+        ],
         check=False,
         capture_output=True,
         text=True,
@@ -277,8 +290,6 @@ def test_cli_rejects_classify_with_manifest():
 
 def test_archive_byte_bounds_and_unsafe_and_member_failure():
     """Test archive size limit, unsafe zip entries and member authentication failure."""
-    import io
-    import zipfile
     from tools.verifier_event_recovery import _sha
 
     # Archive byte bound (> 8MB)
@@ -303,7 +314,9 @@ def test_archive_byte_bounds_and_unsafe_and_member_failure():
         zf.writestr("../traversal.txt", b"evil")
     unsafe_bytes = buf.getvalue()
     res_unsafe = inspect_digest_bound_archive(
-        unsafe_bytes, _sha(unsafe_bytes), member_claims=[{"path": "../traversal.txt", "raw_sha256": _sha(b"evil")}]
+        unsafe_bytes,
+        _sha(unsafe_bytes),
+        member_claims=[{"path": "../traversal.txt", "raw_sha256": _sha(b"evil")}],
     )
     assert res_unsafe["available"] is True
     assert res_unsafe["authenticated"] is False
@@ -315,7 +328,9 @@ def test_archive_byte_bounds_and_unsafe_and_member_failure():
         zf.writestr("/root.txt", b"evil")
     unsafe_bytes2 = buf2.getvalue()
     res_unsafe2 = inspect_digest_bound_archive(
-        unsafe_bytes2, _sha(unsafe_bytes2), member_claims=[{"path": "/root.txt", "raw_sha256": _sha(b"evil")}]
+        unsafe_bytes2,
+        _sha(unsafe_bytes2),
+        member_claims=[{"path": "/root.txt", "raw_sha256": _sha(b"evil")}],
     )
     assert res_unsafe2["available"] is True
     assert res_unsafe2["authenticated"] is False
@@ -403,7 +418,10 @@ def test_collector_receipt_conversion():
     stop_inc_2["provider_calls"] = "invalid"
     res_stop_2 = classify_retained_artifact_outcome(_observation_from_collector_receipt(stop_inc_2))
     assert res_stop_2["outcome"] == "original event accepting; recovery stopped"
-    assert res_stop_2["reason"] == "original_event_must_stay_nonaccepting;missing_or_invalid_provider_calls"
+    assert (
+        res_stop_2["reason"]
+        == "original_event_must_stay_nonaccepting;missing_or_invalid_provider_calls"
+    )
     assert res_stop_2["original_event_accepting"] is True
     assert res_stop_2["provider_calls"] is None
 
@@ -432,7 +450,9 @@ def test_collector_receipt_conversion():
 
     extra_rcpt = dict(receipt)
     extra_rcpt["comment"] = 9999999999
-    extra_report = classify_retained_artifact_report({"receipts": [receipt, receipt_4235, extra_rcpt]})
+    extra_report = classify_retained_artifact_report(
+        {"receipts": [receipt, receipt_4235, extra_rcpt]}
+    )
     assert extra_report["operational_outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
     assert extra_report["provider_calls"] is None
 
@@ -701,15 +721,11 @@ def test_non_boolean_original_event_accepting_is_incomplete():
     assert row["original_event_accepting"] is None
     assert row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
 
-    row = classify_retained_artifact_outcome(
-        _known(6390994169, **{"original_event_accepting": ""})
-    )
+    row = classify_retained_artifact_outcome(_known(6390994169, **{"original_event_accepting": ""}))
     assert row["original_event_accepting"] is None
     assert row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
 
-    row = classify_retained_artifact_outcome(
-        _known(6390994169, **{"original_event_accepting": 0})
-    )
+    row = classify_retained_artifact_outcome(_known(6390994169, **{"original_event_accepting": 0}))
     assert row["original_event_accepting"] is None
     assert row["outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
 
@@ -798,7 +814,10 @@ def test_stop_plus_incomplete_preserves_outcomes():
         _known(6392557346, original_event_accepting=True, provider_calls=None)
     )
     assert stop_and_inc_2["outcome"] == "original event accepting; recovery stopped"
-    assert stop_and_inc_2["reason"] == "original_event_must_stay_nonaccepting;missing_or_invalid_provider_calls"
+    assert (
+        stop_and_inc_2["reason"]
+        == "original_event_must_stay_nonaccepting;missing_or_invalid_provider_calls"
+    )
     assert stop_and_inc_2["original_event_accepting"] is True
     assert stop_and_inc_2["provider_calls"] is None
 
@@ -811,7 +830,9 @@ def test_cli_paths_for_retained_artifact_cases(tmp_path: Path):
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "tools/verifier_event_recovery.py"
 
-    def _run_cli(payload_dict: dict[str, Any]) -> tuple[subprocess.CompletedProcess, dict[str, Any]]:
+    def _run_cli(
+        payload_dict: dict[str, Any],
+    ) -> tuple[subprocess.CompletedProcess, dict[str, Any]]:
         p_file = tmp_path / f"p_{id(payload_dict)}_{len(payload_dict)}.json"
         r_file = tmp_path / f"r_{id(payload_dict)}_{len(payload_dict)}.json"
         p_file.write_text(json.dumps(payload_dict), encoding="utf-8")
@@ -851,9 +872,7 @@ def test_cli_paths_for_retained_artifact_cases(tmp_path: Path):
     # 3. Extra row via CLI
     extra_row = dict(_known(6390994169))
     extra_row["comment_id"] = 9999999999
-    comp, saved = _run_cli(
-        {"observations": [_known(6390994169), _known(6392557346), extra_row]}
-    )
+    comp, saved = _run_cli({"observations": [_known(6390994169), _known(6392557346), extra_row]})
     assert comp.returncode == 0
     assert comp.stdout.strip() == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
     assert saved["operational_outcome"] == INCOMPLETE_RETAINED_ARTIFACT_EVIDENCE
