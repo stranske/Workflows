@@ -1,0 +1,2647 @@
+{
+  "schema": "issue-4619-gate-run-view/v1",
+  "issue": 4619,
+  "repo": "stranske/Workflows",
+  "run_id": 41771220527,
+  "run_url": "https://github.com/stranske/Workflows/actions/runs/41771220527",
+  "command": "gh run view 41771220527 --repo stranske/Workflows --json jobs,status,conclusion",
+  "max_seconds": 600.0,
+  "passed": false,
+  "failures": [
+    "python ci / python 3.14 exceeded 600s: 742.0s",
+    "python ci / python 3.13 exceeded 600s: 2304.0s"
+  ],
+  "gh_run_view": {
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "completedAt": "2026-11-04T04:07:18Z",
+        "conclusion": "success",
+        "databaseId": 126381106822,
+        "name": "resolve Gate PR context",
+        "startedAt": "2026-11-04T04:07:14Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:15Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:16Z",
+            "conclusion": "success",
+            "name": "Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:16Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:16Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381106822"
+      },
+      {
+        "completedAt": "2026-11-04T04:07:27Z",
+        "conclusion": "success",
+        "databaseId": 126381188555,
+        "name": "generated delivery seal",
+        "startedAt": "2026-11-04T04:07:20Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:24Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:25Z",
+            "conclusion": "success",
+            "name": "Require an exact-head delivery seal",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:25Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:25Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381188555"
+      },
+      {
+        "completedAt": "2026-11-04T04:07:27Z",
+        "conclusion": "success",
+        "databaseId": 126381188731,
+        "name": "detect changed files",
+        "startedAt": "2026-11-04T04:07:20Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:21Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:22Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:23Z",
+            "conclusion": "success",
+            "name": "Mint GitHub App Token",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:24Z",
+            "conclusion": "success",
+            "name": "Checkout workflow helpers",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:25Z",
+            "conclusion": "success",
+            "name": "Classify changed paths",
+            "number": 5,
+            "startedAt": "2026-11-04T04:07:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:25Z",
+            "conclusion": "success",
+            "name": "Detect changes via API",
+            "number": 6,
+            "startedAt": "2026-11-04T04:07:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:25Z",
+            "conclusion": "success",
+            "name": "Compute Python CI toggles",
+            "number": 7,
+            "startedAt": "2026-11-04T04:07:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:26Z",
+            "conclusion": "success",
+            "name": "Post Checkout workflow helpers",
+            "number": 13,
+            "startedAt": "2026-11-04T04:07:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:26Z",
+            "conclusion": "success",
+            "name": "Post Mint GitHub App Token",
+            "number": 14,
+            "startedAt": "2026-11-04T04:07:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:26Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-11-04T04:07:26Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381188731"
+      },
+      {
+        "completedAt": "2026-11-04T04:07:40Z",
+        "conclusion": "success",
+        "databaseId": 126381241574,
+        "name": "privilege environment gate",
+        "startedAt": "2026-11-04T04:07:35Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:37Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:38Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:38Z",
+            "conclusion": "success",
+            "name": "Log environment selection",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:38Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:38Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381241574"
+      },
+      {
+        "completedAt": "2026-11-04T04:07:41Z",
+        "conclusion": "success",
+        "databaseId": 126381241596,
+        "name": "issue consistency",
+        "startedAt": "2026-11-04T04:07:30Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:32Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:33Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:37Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:37Z",
+            "conclusion": "success",
+            "name": "Fetch base ref",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:37Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7",
+            "number": 5,
+            "startedAt": "2026-11-04T04:07:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:38Z",
+            "conclusion": "success",
+            "name": "Check issue number consistency",
+            "number": 6,
+            "startedAt": "2026-11-04T04:07:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:38Z",
+            "conclusion": "skipped",
+            "name": "Skip issue consistency check",
+            "number": 7,
+            "startedAt": "2026-11-04T04:07:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:38Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7",
+            "number": 13,
+            "startedAt": "2026-11-04T04:07:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:38Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7",
+            "number": 14,
+            "startedAt": "2026-11-04T04:07:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:38Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-11-04T04:07:38Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381241596"
+      },
+      {
+        "completedAt": "2026-11-04T04:08:15Z",
+        "conclusion": "success",
+        "databaseId": 126381315755,
+        "name": "docs guard",
+        "startedAt": "2026-11-04T04:07:54Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:56Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:59Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:59Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Run reusable workflow docs guards",
+            "number": 5,
+            "startedAt": "2026-11-04T04:07:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Warn on stale managed AGENTS.md playbook refs",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7",
+            "number": 11,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7",
+            "number": 12,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:14Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381315755"
+      },
+      {
+        "completedAt": "2026-11-04T04:08:32Z",
+        "conclusion": "success",
+        "databaseId": 126381315793,
+        "name": "github scripts tests",
+        "startedAt": "2026-11-04T04:07:53Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:56Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:56Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:59Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:59Z",
+            "conclusion": "success",
+            "name": "Detect optional script test suites",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:59Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+            "number": 5,
+            "startedAt": "2026-11-04T04:07:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Run node --test .github/scripts/__tests__/*.test.js",
+            "number": 6,
+            "startedAt": "2026-11-04T04:07:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:20Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:27Z",
+            "conclusion": "success",
+            "name": "Run python -m pip install --upgrade pip pytest requests",
+            "number": 8,
+            "startedAt": "2026-11-04T04:08:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:29Z",
+            "conclusion": "success",
+            "name": "Run pytest tests/workflows/github_scripts",
+            "number": 9,
+            "startedAt": "2026-11-04T04:08:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:29Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7",
+            "number": 16,
+            "startedAt": "2026-11-04T04:08:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:29Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+            "number": 17,
+            "startedAt": "2026-11-04T04:08:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:29Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7",
+            "number": 18,
+            "startedAt": "2026-11-04T04:08:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:29Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 19,
+            "startedAt": "2026-11-04T04:08:29Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381315793"
+      },
+      {
+        "completedAt": "2026-11-04T04:08:15Z",
+        "conclusion": "success",
+        "databaseId": 126381315814,
+        "name": "stranske-pdf-extract package tests",
+        "startedAt": "2026-11-04T04:08:01Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:08:03Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:08:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:03Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:08:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:05Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v7",
+            "number": 3,
+            "startedAt": "2026-11-04T04:08:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:08Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7",
+            "number": 4,
+            "startedAt": "2026-11-04T04:08:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:12Z",
+            "conclusion": "success",
+            "name": "Install package test dependencies",
+            "number": 5,
+            "startedAt": "2026-11-04T04:08:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Run package test suite",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7",
+            "number": 11,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v7",
+            "number": 12,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381315814"
+      },
+      {
+        "completedAt": "2026-11-04T04:08:47Z",
+        "conclusion": "success",
+        "databaseId": 126381315837,
+        "name": "test-quality",
+        "startedAt": "2026-11-04T04:07:49Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:52Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:52Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Fetch base ref",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@v7",
+            "number": 5,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:40Z",
+            "conclusion": "success",
+            "name": "Install test-quality dependencies",
+            "number": 6,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:40Z",
+            "conclusion": "success",
+            "name": "Check test quality and secret diff",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:40Z",
+            "conclusion": "success",
+            "name": "Check deliberate-break acceptance criterion",
+            "number": 8,
+            "startedAt": "2026-11-04T04:08:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:44Z",
+            "conclusion": "success",
+            "name": "Verify open sync-manifest issue citations",
+            "number": 9,
+            "startedAt": "2026-11-04T04:08:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:44Z",
+            "conclusion": "skipped",
+            "name": "Apply runtime acceptance-criteria label",
+            "number": 10,
+            "startedAt": "2026-11-04T04:08:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:44Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@v7",
+            "number": 19,
+            "startedAt": "2026-11-04T04:08:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:44Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 20,
+            "startedAt": "2026-11-04T04:08:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:44Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-11-04T04:08:44Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381315837"
+      },
+      {
+        "completedAt": "2026-11-04T04:08:45Z",
+        "conclusion": "success",
+        "databaseId": 126381315877,
+        "name": "ledger validation",
+        "startedAt": "2026-11-04T04:07:57Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:58Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:59Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:59Z",
+            "conclusion": "success",
+            "name": "Mint GitHub App Token",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:03Z",
+            "conclusion": "success",
+            "name": "Checkout repository",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:03Z",
+            "conclusion": "success",
+            "name": "Set up Python",
+            "number": 5,
+            "startedAt": "2026-11-04T04:08:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:09Z",
+            "conclusion": "success",
+            "name": "Install PyYAML",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:43Z",
+            "conclusion": "success",
+            "name": "Validate ledger files",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:43Z",
+            "conclusion": "success",
+            "name": "Post Set up Python",
+            "number": 12,
+            "startedAt": "2026-11-04T04:08:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:43Z",
+            "conclusion": "success",
+            "name": "Post Checkout repository",
+            "number": 13,
+            "startedAt": "2026-11-04T04:08:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:43Z",
+            "conclusion": "success",
+            "name": "Post Mint GitHub App Token",
+            "number": 14,
+            "startedAt": "2026-11-04T04:08:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:43Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 15,
+            "startedAt": "2026-11-04T04:08:43Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381315877"
+      },
+      {
+        "completedAt": "2026-11-04T04:07:59Z",
+        "conclusion": "success",
+        "databaseId": 126381315894,
+        "name": "python ci / Validate inputs",
+        "startedAt": "2026-11-04T04:07:54Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:07:55Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:07:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Checkout shared CI defaults",
+            "number": 2,
+            "startedAt": "2026-11-04T04:07:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Validate workflow inputs",
+            "number": 3,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Emit deprecated input warnings",
+            "number": 4,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Post Checkout shared CI defaults",
+            "number": 8,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:07:57Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 9,
+            "startedAt": "2026-11-04T04:07:57Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381315894"
+      },
+      {
+        "completedAt": "2026-11-04T04:07:41Z",
+        "conclusion": "skipped",
+        "databaseId": 126381317891,
+        "name": "docker smoke",
+        "startedAt": "2026-11-04T04:07:41Z",
+        "status": "completed",
+        "steps": [],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381317891"
+      },
+      {
+        "completedAt": "2026-11-04T04:08:24Z",
+        "conclusion": "success",
+        "databaseId": 126381422101,
+        "name": "python ci / typecheck-mypy",
+        "startedAt": "2026-11-04T04:08:05Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:08:07Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:08:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:10Z",
+            "conclusion": "success",
+            "name": "Checkout repository",
+            "number": 2,
+            "startedAt": "2026-11-04T04:08:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:10Z",
+            "conclusion": "skipped",
+            "name": "Checkout repository (sparse)",
+            "number": 3,
+            "startedAt": "2026-11-04T04:08:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:10Z",
+            "conclusion": "success",
+            "name": "Resolve mypy python pin",
+            "number": 4,
+            "startedAt": "2026-11-04T04:08:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:10Z",
+            "conclusion": "success",
+            "name": "Set up Python",
+            "number": 5,
+            "startedAt": "2026-11-04T04:08:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:10Z",
+            "conclusion": "success",
+            "name": "Set up Node.js",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:11Z",
+            "conclusion": "success",
+            "name": "Install uv",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:15Z",
+            "conclusion": "success",
+            "name": "Cache uv artifacts",
+            "number": 8,
+            "startedAt": "2026-11-04T04:08:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:18Z",
+            "conclusion": "success",
+            "name": "Install dependencies",
+            "number": 9,
+            "startedAt": "2026-11-04T04:08:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Cache mypy state",
+            "number": 10,
+            "startedAt": "2026-11-04T04:08:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Mypy (type check)",
+            "number": 11,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Finalize mypy",
+            "number": 12,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Post Cache mypy state",
+            "number": 20,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Post Cache uv artifacts",
+            "number": 21,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:20Z",
+            "conclusion": "success",
+            "name": "Post Set up Node.js",
+            "number": 22,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:20Z",
+            "conclusion": "success",
+            "name": "Post Set up Python",
+            "number": 23,
+            "startedAt": "2026-11-04T04:08:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:20Z",
+            "conclusion": "success",
+            "name": "Post Checkout repository",
+            "number": 24,
+            "startedAt": "2026-11-04T04:08:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:20Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-11-04T04:08:20Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381422101"
+      },
+      {
+        "completedAt": "2026-11-04T04:08:17Z",
+        "conclusion": "success",
+        "databaseId": 126381422158,
+        "name": "python ci / lint-ruff",
+        "startedAt": "2026-11-04T04:08:04Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:08:06Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:08:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:08Z",
+            "conclusion": "success",
+            "name": "Checkout repository",
+            "number": 2,
+            "startedAt": "2026-11-04T04:08:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:08Z",
+            "conclusion": "skipped",
+            "name": "Checkout repository (sparse)",
+            "number": 3,
+            "startedAt": "2026-11-04T04:08:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:08Z",
+            "conclusion": "success",
+            "name": "Set up Python",
+            "number": 4,
+            "startedAt": "2026-11-04T04:08:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:08Z",
+            "conclusion": "success",
+            "name": "Set up Node.js",
+            "number": 5,
+            "startedAt": "2026-11-04T04:08:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:09Z",
+            "conclusion": "success",
+            "name": "Install uv",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:12Z",
+            "conclusion": "success",
+            "name": "Cache uv artifacts",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:12Z",
+            "conclusion": "success",
+            "name": "Install dependencies",
+            "number": 8,
+            "startedAt": "2026-11-04T04:08:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Ruff (lint)",
+            "number": 9,
+            "startedAt": "2026-11-04T04:08:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Finalize lint",
+            "number": 10,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Post Cache uv artifacts",
+            "number": 17,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Post Set up Node.js",
+            "number": 18,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Post Set up Python",
+            "number": 19,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Post Checkout repository",
+            "number": 20,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:13Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-11-04T04:08:13Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381422158"
+      },
+      {
+        "completedAt": "2026-11-04T04:09:16Z",
+        "conclusion": "success",
+        "databaseId": 126381422256,
+        "name": "python ci / lint-format",
+        "startedAt": "2026-11-04T04:08:19Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:08:21Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:08:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:23Z",
+            "conclusion": "success",
+            "name": "Checkout Workflows repo for actions",
+            "number": 2,
+            "startedAt": "2026-11-04T04:08:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:26Z",
+            "conclusion": "success",
+            "name": "Setup API client",
+            "number": 3,
+            "startedAt": "2026-11-04T04:08:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:28Z",
+            "conclusion": "success",
+            "name": "Checkout repository",
+            "number": 4,
+            "startedAt": "2026-11-04T04:08:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:28Z",
+            "conclusion": "skipped",
+            "name": "Checkout repository (sparse)",
+            "number": 5,
+            "startedAt": "2026-11-04T04:08:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:28Z",
+            "conclusion": "success",
+            "name": "Set up Python",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:29Z",
+            "conclusion": "success",
+            "name": "Set up Node.js",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:30Z",
+            "conclusion": "success",
+            "name": "Install uv",
+            "number": 8,
+            "startedAt": "2026-11-04T04:08:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:34Z",
+            "conclusion": "success",
+            "name": "Cache uv artifacts",
+            "number": 9,
+            "startedAt": "2026-11-04T04:08:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:34Z",
+            "conclusion": "success",
+            "name": "Install dependencies",
+            "number": 10,
+            "startedAt": "2026-11-04T04:08:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:12Z",
+            "conclusion": "success",
+            "name": "Black (format check)",
+            "number": 11,
+            "startedAt": "2026-11-04T04:08:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:12Z",
+            "conclusion": "success",
+            "name": "Finalize format check",
+            "number": 12,
+            "startedAt": "2026-11-04T04:09:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:12Z",
+            "conclusion": "success",
+            "name": "Post Cache uv artifacts",
+            "number": 20,
+            "startedAt": "2026-11-04T04:09:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:12Z",
+            "conclusion": "success",
+            "name": "Post Set up Node.js",
+            "number": 21,
+            "startedAt": "2026-11-04T04:09:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:13Z",
+            "conclusion": "success",
+            "name": "Post Set up Python",
+            "number": 22,
+            "startedAt": "2026-11-04T04:09:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:13Z",
+            "conclusion": "success",
+            "name": "Post Checkout repository",
+            "number": 23,
+            "startedAt": "2026-11-04T04:09:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:13Z",
+            "conclusion": "success",
+            "name": "Post Checkout Workflows repo for actions",
+            "number": 24,
+            "startedAt": "2026-11-04T04:09:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:13Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-11-04T04:09:13Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381422256"
+      },
+      {
+        "completedAt": "2026-11-04T04:08:21Z",
+        "conclusion": "success",
+        "databaseId": 126381422389,
+        "name": "python ci / select reusable CI scope",
+        "startedAt": "2026-11-04T04:08:16Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:08:17Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:08:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Checkout Workflows helper",
+            "number": 2,
+            "startedAt": "2026-11-04T04:08:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Select Python version matrix",
+            "number": 3,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Post Checkout Workflows helper",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:19Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:19Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381422389"
+      },
+      {
+        "completedAt": "2026-11-04T04:20:53Z",
+        "conclusion": "failure",
+        "databaseId": 126381546520,
+        "name": "python ci / python 3.14",
+        "startedAt": "2026-11-04T04:08:31Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:08:34Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:08:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:34Z",
+            "conclusion": "success",
+            "name": "Select runner-owned test temporary storage",
+            "number": 2,
+            "startedAt": "2026-11-04T04:08:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:34Z",
+            "conclusion": "success",
+            "name": "Mint GitHub App Token",
+            "number": 3,
+            "startedAt": "2026-11-04T04:08:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:37Z",
+            "conclusion": "success",
+            "name": "Checkout repository",
+            "number": 4,
+            "startedAt": "2026-11-04T04:08:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:37Z",
+            "conclusion": "skipped",
+            "name": "Checkout repository (sparse)",
+            "number": 5,
+            "startedAt": "2026-11-04T04:08:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:37Z",
+            "conclusion": "success",
+            "name": "Set up Python",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:39Z",
+            "conclusion": "success",
+            "name": "Set up Node.js",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:40Z",
+            "conclusion": "success",
+            "name": "Checkout Workflows artifact cache action",
+            "number": 8,
+            "startedAt": "2026-11-04T04:08:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:41Z",
+            "conclusion": "success",
+            "name": "Install uv",
+            "number": 9,
+            "startedAt": "2026-11-04T04:08:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:44Z",
+            "conclusion": "success",
+            "name": "Cache uv artifacts",
+            "number": 10,
+            "startedAt": "2026-11-04T04:08:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:47Z",
+            "conclusion": "success",
+            "name": "Install dependencies",
+            "number": 11,
+            "startedAt": "2026-11-04T04:08:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:53Z",
+            "conclusion": "success",
+            "name": "Validate test dependencies",
+            "number": 12,
+            "startedAt": "2026-11-04T04:08:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:55Z",
+            "conclusion": "success",
+            "name": "Check for undeclared test dependencies",
+            "number": 13,
+            "startedAt": "2026-11-04T04:08:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:55Z",
+            "conclusion": "skipped",
+            "name": "Auto-fix missing dependencies",
+            "number": 14,
+            "startedAt": "2026-11-04T04:08:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:55Z",
+            "conclusion": "success",
+            "name": "Resolve mypy python pin",
+            "number": 15,
+            "startedAt": "2026-11-04T04:08:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:56Z",
+            "conclusion": "success",
+            "name": "Cache mypy state",
+            "number": 16,
+            "startedAt": "2026-11-04T04:08:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:56Z",
+            "conclusion": "success",
+            "name": "Cache pytest state",
+            "number": 17,
+            "startedAt": "2026-11-04T04:08:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:56Z",
+            "conclusion": "success",
+            "name": "Record Python execution context",
+            "number": 18,
+            "startedAt": "2026-11-04T04:08:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:58Z",
+            "conclusion": "success",
+            "name": "Restore CI artifact cache",
+            "number": 19,
+            "startedAt": "2026-11-04T04:08:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:46Z",
+            "conclusion": "success",
+            "name": "Pytest (unit tests with coverage)",
+            "number": 20,
+            "startedAt": "2026-11-04T04:08:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:46Z",
+            "conclusion": "success",
+            "name": "Enforce coverage minimum",
+            "number": 21,
+            "startedAt": "2026-11-04T04:20:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:46Z",
+            "conclusion": "success",
+            "name": "Stage coverage artifact layout",
+            "number": 22,
+            "startedAt": "2026-11-04T04:20:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:47Z",
+            "conclusion": "success",
+            "name": "Record CI summary",
+            "number": 23,
+            "startedAt": "2026-11-04T04:20:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:47Z",
+            "conclusion": "success",
+            "name": "Record staged artifact paths",
+            "number": 24,
+            "startedAt": "2026-11-04T04:20:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "success",
+            "name": "Upload coverage artifact",
+            "number": 25,
+            "startedAt": "2026-11-04T04:20:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "failure",
+            "name": "Finalize check results",
+            "number": 26,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "success",
+            "name": "Resolve primary python version",
+            "number": 27,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Build CI metrics payload",
+            "number": 28,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Upload metrics artifact",
+            "number": 29,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Append metrics history",
+            "number": 30,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Upload metrics history artifact",
+            "number": 31,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Upload classification artifact",
+            "number": 32,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Compute coverage delta",
+            "number": 33,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage delta artifact",
+            "number": 34,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Generate coverage trend summary",
+            "number": 35,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Annotate coverage trend record",
+            "number": 36,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Append coverage trend history",
+            "number": 37,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage summary artifact",
+            "number": 38,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage trend artifact",
+            "number": 39,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage trend history artifact",
+            "number": 40,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Checkout Workflows LangSmith fleet helper",
+            "number": 41,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "success",
+            "name": "Ensure LangSmith fleet telemetry artifact",
+            "number": 42,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "success",
+            "name": "Check LangSmith fleet telemetry artifact",
+            "number": 43,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Upload LangSmith fleet telemetry artifact",
+            "number": 44,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "success",
+            "name": "Post Restore CI artifact cache",
+            "number": 80,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Post Cache pytest state",
+            "number": 81,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Post Cache mypy state",
+            "number": 82,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Post Cache uv artifacts",
+            "number": 83,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "success",
+            "name": "Post Checkout Workflows artifact cache action",
+            "number": 84,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Post Set up Node.js",
+            "number": 85,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:48Z",
+            "conclusion": "skipped",
+            "name": "Post Set up Python",
+            "number": 86,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:49Z",
+            "conclusion": "success",
+            "name": "Post Checkout repository",
+            "number": 87,
+            "startedAt": "2026-11-04T04:20:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:49Z",
+            "conclusion": "success",
+            "name": "Post Mint GitHub App Token",
+            "number": 88,
+            "startedAt": "2026-11-04T04:20:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:20:49Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 89,
+            "startedAt": "2026-11-04T04:20:49Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381546520"
+      },
+      {
+        "completedAt": "2026-11-04T04:46:56Z",
+        "conclusion": "failure",
+        "databaseId": 126381546540,
+        "name": "python ci / python 3.13",
+        "startedAt": "2026-11-04T04:08:32Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:08:35Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:08:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:35Z",
+            "conclusion": "success",
+            "name": "Select runner-owned test temporary storage",
+            "number": 2,
+            "startedAt": "2026-11-04T04:08:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:36Z",
+            "conclusion": "success",
+            "name": "Mint GitHub App Token",
+            "number": 3,
+            "startedAt": "2026-11-04T04:08:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:38Z",
+            "conclusion": "success",
+            "name": "Checkout repository",
+            "number": 4,
+            "startedAt": "2026-11-04T04:08:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:38Z",
+            "conclusion": "skipped",
+            "name": "Checkout repository (sparse)",
+            "number": 5,
+            "startedAt": "2026-11-04T04:08:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:38Z",
+            "conclusion": "success",
+            "name": "Set up Python",
+            "number": 6,
+            "startedAt": "2026-11-04T04:08:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:39Z",
+            "conclusion": "success",
+            "name": "Set up Node.js",
+            "number": 7,
+            "startedAt": "2026-11-04T04:08:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:41Z",
+            "conclusion": "success",
+            "name": "Checkout Workflows artifact cache action",
+            "number": 8,
+            "startedAt": "2026-11-04T04:08:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:41Z",
+            "conclusion": "success",
+            "name": "Install uv",
+            "number": 9,
+            "startedAt": "2026-11-04T04:08:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:46Z",
+            "conclusion": "success",
+            "name": "Cache uv artifacts",
+            "number": 10,
+            "startedAt": "2026-11-04T04:08:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:49Z",
+            "conclusion": "success",
+            "name": "Install dependencies",
+            "number": 11,
+            "startedAt": "2026-11-04T04:08:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:54Z",
+            "conclusion": "success",
+            "name": "Validate test dependencies",
+            "number": 12,
+            "startedAt": "2026-11-04T04:08:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:56Z",
+            "conclusion": "success",
+            "name": "Check for undeclared test dependencies",
+            "number": 13,
+            "startedAt": "2026-11-04T04:08:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:56Z",
+            "conclusion": "skipped",
+            "name": "Auto-fix missing dependencies",
+            "number": 14,
+            "startedAt": "2026-11-04T04:08:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:56Z",
+            "conclusion": "success",
+            "name": "Resolve mypy python pin",
+            "number": 15,
+            "startedAt": "2026-11-04T04:08:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:57Z",
+            "conclusion": "success",
+            "name": "Cache mypy state",
+            "number": 16,
+            "startedAt": "2026-11-04T04:08:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:58Z",
+            "conclusion": "success",
+            "name": "Cache pytest state",
+            "number": 17,
+            "startedAt": "2026-11-04T04:08:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:08:58Z",
+            "conclusion": "success",
+            "name": "Record Python execution context",
+            "number": 18,
+            "startedAt": "2026-11-04T04:08:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:09:04Z",
+            "conclusion": "success",
+            "name": "Restore CI artifact cache",
+            "number": 19,
+            "startedAt": "2026-11-04T04:08:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:47Z",
+            "conclusion": "success",
+            "name": "Pytest (unit tests with coverage)",
+            "number": 20,
+            "startedAt": "2026-11-04T04:09:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:47Z",
+            "conclusion": "skipped",
+            "name": "Enforce coverage minimum",
+            "number": 21,
+            "startedAt": "2026-11-04T04:46:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:47Z",
+            "conclusion": "success",
+            "name": "Stage coverage artifact layout",
+            "number": 22,
+            "startedAt": "2026-11-04T04:46:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:47Z",
+            "conclusion": "success",
+            "name": "Record CI summary",
+            "number": 23,
+            "startedAt": "2026-11-04T04:46:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:47Z",
+            "conclusion": "success",
+            "name": "Record staged artifact paths",
+            "number": 24,
+            "startedAt": "2026-11-04T04:46:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "success",
+            "name": "Upload coverage artifact",
+            "number": 25,
+            "startedAt": "2026-11-04T04:46:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "failure",
+            "name": "Finalize check results",
+            "number": 26,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "success",
+            "name": "Resolve primary python version",
+            "number": 27,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Build CI metrics payload",
+            "number": 28,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Upload metrics artifact",
+            "number": 29,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Append metrics history",
+            "number": 30,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Upload metrics history artifact",
+            "number": 31,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Upload classification artifact",
+            "number": 32,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Compute coverage delta",
+            "number": 33,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage delta artifact",
+            "number": 34,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Generate coverage trend summary",
+            "number": 35,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Annotate coverage trend record",
+            "number": 36,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Append coverage trend history",
+            "number": 37,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage summary artifact",
+            "number": 38,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage trend artifact",
+            "number": 39,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage trend history artifact",
+            "number": 40,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Checkout Workflows LangSmith fleet helper",
+            "number": 41,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Ensure LangSmith fleet telemetry artifact",
+            "number": 42,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Check LangSmith fleet telemetry artifact",
+            "number": 43,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Upload LangSmith fleet telemetry artifact",
+            "number": 44,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "success",
+            "name": "Post Restore CI artifact cache",
+            "number": 80,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Post Cache pytest state",
+            "number": 81,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Post Cache mypy state",
+            "number": 82,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Post Cache uv artifacts",
+            "number": 83,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "success",
+            "name": "Post Checkout Workflows artifact cache action",
+            "number": 84,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Post Set up Node.js",
+            "number": 85,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "skipped",
+            "name": "Post Set up Python",
+            "number": 86,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:50Z",
+            "conclusion": "success",
+            "name": "Post Checkout repository",
+            "number": 87,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:51Z",
+            "conclusion": "success",
+            "name": "Post Mint GitHub App Token",
+            "number": 88,
+            "startedAt": "2026-11-04T04:46:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:46:51Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 89,
+            "startedAt": "2026-11-04T04:46:51Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381546540"
+      },
+      {
+        "completedAt": "2026-11-04T04:47:30Z",
+        "conclusion": "success",
+        "databaseId": 126393998617,
+        "name": "python ci / logs summary",
+        "startedAt": "2026-11-04T04:47:20Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:47:22Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:47:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:22Z",
+            "conclusion": "success",
+            "name": "Mint GitHub App Token",
+            "number": 2,
+            "startedAt": "2026-11-04T04:47:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:23Z",
+            "conclusion": "success",
+            "name": "Checkout Workflows repo for actions",
+            "number": 3,
+            "startedAt": "2026-11-04T04:47:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:26Z",
+            "conclusion": "success",
+            "name": "Setup API client",
+            "number": 4,
+            "startedAt": "2026-11-04T04:47:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:26Z",
+            "conclusion": "success",
+            "name": "Summarize check outcomes",
+            "number": 5,
+            "startedAt": "2026-11-04T04:47:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:27Z",
+            "conclusion": "success",
+            "name": "Summarize workflow jobs",
+            "number": 6,
+            "startedAt": "2026-11-04T04:47:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:28Z",
+            "conclusion": "success",
+            "name": "Post Checkout Workflows repo for actions",
+            "number": 11,
+            "startedAt": "2026-11-04T04:47:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:28Z",
+            "conclusion": "success",
+            "name": "Post Mint GitHub App Token",
+            "number": 12,
+            "startedAt": "2026-11-04T04:47:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:28Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-11-04T04:47:28Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126393998617"
+      },
+      {
+        "completedAt": "2026-11-04T04:48:23Z",
+        "conclusion": "failure",
+        "databaseId": 126394177334,
+        "name": "summary",
+        "startedAt": "2026-11-04T04:47:42Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-04T04:47:46Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-04T04:47:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:46Z",
+            "conclusion": "success",
+            "name": "Restore resolved PR event for Gate helpers",
+            "number": 2,
+            "startedAt": "2026-11-04T04:47:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:46Z",
+            "conclusion": "skipped",
+            "name": "Reject unresolved PR metadata",
+            "number": 3,
+            "startedAt": "2026-11-04T04:47:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:47Z",
+            "conclusion": "success",
+            "name": "Mint GitHub App Token",
+            "number": 4,
+            "startedAt": "2026-11-04T04:47:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:49Z",
+            "conclusion": "success",
+            "name": "Checkout workflow helpers",
+            "number": 5,
+            "startedAt": "2026-11-04T04:47:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:53Z",
+            "conclusion": "success",
+            "name": "Setup API client",
+            "number": 6,
+            "startedAt": "2026-11-04T04:47:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:56Z",
+            "conclusion": "success",
+            "name": "Set up Node",
+            "number": 7,
+            "startedAt": "2026-11-04T04:47:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:58Z",
+            "conclusion": "success",
+            "name": "Install GitHub API dependencies",
+            "number": 8,
+            "startedAt": "2026-11-04T04:47:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:58Z",
+            "conclusion": "skipped",
+            "name": "Handle docs-only change",
+            "number": 9,
+            "startedAt": "2026-11-04T04:47:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:47:58Z",
+            "conclusion": "skipped",
+            "name": "Ensure docs-only fast-pass comment",
+            "number": 10,
+            "startedAt": "2026-11-04T04:47:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:01Z",
+            "conclusion": "success",
+            "name": "Remove docs-only fast-pass comment when not needed",
+            "number": 11,
+            "startedAt": "2026-11-04T04:47:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:04Z",
+            "conclusion": "success",
+            "name": "Discover Gate workflow runs",
+            "number": 12,
+            "startedAt": "2026-11-04T04:48:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:06Z",
+            "conclusion": "success",
+            "name": "Download Gate artifacts",
+            "number": 13,
+            "startedAt": "2026-11-04T04:48:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:06Z",
+            "conclusion": "success",
+            "name": "Load coverage summary snippet",
+            "number": 14,
+            "startedAt": "2026-11-04T04:48:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:06Z",
+            "conclusion": "success",
+            "name": "Compute coverage stats",
+            "number": 15,
+            "startedAt": "2026-11-04T04:48:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:06Z",
+            "conclusion": "success",
+            "name": "Summarize results",
+            "number": 16,
+            "startedAt": "2026-11-04T04:48:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:06Z",
+            "conclusion": "skipped",
+            "name": "Auto-apply autofix label for cosmetic failures",
+            "number": 17,
+            "startedAt": "2026-11-04T04:48:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:07Z",
+            "conclusion": "success",
+            "name": "Prepare summary body",
+            "number": 18,
+            "startedAt": "2026-11-04T04:48:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:07Z",
+            "conclusion": "success",
+            "name": "Compose PR summary comment",
+            "number": 19,
+            "startedAt": "2026-11-04T04:48:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:09Z",
+            "conclusion": "success",
+            "name": "Append keepalive checklists",
+            "number": 20,
+            "startedAt": "2026-11-04T04:48:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:09Z",
+            "conclusion": "skipped",
+            "name": "Add autofix label status notes",
+            "number": 21,
+            "startedAt": "2026-11-04T04:48:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:11Z",
+            "conclusion": "success",
+            "name": "Upload Gate summary artifact",
+            "number": 22,
+            "startedAt": "2026-11-04T04:48:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:13Z",
+            "conclusion": "success",
+            "name": "Upload coverage stats artifact",
+            "number": 23,
+            "startedAt": "2026-11-04T04:48:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:13Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage delta artifact",
+            "number": 24,
+            "startedAt": "2026-11-04T04:48:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:13Z",
+            "conclusion": "skipped",
+            "name": "Upload coverage summary artifact copy",
+            "number": 25,
+            "startedAt": "2026-11-04T04:48:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:16Z",
+            "conclusion": "success",
+            "name": "Ensure consolidated summary comment",
+            "number": 26,
+            "startedAt": "2026-11-04T04:48:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:17Z",
+            "conclusion": "success",
+            "name": "Report Gate commit status",
+            "number": 27,
+            "startedAt": "2026-11-04T04:48:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:18Z",
+            "conclusion": "success",
+            "name": "Dispatch autofix notification",
+            "number": 28,
+            "startedAt": "2026-11-04T04:48:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:18Z",
+            "conclusion": "failure",
+            "name": "Enforce explicit Gate success",
+            "number": 29,
+            "startedAt": "2026-11-04T04:48:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:18Z",
+            "conclusion": "skipped",
+            "name": "Post Set up Node",
+            "number": 56,
+            "startedAt": "2026-11-04T04:48:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:18Z",
+            "conclusion": "success",
+            "name": "Post Checkout workflow helpers",
+            "number": 57,
+            "startedAt": "2026-11-04T04:48:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:19Z",
+            "conclusion": "success",
+            "name": "Post Mint GitHub App Token",
+            "number": 58,
+            "startedAt": "2026-11-04T04:48:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-04T04:48:19Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 59,
+            "startedAt": "2026-11-04T04:48:19Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126394177334"
+      }
+    ],
+    "status": "completed"
+  },
+  "jobs": [
+    {
+      "name": "python ci / python 3.14",
+      "database_id": 126381546520,
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-11-04T04:08:31Z",
+      "completed_at": "2026-11-04T04:20:53Z",
+      "seconds": 742.0,
+      "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381546520",
+      "within_limit": false
+    },
+    {
+      "name": "python ci / python 3.13",
+      "database_id": 126381546540,
+      "status": "completed",
+      "conclusion": "failure",
+      "started_at": "2026-11-04T04:08:32Z",
+      "completed_at": "2026-11-04T04:46:56Z",
+      "seconds": 2304.0,
+      "url": "https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381546540",
+      "within_limit": false
+    }
+  ]
+}
