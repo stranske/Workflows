@@ -5,13 +5,16 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import zipfile
 from pathlib import Path
 
 import pytest
 import yaml
+from tools.verifier_artifact_capture import load_artifact_capture
 from tools.verifier_capture_obligation_manifest import (
     build_capture_obligation_manifest,
+    parse_context_source_coverage,
     validate_capture_byte_inventory,
 )
 from tools.verifier_corpus_evidence import admitted_decision, event_metadata, validated_payload
@@ -96,6 +99,102 @@ def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_co
     assert all((tmp_path / name).read_bytes() == raw for name, raw in files.items())
     assert source.read_bytes() == original
     assert archive_path.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    "defect", [None, "missing_archive", "missing_member", "tampered", "occurrence"]
+)
+def test_exact_4509_raw_archive_admission_clears_only_its_own_gap(tmp_path, monkeypatch, defect):
+    from scripts.langchain import pr_verifier
+
+    def unexpected_provider(*args, **kwargs):
+        pytest.fail("Raw capture admission must never construct a provider client")
+
+    for name in ("get_llm_client", "get_llm_clients", "_get_llm_client", "_get_llm_clients"):
+        monkeypatch.setattr(pr_verifier, name, unexpected_provider)
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "0")
+    monkeypatch.delenv("VERIFIER_EVIDENCE_CAPTURE_DIR", raising=False)
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    capture_path = fixtures / "verifier-4509-capture.zip"
+    original_capture = capture_path.read_bytes()
+    with zipfile.ZipFile(io.BytesIO(original_capture)) as retained:
+        context = retained.read("verifier-context.md").decode()
+        diff = retained.read("verifier-pr-diff.patch")
+        event = retained.read("verification-event-manifest.json")
+        comparison = retained.read("comparison.json")
+    baseline = build_capture_obligation_manifest(context, full_diff_bytes=diff)
+    coverage = parse_context_source_coverage(context)
+    record = next(
+        row for row in coverage["artifact_capture_inventory"] if row["artifact_id"] == 13556090021
+    )
+    assert record["status"] == "incomplete"
+    artifact_path = fixtures / "verifier-4509-selftest-autofix-3.13.zip"
+    archive = artifact_path.read_bytes()
+    assert sha(archive) == record["archive_sha256"]
+    assert len(archive) == record["archive_bytes"]
+    archive_sidecar = tmp_path / f"{sha(archive)}.zip"
+    archive_sidecar.write_bytes(archive)
+    identity = json.loads((fixtures / "verifier-4509-capture-identity.json").read_bytes())
+    expected_inputs = {}
+    with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
+        assert zipped.namelist() == [row["name"] for row in identity["first_archive_members"]]
+        record["members"] = []
+        for index, expected in enumerate(identity["first_archive_members"]):
+            raw = zipped.read(expected["name"])
+            assert len(raw) == expected["bytes"]
+            assert sha(raw) == expected["sha256"]
+            (tmp_path / f"{sha(raw)}.txt").write_bytes(raw)
+            record["members"].append(
+                {
+                    "name": expected["name"],
+                    "occurrence": index,
+                    "status": "captured",
+                    "raw_bytes": len(raw),
+                    "raw_sha256": sha(raw),
+                    "encoding": "utf-8",
+                }
+            )
+            expected_inputs[f"artifact:{record['run_id']}:{record['artifact_id']}:{index}"] = raw
+    record["status"] = "captured"
+    member_sidecar = tmp_path / f"{record['members'][1]['raw_sha256']}.txt"
+    if defect == "missing_archive":
+        archive_sidecar.unlink()
+    elif defect == "missing_member":
+        member_sidecar.unlink()
+    elif defect == "tampered":
+        member_sidecar.write_bytes(b"x" * record["members"][1]["raw_bytes"])
+    elif defect == "occurrence":
+        record["members"][1]["occurrence"] = 0
+
+    # A local derived inventory tests raw-byte admission only. It is never
+    # written over the retained context, event or native recovery origin.
+    block = re.search(r"## Context source coverage\n.*?```json\n(.*?)\n```", context, re.S)
+    derived_context = context[: block.start(1)] + json.dumps(coverage) + context[block.end(1) :]
+    assert build_capture_obligation_manifest(derived_context, full_diff_bytes=diff) == baseline
+    monkeypatch.setenv("VERIFIER_EVIDENCE_CAPTURE_DIR", str(tmp_path))
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "1")
+    result = build_capture_obligation_manifest(derived_context, full_diff_bytes=diff)
+    assert result["sufficient"] is False
+    if defect is None:
+        inputs, recovered = load_artifact_capture(coverage, tmp_path)
+        assert inputs == expected_inputs
+        assert recovered == {"Run 42326161711: selftest-autofix-3.13"}
+        recovered_gap = "acceptance_evidence:Run 42326161711: selftest-autofix-3.13:truncated"
+        assert result["gaps"] == [gap for gap in baseline["gaps"] if gap != recovered_gap]
+    else:
+        with pytest.raises((OSError, ValueError)):
+            load_artifact_capture(coverage, tmp_path)
+        assert set(baseline["gaps"]) <= set(result["gaps"])
+        assert any(gap.startswith("artifact_raw_capture:") for gap in result["gaps"])
+    # No original event or provider verdict is upgraded by this partial recovery.
+    with zipfile.ZipFile(capture_path) as retained:
+        assert retained.read("verification-event-manifest.json") == event
+        assert retained.read("comparison.json") == comparison
+        assert retained.read("verifier-context.md").decode() == context
+    assert capture_path.read_bytes() == original_capture
+    assert artifact_path.read_bytes() == archive
+    assert not (tmp_path / "verification-recovery-origin.json").exists()
+    assert not (tmp_path / "verification-revalidation-receipt.json").exists()
 
 
 def setup_case(tmp_path, monkeypatch, *, mode="evaluate"):

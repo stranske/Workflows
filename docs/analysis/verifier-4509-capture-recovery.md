@@ -492,3 +492,69 @@ older cancelled run or local tests. The capture remains incomplete, both retaine
 provider slots still reviewed **0 of 2 files**, and successful native recovery
 admission is unproved. **T5 successful admission and A2 remain unmet.** This
 round adds no provider calls or original-event mutations.
+
+## Raw-member admission regression — managed runner follow-up
+
+The exact first failing archive now passes through the existing Python
+`load_artifact_capture` validator in
+`tests/tools/test_retained_verification_recovery.py`. Five added cases use the
+unchanged retained ZIP and independently recorded member hashes: complete raw
+sidecars, missing archive, missing coverage member, same-length altered coverage
+member, and incorrect member occurrence. No provider client can be constructed.
+
+The successful case verifies all three member inputs and their archive/run/
+artifact identities. In a **local derived inventory only**, semantic raw-capture
+validation clears exactly
+`acceptance_evidence:Run 42326161711: selftest-autofix-3.13:truncated`.
+Five other required gaps remain and `sufficient=false`. Every defective case
+retains all six original gaps and adds a raw-capture failure. The original
+context, event, comparison and ZIP fixtures stay byte-identical; no native
+origin or revalidation receipt is created. This advances offline validation of
+one recovered archive, not successful exact-capture admission.
+
+Validation on working-tree changes based on
+`e4a090cf5f9a7adbf5e044505beece5317c721ea`, Python 3.14.10:
+
+- Exact-capture tests: `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  exit 0, **6 passed**, 25 deselected.
+- Recovery and artifact tests together: `python3 -m pytest tests/tools/test_retained_verification_recovery.py tests/tools/test_verifier_artifact_capture.py -m 'not slow' --no-cov -q`:
+  **36 passed, 6 failed**. The failures are the six previously documented
+  authored lifecycle cases; no existing test was disabled or altered.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  exit 0, **31 passed**, **73.55%** script code coverage. Retained provider
+  review coverage of both named files remains **0 of 2 per provider**.
+- The named Node command, before edits, selected the installed approved Python
+  3.14.10 runtime: exit 1, **4.350 seconds** total wall time. The cross-repository
+  file passed; direct execution of the existing context tests reports subprocess
+  `EPERM`. This does not supersede the historical passing committed-source result.
+- Ruff and `git diff --check` pass. Black formatted the changed Python file at
+  line length 100; full formatting validation is recorded below.
+
+Acquiring additional archive bytes remains blocked in this runner. The GitHub
+connector returned a download reference for artifact `13555815325`, but local
+download failed with `URLError`; native `gh api` also cannot connect. No downloaded
+bytes or new authenticated member hashes are claimed for that artifact. Canonical
+native recovery admission remains unresolved, and no provider evaluation or
+acceptance-checkbox update was attempted.
+
+The unchanged HEAD recovery tests were separately replayed from a temporary
+sibling test file (removed afterward): **20 passed, the same 6 failed**, exit 1.
+Sequential Black validation using the CLI's source selection checked all 999
+files, after the parallel command stalled in this restricted runner. With that
+verified cache, the required full command passed:
+
+```sh
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Exit 0, **999 files unchanged**. The requested commit was then attempted, but
+`git add` exited 128 with `Unable to create .../.git/index.lock: Read-only file
+system`; no commit was created. Source and evidence changes remain in the
+working tree. Both the `needs-human` label and blocker comment on PR #4631
+were rejected by the connector:
+`MCP tool call requires approval, but approval policy is never`.
+
+Required follow-up: commit the tested changes on a runner with writable Git
+metadata, retrieve the remaining exact archives with working network access,
+and establish authenticated canonical admission before provider evaluation.
+This round completes no additional operational acceptance checkbox.
