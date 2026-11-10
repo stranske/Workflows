@@ -99,6 +99,7 @@ let statusRead = false;
 let currentRun = scenario.finalRun;
 let currentPr = scenario.pr;
 const writes = [];
+const prReads = [];
 const receipts = [];
 const endpoint = value => async () => ({{data: value}});
 const github = {{
@@ -113,8 +114,8 @@ const github = {{
         : [scenario.initialRun]}}),
     }},
     pulls: {{
-      get: async () => ({{data: currentPr}}),
-      list: endpoint(scenario.openPrs),
+      get: async () => {{ prReads.push('get'); return {{data: currentPr}}; }},
+      list: async () => {{ prReads.push('list'); return {{data: scenario.openPrs}}; }},
       listFiles: endpoint([{{filename: 'src/app.js', status: 'modified'}}]),
     }},
     repos: {{
@@ -144,7 +145,7 @@ const core = {{info: text => {{if (text.startsWith('GATE_FORK_STATUS_RECEIPT='))
         payload: {{workflow_run: {{id: 9}}, repository: {{id: 1, default_branch: 'main'}}}},
       }},
     }});
-    process.stdout.write(JSON.stringify({{result, writes, receipts}}));
+    process.stdout.write(JSON.stringify({{result, writes, receipts, prReads}}));
   }} catch (error) {{
     process.stdout.write(JSON.stringify({{error: error.message, writes}}));
   }}
@@ -303,6 +304,7 @@ def test_fork_gate_status_skips_same_repo_when_no_matching_pr_head():
         "description": "Same-repository PR",
     }
     assert outcome["writes"] == []
+    assert outcome["prReads"] == []
 
 
 def test_fork_gate_status_skips_when_zero_open_prs_match_head_sha():
