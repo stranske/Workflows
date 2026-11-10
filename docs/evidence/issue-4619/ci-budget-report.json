@@ -1,0 +1,127 @@
+{
+  "schema": "issue-4619-health85-observations/v1",
+  "issue": 4619,
+  "source": {
+    "workflow": {
+      "id": 387854305,
+      "name": "Health 85 CI Time Budget",
+      "path": ".github/workflows/health-85-ci-time-budget.yml",
+      "state": "active"
+    },
+    "report_repo": "stranske/Workflows",
+    "report_branch": "ci-time-budget",
+    "report_path": "docs/reports/ci-budget.json",
+    "report_blob_sha": "f06d6f3fd0aa301b320cece179f97a8ef3c02aa7",
+    "p50_units": "minutes",
+    "gate_units": "seconds"
+  },
+  "repo": "stranske/Workflows",
+  "target_minutes": 10.0,
+  "max_seconds": 600.0,
+  "consecutive_calendar_dates": true,
+  "qualifying_seven_day_series": false,
+  "failures": [
+    "2026-11-04: p50 711.0s exceeds 600s (11.8500 min)",
+    "2026-11-05: p50 missing (measurement_unavailable)",
+    "2026-11-06: p50 missing (measurement_unavailable)",
+    "2026-11-07: p50 missing (measurement_unavailable)",
+    "2026-11-08: p50 missing (measurement_unavailable)",
+    "2026-11-09: p50 missing (measurement_unavailable)",
+    "2026-11-10: p50 668.0s exceeds 600s (11.1333 min)"
+  ],
+  "p50_series_minutes": {
+    "2026-11-04": 11.85,
+    "2026-11-05": null,
+    "2026-11-06": null,
+    "2026-11-07": null,
+    "2026-11-08": null,
+    "2026-11-09": null,
+    "2026-11-10": 11.133333333333333
+  },
+  "observations": [
+    {
+      "date": "2026-11-04",
+      "units": "minutes",
+      "p50_minutes": 11.85,
+      "p50_seconds": 711.0,
+      "within_600_seconds": false,
+      "status": "measured",
+      "run_id": 41822549611,
+      "run_conclusion": "success",
+      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/41822549611",
+      "note": "Health 85 log: stranske/Workflows: p50=11.85 target=10.0"
+    },
+    {
+      "date": "2026-11-05",
+      "units": "minutes",
+      "p50_minutes": null,
+      "p50_seconds": null,
+      "within_600_seconds": false,
+      "status": "measurement_unavailable",
+      "run_id": 42020576555,
+      "run_conclusion": "failure",
+      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42020576555",
+      "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-05 11:46:09 UTC. p50 is null."
+    },
+    {
+      "date": "2026-11-06",
+      "units": "minutes",
+      "p50_minutes": null,
+      "p50_seconds": null,
+      "within_600_seconds": false,
+      "status": "measurement_unavailable",
+      "run_id": 42211705537,
+      "run_conclusion": "failure",
+      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42211705537",
+      "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-06 11:58:23 UTC. p50 is null."
+    },
+    {
+      "date": "2026-11-07",
+      "units": "minutes",
+      "p50_minutes": null,
+      "p50_seconds": null,
+      "within_600_seconds": false,
+      "status": "measurement_unavailable",
+      "run_id": 42369018128,
+      "run_conclusion": "failure",
+      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42369018128",
+      "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-07 11:49:06 UTC. p50 is null."
+    },
+    {
+      "date": "2026-11-08",
+      "units": "minutes",
+      "p50_minutes": null,
+      "p50_seconds": null,
+      "within_600_seconds": false,
+      "status": "measurement_unavailable",
+      "run_id": 42476617447,
+      "run_conclusion": "cancelled",
+      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42476617447",
+      "note": "Health 85 run cancelled before publishing a daily measurement. p50 is null."
+    },
+    {
+      "date": "2026-11-09",
+      "units": "minutes",
+      "p50_minutes": null,
+      "p50_seconds": null,
+      "within_600_seconds": false,
+      "status": "measurement_unavailable",
+      "run_id": 42610608867,
+      "run_conclusion": "cancelled",
+      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42610608867",
+      "note": "Health 85 run cancelled before publishing a daily measurement. p50 is null."
+    },
+    {
+      "date": "2026-11-10",
+      "units": "minutes",
+      "p50_minutes": 11.133333333333333,
+      "p50_seconds": 668.0,
+      "within_600_seconds": false,
+      "status": "measured",
+      "run_id": 42838942059,
+      "run_conclusion": "success",
+      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42838942059",
+      "note": "Health 85 published report (run 42838942059 at 2026-11-10T14:55:15+00:00): trailing-7-day Gate p50=11.133333333333333 min (668.0s); target=10.0 min; distance=0.113; share=3.42%; drainable_in=7."
+    }
+  ]
+}

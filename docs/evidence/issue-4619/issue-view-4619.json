@@ -1,0 +1,62 @@
+{
+  "body": "## Why\n\nThe trailing-seven-day Gate p50 is 11.24 min against a 10 min target. The longest observed job is [python ci / python 3.13](https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381546540) at 38.40 min, in `.github/workflows/pr-00-gate.yml`. Current share: 3.53%; distance: 0.124; drainable_in: 7 days. First over-target measurement: 2026-10-27T11:44:41+00:00.\n\nRun 41771220527 completed with failure at head 9784a9001 on 2026-11-04T04:07:02Z. Failed jobs include `python ci / python 3.14` and `python ci / python 3.13` at `Finalize check results`, and `summary` at `Enforce explicit Gate success`. Supplied log excerpts include rate-limit handling code and exit code 1; they do not establish the failure cause or duration bottleneck. A failed job's total duration alone does not establish which step should be optimized.\n\n## Scope\n\nReduce the measured `python ci / python 3.13` bottleneck in stranske/Workflows's Gate without weakening checks, then measure the effect on Gate durations.\n\n## Non-Goals\n\nDo not waive required checks or block merges on duration. Scaffold-only or partial completion does not count: a plan without a measured reduction is unfinished. Do not treat an early successful run as completion of the seven-day observation requirement.\n\n## Tasks\n\n- [x] Inspect `.github/workflows/pr-00-gate.yml`, the called workflow implementing `python ci / python 3.13`, and step timings and logs from `gh run view 41771220527 --repo stranske/Workflows --json headSha,conclusion,jobs`; identify the duration bottleneck and distinguish execution time from failure, retry, or finalization overhead.\n- [x] Record a real-input acceptance command, check date, and bounded attempt/time stop rule before editing `.github/workflows/pr-00-gate.yml` or its called workflow; use the linked job and its invoked test commands to establish the baseline and a focused check executable in under two minutes.\n- [x] Implement a bounded change in `.github/workflows/pr-00-gate.yml`, its identified called workflow, or the test files invoked by `python ci / python 3.13`, naming the exact changed paths in the implementation report and preserving required validation.\n- [x] Run the affected test command and Gate workflow, then compare before/after `python ci / python 3.13` step timings and Gate durations using `gh run view RUN_ID --repo stranske/Workflows --json headSha,conclusion,jobs`; attach actual run URLs, heads, measurements, and relevant workload differences.\n- [ ] Track Health 85 daily measurements from `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json` and retain the dated p50 series until the completion criterion is met.\n\n## Acceptance Criteria\n\n- [x] The focused check identified from `python ci / python 3.13` executes in under two minutes; its exact runnable command, check date, and result are recorded.\n- [x] `gh run view RUN_ID --repo stranske/Workflows --json headSha,conclusion,jobs`, with RUN_ID replaced by the recorded post-change Gate run ID, reports success for the changed head; `.github/workflows/pr-00-gate.yml` retains all required checks and validation coverage.\n- [x] Linked before/after runs demonstrate a measured reduction in the identified bottleneck; the report includes step timings, Gate durations, heads, and workload differences that affect comparability.\n- [ ] Health 85 reports trailing-seven-day Gate p50 at or below 10 min for seven consecutive daily measurements; only then is this issue closed with the dated p50 series.\n\n## Implementation Notes\n\nHealth 85 updates measurements daily. Source report: `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`.\n\nThe opener reserves `ceil(share * cap)` slots for this repo before other materializations; the coordinator applies that rule. These scheduling facts do not establish the runtime bottleneck.\n\nImplementation and immediate run comparison can begin from repository and GitHub evidence. The final daily observation series requires elapsed time after qualifying measurements begin; do not fabricate it or close the issue based only on local checks.\n\n<!-- ci-time-budget:v1 -->\n\n<details><summary>Original Issue</summary>\n\n~~~~text\n## Why\n\nThe trailing-seven-day Gate p50 is 11.24 min against a\n10 min target. Longest observed job: [python ci / python 3.13](https://github.com/stranske/Workflows/actions/runs/41771220527/job/126381546540)\n(38.40 min), in `.github/workflows/pr-00-gate.yml`.\nCurrent share: 3.53%; distance: 0.124;\ndrainable_in: 7 days.\n\n## Scope\n\nReduce the measured `python ci / python 3.13` bottleneck in stranske/Workflows's Gate without weakening checks.\n\n## Non-Goals\n\nDo not waive required checks or block merges on duration. Scaffold-only or partial\ncompletion does not count: a plan without a measured reduction is unfinished.\n\n## Tasks\n\n- [ ] Inspect `python ci / python 3.13` in `.github/workflows/pr-00-gate.yml` and its called workflow using the linked run; identify the duration bottleneck.\n- [ ] Implement a bounded change to that job or its invoked tests, preserving required validation.\n- [ ] Compare Gate durations before/after and attach run URLs and measurements.\n\n## Acceptance Criteria\n\n- [ ] `pr-00-gate.yml` passes with required checks preserved after the change.\n- [ ] Health 85 reports trailing-seven-day Gate p50 at or below 10 min for seven consecutive daily measurements, then closes this issue with the dated p50 series.\n\n## Implementation Notes\n\nHealth 85 updates measurements daily. The opener reserves `ceil(share * cap)`\nslots for this repo before other materializations; the coordinator applies that\nrule. Source report: `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`.\nFirst over-target measurement: 2026-10-27T11:44:41+00:00.\n<!-- ci-time-budget:v1 -->\n\n~~~~\n</details>\n",
+  "comments": [
+    {
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "CI budget 2026-11-10: p50=11.24 min; target=10 min; distance=0.124; share=3.53%; drainable_in=7; longest_job=python ci / python 3.13.",
+      "createdAt": "2026-11-10T12:13:45Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4619#issuecomment-6767007802",
+      "viewerDidAuthor": false
+    },
+    {
+      "author": {
+        "login": "github-actions[bot]"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "This issue is **not yet agent-processable**. See `docs/AGENT_ISSUE_FORMAT.md`.\n\n- `Tasks` item must name a concrete file, symbol, path, config key, job, or command: `Implement a bounded change to that job or its invoked tests, preserving required validation.`.\n- `Acceptance Criteria` names no test, runnable command or observable verification gate \u2014 Definition of Ready / Quality Bar \u00a72 requires one.\n\n_Advisory:_\n- 3 cited path(s) do not exist yet: `pr-00-gate.yml`, `stranske/Workflows@ci-time-budget:docs/reports/ci-budget.json`, `before/after` \u2014 expected when a task creates them; check for typos otherwise.\n\nDispatched the Agents Issue Optimizer format phase (real rewrite attempts so far: 0 of 3; optimizer crashes: 0 of 3).\n\n<!-- format-guard:b1c24a7db61d:attempt:1 -->\n",
+      "createdAt": "2026-11-10T12:14:03Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4619#issuecomment-6767013360",
+      "viewerDidAuthor": false
+    },
+    {
+      "author": {
+        "login": "agents-workflows-bot[bot]"
+      },
+      "authorAssociation": "CONTRIBUTOR",
+      "body": "### \ud83c\udff7\ufe0f Label Suggestions\n\nBased on the issue content, these labels might be relevant:\n\n- `ci` (95% confidence)\n- `ci-budget` (95% confidence)\n- `docs` (95% confidence)\n- `github-actions` (95% confidence)\n- `health:repo` (95% confidence)\n\n<details>\n<summary>How to use these suggestions</summary>\n\n- Click the label name in the sidebar to add it\n- Or use the GitHub CLI: `gh issue edit 4619 --add-label \"label-name\"`\n</details>\n\n---\n*Auto-generated by label matcher*",
+      "createdAt": "2026-11-10T12:14:32Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4619#issuecomment-6767022970",
+      "viewerDidAuthor": false
+    },
+    {
+      "author": {
+        "login": "stranske"
+      },
+      "authorAssociation": "OWNER",
+      "body": "<!-- opener-core/v1 action=start target=stranske/Workflows#4619 agent=gemini mode=local round=20261110T121441Z -->\nopener-core started gemini (local: needs local (workflow-file edit): local agents 0/3, load 3.1/20) on this issue.",
+      "createdAt": "2026-11-10T12:16:11Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/stranske/Workflows/issues/4619#issuecomment-6767056493",
+      "viewerDidAuthor": false
+    }
+  ],
+  "state": "OPEN"
+}

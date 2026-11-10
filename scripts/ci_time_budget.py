@@ -224,7 +224,9 @@ def measure(repo: str, *, api: GitHub, now: datetime) -> dict:
     }
 
 
-def observation(previous: dict, measured: dict | None, now: datetime) -> dict:
+def observation(
+    previous: dict, measured: dict | None, now: datetime, *, repo: str = SOURCE_REPO
+) -> dict:
     today = now.date()
     history = dict(previous.get("p50_series", {}))
     history[today.isoformat()] = measured["p50"] if measured else None
@@ -243,7 +245,7 @@ def observation(previous: dict, measured: dict | None, now: datetime) -> dict:
     # Preserve actual dates only; a canceled/missed daily run contributes no date.
     observations = dict(previous.get("daily_observations", {}))
     run_id = os.environ.get("GITHUB_RUN_ID", "")
-    if run_id.isdigit() and os.environ.get("GITHUB_REPOSITORY") == SOURCE_REPO:
+    if run_id.isdigit() and repo == os.environ.get("GITHUB_REPOSITORY") == SOURCE_REPO:
         observations[today.isoformat()] = {
             "date": today.isoformat(),
             "p50_minutes": measured["p50"] if measured else None,
@@ -461,9 +463,9 @@ def run(api: GitHub, repos: list[str], now: datetime) -> int:
             continue
         try:
             measured = measure(repo, api=api, now=now)
-            report[repo] = observation(previous.get(repo, {}), measured, now)
+            report[repo] = observation(previous.get(repo, {}), measured, now, repo=repo)
         except (RuntimeError, ValueError, KeyError) as exc:
-            report[repo] = observation(previous.get(repo, {}), None, now)
+            report[repo] = observation(previous.get(repo, {}), None, now, repo=repo)
             report[repo]["error"] = str(exc)
             errors.append(f"{repo}: measurement unavailable")
     # Persist first detection before filing. A crash or denied issue write cannot

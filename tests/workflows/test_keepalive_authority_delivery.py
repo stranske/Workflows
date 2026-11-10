@@ -1,5 +1,6 @@
 """Guard the source/template delivery boundary for single-use authority claims."""
 
+import hashlib
 import os
 import subprocess
 from pathlib import Path
@@ -78,7 +79,14 @@ def test_authority_helpers_are_manifested_and_byte_aligned() -> None:
     ):
         source = Path(".github/scripts") / name
         assert source.as_posix() in sources
-        assert (ROOT / source).read_bytes() == (TEMPLATE / source).read_bytes()
+        source_bytes = (ROOT / source).read_bytes()
+        template_bytes = (TEMPLATE / source).read_bytes()
+        # Compare digests first to avoid difflib assertion hangs on large scripts like keepalive_loop.js (Workflows#4619).
+        digests_match = (
+            hashlib.sha256(source_bytes).hexdigest() == hashlib.sha256(template_bytes).hexdigest()
+        )
+        assert digests_match, "managed source and template SHA-256 digests differ"
+        assert source_bytes == template_bytes
 
 
 def test_every_sweep_mode_checks_the_ledger_before_signing() -> None:
