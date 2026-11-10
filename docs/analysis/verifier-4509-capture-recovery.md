@@ -377,3 +377,65 @@ or dependency change. The explicit-scope invocation exited **0**, **1 passed**.
 Only documentation changes follow this tested source in this round. No full
 suite was run. T5 successful admission and A2 are still unmet; passing refusal
 regressions do not resolve the captured operational failure.
+
+## Native GET replay follow-up — managed runner (2026-11-10)
+
+Fresh authenticated GitHub connector GETs reproduced all three observations in
+the identity table: trip-planner run `42327976097` returned completed/success at
+`948406465cf7cd65d1ac92206b4514aaad455443`; the same numeric ID under Workflows
+returned 404; Workflows verifier run `42330898168` returned completed/success at
+`aa7fe9537cb9c448a50b51ff6eb5da162fd819b1`. Repository and head-repository IDs,
+attempts, update times, and reusable-workflow references match the retained
+identity fixture. The wrong-repository 404 remains non-authoritative for consumer
+absence. This rechecks run identity only, not archive acquisition or admission.
+
+Six new regressions replay these three recorded GETs through both source and
+template collectors. They check repository/head/attempt/conclusion, retain the
+consumer's separate downstream role and completed status, and preserve the local
+404. Artifact-list and discovery observations absent from the fixture explicitly
+raise unavailable errors; the tests cannot fabricate an empty complete capture.
+Both collectors retain an unavailable acceptance-evidence source and refuse to
+download invented bytes. No production or template collector was changed.
+
+Validation on base `65fd5eaa0d66c4c7be4c32141689280a7d68aaa7` plus the new
+JavaScript tests (SHA-256
+`398572b27391aaa71b3760f4e30160183ddd518cdbdb4c9dab45fe4e4bbd024a`):
+
+- `PATH=/opt/hostedtoolcache/Python/3.14.10/x64/bin:$PATH node .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`:
+  exit 0; **122 passed**, including all six new native-GET replays.
+- The issue-named combined `node --test` command with that same approved Python
+  PATH: **exit 1, 4.89 seconds**. Before edits it also failed: exit 1,
+  3.48 seconds. Direct context-file execution reports 193 passed / 17 failed,
+  including `spawnSync git EPERM` and `spawnSync python3 EPERM`.
+  This runner result does not supersede the recorded historical passing source.
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  exit 0; **1 passed**, 25 deselected. Exact byte-inventory/event validation
+  preserves required gaps, the original event, both unavailable provider slots,
+  and the missing-origin refusal. Actual retained provider coverage remains
+  **0 of 2 files per provider**; `UNVERIFIABLE_INPUT` remains non-PASS.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  exit 0; **31 passed**, script code coverage **73.55%**. This is separate from
+  provider review coverage. Initial attempts with the previously documented
+  asyncio loop-scope override exited 4 because this runner does not register
+  that option; the successful commands above omit it.
+- `git diff --check`: exit 0. No Python source changed.
+
+Reconciliation of the recent commits supports checking the duplicate
+endpoint-authentication task and historical named-command acceptance item.
+The exact-capture regression also verifies the actual-coverage/non-PASS
+acceptance item. Successful native admission and complete required capture
+remain unchecked. The connector rejected the PR-body update with
+`MCP tool call requires approval, but approval policy is never`; the proposed
+reconciled body is retained at `/tmp/verifier-4631-reconciled-body.md`.
+
+The required source commit is blocked: `git add` fails with
+`Unable to create .../.git/index.lock: Read-only file system`. The JavaScript
+changes remain in the working tree. A runner with writable Git metadata and
+permitted subprocess execution must commit and rerun them. Complete required
+capture evidence and authenticated canonical recovery origin are still needed
+before any provider evaluation; no provider call or original-event mutation
+was made.
+
+The requested blocker comment and `needs-human` label were also rejected by the
+connector with the same approval-policy error. Remote task state could not be
+changed; the evidence and proposed reconciliation remain local.

@@ -125,6 +125,72 @@ test('exact #4509 replay refuses noncanonical origin before acquiring recovery a
 });
 
 for (const [index, collector] of modules.entries()) {
+  for (const observation of retained.authenticated_gets) {
+    test(`source/template ${index}: retained native GET ${observation.endpoint} cannot clear missing capture`, async () => {
+      const calls = [];
+      const empty = async () => ({data: [], headers: {}});
+      const unavailable = async () => {
+        throw new Error('No retained artifact-list or discovery observation; completeness is unknown');
+      };
+      const github = {rest: {
+        issues: {listComments: empty},
+        pulls: {listReviewComments: empty, listReviews: empty},
+        actions: {
+          getWorkflowRun: async ({owner, repo, run_id}) => {
+            const endpoint = `repos/${owner}/${repo}/actions/runs/${run_id}`;
+            calls.push(endpoint);
+            assert.equal(endpoint, observation.endpoint);
+            if (observation.http_status !== 200) {
+              throw Object.assign(new Error('Not Found'), {status: observation.http_status});
+            }
+            return {data: structuredClone(observation.data)};
+          },
+          listWorkflowRunArtifacts: unavailable,
+          listWorkflowRunsForRepo: unavailable,
+          downloadArtifact: async () => assert.fail('GET identity cannot supply missing archive bytes'),
+        },
+      }};
+      // Replay only recorded GET observations. Unknown artifact/discovery responses
+      // stay unavailable rather than inventing an empty, complete evidence set.
+      const evidence = await collector.fetchVerifierEvidence({github,
+        owner: 'stranske', repo: 'Workflows', pullNumber: 4509,
+        pullRequestBody: `Evidence: https://github.com/${observation.endpoint.replace('repos/', '')}`,
+        associatedCommitShas: [HEAD, MERGE], evaluatedSha: MERGE,
+      });
+      assert.deepEqual(calls, [observation.endpoint]);
+      const [lookup] = evidence.diagnostics.references.run_lookups;
+      const [, owner, repo, , , runId] = observation.endpoint.split('/');
+      assert.equal(lookup.repository, `${owner}/${repo}`);
+      assert.equal(lookup.run_id, Number(runId));
+      if (observation.http_status === 200) {
+        assert.equal(lookup.status, 'authenticated');
+        assert.equal(lookup.head_sha, observation.data.head_sha);
+        assert.equal(lookup.run_attempt, observation.data.run_attempt);
+        assert.equal(lookup.conclusion, observation.data.conclusion);
+        if (repo === 'trip-planner') {
+          assert.equal(lookup.evidence_role, 'downstream-evidence');
+          assert.equal(lookup.downstream_binding.status, observation.data.status);
+          assert.equal(lookup.downstream_binding.repository_id, observation.data.repository.id);
+          assert.deepEqual(lookup.downstream_binding.referenced_workflows, observation.data.referenced_workflows);
+          assert.equal(lookup.downstream_binding.current_head_proof, false);
+        } else {
+          assert.equal(lookup.evidence_role, 'exact-source');
+          assert.equal(lookup.downstream_binding, undefined);
+        }
+      } else {
+        assert.equal(lookup.status, 'unavailable');
+        assert.equal(lookup.http_status, 404);
+        assert.equal(observation.authoritative_for_consumer, false);
+      }
+      assert.equal(evidence.artifacts.complete, false);
+      assert.equal(evidence.artifacts.status, 'unavailable');
+      assert.deepEqual(evidence.artifacts.records, []);
+      const coverage = collector.buildContextSourceCoverage({planSources: [], diffText: '', evidence});
+      assert.ok(coverage.acceptance_evidence_sources.some(source =>
+        source.channel === 'artifacts' && source.status === 'unavailable'));
+    });
+  }
+
   test(`source/template ${index}: exact #4509 archive reproduces first extraction gap`, {timeout: 10000}, () => {
     const artifact = retained.first_failing_artifact;
     assert.equal(`sha256:${sha256(originalAutofix)}`, artifact.digest);
