@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Retain Health 85 trailing-seven-day Gate p50 observations for issue #4284.
+"""Retain Health 85 trailing-seven-day Gate p50 observations.
 
 Health 85 is ``health-85-ci-time-budget.yml``. Its published report stores p50
-in minutes. Issue #4284's sustained gate compares those daily values with 600
-seconds and stays incomplete when a day is missing or over the limit.
+in minutes. Sustained gates compare those daily values with 600
+seconds and stay incomplete when a day is missing or over the limit.
 """
 
 from __future__ import annotations
