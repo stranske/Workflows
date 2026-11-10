@@ -92,4 +92,4 @@ def test_terminal_run_dispatch_lineage_is_bound() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(pytest.main([__file__, "-q"]))
+    sys.exit(pytest.main([__file__, "-q", "-W", "ignore::pytest.PytestDeprecationWarning"]))
