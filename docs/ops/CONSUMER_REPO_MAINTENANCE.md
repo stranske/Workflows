@@ -787,11 +787,13 @@ a PR comment require comment evidence. Passive product uploads through a UI or
 by an application actor do not require GitHub workflow artifacts; a separate
 review-evidence instruction still applies.
 
-Common `submit`, `deliver` and `report` evidence verbs normalize through the same
-obligation, optionality, negation, literal and destination rules as `record`.
+Common `submit`, `deliver`, and finite `report`, `reports`, `reported`, and
+`reporting` evidence verbs normalize through the same obligation, optionality,
+negation, literal and destination rules as `record`.
 The same shared alias mapping also precedes passive actor binding: supplied,
-shared, written, placed, submitted, delivered, pasted and put retain an explicit
-reviewer or product actor before or after the complete destination list.
+shared, written, placed, submitted, delivered, reported, pasted and put retain
+an explicit reviewer or product actor before or after the complete destination
+list.
 Human AND/OR deliveries and product-component alternatives retain independent
 reviewer/artifact obligations and actual missing/unavailable-channel floors;
 canonical recorded, optional, prohibited and quoted controls remain unchanged.

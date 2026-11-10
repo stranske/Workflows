@@ -3856,6 +3856,10 @@ def test_report_alias_keeps_coordinated_channels_and_independent_reviewer_duty()
         _floor_verdict(product_then_reviewer, body="present", comments="absent", artifacts="absent")
         == "CONCERNS"
     )
+    quoted = 'The parser recognizes "The reviewer must report test results in a PR comment"'
+    assert verifier._required_evidence_channels(quoted) == set()
+    assert verifier._required_evidence_options(quoted) == [set()]
+    assert _floor_verdict(quoted, body="present", comments="absent") == "PASS"
 
 
 def test_optional_actor_cannot_suppress_prove_delivery():

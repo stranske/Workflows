@@ -38,6 +38,8 @@ class SubscriptionClientAdapter:
     client: Any
 
     def invoke(self, prompt: Any, config: Any = None, **kwargs: Any) -> Any:
+        # LangChain passes RunnableConfig by keyword. This adapter does not apply it.
+        _ = config
         if not isinstance(prompt, str):
             to_string = getattr(prompt, "to_string", None)
             if not callable(to_string):
@@ -45,7 +47,7 @@ class SubscriptionClientAdapter:
             prompt = to_string()
         if not isinstance(prompt, str):
             raise TypeError("Subscription prompt rendering must return a string")
-        return self.client.invoke(prompt, config=config, **kwargs)
+        return self.client.invoke(prompt, **kwargs)
 
     def __call__(self, prompt: Any) -> Any:
         return self.invoke(prompt)

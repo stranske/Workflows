@@ -382,6 +382,18 @@ def test_subscription_adapter_rejects_nontext_before_transport(prompt):
     assert calls == []
 
 
+def test_subscription_adapter_accepts_runnable_config_without_forwarding_it():
+    seen = []
+
+    def invoke(prompt, **kwargs):
+        seen.append((prompt, kwargs))
+        return prompt
+
+    adapter = _llm_client.SubscriptionClientAdapter(SimpleNamespace(invoke=invoke))
+    assert adapter.invoke("prompt", config={"configurable": {}}, stop=["x"]) == "prompt"
+    assert seen == [("prompt", {"stop": ["x"]})]
+
+
 def test_subscription_failure_does_not_retry_api(monkeypatch, subscription_process):
     from tools import subscription_llm
 
