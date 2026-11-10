@@ -1,9 +1,18 @@
 # Retained input-repair regression evidence
 
 The `4231-original` and `4235-original` directories contain original request,
-diff, event manifest, comparison and execution-receipt bytes. The tests reproduce
-the original event identities without substituting requests or material.
-`authenticated-readback.json` retains the native Actions publication and original
+diff, event manifest, comparison, execution-receipt, and authenticated-readback bytes.
+These are the retained raw outputs and execution evidence for both comments:
+
+- `comparison.json`: The comparison result payload
+- `comparison-execution.json`: The execution receipt for the comparison
+- `authenticated-readback.json`: Authenticated readback of the original Actions publication
+- `verification-event-manifest.json`: The verification event metadata
+- `request-body.txt`: The original request body
+- `verifier-pr-diff.patch`: The PR diff used for verification
+
+The tests reproduce the original event identities without substituting requests or material.
+The `authenticated-readback.json` retains the native Actions publication and original
 history, plus the supported collector's complete required-comment readback.
 
 The historical ZIPs were read from the source coordinator's
@@ -90,6 +99,28 @@ expiry rejection remains unestablished. Published markers and local `comparison.
 bytes are recorded and are not authenticated Actions readback or native
 admission. Both original events stay nonaccepting. Observed provider calls are
 integer zero. The 2026-11-06 owner decision is no fresh provider evaluation.
+
+### Executable collector invocation
+
+The real authenticated read-only collector is invoked via Node.js using the
+`fetchVerifierEvidence` function from `.github/scripts/agents_verifier_context.js`:
+
+```bash
+node -e 'require("./.github/scripts/agents_verifier_context.js").fetchVerifierEvidence({
+  github: <authenticated_octokit_client>,
+  owner: "stranske",
+  repo: "Workflows",
+  pullNumber: <pr_number>,
+  pullRequestBody: <pr_body>,
+  associatedCommitShas: [<commit_shas>],
+  evaluatedSha: <evaluated_sha>
+})'
+```
+
+This performs authenticated Actions archive lookup and returns the retained evidence
+for both comments 6390994169 and 6392557346, including HTTP 404 status, proof status,
+and marker publication state. The collector outputs are then converted to observation
+format and fed into the classifier.
 
 ### Executable classifier invocation
 

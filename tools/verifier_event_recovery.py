@@ -953,15 +953,20 @@ def classify_retained_artifact_outcome(observation: dict[str, Any]) -> dict[str,
         or isinstance(provider_calls_raw, bool)
         or not isinstance(provider_calls_raw, (int, float))
         or (isinstance(provider_calls_raw, float) and (math.isnan(provider_calls_raw) or math.isinf(provider_calls_raw)))
-        or (isinstance(provider_calls_raw, float) and provider_calls_raw != int(provider_calls_raw))
     ):
         provider_calls: int | None = None
-    else:
+    elif isinstance(provider_calls_raw, float):
         try:
             provider_calls = int(provider_calls_raw)
-            if provider_calls < 0:
+            if provider_calls != provider_calls_raw:
+                provider_calls = None
+            elif provider_calls < 0:
                 provider_calls = None
         except (OverflowError, ValueError):
+            provider_calls = None
+    else:
+        provider_calls = int(provider_calls_raw)
+        if provider_calls < 0:
             provider_calls = None
 
     original_accepting_raw = observation.get("original_event_accepting")
