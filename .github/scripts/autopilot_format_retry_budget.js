@@ -110,7 +110,9 @@ function renderSummary(decision) {
   const budget = `format retry budget ${decision.used}/${decision.max}`;
   switch (decision.action) {
     case 'retry':
-      return `${budget}; blocking 1 (pause), drainable 1: this wakeup clears the pause and runs format retry ${decision.attempt}/${decision.max} after the backoff`;
+      // Counted with this retry included, so the comment that records retry k
+      // reads "k/N used" instead of the pre-retry "k-1/N" next to "retry k/N".
+      return `format retry ${decision.attempt}/${decision.max} (budget ${decision.attempt}/${decision.max} used with this one, ${decision.max - decision.attempt} left); blocking 1 (pause), drainable 1: this wakeup clears the pause and re-dispatches the format step after the backoff`;
     case 'cap':
       if (decision.holdLabels.length > 0) {
         return `${budget} exhausted; blocking 1 (pause), drainable 0 by opener-core: held by ${decision.holdLabels.join(', ')}, which that label's owner clears`;

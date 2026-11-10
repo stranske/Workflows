@@ -105,6 +105,15 @@ test('every state prints blocking and drainable counts, including fully drained'
   assert.match(renderSummary(retry), /blocking 1 \(pause\), drainable 1/);
   assert.match(renderSummary(retry), new RegExp(`retry 1/${MAX_FORMAT_RETRIES}`));
 
+  // The retry comment records retry k, so its budget reads k used, never the pre-retry k-1
+  // (live on Workflows#4590: "budget 0/2 ... runs retry 1/2").
+  for (let k = 1; k <= MAX_FORMAT_RETRIES; k += 1) {
+    const prior = Array.from({ length: k - 1 }, legacyRetry);
+    const line = renderSummary(decideFormatWakeup({ state: 'open', labels: pausedLabels, comments: prior }));
+    assert.match(line, new RegExp(`budget ${k}/${MAX_FORMAT_RETRIES} used with this one, ${MAX_FORMAT_RETRIES - k} left`));
+    assert.equal(line.includes(`budget ${k - 1}/`), false, line);
+  }
+
   const spent = Array.from({ length: MAX_FORMAT_RETRIES }, legacyRetry);
   const cap = decideFormatWakeup({ state: 'open', labels: pausedLabels, comments: spent });
   assert.match(renderSummary(cap), /exhausted; blocking 1 \(pause\), drainable 1: opener-core/);
