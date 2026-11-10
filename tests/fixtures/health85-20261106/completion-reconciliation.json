@@ -1,0 +1,36 @@
+{
+  "schema": "issue-4284-completion-reconciliation/v1",
+  "issue": 4284,
+  "command": "gh issue view 4284 --repo stranske/Workflows --json state,body,comments",
+  "checked_on": "2026-11-06",
+  "state": "CLOSED",
+  "comment_count": 24,
+  "followup_issue": 4482,
+  "gate_run_supported": true,
+  "sustained_series_supported": false,
+  "observations_match_issue": true,
+  "both_gates_supported": false,
+  "completion_reconciled": false,
+  "action": "leave_incomplete",
+  "issue_mutation": "none",
+  "sustained_performance_criterion": "incomplete",
+  "matched_dates": [
+    "2026-10-31",
+    "2026-11-01",
+    "2026-11-02",
+    "2026-11-03",
+    "2026-11-04",
+    "2026-11-05",
+    "2026-11-06"
+  ],
+  "failures": [
+    "2026-10-31: p50 705.0s exceeds 600s (11.7500 min)",
+    "2026-11-01: p50 703.0s exceeds 600s (11.7167 min)",
+    "2026-11-02: p50 711.0s exceeds 600s (11.8500 min)",
+    "2026-11-03: p50 710.5s exceeds 600s (11.8417 min)",
+    "2026-11-04: p50 711.0s exceeds 600s (11.8500 min)",
+    "2026-11-05: p50 missing (measurement_unavailable)",
+    "2026-11-06: p50 missing (measurement_unavailable)"
+  ],
+  "comment": "## Completion reconciliation checked 2026-11-06\n\n`gh issue view 4284 --repo stranske/Workflows --json state,body,comments`\n\n- state: `CLOSED`\n- follow-up issue: #4482\n- Gate run 40551187519 jobs within 600s: true\n- qualifying seven-day Health 85 series: false\n- ci-budget.json observations match #4284: true\n- completion reconciled: false\n\nCompletion stays unreconciled until both the named Gate jobs and a matching seven-day Health 85 series at or below 600 seconds are supported. The sustained-performance criterion stays incomplete. Issue state and acceptance checkboxes were left unchanged.\n\nFailures:\n- 2026-10-31: p50 705.0s exceeds 600s (11.7500 min)\n- 2026-11-01: p50 703.0s exceeds 600s (11.7167 min)\n- 2026-11-02: p50 711.0s exceeds 600s (11.8500 min)\n- 2026-11-03: p50 710.5s exceeds 600s (11.8417 min)\n- 2026-11-04: p50 711.0s exceeds 600s (11.8500 min)\n- 2026-11-05: p50 missing (measurement_unavailable)\n- 2026-11-06: p50 missing (measurement_unavailable)\n"
+}

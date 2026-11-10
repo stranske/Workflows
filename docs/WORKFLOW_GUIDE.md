@@ -504,8 +504,21 @@ bytes are never claimed as reviewed. Malformed inventories, missing core sources
 and incomplete required channels still block. Only typed transport or size-limit
 omissions can be optional; provenance failures and ambiguous archive/read errors
 stay blocking. A validated incidental run from another revision is disclosed as
-excluded, never downloaded or credited; explicitly designated evidence retains
-the exact-revision provenance guard. In evaluate mode, a generic evidence duty
+excluded, never downloaded or credited. Same-repository designated evidence retains
+the exact-revision provenance guard and authenticated historical exceptions.
+Explicit cross-repository run URLs retain their repository for the authenticated
+run GET, artifact listing and download. Completed downstream runs retain their own
+repository ID, full head, attempt, conclusion and referenced reusable-workflow SHAs
+as `downstream-evidence`, even when their head differs from the evaluated PR.
+This role never establishes current-head source proof. Missing/mismatched identities,
+permission failures and artifact digest mismatches keep collection unavailable;
+a numeric ID's absence under the PR repository cannot establish consumer absence.
+Conflicting repository citations or local-only material selectors fail closed.
+When no labelled evidence set exists, non-negated absolute consumer citations in
+ordinary narrative retain this downstream role through fallback discovery too.
+They still require the same authenticated run and artifact identities; negative
+citations remain excluded, and a labelled evidence union still takes priority.
+In evaluate mode, a generic evidence duty
 requires enough available material to reason: one complete present body, comments,
 or artifacts channel can satisfy that availability screen. It does not require every
 historical artifact to be retrievable. Explicit comment/artifact duties and

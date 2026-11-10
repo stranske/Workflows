@@ -1,0 +1,119 @@
+Exact-sentence test record for PR #4470 (cursor/issue-3901)
+================================================================
+
+Test: test_reported_sentence_requires_pr_comment_and_rejects_ungrounded_pass
+Module: tests/scripts/test_report_sentence_delivery.py
+
+Execution:
+  Interpreter: /opt/anaconda3/bin/python3
+  Python version: 3.12.2
+  SHA: cccfa300ab1cdd8d66a5f618f88c190b3c958bef
+  Date: 2026-11-10T09:15:59CST
+  Elapsed time: ~1.13s
+
+Command:
+  /opt/anaconda3/bin/python3 -c "import sys; sys.path.insert(0, '.'); \
+    from tests.scripts.test_report_sentence_delivery import \
+    test_reported_sentence_requires_pr_comment_and_rejects_ungrounded_pass; \
+    test_reported_sentence_requires_pr_comment_and_rejects_ungrounded_pass()"
+
+Result:
+  required_channels=['comments'] 
+  comments_absent_verdict=CONCERNS 
+  comments_unavailable_verdict=UNVERIFIABLE_INPUT 
+  comments_present_verdict=PASS 
+  report_delivery_failures=0
+
+Status: PASS - All assertions met, report_delivery_failures=0
+
+2026-11-10 UTC keepalive verification
+===================================
+
+Starting branch head: 35e750afc67631f8227c6d98c1f1f8a47a6cbeca
+Compared origin/main: 8c678c19a4f9f60fa5be6a00f08794a9626c87bd
+Selected interpreter: /opt/hostedtoolcache/Python/3.14.10/x64/bin/python
+Python version: 3.14.10
+The historical /opt/anaconda3/bin/python3 interpreter is unavailable here.
+
+The focused test now checks the exact expected verdict for both report and
+record with absent, unavailable, and present comment evidence. Its printed
+failure count includes incorrect severities and an incorrectly rejected PASS
+when evidence is present, as well as a channel mismatch.
+
+Before changing the test:
+  python -m pytest tests/scripts/test_report_sentence_delivery.py -q -s -m 'not slow'
+  Exit 0: 1 passed in 2.25s; report_delivery_failures=0.
+
+After changing the test (bounded to two minutes):
+  timeout 120s /opt/hostedtoolcache/Python/3.14.10/x64/bin/python -m pytest tests/scripts/test_report_sentence_delivery.py -q -s -m 'not slow'
+  Exit 0: 1 passed in 2.43s.
+  required_channels=['comments'] comments_absent_verdict=CONCERNS comments_unavailable_verdict=UNVERIFIABLE_INPUT comments_present_verdict=PASS report_delivery_failures=0
+
+Focused report/record selection:
+  python -m pytest tests/scripts/test_pr_verifier_delivery_destinations.py -k 'report or record' -q -m 'not slow'
+  Exit 0: 1754 passed, 22719 deselected in 18.71s.
+
+Relevant verifier and delivery-linkage regressions:
+  python -m pytest tests/scripts/test_pr_verifier_prompt_coverage.py tests/scripts/test_pr_verifier_body_overall_integration.py tests/scripts/test_pr_verifier_semantic_integration.py tests/scripts/test_source_delivery_linkage.py tests/scripts/test_consumer_regeneration_linkage.py tests/scripts/test_completion_evidence_adapter.py -q -m 'not slow'
+  Exit 0: 5941 passed in 88.75s.
+
+Formatting and lint:
+  black --line-length 100 tests/scripts/test_report_sentence_delivery.py
+  Exit 0: 1 file unchanged.
+  ruff check tests/scripts/test_report_sentence_delivery.py scripts/langchain/pr_verifier.py templates/consumer-repo/scripts/langchain/pr_verifier.py
+  Exit 0: All checks passed.
+
+Repository-wide Black gate (Black 26.10.1, Python 3.14.10):
+  PYTHONPATH=/tmp/workflows-black-asyncio BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/workflows-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+  Exit 0: 998 files would be left unchanged.
+The unmodified command first failed with PermissionError when its process pool
+tried to bind the forkserver socket. Single-worker attempts then stalled waiting
+for worker completion; those attempts were interrupted, not counted as passes.
+A two-file diagnostic reproduced the stalled completion notification. The
+passing command used temporary, local Python startup files to select standard
+asyncio and wake its event loop every 0.1 seconds. It changed no formatting
+rules or source selection. The complete check processed all 998 selected files.
+The temporary startup files were:
+
+  /tmp/workflows-black-asyncio/uvloop.py:
+    raise ImportError("Use the standard asyncio event loop for Black in the restricted sandbox.")
+
+  /tmp/workflows-black-asyncio/sitecustomize.py:
+    import asyncio
+    _new_event_loop = asyncio.new_event_loop
+    def _polling_event_loop():
+        loop = _new_event_loop()
+        def tick():
+            loop.call_later(0.1, tick)
+        loop.call_later(0.1, tick)
+        return loop
+    asyncio.new_event_loop = _polling_event_loop
+
+Source/current-main/template parity:
+  git show origin/main:scripts/langchain/pr_verifier.py | cmp - scripts/langchain/pr_verifier.py
+  Exit 0: identical.
+  cmp scripts/langchain/pr_verifier.py templates/consumer-repo/scripts/langchain/pr_verifier.py
+  Exit 0: identical.
+  git diff --check
+  Exit 0.
+
+The production report-family fix remains #3902; no duplicate source patch was
+needed. Its durable disposition remains NON_PASS (both providers CONCERNS),
+even though verifier workflow 38618948337 succeeded:
+  https://github.com/stranske/Workflows/pull/3902#issuecomment-6176051552
+The existing source-delivery and FULL regeneration linkage tests pass. This
+round does not claim new exact-head review, hosted CI, guarded merge, or a
+post-merge verifier disposition for this unmerged branch. PR #4470 was
+confirmed open and ready for review through the connected GitHub tool.
+
+Commit blocker:
+  git add -- tests/scripts/test_report_sentence_delivery.py EXACT_SENTENCE_RECORD.txt
+  Exit 128: Unable to create .git/index.lock: Read-only file system.
+  git commit -m "test(verifier): compare report and record evidence floors"
+  Exit 128: Unable to create .git/index.lock: Read-only file system.
+No commit was created. The verified changes remain in the workspace; staging
+and committing require a checkout whose Git metadata is writable.
+The requested GitHub blocker comment and needs-human label were also attempted.
+Automatic approval review rejected both: "MCP tool call requires approval, but
+approval policy is never". Neither mutation was applied. Read-only inspection
+confirmed PR #4470 is still open, isDraft=false, at starting head 35e750af.

@@ -10,10 +10,10 @@ from pathlib import Path
 from scripts.issue_4284_completion import main, reconcile_completion
 
 ROOT = Path(__file__).resolve().parents[2]
-EVIDENCE = ROOT / "docs" / "evidence" / "issue-4284"
+EVIDENCE = ROOT / "tests" / "fixtures" / "health85-20261106"
 ISSUE_VIEW = EVIDENCE / "issue-view-4284.json"
-GATE = EVIDENCE / "gate-run-40551187519.json"
-BUDGET = ROOT / "docs" / "reports" / "ci-budget.json"
+GATE = ROOT / "docs" / "evidence" / "issue-4284" / "gate-run-40551187519.json"
+BUDGET = EVIDENCE / "ci-budget.json"
 DECISION = EVIDENCE / "completion-reconciliation.json"
 
 
@@ -342,3 +342,15 @@ def test_issue_4284_completion_helper_and_validation_branches(tmp_path: Path) ->
         )
         == 1
     )
+
+
+def test_current_retained_evidence_has_an_honest_reconciliation() -> None:
+    current = ROOT / "docs" / "evidence" / "issue-4284"
+    decision = _load(current / "completion-reconciliation.json")
+    computed = reconcile_completion(
+        _load(current / "issue-view-4284.json"),
+        _load(GATE),
+        _load(ROOT / "docs" / "reports" / "ci-budget.json"),
+        checked_on=decision["checked_on"],
+    )
+    assert computed == decision

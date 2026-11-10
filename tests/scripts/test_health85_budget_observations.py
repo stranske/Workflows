@@ -15,8 +15,10 @@ from scripts.health85_budget_observations import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-OBSERVATIONS_PATH = ROOT / "docs" / "evidence" / "issue-4284" / "health85-daily-observations.json"
-REPORT_PATH = ROOT / "docs" / "reports" / "ci-budget.json"
+OBSERVATIONS_PATH = (
+    ROOT / "tests" / "fixtures" / "health85-20261106" / "health85-daily-observations.json"
+)
+REPORT_PATH = ROOT / "tests" / "fixtures" / "health85-20261106" / "ci-budget.json"
 REPORT_BLOB_SHA = "b917229e8f0cd9228754c6e30c4c0ef993dc0b99"
 
 

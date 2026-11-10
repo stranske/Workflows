@@ -787,11 +787,13 @@ a PR comment require comment evidence. Passive product uploads through a UI or
 by an application actor do not require GitHub workflow artifacts; a separate
 review-evidence instruction still applies.
 
-Common `submit`, `deliver` and `report` evidence verbs normalize through the same
-obligation, optionality, negation, literal and destination rules as `record`.
+Common `submit`, `deliver`, and finite `report`, `reports`, `reported`, and
+`reporting` evidence verbs normalize through the same obligation, optionality,
+negation, literal and destination rules as `record`.
 The same shared alias mapping also precedes passive actor binding: supplied,
-shared, written, placed, submitted, delivered, pasted and put retain an explicit
-reviewer or product actor before or after the complete destination list.
+shared, written, placed, submitted, delivered, reported, pasted and put retain
+an explicit reviewer or product actor before or after the complete destination
+list.
 Human AND/OR deliveries and product-component alternatives retain independent
 reviewer/artifact obligations and actual missing/unavailable-channel floors;
 canonical recorded, optional, prohibited and quoted controls remain unchanged.
@@ -4022,3 +4024,15 @@ GitHub may delete a merged sync branch before Maint 71's explicit cleanup. On a 
 ## Starting a missing required Python matrix
 
 When a generated delivery declares required Gate Python contexts that never started, a successful ordinary PR Gate can still have skipped its Python parent job. Maint 71 requests the supported exact-head `pr-00-gate.yml` dispatch with that PR number instead of repeatedly rerunning the same skipped PR event. It preserves the current source, plan, seal and all mandatory checks. An active PR Gate or an existing same-head dispatch is reused; a completed dispatch does not authorize merging while a required context remains absent. This recovery applies only to the declared `python ci ... / python X.Y` contexts, and keeps other missing requirements unchanged.
+
+### Health85 sustained evidence
+
+The existing daily Health85 workflow retains source-bound `daily_observations` in
+`ci-time-budget:docs/reports/ci-budget.json`. `python -m scripts.health85_followup
+--apply` evaluates seven genuine dated trailing-seven-day Gate p50s (<=600s),
+confirms completed native run identities, records the same series on #4284, and
+opens one ready evidence PR for #4501. Normal CI/review/closer guards deliver it.
+The next daily invocation reconciles completed sources; its own in-progress run
+cannot certify itself. Missing dates, failed reads, and over-target values remain
+incomplete. Numeric history without native sources cannot qualify. The command
+without `--apply` supports a bounded local report check and writes no GitHub state.
