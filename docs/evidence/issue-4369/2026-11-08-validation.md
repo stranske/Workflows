@@ -3478,7 +3478,7 @@ by artifact identity rather than timing:
 | Plan | `sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb`, scope `full` | `sync-plan-scope.json`, `manifest.json`, PAEM sync result |
 | Candidate | PR **2488**, `sync/workflows-candidate` @ `795155aa9b1cdca5942bac2db3707c6b64dc57d3`, consumer base `b3b617e7` | PAEM sync result (`status: created_pr`) |
 | Maint 71 | Run **42565425171**, dispatched by the producer step "Dispatch Maint 71 for the generated lane"; its `IMMUTABLE_HANDOFF_JSON` and its PR 2488 result carry the same plan ID, source commit, head and delivery generation | [complete log](runtime-4550/4557r2/merger-42565425171.log), [both artifacts](runtime-4550/4557r2/merger-42565425171-artifacts/) |
-| Terminal Maint 71 | Run **42585644980**, event `workflow_dispatch`, dispatcher unknown; same plan, source, candidate head and delivery generation; terminal handoff `merged` | [run receipt](runtime-4550/4557r2/maint71-42585644980-run.json), [report](runtime-4550/4557r2/maint71-42585644980-sync-pr-merge-report.json), [authorization](runtime-4550/4557r2/maint71-42585644980-sync-campaign-commit-authorization.json), [log excerpt](runtime-4550/4557r2/maint71-42585644980-paem-excerpt.log) |
+| Terminal Maint 71 | Run **42585644980**, event `workflow_dispatch`, dispatcher unknown at this observation (traced to schedule-started Maint 82 run 42585506842 in the issue 4604 section below); same plan, source, candidate head and delivery generation; terminal handoff `merged` | [run receipt](runtime-4550/4557r2/maint71-42585644980-run.json), [report](runtime-4550/4557r2/maint71-42585644980-sync-pr-merge-report.json), [authorization](runtime-4550/4557r2/maint71-42585644980-sync-campaign-commit-authorization.json), [log excerpt](runtime-4550/4557r2/maint71-42585644980-paem-excerpt.log) |
 | Consumer-main merge | PR 2488 **MERGED**, `e4ccdaf177e3271173ae534a710ebc23f29341e8`, 2026-11-09T08:25:48Z | [PR JSON](runtime-4550/4557r2/consumer-pr-2488-merged.json), [merge commit](runtime-4550/4557r2/consumer-merge-e4ccdaf1.json), [main reachability](runtime-4550/4557r2/consumer-main-reachability.json) |
 
 Eleven later Maint 71 runs (42566405464 … 42579302699) are summarised in
@@ -3586,3 +3586,50 @@ schedule-started, but the producer's own dispatch binds the earlier Maint 71 run
 42565425171, not the terminal run. So the merge is recorded, while "the
 schedule-started Maint 71 run merged it" is not established. The artifact
 provenance map and a replay test of these receipts are also follow-up work.
+
+## Issue 4604 result: terminal Maint 71 dispatch lineage and receipt provenance (2026-11-10)
+
+Observed read-only at **2026-11-10T01:53:49Z**. No workflow was dispatched,
+rerun or cancelled.
+
+**Dispatcher of terminal Maint 71 run 42585644980: automation, not a person.**
+`GET /repos/stranske/Workflows/actions/runs/42585644980` returns `actor` and
+`triggering_actor` **`stranske-automation-bot`**, `run_attempt` 1, and display title
+`Merge Sync PRs [campaign] 0646425b9b16c40cb1e9`. The dispatching run is
+**Maint 82 `Sync/Dependency Campaign` run 42585506842** (event **`schedule`**, created
+08:22:44Z, success, same head `75712a5b`). Its "Refresh campaign queue" step
+(`maint-82-dispatch-generated-continuations`) read one due campaign continuation:
+key `0646425b9b16c40cb1e9`, reason `delivery_sealed_checks_pending`,
+`stranske/Orchestrator#1288`, and an `immutable_handoff` with plan
+`sha256:4947a11cfee1…` and source `c7885e1a…`. The step selected
+`SERVICE_BOT_PAT`, called `POST …/maint-71-merge-sync-prs.yml/dispatches`, and logged
+`Dispatched due Maint 71 campaign continuation for stranske/Orchestrator#1288` at
+08:23:53Z. Run 42585644980 was created at 08:23:52Z. Its title suffix is that
+continuation key, and its `IMMUTABLE_HANDOFF_JSON` carries the same plan ID and
+source commit.
+
+Evidence: the `dispatch_lineage` block in
+[run receipt](runtime-4550/4557r2/maint71-42585644980-run.json),
+[Maint 82 run receipt](runtime-4550/4557r2/maint82-42585506842-run.json) and
+[dispatch log excerpt](runtime-4550/4557r2/maint82-42585506842-dispatch-excerpt.log).
+
+The full chain to the PR 2488 merge is now:
+Maint 68 `schedule` 42564882056 → plan → candidate PR 2488 → Maint 71 42565425171
+(dispatched by the producer) → Maint 82 `schedule` 42585506842 (campaign
+continuation) → Maint 71 42585644980 → merge `e4ccdaf1`.
+
+**Not traced:** which earlier Maint 71 run wrote continuation
+`0646425b9b16c40cb1e9` into the campaign queue. The continuation names Orchestrator
+PR 1288, not PAEM PR 2488. PAEM was merged because the `campaign` lane commits
+every authorized row of the plan. The #4369 chain checkbox above is therefore left
+for that issue's own closer to grade; this result does not tick it.
+
+**Artifact provenance:**
+[`4581-artifact-provenance.json`](runtime-4550/4557r2/4581-artifact-provenance.json)
+maps every retained 4557r2 file (38 files, recursive, excluding the map itself) to
+its SHA-256. It includes `chain-receipt.json` =
+`c348298582fa08a93b0e845e495d8951af50461f8ac1e2e334c62a659c6879c3`, unchanged
+since #4582. `tests/scripts/test_issue_4581_chain_evidence.py` checks that the
+map covers the directory exactly, that every hash matches, that the chain receipt
+digest is pinned, and that the dispatch lineage binds by continuation key, plan
+ID and source commit.
