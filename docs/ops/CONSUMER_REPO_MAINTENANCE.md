@@ -1,5 +1,27 @@
 # Consumer Repository Maintenance Guide
 
+## Legacy canary history reconciliation
+
+A terminal historical UNKNOWN is retained as UNKNOWN. It no longer blocks a
+scoped refresh solely because its old native artifact is incomplete when a
+later accepted baseline accounts for the selected files in every canary.
+Its authenticated compiled plan must deliver those paths for that repository;
+unselected, excluded and create-only preserved files do not establish coverage.
+The native reader verifies the original attempt versions, the latest merged
+signed native canary PRs and their authenticated producer/plan bindings, merge
+ancestry, current default-tree blobs and modes, stable refs and active writers.
+The baseline merge must follow every covered attempt's terminal observation.
+Changed or retired files, missing evidence, a rerun or active writer fail closed.
+
+Coverage is a process-local observation bound to the current request and payload;
+saved reports and caller-supplied flags cannot grant admission. Current refs and
+attempts are reread before the observation is accepted. A newer open delivery
+for another source/plan remains its own blocker, with the drain to follow that
+existing delivery rather than replace it. Reconciliation never rewrites an old
+receipt, declares cancellation to mean no writes, releases a lock or reopens a
+completed campaign. Diagnostics report historical UNKNOWNs, baseline coverage
+and current ownership separately.
+
 Maint 71 caches positive terminal Maint 68 receipts across its steps and later
 trusted default-branch runs. Current Actions run inventory is still read; a new
 attempt, head or update invalidates the cached receipt. Active or unknown

@@ -20,6 +20,8 @@ const CANARY_SEALED_REFRESH_WAIT_MS = 60 * 60 * 1000;
 // until this attempt number; the next one must come from a new head event.
 const CANCELLED_GATE_MAX_ATTEMPT = 3;
 const deliveryPayload = require('./consumer_delivery_digest');
+const { reconcileLegacyCanaryHistory, coveredByCurrentBaseline,
+  currentBaselineOwnerConflict } = require('./canary_history_reconciliation');
 const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const { parseBooleanInput } = require('./sync_pr_merge_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
@@ -299,7 +301,7 @@ function canaryRefreshDiagnostics(state) {
   const unknown = runs.filter(run => run.refresh_unknown);
   const failureClassification = canaryRefreshFailureRows(runs);
   return { schema: 'workflows.canary-refresh-diagnostics/v1',
-    state: ['unknown', 'success', 'unseen', 'writer-active', ...ACTIVE_SYNC_STATES,
+    state: ['unknown', 'success', 'unseen', 'writer-active', 'current-delivery-owned', ...ACTIVE_SYNC_STATES,
       'failure', 'cancelled', 'timed_out', 'action_required', 'completed', 'sealed-cycle'].includes(state.state)
       ? state.state : 'unknown', eligible: state.eligible === true,
     inventory: { observed: runs.length, native_receipts: runs.filter(run => run.refresh_receipt).length,
@@ -311,6 +313,7 @@ function canaryRefreshDiagnostics(state) {
     failure_classification: failureClassification.slice(0, 8),
     omitted_failure_classifications: Math.max(0, failureClassification.length - 8),
     blocking_receipt: unknown.find(run => run.id === state.run_id)?.refresh_receipt || null,
+    ...(state.history_reconciliation ? { history_reconciliation: state.history_reconciliation } : {}),
     refusals: unknown.slice(0, 8).map(run => run.refresh_receipt || refreshReceiptDiagnostic(run)),
     omitted_refusals: Math.max(0, unknown.length - 8) };
 }
@@ -391,14 +394,21 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const exemptInfrastructure = infrastructureFailures.length === 1;
   const recent = recentCandidates.find(run => !exemptInfrastructure
     || canaryRefreshFailureClass(run) !== 'infrastructure');
-  const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
-  const prior = active || writer || unknown || successful || recent;
+  const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown
+    && !coveredByCurrentBaseline(run, refreshPlan, deliveryDigest));
+  const ownerConflict = currentBaselineOwnerConflict(runs, refreshPlan, deliveryDigest);
+  const prior = active || writer || ownerConflict || unknown || successful || recent;
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
-    producer_succeeded: Boolean(successful) && !unknown,
+    producer_succeeded: Boolean(successful) && !unknown && !ownerConflict,
     ...(refreshPlan ? { refresh_plan: refreshPlan } : {}),
-    state: active ? active.status : writer ? 'writer-active' : unknown ? 'unknown' : successful ? 'success'
+    state: active ? active.status : writer ? 'writer-active'
+      : ownerConflict?.reason === 'current_ownership_unreadable' ? 'unknown' : ownerConflict ? 'current-delivery-owned'
+      : unknown ? 'unknown' : successful ? 'success'
       : recent ? recent.conclusion || 'completed' : 'unseen',
     run_id: prior?.id,
+    ...(ownerConflict ? { current_owner: ownerConflict,
+      next_action: ownerConflict.reason === 'current_ownership_unreadable'
+        ? 'reread-current-delivery-ownership' : 'follow-current-delivery-without-replacing-its-source' } : {}),
     debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
 }
 
@@ -595,6 +605,9 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     }
   }
   await attachCanaryRefreshFailureEvidence({ runs: observed, withRetry, location, now });
+  const historyReconciliation = refreshPlan.plan_scope === 'source-delta' && payload
+    ? await reconcileLegacyCanaryHistory({ withRetry, context, runs: observed, candidates,
+      refreshPlan, payload, verifyPlan: verifiedCanaryRefreshPlan, ignoreRunId, ignoreRunAttempt }) : null;
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,
     defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, refreshPlan, now });
   if (refreshPlan.plan_scope === 'source-delta' && !payload) {
@@ -602,6 +615,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
       queue_reason: 'compiled scoped payload unavailable' });
   }
   state.default_branch = branch;
+  if (historyReconciliation) state.history_reconciliation = historyReconciliation;
   if (state.eligible && payload) await deferSealedCanaryRefresh({ state, payload, withRetry, now });
   return state;
 }
@@ -6539,6 +6553,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  reconcileLegacyCanaryHistory,
   deleteSyncBranch,
   preserveFrozenCanaryRefresh,
   repositoryConversationGate,
