@@ -1,0 +1,27 @@
+Exact-sentence test record for PR #4470 (cursor/issue-3901)
+================================================================
+
+Test: test_reported_sentence_requires_pr_comment_and_rejects_ungrounded_pass
+Module: tests/scripts/test_report_sentence_delivery.py
+
+Execution:
+  Interpreter: /opt/anaconda3/bin/python3
+  Python version: 3.12.2
+  SHA: cccfa300ab1cdd8d66a5f618f88c190b3c958bef
+  Date: 2026-11-10T09:15:59CST
+  Elapsed time: ~1.13s
+
+Command:
+  /opt/anaconda3/bin/python3 -c "import sys; sys.path.insert(0, '.'); \
+    from tests.scripts.test_report_sentence_delivery import \
+    test_reported_sentence_requires_pr_comment_and_rejects_ungrounded_pass; \
+    test_reported_sentence_requires_pr_comment_and_rejects_ungrounded_pass()"
+
+Result:
+  required_channels=['comments'] 
+  comments_absent_verdict=CONCERNS 
+  comments_unavailable_verdict=UNVERIFIABLE_INPUT 
+  comments_present_verdict=PASS 
+  report_delivery_failures=0
+
+Status: PASS - All assertions met, report_delivery_failures=0
