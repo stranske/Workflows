@@ -1,0 +1,502 @@
+{
+  "checkedAt": "2026-11-07 02:49:16 UTC",
+  "campaign": [
+    {
+      "repo": "stranske/Counter_Risk",
+      "number": 1178,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:16Z",
+      "headSha": "ef4eab34fd00991721e105da3fa709f9c2eaf5be",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "number": 101,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:21Z",
+      "headSha": "9b0f192802ba6f0cd9bdac152fd03377b472d2a1",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "number": 138,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:24Z",
+      "headSha": "e270e1b586fcb82db93e28891bf29a57f558b4a8",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Fine-Art-Archive",
+      "number": 832,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:29Z",
+      "headSha": "594688593acb8f31a36f68695c9864d55c02b63e",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "number": 1037,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:34Z",
+      "headSha": "ffeaf3afb2928c0ffe3e03c1e16b2aa2bc39cbd9",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "number": 116,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:39Z",
+      "headSha": "338e00b835e007fee9a68de8c7ce0fcf2d66ddb6",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "number": 732,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:43Z",
+      "headSha": "57efe3a51cce3d6412ca9a69464b5614113370dd",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Pension-Data",
+      "number": 979,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:48Z",
+      "headSha": "85562e99d80956514cfdc2e836478a9f24726e98",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "number": 2390,
+      "state": "open",
+      "merged": false,
+      "isDraft": false,
+      "mergedAt": null,
+      "headSha": "09298cf6b2e719b90ad661ea62553f4504d5dd96",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "automerge",
+        "autofix",
+        "agents:keepalive",
+        "agent:auto"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Ready",
+      "number": 633,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T14:51:47Z",
+      "headSha": "5e341751ff4b79186f5c32e288711a060ae04e18",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "number": 1682,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:55:57Z",
+      "headSha": "0532bbda4779cef5902005bb45b8607401fb5f16",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "number": 6112,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:56:04Z",
+      "headSha": "d9bb77745d0d7edd5da4b23d37e0f330d7859576",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "automerge",
+        "autofix"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "number": 775,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:56:09Z",
+      "headSha": "677a6ca74735cbefce61f9fbd7447c1ee65f9f6b",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "number": 1921,
+      "state": "closed",
+      "merged": true,
+      "isDraft": false,
+      "mergedAt": "2026-10-18T07:56:14Z",
+      "headSha": "a784569e22ebd401af22a6739e25bdb85e3e621e",
+      "headRef": "orch/gate-no-labeled-trigger",
+      "changedFiles": 1,
+      "additions": 1,
+      "deletions": 1,
+      "labels": [
+        "autofix",
+        "automerge"
+      ],
+      "metadataValid": true,
+      "onlyRemovesLabeled": true
+    }
+  ],
+  "readback": [
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "sha": "79a73d7fd15adf745b75da3ef6aeb570b9d815c6",
+      "url": "https://github.com/stranske/Travel-Plan-Permission/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Template",
+      "sha": "d4b43ef5cfe5a169c8579198dbbe3783903039e8",
+      "url": "https://github.com/stranske/Template/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Counter_Risk",
+      "sha": "39ff6f11599f0ef993c40ffc55d2ac436762ee27",
+      "url": "https://github.com/stranske/Counter_Risk/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Pension-Data",
+      "sha": "0659bb07dcffa9a08793ac61f1cbffe12313830e",
+      "url": "https://github.com/stranske/Pension-Data/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Inv-Man-Intake",
+      "sha": "9eaddd79c58035036cb7964dc7f9c5bf1adccbf9",
+      "url": "https://github.com/stranske/Inv-Man-Intake/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Ready",
+      "sha": "5ac041d511833f5d87276bd12aaf3c18582d8e3f",
+      "url": "https://github.com/stranske/Ready/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "sha": "a808b30e237e07727b71e5a707e270238e623036",
+      "url": "https://github.com/stranske/trip-planner/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Manager-Database",
+      "sha": "24262bc8f766516d0ce16cfa5cf0c876a8740906",
+      "url": "https://github.com/stranske/Manager-Database/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "sha": "360a1f67cd01729a25ae6faab74bece95c64e424",
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Trend_Model_Project",
+      "sha": "59b7aff4b75b1efc89ed6e41d45bf89790228774",
+      "url": "https://github.com/stranske/Trend_Model_Project/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/learning-management-system",
+      "sha": "00a8437c5bb900750948cc5d0abd23918f7669c2",
+      "url": "https://github.com/stranske/learning-management-system/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Fine-Art-Archive",
+      "sha": "eaf1add1de8a38d0b78216252ab903ce7aa01762",
+      "url": "https://github.com/stranske/Fine-Art-Archive/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Orchestrator",
+      "sha": "2b5d7e87c6350ba3d38d10d0a69b2b345a90aa40",
+      "url": "https://github.com/stranske/Orchestrator/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Doc-Lineage",
+      "sha": "8613070eb284b2a2600ec87c40e5b1bcd7361bda",
+      "url": "https://github.com/stranske/Doc-Lineage/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Deliverable-Render",
+      "sha": "038d547b2d78635787a5f2025e3f2f136f70697f",
+      "url": "https://github.com/stranske/Deliverable-Render/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    },
+    {
+      "repo": "stranske/Manager-Mosaic",
+      "sha": "4a380372b74f78f7090e7e35819956ccd1defb7a",
+      "url": "https://github.com/stranske/Manager-Mosaic/blob/main/.github/workflows/pr-00-gate.yml",
+      "typesLine": "    types: [opened, synchronize, reopened, ready_for_review]",
+      "source": "Connected GitHub default-branch read, lines 1-45"
+    }
+  ],
+  "structuralPR": {
+    "repo": "stranske/Workflows",
+    "number": 4084,
+    "state": "closed",
+    "merged": true,
+    "isDraft": false,
+    "mergedAt": "2026-10-18T06:29:45Z",
+    "headSha": "9be36f8556928608485acdd7d1cec6fef1bc69a6",
+    "headRef": "orch/issue-4082-gate-trigger-health",
+    "changedFiles": 5,
+    "additions": 276,
+    "deletions": 3
+  },
+  "publication": {
+    "firstTaskCheckbox": "MCP tool call requires approval, but approval policy is never",
+    "needsHumanLabel": "MCP tool call requires approval, but approval policy is never",
+    "sourceIssueComment": "MCP tool call requires approval, but approval policy is never"
+  },
+  "observation": {
+    "finalCampaignMerge": null,
+    "intervalEnd": null,
+    "numerator": null,
+    "denominator": null,
+    "percentage": null,
+    "blocker": "PAEM#2390 remains open; final campaign merge and subsequent 48-hour interval are undetermined."
+  },
+  "baseline": {
+    "checked_at": "2026-11-07T02:45:47.873448+00:00",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "python": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+    "command": [
+      "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+      "scripts/check_consumer_sync_drift.py",
+      "--repos",
+      "stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic",
+      "--summary",
+      "/tmp/issue-4082-round8/summary.md",
+      "--report-json",
+      "/tmp/issue-4082-round8/drift.json"
+    ],
+    "stop_rule": "One attempt, no retries, subprocess timeout 110 seconds. No production repair without a demonstrated failure.",
+    "exit_code": 1,
+    "stdout": "::error::No usable GitHub token available for consumer repo contents reads\ngate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)\ngate triggers: stranske/Template unknown (Gate/tree unavailable)\ngate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)\ngate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)\ngate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)\ngate triggers: stranske/Ready unknown (Gate/tree unavailable)\ngate triggers: stranske/trip-planner unknown (Gate/tree unavailable)\ngate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)\ngate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)\ngate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)\ngate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)\ngate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)\ngate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)\ngate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)\ngate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)\ngate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)\n",
+    "stderr": "",
+    "elapsed_seconds": 0.439
+  },
+  "cli": {
+    "checked_at": "2026-11-07T02:47:33.858025+00:00",
+    "stop_rule": "One attempt per read; 10-second request timeout, eight concurrent read-only requests, no retries.",
+    "elapsed_seconds": 0.952,
+    "attempts": 46,
+    "failures": 46,
+    "common_stderr": [
+      "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    ],
+    "command_patterns": [
+      [
+        "gh",
+        "pr",
+        "view",
+        "<number>",
+        "-R",
+        "<repo>",
+        "--json",
+        "state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "<number>",
+        "-R",
+        "<repo>"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/<repo>/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ]
+    ]
+  },
+  "source_inspection": {
+    "issue_format_guide": "templates/consumer-repo/docs/AGENT_ISSUE_FORMAT.md",
+    "root_and_template_types": [
+      "opened",
+      "synchronize",
+      "reopened",
+      "ready_for_review"
+    ],
+    "sync_mode": "create_only",
+    "overwrite_repos": [
+      "stranske/Template"
+    ],
+    "skip_repos": [
+      "stranske/Manager-Database"
+    ],
+    "handoff_script": "~/.codex/bin/handoff.sh absent"
+  },
+  "validation": {
+    "baseline": "171 passed in 21.04s",
+    "final_suite": "173 passed in 22.16s",
+    "final_scoped_follow_up": "5 passed, 82 deselected in 1.53s after the last test cleanup",
+    "ruff": "passed",
+    "targeted_black": "passed at line length 100",
+    "whole_repository_black": {
+      "exact_command": "black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+      "exact_result": "PermissionError: multiprocessing forkserver socket bind forbidden by sandbox",
+      "fallback_command": "timeout 110s python3 -c 'import signal; signal.signal(signal.SIGALRM, lambda *_: None); signal.setitimer(signal.ITIMER_REAL, 0.2, 0.2); import black; black.patched_main()' --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' --workers 1 .",
+      "fallback_result": "exit 0; 909 files would be left unchanged",
+      "earlier_fallback_attempt": "55-second deadline expired after 582 files; no formatting error reported"
+    },
+    "staging": "git add failed: .git/index.lock cannot be created on read-only filesystem; no commit or push"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "observed_at_utc": "2026-11-09T08:51:35.677926Z",
+  "consumer_merge_sha": "e4ccdaf177e3271173ae534a710ebc23f29341e8",
+  "comparisons": [
+    {
+      "command": "cmp docs/evidence/issue-4369/runtime-4550/4557-source-subscription_llm.py.txt docs/evidence/issue-4369/runtime-4550/4557r2/candidate-795155aa-subscription_llm.py.txt",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "cmp docs/evidence/issue-4369/runtime-4550/4557-source-subscription_llm.py.txt docs/evidence/issue-4369/runtime-4550/4557r2/consumer-e4ccdaf1-subscription_llm.py.txt",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

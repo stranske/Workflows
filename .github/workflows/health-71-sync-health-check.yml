@@ -273,6 +273,25 @@ jobs:
             echo "Created new sync health issue"
           fi
 
+      - name: Close resolved sync health alert
+        if: steps.check.outputs.status == 'healthy'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Only this workflow's own titles; the maint-68 "Action Required"
+          # alert shares the labels but is closed by Maint 68 itself.
+          python3 .github/scripts/resolve_alert_issue.py \
+            --repo "${{ github.repository }}" \
+            --label sync-failure --label automated \
+            --title "🚨 Consumer Repo Sync Completely Broken - All Recent Runs Failed" \
+            --title "⚠️ Consumer Repo Sync Unhealthy - No Successful Runs" \
+            --title-prefix "⚠️ Consumer Repo Sync Stale - No Success in " \
+            --title "❓ Consumer Repo Sync - No Runs Found" \
+            --title "🔍 Consumer Repo Sync Health Issue" \
+            --workflow "Health 71 Sync Health Check" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Summary
         run: |
           {

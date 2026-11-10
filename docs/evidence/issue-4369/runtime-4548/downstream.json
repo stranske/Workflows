@@ -1,0 +1,159 @@
+{
+  "observed_at": "2026-11-08 08:36:47 UTC",
+  "source_merge": {
+    "sha": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+    "merged_at": "2026-11-08T05:02:26Z"
+  },
+  "consumer": {
+    "pr": 2454,
+    "sha": "9c85282d05359ddc468d0881ec6b09269ac592a2",
+    "state": "closed",
+    "isDraft": false,
+    "merged_at": "2026-11-08T04:40:31Z",
+    "has_configured_directory_lookup": true,
+    "has_final_directory_normalization": false
+  },
+  "thread": {
+    "id": "PRRT_kwDOO15QxM6yXhfS",
+    "is_resolved": true,
+    "is_outdated": true,
+    "comments": [
+      {
+        "id": 4434491702,
+        "created_at": "2026-11-01T05:10:47Z",
+        "body": "[P2] Claude's credential check ignores `CLAUDE_CONFIG_DIR`, even though that variable is passed to the child CLI. When subscription credentials exist only in the configured directory, `available()` rejects the client before Claude can read them. Resolve the credentials file relative to the configured directory when present."
+      },
+      {
+        "id": 4505043101,
+        "created_at": "2026-11-08T04:39:05Z",
+        "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 51-56 resolve the credentials directory from CLAUDE_CONFIG_DIR, then check .credentials.json there; lines 80-83 preserve that variable in the child environment.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/tools/subscription_llm.py . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced."
+      }
+    ]
+  },
+  "maint68": {
+    "run_id": 42449080092,
+    "job_id": 128634207522,
+    "source_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01",
+    "conclusion": "success",
+    "consumer_sync_job": "skipped"
+  },
+  "following_maint71": {
+    "run_id": 42451203202,
+    "job_id": 128640606057,
+    "workflow_sha": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+    "consumer_status": "no_prs"
+  },
+  "sync_core_comments": [
+    {
+      "id": 6568623594,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `3e13566a73e9` (round 20261102T035200Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6568624416,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `e1075176de36` (round 20261102T035200Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6583452479,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `128edded1e54` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6583454319,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `e1d8a8ed8a87` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6587416829,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `0a5873df007f` (round 20261102T201439Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6588614972,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `c485222f949a` (round 20261102T211340Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6597301080,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `021a094497a1` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6597303042,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `66242eb3268c` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6623204937,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `f36c82cd6a83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6623206100,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `7e233b3c1e83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6623207637,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `ecff077a0504` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6623828876,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `c1add4c24991` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6623830468,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `58e7e3bdfe8b` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6631921882,
+      "body": "## Issue Optimization Suggestions\n\nReview the suggestions below. If you want the agent to apply them, add the\n`agents:apply-suggestions` label to this issue.\n\n### Task splitting\n- Add or extend a test beside `tools/subscription_llm.py` that fails for the reported behavior and passes after the fix. (The task bundles writing a regression test with the 'fails before / passes after' verification. It also leaves open whether to add a new test or extend an existing one. Both are achievable, but separating them makes each step verifiable. This is a minor concern, not a hard blocker.). Suggested split: Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory containing only a credentials file and asserts available() returns True, Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR is set to a directory without credentials, Verify the new test fails against the unfixed available() logic and passes after the fix is applied.\n\n### Blocked tasks\n- Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue. (This depends on workflow runs the agent cannot trigger, retry or modify (the workflows are protected, and agents cannot retry CI pipelines). It also depends on the external sync-core system and on a review thread in another repository being resolved. It is a post-merge live verification, not an agent-completable task. | Move this to a separate 'Post-merge verification (human/maintainer)' checklist outside the agent's scope. Keep only the source fix and the test in the agent-owned tasks.)\n- Deliberate-break → revert: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass. (The agent can do this locally, but it is a process step and not a deliverable. It leaves no artifact in the PR and cannot be verified from the final diff. It is also a mutation-testing step that may be awkward to run inside a CI-driven agent loop. | Rephrase it as an objective check. For example, the regression test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation. Optionally have the agent record the before/after pytest output in the PR description.)\n\n### Objective acceptance criteria\n- Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass. (The criterion is objective, but it is ambiguous. The source file is Python, so the JavaScript gate is likely irrelevant. The pytest path `tests/` may also not match 'a test beside tools/subscription_llm.py' as stated in the tasks. | State that `python3 -m pytest -q tests/` must pass, and that the new test lives in a path that this command collects (or specify the exact path, e.g. `tests/tools/test_subscription_llm.py`). Treat the JS gate as 'no regressions' only.)\n- Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass. (It is verifiable only by manual mutation and leaves no artifact. | Replace with: 'A test named e.g. test_available_uses_claude_config_dir exists, sets CLAUDE_CONFIG_DIR to a temp dir containing a credentials file, and asserts available() is True; it fails on the pre-fix commit.')\n- ...the next maint-71 run reports PR #2454 without this review thread, and sync-core stops bumping this issue. (It depends on external systems and timing, so it is not verifiable within the source PR. | Make it a non-blocking follow-up. The in-scope criterion should be: 'available() returns True when credentials exist only under $CLAUDE_CONFIG_DIR, and still falls back to the default ~/.claude location when the variable is unset.')\n\n### Missing sections\n- None\n\n### Formatting issues\n- The body contains both a rewritten top section and an 'Original Issue' block that repeats the Why, Tasks, Acceptance Criteria and Non-Goals content. The duplication adds noise, though it is collapsed in a <details> block and acceptable as provenance.\n- The Scope section is a single sentence and its wording is awkward: 'when present in the source file'. It should say that `CLAUDE_CONFIG_DIR`, when set, determines where the credentials file is looked up, and name the file (e.g. `.credentials.json`).\n- The Tasks section omits the third original task (regenerate the sync candidate and confirm the thread is resolved). It appears only as an acceptance criterion, which is a good change, but the Acceptance Criteria item still mixes agent-verifiable and external checks.\n- The Acceptance Criteria mix a generic, template-style gate (the JS and Python gates) with issue-specific behavior. Only the Python gate is relevant.\n- Task wording uses the 'stranske/Workflows:tools/subscription_llm.py' notation, which is not a valid path inside the repo. The agent should work on `tools/subscription_llm.py`.\n- Missing specifics: the issue does not state the expected fallback behavior when CLAUDE_CONFIG_DIR is unset or empty, or the credentials filename.\n\n### Notes\n- The issue is mostly agent-compatible. It has a clear, narrow code fix (honor CLAUDE_CONFIG_DIR in available()), a clear non-goal (do not edit the consumer PR) and a regression-test requirement. Why, Scope, Non-Goals and Implementation Notes are all present, so none are missing. The main problems are (1) the acceptance criteria include live-system checks on workflow runs the agent cannot trigger or control, (2) the JS gate is irrelevant to a Python fix, and (3) the intended behavior is underspecified (credentials filename, unset or empty variable, tilde expansion). Recommended rewrite of the tasks: (a) Fix available() in tools/subscription_llm.py to look for the credentials file under $CLAUDE_CONFIG_DIR when it is set and non-empty, falling back to the default location otherwise. (b) Add a pytest regression test using monkeypatch and tmp_path that covers the set, unset and empty cases. (c) Run `python3 -m pytest -q tests/` and confirm it passes. Move the maint-68/maint-71 verification to a human-owned follow-up.\n\n<!-- suggestions-json: {\"task_splitting\": [{\"task\": \"Add or extend a test beside `tools/subscription_llm.py` that fails for the reported behavior and passes after the fix.\", \"reason\": \"The task bundles writing a regression test with the 'fails before / passes after' verification. It also leaves open whether to add a new test or extend an existing one. Both are achievable, but separating them makes each step verifiable. This is a minor concern, not a hard blocker.\", \"split_suggestions\": [\"Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory containing only a credentials file and asserts available() returns True\", \"Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR is set to a directory without credentials\", \"Verify the new test fails against the unfixed available() logic and passes after the fix is applied\"]}], \"blocked_tasks\": [{\"task\": \"Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue.\", \"reason\": \"This depends on workflow runs the agent cannot trigger, retry or modify (the workflows are protected, and agents cannot retry CI pipelines). It also depends on the external sync-core system and on a review thread in another repository being resolved. It is a post-merge live verification, not an agent-completable task.\", \"suggested_action\": \"Move this to a separate 'Post-merge verification (human/maintainer)' checklist outside the agent's scope. Keep only the source fix and the test in the agent-owned tasks.\"}, {\"task\": \"Deliberate-break \\u2192 revert: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass.\", \"reason\": \"The agent can do this locally, but it is a process step and not a deliverable. It leaves no artifact in the PR and cannot be verified from the final diff. It is also a mutation-testing step that may be awkward to run inside a CI-driven agent loop.\", \"suggested_action\": \"Rephrase it as an objective check. For example, the regression test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation. Optionally have the agent record the before/after pytest output in the PR description.\"}], \"objective_criteria\": [{\"criterion\": \"Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass.\", \"issue\": \"The criterion is objective, but it is ambiguous. The source file is Python, so the JavaScript gate is likely irrelevant. The pytest path `tests/` may also not match 'a test beside tools/subscription_llm.py' as stated in the tasks.\", \"suggestion\": \"State that `python3 -m pytest -q tests/` must pass, and that the new test lives in a path that this command collects (or specify the exact path, e.g. `tests/tools/test_subscription_llm.py`). Treat the JS gate as 'no regressions' only.\"}, {\"criterion\": \"Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass.\", \"issue\": \"It is verifiable only by manual mutation and leaves no artifact.\", \"suggestion\": \"Replace with: 'A test named e.g. test_available_uses_claude_config_dir exists, sets CLAUDE_CONFIG_DIR to a temp dir containing a credentials file, and asserts available() is True; it fails on the pre-fix commit.'\"}, {\"criterion\": \"...the next maint-71 run reports PR #2454 without this review thread, and sync-core stops bumping this issue.\", \"issue\": \"It depends on external systems and timing, so it is not verifiable within the source PR.\", \"suggestion\": \"Make it a non-blocking follow-up. The in-scope criterion should be: 'available() returns True when credentials exist only under $CLAUDE_CONFIG_DIR, and still falls back to the default ~/.claude location when the variable is unset.'\"}], \"missing_sections\": [], \"formatting_issues\": [\"The body contains both a rewritten top section and an 'Original Issue' block that repeats the Why, Tasks, Acceptance Criteria and Non-Goals content. The duplication adds noise, though it is collapsed in a <details> block and acceptable as provenance.\", \"The Scope section is a single sentence and its wording is awkward: 'when present in the source file'. It should say that `CLAUDE_CONFIG_DIR`, when set, determines where the credentials file is looked up, and name the file (e.g. `.credentials.json`).\", \"The Tasks section omits the third original task (regenerate the sync candidate and confirm the thread is resolved). It appears only as an acceptance criterion, which is a good change, but the Acceptance Criteria item still mixes agent-verifiable and external checks.\", \"The Acceptance Criteria mix a generic, template-style gate (the JS and Python gates) with issue-specific behavior. Only the Python gate is relevant.\", \"Task wording uses the 'stranske/Workflows:tools/subscription_llm.py' notation, which is not a valid path inside the repo. The agent should work on `tools/subscription_llm.py`.\", \"Missing specifics: the issue does not state the expected fallback behavior when CLAUDE_CONFIG_DIR is unset or empty, or the credentials filename.\"], \"overall_notes\": \"The issue is mostly agent-compatible. It has a clear, narrow code fix (honor CLAUDE_CONFIG_DIR in available()), a clear non-goal (do not edit the consumer PR) and a regression-test requirement. Why, Scope, Non-Goals and Implementation Notes are all present, so none are missing. The main problems are (1) the acceptance criteria include live-system checks on workflow runs the agent cannot trigger or control, (2) the JS gate is irrelevant to a Python fix, and (3) the intended behavior is underspecified (credentials filename, unset or empty variable, tilde expansion). Recommended rewrite of the tasks: (a) Fix available() in tools/subscription_llm.py to look for the credentials file under $CLAUDE_CONFIG_DIR when it is set and non-empty, falling back to the default location otherwise. (b) Add a pytest regression test using monkeypatch and tmp_path that covers the set, unset and empty cases. (c) Run `python3 -m pytest -q tests/` and confirm it passes. Move the maint-68/maint-71 verification to a human-owned follow-up.\"} -->"
+    },
+    {
+      "id": 6631996865,
+      "body": "### ⚠️ Capability Check: Some tasks may need human assistance\n\n**Recommendation:** REVIEW_NEEDED\n\n**⚠️ Partial Tasks (9):**\n- Inspect Claude's `available()` implementation and child-CLI environment handling in `tools/subscription_llm.py`, identifying the existing credentials filename and default directory.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Add regression tests to the existing test module covering `tools/subscription_llm.py`, with test names containing `claude_config_dir`; isolate environment variables, home-directory credentials, CLI discovery, and other availability prerequisites so the tests exercise credential-path resolution without requiring a real subscription or invoking Claude.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a temporary directory containing only the expected credentials file and assert that Claude's `available()` returns `True`.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a directory without credentials and assert that Claude's `available()` returns `False`, including when credentials exist in the default directory.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Fix Claude's `available()` in `tools/subscription_llm.py` to resolve the credentials file relative to `CLAUDE_CONFIG_DIR` when set, consistently with the directory supplied to the child CLI.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Extend the tests covering `tools/subscription_llm.py` to verify that the existing default-directory behavior remains intact when `CLAUDE_CONFIG_DIR` is absent.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Run `python3 -m pytest -q tests/ -k claude_config_dir` against the pre-fix implementation, against the fix, and after deliberately restoring and then reverting the reported faulty path resolution; record commands, test names, exit codes, and before/after output in the implementation report.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Run `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the source fix and record their results.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- After source delivery and regeneration by `.github/workflows/maint-68-sync-consumer-repos.yml`, inspect the next `.github/workflows/maint-71-merge-sync-prs.yml` run and the review thread on stranske/Portable-Alpha-Extension-Model#2454; record the consumer head, workflow run, thread state, and sync-core evidence, or explicitly report which live evidence is still pending.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n\n**👤 Human Actions Needed:**\n- Split task into smaller steps: Inspect Claude's `available()` implementation and child-CLI environment handling in `tools/subscription_llm.py`, identifying the existing credentials filename and default directory.\n- Split task into smaller steps: Add regression tests to the existing test module covering `tools/subscription_llm.py`, with test names containing `claude_config_dir`; isolate environment variables, home-directory credentials, CLI discovery, and other availability prerequisites so the tests exercise credential-path resolution without requiring a real subscription or invoking Claude.\n- Split task into smaller steps: In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a temporary directory containing only the expected credentials file and assert that Claude's `available()` returns `True`.\n- Split task into smaller steps: In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a directory without credentials and assert that Claude's `available()` returns `False`, including when credentials exist in the default directory.\n- Split task into smaller steps: Fix Claude's `available()` in `tools/subscription_llm.py` to resolve the credentials file relative to `CLAUDE_CONFIG_DIR` when set, consistently with the directory supplied to the child CLI.\n- Split task into smaller steps: Extend the tests covering `tools/subscription_llm.py` to verify that the existing default-directory behavior remains intact when `CLAUDE_CONFIG_DIR` is absent.\n- Split task into smaller steps: Run `python3 -m pytest -q tests/ -k claude_config_dir` against the pre-fix implementation, against the fix, and after deliberately restoring and then reverting the reported faulty path resolution; record commands, test names, exit codes, and before/after output in the implementation report.\n- Split task into smaller steps: Run `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the source fix and record their results.\n- Split task into smaller steps: After source delivery and regeneration by `.github/workflows/maint-68-sync-consumer-repos.yml`, inspect the next `.github/workflows/maint-71-merge-sync-prs.yml` run and the review thread on stranske/Portable-Alpha-Extension-Model#2454; record the consumer head, workflow run, thread state, and sync-core evidence, or explicitly report which live evidence is still pending.\n- LLM provider unavailable\n\n---\n*Auto-generated by capability check*"
+    },
+    {
+      "id": 6648485035,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `3512f549a602` (round 20261105T030005Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6648719968,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `86de5e1c244b` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6648720854,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `97baeaec5950` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6649127583,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `75aaabae989a` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6649128394,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `082d0e77cbf0` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6649129537,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `be40cedb1f5e` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6649299127,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `cf3a664378b6` (round 20261105T035909Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6649911684,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `39a3dc939133` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702"
+    },
+    {
+      "id": 6649912647,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `15c797646f4e` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967"
+    },
+    {
+      "id": 6649913432,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `eb24149b6f0f` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    },
+    {
+      "id": 6650145104,
+      "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `1bddd0cbe9a8` (round 20261105T050113Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082"
+    }
+  ],
+  "final_delivery_acceptance": false,
+  "source_pr": {
+    "number": 4549,
+    "state": "open",
+    "isDraft": false,
+    "head": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec"
+  }
+}

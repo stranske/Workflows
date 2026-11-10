@@ -6,7 +6,9 @@
       "event": {
         "issueState": "closed",
         "hasVerify": true,
-        "verifyHandoffBound": true
+        "verifyHandoffBound": true,
+        "closure": {"id": 1001, "sourcePr": 2454},
+        "verifyHandoff": {"closureId": 1001, "sourcePr": 2454}
       },
       "nextStep": "verify"
     },
@@ -194,7 +196,9 @@
         "issueState": "closed",
         "labels": ["agents:formatted", "agents:apply-suggestions", "verify:evaluate", "verify:pr-handoff", "agents:auto-pilot"],
         "hasVerify": true,
-        "verifyHandoffBound": true
+        "verifyHandoffBound": true,
+        "closure": {"id": 1001, "sourcePr": 2454},
+        "verifyHandoff": {"closureId": 1001, "sourcePr": 2454}
       },
       "state": "closed-needs-verify",
       "nextStep": "verify"

@@ -140,7 +140,7 @@ test('actual workflow guard passes the actual compiled plan identity before admi
   const fn = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'core', 'github', 'context', guardScript());
   const load = name => name === 'fs' ? { readFileSync: () => JSON.stringify(compiled) }
     : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async args => { factoryCalls.push(args); return { withRetry: wrapped }; } }
-    : name.includes('maint71_merge_sync_prs') ? { reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics, readCanaryRefreshState: async args => { seen.push(args); return { eligible: true }; } }
+    : name.includes('maint71_merge_sync_prs') ? { ...require('../maint71_merge_sync_prs'), readCanaryRefreshState: async args => { seen.push(args); return { eligible: true }; } }
       : { canaries: candidates.map(repo => ({ repo })) };
   const env = { PLAN_ID: id, PLAN_SCOPE: 'source-delta', SCOPE_BASE_SHA: base, SOURCE_COMMIT: source };
   const core = { notice() {}, setOutput: (key, value) => { outputs[key] = value; }, summary: { addRaw() { return this; }, async write() {} } };

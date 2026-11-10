@@ -18,6 +18,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -214,12 +215,19 @@ def _clear_slot_env(monkeypatch):
             monkeypatch.delenv(key, raising=False)
 
 
-@pytest.fixture(params=["canonical", "consumer-template"])
-def slot_registry(request, monkeypatch):
-    """Exercise provider validation in both the source and the shipped template."""
+@pytest.fixture(params=["canonical", "consumer-template", "trip-planner-1957-head-7ca6deb8"])
+def slot_registry(request, monkeypatch, tmp_path):
+    """Exercise provider validation in source, template, and the observed consumer head."""
     if request.param == "canonical":
         return llm_registry
-    path = Path(__file__).resolve().parents[1] / "templates/consumer-repo/tools/llm_registry.py"
+    root = Path(__file__).resolve().parents[1]
+    if request.param == "consumer-template":
+        path = root / "templates/consumer-repo/tools/llm_registry.py"
+    else:
+        # Load the immutable delivered bytes as Python without altering the capture.
+        # This tests actual slot behavior beyond its consumer-layout mypy result.
+        path = tmp_path / "delivered_llm_registry.py"
+        shutil.copy(root / "tests/fixtures/issue_4506/llm_registry.py.txt", path)
     spec = importlib.util.spec_from_file_location("consumer_slot_registry", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

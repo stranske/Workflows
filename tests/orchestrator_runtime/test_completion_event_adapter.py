@@ -94,8 +94,12 @@ def test_replay_is_idempotent_and_has_no_second_mutation() -> None:
 
 
 def test_plan_fingerprint_is_stable_across_transport_run_refs() -> None:
-    first = real_handoff("github-actions:stranske/Workflows:111:1")
-    second = real_handoff("github-actions:stranske/Workflows:222:2")
+    # Hold the real source snapshot fixed while varying only the transport identity.
+    # Parallel tests can otherwise change generated files between two compilations.
+    root = Path(__file__).parents[2]
+    plan = compile_manifest(root / ".github" / "sync-manifest.yml", repo_root=root).to_plan()
+    first = build_handoff(plan, run_ref="github-actions:stranske/Workflows:111:1")
+    second = build_handoff(plan, run_ref="github-actions:stranske/Workflows:222:2")
 
     assert stable_plan_effect_fingerprint(first) == stable_plan_effect_fingerprint(second)
     assert first["handoff_id"] != second["handoff_id"]

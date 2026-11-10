@@ -2,6 +2,9 @@
 
 import copy
 import json
+import os
+import subprocess
+from pathlib import Path
 
 import pytest
 from scripts.runner_lib import core
@@ -137,6 +140,99 @@ def test_matching_receipt_is_read_and_completion_retry_is_idempotent(monkeypatch
     assert api.writes == ["POST"], "Identical retry reuses its existing receipt"
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        ".github/scripts/autofix_metrics.js",
+        "templates/consumer-repo/.github/scripts/autofix_metrics.js",
+    ],
+)
+@pytest.mark.parametrize("observed_head", ["a" * 40, "b" * 40])
+@pytest.mark.parametrize("head_observed", [None, False])
+def test_autofix_observation_recovery_preserves_authoritative_retry_budget(
+    monkeypatch, source, observed_head, head_observed
+):
+    """Exercise the candidate validator with real receipt storage before workflow wiring."""
+    monkeypatch.setattr(core, "_workflow_attempt_id", lambda: "old")
+    before = "a" * 40
+    pending = {
+        **reservation(),
+        "head_sha": before,
+        "key": core._runner_key(42, before, "codex"),
+        "unproductive_completions": 1,
+    }
+    api = CommentApi(pending)
+    storage = core.PrCommentRunnerStorage(api)
+    original = copy.deepcopy(api.reservation)
+    helper = Path(__file__).resolve().parents[2] / source
+
+    def record_when_measured(metrics):
+        # The fail-fast read must finish before any receipt write is allowed.
+        measurement = subprocess.run(
+            [
+                "bash",
+                "-euo",
+                "pipefail",
+                "-c",
+                'read -r HEAD WORK EXIT_CODE < <(node "$HELPER")\n'
+                'printf "%s %s %s\\n" "$HEAD" "$WORK" "$EXIT_CODE"',
+            ],
+            env={
+                **os.environ,
+                "HELPER": str(helper),
+                "HEAD_SHA": before,
+                "METRICS_JSON": json.dumps(metrics),
+            },
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        head, work, exit_code = measurement.stdout.split()
+        return core.record_completion(
+            42,
+            before,
+            "codex",
+            {"success": exit_code == "0"},
+            storage=storage,
+            produced_work=work == "true",
+            observed_head_sha=head if head != before else "",
+        )
+
+    fallback = {
+        "head_sha_before": before,
+        "head_sha_after": before,
+        "fix_applied": False,
+        "autofix_result": "success",
+    }
+    if head_observed is not None:
+        fallback["head_observed"] = head_observed
+    # Repeated unavailable observations neither create receipts nor spend retries.
+    for _ in range(2):
+        with pytest.raises(subprocess.CalledProcessError) as error:
+            record_when_measured(fallback)
+        assert "retain reservation" in error.value.stderr
+        assert api.reservation == original
+        assert api.receipts == []
+        assert api.writes == []
+        assert storage.read_record(42, "codex") == pending
+
+    advanced = observed_head != before
+    completed = record_when_measured(
+        {
+            **fallback,
+            "head_observed": True,
+            "head_sha_after": observed_head,
+            "fix_applied": advanced,
+        }
+    )
+    assert completed["productive"] is advanced
+    assert completed["unproductive_completions"] == (0 if advanced else 2)
+    assert storage.read_record(42, "codex") == completed
+    assert api.reservation == original
+    assert api.writes == ["POST"]
+    assert len(api.receipts) == 1
+
+
 def test_receipts_are_found_on_older_cursor_page(monkeypatch):
     monkeypatch.setattr(core, "_workflow_attempt_id", lambda: "old")
     api = CommentApi(reservation())
@@ -161,6 +257,184 @@ def test_receipt_cannot_invent_a_missing_reservation(monkeypatch):
     assert result["completion_recorded"] is False
     assert result["completion_reason"] == "authoritative-reservation-missing"
     assert api.writes == []
+
+
+@pytest.mark.parametrize("advanced", [False, True])
+@pytest.mark.parametrize("outcome", ["success", "failure", "cancelled"])
+def test_native_autofix_cli_retains_reservation_until_head_observation_recovers(
+    monkeypatch, capsys, advanced, outcome
+):
+    """The workflow's existing METRICS_JSON must gate the real receipt writer."""
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setattr(core, "_workflow_attempt_id", lambda: "old")
+    before, after = "a" * 40, "b" * 40
+    pending = {
+        **reservation(),
+        "head_sha": before,
+        "key": core._runner_key(42, before, "codex"),
+        "unproductive_completions": 1,
+    }
+    api = CommentApi(pending)
+    storage = core.PrCommentRunnerStorage(api)
+    original = copy.deepcopy(api.reservation)
+    monkeypatch.setattr(core, "_storage_from_name", lambda _name: storage)
+
+    def complete(metrics):
+        monkeypatch.setenv("METRICS_JSON", json.dumps(metrics))
+        args = [
+            "record-completion",
+            "--provider",
+            "codex",
+            "--pr-number",
+            "42",
+            "--head-sha",
+            before,
+            "--produced-work",
+            str(metrics["fix_applied"]).lower(),
+            "--exit-code",
+            "0" if metrics["autofix_result"] == "success" else "1",
+            "--summary",
+            "Native autofix completed; productivity measured by the metrics job.",
+            "--storage",
+            "auto",
+        ]
+        if metrics["head_sha_after"] != before:
+            args.extend(["--observed-head-sha", metrics["head_sha_after"]])
+        return core.main(args)
+
+    fallback = {
+        "head_sha_before": before,
+        "head_sha_after": before,
+        "fix_applied": False,
+        "autofix_result": outcome,
+    }
+    # These fallback values pass the current workflow's inline validation, but
+    # must never become a durable completion or spend an unproductive retry.
+    for head_observed in [None, False, "true", 1]:
+        metrics = dict(fallback)
+        if head_observed is not None:
+            metrics["head_observed"] = head_observed
+        assert complete(metrics) == 1
+        assert "retain reservation" in capsys.readouterr().err
+        assert api.reservation == original
+        assert storage.read_record(42, "codex") == pending
+        assert api.receipts == []
+        assert api.writes == []
+
+    assert (
+        complete(
+            {
+                **fallback,
+                "head_observed": True,
+                "head_sha_after": after if advanced else before,
+                "fix_applied": advanced,
+            }
+        )
+        == 0
+    )
+    completed = storage.read_record(42, "codex")
+    assert completed["status"] == ("completed" if outcome == "success" else "error")
+    if outcome == "success":
+        assert completed["productive"] is advanced
+        assert completed["unproductive_completions"] == (0 if advanced else 2)
+    else:
+        assert completed["unproductive_completions"] == 1
+    assert api.reservation == original
+    assert api.writes == ["POST"]
+    assert len(api.receipts) == 1
+
+
+@pytest.mark.parametrize(
+    "raw_metrics",
+    [
+        "",
+        "{",
+        "null",
+        "[]",
+        "true",
+        json.dumps({"head_observed": True, "head_sha_before": "b" * 40}),
+    ],
+)
+def test_native_autofix_cli_rejects_malformed_metrics_before_storage(
+    monkeypatch, capsys, raw_metrics
+):
+    monkeypatch.setenv("METRICS_JSON", raw_metrics)
+
+    def unexpected_storage(_name):
+        pytest.fail("Unobserved autofix completion must not access receipt storage")
+
+    monkeypatch.setattr(core, "_storage_from_name", unexpected_storage)
+    assert (
+        core.main(
+            [
+                "record-completion",
+                "--provider",
+                "codex",
+                "--pr-number",
+                "42",
+                "--head-sha",
+                "a" * 40,
+            ]
+        )
+        == 1
+    )
+    assert "retain reservation" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "measurement,arguments",
+    [
+        ({"head_sha_after": None}, {}),
+        ({"head_sha_after": ""}, {}),
+        ({"head_sha_after": "b" * 39}, {}),
+        ({"head_sha_after": ["b" * 40]}, {}),
+        ({"fix_applied": None}, {}),
+        ({"fix_applied": "true"}, {}),
+        ({"fix_applied": False}, {}),
+        ({"head_sha_after": "a" * 40}, {}),
+        ({"autofix_result": None}, {}),
+        ({"autofix_result": "skipped"}, {}),
+        ({"autofix_result": ["success"]}, {}),
+        ({}, {"--observed-head-sha": ""}),
+        ({}, {"--observed-head-sha": "c" * 40}),
+        ({}, {"--produced-work": "false"}),
+        ({}, {"--produced-work": "unknown"}),
+        ({}, {"--exit-code": "1"}),
+        ({"autofix_result": "failure"}, {}),
+    ],
+)
+def test_native_autofix_cli_rejects_inconsistent_observations_before_storage(
+    monkeypatch, capsys, measurement, arguments
+):
+    """An observation flag alone cannot authorize a false completion verdict."""
+    metrics = {
+        "head_observed": True,
+        "head_sha_before": "a" * 40,
+        "head_sha_after": "b" * 40,
+        "fix_applied": True,
+        "autofix_result": "success",
+        **measurement,
+    }
+    monkeypatch.setenv("METRICS_JSON", json.dumps(metrics))
+    options = {
+        "--provider": "codex",
+        "--pr-number": "42",
+        "--head-sha": "a" * 40,
+        "--observed-head-sha": "b" * 40,
+        "--produced-work": "true",
+        "--exit-code": "0",
+        **arguments,
+    }
+
+    def unexpected_storage(_name):
+        pytest.fail("Incomplete measurement must retain the reservation without storage access")
+
+    monkeypatch.setattr(core, "_storage_from_name", unexpected_storage)
+    argv = ["record-completion"]
+    for name, value in options.items():
+        argv.extend([name, value])
+    assert core.main(argv) == 1
+    assert "retain reservation" in capsys.readouterr().err
 
 
 def test_long_comment_history_reads_from_tail_and_stops_at_latest_reservation():

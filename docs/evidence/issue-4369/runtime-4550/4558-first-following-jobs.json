@@ -1,0 +1,268 @@
+{
+  "total_count": 2,
+  "jobs": [
+    {
+      "id": 128788361362,
+      "run_id": 42499282783,
+      "workflow_name": "Merge Sync PRs [candidate]\n",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42499282783",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd_GJwkg",
+      "head_sha": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128788361362",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42499282783/job/128788361362",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-08T16:19:34Z",
+      "started_at": "2026-11-08T16:19:36Z",
+      "completed_at": "2026-11-08T16:20:46Z",
+      "name": "merge_sync_prs",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-08T16:19:36Z",
+          "completed_at": "2026-11-08T16:19:38Z"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-08T16:19:38Z",
+          "completed_at": "2026-11-08T16:19:41Z"
+        },
+        {
+          "name": "Setup delivery renderer Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-08T16:19:41Z",
+          "completed_at": "2026-11-08T16:19:41Z"
+        },
+        {
+          "name": "Install delivery renderer dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-08T16:19:41Z",
+          "completed_at": "2026-11-08T16:19:44Z"
+        },
+        {
+          "name": "Setup API client",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-08T16:19:44Z",
+          "completed_at": "2026-11-08T16:19:46Z"
+        },
+        {
+          "name": "Extract consumer repos from sync workflow",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-08T16:19:46Z",
+          "completed_at": "2026-11-08T16:19:46Z"
+        },
+        {
+          "name": "Resolve immutable handoff inputs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-11-08T16:19:46Z",
+          "completed_at": "2026-11-08T16:19:46Z"
+        },
+        {
+          "name": "Resolve candidate evidence mode",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-11-08T16:19:46Z",
+          "completed_at": "2026-11-08T16:19:46Z"
+        },
+        {
+          "name": "Apply proof-bound candidate review resolutions",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 9,
+          "started_at": "2026-11-08T16:19:46Z",
+          "completed_at": "2026-11-08T16:19:46Z"
+        },
+        {
+          "name": "Collect and validate canary evidence before merge",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-11-08T16:19:46Z",
+          "completed_at": "2026-11-08T16:20:03Z"
+        },
+        {
+          "name": "Persist pre-merge canary evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-11-08T16:20:03Z",
+          "completed_at": "2026-11-08T16:20:04Z"
+        },
+        {
+          "name": "Validate complete pre-merge canary evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-08T16:20:04Z",
+          "completed_at": "2026-11-08T16:20:04Z"
+        },
+        {
+          "name": "Check and merge sync PRs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-08T16:20:04Z",
+          "completed_at": "2026-11-08T16:20:41Z"
+        },
+        {
+          "name": "Refresh behind dev-tool delivery bases through Maint 52",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 14,
+          "started_at": "2026-11-08T16:20:41Z",
+          "completed_at": "2026-11-08T16:20:41Z"
+        },
+        {
+          "name": "Authorize exact-head fleet commit",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 15,
+          "started_at": "2026-11-08T16:20:41Z",
+          "completed_at": "2026-11-08T16:20:41Z"
+        },
+        {
+          "name": "Commit prepared sync campaign",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 16,
+          "started_at": "2026-11-08T16:20:41Z",
+          "completed_at": "2026-11-08T16:20:41Z"
+        },
+        {
+          "name": "Measure completed campaign efficiency",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 17,
+          "started_at": "2026-11-08T16:20:41Z",
+          "completed_at": "2026-11-08T16:20:41Z"
+        },
+        {
+          "name": "Refresh stale candidate bases",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-11-08T16:20:41Z",
+          "completed_at": "2026-11-08T16:20:42Z"
+        },
+        {
+          "name": "Refresh stale delivery bases",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 19,
+          "started_at": "2026-11-08T16:20:42Z",
+          "completed_at": "2026-11-08T16:20:42Z"
+        },
+        {
+          "name": "Upload sync PR merge report",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-11-08T16:20:42Z",
+          "completed_at": "2026-11-08T16:20:43Z"
+        },
+        {
+          "name": "Promote complete exact-plan canary evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21,
+          "started_at": "2026-11-08T16:20:43Z",
+          "completed_at": "2026-11-08T16:20:44Z"
+        },
+        {
+          "name": "Notify continuation completion",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 22,
+          "started_at": "2026-11-08T16:20:44Z",
+          "completed_at": "2026-11-08T16:20:44Z"
+        },
+        {
+          "name": "Upload final rate limit incidents",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23,
+          "started_at": "2026-11-08T16:20:44Z",
+          "completed_at": "2026-11-08T16:20:44Z"
+        },
+        {
+          "name": "Post Setup delivery renderer Python",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 45,
+          "started_at": "2026-11-08T16:20:44Z",
+          "completed_at": "2026-11-08T16:20:44Z"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 46,
+          "started_at": "2026-11-08T16:20:44Z",
+          "completed_at": "2026-11-08T16:20:44Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 47,
+          "started_at": "2026-11-08T16:20:44Z",
+          "completed_at": "2026-11-08T16:20:44Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128788361362",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1004676883,
+      "runner_name": "GitHub Actions 1004676883",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    },
+    {
+      "id": 128788362712,
+      "run_id": 42499282783,
+      "workflow_name": "Merge Sync PRs [candidate]\n",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/stranske/Workflows/actions/runs/42499282783",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQprj9M8AAAAd_GJ12A",
+      "head_sha": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/jobs/128788362712",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42499282783/job/128788362712",
+      "status": "completed",
+      "conclusion": "skipped",
+      "created_at": "2026-11-08T16:19:34Z",
+      "started_at": "2026-11-08T16:19:34Z",
+      "completed_at": "2026-11-08T16:19:34Z",
+      "name": "review_reassessment",
+      "steps": [],
+      "check_run_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128788362712",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": null,
+      "runner_name": null,
+      "runner_group_id": null,
+      "runner_group_name": null
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+# Orchestrator main fd139a1ab922252111b7e4376df1b3a3569637ae; helper run() line 1070 replaced with: kw.pop("now", None); clock = time.time
+F                                                                        [100%]CI_STORAGE_DIAGNOSTIC {"exitstatus": 1, "finish": {"filesystem": {"free_bytes": 92488589312, "free_inodes": 17624439}, "quota": {"status": "unsupported"}, "schema": "pytest-owned-storage/v1", "status": "observed", "tree": {"allocated_bytes_seen": 24576, "bounded": false, "entries_seen": 8, "inaccessible": 0, "largest_owned_children": [["test_capacity_is_read_fresh_an0", 12288], ["claude-token-fixtures0", 4096], ["test_capacity_is_read_fresh_ancurrent", 4096], ["worktree-git0", 4096], ["claude-token-fixturescurrent", 0], ["worktree-gitcurrent", 0]], "logical_file_bytes_seen": 6, "status": "complete"}}, "start": {"filesystem": {"free_bytes": 92488581120, "free_inodes": 17624437}, "quota": {"status": "unsupported"}, "schema": "pytest-owned-storage/v1", "status": "observed", "tree": {"allocated_bytes_seen": 4096, "bounded": false, "entries_seen": 1, "inaccessible": 0, "largest_owned_children": [[".lock", 4096]], "logical_file_bytes_seen": 4, "status": "complete"}}}
+
+=================================== FAILURES ===================================
+_________________ test_capacity_is_read_fresh_and_zero_defers __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-4/test_capacity_is_read_fresh_an0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x78776c94eea0>
+
+    def test_capacity_is_read_fresh_and_zero_defers(tmp_path, monkeypatch):
+        path = tmp_path / "state.json"
+        logical_now = [1_800_000_000.0]
+        wall_now = [logical_now[0] - 60]
+        original_run_pipeline = run_pipeline
+    
+        def delayed_pipeline(*args, **kwargs):
+            # Cross the logical deadline after run() computes it, without sleeping.
+            # Either computing the deadline or checking admission with wall time
+            # must fail; using the injected clock for both must preserve the target.
+            wall_now[0] = logical_now[0] + 60
+            return original_run_pipeline(*args, **kwargs)
+    
+        monkeypatch.setattr(time, "time", lambda: wall_now[0])
+        monkeypatch.setitem(globals(), "run_pipeline", delayed_pipeline)
+        capacity = {"io": 0, "low": 0, "exception": 0}
+        calls = []
+        cb = callbacks(
+            act=lambda t, c: calls.append(t) or {"status": "completed", "target_complete": True}
+        )
+        receipt = run(
+            path,
+            ["a"],
+            cb,
+            capacity=capacity,
+            # Capacity admission must not depend on starting within 60 ms of wall time.
+            seconds=0.06,
+            now=lambda: logical_now[0],
+        )
+        assert not calls
+>       row = receipt["targets"]["a"]
+              ^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'a'
+
+tests/test_closer_pipeline.py:1586: KeyError
+=============================== warnings summary ===============================
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers - KeyError: 'a'
+1 failed, 13 warnings in 0.45s
+# reverted; git status --short: ''
+1 passed, 13 warnings in 0.38s

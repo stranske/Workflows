@@ -33,7 +33,7 @@ app = []
 dev = [
     "pre-commit==4.6.1",
     "black==26.10.1",
-    "ruff==0.17.3",
+    "ruff==0.17.4",
     "isort==9.0.2",
     "docformatter==1.7.8",
     "mypy==2.4.1",
@@ -200,10 +200,9 @@ markers = [
 ]
 filterwarnings = [
     "error",
-    # LangSmith still calls asyncio.iscoroutinefunction while its pytest plugin
-    # loads. Python 3.14 deprecates that helper, which aborts the unmodified
-    # `python3 -m pytest -q tests/` gate before collection. Other warnings stay errors.
-    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning",
+    # LangSmith's optional pytest plugin still calls this API on Python 3.14.
+    # Keep the exception bound to that decorator; application warnings stay errors.
+    "ignore:'asyncio[.]iscoroutinefunction' is deprecated and slated for removal in Python 3[.]16; use inspect[.]iscoroutinefunction[(][)] instead:DeprecationWarning:langsmith[.]_internal[.]_beta_decorator$",
 ]
 
 [tool.coverage.run]

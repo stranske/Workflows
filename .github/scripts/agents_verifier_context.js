@@ -560,6 +560,33 @@ function extractReferencedRunIds(texts) {
   return ids;
 }
 
+// Preserve the repository on absolute citations. A bare run path is local;
+// an invalid absolute URL must never fall back to a local numeric-ID lookup.
+function referencedRunRepositories(texts, owner, repo) {
+  const repositories = new Map();
+  const pattern = /(?:https?:\/\/[^\s)>,]+?)?\/actions\/runs\/(\d+)/g;
+  for (const text of texts) {
+    for (const match of String(text || '').matchAll(pattern)) {
+      const id = Number(match[1]);
+      let repository = `${owner}/${repo}`;
+      if (/^https?:/.test(match[0])) {
+        try {
+          const url = new URL(match[0]);
+          const parts = url.pathname.split('/');
+          repository = url.origin === 'https://github.com' && !url.username && !url.password
+            && /^\/[\w.-]+\/[\w.-]+\/actions\/runs\/\d+$/.test(url.pathname)
+            ? parts.slice(1, 3).join('/') : null;
+        } catch { repository = null; }
+      }
+      const previous = repositories.get(id);
+      // Conflicting qualified/unqualified citations cannot silently rebind an ID.
+      repositories.set(id, repositories.has(id) && previous?.toLowerCase() !== repository?.toLowerCase()
+        ? null : repository);
+    }
+  }
+  return repositories;
+}
+
 // Evidence selection and incidental fallback share semantic boundaries. A
 // comma-conjoined URL is a subject member, not an independent clause. Only
 // contrast governors or independent non-URL clauses split that coordination.
@@ -1432,9 +1459,18 @@ async function fetchVerifierEvidence({
       ...labelledEvidenceLines,
     ])
   );
+  const runRepositories = referencedRunRepositories(explicitEvidenceRunIds.size
+    ? [...typedEvidenceTexts, ...labelledEvidenceLines]
+    : [...typedEvidenceTexts, ...fallbackReferenceTexts], owner, repo);
   const materialSelectors = require('./verifier_gzip_assets').validatedSelectors(process.env.VERIFICATION_MATERIAL);
   const artifactSelectors = materialSelectors.filter(row => row.kind === 'artifact_member');
-  for (const row of artifactSelectors) explicitEvidenceRunIds.add(row.run_id);
+  for (const row of artifactSelectors) {
+    explicitEvidenceRunIds.add(row.run_id);
+    // Material selectors have local repository scope in their current schema.
+    if (runRepositories.has(row.run_id) && runRepositories.get(row.run_id)?.toLowerCase() !== `${owner}/${repo}`.toLowerCase()) {
+      runRepositories.set(row.run_id, null);
+    }
+  }
   const selectedRunIds = new Set(artifactSelectors.map(row => row.run_id));
   const allRunIds = (explicitEvidenceRunIds.size
     ? Array.from(explicitEvidenceRunIds)
@@ -1449,6 +1485,7 @@ async function fetchVerifierEvidence({
   const runHeads = new Map();
   const runPaths = new Map();
   const runMetadata = new Map();
+  const downstreamBindings = new Map();
   const pendingManualBindings = new Map();
   const historicalBaselineBindings = new Map();
   const seenRunIds = new Set();
@@ -1459,6 +1496,7 @@ async function fetchVerifierEvidence({
     requested_run_ids: allRunIds,
     explicit_run_ids: Array.from(explicitEvidenceRunIds),
     selected_run_ids: referencedRunIds,
+    run_lookups: [],
     reference_sources_complete: referenceInspectionComplete,
   };
   if (!referenceInspectionComplete) {
@@ -1473,26 +1511,55 @@ async function fetchVerifierEvidence({
     commitShas.filter(isValidSha).map((commitSha) => commitSha.toLowerCase())
   );
   for (const runId of referencedRunIds) {
+    const repository = runRepositories.has(runId) ? runRepositories.get(runId) : `${owner}/${repo}`;
+    const lookup = {repository, run_id: runId, status: 'unavailable'};
+    diagnostics.references.run_lookups.push(lookup);
     try {
+      if (!repository) throw new Error('conflicting or invalid workflow run repository reference');
+      const [runOwner, runRepo] = repository.split('/');
+      const downstream = repository.toLowerCase() !== `${owner}/${repo}`.toLowerCase();
       if (!github?.rest?.actions?.getWorkflowRun) {
         throw new Error('workflow run provenance API is unavailable');
       }
       const response = await github.rest.actions.getWorkflowRun({
-        owner,
-        repo,
+        owner: runOwner,
+        repo: runRepo,
         run_id: runId,
+        request: {timeout: 15000},
       });
       const workflowRun = response?.data;
       const returnedRunId = Number(workflowRun?.id);
       const runHeadSha = String(workflowRun?.head_sha || '').toLowerCase();
-      if (returnedRunId !== runId || !isValidSha(runHeadSha)) {
+      if (returnedRunId !== runId || !Number.isSafeInteger(returnedRunId) || !isValidSha(runHeadSha)
+          || (workflowRun?.repository && workflowRun.repository.full_name?.toLowerCase() !== repository.toLowerCase())) {
         artifactIncomplete = true;
         artifacts.reason = `referenced workflow run ${runId} returned invalid provenance`;
         fail('artifacts', 'provenance', artifacts.reason);
         diagnostics.counters.provenance_failures += 1;
         continue;
       }
-      if (!exactCommitShas.has(runHeadSha)) {
+      if (downstream) {
+        // With no labelled selection, non-negated absolute citations still
+        // enter fallback discovery. Authenticate their own downstream identity;
+        // a missing prose label cannot turn a valid consumer run into a local
+        // absence. This never grants an exact-source or current-head role.
+        if (!/^[a-f0-9]{40}$/.test(runHeadSha)
+            || !Number.isSafeInteger(workflowRun.repository?.id) || workflowRun.repository.id < 1
+            || workflowRun.repository.full_name?.toLowerCase() !== repository.toLowerCase()
+            || workflowRun.head_repository?.id !== workflowRun.repository.id
+            || workflowRun.head_repository?.full_name?.toLowerCase() !== repository.toLowerCase()
+            || !Number.isSafeInteger(workflowRun.run_attempt) || workflowRun.run_attempt < 1
+            || workflowRun.status !== 'completed'
+            || !['success','failure','cancelled','timed_out','action_required','neutral','skipped','stale','startup_failure'].includes(workflowRun.conclusion)) {
+          throw new Error('downstream workflow run repository/head/completion identity unavailable or mismatched');
+        }
+        downstreamBindings.set(runId, {repository, repository_id: workflowRun.repository.id,
+          run_id: runId, run_attempt: workflowRun.run_attempt, head_sha: runHeadSha,
+          status: workflowRun.status, conclusion: workflowRun.conclusion,
+          evaluated_sha: evaluatedSha || null,
+          referenced_workflows: workflowRun.referenced_workflows || [],
+          current_head_proof: false});
+      } else if (!exactCommitShas.has(runHeadSha)) {
         const binding=historicalManualVerifierBinding(workflowRun,{owner,repo,pullNumber,associatedCommitShas});
         const comparisonBaseline = await comparisonBaselineBinding(github, workflowRun, {owner,repo,evaluatedSha,selectors:artifactSelectors});
         const baseline = comparisonBaseline || (!binding && explicitEvidenceRunIds.has(runId)
@@ -1518,6 +1585,11 @@ async function fetchVerifierEvidence({
           continue;
         }
       }
+      Object.assign(lookup, {status: 'authenticated', head_sha: runHeadSha,
+        run_attempt: workflowRun.run_attempt, conclusion: workflowRun.conclusion,
+        evidence_role: downstream ? 'downstream-evidence' : historicalBaselineBindings.has(runId)
+          ? 'historical-baseline' : pendingManualBindings.has(runId) ? 'historical-manual-verifier' : 'exact-source',
+        ...(downstream ? {downstream_binding: downstreamBindings.get(runId)} : {})});
       seenRunIds.add(runId);
       runIds.push(runId);
       runHeads.set(runId, runHeadSha);
@@ -1525,7 +1597,8 @@ async function fetchVerifierEvidence({
       runMetadata.set(runId, workflowRun);
     } catch (error) {
       artifactIncomplete = true;
-      artifacts.reason = `workflow run provenance failed for referenced run ${runId}: ${error.message}`;
+      lookup.http_status = error.status || error.response?.status || null;
+      artifacts.reason = `workflow run provenance failed for referenced run ${runId} (${repository || 'invalid repository'}): ${error.message}`;
       fail('artifacts', 'provenance', artifacts.reason);
       diagnostics.counters.provenance_failures += 1;
       core?.warning?.(`Verifier referenced workflow-run provenance unavailable: ${error.message}`);
@@ -1604,6 +1677,9 @@ async function fetchVerifierEvidence({
           continue;
         }
         if (!seenRunIds.has(runId)) {
+          // A failed explicit identity gate cannot be repaired by a local SHA
+          // listing of the same numeric ID, including cross-repository 404s.
+          if (referencedRunIds.includes(runId)) continue;
           if ((artifactSelectors.length ? runIds.filter(id => !selectedRunIds.has(id)).length : runIds.length) >= runLimit) {
             artifactIncomplete = true;
             artifacts.reason = 'workflow run count limit prevented complete artifact inspection';
@@ -1634,6 +1710,10 @@ async function fetchVerifierEvidence({
   diagnostics.archive_inventory = [];
   diagnostics.manual_target_bindings = [];
   for (const runId of runIds) {
+    // All artifact operations use the authenticated run repository, too.
+    const repository = downstreamBindings.get(runId)?.repository || `${owner}/${repo}`;
+    const [artifactOwner, artifactRepo] = repository.split('/');
+    const downstreamBinding = downstreamBindings.get(runId);
     const manualBinding=pendingManualBindings.get(runId);
     let manualBindingValidated=false;
     if (inspectedArtifacts >= artifactLimit && !selectedRunIds.has(runId)) {
@@ -1648,7 +1728,7 @@ async function fetchVerifierEvidence({
       const listing = inspectedArtifacts < artifactLimit && github?.rest?.actions?.listWorkflowRunArtifacts
         ? await boundedEvidencePages({
           method: github.rest.actions.listWorkflowRunArtifacts,
-          params: { owner, repo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
+          params: { owner: artifactOwner, repo: artifactRepo, run_id: runId }, key: 'artifacts', recordLimit: artifactLimit - inspectedArtifacts,
           pageLimit: positiveLimit('VERIFIER_EVIDENCE_ARTIFACT_PAGES', Math.ceil(artifactLimit / 100)), kind: 'artifact', diagnostics,
         }) : {items:[],failure:inspectedArtifacts >= artifactLimit ? 'record' : 'transport',detail:'optional artifact listing bound or API unavailable'};
       const selectedArtifactIds = new Set(artifactSelectors.filter(row => row.run_id === runId).map(row => row.artifact_id));
@@ -1657,14 +1737,14 @@ async function fetchVerifierEvidence({
         if (listing.items.some(item => item.id === artifactId)) continue;
         try {
           if (!github?.rest?.actions?.getArtifact) throw new Error('Selected artifact metadata API unavailable');
-          const artifact = (await github.rest.actions.getArtifact({owner,repo,artifact_id:artifactId,request:{timeout:15000}})).data;
+          const artifact = (await github.rest.actions.getArtifact({owner:artifactOwner,repo:artifactRepo,artifact_id:artifactId,request:{timeout:15000}})).data;
           const origin = runMetadata.get(runId);
           const binding = artifact?.workflow_run;
           if (artifact?.id !== artifactId || !binding || binding.id !== runId || binding.head_sha !== runHeads.get(runId)
               || !Number.isSafeInteger(origin?.repository?.id) || origin.repository.id < 1
-              || String(origin.repository.full_name).toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+              || String(origin.repository.full_name).toLowerCase() !== repository.toLowerCase()
               || origin.head_repository?.id !== origin.repository.id
-              || String(origin.head_repository?.full_name).toLowerCase() !== `${owner}/${repo}`.toLowerCase()
+              || String(origin.head_repository?.full_name).toLowerCase() !== repository.toLowerCase()
               || binding.repository_id !== origin.repository.id || binding.head_repository_id !== origin.head_repository.id
               || typeof artifact.expired !== 'boolean' || !/^sha256:[a-f0-9]{64}$/.test(artifact.digest || '')) {
             throw Object.assign(new Error('Selected artifact run/repository/head/digest identity mismatch'),{code:'SELECTED_ARTIFACT_PROVENANCE'});
@@ -1672,7 +1752,7 @@ async function fetchVerifierEvidence({
           directArtifacts.push(artifact);
         } catch (error) {
           artifactIncomplete=true;
-          diagnostics.archive_inventory.push({repository:`${owner}/${repo}`,run_id:runId,head_sha:runHeads.get(runId),
+          diagnostics.archive_inventory.push({repository,run_id:runId,head_sha:runHeads.get(runId),
             artifact_id:artifactId,status:'unavailable',members:null,reason:'selected_metadata_lookup_failed'});
           fail('artifacts',error.code==='SELECTED_ARTIFACT_PROVENANCE'?'provenance':'artifact_transport',`selected artifact ${artifactId}: ${error.message}`);
           if(error.code==='SELECTED_ARTIFACT_PROVENANCE') diagnostics.counters.provenance_failures+=1;
@@ -1696,13 +1776,28 @@ async function fetchVerifierEvidence({
         if (!artifactSelectors.length || !isSelected) inspectedArtifacts += 1;
         // Preserve identities even when no payload can be admitted. This is a
         // capture ledger, never semantic proof or a completeness upgrade.
-        const capture = { repository: `${owner}/${repo}`, run_id: runId,
+        const capture = { repository, run_id: runId,
           head_sha: runHeads.get(runId), artifact_id: artifact.id,
           name: artifact.name || '', status: 'unavailable', members: null,
+          ...(downstreamBinding ? {evidence_role: 'downstream-evidence', downstream_binding: downstreamBinding} : {}),
           ...(historicalBaselineBindings.has(runId) ? {
             evidence_role: 'historical-baseline', historical_binding: historicalBaselineBindings.get(runId),
           } : {}) };
         diagnostics.archive_inventory.push(capture);
+        if (downstreamBinding) {
+          const binding = artifact.workflow_run;
+          if (binding?.id !== runId || binding.head_sha !== runHeads.get(runId)
+              || binding.repository_id !== downstreamBinding.repository_id
+              || binding.head_repository_id !== downstreamBinding.repository_id
+              || typeof artifact.expired !== 'boolean'
+              || !/^sha256:[a-f0-9]{64}$/.test(artifact.digest || '')) {
+            artifactIncomplete = true;
+            capture.reason = 'downstream_artifact_identity_mismatch';
+            fail('artifacts', 'provenance', `downstream artifact ${artifact.id} run/repository/head/digest identity mismatch`);
+            diagnostics.counters.provenance_failures += 1;
+            continue;
+          }
+        }
         const selectedForRun = artifactSelectors.filter(row => row.run_id === runId);
         const selectedForArtifact = selectedForRun.filter(row => row.artifact_id === artifact.id);
         if (artifactSelectors.length && !selectedForArtifact.length) {
@@ -1753,8 +1848,8 @@ async function fetchVerifierEvidence({
           continue;
         }
         const download = await github.rest.actions.downloadArtifact({
-          owner,
-          repo,
+          owner: artifactOwner,
+          repo: artifactRepo,
           artifact_id: artifact.id,
           archive_format: 'zip',
         });
@@ -1762,7 +1857,7 @@ async function fetchVerifierEvidence({
         capture.archive_sha256 = createHash('sha256').update(archiveBuffer).digest('hex');
         capture.archive_bytes = archiveBuffer.length;
         diagnostics.counters.archive_bytes += archiveBuffer.length;
-        if (isSelected && artifact.digest !== undefined && artifact.digest !== `sha256:${capture.archive_sha256}`) {
+        if ((isSelected || downstreamBinding) && artifact.digest !== undefined && artifact.digest !== `sha256:${capture.archive_sha256}`) {
           artifactIncomplete=true;capture.reason='archive_digest_mismatch';
           fail('artifacts','archive_integrity',`selected artifact ${artifact.id} digest mismatch`);
           continue;
@@ -1804,12 +1899,13 @@ async function fetchVerifierEvidence({
         if (!extracted?.rawCaptureComplete && (extracted?.truncated || !extracted?.text)) artifactIncomplete = true;
         if (extracted?.text || extracted?.rawCaptureComplete) {
           artifacts.records.push({
-            runId,
+            runId, repository, head_sha: runHeads.get(runId),
             name: artifact.name || `artifact-${artifact.id}`,
             url: artifact.archive_download_url || '',
             text: extracted.text,
             truncated: Boolean(extracted.truncated) && !extracted.selectedCaptureComplete,
             ...(selectedForArtifact.length ? {required_material:true} : {}),
+            ...(downstreamBinding ? {evidence_role: 'downstream-evidence', downstream_binding: downstreamBinding} : {}),
             ...(historicalBaselineBindings.has(runId) ? {
               evidence_role: 'historical-baseline', historical_binding: historicalBaselineBindings.get(runId),
             } : {}),
@@ -1919,6 +2015,8 @@ function formatVerifierEvidence(evidence) {
     if (!records.length) continue;
     lines.push(required ? '### Selected required artifact proof' : '### Bounded referenced workflow artifacts', '');
     for (const artifact of records) {
+      if (artifact.evidence_role === 'downstream-evidence') lines.push(
+        `Downstream evidence: ${artifact.repository} at ${artifact.head_sha}; not current-revision proof. Acceptance relevance remains to be evaluated.`, '');
       if (artifact.evidence_role === 'historical-baseline') lines.push('Historical baseline — not current-revision proof; acceptance relevance remains to be evaluated.', '');
       lines.push(`#### Run ${artifact.runId}: ${artifact.name}${artifact.url ? ` — ${artifact.url}` : ''}`, '', 'Untrusted workflow artifact:', fenceUntrustedEvidence(artifact.text), '');
     }
@@ -1996,7 +2094,8 @@ function buildContextSourceCoverage({ planSources, diffText, diffMaxChars, evide
         included_chars: body.length,
         total_chars: record.truncated ? null : body.length,
         ...(record.required_material ? {required_material:true} : {}),
-        ...(record.evidence_role ? {evidence_role: record.evidence_role, historical_binding: record.historical_binding} : {}),
+        ...(record.evidence_role ? {evidence_role: record.evidence_role, historical_binding: record.historical_binding,
+          downstream_binding: record.downstream_binding} : {}),
       });
     }
     // Retained records never make a partial retrieval complete. Name the channel

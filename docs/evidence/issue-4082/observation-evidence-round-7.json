@@ -1,0 +1,494 @@
+{
+  "plan": {
+    "checked_at": "2026-11-07T02:34:30.496981+00:00",
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "stop_rule": "One diagnostic collection and one Health 68 baseline, each bounded to 110 seconds. No retries of unavailable reads. No final-window observation until every campaign PR has a verified merge.",
+    "diagnostic_only": "Ready#633 mergedAt is NOT the final campaign merge; PAEM#2390 is still open.",
+    "diagnostic_command": "python3 -c \"from scripts.measure_gate_cancellations import *; print(json.dumps(observe(['stranske/Ready'], timestamp('2026-10-18T14:51:47Z'), datetime.now(UTC), time.monotonic()+110), indent=2))\""
+  },
+  "observation_diagnostic_before": {
+    "collected_at": "2026-11-07T02:34:30Z",
+    "interval_start": "2026-10-18T14:51:47Z",
+    "interval_end": "2026-10-20T14:51:47Z",
+    "repos": [
+      "stranske/Ready"
+    ],
+    "runs": {},
+    "commands": {},
+    "errors": {
+      "stranske/Ready": "gh run list failed"
+    },
+    "numerator": null,
+    "denominator": null,
+    "percentage": null,
+    "passed": false,
+    "status": "incomplete"
+  },
+  "observation_diagnostic_after": {
+    "collected_at": "2026-11-07T02:36:01Z",
+    "interval_start": "2026-10-18T14:51:47Z",
+    "interval_end": "2026-10-20T14:51:47Z",
+    "repos": [
+      "stranske/Ready"
+    ],
+    "runs": {},
+    "commands": {
+      "stranske/Ready": [
+        [
+          "gh",
+          "run",
+          "list",
+          "-R",
+          "stranske/Ready",
+          "--workflow",
+          "pr-00-gate.yml",
+          "--created",
+          "2026-10-18T14:51:47Z..2026-10-20T14:51:47Z",
+          "--limit",
+          "1000",
+          "--json",
+          "databaseId,conclusion,headSha,createdAt,event"
+        ]
+      ]
+    },
+    "errors": {
+      "stranske/Ready": "gh run list failed"
+    },
+    "numerator": null,
+    "denominator": null,
+    "percentage": null,
+    "passed": false,
+    "status": "incomplete"
+  },
+  "health68_baseline": {
+    "checked_at": "2026-11-07T02:34:30.890547+00:00",
+    "command": [
+      "timeout",
+      "110s",
+      "python3",
+      "scripts/check_consumer_sync_drift.py",
+      "--repos",
+      "stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic",
+      "--summary",
+      "/tmp/issue-4082-round7/summary.md",
+      "--report-json",
+      "/tmp/issue-4082-round7/drift.json"
+    ],
+    "exit_code": 1,
+    "elapsed_seconds": 0.31707415500000025,
+    "gate_trigger_lines": [
+      "gate triggers: stranske/Travel-Plan-Permission unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Template unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Counter_Risk unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Pension-Data unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Inv-Man-Intake unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Ready unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/trip-planner unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Database unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Portable-Alpha-Extension-Model unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Trend_Model_Project unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/learning-management-system unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Fine-Art-Archive unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Orchestrator unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Doc-Lineage unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Deliverable-Render unknown (Gate/tree unavailable)",
+      "gate triggers: stranske/Manager-Mosaic unknown (Gate/tree unavailable)"
+    ]
+  },
+  "cli_campaign_reads": {
+    "checked_at": "2026-11-07T02:34:51.515728+00:00",
+    "commands": [
+      [
+        "gh",
+        "pr",
+        "view",
+        "1178",
+        "-R",
+        "stranske/Counter_Risk",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "1178",
+        "-R",
+        "stranske/Counter_Risk"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "101",
+        "-R",
+        "stranske/Deliverable-Render",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "101",
+        "-R",
+        "stranske/Deliverable-Render"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "138",
+        "-R",
+        "stranske/Doc-Lineage",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "138",
+        "-R",
+        "stranske/Doc-Lineage"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "832",
+        "-R",
+        "stranske/Fine-Art-Archive",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "832",
+        "-R",
+        "stranske/Fine-Art-Archive"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "1037",
+        "-R",
+        "stranske/Inv-Man-Intake",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "1037",
+        "-R",
+        "stranske/Inv-Man-Intake"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "116",
+        "-R",
+        "stranske/Manager-Mosaic",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "116",
+        "-R",
+        "stranske/Manager-Mosaic"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "732",
+        "-R",
+        "stranske/Orchestrator",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "732",
+        "-R",
+        "stranske/Orchestrator"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "979",
+        "-R",
+        "stranske/Pension-Data",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "979",
+        "-R",
+        "stranske/Pension-Data"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "2390",
+        "-R",
+        "stranske/Portable-Alpha-Extension-Model",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "2390",
+        "-R",
+        "stranske/Portable-Alpha-Extension-Model"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "633",
+        "-R",
+        "stranske/Ready",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "633",
+        "-R",
+        "stranske/Ready"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "1682",
+        "-R",
+        "stranske/Travel-Plan-Permission",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "1682",
+        "-R",
+        "stranske/Travel-Plan-Permission"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "6112",
+        "-R",
+        "stranske/Trend_Model_Project",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "6112",
+        "-R",
+        "stranske/Trend_Model_Project"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "775",
+        "-R",
+        "stranske/learning-management-system",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "775",
+        "-R",
+        "stranske/learning-management-system"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "1921",
+        "-R",
+        "stranske/trip-planner",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "1921",
+        "-R",
+        "stranske/trip-planner"
+      ],
+      [
+        "gh",
+        "pr",
+        "view",
+        "4084",
+        "-R",
+        "stranske/Workflows",
+        "--json",
+        "number,state,isDraft,mergedAt,headRefOid,files"
+      ],
+      [
+        "gh",
+        "pr",
+        "diff",
+        "4084",
+        "-R",
+        "stranske/Workflows"
+      ]
+    ],
+    "exit_code_for_every_command": 1,
+    "stderr_for_every_command": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+  },
+  "cli_gate_readback": {
+    "checked_at": "2026-11-07T02:36:02.092897+00:00",
+    "commands": [
+      [
+        "gh",
+        "api",
+        "repos/stranske/Travel-Plan-Permission/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Template/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Counter_Risk/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Pension-Data/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Inv-Man-Intake/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Ready/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/trip-planner/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Manager-Database/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Portable-Alpha-Extension-Model/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Trend_Model_Project/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/learning-management-system/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Fine-Art-Archive/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Orchestrator/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Doc-Lineage/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Deliverable-Render/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ],
+      [
+        "gh",
+        "api",
+        "repos/stranske/Manager-Mosaic/contents/.github/workflows/pr-00-gate.yml",
+        "--jq",
+        ".content"
+      ]
+    ],
+    "exit_code_for_every_command": 1,
+    "stderr_for_every_command": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+  }
+}

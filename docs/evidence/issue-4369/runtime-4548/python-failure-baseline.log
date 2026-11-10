@@ -1,0 +1,20 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______ test_truncation_helpers_handle_a_budget_smaller_than_the_heading _______
+
+    def test_truncation_helpers_handle_a_budget_smaller_than_the_heading() -> None:
+>       assert (
+            issue_pr_context._truncate_section("## Heading", "body", 1, suffix="\n[truncated]") == "##"
+        )
+E       AssertionError: assert '## H' == '##'
+E         
+E         - ##
+E         + ## H
+
+tests/scripts/test_issue_pr_context.py:121: AssertionError
+=========================== short test summary info ============================
+FAILED tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading - AssertionError: assert '## H' == '##'
+  
+  - ##
+  + ## H
+1 failed in 0.97s

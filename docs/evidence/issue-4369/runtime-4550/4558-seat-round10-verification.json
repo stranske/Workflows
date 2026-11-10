@@ -1,0 +1,72 @@
+{
+  "checked_at": "2026-11-09T03:30:59.067948+00:00",
+  "timeout_seconds_per_command": 120,
+  "checks": [
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.014718458001880208,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.010674875000404427,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "origin/main"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.010697084002458723,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "cmp",
+        "docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt",
+        "docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.005553083999984665,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.4259205409980495,
+      "stdout": "........................................................................ [ 58%]\n....................................................                     [100%]\n124 passed in 0.59s\n",
+      "stderr": ""
+    }
+  ]
+}

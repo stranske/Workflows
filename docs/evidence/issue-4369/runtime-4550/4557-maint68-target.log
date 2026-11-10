@@ -1,0 +1,2014 @@
+﻿2026-11-08T16:18:17.2107549Z Current runner version: '2.338.2'
+2026-11-08T16:18:17.2130348Z ##[group]Runner Image Provisioner
+2026-11-08T16:18:17.2131459Z Hosted Compute Agent
+2026-11-08T16:18:17.2132239Z Version: 20261028.624
+2026-11-08T16:18:17.2133065Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-08T16:18:17.2133992Z Build Date: 2026-10-28T21:51:42Z
+2026-11-08T16:18:17.2134895Z Worker ID: {9fa21e5f-1ca1-429d-8025-22e8a7b55914}
+2026-11-08T16:18:17.2135746Z Region: westus3
+2026-11-08T16:18:17.2136721Z Cloud: Azure
+2026-11-08T16:18:17.2137460Z ##[endgroup]
+2026-11-08T16:18:17.2138889Z ##[group]Operating System
+2026-11-08T16:18:17.2139750Z Ubuntu
+2026-11-08T16:18:17.2140496Z 26.04.1
+2026-11-08T16:18:17.2141183Z LTS
+2026-11-08T16:18:17.2141945Z ##[endgroup]
+2026-11-08T16:18:17.2142692Z ##[group]Runner Image
+2026-11-08T16:18:17.2143517Z Image: ubuntu-26.04
+2026-11-08T16:18:17.2144249Z Version: 20261101.186.1
+2026-11-08T16:18:17.2145618Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-08T16:18:17.2147390Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-08T16:18:17.2148504Z ##[endgroup]
+2026-11-08T16:18:17.2149980Z ##[group]GITHUB_TOKEN Permissions
+2026-11-08T16:18:17.2151985Z Contents: read
+2026-11-08T16:18:17.2152874Z Issues: write
+2026-11-08T16:18:17.2153611Z Metadata: read
+2026-11-08T16:18:17.2154299Z ##[endgroup]
+2026-11-08T16:18:17.2156721Z Secret source: Actions
+2026-11-08T16:18:17.2157937Z Cache mode: write
+2026-11-08T16:18:17.2159101Z Prepare workflow directory
+2026-11-08T16:18:17.2594302Z Prepare all required actions
+2026-11-08T16:18:17.2636659Z Getting action download info
+2026-11-08T16:18:17.5543303Z Download action repository 'actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1' (SHA:bcd2ba49218906704ab6c1aa796996da409d3eb1)
+2026-11-08T16:18:18.1106077Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-08T16:18:18.1435428Z Download action repository 'actions/download-artifact@v8' (SHA:9000827ccba6bdab643e8b6fd33ac0654aef8333)
+2026-11-08T16:18:18.6946263Z Download action repository 'actions/setup-python@v7' (SHA:6d4fd22b20465ccc0f7354476588e8df7c9ca0e0)
+2026-11-08T16:18:19.3337852Z Download action repository 'actions/github-script@v9' (SHA:3a2844b7e9c422d3c10d287c895573f7108da1b3)
+2026-11-08T16:18:19.8319275Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-11-08T16:18:20.0110985Z Complete job name: Sync stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:20.0676101Z ##[group]Run repo_full="$TARGET_REPOSITORY"
+2026-11-08T16:18:20.0676578Z [36;1mrepo_full="$TARGET_REPOSITORY"[0m
+2026-11-08T16:18:20.0676933Z [36;1mcase "$repo_full" in[0m
+2026-11-08T16:18:20.0677224Z [36;1m  */*) ;;[0m
+2026-11-08T16:18:20.0677644Z [36;1m  *) echo "::error::Consumer repository must use owner/name form: $repo_full"; exit 1 ;;[0m
+2026-11-08T16:18:20.0678096Z [36;1mesac[0m
+2026-11-08T16:18:20.0678388Z [36;1mrepo_owner=${repo_full%%/*}[0m
+2026-11-08T16:18:20.0678712Z [36;1mrepo_name=${repo_full#*/}[0m
+2026-11-08T16:18:20.0679043Z [36;1msafe_name=$(printf '%s' "$repo_full" \[0m
+2026-11-08T16:18:20.0679420Z [36;1m  | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^-+|-+$//g')[0m
+2026-11-08T16:18:20.0679763Z [36;1m{[0m
+2026-11-08T16:18:20.0680060Z [36;1m  echo "artifact_name=${safe_name:-unknown-repo}"[0m
+2026-11-08T16:18:20.0680423Z [36;1m  echo "repo_owner=$repo_owner"[0m
+2026-11-08T16:18:20.0680741Z [36;1m  echo "repo_name=$repo_name"[0m
+2026-11-08T16:18:20.0681104Z [36;1m} >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:18:20.0727214Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:18:20.0727709Z env:
+2026-11-08T16:18:20.0729156Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:20.0731394Z   REPO_TOKEN: ***
+2026-11-08T16:18:20.0731754Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:20.0732249Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:20.0732668Z   PLAN_SCOPE: full
+2026-11-08T16:18:20.0732920Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:20.0733240Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:20.0733597Z   SYNC_PHASE: canary
+2026-11-08T16:18:20.0733875Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:20.0734263Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:20.0734655Z ##[endgroup]
+2026-11-08T16:18:20.1110087Z ##[group]Run actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+2026-11-08T16:18:20.1110573Z with:
+2026-11-08T16:18:20.1110929Z   client-id: ***
+2026-11-08T16:18:20.1116940Z   private-key: ***
+2026-11-08T16:18:20.1117358Z   owner: stranske
+2026-11-08T16:18:20.1117660Z   repositories: Portable-Alpha-Extension-Model
+2026-11-08T16:18:20.1118010Z   permission-contents: write
+2026-11-08T16:18:20.1118318Z   permission-pull-requests: read
+2026-11-08T16:18:20.1118628Z   permission-workflows: write
+2026-11-08T16:18:20.1118921Z   skip-token-revoke: false
+2026-11-08T16:18:20.1119242Z   github-api-url: https://api.github.com
+2026-11-08T16:18:20.1119570Z env:
+2026-11-08T16:18:20.1121016Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:20.1122750Z   REPO_TOKEN: ***
+2026-11-08T16:18:20.1123102Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:20.1123602Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:20.1124036Z   PLAN_SCOPE: full
+2026-11-08T16:18:20.1124296Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:20.1124615Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:20.1124973Z   SYNC_PHASE: canary
+2026-11-08T16:18:20.1125241Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:20.1125606Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:20.1126206Z ##[endgroup]
+2026-11-08T16:18:20.2863294Z Inputs 'owner' and 'repositories' are set. Creating token for the following repositories:
+2026-11-08T16:18:20.8397933Z - stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:20.8567179Z ##[group]Run actions/checkout@v7
+2026-11-08T16:18:20.8567518Z with:
+2026-11-08T16:18:20.8567771Z   path: workflows
+2026-11-08T16:18:20.8568084Z   ref: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:20.8568426Z   repository: stranske/Workflows
+2026-11-08T16:18:20.8570805Z   token: ***
+2026-11-08T16:18:20.8571081Z   ssh-strict: true
+2026-11-08T16:18:20.8571337Z   ssh-user: git
+2026-11-08T16:18:20.8571611Z   persist-credentials: true
+2026-11-08T16:18:20.8571887Z   clean: true
+2026-11-08T16:18:20.8572157Z   sparse-checkout-cone-mode: true
+2026-11-08T16:18:20.8572454Z   fetch-depth: 1
+2026-11-08T16:18:20.8572710Z   fetch-tags: false
+2026-11-08T16:18:20.8572970Z   show-progress: true
+2026-11-08T16:18:20.8573236Z   lfs: false
+2026-11-08T16:18:20.8573477Z   submodules: false
+2026-11-08T16:18:20.8573745Z   set-safe-directory: true
+2026-11-08T16:18:20.8574039Z   allow-unsafe-pr-checkout: false
+2026-11-08T16:18:20.8574331Z env:
+2026-11-08T16:18:20.8575772Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:20.8577842Z   REPO_TOKEN: ***
+2026-11-08T16:18:20.8578171Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:20.8578670Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:20.8579095Z   PLAN_SCOPE: full
+2026-11-08T16:18:20.8579360Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:20.8579698Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:20.8580073Z   SYNC_PHASE: canary
+2026-11-08T16:18:20.8580341Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:20.8580725Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:20.8581114Z ##[endgroup]
+2026-11-08T16:18:20.9387406Z Syncing repository: stranske/Workflows
+2026-11-08T16:18:20.9389282Z ##[group]Getting Git version info
+2026-11-08T16:18:20.9389942Z Working directory is '/home/runner/work/Workflows/Workflows/workflows'
+2026-11-08T16:18:20.9390617Z [command]/usr/bin/git version
+2026-11-08T16:18:20.9395461Z git version 2.56.0
+2026-11-08T16:18:20.9412771Z ##[endgroup]
+2026-11-08T16:18:20.9420615Z Temporarily overriding HOME='/home/runner/work/_temp/2e6c2fc8-0db6-4ef8-aab9-3e99694924a0' before making global git config changes
+2026-11-08T16:18:20.9421817Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-08T16:18:20.9425282Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows/workflows
+2026-11-08T16:18:20.9473415Z ##[group]Determining repository object format
+2026-11-08T16:18:20.9475023Z ##[endgroup]
+2026-11-08T16:18:20.9475730Z ##[group]Initializing the repository
+2026-11-08T16:18:20.9479350Z [command]/usr/bin/git init /home/runner/work/Workflows/Workflows/workflows
+2026-11-08T16:18:20.9553823Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-08T16:18:20.9554720Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-08T16:18:20.9555441Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-08T16:18:20.9556221Z hint: call:
+2026-11-08T16:18:20.9556479Z hint:
+2026-11-08T16:18:20.9556859Z hint: 	git config --global init.defaultBranch <name>
+2026-11-08T16:18:20.9557393Z hint:
+2026-11-08T16:18:20.9557906Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-08T16:18:20.9558642Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-08T16:18:20.9559046Z hint:
+2026-11-08T16:18:20.9559409Z hint: 	git branch -m <name>
+2026-11-08T16:18:20.9559697Z hint:
+2026-11-08T16:18:20.9560434Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-08T16:18:20.9563514Z Initialized empty Git repository in /home/runner/work/Workflows/Workflows/workflows/.git/
+2026-11-08T16:18:20.9572589Z [command]/usr/bin/git remote add origin https://github.com/stranske/Workflows
+2026-11-08T16:18:20.9613160Z ##[endgroup]
+2026-11-08T16:18:20.9613907Z ##[group]Disabling automatic garbage collection
+2026-11-08T16:18:20.9616794Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-08T16:18:20.9644693Z ##[endgroup]
+2026-11-08T16:18:20.9645208Z ##[group]Setting up auth
+2026-11-08T16:18:20.9645623Z Removing SSH command configuration
+2026-11-08T16:18:20.9649769Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-08T16:18:20.9675654Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-08T16:18:21.0039246Z Removing HTTP extra header
+2026-11-08T16:18:21.0043543Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-08T16:18:21.0071776Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-08T16:18:21.0304952Z Removing includeIf entries pointing to credentials config files
+2026-11-08T16:18:21.0306062Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-08T16:18:21.0340578Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-08T16:18:21.0577802Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-08T16:18:21.0611680Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/workflows/.git.path /home/runner/work/_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config
+2026-11-08T16:18:21.0639595Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/workflows/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config
+2026-11-08T16:18:21.0668517Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/workflows/.git.path /github/runner_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config
+2026-11-08T16:18:21.0696235Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/workflows/.git/worktrees/*.path /github/runner_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config
+2026-11-08T16:18:21.0837251Z ##[endgroup]
+2026-11-08T16:18:21.0837760Z ##[group]Fetching the repository
+2026-11-08T16:18:21.0843306Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:23.1841004Z From https://github.com/stranske/Workflows
+2026-11-08T16:18:23.1841719Z  * branch            bbfc6ae604c8e8c4021138c5efe964a368482957 -> FETCH_HEAD
+2026-11-08T16:18:23.1849715Z [command]/usr/bin/git rev-parse --verify --quiet bbfc6ae604c8e8c4021138c5efe964a368482957^{object}
+2026-11-08T16:18:23.1877505Z bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:23.1881559Z ##[endgroup]
+2026-11-08T16:18:23.1882308Z ##[group]Determining the checkout info
+2026-11-08T16:18:23.1883119Z ##[endgroup]
+2026-11-08T16:18:23.1886235Z [command]/usr/bin/git sparse-checkout disable
+2026-11-08T16:18:23.1928592Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-08T16:18:23.1955980Z ##[group]Checking out the ref
+2026-11-08T16:18:23.1959368Z [command]/usr/bin/git checkout --progress --force bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:23.5414838Z Note: switching to 'bbfc6ae604c8e8c4021138c5efe964a368482957'.
+2026-11-08T16:18:23.5415294Z 
+2026-11-08T16:18:23.5415617Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-11-08T16:18:23.5416619Z changes and commit them, and you can discard any commits you make in this
+2026-11-08T16:18:23.5417366Z state without impacting any branches by switching back to a branch.
+2026-11-08T16:18:23.5417794Z 
+2026-11-08T16:18:23.5418097Z If you want to create a new branch to retain commits you create, you may
+2026-11-08T16:18:23.5418801Z do so (now or later) by using -c with the switch command. Example:
+2026-11-08T16:18:23.5419218Z 
+2026-11-08T16:18:23.5419427Z   git switch -c <new-branch-name>
+2026-11-08T16:18:23.5419943Z 
+2026-11-08T16:18:23.5420149Z Or undo this operation with:
+2026-11-08T16:18:23.5430043Z 
+2026-11-08T16:18:23.5430544Z   git switch -
+2026-11-08T16:18:23.5430786Z 
+2026-11-08T16:18:23.5431166Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-11-08T16:18:23.5431640Z 
+2026-11-08T16:18:23.5432097Z HEAD is now at bbfc6ae fix(maint71): a cancelled refresh that never started does not hold the next one (#4552)
+2026-11-08T16:18:23.5434169Z ##[endgroup]
+2026-11-08T16:18:23.5478111Z [command]/usr/bin/git log -1 --format=%H
+2026-11-08T16:18:23.5502306Z bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:23.5635728Z ##[group]Run # Stable delivery refresh needs a full merge-base. Keep history, but
+2026-11-08T16:18:23.5636673Z [36;1m# Stable delivery refresh needs a full merge-base. Keep history, but[0m
+2026-11-08T16:18:23.5637178Z [36;1m# omit historical blobs to bound transfer across the fleet.[0m
+2026-11-08T16:18:23.5637713Z [36;1mgh repo clone "$TARGET_REPOSITORY" consumer -- --filter=blob:none --single-branch[0m
+2026-11-08T16:18:23.5681181Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:18:23.5681557Z env:
+2026-11-08T16:18:23.5682991Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:23.5684951Z   REPO_TOKEN: ***
+2026-11-08T16:18:23.5685292Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:23.5685798Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:23.5686437Z   PLAN_SCOPE: full
+2026-11-08T16:18:23.5686707Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:23.5687021Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:23.5687395Z   SYNC_PHASE: canary
+2026-11-08T16:18:23.5687666Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:23.5688041Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:23.5688674Z   GH_TOKEN: ***
+2026-11-08T16:18:23.5688943Z ##[endgroup]
+2026-11-08T16:18:24.1011616Z Cloning into 'consumer'...
+2026-11-08T16:18:27.4213942Z Updating files:   0% (1/1860)
+2026-11-08T16:18:27.4221138Z Updating files:   1% (19/1860)
+2026-11-08T16:18:27.4246858Z Updating files:   2% (38/1860)
+2026-11-08T16:18:27.4267006Z Updating files:   3% (56/1860)
+2026-11-08T16:18:27.4267885Z Updating files:   4% (75/1860)
+2026-11-08T16:18:27.4296562Z Updating files:   5% (93/1860)
+2026-11-08T16:18:27.4308372Z Updating files:   6% (112/1860)
+2026-11-08T16:18:27.4308861Z Updating files:   7% (131/1860)
+2026-11-08T16:18:27.4336511Z Updating files:   8% (149/1860)
+2026-11-08T16:18:27.4337007Z Updating files:   9% (168/1860)
+2026-11-08T16:18:27.4366453Z Updating files:  10% (186/1860)
+2026-11-08T16:18:27.4366940Z Updating files:  11% (205/1860)
+2026-11-08T16:18:27.4386643Z Updating files:  12% (224/1860)
+2026-11-08T16:18:27.4399372Z Updating files:  13% (242/1860)
+2026-11-08T16:18:27.4412283Z Updating files:  14% (261/1860)
+2026-11-08T16:18:27.4422381Z Updating files:  15% (279/1860)
+2026-11-08T16:18:27.4433436Z Updating files:  16% (298/1860)
+2026-11-08T16:18:27.4441967Z Updating files:  17% (317/1860)
+2026-11-08T16:18:27.4450557Z Updating files:  18% (335/1860)
+2026-11-08T16:18:27.4474599Z Updating files:  19% (354/1860)
+2026-11-08T16:18:27.4496401Z Updating files:  20% (372/1860)
+2026-11-08T16:18:27.4506663Z Updating files:  21% (391/1860)
+2026-11-08T16:18:27.4517801Z Updating files:  22% (410/1860)
+2026-11-08T16:18:27.4535401Z Updating files:  23% (428/1860)
+2026-11-08T16:18:27.4545716Z Updating files:  24% (447/1860)
+2026-11-08T16:18:27.4559575Z Updating files:  25% (465/1860)
+2026-11-08T16:18:27.4564781Z Updating files:  26% (484/1860)
+2026-11-08T16:18:27.4584794Z Updating files:  27% (503/1860)
+2026-11-08T16:18:27.4585254Z Updating files:  28% (521/1860)
+2026-11-08T16:18:27.4585715Z Updating files:  29% (540/1860)
+2026-11-08T16:18:27.4586259Z Updating files:  30% (558/1860)
+2026-11-08T16:18:27.4596551Z Updating files:  31% (577/1860)
+2026-11-08T16:18:27.4599405Z Updating files:  32% (596/1860)
+2026-11-08T16:18:27.4604100Z Updating files:  33% (614/1860)
+2026-11-08T16:18:27.4610521Z Updating files:  34% (633/1860)
+2026-11-08T16:18:27.4615425Z Updating files:  35% (651/1860)
+2026-11-08T16:18:27.4622757Z Updating files:  36% (670/1860)
+2026-11-08T16:18:27.4666331Z Updating files:  37% (689/1860)
+2026-11-08T16:18:27.4671935Z Updating files:  38% (707/1860)
+2026-11-08T16:18:27.4677583Z Updating files:  39% (726/1860)
+2026-11-08T16:18:27.4685253Z Updating files:  40% (744/1860)
+2026-11-08T16:18:27.4691856Z Updating files:  41% (763/1860)
+2026-11-08T16:18:27.4696560Z Updating files:  42% (782/1860)
+2026-11-08T16:18:27.4701369Z Updating files:  43% (800/1860)
+2026-11-08T16:18:27.4706121Z Updating files:  44% (819/1860)
+2026-11-08T16:18:27.4710213Z Updating files:  45% (837/1860)
+2026-11-08T16:18:27.4714994Z Updating files:  46% (856/1860)
+2026-11-08T16:18:27.4721728Z Updating files:  47% (875/1860)
+2026-11-08T16:18:27.4727057Z Updating files:  48% (893/1860)
+2026-11-08T16:18:27.4732710Z Updating files:  49% (912/1860)
+2026-11-08T16:18:27.4737278Z Updating files:  50% (930/1860)
+2026-11-08T16:18:27.4742394Z Updating files:  51% (949/1860)
+2026-11-08T16:18:27.4747492Z Updating files:  52% (968/1860)
+2026-11-08T16:18:27.4752374Z Updating files:  53% (986/1860)
+2026-11-08T16:18:27.4766366Z Updating files:  54% (1005/1860)
+2026-11-08T16:18:27.4800218Z Updating files:  55% (1023/1860)
+2026-11-08T16:18:27.4811629Z Updating files:  56% (1042/1860)
+2026-11-08T16:18:27.4828740Z Updating files:  57% (1061/1860)
+2026-11-08T16:18:27.4848995Z Updating files:  58% (1079/1860)
+2026-11-08T16:18:27.4858048Z Updating files:  59% (1098/1860)
+2026-11-08T16:18:27.4863233Z Updating files:  60% (1116/1860)
+2026-11-08T16:18:27.4908863Z Updating files:  61% (1135/1860)
+2026-11-08T16:18:27.4925153Z Updating files:  62% (1154/1860)
+2026-11-08T16:18:27.4982463Z Updating files:  63% (1172/1860)
+2026-11-08T16:18:27.5002317Z Updating files:  64% (1191/1860)
+2026-11-08T16:18:27.5013747Z Updating files:  65% (1209/1860)
+2026-11-08T16:18:27.5024381Z Updating files:  66% (1228/1860)
+2026-11-08T16:18:27.5033526Z Updating files:  67% (1247/1860)
+2026-11-08T16:18:27.5044291Z Updating files:  68% (1265/1860)
+2026-11-08T16:18:27.5052379Z Updating files:  69% (1284/1860)
+2026-11-08T16:18:27.5058353Z Updating files:  70% (1302/1860)
+2026-11-08T16:18:27.5064056Z Updating files:  71% (1321/1860)
+2026-11-08T16:18:27.5070088Z Updating files:  72% (1340/1860)
+2026-11-08T16:18:27.5077732Z Updating files:  73% (1358/1860)
+2026-11-08T16:18:27.5089797Z Updating files:  74% (1377/1860)
+2026-11-08T16:18:27.5116081Z Updating files:  75% (1395/1860)
+2026-11-08T16:18:27.5125011Z Updating files:  76% (1414/1860)
+2026-11-08T16:18:27.5138678Z Updating files:  77% (1433/1860)
+2026-11-08T16:18:27.5147984Z Updating files:  78% (1451/1860)
+2026-11-08T16:18:27.5155210Z Updating files:  79% (1470/1860)
+2026-11-08T16:18:27.5164043Z Updating files:  80% (1488/1860)
+2026-11-08T16:18:27.5172988Z Updating files:  81% (1507/1860)
+2026-11-08T16:18:27.5182118Z Updating files:  82% (1526/1860)
+2026-11-08T16:18:27.5191925Z Updating files:  83% (1544/1860)
+2026-11-08T16:18:27.5201033Z Updating files:  84% (1563/1860)
+2026-11-08T16:18:27.5210209Z Updating files:  85% (1581/1860)
+2026-11-08T16:18:27.5218137Z Updating files:  86% (1600/1860)
+2026-11-08T16:18:27.5226782Z Updating files:  87% (1619/1860)
+2026-11-08T16:18:27.5237084Z Updating files:  88% (1637/1860)
+2026-11-08T16:18:27.5246071Z Updating files:  89% (1656/1860)
+2026-11-08T16:18:27.5256199Z Updating files:  90% (1674/1860)
+2026-11-08T16:18:27.5270206Z Updating files:  91% (1693/1860)
+2026-11-08T16:18:27.5280962Z Updating files:  92% (1712/1860)
+2026-11-08T16:18:27.6657451Z Updating files:  93% (1730/1860)
+2026-11-08T16:18:27.8317186Z Updating files:  94% (1749/1860)
+2026-11-08T16:18:27.9755324Z Updating files:  95% (1767/1860)
+2026-11-08T16:18:28.0048380Z Updating files:  95% (1768/1860)
+2026-11-08T16:18:28.0248265Z Updating files:  96% (1786/1860)
+2026-11-08T16:18:28.0631827Z Updating files:  97% (1805/1860)
+2026-11-08T16:18:28.0861869Z Updating files:  98% (1823/1860)
+2026-11-08T16:18:28.1030985Z Updating files:  99% (1842/1860)
+2026-11-08T16:18:28.1031506Z Updating files: 100% (1860/1860)
+2026-11-08T16:18:28.1032237Z Updating files: 100% (1860/1860), done.
+2026-11-08T16:18:28.1139926Z ##[group]Run set -euo pipefail
+2026-11-08T16:18:28.1140291Z [36;1mset -euo pipefail[0m
+2026-11-08T16:18:28.1140635Z [36;1mconsumer_head_sha=$(git -C consumer rev-parse HEAD)[0m
+2026-11-08T16:18:28.1141033Z [36;1m[[ "$consumer_head_sha" =~ ^[0-9a-f]{40}$ ]] || {[0m
+2026-11-08T16:18:28.1141459Z [36;1m  echo "::error::Unable to resolve the consumer base commit"[0m
+2026-11-08T16:18:28.1141827Z [36;1m  exit 1[0m
+2026-11-08T16:18:28.1142075Z [36;1m}[0m
+2026-11-08T16:18:28.1142365Z [36;1mecho "sha=$consumer_head_sha" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:18:28.1186005Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:18:28.1186304Z env:
+2026-11-08T16:18:28.1187764Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:28.1189680Z   REPO_TOKEN: ***
+2026-11-08T16:18:28.1190023Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:28.1190527Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:28.1190999Z   PLAN_SCOPE: full
+2026-11-08T16:18:28.1191260Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:28.1191572Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:28.1191936Z   SYNC_PHASE: canary
+2026-11-08T16:18:28.1192199Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:28.1192568Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:28.1192950Z ##[endgroup]
+2026-11-08T16:18:28.1329233Z ##[group]Run actions/download-artifact@v8
+2026-11-08T16:18:28.1329562Z with:
+2026-11-08T16:18:28.1329839Z   name: sync-plan-and-prospective-diffs
+2026-11-08T16:18:28.1330180Z   merge-multiple: false
+2026-11-08T16:18:28.1330463Z   repository: stranske/Workflows
+2026-11-08T16:18:28.1330746Z   run-id: 42499084007
+2026-11-08T16:18:28.1331014Z   skip-decompress: false
+2026-11-08T16:18:28.1331285Z   digest-mismatch: error
+2026-11-08T16:18:28.1331543Z env:
+2026-11-08T16:18:28.1332943Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:28.1334720Z   REPO_TOKEN: ***
+2026-11-08T16:18:28.1335094Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:28.1335599Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:28.1336242Z   PLAN_SCOPE: full
+2026-11-08T16:18:28.1336507Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:28.1336822Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:28.1337184Z   SYNC_PHASE: canary
+2026-11-08T16:18:28.1337453Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:28.1337821Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:28.1338217Z ##[endgroup]
+2026-11-08T16:18:28.2473045Z Downloading single artifact
+2026-11-08T16:18:28.4798910Z Preparing to download the following artifacts:
+2026-11-08T16:18:28.4800174Z - sync-plan-and-prospective-diffs (ID: 13624901353, Size: 105160, Expected Digest: sha256:64bee14c8407fefd1e309278fb930efdba7c8071dea955c4dd8d2294d747c138)
+2026-11-08T16:18:28.8940288Z Redirecting to blob download url: https://productionresultssa2.blob.core.windows.net/actions-results/49cb0ee9-997e-42a7-ad72-416bbb544ff5/workflow-job-run-62a1780a-5be6-5875-8b98-069f0dafd4f8/artifacts/47a788d28bac34b1d558bec013665a005598442dca81cfdfb15d25c1466bb1fb.zip
+2026-11-08T16:18:28.8942557Z Starting download of artifact to: /home/runner/work/Workflows/Workflows
+2026-11-08T16:18:29.1135396Z (node:2272) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-08T16:18:29.1136650Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-08T16:18:29.2124588Z SHA256 digest of downloaded artifact is 64bee14c8407fefd1e309278fb930efdba7c8071dea955c4dd8d2294d747c138
+2026-11-08T16:18:29.2125497Z Artifact download completed successfully.
+2026-11-08T16:18:29.2126149Z Total of 1 artifact(s) downloaded
+2026-11-08T16:18:29.2128858Z Download artifact has finished successfully
+2026-11-08T16:18:29.2398515Z ##[group]Run actions/setup-python@v7
+2026-11-08T16:18:29.2398868Z with:
+2026-11-08T16:18:29.2399137Z   python-version: 3.14
+2026-11-08T16:18:29.2399420Z   check-latest: false
+2026-11-08T16:18:29.2401877Z   token: ***
+2026-11-08T16:18:29.2402271Z   mirror: https://raw.githubusercontent.com/actions/python-versions/main
+2026-11-08T16:18:29.2402708Z   update-environment: true
+2026-11-08T16:18:29.2403007Z   allow-prereleases: false
+2026-11-08T16:18:29.2403293Z   freethreaded: false
+2026-11-08T16:18:29.2403561Z env:
+2026-11-08T16:18:29.2405003Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:29.2407069Z   REPO_TOKEN: ***
+2026-11-08T16:18:29.2407415Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:29.2407928Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:29.2408371Z   PLAN_SCOPE: full
+2026-11-08T16:18:29.2408632Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:29.2408961Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:29.2409333Z   SYNC_PHASE: canary
+2026-11-08T16:18:29.2409606Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:29.2409986Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:29.2410389Z ##[endgroup]
+2026-11-08T16:18:29.3360967Z ##[group]Installed versions
+2026-11-08T16:18:29.3435340Z Successfully set up CPython (3.14.10)
+2026-11-08T16:18:29.3436273Z ##[endgroup]
+2026-11-08T16:18:29.3548234Z ##[group]Run pip install pyyaml
+2026-11-08T16:18:29.3548601Z [36;1mpip install pyyaml[0m
+2026-11-08T16:18:29.3600626Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:18:29.3600932Z env:
+2026-11-08T16:18:29.3602366Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:29.3604237Z   REPO_TOKEN: ***
+2026-11-08T16:18:29.3604592Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:29.3605116Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:29.3605546Z   PLAN_SCOPE: full
+2026-11-08T16:18:29.3605815Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:29.3606273Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:29.3606646Z   SYNC_PHASE: canary
+2026-11-08T16:18:29.3606926Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:29.3607309Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:29.3607761Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:29.3608227Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:18:29.3608844Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:29.3609268Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:29.3609678Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:29.3610084Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:18:29.3610450Z ##[endgroup]
+2026-11-08T16:18:31.2981602Z Collecting pyyaml
+2026-11-08T16:18:31.3388156Z   Downloading pyyaml-6.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+2026-11-08T16:18:31.3527460Z Downloading pyyaml-6.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (794 kB)
+2026-11-08T16:18:31.3926733Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 794.2/794.2 kB 33.3 MB/s  0:00:00
+2026-11-08T16:18:31.5188851Z Installing collected packages: pyyaml
+2026-11-08T16:18:31.5792137Z Successfully installed pyyaml-6.0.3
+2026-11-08T16:18:31.5798517Z 
+2026-11-08T16:18:31.5798895Z [notice] A new release of pip is available: 26.2.2 -> 26.3
+2026-11-08T16:18:31.5799546Z [notice] To update, run: pip install --upgrade pip
+2026-11-08T16:18:31.6335035Z ##[group]Run python3 << 'SYNC_SCRIPT'
+2026-11-08T16:18:31.6336099Z [36;1mpython3 << 'SYNC_SCRIPT'[0m
+2026-11-08T16:18:31.6336422Z [36;1mimport json[0m
+2026-11-08T16:18:31.6336698Z [36;1mimport os[0m
+2026-11-08T16:18:31.6336973Z [36;1mimport shutil[0m
+2026-11-08T16:18:31.6337262Z [36;1mimport subprocess[0m
+2026-11-08T16:18:31.6337562Z [36;1mfrom pathlib import Path[0m
+2026-11-08T16:18:31.6337870Z [36;1m[0m
+2026-11-08T16:18:31.6338121Z [36;1m# Load manifest[0m
+2026-11-08T16:18:31.6338434Z [36;1mwith open('manifest.json') as f:[0m
+2026-11-08T16:18:31.6338775Z [36;1m    manifest = json.load(f)[0m
+2026-11-08T16:18:31.6339085Z [36;1m[0m
+2026-11-08T16:18:31.6339435Z [36;1mif manifest.get('schema') != 'workflows.consumer-sync-plan/v1':[0m
+2026-11-08T16:18:31.6339953Z [36;1m    raise ValueError('unsupported consumer sync plan schema')[0m
+2026-11-08T16:18:31.6340369Z [36;1mentries = manifest.get('entries')[0m
+2026-11-08T16:18:31.6340745Z [36;1mremovals = manifest.get('removals')[0m
+2026-11-08T16:18:31.6341161Z [36;1mif not isinstance(entries, list) or not isinstance(removals, list):[0m
+2026-11-08T16:18:31.6341694Z [36;1m    raise ValueError('consumer sync plan entries/removals must be arrays')[0m
+2026-11-08T16:18:31.6342118Z [36;1m[0m
+2026-11-08T16:18:31.6342476Z [36;1m# Write the complete list of manifest-declared sync targets so the PR[0m
+2026-11-08T16:18:31.6342928Z [36;1m# creation step can stage ONLY intended files.[0m
+2026-11-08T16:18:31.6343291Z [36;1m#[0m
+2026-11-08T16:18:31.6343642Z [36;1m# This prevents sync PRs from accidentally including consumer repo[0m
+2026-11-08T16:18:31.6344151Z [36;1m# artifacts (e.g., requirements.lock, *.pyc, *.egg-info) that may be[0m
+2026-11-08T16:18:31.6344612Z [36;1m# tracked in some repos or generated by CI/autofix.[0m
+2026-11-08T16:18:31.6345040Z [36;1mcurrent_repo = os.environ.get('CURRENT_REPO', '')[0m
+2026-11-08T16:18:31.6345387Z [36;1m[0m
+2026-11-08T16:18:31.6345671Z [36;1mdef manifest_skip_reason(item, repo):[0m
+2026-11-08T16:18:31.6346241Z [36;1m    """Return the manifest-declared ineligibility reason for this repo."""[0m
+2026-11-08T16:18:31.6346724Z [36;1m    include_repos = item.get('include_repos') or [][0m
+2026-11-08T16:18:31.6347123Z [36;1m    if include_repos and repo not in include_repos:[0m
+2026-11-08T16:18:31.6347533Z [36;1m        return 'Manifest include_repos excludes repo'[0m
+2026-11-08T16:18:31.6347927Z [36;1m    if repo in (item.get('skip_repos') or []):[0m
+2026-11-08T16:18:31.6348317Z [36;1m        reasons = item.get('skip_reasons') or {}[0m
+2026-11-08T16:18:31.6348749Z [36;1m        return str(reasons.get(repo) or 'Manifest skip for repo')[0m
+2026-11-08T16:18:31.6349133Z [36;1m    return ''[0m
+2026-11-08T16:18:31.6349414Z [36;1m[0m
+2026-11-08T16:18:31.6349827Z [36;1mtargets = {[0m
+2026-11-08T16:18:31.6350103Z [36;1m    item['target'][0m
+2026-11-08T16:18:31.6350412Z [36;1m    for item in entries[0m
+2026-11-08T16:18:31.6350826Z [36;1m    if item.get('target') and not manifest_skip_reason(item, current_repo)[0m
+2026-11-08T16:18:31.6351223Z [36;1m}[0m
+2026-11-08T16:18:31.6351617Z [36;1mtargets.update(item['target'] for item in removals if item.get('target'))[0m
+2026-11-08T16:18:31.6352031Z [36;1m[0m
+2026-11-08T16:18:31.6352311Z [36;1mPath('sync_targets.txt').write_text([0m
+2026-11-08T16:18:31.6352717Z [36;1m    ''.join(f"{path}\n" for path in sorted(targets) if path),[0m
+2026-11-08T16:18:31.6353102Z [36;1m    encoding='utf-8',[0m
+2026-11-08T16:18:31.6353396Z [36;1m)[0m
+2026-11-08T16:18:31.6353634Z [36;1m[0m
+2026-11-08T16:18:31.6353996Z [36;1m# Preserve the established section-specific copy behavior while making[0m
+2026-11-08T16:18:31.6354510Z [36;1m# the compiler's normalized plan the only source of path resolution.[0m
+2026-11-08T16:18:31.6354918Z [36;1mby_section = {}[0m
+2026-11-08T16:18:31.6355208Z [36;1mfor entry in entries:[0m
+2026-11-08T16:18:31.6355578Z [36;1m    by_section.setdefault(entry['section'], []).append(entry)[0m
+2026-11-08T16:18:31.6356242Z [36;1mmanifest = {**by_section, 'removals': removals}[0m
+2026-11-08T16:18:31.6356596Z [36;1m[0m
+2026-11-08T16:18:31.6356907Z [36;1mdry_run = os.environ.get('DRY_RUN', 'false') == 'true'[0m
+2026-11-08T16:18:31.6357329Z [36;1mforce = os.environ.get('FORCE', 'false') == 'true'[0m
+2026-11-08T16:18:31.6357677Z [36;1m[0m
+2026-11-08T16:18:31.6357929Z [36;1mchanges = [][0m
+2026-11-08T16:18:31.6358206Z [36;1mskipped = [][0m
+2026-11-08T16:18:31.6358463Z [36;1m[0m
+2026-11-08T16:18:31.6358744Z [36;1mdef repo_overwrites_create_only(item, repo):[0m
+2026-11-08T16:18:31.6359212Z [36;1m    """Return whether repo should ignore create_only for this manifest item."""[0m
+2026-11-08T16:18:31.6359685Z [36;1m    overwrite_repos = item.get('overwrite_repos', [])[0m
+2026-11-08T16:18:31.6360164Z [36;1m    return isinstance(overwrite_repos, list) and repo in overwrite_repos[0m
+2026-11-08T16:18:31.6360570Z [36;1m[0m
+2026-11-08T16:18:31.6360833Z [36;1mdef comparable_lines(path):[0m
+2026-11-08T16:18:31.6361247Z [36;1m    """Return file lines after leading comment/blank header lines."""[0m
+2026-11-08T16:18:31.6361677Z [36;1m    lines = path.read_text().splitlines()[0m
+2026-11-08T16:18:31.6362010Z [36;1m    index = 0[0m
+2026-11-08T16:18:31.6362306Z [36;1m    while index < len(lines):[0m
+2026-11-08T16:18:31.6362646Z [36;1m        stripped = lines[index].strip()[0m
+2026-11-08T16:18:31.6363029Z [36;1m        if stripped == '' or stripped.startswith('#'):[0m
+2026-11-08T16:18:31.6363400Z [36;1m            index += 1[0m
+2026-11-08T16:18:31.6363694Z [36;1m            continue[0m
+2026-11-08T16:18:31.6363972Z [36;1m        break[0m
+2026-11-08T16:18:31.6364256Z [36;1m    return lines[index:][0m
+2026-11-08T16:18:31.6364557Z [36;1m[0m
+2026-11-08T16:18:31.6364811Z [36;1mdef files_differ(src, dst):[0m
+2026-11-08T16:18:31.6365209Z [36;1m    """Compare files, ignoring only leading comment headers."""[0m
+2026-11-08T16:18:31.6365601Z [36;1m    if not dst.exists():[0m
+2026-11-08T16:18:31.6366033Z [36;1m        return True[0m
+2026-11-08T16:18:31.6366338Z [36;1m    if not src.exists():[0m
+2026-11-08T16:18:31.6366642Z [36;1m        return False[0m
+2026-11-08T16:18:31.6366917Z [36;1m[0m
+2026-11-08T16:18:31.6367239Z [36;1m    return comparable_lines(src) != comparable_lines(dst)[0m
+2026-11-08T16:18:31.6367612Z [36;1m[0m
+2026-11-08T16:18:31.6368007Z [36;1mdef sync_file(source_path, target_path, description, skip_condition=None, item=None):[0m
+2026-11-08T16:18:31.6368519Z [36;1m    """Sync a single file from template to consumer."""[0m
+2026-11-08T16:18:31.6368899Z [36;1m    src = Path(source_path)[0m
+2026-11-08T16:18:31.6369208Z [36;1m    dst = Path(target_path)[0m
+2026-11-08T16:18:31.6369527Z [36;1m    relative_target = ([0m
+2026-11-08T16:18:31.6369868Z [36;1m        str(dst.relative_to(Path('consumer')))[0m
+2026-11-08T16:18:31.6370439Z [36;1m        if dst.is_absolute() is False and str(dst).startswith('consumer/')[0m
+2026-11-08T16:18:31.6370863Z [36;1m        else str(dst)[0m
+2026-11-08T16:18:31.6371152Z [36;1m    )[0m
+2026-11-08T16:18:31.6371399Z [36;1m[0m
+2026-11-08T16:18:31.6371738Z [36;1m    skip_reason = manifest_skip_reason(item or {}, current_repo)[0m
+2026-11-08T16:18:31.6372159Z [36;1m    if skip_reason:[0m
+2026-11-08T16:18:31.6372511Z [36;1m        skipped.append(f"{relative_target}: {skip_reason}")[0m
+2026-11-08T16:18:31.6372895Z [36;1m        return False[0m
+2026-11-08T16:18:31.6373180Z [36;1m[0m
+2026-11-08T16:18:31.6373463Z [36;1m    if skip_condition and skip_condition():[0m
+2026-11-08T16:18:31.6373889Z [36;1m        skipped.append(f"{dst.name}: {skip_condition.__doc__}")[0m
+2026-11-08T16:18:31.6374287Z [36;1m        return False[0m
+2026-11-08T16:18:31.6374559Z [36;1m[0m
+2026-11-08T16:18:31.6374817Z [36;1m    if not src.exists():[0m
+2026-11-08T16:18:31.6375165Z [36;1m        print(f"  ⚠ Source missing: {src}")[0m
+2026-11-08T16:18:31.6375498Z [36;1m        return False[0m
+2026-11-08T16:18:31.6375774Z [36;1m[0m
+2026-11-08T16:18:31.6376275Z [36;1m    if force or files_differ(src, dst):[0m
+2026-11-08T16:18:31.6376610Z [36;1m        if not dry_run:[0m
+2026-11-08T16:18:31.6376982Z [36;1m            dst.parent.mkdir(parents=True, exist_ok=True)[0m
+2026-11-08T16:18:31.6377375Z [36;1m            shutil.copy2(src, dst)[0m
+2026-11-08T16:18:31.6377755Z [36;1m        changes.append(f"{dst.name}: {description}")[0m
+2026-11-08T16:18:31.6378121Z [36;1m        return True[0m
+2026-11-08T16:18:31.6378413Z [36;1m    return False[0m
+2026-11-08T16:18:31.6378686Z [36;1m[0m
+2026-11-08T16:18:31.6379053Z [36;1mdef sync_directory(source_path, target_path, description, item=None):[0m
+2026-11-08T16:18:31.6379546Z [36;1m    """Sync an entire directory from template to consumer."""[0m
+2026-11-08T16:18:31.6379931Z [36;1m    src = Path(source_path)[0m
+2026-11-08T16:18:31.6380261Z [36;1m    dst = Path(target_path)[0m
+2026-11-08T16:18:31.6380580Z [36;1m    relative_target = ([0m
+2026-11-08T16:18:31.6380920Z [36;1m        str(dst.relative_to(Path('consumer')))[0m
+2026-11-08T16:18:31.6381437Z [36;1m        if dst.is_absolute() is False and str(dst).startswith('consumer/')[0m
+2026-11-08T16:18:31.6381847Z [36;1m        else str(dst)[0m
+2026-11-08T16:18:31.6382145Z [36;1m    )[0m
+2026-11-08T16:18:31.6382409Z [36;1m[0m
+2026-11-08T16:18:31.6382746Z [36;1m    skip_reason = manifest_skip_reason(item or {}, current_repo)[0m
+2026-11-08T16:18:31.6383153Z [36;1m    if skip_reason:[0m
+2026-11-08T16:18:31.6383514Z [36;1m        skipped.append(f"{relative_target}: {skip_reason}")[0m
+2026-11-08T16:18:31.6383896Z [36;1m        return False[0m
+2026-11-08T16:18:31.6384184Z [36;1m[0m
+2026-11-08T16:18:31.6384469Z [36;1m    if not src.exists() or not src.is_dir():[0m
+2026-11-08T16:18:31.6384856Z [36;1m        print(f"  ⚠ Source directory missing: {src}")[0m
+2026-11-08T16:18:31.6385226Z [36;1m        return False[0m
+2026-11-08T16:18:31.6385504Z [36;1m[0m
+2026-11-08T16:18:31.6385747Z [36;1m    dir_changes = [][0m
+2026-11-08T16:18:31.6386161Z [36;1m    for src_file in src.rglob('*'):[0m
+2026-11-08T16:18:31.6386500Z [36;1m        if src_file.is_file():[0m
+2026-11-08T16:18:31.6386849Z [36;1m            rel_path = src_file.relative_to(src)[0m
+2026-11-08T16:18:31.6387223Z [36;1m            dst_file = dst / rel_path[0m
+2026-11-08T16:18:31.6387600Z [36;1m            if force or files_differ(src_file, dst_file):[0m
+2026-11-08T16:18:31.6387970Z [36;1m                if not dry_run:[0m
+2026-11-08T16:18:31.6388364Z [36;1m                    dst_file.parent.mkdir(parents=True, exist_ok=True)[0m
+2026-11-08T16:18:31.6388781Z [36;1m                    shutil.copy2(src_file, dst_file)[0m
+2026-11-08T16:18:31.6389169Z [36;1m                dir_changes.append(str(rel_path))[0m
+2026-11-08T16:18:31.6389504Z [36;1m[0m
+2026-11-08T16:18:31.6389878Z [36;1m    if dir_changes:[0m
+2026-11-08T16:18:31.6390281Z [36;1m        changes.append(f"{dst.name}/ ({len(dir_changes)} files): {description}")[0m
+2026-11-08T16:18:31.6390716Z [36;1m    return len(dir_changes) > 0[0m
+2026-11-08T16:18:31.6391024Z [36;1m[0m
+2026-11-08T16:18:31.6391313Z [36;1mdef remove_path(target_path, description):[0m
+2026-11-08T16:18:31.6391713Z [36;1m    """Remove an obsolete path from the consumer repo."""[0m
+2026-11-08T16:18:31.6392092Z [36;1m    dst = Path(target_path)[0m
+2026-11-08T16:18:31.6392414Z [36;1m    if not dst.exists():[0m
+2026-11-08T16:18:31.6392717Z [36;1m        return False[0m
+2026-11-08T16:18:31.6393005Z [36;1m    if not dry_run:[0m
+2026-11-08T16:18:31.6393291Z [36;1m        if dst.is_dir():[0m
+2026-11-08T16:18:31.6393591Z [36;1m            shutil.rmtree(dst)[0m
+2026-11-08T16:18:31.6393904Z [36;1m        else:[0m
+2026-11-08T16:18:31.6394184Z [36;1m            dst.unlink()[0m
+2026-11-08T16:18:31.6394519Z [36;1m    changes.append(f"removed {dst}: {description}")[0m
+2026-11-08T16:18:31.6394889Z [36;1m    return True[0m
+2026-11-08T16:18:31.6395165Z [36;1m[0m
+2026-11-08T16:18:31.6395414Z [36;1m# Process workflows[0m
+2026-11-08T16:18:31.6395958Z [36;1mprint("Processing workflows...")[0m
+2026-11-08T16:18:31.6396329Z [36;1mfor item in manifest.get('workflows', []):[0m
+2026-11-08T16:18:31.6396683Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6397087Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6397504Z [36;1m    sync_mode = item.get('sync_mode', 'sync')[0m
+2026-11-08T16:18:31.6397840Z [36;1m[0m
+2026-11-08T16:18:31.6398095Z [36;1m    # Build paths[0m
+2026-11-08T16:18:31.6398450Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6398898Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6399259Z [36;1m[0m
+2026-11-08T16:18:31.6399529Z [36;1m    # Skip conditions[0m
+2026-11-08T16:18:31.6399848Z [36;1m    def skip_create_only():[0m
+2026-11-08T16:18:31.6400216Z [36;1m        """File exists and sync_mode is create_only"""[0m
+2026-11-08T16:18:31.6400585Z [36;1m        return ([0m
+2026-11-08T16:18:31.6400894Z [36;1m            sync_mode == 'create_only'[0m
+2026-11-08T16:18:31.6401248Z [36;1m            and consumer_dst.exists()[0m
+2026-11-08T16:18:31.6401658Z [36;1m            and not repo_overwrites_create_only(item, current_repo)[0m
+2026-11-08T16:18:31.6402039Z [36;1m        )[0m
+2026-11-08T16:18:31.6402306Z [36;1m[0m
+2026-11-08T16:18:31.6402700Z [36;1m    # Determine skip function. Repo-specific exclusions (e.g. Manager-Database's[0m
+2026-11-08T16:18:31.6403259Z [36;1m    # fully custom Gate) now come from the manifest's skip_repos and are enforced[0m
+2026-11-08T16:18:31.6403823Z [36;1m    # inside sync_file via manifest_skip_reason, so no per-file special-casing here.[0m
+2026-11-08T16:18:31.6404354Z [36;1m    skip_fn = skip_create_only if sync_mode == 'create_only' else None[0m
+2026-11-08T16:18:31.6404751Z [36;1m[0m
+2026-11-08T16:18:31.6405101Z [36;1m    sync_file(template_src, consumer_dst, description, skip_fn, item)[0m
+2026-11-08T16:18:31.6405500Z [36;1m[0m
+2026-11-08T16:18:31.6405763Z [36;1m# Process prompts[0m
+2026-11-08T16:18:31.6406195Z [36;1mprint("Processing prompts...")[0m
+2026-11-08T16:18:31.6406561Z [36;1mfor item in manifest.get('prompts', []):[0m
+2026-11-08T16:18:31.6406924Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6407334Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6407809Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6408244Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6408695Z [36;1m    sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6409095Z [36;1m[0m
+2026-11-08T16:18:31.6409360Z [36;1m# Process scripts[0m
+2026-11-08T16:18:31.6409809Z [36;1mprint("Processing scripts...")[0m
+2026-11-08T16:18:31.6410160Z [36;1mfor item in manifest.get('scripts', []):[0m
+2026-11-08T16:18:31.6410515Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6410913Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6411347Z [36;1m    is_directory = item.get('is_directory', False)[0m
+2026-11-08T16:18:31.6411769Z [36;1m    # Scripts come from .github/scripts/, not templates[0m
+2026-11-08T16:18:31.6412203Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6412637Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6412999Z [36;1m    if is_directory:[0m
+2026-11-08T16:18:31.6413378Z [36;1m        sync_directory(template_src, consumer_dst, description, item)[0m
+2026-11-08T16:18:31.6413780Z [36;1m    else:[0m
+2026-11-08T16:18:31.6414131Z [36;1m        sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6414516Z [36;1m[0m
+2026-11-08T16:18:31.6414787Z [36;1m# Process codex_config[0m
+2026-11-08T16:18:31.6415113Z [36;1mprint("Processing codex config...")[0m
+2026-11-08T16:18:31.6415589Z [36;1mfor item in manifest.get('codex_config', []):[0m
+2026-11-08T16:18:31.6416059Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6416492Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6416939Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6417373Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6417811Z [36;1m    sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6418196Z [36;1m[0m
+2026-11-08T16:18:31.6418458Z [36;1m# Process copilot_config[0m
+2026-11-08T16:18:31.6418803Z [36;1mprint("Processing copilot config...")[0m
+2026-11-08T16:18:31.6419183Z [36;1mfor item in manifest.get('copilot_config', []):[0m
+2026-11-08T16:18:31.6419559Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6419955Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6420647Z [36;1m    is_directory = item.get('is_directory', False)[0m
+2026-11-08T16:18:31.6434786Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6435471Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6436111Z [36;1m[0m
+2026-11-08T16:18:31.6436460Z [36;1m    if is_directory:[0m
+2026-11-08T16:18:31.6436997Z [36;1m        sync_directory(template_src, consumer_dst, description, item)[0m
+2026-11-08T16:18:31.6437591Z [36;1m    else:[0m
+2026-11-08T16:18:31.6438099Z [36;1m        sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6438680Z [36;1m[0m
+2026-11-08T16:18:31.6439178Z [36;1m# Process templates (markdown templates, instructions, etc.)[0m
+2026-11-08T16:18:31.6439804Z [36;1mprint("Processing templates...")[0m
+2026-11-08T16:18:31.6440390Z [36;1mfor item in manifest.get('templates', []):[0m
+2026-11-08T16:18:31.6440936Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6441451Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6441923Z [36;1m    # Templates come from .github/templates/, same as scripts pattern[0m
+2026-11-08T16:18:31.6442410Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6442839Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6443269Z [36;1m    sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6443655Z [36;1m[0m
+2026-11-08T16:18:31.6443914Z [36;1m# Process actions[0m
+2026-11-08T16:18:31.6444217Z [36;1mprint("Processing actions...")[0m
+2026-11-08T16:18:31.6444563Z [36;1mfor item in manifest.get('actions', []):[0m
+2026-11-08T16:18:31.6444932Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6445551Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6446219Z [36;1m    is_directory = item.get('is_directory', False)[0m
+2026-11-08T16:18:31.6446667Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6447087Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6447435Z [36;1m[0m
+2026-11-08T16:18:31.6447690Z [36;1m    if is_directory:[0m
+2026-11-08T16:18:31.6448060Z [36;1m        sync_directory(template_src, consumer_dst, description, item)[0m
+2026-11-08T16:18:31.6448452Z [36;1m    else:[0m
+2026-11-08T16:18:31.6448792Z [36;1m        sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6449159Z [36;1m[0m
+2026-11-08T16:18:31.6449411Z [36;1m# Process docs[0m
+2026-11-08T16:18:31.6449706Z [36;1mprint("Processing docs...")[0m
+2026-11-08T16:18:31.6450039Z [36;1mfor item in manifest.get('docs', []):[0m
+2026-11-08T16:18:31.6450378Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6450724Z [36;1m    target = item.get('target', source)[0m
+2026-11-08T16:18:31.6451113Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6451672Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6452083Z [36;1m    consumer_dst = Path('consumer') / target[0m
+2026-11-08T16:18:31.6452499Z [36;1m    sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6452865Z [36;1m[0m
+2026-11-08T16:18:31.6453113Z [36;1m# Process llm_config[0m
+2026-11-08T16:18:31.6453417Z [36;1mprint("Processing llm config...")[0m
+2026-11-08T16:18:31.6453757Z [36;1mfor item in manifest.get('llm_config', []):[0m
+2026-11-08T16:18:31.6454114Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6454505Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6454913Z [36;1m    sync_mode = item.get('sync_mode', 'sync')[0m
+2026-11-08T16:18:31.6455337Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6455760Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6456280Z [36;1m    skip_fn = None[0m
+2026-11-08T16:18:31.6456597Z [36;1m    if sync_mode == 'create_only':[0m
+2026-11-08T16:18:31.6456935Z [36;1m        skip_fn = lambda: ([0m
+2026-11-08T16:18:31.6457247Z [36;1m            consumer_dst.exists()[0m
+2026-11-08T16:18:31.6457635Z [36;1m            and not repo_overwrites_create_only(item, current_repo)[0m
+2026-11-08T16:18:31.6458012Z [36;1m        )[0m
+2026-11-08T16:18:31.6458370Z [36;1m    sync_file(template_src, consumer_dst, description, skip_fn, item)[0m
+2026-11-08T16:18:31.6458764Z [36;1m[0m
+2026-11-08T16:18:31.6459018Z [36;1m# Process git_config[0m
+2026-11-08T16:18:31.6459326Z [36;1mprint("Processing git config...")[0m
+2026-11-08T16:18:31.6459679Z [36;1mfor item in manifest.get('git_config', []):[0m
+2026-11-08T16:18:31.6460048Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6460434Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6460892Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6461311Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6461742Z [36;1m    sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6462118Z [36;1m[0m
+2026-11-08T16:18:31.6462383Z [36;1m# Process issue_templates[0m
+2026-11-08T16:18:31.6462727Z [36;1mprint("Processing issue templates...")[0m
+2026-11-08T16:18:31.6463109Z [36;1mfor item in manifest.get('issue_templates', []):[0m
+2026-11-08T16:18:31.6463482Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6463864Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6464300Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6464838Z [36;1m    consumer_dst = Path('consumer') / item['target'][0m
+2026-11-08T16:18:31.6465268Z [36;1m    sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6465640Z [36;1m[0m
+2026-11-08T16:18:31.6466094Z [36;1m# Process user_docs[0m
+2026-11-08T16:18:31.6466396Z [36;1mprint("Processing user docs...")[0m
+2026-11-08T16:18:31.6466744Z [36;1mfor item in manifest.get('user_docs', []):[0m
+2026-11-08T16:18:31.6467091Z [36;1m    source = item.get('source', '')[0m
+2026-11-08T16:18:31.6467411Z [36;1m    target = item.get('target', source)[0m
+2026-11-08T16:18:31.6467793Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6468222Z [36;1m    template_src = Path('workflows') / item['resolved_source'][0m
+2026-11-08T16:18:31.6468613Z [36;1m    consumer_dst = Path('consumer') / target[0m
+2026-11-08T16:18:31.6469015Z [36;1m    sync_file(template_src, consumer_dst, description, item=item)[0m
+2026-11-08T16:18:31.6469385Z [36;1m[0m
+2026-11-08T16:18:31.6469624Z [36;1m# Process removals[0m
+2026-11-08T16:18:31.6469922Z [36;1mprint("Processing removals...")[0m
+2026-11-08T16:18:31.6470382Z [36;1mfor item in manifest.get('removals', []) or []:[0m
+2026-11-08T16:18:31.6470752Z [36;1m    target = item.get('target', '')[0m
+2026-11-08T16:18:31.6471139Z [36;1m    description = item.get('description', 'No description')[0m
+2026-11-08T16:18:31.6471509Z [36;1m    if not target:[0m
+2026-11-08T16:18:31.6471781Z [36;1m        continue[0m
+2026-11-08T16:18:31.6472083Z [36;1m    consumer_dst = Path('consumer') / target[0m
+2026-11-08T16:18:31.6472443Z [36;1m    remove_path(consumer_dst, description)[0m
+2026-11-08T16:18:31.6472759Z [36;1m[0m
+2026-11-08T16:18:31.6473000Z [36;1m# Output results[0m
+2026-11-08T16:18:31.6473273Z [36;1mprint(f"\n{'='*60}")[0m
+2026-11-08T16:18:31.6473581Z [36;1mprint(f"SYNC RESULTS for {current_repo}")[0m
+2026-11-08T16:18:31.6473908Z [36;1mprint(f"{'='*60}")[0m
+2026-11-08T16:18:31.6474181Z [36;1m[0m
+2026-11-08T16:18:31.6474414Z [36;1mif changes:[0m
+2026-11-08T16:18:31.6474750Z [36;1m    print(f"\n✓ {len(changes)} files to sync:")[0m
+2026-11-08T16:18:31.6475115Z [36;1m    for c in changes:[0m
+2026-11-08T16:18:31.6475417Z [36;1m        print(f"  - {c}")[0m
+2026-11-08T16:18:31.6475715Z [36;1melse:[0m
+2026-11-08T16:18:31.6476169Z [36;1m    print("\n✓ No changes needed")[0m
+2026-11-08T16:18:31.6476496Z [36;1m[0m
+2026-11-08T16:18:31.6476741Z [36;1mif skipped:[0m
+2026-11-08T16:18:31.6477056Z [36;1m    print(f"\n⊘ {len(skipped)} files skipped:")[0m
+2026-11-08T16:18:31.6477396Z [36;1m    for s in skipped:[0m
+2026-11-08T16:18:31.6477683Z [36;1m        print(f"  - {s}")[0m
+2026-11-08T16:18:31.6477963Z [36;1m[0m
+2026-11-08T16:18:31.6478296Z [36;1m# The managed .gitignore block is a plan-wide reconciliation, not an[0m
+2026-11-08T16:18:31.6478800Z [36;1m# implicit source-delta target.  Restrict it to a full plan so an exact[0m
+2026-11-08T16:18:31.6479295Z [36;1m# source-delta can stage only paths selected by its immutable plan ID.[0m
+2026-11-08T16:18:31.6479788Z [36;1m# Within a full plan, evaluate both dry and live runs so block-only drift[0m
+2026-11-08T16:18:31.6480234Z [36;1m# participates in has_changes and PR creation.[0m
+2026-11-08T16:18:31.6480575Z [36;1mimport sys[0m
+2026-11-08T16:18:31.6480858Z [36;1msys.path.insert(0, str(Path('workflows')))[0m
+2026-11-08T16:18:31.6481284Z [36;1mfrom scripts.sync_status_file_ignores import apply_block_to_file[0m
+2026-11-08T16:18:31.6481668Z [36;1m[0m
+2026-11-08T16:18:31.6481948Z [36;1mplan_scope = os.environ.get('PLAN_SCOPE', '')[0m
+2026-11-08T16:18:31.6482304Z [36;1mif plan_scope == 'full':[0m
+2026-11-08T16:18:31.6482632Z [36;1m    targets_path = Path('sync_targets.txt')[0m
+2026-11-08T16:18:31.6482977Z [36;1m    target_lines = ([0m
+2026-11-08T16:18:31.6483335Z [36;1m        targets_path.read_text(encoding='utf-8').splitlines()[0m
+2026-11-08T16:18:31.6483726Z [36;1m        if targets_path.is_file()[0m
+2026-11-08T16:18:31.6484168Z [36;1m        else [][0m
+2026-11-08T16:18:31.6484433Z [36;1m    )[0m
+2026-11-08T16:18:31.6484705Z [36;1m    if '.gitignore' not in target_lines:[0m
+2026-11-08T16:18:31.6485059Z [36;1m        target_lines.append('.gitignore')[0m
+2026-11-08T16:18:31.6485393Z [36;1m        targets_path.write_text([0m
+2026-11-08T16:18:31.6485814Z [36;1m            ''.join(f"{line}\n" for line in sorted(set(filter(None, target_lines)))),[0m
+2026-11-08T16:18:31.6486355Z [36;1m            encoding='utf-8',[0m
+2026-11-08T16:18:31.6486654Z [36;1m        )[0m
+2026-11-08T16:18:31.6486904Z [36;1m[0m
+2026-11-08T16:18:31.6487171Z [36;1m    gitignore_result = apply_block_to_file([0m
+2026-11-08T16:18:31.6487531Z [36;1m        Path('consumer/.gitignore'),[0m
+2026-11-08T16:18:31.6487854Z [36;1m        dry_run=dry_run,[0m
+2026-11-08T16:18:31.6488136Z [36;1m    )[0m
+2026-11-08T16:18:31.6488411Z [36;1m    if gitignore_result.get('changed'):[0m
+2026-11-08T16:18:31.6488798Z [36;1m        action = gitignore_result.get('action', 'updated')[0m
+2026-11-08T16:18:31.6489245Z [36;1m        changes.append(f".gitignore (managed block {action})")[0m
+2026-11-08T16:18:31.6489600Z [36;1m[0m
+2026-11-08T16:18:31.6489954Z [36;1mrepo_dirty = False[0m
+2026-11-08T16:18:31.6490231Z [36;1mif not dry_run:[0m
+2026-11-08T16:18:31.6490514Z [36;1m    status = subprocess.run([0m
+2026-11-08T16:18:31.6490881Z [36;1m        ["git", "-C", "consumer", "status", "--porcelain"],[0m
+2026-11-08T16:18:31.6491230Z [36;1m        check=False,[0m
+2026-11-08T16:18:31.6491539Z [36;1m        capture_output=True,[0m
+2026-11-08T16:18:31.6491834Z [36;1m        text=True,[0m
+2026-11-08T16:18:31.6492093Z [36;1m    )[0m
+2026-11-08T16:18:31.6492372Z [36;1m    repo_dirty = bool(status.stdout.strip())[0m
+2026-11-08T16:18:31.6492698Z [36;1m[0m
+2026-11-08T16:18:31.6492999Z [36;1mhas_changes = bool(changes) if dry_run else repo_dirty[0m
+2026-11-08T16:18:31.6493349Z [36;1m[0m
+2026-11-08T16:18:31.6493584Z [36;1m# Set outputs[0m
+2026-11-08T16:18:31.6493904Z [36;1mwith open(os.environ['GITHUB_OUTPUT'], 'a') as f:[0m
+2026-11-08T16:18:31.6494291Z [36;1m    f.write(f"changes_count={len(changes)}\n")[0m
+2026-11-08T16:18:31.6494712Z [36;1m    f.write(f"has_changes={'true' if has_changes else 'false'}\n")[0m
+2026-11-08T16:18:31.6495087Z [36;1m[0m
+2026-11-08T16:18:31.6495341Z [36;1m# Write change summary for PR body[0m
+2026-11-08T16:18:31.6495679Z [36;1mwith open('sync_summary.md', 'w') as f:[0m
+2026-11-08T16:18:31.6496111Z [36;1m    f.write("## Sync Summary\n\n")[0m
+2026-11-08T16:18:31.6496410Z [36;1m    if changes:[0m
+2026-11-08T16:18:31.6496694Z [36;1m        f.write("### Files Updated\n")[0m
+2026-11-08T16:18:31.6497033Z [36;1m        for c in changes:[0m
+2026-11-08T16:18:31.6497343Z [36;1m            f.write(f"- {c}\n")[0m
+2026-11-08T16:18:31.6497652Z [36;1m    if skipped:[0m
+2026-11-08T16:18:31.6497947Z [36;1m        f.write("\n### Files Skipped\n")[0m
+2026-11-08T16:18:31.6498271Z [36;1m        for s in skipped:[0m
+2026-11-08T16:18:31.6498581Z [36;1m            f.write(f"- {s}\n")[0m
+2026-11-08T16:18:31.6498882Z [36;1mSYNC_SCRIPT[0m
+2026-11-08T16:18:31.6542320Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:18:31.6542614Z env:
+2026-11-08T16:18:31.6544059Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:31.6546068Z   REPO_TOKEN: ***
+2026-11-08T16:18:31.6546425Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:31.6546938Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:31.6547369Z   PLAN_SCOPE: full
+2026-11-08T16:18:31.6547630Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:31.6548088Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:31.6548453Z   SYNC_PHASE: canary
+2026-11-08T16:18:31.6548725Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:31.6549106Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:31.6549549Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:31.6549999Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:18:31.6550436Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:31.6550836Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:31.6551230Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:31.6551640Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:18:31.6552046Z   CURRENT_REPO: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:31.6552405Z   DRY_RUN: false
+2026-11-08T16:18:31.6552661Z   FORCE: false
+2026-11-08T16:18:31.6552924Z ##[endgroup]
+2026-11-08T16:18:31.8808821Z Processing workflows...
+2026-11-08T16:18:31.8809272Z Processing prompts...
+2026-11-08T16:18:31.8809565Z Processing scripts...
+2026-11-08T16:18:31.8810064Z Processing codex config...
+2026-11-08T16:18:31.8810433Z Processing copilot config...
+2026-11-08T16:18:31.8810740Z Processing templates...
+2026-11-08T16:18:31.8811031Z Processing actions...
+2026-11-08T16:18:31.8811299Z Processing docs...
+2026-11-08T16:18:31.8811568Z Processing llm config...
+2026-11-08T16:18:31.8811850Z Processing git config...
+2026-11-08T16:18:31.8812123Z Processing issue templates...
+2026-11-08T16:18:31.8812419Z Processing user docs...
+2026-11-08T16:18:31.8812686Z Processing removals...
+2026-11-08T16:18:31.8812846Z 
+2026-11-08T16:18:31.8813002Z ============================================================
+2026-11-08T16:18:31.8813431Z SYNC RESULTS for stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:31.8813824Z ============================================================
+2026-11-08T16:18:31.8814063Z 
+2026-11-08T16:18:31.8814396Z ✓ 2 files to sync:
+2026-11-08T16:18:31.8814842Z   - registry.yml: Agent registry - source of truth for agent keys and runner workflow mapping
+2026-11-08T16:18:31.8815461Z   - subscription_llm.py: Subscription CLI-only keepalive analysis transport; no API fallback
+2026-11-08T16:18:31.8815969Z 
+2026-11-08T16:18:31.8816167Z ⊘ 8 files skipped:
+2026-11-08T16:18:31.8816547Z   - pr-00-gate.yml: File exists and sync_mode is create_only
+2026-11-08T16:18:31.8817019Z   - pr-00-gate-fork-status.yml: File exists and sync_mode is create_only
+2026-11-08T16:18:31.8817457Z   - ci.yml: File exists and sync_mode is create_only
+2026-11-08T16:18:31.8817850Z   - renovate.json: File exists and sync_mode is create_only
+2026-11-08T16:18:31.8818292Z   - cross-repo-smoke.yml: File exists and sync_mode is create_only
+2026-11-08T16:18:31.8818874Z   - src/deliverable_render/store/evidence-object-v1.schema.json: Manifest include_repos excludes repo
+2026-11-08T16:18:31.8819557Z   - src/manager_mosaic/schemas/evidence-object-v1.schema.json: Manifest include_repos excludes repo
+2026-11-08T16:18:31.8820045Z   - llm_slots.json: None
+2026-11-08T16:18:31.8946793Z ##[group]Run cd consumer
+2026-11-08T16:18:31.8947283Z [36;1mcd consumer[0m
+2026-11-08T16:18:31.8947650Z [36;1m[0m
+2026-11-08T16:18:31.8948169Z [36;1m# Required labels for sync PRs. Keep source provenance distinct from[0m
+2026-11-08T16:18:31.8948946Z [36;1m# mutable delivery state so downstream event handlers can fail closed[0m
+2026-11-08T16:18:31.8949745Z [36;1m# without mistaking file-summary issue references for source issues.[0m
+2026-11-08T16:18:31.8950402Z [36;1mrequired_label_specs=([0m
+2026-11-08T16:18:31.8950885Z [36;1m  "sync|Automated sync from Workflows|0e8a16"[0m
+2026-11-08T16:18:31.8951303Z [36;1m  "automated|Automated sync from Workflows|0e8a16"[0m
+2026-11-08T16:18:31.8951783Z [36;1m  "workflow:source-sync|PR source is a sync or maintenance campaign|1d76db"[0m
+2026-11-08T16:18:31.8952345Z [36;1m  "sync:delivery-staging|Generated delivery is mutable and must not merge|d93f0b"[0m
+2026-11-08T16:18:31.8953187Z [36;1m  "sync:delivery-ready|Generated delivery is sealed to its exact reviewed head|0e8a16"[0m
+2026-11-08T16:18:31.8953641Z [36;1m)[0m
+2026-11-08T16:18:31.8953899Z [36;1m[0m
+2026-11-08T16:18:31.8954205Z [36;1mfor label_spec in "${required_label_specs[@]}"; do[0m
+2026-11-08T16:18:31.8954645Z [36;1m  IFS='|' read -r label description color <<<"$label_spec"[0m
+2026-11-08T16:18:31.8955134Z [36;1m  if ! gh label list --json name -q ".[].name" | grep -q "^${label}$"; then[0m
+2026-11-08T16:18:31.8955561Z [36;1m    echo "Creating label: $label"[0m
+2026-11-08T16:18:31.8956253Z [36;1m    gh label create "$label" --description "$description" --color "$color" || true[0m
+2026-11-08T16:18:31.8956681Z [36;1m  fi[0m
+2026-11-08T16:18:31.8956943Z [36;1mdone[0m
+2026-11-08T16:18:31.8957191Z [36;1m[0m
+2026-11-08T16:18:31.8957505Z [36;1m# LangChain Phase 1 labels (agents:format workflow)[0m
+2026-11-08T16:18:31.8958015Z [36;1m# These labels are required for the issue formatting and optimization workflows[0m
+2026-11-08T16:18:31.8958504Z [36;1mecho "Ensuring LangChain agent labels exist..."[0m
+2026-11-08T16:18:31.8958853Z [36;1m[0m
+2026-11-08T16:18:31.8959128Z [36;1mgh label create "agents:format" \[0m
+2026-11-08T16:18:31.8959575Z [36;1m  --description "Triggers direct issue formatting to AGENT_ISSUE_TEMPLATE" \[0m
+2026-11-08T16:18:31.8960050Z [36;1m  --color "0E8A16" --force || true[0m
+2026-11-08T16:18:31.8960365Z [36;1m[0m
+2026-11-08T16:18:31.8960637Z [36;1mgh label create "agents:formatted" \[0m
+2026-11-08T16:18:31.8961041Z [36;1m  --description "Issue has been formatted to AGENT_ISSUE_TEMPLATE" \[0m
+2026-11-08T16:18:31.8961457Z [36;1m  --color "1D76DB" --force || true[0m
+2026-11-08T16:18:31.8961766Z [36;1m[0m
+2026-11-08T16:18:31.8962027Z [36;1mgh label create "agents:optimize" \[0m
+2026-11-08T16:18:31.8962469Z [36;1m  --description "Triggers issue analysis with optimization suggestions" \[0m
+2026-11-08T16:18:31.8962902Z [36;1m  --color "FBCA04" --force || true[0m
+2026-11-08T16:18:31.8963204Z [36;1m[0m
+2026-11-08T16:18:31.8963501Z [36;1mgh label create "agents:apply-suggestions" \[0m
+2026-11-08T16:18:31.8963959Z [36;1m  --description "Applies optimization suggestions from agents:optimize" \[0m
+2026-11-08T16:18:31.8964375Z [36;1m  --color "0E8A16" --force || true[0m
+2026-11-08T16:18:31.9008753Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:18:31.9009062Z env:
+2026-11-08T16:18:31.9010509Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:31.9012330Z   REPO_TOKEN: ***
+2026-11-08T16:18:31.9012694Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:31.9013402Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:31.9013844Z   PLAN_SCOPE: full
+2026-11-08T16:18:31.9014110Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:31.9014422Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:31.9014795Z   SYNC_PHASE: canary
+2026-11-08T16:18:31.9015067Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:31.9015446Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:31.9016323Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:31.9016929Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:18:31.9017648Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:31.9032914Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:31.9033541Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:31.9034154Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:18:31.9034842Z   GH_TOKEN: ***
+2026-11-08T16:18:31.9035119Z ##[endgroup]
+2026-11-08T16:18:32.3399543Z Creating label: sync
+2026-11-08T16:18:32.7991849Z label with name "sync" already exists; use `--force` to update its color and description
+2026-11-08T16:18:33.1921076Z Creating label: automated
+2026-11-08T16:18:33.6933682Z label with name "automated" already exists; use `--force` to update its color and description
+2026-11-08T16:18:34.1311332Z Creating label: workflow:source-sync
+2026-11-08T16:18:34.6478326Z label with name "workflow:source-sync" already exists; use `--force` to update its color and description
+2026-11-08T16:18:35.1059322Z Creating label: sync:delivery-staging
+2026-11-08T16:18:35.6002979Z label with name "sync:delivery-staging" already exists; use `--force` to update its color and description
+2026-11-08T16:18:36.0190822Z Creating label: sync:delivery-ready
+2026-11-08T16:18:36.5472982Z label with name "sync:delivery-ready" already exists; use `--force` to update its color and description
+2026-11-08T16:18:36.5475477Z Ensuring LangChain agent labels exist...
+2026-11-08T16:18:40.0064696Z ##[group]Run actions/github-script@v9
+2026-11-08T16:18:40.0065031Z with:
+2026-11-08T16:18:40.0068031Z   github-token: ***
+2026-11-08T16:18:40.0071223Z   script: const { isConsumerOpenPr } = require('./workflows/.github/scripts/sync_tracker_state');
+const branchName = process.env.SYNC_BRANCH;
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const exists = await isConsumerOpenPr({
+  github,
+  consumerRepo: process.env.TARGET_REPOSITORY,
+  branchPattern: new RegExp(`^${escapeRegex(branchName)}$`),
+  core,
+});
+// Stable candidate/delivery branches supersede the older
+// generation-named branches.  A non-terminal legacy PR must still
+// hold the lane: creating a stable PR beside it converts one
+// delivery attempt into an avoidable replacement.
+const legacyInFlight = await isConsumerOpenPr({
+  github,
+  consumerRepo: process.env.TARGET_REPOSITORY,
+  branchPattern: /^sync\/workflows-[0-9a-f]{12}$/i,
+  core,
+});
+core.setOutput('exists', exists ? 'true' : 'false');
+core.setOutput('legacy_in_flight', legacyInFlight ? 'true' : 'false');
+if (exists) {
+  core.notice(`Existing sync PR is already open for ${branchName}`);
+}
+if (legacyInFlight) {
+  core.warning(
+    `Holding ${branchName}: a legacy sync/workflows-* PR is still open and must reach terminal disposition before migration.`,
+  );
+}
+
+2026-11-08T16:18:40.0074534Z   debug: false
+2026-11-08T16:18:40.0074808Z   user-agent: actions/github-script
+2026-11-08T16:18:40.0075128Z   result-encoding: json
+2026-11-08T16:18:40.0075406Z   retries: 0
+2026-11-08T16:18:40.0075690Z   retry-exempt-status-codes: 400,401,403,404,422
+2026-11-08T16:18:40.0076211Z env:
+2026-11-08T16:18:40.0077640Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:40.0079387Z   REPO_TOKEN: ***
+2026-11-08T16:18:40.0079725Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:40.0080230Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:40.0080664Z   PLAN_SCOPE: full
+2026-11-08T16:18:40.0080923Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:40.0081248Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:40.0081618Z   SYNC_PHASE: canary
+2026-11-08T16:18:40.0081887Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:40.0082268Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:40.0082720Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:40.0083435Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:18:40.0083869Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:40.0084288Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:40.0084706Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:40.0085121Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:18:40.0085516Z   SYNC_BRANCH: sync/workflows-candidate
+2026-11-08T16:18:40.0085984Z ##[endgroup]
+2026-11-08T16:18:40.9440680Z ##[notice]Existing sync PR is already open for sync/workflows-candidate
+2026-11-08T16:18:40.9555693Z ##[group]Run cd consumer
+2026-11-08T16:18:40.9556734Z [36;1mcd consumer[0m
+2026-11-08T16:18:40.9557001Z [36;1m[0m
+2026-11-08T16:18:40.9557272Z [36;1mbranch_name="$SYNC_BRANCH"[0m
+2026-11-08T16:18:40.9557580Z [36;1m[0m
+2026-11-08T16:18:40.9557940Z [36;1m# Configure git for push/fetch authentication using credential helper[0m
+2026-11-08T16:18:40.9558474Z [36;1m# This avoids exposing token in git remote URL or command output.[0m
+2026-11-08T16:18:40.9559026Z [36;1m# Must be configured before any git operations that need auth[0m
+2026-11-08T16:18:40.9559522Z [36;1m# (including the early fetch of an existing sync branch).[0m
+2026-11-08T16:18:40.9560206Z [36;1mcredential_helper="!f() { echo \"username=x-access-token\"; echo \"***"; }; f"[0m
+2026-11-08T16:18:40.9560707Z [36;1mgit config credential.helper "$credential_helper"[0m
+2026-11-08T16:18:40.9561082Z [36;1m[0m
+2026-11-08T16:18:40.9561344Z [36;1mhold_ready_pr() {[0m
+2026-11-08T16:18:40.9561686Z [36;1m  local pr_number="$1"[0m
+2026-11-08T16:18:40.9562001Z [36;1m  local expected_head="$2"[0m
+2026-11-08T16:18:40.9562320Z [36;1m  local pr_json[0m
+2026-11-08T16:18:40.9562611Z [36;1m  local pr_state[0m
+2026-11-08T16:18:40.9562900Z [36;1m  local pr_head[0m
+2026-11-08T16:18:40.9563186Z [36;1m  local pr_is_draft[0m
+2026-11-08T16:18:40.9563486Z [36;1m  local pr_has_auto_merge[0m
+2026-11-08T16:18:40.9563800Z [36;1m[0m
+2026-11-08T16:18:40.9564095Z [36;1m  pr_json=$(gh pr view "$pr_number" \[0m
+2026-11-08T16:18:40.9564512Z [36;1m    --json state,headRefOid,isDraft,autoMergeRequest)[0m
+2026-11-08T16:18:40.9564920Z [36;1m  pr_state=$(jq -r .state <<<"$pr_json")[0m
+2026-11-08T16:18:40.9565293Z [36;1m  pr_head=$(jq -r .headRefOid <<<"$pr_json")[0m
+2026-11-08T16:18:40.9565672Z [36;1m  pr_is_draft=$(jq -r .isDraft <<<"$pr_json")[0m
+2026-11-08T16:18:40.9566293Z [36;1m  pr_has_auto_merge=$(jq -r '.autoMergeRequest != null' <<<"$pr_json")[0m
+2026-11-08T16:18:40.9566786Z [36;1m  if [ "$pr_state" != "OPEN" ] || [ "$pr_head" != "$expected_head" ]; then[0m
+2026-11-08T16:18:40.9567330Z [36;1m    echo "::error::Existing PR #$pr_number changed before refresh; refusing to overwrite it."[0m
+2026-11-08T16:18:40.9567780Z [36;1m    return 1[0m
+2026-11-08T16:18:40.9568045Z [36;1m  fi[0m
+2026-11-08T16:18:40.9568302Z [36;1m[0m
+2026-11-08T16:18:40.9568633Z [36;1m  # Maint 71 is the sole merge authority. Disable any inherited[0m
+2026-11-08T16:18:40.9569110Z [36;1m  # auto-merge before readiness, body, label, or head mutations.[0m
+2026-11-08T16:18:40.9569530Z [36;1m  if [ "$pr_has_auto_merge" = "true" ]; then[0m
+2026-11-08T16:18:40.9569926Z [36;1m    if ! gh pr merge "$pr_number" --disable-auto; then[0m
+2026-11-08T16:18:40.9570369Z [36;1m      echo "::error::Could not disable auto-merge for PR #$pr_number."[0m
+2026-11-08T16:18:40.9570760Z [36;1m      return 1[0m
+2026-11-08T16:18:40.9571045Z [36;1m    fi[0m
+2026-11-08T16:18:40.9571309Z [36;1m  fi[0m
+2026-11-08T16:18:40.9571606Z [36;1m  if [ "$pr_is_draft" = "true" ]; then[0m
+2026-11-08T16:18:40.9571954Z [36;1m    if ! gh pr ready "$pr_number"; then[0m
+2026-11-08T16:18:40.9572399Z [36;1m      echo "::error::Could not mark legacy draft PR #$pr_number ready for review."[0m
+2026-11-08T16:18:40.9572818Z [36;1m      return 1[0m
+2026-11-08T16:18:40.9573085Z [36;1m    fi[0m
+2026-11-08T16:18:40.9573325Z [36;1m  fi[0m
+2026-11-08T16:18:40.9573750Z [36;1m[0m
+2026-11-08T16:18:40.9574030Z [36;1m  pr_json=$(gh pr view "$pr_number" \[0m
+2026-11-08T16:18:40.9574430Z [36;1m    --json state,headRefOid,isDraft,autoMergeRequest)[0m
+2026-11-08T16:18:40.9574836Z [36;1m  pr_state=$(jq -r .state <<<"$pr_json")[0m
+2026-11-08T16:18:40.9575191Z [36;1m  pr_head=$(jq -r .headRefOid <<<"$pr_json")[0m
+2026-11-08T16:18:40.9575559Z [36;1m  pr_is_draft=$(jq -r .isDraft <<<"$pr_json")[0m
+2026-11-08T16:18:40.9576200Z [36;1m  pr_has_auto_merge=$(jq -r '.autoMergeRequest != null' <<<"$pr_json")[0m
+2026-11-08T16:18:40.9576626Z [36;1m  if [ "$pr_state" != "OPEN" ] \[0m
+2026-11-08T16:18:40.9577116Z [36;1m    || [ "$pr_head" != "$expected_head" ] \[0m
+2026-11-08T16:18:40.9577483Z [36;1m    || [ "$pr_is_draft" != "false" ] \[0m
+2026-11-08T16:18:40.9577844Z [36;1m    || [ "$pr_has_auto_merge" != "false" ]; then[0m
+2026-11-08T16:18:40.9578267Z [36;1m      echo "::error::PR #$pr_number is not safely held ready for review."[0m
+2026-11-08T16:18:40.9578673Z [36;1m      return 1[0m
+2026-11-08T16:18:40.9578949Z [36;1m  fi[0m
+2026-11-08T16:18:40.9579199Z [36;1m}[0m
+2026-11-08T16:18:40.9579450Z [36;1m[0m
+2026-11-08T16:18:40.9579798Z [36;1m# Keep one generated PR per lane current. Both candidate and promoted[0m
+2026-11-08T16:18:40.9580295Z [36;1m# deliveries use stable branches; immutable plan/hash identity lives in[0m
+2026-11-08T16:18:40.9580779Z [36;1m# the delivery marker rather than in a replacement PR branch.[0m
+2026-11-08T16:18:40.9581220Z [36;1mexisting_pr=$(gh pr list --head "$branch_name" \[0m
+2026-11-08T16:18:40.9581638Z [36;1m  --json number,headRefName,isCrossRepository \[0m
+2026-11-08T16:18:40.9582028Z [36;1m  | jq -r --arg branch "$branch_name" \[0m
+2026-11-08T16:18:40.9582492Z [36;1m    '.[] | select(.headRefName == $branch and .isCrossRepository == false) | .number' \[0m
+2026-11-08T16:18:40.9582937Z [36;1m  | head -n 1 || echo "")[0m
+2026-11-08T16:18:40.9583245Z [36;1mexisting_head=""[0m
+2026-11-08T16:18:40.9583542Z [36;1mexisting_base=""[0m
+2026-11-08T16:18:40.9583814Z [36;1mexisting_tree=""[0m
+2026-11-08T16:18:40.9584101Z [36;1mexisting_refreshable=false[0m
+2026-11-08T16:18:40.9584434Z [36;1mexisting_refresh_reason="none"[0m
+2026-11-08T16:18:40.9584780Z [36;1mexisting_lifecycle_initialized=false[0m
+2026-11-08T16:18:40.9585117Z [36;1mexisting_verified=false[0m
+2026-11-08T16:18:40.9585461Z [36;1mexisting_verification_reason="not-checked"[0m
+2026-11-08T16:18:40.9585973Z [36;1mdelivery_state="staging"[0m
+2026-11-08T16:18:40.9586313Z [36;1mreview_started_at=""[0m
+2026-11-08T16:18:40.9586606Z [36;1msealed_at=""[0m
+2026-11-08T16:18:40.9586889Z [36;1msealed_head_sha=""[0m
+2026-11-08T16:18:40.9587182Z [36;1mreview_evidence='{}'[0m
+2026-11-08T16:18:40.9587474Z [36;1mhead_observed_sha=""[0m
+2026-11-08T16:18:40.9587758Z [36;1mhead_observed_at=""[0m
+2026-11-08T16:18:40.9588065Z [36;1mif [ -n "$existing_pr" ]; then[0m
+2026-11-08T16:18:40.9588507Z [36;1m  echo "Inspecting existing sync PR #$existing_pr for same-generation refresh"[0m
+2026-11-08T16:18:40.9589025Z [36;1m  # Capture the remote head now so a later force push cannot overwrite[0m
+2026-11-08T16:18:40.9589445Z [36;1m  # an intervening consumer edit.[0m
+2026-11-08T16:18:40.9589781Z [36;1m  git fetch origin "$branch_name"[0m
+2026-11-08T16:18:40.9590131Z [36;1m  existing_head=$(git rev-parse FETCH_HEAD)[0m
+2026-11-08T16:18:40.9590543Z [36;1m  existing_tree=$(git rev-parse "${existing_head}^{tree}")[0m
+2026-11-08T16:18:40.9604623Z [36;1m  existing_verification=$([0m
+2026-11-08T16:18:40.9605000Z [36;1m    GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \[0m
+2026-11-08T16:18:40.9605456Z [36;1m      ../workflows/.github/scripts/create_signed_sync_commit.js \[0m
+2026-11-08T16:18:40.9606074Z [36;1m      --operation verify-commit \[0m
+2026-11-08T16:18:40.9606438Z [36;1m      --repository "$TARGET_REPOSITORY" \[0m
+2026-11-08T16:18:40.9606798Z [36;1m      --commit-sha "$existing_head"[0m
+2026-11-08T16:18:40.9607125Z [36;1m  )[0m
+2026-11-08T16:18:40.9607679Z [36;1m  existing_verified=$(jq -r '.verified // false' <<<"$existing_verification")[0m
+2026-11-08T16:18:40.9608288Z [36;1m  existing_verification_reason=$(jq -r '.verification_reason // "missing"' <<<"$existing_verification")[0m
+2026-11-08T16:18:40.9608804Z [36;1m  existing_body_file=$(mktemp)[0m
+2026-11-08T16:18:40.9609235Z [36;1m  gh pr view "$existing_pr" --json body -q .body >"$existing_body_file" || true[0m
+2026-11-08T16:18:40.9609754Z [36;1m  # shellcheck disable=SC2016 # The embedded Node source must remain literal.[0m
+2026-11-08T16:18:40.9610182Z [36;1m  refresh_json=$([0m
+2026-11-08T16:18:40.9610608Z [36;1m    EXISTING_BODY_FILE="$existing_body_file" \[0m
+2026-11-08T16:18:40.9611006Z [36;1m    DELIVERY_GENERATION="$DELIVERY_GENERATION" \[0m
+2026-11-08T16:18:40.9611370Z [36;1m    PLAN_ID="$PLAN_ID" \[0m
+2026-11-08T16:18:40.9611705Z [36;1m    DELIVERY_REPOSITORY="$DELIVERY_REPOSITORY" \[0m
+2026-11-08T16:18:40.9612050Z [36;1m    SYNC_PHASE="$SYNC_PHASE" \[0m
+2026-11-08T16:18:40.9612382Z [36;1m    SYNC_BRANCH="$branch_name" \[0m
+2026-11-08T16:18:40.9612693Z [36;1m    node -e '[0m
+2026-11-08T16:18:40.9612970Z [36;1m      const fs = require("fs");[0m
+2026-11-08T16:18:40.9613512Z [36;1m      const { parseDeliveryRecord, mergeEligibility } = require("../workflows/.github/scripts/sync_pr_lease_contract");[0m
+2026-11-08T16:18:40.9614162Z [36;1m      const body = fs.readFileSync(process.env.EXISTING_BODY_FILE || "", "utf8");[0m
+2026-11-08T16:18:40.9614621Z [36;1m      const record = parseDeliveryRecord(body);[0m
+2026-11-08T16:18:40.9614979Z [36;1m      if (!record) {[0m
+2026-11-08T16:18:40.9615440Z [36;1m        process.stdout.write(JSON.stringify({refreshable:false, reason:"missing_or_invalid"}));[0m
+2026-11-08T16:18:40.9616082Z [36;1m        process.exit(0);[0m
+2026-11-08T16:18:40.9616392Z [36;1m      }[0m
+2026-11-08T16:18:40.9616755Z [36;1m      const expectedStableBranch = process.env.SYNC_PHASE === "canary"[0m
+2026-11-08T16:18:40.9617204Z [36;1m        ? "sync/workflows-candidate"[0m
+2026-11-08T16:18:40.9617545Z [36;1m        : "sync/workflows-delivery";[0m
+2026-11-08T16:18:40.9617992Z [36;1m      const isStableDelivery = process.env.SYNC_BRANCH === expectedStableBranch;[0m
+2026-11-08T16:18:40.9618467Z [36;1m      if (isStableDelivery) {[0m
+2026-11-08T16:18:40.9618882Z [36;1m        if (record.repository !== (process.env.DELIVERY_REPOSITORY || "")) {[0m
+2026-11-08T16:18:40.9619451Z [36;1m          process.stdout.write(JSON.stringify({refreshable:false, reason:"repository_mismatch"}));[0m
+2026-11-08T16:18:40.9619929Z [36;1m          process.exit(0);[0m
+2026-11-08T16:18:40.9620229Z [36;1m        }[0m
+2026-11-08T16:18:40.9620518Z [36;1m        if (record.terminal_disposition) {[0m
+2026-11-08T16:18:40.9620894Z [36;1m          process.stdout.write(JSON.stringify({[0m
+2026-11-08T16:18:40.9621245Z [36;1m            refreshable: false,[0m
+2026-11-08T16:18:40.9621618Z [36;1m            reason: `terminal:${record.terminal_disposition}`,[0m
+2026-11-08T16:18:40.9621988Z [36;1m          }));[0m
+2026-11-08T16:18:40.9622263Z [36;1m          process.exit(0);[0m
+2026-11-08T16:18:40.9622553Z [36;1m        }[0m
+2026-11-08T16:18:40.9622847Z [36;1m        process.stdout.write(JSON.stringify({[0m
+2026-11-08T16:18:40.9623190Z [36;1m          refreshable: true,[0m
+2026-11-08T16:18:40.9623517Z [36;1m          reason: "stable_plan_rotation",[0m
+2026-11-08T16:18:40.9623921Z [36;1m          lifecycle_initialized: Boolean(record.delivery_state),[0m
+2026-11-08T16:18:40.9624351Z [36;1m          delivery_state: record.delivery_state || "staging",[0m
+2026-11-08T16:18:40.9624782Z [36;1m          review_started_at: record.review_started_at || "",[0m
+2026-11-08T16:18:40.9625173Z [36;1m          sealed_at: record.sealed_at || "",[0m
+2026-11-08T16:18:40.9625560Z [36;1m          sealed_head_sha: record.sealed_head_sha || "",[0m
+2026-11-08T16:18:40.9626142Z [36;1m          review_evidence: record.review_evidence || {},[0m
+2026-11-08T16:18:40.9626672Z [36;1m          head_observed_sha: record.head_observed_sha || "",[0m
+2026-11-08T16:18:40.9627074Z [36;1m          head_observed_at: record.head_observed_at || "",[0m
+2026-11-08T16:18:40.9627415Z [36;1m        }));[0m
+2026-11-08T16:18:40.9627685Z [36;1m        process.exit(0);[0m
+2026-11-08T16:18:40.9627972Z [36;1m      }[0m
+2026-11-08T16:18:40.9628326Z [36;1m      if (record.generation !== (process.env.DELIVERY_GENERATION || "")) {[0m
+2026-11-08T16:18:40.9628891Z [36;1m        process.stdout.write(JSON.stringify({refreshable:false, reason:"generation_mismatch"}));[0m
+2026-11-08T16:18:40.9629458Z [36;1m        process.exit(0);[0m
+2026-11-08T16:18:40.9629741Z [36;1m      }[0m
+2026-11-08T16:18:40.9630032Z [36;1m      const result = mergeEligibility(record, {[0m
+2026-11-08T16:18:40.9630401Z [36;1m        planId: process.env.PLAN_ID || "",[0m
+2026-11-08T16:18:40.9630778Z [36;1m        repository: process.env.DELIVERY_REPOSITORY || "",[0m
+2026-11-08T16:18:40.9631138Z [36;1m      });[0m
+2026-11-08T16:18:40.9631432Z [36;1m      process.stdout.write(JSON.stringify({[0m
+2026-11-08T16:18:40.9631785Z [36;1m        refreshable: result.eligible,[0m
+2026-11-08T16:18:40.9632126Z [36;1m        reason: result.reason,[0m
+2026-11-08T16:18:40.9632522Z [36;1m        lifecycle_initialized: Boolean(record.delivery_state),[0m
+2026-11-08T16:18:40.9632931Z [36;1m        delivery_state: record.delivery_state || "",[0m
+2026-11-08T16:18:40.9633341Z [36;1m        review_started_at: record.review_started_at || "",[0m
+2026-11-08T16:18:40.9633713Z [36;1m        sealed_at: record.sealed_at || "",[0m
+2026-11-08T16:18:40.9634090Z [36;1m        sealed_head_sha: record.sealed_head_sha || "",[0m
+2026-11-08T16:18:40.9634475Z [36;1m        review_evidence: record.review_evidence || {},[0m
+2026-11-08T16:18:40.9634869Z [36;1m        head_observed_sha: record.head_observed_sha || "",[0m
+2026-11-08T16:18:40.9635272Z [36;1m        head_observed_at: record.head_observed_at || "",[0m
+2026-11-08T16:18:40.9635617Z [36;1m      }));[0m
+2026-11-08T16:18:40.9636021Z [36;1m    '[0m
+2026-11-08T16:18:40.9636273Z [36;1m  )[0m
+2026-11-08T16:18:40.9636538Z [36;1m  rm -f "$existing_body_file"[0m
+2026-11-08T16:18:40.9636948Z [36;1m  existing_refreshable=$(jq -r '.refreshable // false' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9637462Z [36;1m  existing_refresh_reason=$(jq -r '.reason // "unknown"' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9638239Z [36;1m  existing_lifecycle_initialized=$(jq -r '.lifecycle_initialized // false' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9638792Z [36;1m  delivery_state=$(jq -r '.delivery_state // "staging"' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9639264Z [36;1m  review_started_at=$(jq -r '.review_started_at // ""' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9639677Z [36;1m  sealed_at=$(jq -r '.sealed_at // ""' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9640104Z [36;1m  sealed_head_sha=$(jq -r '.sealed_head_sha // ""' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9640565Z [36;1m  review_evidence=$(jq -c '.review_evidence // {}' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9641028Z [36;1m  head_observed_sha=$(jq -r '.head_observed_sha // ""' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9641492Z [36;1m  head_observed_at=$(jq -r '.head_observed_at // ""' <<<"$refresh_json")[0m
+2026-11-08T16:18:40.9642047Z [36;1m  echo "Existing PR #$existing_pr refreshable=${existing_refreshable} reason=${existing_refresh_reason}"[0m
+2026-11-08T16:18:40.9642529Z [36;1mfi[0m
+2026-11-08T16:18:40.9642772Z [36;1m[0m
+2026-11-08T16:18:40.9643055Z [36;1m# Remote branch exists but no PR was found[0m
+2026-11-08T16:18:40.9643480Z [36;1m# (likely from a failed previous run) - deleting and recreating[0m
+2026-11-08T16:18:40.9644035Z [36;1mif [ -z "$existing_pr" ] && git ls-remote --exit-code origin "refs/heads/$branch_name" >/dev/null 2>&1; then[0m
+2026-11-08T16:18:40.9644603Z [36;1m    echo "Remote branch $branch_name exists but no PR was found."[0m
+2026-11-08T16:18:40.9645076Z [36;1m    echo "Deleting and recreating branch from previous failed run."[0m
+2026-11-08T16:18:40.9645641Z [36;1m  # Delete the remote branch so we can push fresh[0m
+2026-11-08T16:18:40.9646288Z [36;1m  delete_output=$(git push origin --delete "$branch_name" 2>&1) || {[0m
+2026-11-08T16:18:40.9646711Z [36;1m      not_found_re='remote ref .* not found'[0m
+2026-11-08T16:18:40.9647081Z [36;1m      not_found_re+='|remote ref does not exist'[0m
+2026-11-08T16:18:40.9647450Z [36;1m      not_found_re+='|could not find remote ref'[0m
+2026-11-08T16:18:40.9647953Z [36;1m      if printf '%s\n' "$delete_output" | grep -qiE "$not_found_re"; then[0m
+2026-11-08T16:18:40.9648670Z [36;1m      echo "Remote branch $branch_name no longer exists; continuing"[0m
+2026-11-08T16:18:40.9649071Z [36;1m    else[0m
+2026-11-08T16:18:40.9649362Z [36;1m      printf '%s\n' "$delete_output" >&2[0m
+2026-11-08T16:18:40.9649695Z [36;1m      exit 1[0m
+2026-11-08T16:18:40.9649955Z [36;1m    fi[0m
+2026-11-08T16:18:40.9650232Z [36;1m  }[0m
+2026-11-08T16:18:40.9650514Z [36;1mfi[0m
+2026-11-08T16:18:40.9650770Z [36;1m[0m
+2026-11-08T16:18:40.9651121Z [36;1m# Create the current-generation branch from the current consumer base.[0m
+2026-11-08T16:18:40.9651551Z [36;1mbase_sha=$(git rev-parse HEAD)[0m
+2026-11-08T16:18:40.9651891Z [36;1mif [ -n "$existing_pr" ]; then[0m
+2026-11-08T16:18:40.9652292Z [36;1m  # A stable PR may contain a branch-update merge or another commit.[0m
+2026-11-08T16:18:40.9652775Z [36;1m  # Its immediate parent is not necessarily the base of its full[0m
+2026-11-08T16:18:40.9653359Z [36;1m  # unmerged payload; use the common ancestor with consumer main.[0m
+2026-11-08T16:18:40.9653813Z [36;1m  existing_base=$(git merge-base "$existing_head" "$base_sha")[0m
+2026-11-08T16:18:40.9654188Z [36;1mfi[0m
+2026-11-08T16:18:40.9654451Z [36;1mgit checkout -B "$branch_name"[0m
+2026-11-08T16:18:40.9654746Z [36;1m[0m
+2026-11-08T16:18:40.9655102Z [36;1m# Stage ONLY manifest-declared targets, to avoid accidentally committing[0m
+2026-11-08T16:18:40.9655648Z [36;1m# consumer-specific artifacts (e.g. requirements.lock, *.pyc, *.egg-info).[0m
+2026-11-08T16:18:40.9656250Z [36;1mif [ -f "../sync_targets.txt" ]; then[0m
+2026-11-08T16:18:40.9656583Z [36;1m  while IFS= read -r path; do[0m
+2026-11-08T16:18:40.9656898Z [36;1m    [ -z "$path" ] && continue[0m
+2026-11-08T16:18:40.9657219Z [36;1m    if [ -e "$path" ]; then[0m
+2026-11-08T16:18:40.9657594Z [36;1m      # Use --force so consumer .gitignore rules cannot silently[0m
+2026-11-08T16:18:40.9658021Z [36;1m      # exclude files that the sync manifest declares.[0m
+2026-11-08T16:18:40.9658400Z [36;1m      git add --force -- "$path"[0m
+2026-11-08T16:18:40.9658701Z [36;1m    else[0m
+2026-11-08T16:18:40.9659060Z [36;1m      # Stage deletions for removal targets (or files removed by sync).[0m
+2026-11-08T16:18:40.9659490Z [36;1m      git add -u -- "$path" >/dev/null 2>&1 || true[0m
+2026-11-08T16:18:40.9659821Z [36;1m    fi[0m
+2026-11-08T16:18:40.9660091Z [36;1m  done < "../sync_targets.txt"[0m
+2026-11-08T16:18:40.9660388Z [36;1melse[0m
+2026-11-08T16:18:40.9660735Z [36;1m  echo "::warning::sync_targets.txt missing; falling back to git add -A"[0m
+2026-11-08T16:18:40.9661142Z [36;1m  git add --force -A[0m
+2026-11-08T16:18:40.9661417Z [36;1mfi[0m
+2026-11-08T16:18:40.9661657Z [36;1m[0m
+2026-11-08T16:18:40.9661933Z [36;1mif [ "$PLAN_SCOPE" = "source-delta" ] \[0m
+2026-11-08T16:18:40.9662268Z [36;1m  && [ -n "$existing_pr" ] \[0m
+2026-11-08T16:18:40.9662603Z [36;1m  && [ "$existing_refreshable" = "true" ]; then[0m
+2026-11-08T16:18:40.9662974Z [36;1m  if [ ! -f "../sync_targets.txt" ]; then[0m
+2026-11-08T16:18:40.9663430Z [36;1m    echo "::error::Source-delta rotation lacks selected targets; use full scope."[0m
+2026-11-08T16:18:40.9663847Z [36;1m    exit 1[0m
+2026-11-08T16:18:40.9664103Z [36;1m  fi[0m
+2026-11-08T16:18:40.9664451Z [36;1m  # The manifest target list includes files skipped for this consumer.[0m
+2026-11-08T16:18:40.9664928Z [36;1m  # Only staged paths will survive when the stable branch is rebuilt.[0m
+2026-11-08T16:18:40.9665509Z [36;1m  git diff --cached --name-only > ../staged_sync_targets.txt[0m
+2026-11-08T16:18:40.9666122Z [36;1m  python3 ../workflows/scripts/guard_stable_plan_rotation.py \[0m
+2026-11-08T16:18:40.9666510Z [36;1m    --repo . \[0m
+2026-11-08T16:18:40.9666836Z [36;1m    --old-base "$existing_base" \[0m
+2026-11-08T16:18:40.9667170Z [36;1m    --old-head "$existing_head" \[0m
+2026-11-08T16:18:40.9667475Z [36;1m    --new-base "$base_sha" \[0m
+2026-11-08T16:18:40.9667858Z [36;1m    --selected-targets-file ../staged_sync_targets.txt || {[0m
+2026-11-08T16:18:40.9668488Z [36;1m      echo "::error::Source-delta rotation would discard an outstanding stable PR payload."[0m
+2026-11-08T16:18:40.9668941Z [36;1m      exit 1[0m
+2026-11-08T16:18:40.9669200Z [36;1m    }[0m
+2026-11-08T16:18:40.9669456Z [36;1mfi[0m
+2026-11-08T16:18:40.9669699Z [36;1m[0m
+2026-11-08T16:18:40.9669969Z [36;1mdesired_tree_hash=$(git write-tree)[0m
+2026-11-08T16:18:40.9670412Z [36;1m# Force remints the selected payload so a refused PR Gate gets a new head.[0m
+2026-11-08T16:18:40.9670844Z [36;1mif [ "$FORCE" = "true" ]; then[0m
+2026-11-08T16:18:40.9671310Z [36;1m  echo "Forced sync: regenerating signed delivery instead of preserving an identical head"[0m
+2026-11-08T16:18:40.9671758Z [36;1mfi[0m
+2026-11-08T16:18:40.9672019Z [36;1mmatching_existing=false[0m
+2026-11-08T16:18:40.9672337Z [36;1mmigrating_legacy_lifecycle=false[0m
+2026-11-08T16:18:40.9672666Z [36;1mif [ -n "$existing_pr" ] \[0m
+2026-11-08T16:18:40.9673008Z [36;1m  && [ "$existing_refreshable" = "true" ] \[0m
+2026-11-08T16:18:40.9673363Z [36;1m  && [ "$existing_base" = "$base_sha" ] \[0m
+2026-11-08T16:18:40.9673736Z [36;1m  && [ "$existing_tree" = "$desired_tree_hash" ] \[0m
+2026-11-08T16:18:40.9674105Z [36;1m  && [ "$existing_verified" = "true" ] \[0m
+2026-11-08T16:18:40.9674433Z [36;1m  && [ "$FORCE" != "true" ]; then[0m
+2026-11-08T16:18:40.9674752Z [36;1m  matching_existing=true[0m
+2026-11-08T16:18:40.9675121Z [36;1m  if [ "$existing_lifecycle_initialized" = "true" ]; then[0m
+2026-11-08T16:18:40.9675743Z [36;1m    echo "Existing PR #$existing_pr already matches this base and desired tree; preserving its review lifecycle while refreshing metadata"[0m
+2026-11-08T16:18:40.9676478Z [36;1m  else[0m
+2026-11-08T16:18:40.9676771Z [36;1m    migrating_legacy_lifecycle=true[0m
+2026-11-08T16:18:40.9677105Z [36;1m    delivery_state="staging"[0m
+2026-11-08T16:18:40.9677429Z [36;1m    review_started_at=""[0m
+2026-11-08T16:18:40.9677735Z [36;1m    sealed_at=""[0m
+2026-11-08T16:18:40.9678021Z [36;1m    sealed_head_sha=""[0m
+2026-11-08T16:18:40.9678322Z [36;1m    review_evidence='{}'[0m
+2026-11-08T16:18:40.9678895Z [36;1m    echo "Existing PR #$existing_pr already matches this base and desired tree; migrating its legacy metadata into the staged delivery lifecycle"[0m
+2026-11-08T16:18:40.9679468Z [36;1m  fi[0m
+2026-11-08T16:18:40.9679805Z [36;1m  # A verified no-op is a successful producer observation too.[0m
+2026-11-08T16:18:40.9680216Z [36;1m  head_observed_sha="$existing_head"[0m
+2026-11-08T16:18:40.9680597Z [36;1m  head_observed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)[0m
+2026-11-08T16:18:40.9680955Z [36;1melif [ -n "$existing_pr" ] \[0m
+2026-11-08T16:18:40.9681295Z [36;1m  && [ "$existing_refreshable" = "true" ] \[0m
+2026-11-08T16:18:40.9681654Z [36;1m  && [ "$existing_base" = "$base_sha" ] \[0m
+2026-11-08T16:18:40.9682018Z [36;1m  && [ "$existing_tree" = "$desired_tree_hash" ] \[0m
+2026-11-08T16:18:40.9682392Z [36;1m  && [ "$existing_verified" != "true" ]; then[0m
+2026-11-08T16:18:40.9682873Z [36;1m  echo "Existing PR #$existing_pr matches the desired tree but its head is not verified."[0m
+2026-11-08T16:18:40.9683446Z [36;1m  echo "Reason: ${existing_verification_reason}; replacing it with a signed commit."[0m
+2026-11-08T16:18:40.9683978Z [36;1melif [ -n "$existing_pr" ] && [ "$existing_refreshable" != "true" ]; then[0m
+2026-11-08T16:18:40.9684717Z [36;1m  echo "Existing PR #$existing_pr is not refreshable (${existing_refresh_reason}); leaving it for Maint 71 disposition."[0m
+2026-11-08T16:18:40.9685310Z [36;1m  echo "status=existing_pr_not_refreshable" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:18:40.9685686Z [36;1m  exit 0[0m
+2026-11-08T16:18:40.9686030Z [36;1mfi[0m
+2026-11-08T16:18:40.9686278Z [36;1m[0m
+2026-11-08T16:18:40.9686626Z [36;1mif git diff --cached --quiet && [ "$matching_existing" != "true" ]; then[0m
+2026-11-08T16:18:40.9687097Z [36;1m  echo "No changes to commit after sync; skipping PR creation."[0m
+2026-11-08T16:18:40.9687641Z [36;1m  echo "status=no_committed_changes" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:18:40.9688000Z [36;1m  exit 0[0m
+2026-11-08T16:18:40.9688249Z [36;1mfi[0m
+2026-11-08T16:18:40.9688493Z [36;1m[0m
+2026-11-08T16:18:40.9688866Z [36;1m# A verified no-op keeps the existing signed head, so the body must name the source[0m
+2026-11-08T16:18:40.9689427Z [36;1m# that head was produced from (its own native trailers), not this run's source: the[0m
+2026-11-08T16:18:40.9689971Z [36;1m# plan is unchanged, so the delivery is the same, and Maint 71's native-scope check[0m
+2026-11-08T16:18:40.9690500Z [36;1m# requires the head's `Source commit:` trailer and the delivery record to agree.[0m
+2026-11-08T16:18:40.9691012Z [36;1m# Relabelling the body with a newer source left every canary failing[0m
+2026-11-08T16:18:40.9691523Z [36;1m# `canary_refresh_native_scope_mismatch` (2026-11-06, Workflows#4466 follow-up).[0m
+2026-11-08T16:18:40.9692047Z [36;1m# A head whose trailers name another plan or scope is regenerated instead.[0m
+2026-11-08T16:18:40.9692484Z [36;1mbody_source_commit="$PLAN_SOURCE_COMMIT"[0m
+2026-11-08T16:18:40.9692845Z [36;1mif [ "$matching_existing" = "true" ]; then[0m
+2026-11-08T16:18:40.9693301Z [36;1m  existing_message=$(git log -1 --format=%B "$existing_head" 2>/dev/null || true)[0m
+2026-11-08T16:18:40.9693890Z [36;1m  existing_plan_trailer=$(sed -n 's/^Consumer-sync plan ID:[[:space:]]*//p' <<<"$existing_message" | head -n 1)[0m
+2026-11-08T16:18:40.9694532Z [36;1m  existing_scope_trailer=$(sed -n 's/^Plan scope:[[:space:]]*//p' <<<"$existing_message" | head -n 1)[0m
+2026-11-08T16:18:40.9695139Z [36;1m  existing_base_trailer=$(sed -n 's/^Scope base SHA:[[:space:]]*//p' <<<"$existing_message" | head -n 1)[0m
+2026-11-08T16:18:40.9695756Z [36;1m  existing_source_trailer=$(sed -n 's/^Source commit:[[:space:]]*//p' <<<"$existing_message" | head -n 1)[0m
+2026-11-08T16:18:40.9696353Z [36;1m  if [ "$existing_plan_trailer" = "$PLAN_ID" ] \[0m
+2026-11-08T16:18:40.9696763Z [36;1m    && [ "$existing_scope_trailer" = "$PLAN_SCOPE" ] \[0m
+2026-11-08T16:18:40.9697191Z [36;1m    && [ "$existing_base_trailer" = "${SCOPE_BASE_SHA:-full}" ] \[0m
+2026-11-08T16:18:40.9697617Z [36;1m    && [[ "$existing_source_trailer" =~ ^[0-9a-f]{40}$ ]]; then[0m
+2026-11-08T16:18:40.9698024Z [36;1m    body_source_commit="$existing_source_trailer"[0m
+2026-11-08T16:18:40.9698431Z [36;1m    if [ "$body_source_commit" != "$PLAN_SOURCE_COMMIT" ]; then[0m
+2026-11-08T16:18:40.9699026Z [36;1m      echo "Existing PR #$existing_pr head was produced from $body_source_commit for this plan; keeping that source identity"[0m
+2026-11-08T16:18:40.9699544Z [36;1m    fi[0m
+2026-11-08T16:18:40.9699801Z [36;1m  else[0m
+2026-11-08T16:18:40.9700358Z [36;1m    echo "Existing PR #$existing_pr head's native trailers do not name plan $PLAN_ID ($PLAN_SCOPE, base ${SCOPE_BASE_SHA:-full}); regenerating a signed delivery"[0m
+2026-11-08T16:18:40.9700967Z [36;1m    matching_existing=false[0m
+2026-11-08T16:18:40.9701307Z [36;1m    migrating_legacy_lifecycle=false[0m
+2026-11-08T16:18:40.9701627Z [36;1m  fi[0m
+2026-11-08T16:18:40.9701868Z [36;1mfi[0m
+2026-11-08T16:18:40.9702114Z [36;1m[0m
+2026-11-08T16:18:40.9702374Z [36;1mif [ -n "$existing_pr" ] \[0m
+2026-11-08T16:18:40.9702808Z [36;1m  && { [ "$matching_existing" != "true" ] || [ "$migrating_legacy_lifecycle" = "true" ]; }; then[0m
+2026-11-08T16:18:40.9703326Z [36;1m    # Revalidate the selected head, then close every automatic merge[0m
+2026-11-08T16:18:40.9703927Z [36;1m    # path immediately before mutating it. The staging label is[0m
+2026-11-08T16:18:40.9704376Z [36;1m    # enforced by all shared merger lanes and by Gate until Maint 71[0m
+2026-11-08T16:18:40.9704840Z [36;1m    # seals the exact head; PRs remain ready for review throughout.[0m
+2026-11-08T16:18:40.9705296Z [36;1m    if ! hold_ready_pr "$existing_pr" "$existing_head"; then[0m
+2026-11-08T16:18:40.9705730Z [36;1m      echo "status=existing_pr_changed" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:18:40.9706268Z [36;1m      exit 1[0m
+2026-11-08T16:18:40.9706681Z [36;1m    fi[0m
+2026-11-08T16:18:40.9707028Z [36;1m    gh pr edit "$existing_pr" --add-label "sync:delivery-staging"[0m
+2026-11-08T16:18:40.9707547Z [36;1m    gh pr edit "$existing_pr" --remove-label "sync:delivery-ready" >/dev/null 2>&1 || true[0m
+2026-11-08T16:18:40.9707988Z [36;1mfi[0m
+2026-11-08T16:18:40.9708239Z [36;1m[0m
+2026-11-08T16:18:40.9708525Z [36;1mif [ "$matching_existing" != "true" ]; then[0m
+2026-11-08T16:18:40.9708875Z [36;1m  delivery_state="staging"[0m
+2026-11-08T16:18:40.9709186Z [36;1m  review_started_at=""[0m
+2026-11-08T16:18:40.9709482Z [36;1m  sealed_at=""[0m
+2026-11-08T16:18:40.9709766Z [36;1m  sealed_head_sha=""[0m
+2026-11-08T16:18:40.9710063Z [36;1m  review_evidence='{}'[0m
+2026-11-08T16:18:40.9710355Z [36;1m  head_observed_sha=""[0m
+2026-11-08T16:18:40.9710648Z [36;1m  head_observed_at=""[0m
+2026-11-08T16:18:40.9710964Z [36;1m  commit_message_file=$(mktemp)[0m
+2026-11-08T16:18:40.9711295Z [36;1m  signed_result_file=$(mktemp)[0m
+2026-11-08T16:18:40.9711764Z [36;1m  signed_temp_branch="${branch_name}-signed-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"[0m
+2026-11-08T16:18:40.9712227Z [36;1m  cleanup_signed_commit() {[0m
+2026-11-08T16:18:40.9712578Z [36;1m    if [ -n "${signed_temp_branch:-}" ]; then[0m
+2026-11-08T16:18:40.9713053Z [36;1m      git push --quiet origin --delete "$signed_temp_branch" >/dev/null 2>&1 || true[0m
+2026-11-08T16:18:40.9713482Z [36;1m    fi[0m
+2026-11-08T16:18:40.9713797Z [36;1m    rm -f "${commit_message_file:-}" "${signed_result_file:-}"[0m
+2026-11-08T16:18:40.9714173Z [36;1m  }[0m
+2026-11-08T16:18:40.9714447Z [36;1m  trap cleanup_signed_commit EXIT[0m
+2026-11-08T16:18:40.9714773Z [36;1m  promotion_evidence_line=""[0m
+2026-11-08T16:18:40.9715108Z [36;1m  if [ "$SYNC_PHASE" = "promote" ]; then[0m
+2026-11-08T16:18:40.9715499Z [36;1m    if ! jq -e . >/dev/null 2>&1 <<<"$CANARY_EVIDENCE_JSON"; then[0m
+2026-11-08T16:18:40.9716031Z [36;1m      echo "::error::Promotion evidence is missing or invalid"[0m
+2026-11-08T16:18:40.9716406Z [36;1m      exit 1[0m
+2026-11-08T16:18:40.9716675Z [36;1m    fi[0m
+2026-11-08T16:18:40.9717054Z [36;1m    promotion_evidence_base64=$(printf '%s' "$CANARY_EVIDENCE_JSON" | base64 -w 0)[0m
+2026-11-08T16:18:40.9717626Z [36;1m    promotion_evidence_line="Canary evidence JSON (base64): $promotion_evidence_base64"[0m
+2026-11-08T16:18:40.9718064Z [36;1m  fi[0m
+2026-11-08T16:18:40.9718348Z [36;1m  cat >"$commit_message_file" <<COMMIT_MESSAGE[0m
+2026-11-08T16:18:40.9718785Z [36;1mchore: sync workflow templates from Workflows repo[0m
+2026-11-08T16:18:40.9719137Z [36;1m[0m
+2026-11-08T16:18:40.9719412Z [36;1mAutomated sync from stranske/Workflows[0m
+2026-11-08T16:18:40.9719763Z [36;1mTemplate hash: $DELIVERY_GENERATION[0m
+2026-11-08T16:18:40.9720079Z [36;1m[0m
+2026-11-08T16:18:40.9720347Z [36;1mChanges synced from sync-manifest.yml[0m
+2026-11-08T16:18:40.9720702Z [36;1mConsumer-sync plan ID: $PLAN_ID[0m
+2026-11-08T16:18:40.9721045Z [36;1mPlan scope: $PLAN_SCOPE[0m
+2026-11-08T16:18:40.9721385Z [36;1mScope base SHA: ${SCOPE_BASE_SHA:-full}[0m
+2026-11-08T16:18:40.9721731Z [36;1mSource commit: $PLAN_SOURCE_COMMIT[0m
+2026-11-08T16:18:40.9722064Z [36;1m$promotion_evidence_line[0m
+2026-11-08T16:18:40.9722368Z [36;1mCOMMIT_MESSAGE[0m
+2026-11-08T16:18:40.9722638Z [36;1m[0m
+2026-11-08T16:18:40.9722912Z [36;1m  GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \[0m
+2026-11-08T16:18:40.9723525Z [36;1m    ../workflows/.github/scripts/create_signed_sync_commit.js \[0m
+2026-11-08T16:18:40.9723930Z [36;1m    --operation create-commit \[0m
+2026-11-08T16:18:40.9724271Z [36;1m    --repository "$TARGET_REPOSITORY" \[0m
+2026-11-08T16:18:40.9724622Z [36;1m    --base-sha "$base_sha" \[0m
+2026-11-08T16:18:40.9724966Z [36;1m    --expected-tree-sha "$desired_tree_hash" \[0m
+2026-11-08T16:18:40.9725350Z [36;1m    --message-file "$commit_message_file" \[0m
+2026-11-08T16:18:40.9725713Z [36;1m    --cwd "$PWD" >"$signed_result_file"[0m
+2026-11-08T16:18:40.9726292Z [36;1m  signed_commit_sha=$(jq -er '.sha' "$signed_result_file")[0m
+2026-11-08T16:18:40.9726757Z [36;1m  signed_credential=$(jq -er '.credential' "$signed_result_file")[0m
+2026-11-08T16:18:40.9727276Z [36;1m  echo "Created verified sync commit $signed_commit_sha using $signed_credential"[0m
+2026-11-08T16:18:40.9727695Z [36;1m[0m
+2026-11-08T16:18:40.9728028Z [36;1m  # Give the API-created commit a temporary reachable ref, fetch it[0m
+2026-11-08T16:18:40.9728519Z [36;1m  # locally, then retain git push --force-with-lease as the atomic[0m
+2026-11-08T16:18:40.9728958Z [36;1m  # compare-and-swap for the stable delivery branch.[0m
+2026-11-08T16:18:40.9729345Z [36;1m  GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \[0m
+2026-11-08T16:18:40.9729749Z [36;1m    ../workflows/.github/scripts/create_signed_sync_commit.js \[0m
+2026-11-08T16:18:40.9730137Z [36;1m    --operation create-ref \[0m
+2026-11-08T16:18:40.9730474Z [36;1m    --repository "$TARGET_REPOSITORY" \[0m
+2026-11-08T16:18:40.9730834Z [36;1m    --ref "refs/heads/$signed_temp_branch" \[0m
+2026-11-08T16:18:40.9731219Z [36;1m    --commit-sha "$signed_commit_sha" >/dev/null[0m
+2026-11-08T16:18:40.9731595Z [36;1m  git fetch --quiet origin "$signed_temp_branch"[0m
+2026-11-08T16:18:40.9731974Z [36;1m  fetched_signed_sha=$(git rev-parse FETCH_HEAD)[0m
+2026-11-08T16:18:40.9732408Z [36;1m  fetched_signed_tree=$(git rev-parse "${fetched_signed_sha}^{tree}")[0m
+2026-11-08T16:18:40.9732859Z [36;1m  if [ "$fetched_signed_sha" != "$signed_commit_sha" ] \[0m
+2026-11-08T16:18:40.9733277Z [36;1m    || [ "$fetched_signed_tree" != "$desired_tree_hash" ]; then[0m
+2026-11-08T16:18:40.9733761Z [36;1m    echo "::error::Fetched signed commit does not match the expected commit/tree"[0m
+2026-11-08T16:18:40.9734176Z [36;1m    exit 1[0m
+2026-11-08T16:18:40.9734447Z [36;1m  fi[0m
+2026-11-08T16:18:40.9734695Z [36;1m[0m
+2026-11-08T16:18:40.9734944Z [36;1m  if [ -n "$existing_pr" ]; then[0m
+2026-11-08T16:18:40.9735330Z [36;1m    if ! hold_ready_pr "$existing_pr" "$existing_head"; then[0m
+2026-11-08T16:18:40.9735938Z [36;1m      echo "::error::Existing PR #$existing_pr changed during signed commit preparation."[0m
+2026-11-08T16:18:40.9736444Z [36;1m      echo "::error::Refusing to overwrite the changed head."[0m
+2026-11-08T16:18:40.9736810Z [36;1m      exit 1[0m
+2026-11-08T16:18:40.9737074Z [36;1m    fi[0m
+2026-11-08T16:18:40.9737350Z [36;1m    git push --quiet \[0m
+2026-11-08T16:18:40.9737739Z [36;1m      --force-with-lease="refs/heads/$branch_name:$existing_head" \[0m
+2026-11-08T16:18:40.9738193Z [36;1m      origin "$signed_commit_sha:refs/heads/$branch_name"[0m
+2026-11-08T16:18:40.9738547Z [36;1m  else[0m
+2026-11-08T16:18:40.9738908Z [36;1m    git push --quiet origin "$signed_commit_sha:refs/heads/$branch_name"[0m
+2026-11-08T16:18:40.9739317Z [36;1m  fi[0m
+2026-11-08T16:18:40.9739557Z [36;1m[0m
+2026-11-08T16:18:40.9739823Z [36;1m  published_verification=$([0m
+2026-11-08T16:18:40.9740167Z [36;1m    GH_TOKEN="$SIGNED_COMMIT_TOKEN" node \[0m
+2026-11-08T16:18:40.9740594Z [36;1m      ../workflows/.github/scripts/create_signed_sync_commit.js \[0m
+2026-11-08T16:18:40.9740995Z [36;1m      --operation verify-commit \[0m
+2026-11-08T16:18:40.9741350Z [36;1m      --repository "$TARGET_REPOSITORY" \[0m
+2026-11-08T16:18:40.9741705Z [36;1m      --commit-sha "$signed_commit_sha"[0m
+2026-11-08T16:18:40.9742016Z [36;1m  )[0m
+2026-11-08T16:18:40.9742524Z [36;1m  published_verified=$(jq -r '.verified // false' <<<"$published_verification")[0m
+2026-11-08T16:18:40.9743095Z [36;1m  published_reason=$(jq -r '.verification_reason // "missing"' <<<"$published_verification")[0m
+2026-11-08T16:18:40.9743656Z [36;1m  if [ "$published_verified" != "true" ] || [ "$published_reason" != "valid" ]; then[0m
+2026-11-08T16:18:40.9744194Z [36;1m    echo "::error::Published sync head is not verified (reason=$published_reason)"[0m
+2026-11-08T16:18:40.9744610Z [36;1m    exit 1[0m
+2026-11-08T16:18:40.9744866Z [36;1m  fi[0m
+2026-11-08T16:18:40.9745248Z [36;1m  head_observed_sha="$signed_commit_sha"[0m
+2026-11-08T16:18:40.9745634Z [36;1m  head_observed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)[0m
+2026-11-08T16:18:40.9746065Z [36;1m[0m
+2026-11-08T16:18:40.9746412Z [36;1m  git push --quiet origin --delete "$signed_temp_branch" >/dev/null[0m
+2026-11-08T16:18:40.9747234Z [36;1m  signed_temp_branch=""[0m
+2026-11-08T16:18:40.9760860Z [36;1m  rm -f "$commit_message_file" "$signed_result_file"[0m
+2026-11-08T16:18:40.9761266Z [36;1m  trap - EXIT[0m
+2026-11-08T16:18:40.9761553Z [36;1mfi[0m
+2026-11-08T16:18:40.9761798Z [36;1m[0m
+2026-11-08T16:18:40.9762050Z [36;1m# Create PR[0m
+2026-11-08T16:18:40.9762409Z [36;1mlease_expires_at=$(date -u -d '+72 hours' +%Y-%m-%dT%H:%M:%SZ)[0m
+2026-11-08T16:18:40.9762797Z [36;1msync_marker=$(jq -nc \[0m
+2026-11-08T16:18:40.9763166Z [36;1m  --arg schema "workflows-consumer-sync-pr/v1" \[0m
+2026-11-08T16:18:40.9763591Z [36;1m  --arg consumer_repo "$TARGET_REPOSITORY" \[0m
+2026-11-08T16:18:40.9763988Z [36;1m  --arg source_repository "$GITHUB_REPOSITORY" \[0m
+2026-11-08T16:18:40.9764383Z [36;1m  --arg source_sha "$body_source_commit" \[0m
+2026-11-08T16:18:40.9764776Z [36;1m  --arg template_hash "$DELIVERY_GENERATION" \[0m
+2026-11-08T16:18:40.9765146Z [36;1m  --arg plan_id "$PLAN_ID" \[0m
+2026-11-08T16:18:40.9765482Z [36;1m  --arg plan_scope "$PLAN_SCOPE" \[0m
+2026-11-08T16:18:40.9765955Z [36;1m  --arg scope_base_sha "$SCOPE_BASE_SHA" \[0m
+2026-11-08T16:18:40.9766340Z [36;1m  --arg source_commit "$body_source_commit" \[0m
+2026-11-08T16:18:40.9766706Z [36;1m  --arg sync_phase "$SYNC_PHASE" \[0m
+2026-11-08T16:18:40.9767050Z [36;1m  --arg sync_branch "$branch_name" \[0m
+2026-11-08T16:18:40.9767414Z [36;1m  --arg manifest ".github/sync-manifest.yml" \[0m
+2026-11-08T16:18:40.9767784Z [36;1m  --arg lifecycle_state "$delivery_state" \[0m
+2026-11-08T16:18:40.9768135Z [36;1m  --arg run_id "$GITHUB_RUN_ID" \[0m
+2026-11-08T16:18:40.9768479Z [36;1m  --arg run_attempt "$GITHUB_RUN_ATTEMPT" \[0m
+2026-11-08T16:18:40.9768834Z [36;1m  --argjson changes_count "$CHANGES_COUNT" \[0m
+2026-11-08T16:18:40.9769175Z [36;1m  '{[0m
+2026-11-08T16:18:40.9769438Z [36;1m    schema: $schema,[0m
+2026-11-08T16:18:40.9769745Z [36;1m    consumer_repo: $consumer_repo,[0m
+2026-11-08T16:18:40.9770102Z [36;1m    source_repository: $source_repository,[0m
+2026-11-08T16:18:40.9770450Z [36;1m    source_sha: $source_sha,[0m
+2026-11-08T16:18:40.9770768Z [36;1m    template_hash: $template_hash,[0m
+2026-11-08T16:18:40.9771090Z [36;1m    plan_id: $plan_id,[0m
+2026-11-08T16:18:40.9771388Z [36;1m    plan_scope: $plan_scope,[0m
+2026-11-08T16:18:40.9771699Z [36;1m    scope_base_sha: $scope_base_sha,[0m
+2026-11-08T16:18:40.9772035Z [36;1m    source_commit: $source_commit,[0m
+2026-11-08T16:18:40.9772350Z [36;1m    sync_phase: $sync_phase,[0m
+2026-11-08T16:18:40.9772652Z [36;1m    sync_branch: $sync_branch,[0m
+2026-11-08T16:18:40.9772971Z [36;1m    manifest: $manifest,[0m
+2026-11-08T16:18:40.9773302Z [36;1m    lifecycle_state: $lifecycle_state,[0m
+2026-11-08T16:18:40.9773626Z [36;1m    run_id: $run_id,[0m
+2026-11-08T16:18:40.9773918Z [36;1m    run_attempt: $run_attempt,[0m
+2026-11-08T16:18:40.9774241Z [36;1m    changes_count: $changes_count[0m
+2026-11-08T16:18:40.9774549Z [36;1m  }')[0m
+2026-11-08T16:18:40.9774816Z [36;1mdelivery_marker=$(jq -nc \[0m
+2026-11-08T16:18:40.9775168Z [36;1m  --arg schema "sync-pr-delivery-record/v1" \[0m
+2026-11-08T16:18:40.9775721Z [36;1m  --arg durable_issue_url "$DURABLE_ISSUE_URL" \[0m
+2026-11-08T16:18:40.9776196Z [36;1m  --arg plan_id "$PLAN_ID" \[0m
+2026-11-08T16:18:40.9776555Z [36;1m  --arg generation "$DELIVERY_GENERATION" \[0m
+2026-11-08T16:18:40.9776919Z [36;1m  --arg repository "$DELIVERY_REPOSITORY" \[0m
+2026-11-08T16:18:40.9777294Z [36;1m  --arg desired_tree_hash "$desired_tree_hash" \[0m
+2026-11-08T16:18:40.9777674Z [36;1m  --arg source_commit "$body_source_commit" \[0m
+2026-11-08T16:18:40.9778041Z [36;1m  --arg head_observed_sha "$head_observed_sha" \[0m
+2026-11-08T16:18:40.9778533Z [36;1m  --arg head_observed_at "$head_observed_at" \[0m
+2026-11-08T16:18:40.9778924Z [36;1m  --arg lease_expires_at "$lease_expires_at" \[0m
+2026-11-08T16:18:40.9779292Z [36;1m  --arg delivery_state "$delivery_state" \[0m
+2026-11-08T16:18:40.9779665Z [36;1m  --arg review_started_at "$review_started_at" \[0m
+2026-11-08T16:18:40.9780020Z [36;1m  --arg sealed_at "$sealed_at" \[0m
+2026-11-08T16:18:40.9780376Z [36;1m  --arg sealed_head_sha "$sealed_head_sha" \[0m
+2026-11-08T16:18:40.9780741Z [36;1m  --argjson review_evidence "$review_evidence" \[0m
+2026-11-08T16:18:40.9782259Z [36;1m  '{schema:$schema,durable_issue_url:$durable_issue_url,plan_id:$plan_id,generation:$generation,repository:$repository,desired_tree_hash:$desired_tree_hash,source_commit:$source_commit,head_observed_sha:$head_observed_sha,head_observed_at:$head_observed_at,lease_expires_at:$lease_expires_at,predecessor_prs:[],successor_prs:[],delivery_state:$delivery_state,review_started_at:$review_started_at,sealed_at:$sealed_at,sealed_head_sha:$sealed_head_sha,review_evidence:$review_evidence}')[0m
+2026-11-08T16:18:40.9783736Z [36;1mpr_body=$(cat ../sync_summary.md)[0m
+2026-11-08T16:18:40.9784067Z [36;1mpr_body="$pr_body[0m
+2026-11-08T16:18:40.9784350Z [36;1m[0m
+2026-11-08T16:18:40.9784587Z [36;1m---[0m
+2026-11-08T16:18:40.9784832Z [36;1m[0m
+2026-11-08T16:18:40.9785077Z [36;1m### Review Checklist[0m
+2026-11-08T16:18:40.9785400Z [36;1m- [ ] CI passes with updated workflows[0m
+2026-11-08T16:18:40.9785803Z [36;1m- [ ] No repo-specific customizations were overwritten[0m
+2026-11-08T16:18:40.9786262Z [36;1m[0m
+2026-11-08T16:18:40.9786515Z [36;1m**Source:** stranske/Workflows[0m
+2026-11-08T16:18:40.9786870Z [36;1m**Source SHA:** \`$body_source_commit\`[0m
+2026-11-08T16:18:40.9787234Z [36;1m**Template hash:** \`$DELIVERY_GENERATION\`[0m
+2026-11-08T16:18:40.9787597Z [36;1m**Consumer-sync plan ID:** \`$PLAN_ID\`[0m
+2026-11-08T16:18:40.9787936Z [36;1m**Plan scope:** \`$PLAN_SCOPE\`[0m
+2026-11-08T16:18:40.9788293Z [36;1m**Scope base SHA:** \`${SCOPE_BASE_SHA:-full}\`[0m
+2026-11-08T16:18:40.9788644Z [36;1m**Sync phase:** \`$SYNC_PHASE\`[0m
+2026-11-08T16:18:40.9788978Z [36;1m**Sync branch:** \`$branch_name\`[0m
+2026-11-08T16:18:40.9789315Z [36;1m**Consumer repo:** \`$TARGET_REPOSITORY\`[0m
+2026-11-08T16:18:40.9789680Z [36;1m**Manifest:** \`.github/sync-manifest.yml\`[0m
+2026-11-08T16:18:40.9790004Z [36;1m[0m
+2026-11-08T16:18:40.9790268Z [36;1m<!-- workflow-source:sync_campaign -->[0m
+2026-11-08T16:18:40.9790637Z [36;1m<!-- workflows-consumer-sync:v1 $sync_marker -->[0m
+2026-11-08T16:18:40.9791040Z [36;1m<!-- sync-pr-delivery-record:v1 $delivery_marker -->[0m
+2026-11-08T16:18:40.9791395Z [36;1m[0m
+2026-11-08T16:18:40.9791633Z [36;1mautofix: false"[0m
+2026-11-08T16:18:40.9791901Z [36;1m[0m
+2026-11-08T16:18:40.9792148Z [36;1mif [ -n "$existing_pr" ]; then[0m
+2026-11-08T16:18:40.9792585Z [36;1m  gh pr edit "$existing_pr" --add-label "sync,automated,workflow:source-sync"[0m
+2026-11-08T16:18:40.9793051Z [36;1m  gh pr edit "$existing_pr" --body "$pr_body"[0m
+2026-11-08T16:18:40.9793397Z [36;1m  pr_number="$existing_pr"[0m
+2026-11-08T16:18:40.9793804Z [36;1m  pr_url="https://github.com/$TARGET_REPOSITORY/pull/$existing_pr"[0m
+2026-11-08T16:18:40.9794211Z [36;1m  status="refreshed_pr"[0m
+2026-11-08T16:18:40.9794506Z [36;1melse[0m
+2026-11-08T16:18:40.9794911Z [36;1m  pr_url=$(gh pr create \[0m
+2026-11-08T16:18:40.9795230Z [36;1m    --head "$branch_name" \[0m
+2026-11-08T16:18:40.9795573Z [36;1m    --title "chore: sync workflow templates" \[0m
+2026-11-08T16:18:40.9796027Z [36;1m    --body "$pr_body" \[0m
+2026-11-08T16:18:40.9796374Z [36;1m    --label "sync,automated,workflow:source-sync" \[0m
+2026-11-08T16:18:40.9796746Z [36;1m    --label "sync:delivery-staging")[0m
+2026-11-08T16:18:40.9797104Z [36;1m  pr_number=$(gh pr list --head "$branch_name" \[0m
+2026-11-08T16:18:40.9797504Z [36;1m    --json number,headRefName,isCrossRepository \[0m
+2026-11-08T16:18:40.9797992Z [36;1m    | jq -r --arg branch "$branch_name" \[0m
+2026-11-08T16:18:40.9798463Z [36;1m      '.[] | select(.headRefName == $branch and .isCrossRepository == false) | .number' \[0m
+2026-11-08T16:18:40.9798912Z [36;1m    | head -n 1 || echo "")[0m
+2026-11-08T16:18:40.9799227Z [36;1m  status="created_pr"[0m
+2026-11-08T16:18:40.9799510Z [36;1mfi[0m
+2026-11-08T16:18:40.9799753Z [36;1m{[0m
+2026-11-08T16:18:40.9800013Z [36;1m  echo "status=$status"[0m
+2026-11-08T16:18:40.9800315Z [36;1m  echo "pr_number=$pr_number"[0m
+2026-11-08T16:18:40.9800625Z [36;1m  echo "pr_url=$pr_url"[0m
+2026-11-08T16:18:40.9800916Z [36;1m} >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:18:40.9844664Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:18:40.9844968Z env:
+2026-11-08T16:18:40.9846506Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:40.9848316Z   REPO_TOKEN: ***
+2026-11-08T16:18:40.9848670Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:40.9849185Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:40.9849626Z   PLAN_SCOPE: full
+2026-11-08T16:18:40.9849890Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:40.9850209Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:40.9850574Z   SYNC_PHASE: canary
+2026-11-08T16:18:40.9850857Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:40.9851242Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:40.9851694Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:40.9852151Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:18:40.9852595Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:40.9852995Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:40.9853394Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:40.9853796Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:18:40.9854387Z   GH_TOKEN: ***
+2026-11-08T16:18:40.9857085Z   SIGNED_COMMIT_TOKEN: ***
+2026-11-08T16:18:40.9857383Z   DELIVERY_GENERATION: a478e45c16b6
+2026-11-08T16:18:40.9857766Z   DELIVERY_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:40.9858169Z   SYNC_BRANCH: sync/workflows-candidate
+2026-11-08T16:18:40.9858487Z   FORCE: false
+2026-11-08T16:18:40.9858751Z   CHANGES_COUNT: 2
+2026-11-08T16:18:40.9859016Z ##[endgroup]
+2026-11-08T16:18:41.4140967Z Inspecting existing sync PR #2486 for same-generation refresh
+2026-11-08T16:18:41.7704668Z From https://github.com/stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:41.7705230Z  * branch            sync/workflows-candidate -> FETCH_HEAD
+2026-11-08T16:18:42.8647707Z Existing PR #2486 refreshable=true reason=stable_plan_rotation
+2026-11-08T16:18:42.8739869Z Switched to a new branch 'sync/workflows-candidate'
+2026-11-08T16:18:42.8741385Z M	.github/agents/registry.yml
+2026-11-08T16:18:42.8741718Z M	tools/subscription_llm.py
+2026-11-08T16:18:46.0249953Z https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2486
+2026-11-08T16:18:50.1829826Z Created verified sync commit a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9 using github-app-installation
+2026-11-08T16:18:57.2200498Z https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2486
+2026-11-08T16:18:58.8898564Z https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2486
+2026-11-08T16:18:58.8971078Z ##[group]Run mkdir -p artifacts/consumer-sync-results
+2026-11-08T16:18:58.8971564Z [36;1mmkdir -p artifacts/consumer-sync-results[0m
+2026-11-08T16:18:58.8971946Z [36;1mpython3 << 'RESULT_SCRIPT'[0m
+2026-11-08T16:18:58.8972263Z [36;1mimport json[0m
+2026-11-08T16:18:58.8972531Z [36;1mimport os[0m
+2026-11-08T16:18:58.8972794Z [36;1mimport re[0m
+2026-11-08T16:18:58.8973068Z [36;1mfrom pathlib import Path[0m
+2026-11-08T16:18:58.8973372Z [36;1m[0m
+2026-11-08T16:18:58.8973633Z [36;1mrepo = os.environ["REPO"][0m
+2026-11-08T16:18:58.8974086Z [36;1msafe_repo = re.sub(r"[^A-Za-z0-9_.-]+", "-", repo).strip("-") or "unknown-repo"[0m
+2026-11-08T16:18:58.8974591Z [36;1mdry_run = os.environ.get("DRY_RUN", "false") == "true"[0m
+2026-11-08T16:18:58.8975035Z [36;1mhas_changes = os.environ.get("HAS_CHANGES", "false") == "true"[0m
+2026-11-08T16:18:58.8975517Z [36;1mchanges_count = int(os.environ.get("CHANGES_COUNT") or "0")[0m
+2026-11-08T16:18:58.8976198Z [36;1msync_outcome = os.environ.get("SYNC_OUTCOME", "skipped")[0m
+2026-11-08T16:18:58.8976660Z [36;1mlabels_outcome = os.environ.get("LABELS_OUTCOME", "skipped")[0m
+2026-11-08T16:18:58.8977133Z [36;1mcreate_outcome = os.environ.get("CREATE_PR_OUTCOME", "skipped")[0m
+2026-11-08T16:18:58.8977588Z [36;1mcreate_status = os.environ.get("CREATE_PR_STATUS", "")[0m
+2026-11-08T16:18:58.8978058Z [36;1mlegacy_in_flight = os.environ.get("LEGACY_IN_FLIGHT", "false") == "true"[0m
+2026-11-08T16:18:58.8978464Z [36;1m[0m
+2026-11-08T16:18:58.8978734Z [36;1mif sync_outcome == "failure":[0m
+2026-11-08T16:18:58.8979064Z [36;1m    status = "sync_failed"[0m
+2026-11-08T16:18:58.8979405Z [36;1melif labels_outcome == "failure":[0m
+2026-11-08T16:18:58.8979739Z [36;1m    status = "label_failed"[0m
+2026-11-08T16:18:58.8980061Z [36;1melif legacy_in_flight:[0m
+2026-11-08T16:18:58.8980377Z [36;1m    status = "legacy_hold"[0m
+2026-11-08T16:18:58.8980696Z [36;1melif not has_changes:[0m
+2026-11-08T16:18:58.8980997Z [36;1m    status = "no_changes"[0m
+2026-11-08T16:18:58.8981310Z [36;1melif dry_run:[0m
+2026-11-08T16:18:58.8981604Z [36;1m    status = "dry_run_changes"[0m
+2026-11-08T16:18:58.8981936Z [36;1melif create_outcome == "failure":[0m
+2026-11-08T16:18:58.8982271Z [36;1m    status = "create_pr_failed"[0m
+2026-11-08T16:18:58.8982583Z [36;1melse:[0m
+2026-11-08T16:18:58.8982859Z [36;1m    status = create_status or "error"[0m
+2026-11-08T16:18:58.8983185Z [36;1m[0m
+2026-11-08T16:18:58.8983441Z [36;1mresult = {[0m
+2026-11-08T16:18:58.8983710Z [36;1m    "repo": repo,[0m
+2026-11-08T16:18:58.8984001Z [36;1m    "status": status,[0m
+2026-11-08T16:18:58.8984365Z [36;1m    "template_hash": os.environ.get("TEMPLATE_HASH", ""),[0m
+2026-11-08T16:18:58.8984773Z [36;1m    "plan_id": os.environ.get("PLAN_ID", ""),[0m
+2026-11-08T16:18:58.8985211Z [36;1m    "plan_scope": os.environ.get("PLAN_SCOPE", "") or "full",[0m
+2026-11-08T16:18:58.8985666Z [36;1m    "scope_base_sha": os.environ.get("SCOPE_BASE_SHA", ""),[0m
+2026-11-08T16:18:58.8986302Z [36;1m    "source_commit": os.environ.get("SOURCE_COMMIT", ""),[0m
+2026-11-08T16:18:58.8986750Z [36;1m    "consumer_head_sha": os.environ.get("CONSUMER_HEAD_SHA", ""),[0m
+2026-11-08T16:18:58.8987180Z [36;1m    "sync_phase": os.environ.get("SYNC_PHASE", ""),[0m
+2026-11-08T16:18:58.8987600Z [36;1m    "expected_branch": os.environ.get("SYNC_BRANCH", ""),[0m
+2026-11-08T16:18:58.8987963Z [36;1m    "dry_run": dry_run,[0m
+2026-11-08T16:18:58.8988327Z [36;1m    "force": os.environ.get("FORCE", "false") == "true",[0m
+2026-11-08T16:18:58.8988709Z [36;1m    "has_changes": has_changes,[0m
+2026-11-08T16:18:58.8989296Z [36;1m    "changes_count": changes_count,[0m
+2026-11-08T16:18:58.8989634Z [36;1m    "outcomes": {[0m
+2026-11-08T16:18:58.8989929Z [36;1m        "sync": sync_outcome,[0m
+2026-11-08T16:18:58.8990249Z [36;1m        "labels": labels_outcome,[0m
+2026-11-08T16:18:58.8990580Z [36;1m        "create_pr": create_outcome,[0m
+2026-11-08T16:18:58.8990903Z [36;1m    },[0m
+2026-11-08T16:18:58.8991282Z [36;1m}[0m
+2026-11-08T16:18:58.8991579Z [36;1mpr_number = os.environ.get("PR_NUMBER", "")[0m
+2026-11-08T16:18:58.8991929Z [36;1mif pr_number:[0m
+2026-11-08T16:18:58.8992222Z [36;1m    result["pr"] = int(pr_number)[0m
+2026-11-08T16:18:58.8992562Z [36;1mpr_url = os.environ.get("PR_URL", "")[0m
+2026-11-08T16:18:58.8992885Z [36;1mif pr_url:[0m
+2026-11-08T16:18:58.8993159Z [36;1m    result["pr_url"] = pr_url[0m
+2026-11-08T16:18:58.8993461Z [36;1m[0m
+2026-11-08T16:18:58.8993821Z [36;1mPath(f"artifacts/consumer-sync-results/{safe_repo}.json").write_text([0m
+2026-11-08T16:18:58.8994304Z [36;1m    json.dumps(result, indent=2, sort_keys=True) + "\n",[0m
+2026-11-08T16:18:58.8994689Z [36;1m    encoding="utf-8",[0m
+2026-11-08T16:18:58.8994976Z [36;1m)[0m
+2026-11-08T16:18:58.8995222Z [36;1mRESULT_SCRIPT[0m
+2026-11-08T16:18:58.9039139Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:18:58.9039441Z env:
+2026-11-08T16:18:58.9040896Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:58.9042686Z   REPO_TOKEN: ***
+2026-11-08T16:18:58.9043037Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:58.9043549Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:58.9043989Z   PLAN_SCOPE: full
+2026-11-08T16:18:58.9044261Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:58.9044582Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:58.9044957Z   SYNC_PHASE: canary
+2026-11-08T16:18:58.9045233Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:58.9045609Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:58.9046237Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:58.9046697Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:18:58.9047131Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:58.9047546Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:58.9047949Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:58.9048345Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:18:58.9048767Z   REPO: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:58.9049124Z   TEMPLATE_HASH: a478e45c16b6
+2026-11-08T16:18:58.9049461Z   SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:58.9049864Z   CONSUMER_HEAD_SHA: 0543dc9732eab0ad12227308749566a937581eea
+2026-11-08T16:18:58.9050237Z   SYNC_BRANCH: sync/workflows-candidate
+2026-11-08T16:18:58.9050551Z   DRY_RUN: false
+2026-11-08T16:18:58.9050814Z   FORCE: false
+2026-11-08T16:18:58.9051083Z   SYNC_OUTCOME: success
+2026-11-08T16:18:58.9051354Z   LABELS_OUTCOME: success
+2026-11-08T16:18:58.9051648Z   CREATE_PR_OUTCOME: success
+2026-11-08T16:18:58.9051959Z   CREATE_PR_STATUS: refreshed_pr
+2026-11-08T16:18:58.9052260Z   LEGACY_IN_FLIGHT: false
+2026-11-08T16:18:58.9052549Z   PR_NUMBER: 2486
+2026-11-08T16:18:58.9052930Z   PR_URL: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2486
+2026-11-08T16:18:58.9053340Z   HAS_CHANGES: true
+2026-11-08T16:18:58.9053605Z   CHANGES_COUNT: 2
+2026-11-08T16:18:58.9053874Z ##[endgroup]
+2026-11-08T16:18:58.9456289Z ##[group]Run actions/upload-artifact@v7
+2026-11-08T16:18:58.9456806Z with:
+2026-11-08T16:18:58.9457185Z   name: consumer-sync-result-stranske-Portable-Alpha-Extension-Model
+2026-11-08T16:18:58.9457648Z   path: artifacts/consumer-sync-results/*.json
+2026-11-08T16:18:58.9457982Z   retention-days: 14
+2026-11-08T16:18:58.9458261Z   if-no-files-found: warn
+2026-11-08T16:18:58.9458544Z   compression-level: 6
+2026-11-08T16:18:58.9458820Z   overwrite: false
+2026-11-08T16:18:58.9459092Z   include-hidden-files: false
+2026-11-08T16:18:58.9459394Z   archive: true
+2026-11-08T16:18:58.9459641Z env:
+2026-11-08T16:18:58.9461101Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:18:58.9462917Z   REPO_TOKEN: ***
+2026-11-08T16:18:58.9463264Z   TARGET_REPOSITORY: stranske/Portable-Alpha-Extension-Model
+2026-11-08T16:18:58.9463776Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:18:58.9464208Z   PLAN_SCOPE: full
+2026-11-08T16:18:58.9464471Z   SCOPE_BASE_SHA: 
+2026-11-08T16:18:58.9464797Z   PLAN_SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:18:58.9465169Z   SYNC_PHASE: canary
+2026-11-08T16:18:58.9465435Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:18:58.9465812Z   DURABLE_ISSUE_URL: https://github.com/stranske/Workflows/issues/1836
+2026-11-08T16:18:58.9466413Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:58.9466864Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+2026-11-08T16:18:58.9467292Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:58.9467720Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:58.9468142Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+2026-11-08T16:18:58.9468554Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+2026-11-08T16:18:58.9468924Z ##[endgroup]
+2026-11-08T16:18:59.0629352Z With the provided path, there will be 1 file uploaded
+2026-11-08T16:18:59.0633043Z Artifact name is valid!
+2026-11-08T16:18:59.0633530Z Root directory input is valid!
+2026-11-08T16:18:59.3902840Z Uploading artifact: consumer-sync-result-stranske-Portable-Alpha-Extension-Model.zip
+2026-11-08T16:18:59.3931018Z Beginning upload of artifact content to blob storage
+2026-11-08T16:18:59.6459528Z Uploaded bytes 626
+2026-11-08T16:18:59.7065322Z Finished uploading artifact content to blob storage!
+2026-11-08T16:18:59.7066524Z SHA256 digest of uploaded artifact is 0d1413b766b2b233517191e301ecc92944fa4637fd090b09fbdc91befaf35b4f
+2026-11-08T16:18:59.7067459Z Finalizing artifact upload
+2026-11-08T16:19:00.2211047Z Artifact consumer-sync-result-stranske-Portable-Alpha-Extension-Model successfully finalized. Artifact ID 13624827017
+2026-11-08T16:19:00.2212066Z Artifact consumer-sync-result-stranske-Portable-Alpha-Extension-Model has been successfully uploaded! Final size is 626 bytes. Artifact ID is 13624827017
+2026-11-08T16:19:00.2215090Z Artifact download URL: https://github.com/stranske/Workflows/actions/runs/42499084007/artifacts/13624827017
+2026-11-08T16:19:00.2376371Z Post job cleanup.
+2026-11-08T16:19:00.3468212Z Post job cleanup.
+2026-11-08T16:19:00.4211719Z [command]/usr/bin/git version
+2026-11-08T16:19:00.4247084Z git version 2.56.0
+2026-11-08T16:19:00.4274906Z Temporarily overriding HOME='/home/runner/work/_temp/4cf9086b-03f8-4d69-86b8-4326ad6a269b' before making global git config changes
+2026-11-08T16:19:00.4276579Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-08T16:19:00.4279841Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows/workflows
+2026-11-08T16:19:00.4310413Z Removing SSH command configuration
+2026-11-08T16:19:00.4315400Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-08T16:19:00.4351584Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-08T16:19:00.4614877Z Removing HTTP extra header
+2026-11-08T16:19:00.4620007Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-08T16:19:00.4654644Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-08T16:19:00.4910531Z Removing includeIf entries pointing to credentials config files
+2026-11-08T16:19:00.4916351Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-08T16:19:00.4939329Z includeif.gitdir:/home/runner/work/Workflows/Workflows/workflows/.git.path
+2026-11-08T16:19:00.4940131Z includeif.gitdir:/home/runner/work/Workflows/Workflows/workflows/.git/worktrees/*.path
+2026-11-08T16:19:00.4940770Z includeif.gitdir:/github/workspace/workflows/.git.path
+2026-11-08T16:19:00.4941230Z includeif.gitdir:/github/workspace/workflows/.git/worktrees/*.path
+2026-11-08T16:19:00.4946719Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/workflows/.git.path
+2026-11-08T16:19:00.4968070Z /home/runner/work/_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config
+2026-11-08T16:19:00.4977472Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/workflows/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-fb6802ea\-500d\-4b8e\-b711\-fd2c75f1e3a2\.config
+2026-11-08T16:19:00.5017118Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/workflows/.git/worktrees/*.path
+2026-11-08T16:19:00.5038152Z /home/runner/work/_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config
+2026-11-08T16:19:00.5046919Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/workflows/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-fb6802ea\-500d\-4b8e\-b711\-fd2c75f1e3a2\.config
+2026-11-08T16:19:00.5079141Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/workflows/.git.path
+2026-11-08T16:19:00.5098834Z /github/runner_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config
+2026-11-08T16:19:00.5104530Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/workflows/.git.path \/github\/runner_temp\/git\-credentials\-fb6802ea\-500d\-4b8e\-b711\-fd2c75f1e3a2\.config
+2026-11-08T16:19:00.5203004Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/workflows/.git/worktrees/*.path
+2026-11-08T16:19:00.5226513Z /github/runner_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config
+2026-11-08T16:19:00.5233805Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/workflows/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-fb6802ea\-500d\-4b8e\-b711\-fd2c75f1e3a2\.config
+2026-11-08T16:19:00.5265421Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-08T16:19:00.5512132Z Removing credentials config '/home/runner/work/_temp/git-credentials-fb6802ea-500d-4b8e-b711-fd2c75f1e3a2.config'
+2026-11-08T16:19:00.5701773Z Post job cleanup.
+2026-11-08T16:19:00.9256727Z Token revoked
+2026-11-08T16:19:00.9644319Z Cleaning up orphan processes

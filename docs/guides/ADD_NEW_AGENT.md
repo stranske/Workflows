@@ -112,6 +112,25 @@ secret present and the CLI starts. Wiring check alone does not pass this stage.
 The consumer template copy, `templates/consumer-repo/.github/agents/registry.yml`, must stay
 byte-identical to the root file (a test enforces it).
 
+### Model table (hosted and local)
+
+`.github/agents/model-table.json` is the ONE model table for hosted runners and for the
+Orchestrator's local runs. Add the agent under `providers` with its `surfaces` (`hosted`,
+`local`), a pinned model for every tier (`cheap`, `mid`, `full`, `frontier`; `surface_models`
+when a surface's CLI names models differently), one `fallback`, and its reasoning-effort flag and
+levels. Work kinds (`extract`, `routine`, `coordinate`, `implement`, `hard`, `hardest`) choose the
+tier and the reasoning level. Never leave a hosted agent unpinned: an unpinned CLI default is how
+the 2026-06 Cursor cost spike happened.
+
+The runner resolves its model at run time with
+`.workflows-lib/scripts/agent_model_table.py resolve --agent <agent> --surface hosted`, so every
+consumer uses the table at `workflows_ref` without waiting for template sync. Merge the
+Workflows change first, then copy the table into `stranske/Orchestrator` in a paired PR with
+`python3 src/model_table.py --sync <Workflows>/.github/agents/model-table.json` (Orchestrator CI
+compares its embedded copy against Workflows `main`; only the copy side compares, so neither PR
+waits on the other). Then run
+`python3 scripts/check_model_tables.py`; it must print `model tables agree: 0 mismatches`.
+
 ## Stage 3 — Runner workflow
 
 Create `.github/workflows/reusable-<agent>-run.yml` by deriving it from the closest existing runner

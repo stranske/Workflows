@@ -1,5 +1,10 @@
 # Agents Guidance — Keepalive Changes
 
+Autofix completion acknowledges measured PR heads only. A failed PR lookup or
+missing head leaves `head_sha_after` empty, and the completion step retains the
+reservation. A successful unchanged head is measured no-progress; a later Gate
+status lookup failure does not invalidate that head observation.
+
 Automation agents touching **any** keepalive code path must consult the following documents before making changes. Keepalive is **multi-agent** by design—Codex, Claude, Cursor and Muse share the same orchestration surfaces (see [Adding a New Coding Agent](../guides/ADD_NEW_AGENT.md) for the full list of per-agent wiring)—so every change must read from `.github/agents/registry.yml` (or `agent_registry.js`) instead of hard-coding provider-specific behavior.
 
 ## Required Reading
@@ -78,6 +83,21 @@ errors, and clears the provider backoff marker.
 
 ### Critical Integration Points
 
+Closed issues always enter `verify`, including issues with retained
+`verify:evaluate` or `verify:pr-handoff` labels after reopening. Historical labels
+and closure records cannot select `done`. Verification must confirm an explicit
+evaluate dispatch or applicable verifier run for the merged source PR and head.
+Only a successful verify step with `verify_handoff=found` permits the workflow to
+dispatch its next run with `force_step=done`. The done reporter revalidates the
+PR/head evidence before publishing completion and removing `agents:auto-pilot`.
+
+Continuation uses `workflow_dispatch`, which the event gate accepts; it does not
+depend on a `verify:pr-handoff` label event. The executable source and consumer
+regressions are included in `.github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js`.
+After source changes reach main, Maint 68 regenerates the consumer candidate;
+the subsequent Maint 71 report must establish the original finding's disposition.
+Local source tests do not establish deployment or live acceptance.
+
 1. **PR body is the contract**: Auto-pilot writes structured tasks into the PR body. Keepalive reads these tasks via the task appendix. If the PR body format changes, both must be updated together.
 
 2. **Labels are handoff signals**: Auto-pilot applies the selected registry-backed `agent:<name>` label (for example, `agent:codex` or `agent:claude`) and keepalive activates. Every non-transient run/fix failure records automation-owned recovery state and explicitly dispatches a bounded retry through the active workflow (`agents-keepalive-loop.yml` in the root lane or `agents-81-gate-followups.yml` in consolidated consumers). A failed direct dispatch defers that durable lease for the hourly sweep instead of adding a sticky `agent:retry` label; after 3 failures, the current strategy pauses for the same hourly recovery sweep. It does not infer that a human is required. Each hourly sweep wakeup bypasses state debounce so current state is re-evaluated, while ordinary wakeups retain completed-runner debounce. A possible authority boundary enters an independent scheduled challenge whose durable fingerprint is derived only from the routed agent's registry-backed required credentials, shared registry authority credentials, finite permission targets, and HTTP 401/403; arbitrary runner text is never copied or persisted. Both the root and consolidated consumer lanes require a dedicated keepalive or Workflows App token before marking an agent running or writing the final summary, so every mutation of App-owned state uses the same trusted writer class. Every keepalive reader selects durable state only from a marked summary comment owned by `stranske-keepalive[bot]`, `agents-workflows-bot[bot]`, the identity-checked PAT fallbacks `stranske` and `stranske-automation-bot`, or the migration-only legacy `github-actions[bot]` writer; arbitrary users cannot override an earlier trusted state marker. When the selected App encounters a summary from the known legacy writer or the other dedicated App, it preserves the parsed state in a new comment owned by that App because editing the old comment would retain its original author. The hourly sweep signs a v2 claim binding repository, PR, current ledger generation, boundary fingerprint, due time, expiry, head, nonce, and exact sweep run/attempt. The claim grants a debounce bypass only after a conditional single-use receipt is written to the PR-wide authority ledger on `keepalive-authority-state`. A generic retry, replayed claim, or another workflow sharing `github-actions[bot]` cannot grant or confirm the challenge; the owning downstream attempt must present its receipt and actual worker execution evidence. Missing signing material fails closed to an ordinary non-forced recheck. A matching second failure may record the projected human action and apply `needs-human`. A different auth failure stays automation-owned and is challenged again on the next sweep.
@@ -113,6 +133,7 @@ An expired prepared receipt is non-authorizing and may be released either by the
 2. **Agent Agnostic**: The keepalive prompt is agent-agnostic. Routing is determined by the `agent:*` label, not hardcoded agent names.
    - Manual runs still use `agent:<name>` labels to trigger the bridge. When you’re using auto-pilot, add `agents:auto-pilot` plus an optional `runner:<name>` label (for example `runner:claude`). Auto-pilot records the override, applies the matching `agent:<name>` label when the capability check completes, and keeps keepalive/autofix/verifier flows aligned without kicking off the issue intake workflow.
    - **Capacity-aware intake**: When the `bridge_agent` input is empty, `agents-63-issue-intake.yml` and the consumer `agents-issue-intake.yml` use `fetchRouteWeights()` and `chooseAgentForIntake('implement', routeWeights, registry.agents)` to resolve the default. The chooser selects the highest-posterior runner-backed agent whose registry preflight is not disabled (`preflight.enabled: false` excludes intake) and whose pool state is `ok` (exports without capacity data treat pools as `ok`) and logs the decision to the step summary. Weighted intake requires affirmative boolean `evidence_ok === true` for the task; missing or malformed evidence retains the static default with reason `route-weights-evidence-not-affirmed`. Explicit boolean `evidence_ok: false` retains the static default with the existing reason `route-weights-insufficient-evidence`. Registry/module loading or export failures log a warning and retain the static default (`codex`). Existing label requirements, `agent:auto` handling, and bridge-input precedence still apply; root preflight requires exactly one agent label when an issue number is present.
+     Orchestrator's additive `capacity_schema: orchestrator.route-weights-capacity/v1` block is supported with routing schema `orchestrator.route-weights/v1`; a schema bump is not required. Its `capacity.<agent>.state` takes precedence over legacy ranking-row state hints, so a row marked `ok` cannot override a published `shed`, `exhausted`, or `unknown` pool. An absent capacity block, empty block, or missing agent entry retains the legacy `ok` assumption and posterior ordering.
 
 3. **No `@codex` in Prompts**: Do not use `@codex` or other agent mentions in automated prompts—this can trigger the UI version of agents. Let the routing handle which agent runs.
 
@@ -161,6 +182,38 @@ validate them with its disposable Git regression tests. A checkpoint with only
 excluded artifacts creates no commit; unpushed existing commits retain their
 existing push path.
 
+### Cursor target PR lifecycle
+
+Cursor's agent step clears `GH_TOKEN`, `GITHUB_TOKEN` and `WORKFLOWS_TOKEN`;
+the keepalive prompt restricts agents to committing on the checked-out PR branch.
+The workflow re-reads the target PR after Cursor exits and permits its existing
+push step only for an open PR. A merged or closed target produces
+`skipped: target PR merged/closed mid-run`, skips all workflow pushes, and posts
+one source-issue comment per run with the new unpushed commit SHAs and run URL.
+The source issue is resolved by `source_context.js`; ambiguous or missing sources
+leave the evidence in the run summary with a warning, and a failed source-issue
+comment only warns. `pr_number` is required and must be a positive integer; the
+run fails before Cursor executes otherwise. Before Cursor starts, the persisted
+credentials of both checkouts are removed (authenticated pre-run fetches still
+work, and pushes use their explicit-token URLs). The state lookup retries
+transient errors three times; an exhausted lookup fails the step and withholds
+push permission. Every blocked delivery uploads
+`cursor-blocked-delivery-<run_id>-<attempt>` with a bundle of unpushed commits,
+staged and unstaged patches, an untracked-file archive and a receipt; the source
+issue comment names that artifact. The workflow requires `issues: write` for the
+source-issue comment. Token clearing is not a credential sandbox, and the
+post-run read does not prevent a later concurrent merge.
+Issue #4562's production acceptance still requires a mid-run merge observation
+and 14 days without new orphan slug-branch PRs after deployment.
+
+Run `python scripts/check_cursor_pr_outcome.py --fix-pr stranske/Workflows#4564`
+to collect the read-only PR search. JSON includes blocking and drainable counts;
+exit 0 (`clear_search`) means a full clear 14-day window, 1 means a matching PR,
+and 2 means pending or unavailable evidence. Missing, blank or malformed branch
+or author evidence is unavailable, never a clear search. Pending evidence drains
+through a later read; matching PRs require follow-up investigation. The acceptance box
+still needs a separately observed mid-run merge; a clear search cannot check it.
+
 ### Hosted agent startup recovery
 
 The pinned Cursor archive is installed in `runner.temp/agent-cli/cursor` and
@@ -199,7 +252,11 @@ disables shell/unified_exec and related tools, runs ephemeral with an empty cwd,
 and never relies on sandbox read-only alone to protect `CODEX_HOME/auth.json`.
 Claude analysis uses `--tools ""`. Its availability check looks for `.credentials.json`
 under `CLAUDE_CONFIG_DIR` when set, otherwise under `~/.claude`, matching the
-configuration directory passed to the child CLI. API-provider, GitHub, and tracing keys are
+configuration directory passed to the child CLI. Existing OAuth authentication
+is checked first; without it, an unresolvable credentials directory reports
+unavailable. Relative paths and `~` in `CLAUDE_CONFIG_DIR` are expanded to an
+absolute path before launching the child
+from its temporary working directory. API-provider, GitHub, and tracing keys are
 excluded from the child environment. Missing CLI, account auth, timeout, or
 invalid CLI output never falls back to an API. Optional Cursor/Gemini/Muse
 analysis skips with `llm-analysis-run=false` without an already

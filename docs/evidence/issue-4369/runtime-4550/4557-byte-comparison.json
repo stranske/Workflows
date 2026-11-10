@@ -1,0 +1,9 @@
+{
+  "observed_at": "2026-11-08T20:55:40.624032+00:00",
+  "command": "cmp docs/evidence/issue-4369/runtime-4550/4557-source-subscription_llm.py.txt docs/evidence/issue-4369/runtime-4550/4557-consumer-subscription_llm.py.txt",
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "",
+  "source_receipt": "4557-source-blob.json",
+  "consumer_receipt": "4557-consumer-blob.json"
+}

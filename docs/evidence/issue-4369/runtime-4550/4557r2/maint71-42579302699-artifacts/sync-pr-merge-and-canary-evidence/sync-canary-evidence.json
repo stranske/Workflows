@@ -1,0 +1,87 @@
+{
+  "schema": "workflows.consumer-sync-canary-evidence/v1",
+  "version": 1,
+  "results": [
+    {
+      "repo": "stranske/Portable-Alpha-Extension-Model",
+      "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "pr": 2488,
+      "head_sha": "795155aa9b1cdca5942bac2db3707c6b64dc57d3",
+      "evidence_source": "open-candidate",
+      "required_check_state": "success",
+      "active_review_thread_count": 0,
+      "review_disposition": {
+        "binding": {
+          "repository": "stranske/Portable-Alpha-Extension-Model",
+          "pr": 2488,
+          "head_sha": "795155aa9b1cdca5942bac2db3707c6b64dc57d3",
+          "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+          "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+          "delivery_generation": "4947a11cfee1"
+        },
+        "reviewThreads": [],
+        "comments": [],
+        "handoffs": [],
+        "evidenceComplete": true
+      },
+      "delivery_generation": "4947a11cfee1"
+    },
+    {
+      "repo": "stranske/Travel-Plan-Permission",
+      "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "pr": 1736,
+      "head_sha": "f58aebf160f084cfd0c0718db0026ed0baa3b2fe",
+      "evidence_source": "open-candidate",
+      "required_check_state": "success",
+      "active_review_thread_count": 0,
+      "review_disposition": {
+        "binding": {
+          "repository": "stranske/Travel-Plan-Permission",
+          "pr": 1736,
+          "head_sha": "f58aebf160f084cfd0c0718db0026ed0baa3b2fe",
+          "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+          "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+          "delivery_generation": "4947a11cfee1"
+        },
+        "reviewThreads": [],
+        "comments": [],
+        "handoffs": [],
+        "evidenceComplete": true
+      },
+      "delivery_generation": "4947a11cfee1"
+    },
+    {
+      "repo": "stranske/trip-planner",
+      "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "pr": 2021,
+      "head_sha": "7b24c8575891e0613e21e1f42c92eb540e959112",
+      "evidence_source": "open-candidate",
+      "required_check_state": "success",
+      "active_review_thread_count": 0,
+      "review_disposition": {
+        "binding": {
+          "repository": "stranske/trip-planner",
+          "pr": 2021,
+          "head_sha": "7b24c8575891e0613e21e1f42c92eb540e959112",
+          "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+          "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+          "delivery_generation": "4947a11cfee1"
+        },
+        "reviewThreads": [],
+        "comments": [],
+        "handoffs": [],
+        "evidenceComplete": true
+      },
+      "delivery_generation": "4947a11cfee1"
+    }
+  ]
+}

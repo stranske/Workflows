@@ -1,0 +1,88 @@
+{
+  "revision": "07650cdf8d2acc49be26b883f0a2971a425c4125",
+  "interpreter": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+  "version": "v24.22.2",
+  "runs": [
+    {
+      "command": [
+        "node",
+        ".github/scripts/__tests__/maint71-delivery-receipts.test.js"
+      ],
+      "started_at": "2026-11-08T15:11:38.139316+00:00",
+      "duration_seconds": 0.1141837889999806,
+      "external_timeout_seconds": 60,
+      "exit_code": 0,
+      "log": "subject-refusal-maint71-delivery-receipts.log",
+      "log_sha256": "8e51c52f473eb2d5f606ac6d9c9df78509a7385d264cf524a92c64b68bf5df05"
+    },
+    {
+      "command": [
+        "node",
+        ".github/scripts/__tests__/maint71_merge_sync_prs.test.js"
+      ],
+      "started_at": "2026-11-08T15:11:38.253677+00:00",
+      "duration_seconds": 0.6655882989999782,
+      "external_timeout_seconds": 60,
+      "exit_code": 0,
+      "log": "subject-refusal-maint71_merge_sync_prs.log",
+      "log_sha256": "95df9629129f25a9c7f0bb7f4cae9817944f690eb45342a1e0e155a48e2a83d6"
+    },
+    {
+      "command": [
+        "node",
+        ".github/scripts/__tests__/scoped-canary-refresh.test.js"
+      ],
+      "started_at": "2026-11-08T15:11:38.919415+00:00",
+      "duration_seconds": 0.16435649999999669,
+      "external_timeout_seconds": 60,
+      "exit_code": 0,
+      "log": "subject-refusal-scoped-canary-refresh.log",
+      "log_sha256": "cc010b204ebb938495e447bcd5e29028d1bca9b29edf7c3b65e9a9e2cf6c608c"
+    }
+  ],
+  "negative_control": {
+    "log": "subject-refusal-red.log",
+    "exit_code": 1,
+    "source": "HEAD version of maint71_merge_sync_prs.js; restored changed source in finally",
+    "external_timeout_seconds": 60,
+    "log_sha256": "4aa551927d49736ff0f06158f48e873f4662a6df9ae8a18e6b327aa59b0a7256"
+  },
+  "python_diagnostic": {
+    "command": [
+      "timeout",
+      "-k",
+      "5s",
+      "90s",
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/",
+      "-m",
+      "not slow",
+      "-x",
+      "-o",
+      "faulthandler_timeout=30"
+    ],
+    "exit_code": 124,
+    "log": "subject-refusal-python-diagnostic.log",
+    "complete_suite_acceptance": false,
+    "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "version": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+    "log_sha256": "809614c7ef4e541bc801a7394ce45b0774938d4844bb9b54ad80bfd85734212a"
+  },
+  "working_tree_sha256": {
+    ".github/scripts/maint71_merge_sync_prs.js": "7a228a2d276cf3ddfd38bc4253f9e0e4afb6de3ac24c3973daa91adca520397b",
+    ".github/scripts/__tests__/maint71-delivery-receipts.test.js": "ccc230d6a07b7f00fc2b28d885f53adf79cec41b429c4d4a2c1a47b50e5b4ee1",
+    "docs/evidence/issue-4369/runtime-4550/subject-refusal-observation.json": "6bd4384111b70f26db551924db50717ed9ff312873effa1d51d6de368cef2442"
+  },
+  "publication": {
+    "git_add_exit_code": 128,
+    "git_add_error": ".git/index.lock: Read-only file system",
+    "commit_created": false,
+    "needs_human_label": "rejected",
+    "blocker_comment": "rejected",
+    "automatic_approval_review_reason": "MCP tool call requires approval, but approval policy is never",
+    "prepared_comment": "subject-refusal-blocker-comment.md"
+  }
+}

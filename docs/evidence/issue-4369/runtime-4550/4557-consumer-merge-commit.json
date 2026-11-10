@@ -1,0 +1,37 @@
+{
+  "sha": "1ff9e11cd51a456333c626cb354543b63202bef6",
+  "parents": [
+    {
+      "sha": "0543dc9732eab0ad12227308749566a937581eea",
+      "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/commits/0543dc9732eab0ad12227308749566a937581eea",
+      "html_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/commit/0543dc9732eab0ad12227308749566a937581eea"
+    }
+  ],
+  "commit": {
+    "author": {
+      "name": "stranske",
+      "email": "stranske@gmail.com",
+      "date": "2026-11-08T20:48:23Z"
+    },
+    "committer": {
+      "name": "GitHub",
+      "email": "noreply@github.com",
+      "date": "2026-11-08T20:48:23Z"
+    },
+    "message": "chore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: a478e45c16b6",
+    "tree": {
+      "sha": "44fe6ccbeabbc1910fa01558fd60d579ddaf75c0",
+      "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/git/trees/44fe6ccbeabbc1910fa01558fd60d579ddaf75c0"
+    },
+    "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/git/commits/1ff9e11cd51a456333c626cb354543b63202bef6",
+    "comment_count": 0,
+    "verification": {
+      "verified": true,
+      "reason": "valid",
+      "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8OAXCRC1aQ7uu5UhlAAAfokQAKfO3mGNgzWC2KIRz1KUyDJH\nX+Ei+HJOJLmU7DZRMf/fQREvOEELj/AxqFNhuhKszIwJ2rfzrDDNC2rzkVi2/um3\nEtcESBmc41jF0EY6IcGJUJR83q7S2DoGiqgwjz8FxCrbkVtlsyGk7zn38wgywv7s\nc9EdCf+VgL8jcMG1b0Kk3QjdW9oYiLkSceQAZEonpEqcZwNEPjfSwA+DSLTB1fP1\nldHDIG+PNz+oUGuDfqSjg5BW5JUzbTFmJqOxNQHF3GVIP8qug2BfTofpXze42ICb\nbJabvTtE2ou8bjyzodPcGDWVdcWQRGbYPti+KSBNmCvNtA+RyvKQgzyBEWAuusHj\nbcZ73S7olktx7Rj7ZqKA2647OwTI9ycPCeLzHPSluZ67k2MGJh22emLijQ1rGmKE\nCNA5nlJkk0Dh7pV8DFP6mqUNawvDMo/1U7eSM1L8/OVxm+zHjgZSftTTmzxkOdD2\njaNDYaBFGeVqzQ8Ioy8w99X2K2ocbT3BZROs28zgQ/S93wSEzdKac4tMODjZnIP0\nvOtbiJNOrfJlJLeh0o3mgcs2lhh+OxwfLgK9nlLfu2HuApPV7L38+4EWSGMoxoqf\nv093fAGNFGUEgqo5ufcGSSvKykfXJkIqAl4+eDsS2VoONFSeViMk568ZnT5etkyK\n68TfuS3Ee2IF07McJe9t\n=Y52n\n-----END PGP SIGNATURE-----\n",
+      "payload": "tree 44fe6ccbeabbc1910fa01558fd60d579ddaf75c0\nparent 0543dc9732eab0ad12227308749566a937581eea\nauthor stranske <stranske@gmail.com> 1794170903 -0600\ncommitter GitHub <noreply@github.com> 1794170903 -0600\n\nchore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: a478e45c16b6",
+      "verified_at": "2026-11-08T20:48:24Z"
+    }
+  },
+  "html_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/commit/1ff9e11cd51a456333c626cb354543b63202bef6"
+}

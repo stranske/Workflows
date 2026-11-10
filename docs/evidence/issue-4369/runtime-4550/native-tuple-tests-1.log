@@ -1,0 +1,34 @@
+✔ the retained signed consumer head authenticates the frozen source-delta tuple (6.219844ms)
+✔ the retained consumer payload refuses substituted signature before recovery (1.358394ms)
+✔ the retained consumer payload refuses substituted signature reason before recovery (1.645659ms)
+✔ the retained consumer payload refuses substituted commit SHA before recovery (1.104822ms)
+✔ the retained consumer payload refuses substituted observed head before recovery (1.151294ms)
+✔ the retained consumer payload refuses substituted source before recovery (1.180058ms)
+✔ the retained consumer payload refuses substituted plan before recovery (1.646791ms)
+✔ the retained consumer payload refuses substituted scope before recovery (1.121216ms)
+✔ the retained consumer payload refuses substituted scope base before recovery (1.182582ms)
+✔ the retained report tuple reaches source history only after native verification (3.105079ms)
+✔ matching report and PR-body source_commit cannot replace the signed payload identity (1.84645ms)
+✔ matching report and PR-body plan_id cannot replace the signed payload identity (1.199147ms)
+✔ matching report and PR-body scope_base_sha cannot replace the signed payload identity (1.24625ms)
+✔ matching report and PR-body plan_scope cannot replace the signed payload identity (1.241974ms)
+✔ historical discussion is excluded by the final finding gate for both causal reports (2.328897ms)
+✔ historical finding exclusion with resolved=true, outdated=false preserves conversation policy (1.134998ms)
+✔ historical finding exclusion with resolved=false, outdated=true preserves conversation policy (1.146576ms)
+✔ reopening the historical finding cannot reuse its old worker disposition for this head (1.713744ms)
+✔ Maint 71 42485792262: retained missing-canary reports reproduce the refresh blocker (0.376453ms)
+✔ Maint 71 42485792262: the selected sealed consumer cannot authorize a refresh (0.237557ms)
+✔ Maint 71 42485792262: stranske/Travel-Plan-Permission cannot borrow the selected consumer identity (1.489797ms)
+✔ Maint 71 42485792262: stranske/trip-planner cannot borrow the selected consumer identity (1.072972ms)
+✔ Maint 71 42485974523: retained missing-canary reports reproduce the refresh blocker (0.317492ms)
+✔ Maint 71 42485974523: the selected sealed consumer cannot authorize a refresh (0.12922ms)
+✔ Maint 71 42485974523: stranske/Travel-Plan-Permission cannot borrow the selected consumer identity (1.026751ms)
+✔ Maint 71 42485974523: stranske/trip-planner cannot borrow the selected consumer identity (1.058029ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43.983786

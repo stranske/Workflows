@@ -105,3 +105,8 @@ def test_maint52_records_the_settled_canonical_source_commit():
     assert "needs.prepare.outputs.canonical_source_sha" in text
     assert "**Settled source commit:**" in text
     assert "update_versions_from_pypi.py --apply" not in text
+    assert "source_sha:" in text
+    assert text.count("ref: ${{ inputs.source_sha || github.sha }}") == 2
+    assert "FROZEN_SOURCE_SHA: ${{ inputs.source_sha || '' }}" in text
+    assert '[[ "$FROZEN_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]' in text
+    assert text.index("Validate frozen source input") < text.index("- name: Checkout Workflows")

@@ -1,0 +1,18 @@
+{
+  "command": [
+    "node",
+    "--test",
+    ".github/scripts/__tests__/agents-verifier-context.test.js",
+    ".github/scripts/__tests__/generated-delivery-seal-action.test.js",
+    ".github/scripts/__tests__/maint68-scoped-receipt.test.js",
+    ".github/scripts/__tests__/token-load-balancer-resolution.test.js",
+    ".github/scripts/__tests__/vendored-glob-security.test.js",
+    ".github/scripts/__tests__/verifier-comparison-baseline.test.js",
+    ".github/scripts/__tests__/verifier-correction-profile.test.js",
+    ".github/scripts/__tests__/verifier-correction-wiring.test.js",
+    ".github/scripts/__tests__/verifier-selected-artifact-metadata.test.js"
+  ],
+  "interpreter": "/opt/homebrew/bin/node",
+  "seconds": 7.363433124963194,
+  "exit_code": 0
+}

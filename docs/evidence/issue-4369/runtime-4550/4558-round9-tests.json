@@ -1,0 +1,84 @@
+[
+  {
+    "argv": [
+      "node",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T01:26:05.689485+00:00",
+    "completed_at": "2026-11-09T01:26:05.732721+00:00",
+    "wall_seconds": 0.04306429400003253,
+    "exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round9-observer-direct.log",
+    "log_sha256": "0dc4a8099a50092be89648bc474063aa9f28d56e3624f97cb9ce85d331c0e908"
+  },
+  {
+    "argv": [
+      "node",
+      "--test",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T01:26:05.732796+00:00",
+    "completed_at": "2026-11-09T01:26:05.814929+00:00",
+    "wall_seconds": 0.08193710000000465,
+    "exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round9-observer-test-runner.log",
+    "log_sha256": "443ea41676377837937c4ff6f432fd1ace3f4924f3aed1fad1d9b8433ab5c511"
+  },
+  {
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "-m",
+      "not slow"
+    ],
+    "bound_seconds": 120,
+    "started_at": "2026-11-09T01:26:05.814982+00:00",
+    "completed_at": "2026-11-09T01:26:07.749730+00:00",
+    "wall_seconds": 1.9345446599999718,
+    "exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round9-lifecycle.log",
+    "log_sha256": "5330e8a0c6d26db7eb81722d7dd024f397d134f3660a176bc05b765cc22abdb1"
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "docs/evidence/issue-4369/runtime-4550/4558-round9-origin-inventory.json"
+    ],
+    "bound_seconds": 30,
+    "started_at": "2026-11-09T01:26:07.749784+00:00",
+    "completed_at": "2026-11-09T01:26:07.771580+00:00",
+    "wall_seconds": 0.021629336999978932,
+    "exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round9-producer-replay.log",
+    "log_sha256": "8ef3d4d56bbba81f411df2884b08dec81786fb8e39c472db0e7628d5682378b3",
+    "source_inventory": "4558-round9-origin-inventory.json",
+    "workflow_path": ".github/workflows/maint-68-sync-consumer-repos.yml"
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "/tmp/issue-4558-round9-merger-input.json"
+    ],
+    "bound_seconds": 30,
+    "started_at": "2026-11-09T01:26:07.771788+00:00",
+    "completed_at": "2026-11-09T01:26:07.794775+00:00",
+    "wall_seconds": 0.022821725000028437,
+    "exit_code": 0,
+    "timed_out": false,
+    "log": "4558-round9-merger-replay.log",
+    "log_sha256": "2d38a396c6fe4a06f03d31ca888469f6ea135f005c9196cc36611bcb863921fa",
+    "source_inventory": "4558-round9-origin-inventory.json",
+    "workflow_path": ".github/workflows/maint-71-merge-sync-prs.yml"
+  }
+]

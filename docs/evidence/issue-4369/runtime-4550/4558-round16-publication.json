@@ -1,0 +1,41 @@
+{
+  "git_add": {
+    "exit_code": 128,
+    "stderr": "fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system",
+    "commit_attempted": false,
+    "pushed": false
+  },
+  "body_update": {
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ],
+    "isError": true
+  },
+  "label": {
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ],
+    "isError": true
+  },
+  "comment": {
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ],
+    "isError": true
+  },
+  "final_pr": {
+    "number": 4558,
+    "state": "open",
+    "isDraft": false,
+    "head": "b818bbd881d5d9999937b2e2e2181e43d8092403"
+  }
+}

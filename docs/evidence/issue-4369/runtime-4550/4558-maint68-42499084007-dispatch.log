@@ -1,0 +1,1184 @@
+﻿2026-11-08T16:19:08.0126146Z Current runner version: '2.338.2'
+2026-11-08T16:19:08.0151280Z ##[group]Runner Image Provisioner
+2026-11-08T16:19:08.0152201Z Hosted Compute Agent
+2026-11-08T16:19:08.0152815Z Version: 20261028.624
+2026-11-08T16:19:08.0153890Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-08T16:19:08.0154678Z Build Date: 2026-10-28T21:51:42Z
+2026-11-08T16:19:08.0155432Z Worker ID: {46f6a499-dbaf-4e43-b48c-04faf6acfa9d}
+2026-11-08T16:19:08.0156176Z Region: westus
+2026-11-08T16:19:08.0156746Z Cloud: Azure
+2026-11-08T16:19:08.0157346Z ##[endgroup]
+2026-11-08T16:19:08.0159116Z ##[group]Operating System
+2026-11-08T16:19:08.0159859Z Ubuntu
+2026-11-08T16:19:08.0160849Z 26.04.1
+2026-11-08T16:19:08.0161394Z LTS
+2026-11-08T16:19:08.0162006Z ##[endgroup]
+2026-11-08T16:19:08.0162615Z ##[group]Runner Image
+2026-11-08T16:19:08.0163370Z Image: ubuntu-26.04
+2026-11-08T16:19:08.0163956Z Version: 20261101.186.1
+2026-11-08T16:19:08.0165305Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-08T16:19:08.0166920Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+2026-11-08T16:19:08.0167961Z ##[endgroup]
+2026-11-08T16:19:08.0169182Z ##[group]GITHUB_TOKEN Permissions
+2026-11-08T16:19:08.0171611Z Actions: write
+2026-11-08T16:19:08.0172328Z Contents: read
+2026-11-08T16:19:08.0172963Z Metadata: read
+2026-11-08T16:19:08.0173550Z ##[endgroup]
+2026-11-08T16:19:08.0175590Z Secret source: Actions
+2026-11-08T16:19:08.0176696Z Cache mode: write
+2026-11-08T16:19:08.0177760Z Prepare workflow directory
+2026-11-08T16:19:08.0623390Z Prepare all required actions
+2026-11-08T16:19:08.0672064Z Getting action download info
+2026-11-08T16:19:08.3977048Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-11-08T16:19:08.5234602Z Download action repository 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' (SHA:3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c)
+2026-11-08T16:19:08.8524284Z Download action repository 'actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3' (SHA:3a2844b7e9c422d3c10d287c895573f7108da1b3)
+2026-11-08T16:19:09.2760314Z Complete job name: Start generated delivery reconciliation
+2026-11-08T16:19:09.3679857Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-11-08T16:19:09.3681235Z with:
+2026-11-08T16:19:09.3681746Z   persist-credentials: false
+2026-11-08T16:19:09.3682731Z   sparse-checkout: .github/actions/setup-api-client
+.github/scripts
+config/consumer_sync_canaries.json
+
+2026-11-08T16:19:09.3683775Z   sparse-checkout-cone-mode: false
+2026-11-08T16:19:09.3684377Z   repository: stranske/Workflows
+2026-11-08T16:19:09.3688284Z   token: ***
+2026-11-08T16:19:09.3688772Z   ssh-strict: true
+2026-11-08T16:19:09.3689252Z   ssh-user: git
+2026-11-08T16:19:09.3689720Z   clean: true
+2026-11-08T16:19:09.3690323Z   fetch-depth: 1
+2026-11-08T16:19:09.3690810Z   fetch-tags: false
+2026-11-08T16:19:09.3691305Z   show-progress: true
+2026-11-08T16:19:09.3691842Z   lfs: false
+2026-11-08T16:19:09.3692312Z   submodules: false
+2026-11-08T16:19:09.3692807Z   set-safe-directory: true
+2026-11-08T16:19:09.3693371Z   allow-unsafe-pr-checkout: false
+2026-11-08T16:19:09.3694203Z env:
+2026-11-08T16:19:09.3697297Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:09.3700620Z ##[endgroup]
+2026-11-08T16:19:09.6447430Z Syncing repository: stranske/Workflows
+2026-11-08T16:19:09.6449487Z ##[group]Getting Git version info
+2026-11-08T16:19:09.6450525Z Working directory is '/home/runner/work/Workflows/Workflows'
+2026-11-08T16:19:09.6451716Z [command]/usr/bin/git version
+2026-11-08T16:19:09.6461306Z git version 2.56.0
+2026-11-08T16:19:09.6482526Z ##[endgroup]
+2026-11-08T16:19:09.6493239Z Temporarily overriding HOME='/home/runner/work/_temp/1f1e885e-d946-4efa-a7b0-d7894f7e8247' before making global git config changes
+2026-11-08T16:19:09.6495854Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-08T16:19:09.6499244Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows
+2026-11-08T16:19:09.6561319Z Deleting the contents of '/home/runner/work/Workflows/Workflows'
+2026-11-08T16:19:09.6564558Z ##[group]Determining repository object format
+2026-11-08T16:19:09.6566201Z ##[endgroup]
+2026-11-08T16:19:09.6567639Z ##[group]Initializing the repository
+2026-11-08T16:19:09.6569827Z [command]/usr/bin/git init /home/runner/work/Workflows/Workflows
+2026-11-08T16:19:09.6684088Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-08T16:19:09.6685908Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-08T16:19:09.6687478Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-08T16:19:09.6688950Z hint: call:
+2026-11-08T16:19:09.6689640Z hint:
+2026-11-08T16:19:09.6690856Z hint: 	git config --global init.defaultBranch <name>
+2026-11-08T16:19:09.6691959Z hint:
+2026-11-08T16:19:09.6693002Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-08T16:19:09.6694534Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-08T16:19:09.6696314Z hint:
+2026-11-08T16:19:09.6697459Z hint: 	git branch -m <name>
+2026-11-08T16:19:09.6698616Z hint:
+2026-11-08T16:19:09.6699783Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-08T16:19:09.6701792Z Initialized empty Git repository in /home/runner/work/Workflows/Workflows/.git/
+2026-11-08T16:19:09.6708779Z [command]/usr/bin/git remote add origin https://github.com/stranske/Workflows
+2026-11-08T16:19:09.6760989Z ##[endgroup]
+2026-11-08T16:19:09.6762538Z ##[group]Disabling automatic garbage collection
+2026-11-08T16:19:09.6764028Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-08T16:19:09.6796909Z ##[endgroup]
+2026-11-08T16:19:09.6798421Z ##[group]Setting up auth
+2026-11-08T16:19:09.6799224Z Removing SSH command configuration
+2026-11-08T16:19:09.6802558Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-08T16:19:09.6834561Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-08T16:19:09.7255021Z Removing HTTP extra header
+2026-11-08T16:19:09.7261683Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-08T16:19:09.7299025Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-08T16:19:09.7570481Z Removing includeIf entries pointing to credentials config files
+2026-11-08T16:19:09.7575746Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-08T16:19:09.7620566Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-08T16:19:09.7897836Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-08T16:19:09.7937403Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/.git.path /home/runner/work/_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config
+2026-11-08T16:19:09.7968463Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config
+2026-11-08T16:19:09.8003569Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config
+2026-11-08T16:19:09.8038276Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config
+2026-11-08T16:19:09.8067580Z ##[endgroup]
+2026-11-08T16:19:09.8068483Z ##[group]Fetching the repository
+2026-11-08T16:19:09.8074514Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --filter=blob:none --depth=1 origin +bbfc6ae604c8e8c4021138c5efe964a368482957:refs/remotes/origin/main
+2026-11-08T16:19:10.1996086Z From https://github.com/stranske/Workflows
+2026-11-08T16:19:10.1997510Z  * [new ref]         bbfc6ae604c8e8c4021138c5efe964a368482957 -> origin/main
+2026-11-08T16:19:10.2005853Z [command]/usr/bin/git branch --list --remote origin/main
+2026-11-08T16:19:10.2034273Z   origin/main
+2026-11-08T16:19:10.2043262Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+2026-11-08T16:19:10.2067182Z bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:19:10.2072118Z ##[endgroup]
+2026-11-08T16:19:10.2072984Z ##[group]Determining the checkout info
+2026-11-08T16:19:10.2074109Z ##[endgroup]
+2026-11-08T16:19:10.2075055Z ##[group]Setting up sparse checkout
+2026-11-08T16:19:10.2077078Z [command]/usr/bin/git config core.sparseCheckout true
+2026-11-08T16:19:10.2113314Z [command]/usr/bin/git rev-parse --git-path info/sparse-checkout
+2026-11-08T16:19:10.2136298Z .git/info/sparse-checkout
+2026-11-08T16:19:10.2145008Z ##[endgroup]
+2026-11-08T16:19:10.2146599Z ##[group]Checking out the ref
+2026-11-08T16:19:10.2150224Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-08T16:19:11.2367614Z Updating files:   0% (1/397)
+2026-11-08T16:19:11.2372813Z Updating files:   1% (4/397)
+2026-11-08T16:19:11.2375780Z Updating files:   2% (8/397)
+2026-11-08T16:19:11.2378904Z Updating files:   3% (12/397)
+2026-11-08T16:19:11.2383347Z Updating files:   4% (16/397)
+2026-11-08T16:19:11.2400828Z Updating files:   5% (20/397)
+2026-11-08T16:19:11.2405283Z Updating files:   6% (24/397)
+2026-11-08T16:19:11.2409234Z Updating files:   7% (28/397)
+2026-11-08T16:19:11.2413451Z Updating files:   8% (32/397)
+2026-11-08T16:19:11.2417047Z Updating files:   9% (36/397)
+2026-11-08T16:19:11.2422231Z Updating files:  10% (40/397)
+2026-11-08T16:19:11.2425304Z Updating files:  11% (44/397)
+2026-11-08T16:19:11.2428921Z Updating files:  12% (48/397)
+2026-11-08T16:19:11.2432369Z Updating files:  13% (52/397)
+2026-11-08T16:19:11.2434294Z Updating files:  14% (56/397)
+2026-11-08T16:19:11.2437707Z Updating files:  15% (60/397)
+2026-11-08T16:19:11.2440417Z Updating files:  16% (64/397)
+2026-11-08T16:19:11.2442812Z Updating files:  17% (68/397)
+2026-11-08T16:19:11.2445272Z Updating files:  18% (72/397)
+2026-11-08T16:19:11.2448198Z Updating files:  19% (76/397)
+2026-11-08T16:19:11.2452268Z Updating files:  20% (80/397)
+2026-11-08T16:19:11.2458817Z Updating files:  21% (84/397)
+2026-11-08T16:19:11.2461392Z Updating files:  22% (88/397)
+2026-11-08T16:19:11.2467179Z Updating files:  23% (92/397)
+2026-11-08T16:19:11.2471415Z Updating files:  24% (96/397)
+2026-11-08T16:19:11.2482549Z Updating files:  25% (100/397)
+2026-11-08T16:19:11.2486770Z Updating files:  26% (104/397)
+2026-11-08T16:19:11.2489577Z Updating files:  27% (108/397)
+2026-11-08T16:19:11.2492745Z Updating files:  28% (112/397)
+2026-11-08T16:19:11.2497487Z Updating files:  29% (116/397)
+2026-11-08T16:19:11.2502459Z Updating files:  30% (120/397)
+2026-11-08T16:19:11.2507458Z Updating files:  31% (124/397)
+2026-11-08T16:19:11.2518531Z Updating files:  32% (128/397)
+2026-11-08T16:19:11.2522353Z Updating files:  33% (132/397)
+2026-11-08T16:19:11.2525429Z Updating files:  34% (135/397)
+2026-11-08T16:19:11.2529001Z Updating files:  35% (139/397)
+2026-11-08T16:19:11.2536230Z Updating files:  36% (143/397)
+2026-11-08T16:19:11.2546844Z Updating files:  37% (147/397)
+2026-11-08T16:19:11.2550856Z Updating files:  38% (151/397)
+2026-11-08T16:19:11.2554986Z Updating files:  39% (155/397)
+2026-11-08T16:19:11.2557341Z Updating files:  40% (159/397)
+2026-11-08T16:19:11.2562985Z Updating files:  41% (163/397)
+2026-11-08T16:19:11.2566907Z Updating files:  42% (167/397)
+2026-11-08T16:19:11.2570623Z Updating files:  43% (171/397)
+2026-11-08T16:19:11.2651360Z Updating files:  44% (175/397)
+2026-11-08T16:19:11.2673629Z Updating files:  45% (179/397)
+2026-11-08T16:19:11.2675853Z Updating files:  46% (183/397)
+2026-11-08T16:19:11.2677804Z Updating files:  47% (187/397)
+2026-11-08T16:19:11.2679754Z Updating files:  48% (191/397)
+2026-11-08T16:19:11.2681993Z Updating files:  49% (195/397)
+2026-11-08T16:19:11.2684014Z Updating files:  50% (199/397)
+2026-11-08T16:19:11.2686024Z Updating files:  51% (203/397)
+2026-11-08T16:19:11.2688021Z Updating files:  52% (207/397)
+2026-11-08T16:19:11.2690255Z Updating files:  53% (211/397)
+2026-11-08T16:19:11.2692341Z Updating files:  54% (215/397)
+2026-11-08T16:19:11.2694348Z Updating files:  55% (219/397)
+2026-11-08T16:19:11.2696168Z Updating files:  56% (223/397)
+2026-11-08T16:19:11.2697987Z Updating files:  57% (227/397)
+2026-11-08T16:19:11.2700300Z Updating files:  58% (231/397)
+2026-11-08T16:19:11.2702406Z Updating files:  59% (235/397)
+2026-11-08T16:19:11.2704638Z Updating files:  60% (239/397)
+2026-11-08T16:19:11.2706712Z Updating files:  61% (243/397)
+2026-11-08T16:19:11.2708614Z Updating files:  62% (247/397)
+2026-11-08T16:19:11.2710825Z Updating files:  63% (251/397)
+2026-11-08T16:19:11.2712666Z Updating files:  64% (255/397)
+2026-11-08T16:19:11.2714512Z Updating files:  65% (259/397)
+2026-11-08T16:19:11.2716477Z Updating files:  66% (263/397)
+2026-11-08T16:19:11.2718096Z Updating files:  67% (266/397)
+2026-11-08T16:19:11.2719682Z Updating files:  68% (270/397)
+2026-11-08T16:19:11.2721749Z Updating files:  69% (274/397)
+2026-11-08T16:19:11.2723871Z Updating files:  70% (278/397)
+2026-11-08T16:19:11.2725934Z Updating files:  71% (282/397)
+2026-11-08T16:19:11.2727992Z Updating files:  72% (286/397)
+2026-11-08T16:19:11.2729806Z Updating files:  73% (290/397)
+2026-11-08T16:19:11.2732291Z Updating files:  74% (294/397)
+2026-11-08T16:19:11.2734401Z Updating files:  75% (298/397)
+2026-11-08T16:19:11.2736482Z Updating files:  76% (302/397)
+2026-11-08T16:19:11.2738554Z Updating files:  77% (306/397)
+2026-11-08T16:19:11.2740395Z Updating files:  78% (310/397)
+2026-11-08T16:19:11.2742056Z Updating files:  79% (314/397)
+2026-11-08T16:19:11.2744063Z Updating files:  80% (318/397)
+2026-11-08T16:19:11.2746089Z Updating files:  81% (322/397)
+2026-11-08T16:19:11.2748124Z Updating files:  82% (326/397)
+2026-11-08T16:19:11.2750335Z Updating files:  83% (330/397)
+2026-11-08T16:19:11.2752445Z Updating files:  84% (334/397)
+2026-11-08T16:19:11.2754494Z Updating files:  85% (338/397)
+2026-11-08T16:19:11.2756515Z Updating files:  86% (342/397)
+2026-11-08T16:19:11.2758546Z Updating files:  87% (346/397)
+2026-11-08T16:19:11.2760869Z Updating files:  88% (350/397)
+2026-11-08T16:19:11.2762448Z Updating files:  89% (354/397)
+2026-11-08T16:19:11.2764048Z Updating files:  90% (358/397)
+2026-11-08T16:19:11.2766018Z Updating files:  91% (362/397)
+2026-11-08T16:19:11.2771690Z Updating files:  92% (366/397)
+2026-11-08T16:19:11.2778066Z Updating files:  93% (370/397)
+2026-11-08T16:19:11.2784479Z Updating files:  94% (374/397)
+2026-11-08T16:19:11.2789854Z Updating files:  95% (378/397)
+2026-11-08T16:19:11.2795322Z Updating files:  96% (382/397)
+2026-11-08T16:19:11.2800423Z Updating files:  97% (386/397)
+2026-11-08T16:19:11.2806359Z Updating files:  98% (390/397)
+2026-11-08T16:19:11.2808971Z Updating files:  99% (394/397)
+2026-11-08T16:19:11.2811871Z Updating files: 100% (397/397)
+2026-11-08T16:19:11.2814020Z Updating files: 100% (397/397), done.
+2026-11-08T16:19:11.2866635Z Switched to a new branch 'main'
+2026-11-08T16:19:11.2872672Z branch 'main' set up to track 'origin/main'.
+2026-11-08T16:19:11.2883331Z ##[endgroup]
+2026-11-08T16:19:11.2932426Z [command]/usr/bin/git log -1 --format=%H
+2026-11-08T16:19:11.2960592Z bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:19:11.2969956Z ##[group]Removing auth
+2026-11-08T16:19:11.2971898Z Removing SSH command configuration
+2026-11-08T16:19:11.2974670Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-08T16:19:11.3007350Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-08T16:19:11.3294103Z Removing HTTP extra header
+2026-11-08T16:19:11.3297684Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-08T16:19:11.3335301Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-08T16:19:11.3609109Z Removing includeIf entries pointing to credentials config files
+2026-11-08T16:19:11.3614381Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-08T16:19:11.3645111Z includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path
+2026-11-08T16:19:11.3649083Z includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path
+2026-11-08T16:19:11.3652896Z includeif.gitdir:/github/workspace/.git.path
+2026-11-08T16:19:11.3655936Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-08T16:19:11.3663166Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path
+2026-11-08T16:19:11.3682105Z /home/runner/work/_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config
+2026-11-08T16:19:11.3695490Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-b7eae7ec\-8b6a\-4d57\-b91f\-a299f51bd605\.config
+2026-11-08T16:19:11.3733628Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path
+2026-11-08T16:19:11.3763304Z /home/runner/work/_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config
+2026-11-08T16:19:11.3773199Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-b7eae7ec\-8b6a\-4d57\-b91f\-a299f51bd605\.config
+2026-11-08T16:19:11.3816483Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-11-08T16:19:11.3840799Z /github/runner_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config
+2026-11-08T16:19:11.3849613Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-b7eae7ec\-8b6a\-4d57\-b91f\-a299f51bd605\.config
+2026-11-08T16:19:11.3882950Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-11-08T16:19:11.3905684Z /github/runner_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config
+2026-11-08T16:19:11.3913988Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-b7eae7ec\-8b6a\-4d57\-b91f\-a299f51bd605\.config
+2026-11-08T16:19:11.3946815Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-08T16:19:11.4225876Z Removing credentials config '/home/runner/work/_temp/git-credentials-b7eae7ec-8b6a-4d57-b91f-a299f51bd605.config'
+2026-11-08T16:19:11.4249957Z ##[endgroup]
+2026-11-08T16:19:11.4597049Z ##[group]Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+2026-11-08T16:19:11.4598854Z with:
+2026-11-08T16:19:11.4599789Z   pattern: consumer-sync-result-*
+2026-11-08T16:19:11.4601525Z   path: artifacts/consumer-sync-results
+2026-11-08T16:19:11.4602785Z   merge-multiple: true
+2026-11-08T16:19:11.4603840Z   repository: stranske/Workflows
+2026-11-08T16:19:11.4604951Z   run-id: 42499084007
+2026-11-08T16:19:11.4605947Z   skip-decompress: false
+2026-11-08T16:19:11.4607000Z   digest-mismatch: error
+2026-11-08T16:19:11.4608000Z env:
+2026-11-08T16:19:11.4615050Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:11.4622330Z ##[endgroup]
+2026-11-08T16:19:11.8724177Z Found 4 artifact(s)
+2026-11-08T16:19:11.8727261Z Filtering artifacts by pattern 'consumer-sync-result-*'
+2026-11-08T16:19:11.8747202Z Preparing to download the following artifacts:
+2026-11-08T16:19:11.8751554Z - consumer-sync-result-stranske-Portable-Alpha-Extension-Model (ID: 13624827017, Size: 626, Expected Digest: sha256:0d1413b766b2b233517191e301ecc92944fa4637fd090b09fbdc91befaf35b4f)
+2026-11-08T16:19:11.8757151Z - consumer-sync-result-stranske-trip-planner (ID: 13624657847, Size: 563, Expected Digest: sha256:d1bc08a13f05d1ef3124fc6a668fdd9ce22aa3571a08afb10aec613bca562892)
+2026-11-08T16:19:11.8763449Z - consumer-sync-result-stranske-Travel-Plan-Permission (ID: 13624274961, Size: 597, Expected Digest: sha256:cad5b68b298eb23dc72d912ce0620cbcde2151d19bdec29573377eadfd505130)
+2026-11-08T16:19:12.3945367Z Redirecting to blob download url: https://productionresultssa2.blob.core.windows.net/actions-results/49cb0ee9-997e-42a7-ad72-416bbb544ff5/workflow-job-run-2b8a4f30-2b69-5fbf-b719-145fbc5cda70/artifacts/d65932cfaaba033c780d164239cfdd5d732906f524c143498aa0941025f9023b.zip
+2026-11-08T16:19:12.3948183Z Starting download of artifact to: /home/runner/work/Workflows/Workflows/artifacts/consumer-sync-results
+2026-11-08T16:19:12.3953984Z Redirecting to blob download url: https://productionresultssa2.blob.core.windows.net/actions-results/49cb0ee9-997e-42a7-ad72-416bbb544ff5/workflow-job-run-15a61cd3-8549-5652-9bd4-f7a870d0acbb/artifacts/eb814d56bb521990dd5c64f732ca0a72282988d9ad06a15c8a5005f37e3ad581.zip
+2026-11-08T16:19:12.3957378Z Starting download of artifact to: /home/runner/work/Workflows/Workflows/artifacts/consumer-sync-results
+2026-11-08T16:19:12.4017047Z Redirecting to blob download url: https://productionresultssa2.blob.core.windows.net/actions-results/49cb0ee9-997e-42a7-ad72-416bbb544ff5/workflow-job-run-cb70218a-b217-5c0f-8ec5-84cdcaa4c7e4/artifacts/32dac49dae114b7b58764fd4080994574eae2c2fc7e44fa2021df4d78e12650d.zip
+2026-11-08T16:19:12.4018536Z Starting download of artifact to: /home/runner/work/Workflows/Workflows/artifacts/consumer-sync-results
+2026-11-08T16:19:12.6730483Z (node:2530) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-11-08T16:19:12.6732097Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-08T16:19:12.6767568Z SHA256 digest of downloaded artifact is cad5b68b298eb23dc72d912ce0620cbcde2151d19bdec29573377eadfd505130
+2026-11-08T16:19:12.6768869Z Artifact download completed successfully.
+2026-11-08T16:19:12.7121161Z SHA256 digest of downloaded artifact is 0d1413b766b2b233517191e301ecc92944fa4637fd090b09fbdc91befaf35b4f
+2026-11-08T16:19:12.7122403Z Artifact download completed successfully.
+2026-11-08T16:19:12.7123543Z SHA256 digest of downloaded artifact is d1bc08a13f05d1ef3124fc6a668fdd9ce22aa3571a08afb10aec613bca562892
+2026-11-08T16:19:12.7125118Z Artifact download completed successfully.
+2026-11-08T16:19:12.7125909Z Total of 3 artifact(s) downloaded
+2026-11-08T16:19:12.7128371Z Download artifact has finished successfully
+2026-11-08T16:19:12.7262368Z ##[group]Run node <<'NODE'
+2026-11-08T16:19:12.7262933Z [36;1mnode <<'NODE'[0m
+2026-11-08T16:19:12.7263231Z [36;1mconst fs = require('fs');[0m
+2026-11-08T16:19:12.7263582Z [36;1mconst path = require('path');[0m
+2026-11-08T16:19:12.7264016Z [36;1mconst resultsDir = 'artifacts/consumer-sync-results';[0m
+2026-11-08T16:19:12.7264481Z [36;1mconst held = fs.existsSync(resultsDir)[0m
+2026-11-08T16:19:12.7264843Z [36;1m  ? fs.readdirSync(resultsDir)[0m
+2026-11-08T16:19:12.7265204Z [36;1m      .filter((name) => name.endsWith('.json'))[0m
+2026-11-08T16:19:12.7265729Z [36;1m      .map((name) => JSON.parse(fs.readFileSync(path.join(resultsDir, name), 'utf8')))[0m
+2026-11-08T16:19:12.7266284Z [36;1m      .filter((result) => result.status === 'legacy_hold')[0m
+2026-11-08T16:19:12.7266684Z [36;1m      .map((result) => result.repo)[0m
+2026-11-08T16:19:12.7266995Z [36;1m  : [];[0m
+2026-11-08T16:19:12.7267241Z [36;1mfs.appendFileSync([0m
+2026-11-08T16:19:12.7267572Z [36;1m  process.env.GITHUB_OUTPUT,[0m
+2026-11-08T16:19:12.7267942Z [36;1m  `present=${held.length ? 'true' : 'false'}\n`,[0m
+2026-11-08T16:19:12.7268288Z [36;1m);[0m
+2026-11-08T16:19:12.7268515Z [36;1mif (held.length) {[0m
+2026-11-08T16:19:12.7268784Z [36;1m  console.log([0m
+2026-11-08T16:19:12.7269327Z [36;1m    `::notice::Maint 71 reconciliation suppressed while legacy sync PRs hold generation: ${held.join(', ')}`,[0m
+2026-11-08T16:19:12.7269899Z [36;1m  );[0m
+2026-11-08T16:19:12.7270431Z [36;1m}[0m
+2026-11-08T16:19:12.7270651Z [36;1mNODE[0m
+2026-11-08T16:19:12.7324232Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:19:12.7324539Z env:
+2026-11-08T16:19:12.7326532Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:12.7328615Z ##[endgroup]
+2026-11-08T16:19:12.9475291Z ##[group]Run node <<'NODE'
+2026-11-08T16:19:12.9475658Z [36;1mnode <<'NODE'[0m
+2026-11-08T16:19:12.9475943Z [36;1mconst fs = require('fs');[0m
+2026-11-08T16:19:12.9476245Z [36;1mconst path = require('path');[0m
+2026-11-08T16:19:12.9476538Z [36;1mconst {[0m
+2026-11-08T16:19:12.9476794Z [36;1m  buildNoChangeEvidence,[0m
+2026-11-08T16:19:12.9477101Z [36;1m  buildNoChangeCanaryEvidence,[0m
+2026-11-08T16:19:12.9477435Z [36;1m  mergeCampaignNoChangeEvidence,[0m
+2026-11-08T16:19:12.9477848Z [36;1m} = require('./.github/scripts/sync_run_contract.js');[0m
+2026-11-08T16:19:12.9478253Z [36;1mconst canaryConfig = JSON.parse([0m
+2026-11-08T16:19:12.9478664Z [36;1m  fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),[0m
+2026-11-08T16:19:12.9479059Z [36;1m);[0m
+2026-11-08T16:19:12.9479356Z [36;1mconst expectedCanaries = (canaryConfig.canaries || [])[0m
+2026-11-08T16:19:12.9479805Z [36;1m  .map((entry) => String(entry.repo || '').trim())[0m
+2026-11-08T16:19:12.9480479Z [36;1m  .filter(Boolean);[0m
+2026-11-08T16:19:12.9480835Z [36;1mconst resultsDir = 'artifacts/consumer-sync-results';[0m
+2026-11-08T16:19:12.9481235Z [36;1mconst results = fs.existsSync(resultsDir)[0m
+2026-11-08T16:19:12.9481571Z [36;1m  ? fs.readdirSync(resultsDir)[0m
+2026-11-08T16:19:12.9481907Z [36;1m      .filter((name) => name.endsWith('.json'))[0m
+2026-11-08T16:19:12.9482224Z [36;1m      .sort()[0m
+2026-11-08T16:19:12.9482483Z [36;1m      .map((name) => JSON.parse([0m
+2026-11-08T16:19:12.9482867Z [36;1m        fs.readFileSync(path.join(resultsDir, name), 'utf8'),[0m
+2026-11-08T16:19:12.9483225Z [36;1m      ))[0m
+2026-11-08T16:19:12.9483444Z [36;1m  : [];[0m
+2026-11-08T16:19:12.9483723Z [36;1mconst baseline = buildNoChangeCanaryEvidence({[0m
+2026-11-08T16:19:12.9484062Z [36;1m  results,[0m
+2026-11-08T16:19:12.9484301Z [36;1m  expectedCanaries,[0m
+2026-11-08T16:19:12.9484579Z [36;1m  planId: process.env.PLAN_ID,[0m
+2026-11-08T16:19:12.9485116Z [36;1m  planScope: process.env.PLAN_SCOPE,[0m
+2026-11-08T16:19:12.9485483Z [36;1m  scopeBaseSha: process.env.SCOPE_BASE_SHA,[0m
+2026-11-08T16:19:12.9485864Z [36;1m  sourceCommit: process.env.SOURCE_COMMIT,[0m
+2026-11-08T16:19:12.9486182Z [36;1m});[0m
+2026-11-08T16:19:12.9486404Z [36;1mif (!baseline.ok) {[0m
+2026-11-08T16:19:12.9486658Z [36;1m  throw new Error([0m
+2026-11-08T16:19:12.9487037Z [36;1m    `Unsafe no-change canary evidence: ${baseline.errors.join(', ')}`,[0m
+2026-11-08T16:19:12.9487444Z [36;1m  );[0m
+2026-11-08T16:19:12.9487648Z [36;1m}[0m
+2026-11-08T16:19:12.9487867Z [36;1mfs.appendFileSync([0m
+2026-11-08T16:19:12.9488147Z [36;1m  process.env.GITHUB_OUTPUT,[0m
+2026-11-08T16:19:12.9488522Z [36;1m  `evidence_json=${JSON.stringify(baseline.evidence)}\n`,[0m
+2026-11-08T16:19:12.9488888Z [36;1m);[0m
+2026-11-08T16:19:12.9489118Z [36;1mlet campaignEvidence = {[0m
+2026-11-08T16:19:12.9489491Z [36;1m  schema: 'workflows.consumer-sync-no-change-evidence/v1',[0m
+2026-11-08T16:19:12.9489888Z [36;1m  version: 1,[0m
+2026-11-08T16:19:12.9490380Z [36;1m  results: [],[0m
+2026-11-08T16:19:12.9490621Z [36;1m};[0m
+2026-11-08T16:19:12.9490882Z [36;1mif (process.env.SYNC_PHASE === 'promote') {[0m
+2026-11-08T16:19:12.9491342Z [36;1m  const nonAdminRepos = String(process.env.REGISTERED_CONSUMER_REPOS || '')[0m
+2026-11-08T16:19:12.9491782Z [36;1m    .split(/\s+/)[0m
+2026-11-08T16:19:12.9492051Z [36;1m    .map((repo) => repo.trim())[0m
+2026-11-08T16:19:12.9492431Z [36;1m    .filter((repo) => repo && repo !== 'stranske/Collab-Admin');[0m
+2026-11-08T16:19:12.9492884Z [36;1m  const deliveryBaseline = buildNoChangeEvidence({[0m
+2026-11-08T16:19:12.9493235Z [36;1m    results,[0m
+2026-11-08T16:19:12.9493509Z [36;1m    expectedRepositories: nonAdminRepos,[0m
+2026-11-08T16:19:12.9493852Z [36;1m    planId: process.env.PLAN_ID,[0m
+2026-11-08T16:19:12.9494181Z [36;1m    planScope: process.env.PLAN_SCOPE,[0m
+2026-11-08T16:19:12.9494545Z [36;1m    scopeBaseSha: process.env.SCOPE_BASE_SHA,[0m
+2026-11-08T16:19:12.9495086Z [36;1m    sourceCommit: process.env.SOURCE_COMMIT,[0m
+2026-11-08T16:19:12.9495424Z [36;1m  });[0m
+2026-11-08T16:19:12.9495657Z [36;1m  if (!deliveryBaseline.ok) {[0m
+2026-11-08T16:19:12.9495949Z [36;1m    throw new Error([0m
+2026-11-08T16:19:12.9496377Z [36;1m      `Unsafe no-change delivery evidence: ${deliveryBaseline.errors.join(', ')}`,[0m
+2026-11-08T16:19:12.9496814Z [36;1m    );[0m
+2026-11-08T16:19:12.9497026Z [36;1m  }[0m
+2026-11-08T16:19:12.9497409Z [36;1m  const rawCanaryEvidence = JSON.parse(process.env.CANARY_EVIDENCE_JSON || '{}');[0m
+2026-11-08T16:19:12.9497963Z [36;1m  const canaryRows = (rawCanaryEvidence.results || []).filter([0m
+2026-11-08T16:19:12.9498418Z [36;1m    (row) => row.evidence_source === 'no-change-canary',[0m
+2026-11-08T16:19:12.9498759Z [36;1m  );[0m
+2026-11-08T16:19:12.9499052Z [36;1m  campaignEvidence = mergeCampaignNoChangeEvidence([0m
+2026-11-08T16:19:12.9499423Z [36;1m    canaryRows,[0m
+2026-11-08T16:19:12.9499700Z [36;1m    deliveryBaseline.evidence,[0m
+2026-11-08T16:19:12.9499983Z [36;1m  );[0m
+2026-11-08T16:19:12.9500418Z [36;1m}[0m
+2026-11-08T16:19:12.9500642Z [36;1mfs.appendFileSync([0m
+2026-11-08T16:19:12.9500918Z [36;1m  process.env.GITHUB_OUTPUT,[0m
+2026-11-08T16:19:12.9501329Z [36;1m  `campaign_evidence_json=${JSON.stringify(campaignEvidence)}\n`,[0m
+2026-11-08T16:19:12.9501726Z [36;1m);[0m
+2026-11-08T16:19:12.9501926Z [36;1mNODE[0m
+2026-11-08T16:19:12.9550836Z shell: /usr/bin/bash -e {0}
+2026-11-08T16:19:12.9551115Z env:
+2026-11-08T16:19:12.9552818Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:12.9554733Z   SYNC_PHASE: canary
+2026-11-08T16:19:12.9555130Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:19:12.9555574Z   PLAN_SCOPE: full
+2026-11-08T16:19:12.9555799Z   SCOPE_BASE_SHA: 
+2026-11-08T16:19:12.9556088Z   SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:19:12.9556445Z   CANARY_EVIDENCE_JSON: 
+2026-11-08T16:19:12.9556689Z ##[endgroup]
+2026-11-08T16:19:13.0395208Z Prepare all required actions
+2026-11-08T16:19:13.0649615Z ##[group]Run ./.github/actions/setup-api-client
+2026-11-08T16:19:13.0649958Z with:
+2026-11-08T16:19:13.0652774Z   github_token: ***
+2026-11-08T16:19:13.0653325Z   owner_pr_pat: ***
+2026-11-08T16:19:13.0653662Z   service_bot_pat: ***
+2026-11-08T16:19:13.0653908Z   skip_deps: false
+2026-11-08T16:19:13.0654135Z   verbose: false
+2026-11-08T16:19:13.0654351Z env:
+2026-11-08T16:19:13.0656025Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:13.0657803Z ##[endgroup]
+2026-11-08T16:19:13.0714847Z ##[start-action display=Install API client dependencies;id=__self.__run]
+2026-11-08T16:19:13.0760363Z ##[group]Run set -euo pipefail
+2026-11-08T16:19:13.0761118Z [36;1mset -euo pipefail[0m
+2026-11-08T16:19:13.0761393Z [36;1m[0m
+2026-11-08T16:19:13.0761712Z [36;1m# Use dedicated scripts dir, create if needed[0m
+2026-11-08T16:19:13.0762065Z [36;1mINSTALL_DIR=""[0m
+2026-11-08T16:19:13.0762334Z [36;1mif [ -z "$INSTALL_DIR" ]; then[0m
+2026-11-08T16:19:13.0762712Z [36;1m  INSTALL_DIR="${GITHUB_WORKSPACE}/.github/scripts"[0m
+2026-11-08T16:19:13.0763062Z [36;1mfi[0m
+2026-11-08T16:19:13.0763311Z [36;1mmkdir -p "$INSTALL_DIR"[0m
+2026-11-08T16:19:13.0763587Z [36;1m[0m
+2026-11-08T16:19:13.0763921Z [36;1mecho "📦 Installing @octokit dependencies in $INSTALL_DIR..."[0m
+2026-11-08T16:19:13.0764335Z [36;1mcd "$INSTALL_DIR"[0m
+2026-11-08T16:19:13.0764590Z [36;1m[0m
+2026-11-08T16:19:13.0764830Z [36;1mdeclare -a VENDORED_ALIAS_DIRS=()[0m
+2026-11-08T16:19:13.0765126Z [36;1m[0m
+2026-11-08T16:19:13.0765358Z [36;1mcleanup_vendor_aliases() {[0m
+2026-11-08T16:19:13.0765699Z [36;1m  if [ "${#VENDORED_ALIAS_DIRS[@]}" -eq 0 ]; then[0m
+2026-11-08T16:19:13.0766030Z [36;1m    return 0[0m
+2026-11-08T16:19:13.0766262Z [36;1m  fi[0m
+2026-11-08T16:19:13.0766475Z [36;1m[0m
+2026-11-08T16:19:13.0766706Z [36;1m  local cleanup_dir="$INSTALL_DIR"[0m
+2026-11-08T16:19:13.0767032Z [36;1m  if [ -z "$cleanup_dir" ]; then[0m
+2026-11-08T16:19:13.0767461Z [36;1m    echo "::warning::Install dir is empty, skipping vendored alias cleanup"[0m
+2026-11-08T16:19:13.0767894Z [36;1m    return 0[0m
+2026-11-08T16:19:13.0768133Z [36;1m  fi[0m
+2026-11-08T16:19:13.0768338Z [36;1m[0m
+2026-11-08T16:19:13.0768597Z [36;1m  if ! pushd "$cleanup_dir" >/dev/null 2>&1; then[0m
+2026-11-08T16:19:13.0769150Z [36;1m    echo "::warning::Failed to enter install dir \"$cleanup_dir\"; skipping vendored alias cleanup"[0m
+2026-11-08T16:19:13.0769644Z [36;1m    return 0[0m
+2026-11-08T16:19:13.0769879Z [36;1m  fi[0m
+2026-11-08T16:19:13.0770275Z [36;1m[0m
+2026-11-08T16:19:13.0770565Z [36;1m  for vendored_alias in "${VENDORED_ALIAS_DIRS[@]}"; do[0m
+2026-11-08T16:19:13.0770957Z [36;1m    if [ -z "$vendored_alias" ]; then[0m
+2026-11-08T16:19:13.0771270Z [36;1m      continue[0m
+2026-11-08T16:19:13.0771504Z [36;1m    fi[0m
+2026-11-08T16:19:13.0771758Z [36;1m    rm -rf -- "$vendored_alias" || true[0m
+2026-11-08T16:19:13.0772075Z [36;1m    local parent_dir[0m
+2026-11-08T16:19:13.0772375Z [36;1m    parent_dir=$(dirname "$vendored_alias")[0m
+2026-11-08T16:19:13.0772870Z [36;1m    # Remove empty parent directories that may have been created for scoped packages[0m
+2026-11-08T16:19:13.0773590Z [36;1m    while [ "$parent_dir" != "." ] && [ "$parent_dir" != "/" ]; do[0m
+2026-11-08T16:19:13.0774050Z [36;1m      rmdir -- "$parent_dir" 2>/dev/null || break[0m
+2026-11-08T16:19:13.0774421Z [36;1m      parent_dir=$(dirname "$parent_dir")[0m
+2026-11-08T16:19:13.0774723Z [36;1m    done[0m
+2026-11-08T16:19:13.0774940Z [36;1m  done[0m
+2026-11-08T16:19:13.0775147Z [36;1m[0m
+2026-11-08T16:19:13.0775546Z [36;1m  popd >/dev/null 2>&1 || true[0m
+2026-11-08T16:19:13.0775845Z [36;1m}[0m
+2026-11-08T16:19:13.0776045Z [36;1m[0m
+2026-11-08T16:19:13.0776265Z [36;1mtrap cleanup_vendor_aliases EXIT[0m
+2026-11-08T16:19:13.0776552Z [36;1m[0m
+2026-11-08T16:19:13.0776756Z [36;1mcreate_vendor_aliases() {[0m
+2026-11-08T16:19:13.0777062Z [36;1m  if [ ! -f "package.json" ]; then[0m
+2026-11-08T16:19:13.0777363Z [36;1m    return 0[0m
+2026-11-08T16:19:13.0777585Z [36;1m  fi[0m
+2026-11-08T16:19:13.0777807Z [36;1m[0m
+2026-11-08T16:19:13.0778010Z [36;1m  local alias_tmp[0m
+2026-11-08T16:19:13.0778273Z [36;1m  alias_tmp=$(mktemp)[0m
+2026-11-08T16:19:13.0778526Z [36;1m[0m
+2026-11-08T16:19:13.0778944Z [36;1m  local helper_root="${GITHUB_ACTION_PATH:-${GITHUB_WORKSPACE}/.github/actions/setup-api-client}"[0m
+2026-11-08T16:19:13.0779551Z [36;1m  local alias_helper="${helper_root}/create_vendor_aliases.js"[0m
+2026-11-08T16:19:13.0779962Z [36;1m  if [ ! -f "$alias_helper" ]; then[0m
+2026-11-08T16:19:13.0780482Z [36;1m    echo "::error::Missing vendored alias helper: $alias_helper"[0m
+2026-11-08T16:19:13.0780871Z [36;1m    rm -f "$alias_tmp"[0m
+2026-11-08T16:19:13.0781140Z [36;1m    return 1[0m
+2026-11-08T16:19:13.0781361Z [36;1m  fi[0m
+2026-11-08T16:19:13.0781565Z [36;1m[0m
+2026-11-08T16:19:13.0781850Z [36;1m  if node "$alias_helper" "$INSTALL_DIR" >"$alias_tmp"; then[0m
+2026-11-08T16:19:13.0782203Z [36;1m    :[0m
+2026-11-08T16:19:13.0782411Z [36;1m  else[0m
+2026-11-08T16:19:13.0782732Z [36;1m    echo "::error::Failed to prepare vendored dependency aliases"[0m
+2026-11-08T16:19:13.0783116Z [36;1m    rm -f "$alias_tmp"[0m
+2026-11-08T16:19:13.0783377Z [36;1m    return 1[0m
+2026-11-08T16:19:13.0783603Z [36;1m  fi[0m
+2026-11-08T16:19:13.0783803Z [36;1m[0m
+2026-11-08T16:19:13.0784044Z [36;1m  while IFS= read -r vendored_alias; do[0m
+2026-11-08T16:19:13.0784384Z [36;1m    if [ -z "$vendored_alias" ]; then[0m
+2026-11-08T16:19:13.0784680Z [36;1m      continue[0m
+2026-11-08T16:19:13.0784918Z [36;1m    fi[0m
+2026-11-08T16:19:13.0785171Z [36;1m    VENDORED_ALIAS_DIRS+=("$vendored_alias")[0m
+2026-11-08T16:19:13.0785503Z [36;1m  done <"$alias_tmp"[0m
+2026-11-08T16:19:13.0785754Z [36;1m[0m
+2026-11-08T16:19:13.0785959Z [36;1m  rm -f "$alias_tmp"[0m
+2026-11-08T16:19:13.0786215Z [36;1m}[0m
+2026-11-08T16:19:13.0786416Z [36;1m[0m
+2026-11-08T16:19:13.0786619Z [36;1mcreate_vendor_aliases[0m
+2026-11-08T16:19:13.0786870Z [36;1m[0m
+2026-11-08T16:19:13.0787225Z [36;1m# Strip unresolvable file: dependencies from package.json so npm install[0m
+2026-11-08T16:19:13.0787782Z [36;1m# doesn't choke when vendored packages are missing (e.g. sparse checkout[0m
+2026-11-08T16:19:13.0788313Z [36;1m# that doesn't include node_modules/).  Back up the original first so we[0m
+2026-11-08T16:19:13.0788852Z [36;1m# can restore it after npm install — avoids leaking modified state into[0m
+2026-11-08T16:19:13.0789319Z [36;1m# downstream steps that expect a clean workspace.[0m
+2026-11-08T16:19:13.0789680Z [36;1mSTRIPPED_PKG_JSON=false[0m
+2026-11-08T16:19:13.0789971Z [36;1mif [ -f "package.json" ]; then[0m
+2026-11-08T16:19:13.0790353Z [36;1m  node -e '[0m
+2026-11-08T16:19:13.0790602Z [36;1m    const fs = require("fs");[0m
+2026-11-08T16:19:13.0790916Z [36;1m    const path = require("path");[0m
+2026-11-08T16:19:13.0791283Z [36;1m    const raw = fs.readFileSync("package.json", "utf8");[0m
+2026-11-08T16:19:13.0791665Z [36;1m    const pkg = JSON.parse(raw);[0m
+2026-11-08T16:19:13.0791964Z [36;1m    let changed = false;[0m
+2026-11-08T16:19:13.0792457Z [36;1m    for (const section of ["dependencies", "devDependencies"]) {[0m
+2026-11-08T16:19:13.0792868Z [36;1m      if (!pkg[section]) continue;[0m
+2026-11-08T16:19:13.0793254Z [36;1m      for (const [name, spec] of Object.entries(pkg[section])) {[0m
+2026-11-08T16:19:13.0793713Z [36;1m        if (typeof spec === "string" && spec.startsWith("file:")) {[0m
+2026-11-08T16:19:13.0794272Z [36;1m          const target = path.resolve(spec.slice(5));[0m
+2026-11-08T16:19:13.0794652Z [36;1m          if (!fs.existsSync(target)) {[0m
+2026-11-08T16:19:13.0794983Z [36;1m            delete pkg[section][name];[0m
+2026-11-08T16:19:13.0795292Z [36;1m            changed = true;[0m
+2026-11-08T16:19:13.0795773Z [36;1m            console.log("::notice::Stripped unresolvable vendored dep: " + name + " (" + spec + ")");[0m
+2026-11-08T16:19:13.0796251Z [36;1m          }[0m
+2026-11-08T16:19:13.0796485Z [36;1m        }[0m
+2026-11-08T16:19:13.0796704Z [36;1m      }[0m
+2026-11-08T16:19:13.0797028Z [36;1m      if (pkg[section] && Object.keys(pkg[section]).length === 0) {[0m
+2026-11-08T16:19:13.0797418Z [36;1m        delete pkg[section];[0m
+2026-11-08T16:19:13.0797694Z [36;1m      }[0m
+2026-11-08T16:19:13.0797900Z [36;1m    }[0m
+2026-11-08T16:19:13.0798128Z [36;1m    if (changed) {[0m
+2026-11-08T16:19:13.0798469Z [36;1m      fs.copyFileSync("package.json", "package.json.bak");[0m
+2026-11-08T16:19:13.0799025Z [36;1m      fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");[0m
+2026-11-08T16:19:13.0799486Z [36;1m      process.stdout.write("STRIPPED");[0m
+2026-11-08T16:19:13.0799928Z [36;1m    }[0m
+2026-11-08T16:19:13.0800270Z [36;1m  '[0m
+2026-11-08T16:19:13.0800512Z [36;1m  if [ -f "package.json.bak" ]; then[0m
+2026-11-08T16:19:13.0800840Z [36;1m    STRIPPED_PKG_JSON=true[0m
+2026-11-08T16:19:13.0801108Z [36;1m  fi[0m
+2026-11-08T16:19:13.0801307Z [36;1mfi[0m
+2026-11-08T16:19:13.0801508Z [36;1m[0m
+2026-11-08T16:19:13.0801906Z [36;1m# Vendored packages often ship lifecycle scripts (tshy builds, custom bundlers, etc.)[0m
+2026-11-08T16:19:13.0802559Z [36;1m# that expect repo-specific tooling. Disable lifecycle scripts globally so npm install[0m
+2026-11-08T16:19:13.0803062Z [36;1m# never invokes those hooks inside CI.[0m
+2026-11-08T16:19:13.0803408Z [36;1mexport npm_config_ignore_scripts=true[0m
+2026-11-08T16:19:13.0803705Z [36;1m[0m
+2026-11-08T16:19:13.0803992Z [36;1m# Track if we create package.json so we can clean it up[0m
+2026-11-08T16:19:13.0804362Z [36;1mCREATED_PACKAGE_JSON=false[0m
+2026-11-08T16:19:13.0804652Z [36;1mif [ ! -f "package.json" ]; then[0m
+2026-11-08T16:19:13.0804980Z [36;1m  echo '{"private":true}' > package.json[0m
+2026-11-08T16:19:13.0805311Z [36;1m  CREATED_PACKAGE_JSON=true[0m
+2026-11-08T16:19:13.0805574Z [36;1mfi[0m
+2026-11-08T16:19:13.0805782Z [36;1m[0m
+2026-11-08T16:19:13.0806102Z [36;1m# Check if already installed (including lru-cache@10.4.3, a required[0m
+2026-11-08T16:19:13.0806636Z [36;1m# transitive dep of @octokit/auth-app used for GitHub App token minting).[0m
+2026-11-08T16:19:13.0807203Z [36;1mif [ -d "node_modules/@octokit/rest" ] && [ -d "node_modules/lru-cache" ]; then[0m
+2026-11-08T16:19:13.0807677Z [36;1m  echo "✅ @octokit/rest already installed"[0m
+2026-11-08T16:19:13.0807981Z [36;1melse[0m
+2026-11-08T16:19:13.0808283Z [36;1m  # Snapshot vendored package metadata before npm install.[0m
+2026-11-08T16:19:13.0808754Z [36;1m  # npm may overwrite transitive deps (e.g. minimatch) that are[0m
+2026-11-08T16:19:13.0809238Z [36;1m  # committed as vendored packages with intentional version pins.[0m
+2026-11-08T16:19:13.0809644Z [36;1m  VENDORED_SNAPSHOT=""[0m
+2026-11-08T16:19:13.0809991Z [36;1m  if [ -f "node_modules/minimatch/package.json" ]; then[0m
+2026-11-08T16:19:13.0810460Z [36;1m    VENDORED_SNAPSHOT=$(mktemp -d)[0m
+2026-11-08T16:19:13.0810806Z [36;1m    for pkg_dir in node_modules/*/; do[0m
+2026-11-08T16:19:13.0811158Z [36;1m      if [ -f "${pkg_dir}package.json" ]; then[0m
+2026-11-08T16:19:13.0811631Z [36;1m        pkg_name=$(basename "$pkg_dir")[0m
+2026-11-08T16:19:13.0812009Z [36;1m        mkdir -p "${VENDORED_SNAPSHOT}/${pkg_name}"[0m
+2026-11-08T16:19:13.0812489Z [36;1m        cp "${pkg_dir}package.json" "${VENDORED_SNAPSHOT}/${pkg_name}/package.json"[0m
+2026-11-08T16:19:13.0812908Z [36;1m      fi[0m
+2026-11-08T16:19:13.0813124Z [36;1m    done[0m
+2026-11-08T16:19:13.0813508Z [36;1m    echo "📸 Snapshotted vendored package metadata"[0m
+2026-11-08T16:19:13.0813839Z [36;1m  fi[0m
+2026-11-08T16:19:13.0814045Z [36;1m[0m
+2026-11-08T16:19:13.0814314Z [36;1m  # Install with pinned versions for consistency.[0m
+2026-11-08T16:19:13.0814781Z [36;1m  # lru-cache is an explicit transitive dep of @octokit/auth-app required for[0m
+2026-11-08T16:19:13.0815358Z [36;1m  # GitHub App token minting; pin it here so npm always hoists a specific version[0m
+2026-11-08T16:19:13.0815883Z [36;1m  # even if a prior cached node_modules state is missing it.[0m
+2026-11-08T16:19:13.0816241Z [36;1m  #[0m
+2026-11-08T16:19:13.0816591Z [36;1m  # Retry with exponential backoff to survive transient npm registry errors[0m
+2026-11-08T16:19:13.0817137Z [36;1m  # (e.g. 403 Forbidden from CDN/rate-limit on safe-buffer, undici, etc.).[0m
+2026-11-08T16:19:13.0817545Z [36;1m  NPM_PACKAGES=([0m
+2026-11-08T16:19:13.0817803Z [36;1m    @octokit/rest@20.0.2[0m
+2026-11-08T16:19:13.0818094Z [36;1m    @octokit/plugin-retry@6.0.1[0m
+2026-11-08T16:19:13.0818425Z [36;1m    @octokit/plugin-paginate-rest@9.1.5[0m
+2026-11-08T16:19:13.0818752Z [36;1m    @octokit/auth-app@6.0.3[0m
+2026-11-08T16:19:13.0819036Z [36;1m    lru-cache@10.4.3[0m
+2026-11-08T16:19:13.0819283Z [36;1m  )[0m
+2026-11-08T16:19:13.0819503Z [36;1m  NPM_MAX_RETRIES=3[0m
+2026-11-08T16:19:13.0819825Z [36;1m  NPM_BACKOFF=5  # seconds; doubles each retry (5, 10)[0m
+2026-11-08T16:19:13.0820278Z [36;1m  npm_installed=false[0m
+2026-11-08T16:19:13.0820540Z [36;1m[0m
+2026-11-08T16:19:13.0820832Z [36;1m  for (( attempt=1; attempt<=NPM_MAX_RETRIES; attempt++ )); do[0m
+2026-11-08T16:19:13.0821215Z [36;1m    npm_output=$(mktemp)[0m
+2026-11-08T16:19:13.0821490Z [36;1m[0m
+2026-11-08T16:19:13.0821872Z [36;1m    if npm install --no-save --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then[0m
+2026-11-08T16:19:13.0822355Z [36;1m      rm -f "$npm_output"[0m
+2026-11-08T16:19:13.0822639Z [36;1m      npm_installed=true[0m
+2026-11-08T16:19:13.0822897Z [36;1m      break[0m
+2026-11-08T16:19:13.0823132Z [36;1m    fi[0m
+2026-11-08T16:19:13.0823345Z [36;1m[0m
+2026-11-08T16:19:13.0823558Z [36;1m    npm_err=$(cat "$npm_output")[0m
+2026-11-08T16:19:13.0823860Z [36;1m    rm -f "$npm_output"[0m
+2026-11-08T16:19:13.0824292Z [36;1m    echo "::warning::npm install attempt $attempt/$NPM_MAX_RETRIES failed (see logs)"[0m
+2026-11-08T16:19:13.0824789Z [36;1m    echo "::group::npm stderr (attempt $attempt)"[0m
+2026-11-08T16:19:13.0825122Z [36;1m    echo "$npm_err"[0m
+2026-11-08T16:19:13.0825381Z [36;1m    echo "::endgroup::"[0m
+2026-11-08T16:19:13.0825635Z [36;1m[0m
+2026-11-08T16:19:13.0825946Z [36;1m    # On peer-dep / ERESOLVE failures, also try --legacy-peer-deps[0m
+2026-11-08T16:19:13.0826510Z [36;1m    if echo "$npm_err" | grep -qiE 'ERESOLVE|peer dep|Could not resolve dependency'; then[0m
+2026-11-08T16:19:13.0827158Z [36;1m      echo "::warning::Detected peer dependency conflict, retrying with --legacy-peer-deps"[0m
+2026-11-08T16:19:13.0827644Z [36;1m      npm_output=$(mktemp)[0m
+2026-11-08T16:19:13.0828184Z [36;1m      if npm install --no-save --legacy-peer-deps --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then[0m
+2026-11-08T16:19:13.0828737Z [36;1m        rm -f "$npm_output"[0m
+2026-11-08T16:19:13.0829029Z [36;1m        npm_installed=true[0m
+2026-11-08T16:19:13.0829298Z [36;1m        break[0m
+2026-11-08T16:19:13.0829526Z [36;1m      fi[0m
+2026-11-08T16:19:13.0829825Z [36;1m      npm_err_legacy=$(cat "$npm_output")[0m
+2026-11-08T16:19:13.0830247Z [36;1m      rm -f "$npm_output"[0m
+2026-11-08T16:19:13.0830779Z [36;1m      echo "::warning::npm install with --legacy-peer-deps failed (see logs)"[0m
+2026-11-08T16:19:13.0831264Z [36;1m      echo "::group::npm stderr (--legacy-peer-deps)"[0m
+2026-11-08T16:19:13.0831621Z [36;1m      echo "$npm_err_legacy"[0m
+2026-11-08T16:19:13.0831903Z [36;1m      echo "::endgroup::"[0m
+2026-11-08T16:19:13.0832168Z [36;1m    fi[0m
+2026-11-08T16:19:13.0832382Z [36;1m[0m
+2026-11-08T16:19:13.0832743Z [36;1m    if [ "$attempt" -lt "$NPM_MAX_RETRIES" ]; then[0m
+2026-11-08T16:19:13.0833163Z [36;1m      echo "::notice::Waiting ${NPM_BACKOFF}s before retry..."[0m
+2026-11-08T16:19:13.0833541Z [36;1m      sleep "$NPM_BACKOFF"[0m
+2026-11-08T16:19:13.0833839Z [36;1m      NPM_BACKOFF=$((NPM_BACKOFF * 2))[0m
+2026-11-08T16:19:13.0834138Z [36;1m    fi[0m
+2026-11-08T16:19:13.0834351Z [36;1m  done[0m
+2026-11-08T16:19:13.0834554Z [36;1m[0m
+2026-11-08T16:19:13.0834794Z [36;1m  if [ "$npm_installed" != "true" ]; then[0m
+2026-11-08T16:19:13.0835219Z [36;1m    echo "::error::npm install failed after $NPM_MAX_RETRIES attempts"[0m
+2026-11-08T16:19:13.0835608Z [36;1m    exit 1[0m
+2026-11-08T16:19:13.0835835Z [36;1m  fi[0m
+2026-11-08T16:19:13.0836037Z [36;1m[0m
+2026-11-08T16:19:13.0836360Z [36;1m  # Restore vendored package metadata that npm may have overwritten[0m
+2026-11-08T16:19:13.0836868Z [36;1m  if [ -n "${VENDORED_SNAPSHOT:-}" ] && [ -d "${VENDORED_SNAPSHOT}" ]; then[0m
+2026-11-08T16:19:13.0837333Z [36;1m    for pkg_backup in "${VENDORED_SNAPSHOT}"/*/; do[0m
+2026-11-08T16:19:13.0837703Z [36;1m      pkg_name=$(basename "$pkg_backup")[0m
+2026-11-08T16:19:13.0838086Z [36;1m      if [ -f "node_modules/${pkg_name}/package.json" ] && \[0m
+2026-11-08T16:19:13.0838492Z [36;1m         [ -f "${pkg_backup}package.json" ]; then[0m
+2026-11-08T16:19:13.0838940Z [36;1m        cp "${pkg_backup}package.json" "node_modules/${pkg_name}/package.json"[0m
+2026-11-08T16:19:13.0839349Z [36;1m      fi[0m
+2026-11-08T16:19:13.0839569Z [36;1m    done[0m
+2026-11-08T16:19:13.0839803Z [36;1m    rm -rf "${VENDORED_SNAPSHOT}"[0m
+2026-11-08T16:19:13.0840295Z [36;1m    echo "📸 Restored vendored package metadata"[0m
+2026-11-08T16:19:13.0840623Z [36;1m  fi[0m
+2026-11-08T16:19:13.0840824Z [36;1m[0m
+2026-11-08T16:19:13.0841068Z [36;1m  echo "✅ @octokit dependencies installed"[0m
+2026-11-08T16:19:13.0841374Z [36;1mfi[0m
+2026-11-08T16:19:13.0841579Z [36;1m[0m
+2026-11-08T16:19:13.0841909Z [36;1m# Restore original package.json if we stripped file: deps earlier,[0m
+2026-11-08T16:19:13.0842371Z [36;1m# so downstream steps see an unmodified workspace.[0m
+2026-11-08T16:19:13.0842829Z [36;1mif [ "$STRIPPED_PKG_JSON" = "true" ] && [ -f "package.json.bak" ]; then[0m
+2026-11-08T16:19:13.0843265Z [36;1m  mv "package.json.bak" "package.json"[0m
+2026-11-08T16:19:13.0843563Z [36;1mfi[0m
+2026-11-08T16:19:13.0843765Z [36;1m[0m
+2026-11-08T16:19:13.0843976Z [36;1mcleanup_vendor_aliases[0m
+2026-11-08T16:19:13.0844275Z [36;1mtrap - EXIT[0m
+2026-11-08T16:19:13.0896526Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-08T16:19:13.0896898Z env:
+2026-11-08T16:19:13.0898611Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:13.0900485Z ##[endgroup]
+2026-11-08T16:19:13.1001372Z 📦 Installing @octokit dependencies in /home/runner/work/Workflows/Workflows/.github/scripts...
+2026-11-08T16:19:13.1884820Z 📸 Snapshotted vendored package metadata
+2026-11-08T16:19:15.9949357Z 
+2026-11-08T16:19:15.9950373Z added 66 packages, changed 1 package, and audited 70 packages in 3s
+2026-11-08T16:19:15.9950997Z 
+2026-11-08T16:19:15.9951217Z 2 packages are looking for funding
+2026-11-08T16:19:15.9952124Z   run `npm fund` for details
+2026-11-08T16:19:15.9984060Z 
+2026-11-08T16:19:15.9984363Z 2 moderate severity vulnerabilities
+2026-11-08T16:19:15.9984744Z 
+2026-11-08T16:19:15.9985111Z To address all issues possible, run:
+2026-11-08T16:19:15.9985660Z   npm audit fix --force
+2026-11-08T16:19:15.9985957Z 
+2026-11-08T16:19:15.9986220Z Some issues need review, and may require choosing
+2026-11-08T16:19:15.9986835Z a different dependency.
+2026-11-08T16:19:15.9987439Z 
+2026-11-08T16:19:15.9987657Z Run `npm audit` for details.
+2026-11-08T16:19:16.0711935Z 📸 Restored vendored package metadata
+2026-11-08T16:19:16.0712378Z ✅ @octokit dependencies installed
+2026-11-08T16:19:16.0780673Z ##[end-action id=__self.__run;outcome=success;conclusion=success;duration_ms=3006]
+2026-11-08T16:19:16.0784331Z ##[start-action display=Export NODE_PATH for shared deps;id=__self.__run_2]
+2026-11-08T16:19:16.0870556Z ##[group]Run set -euo pipefail
+2026-11-08T16:19:16.0870912Z [36;1mset -euo pipefail[0m
+2026-11-08T16:19:16.0871202Z [36;1mINSTALL_DIR=""[0m
+2026-11-08T16:19:16.0871478Z [36;1mif [ -z "$INSTALL_DIR" ]; then[0m
+2026-11-08T16:19:16.0871841Z [36;1m  INSTALL_DIR="${GITHUB_WORKSPACE}/.github/scripts"[0m
+2026-11-08T16:19:16.0872188Z [36;1mfi[0m
+2026-11-08T16:19:16.0872456Z [36;1mif [ -d "${INSTALL_DIR}/node_modules" ]; then[0m
+2026-11-08T16:19:16.0872815Z [36;1m  if [ -n "${NODE_PATH:-}" ]; then[0m
+2026-11-08T16:19:16.0873269Z [36;1m    echo "NODE_PATH=${INSTALL_DIR}/node_modules:${NODE_PATH}" >> "$GITHUB_ENV"[0m
+2026-11-08T16:19:16.0873696Z [36;1m  else[0m
+2026-11-08T16:19:16.0874005Z [36;1m    echo "NODE_PATH=${INSTALL_DIR}/node_modules" >> "$GITHUB_ENV"[0m
+2026-11-08T16:19:16.0874377Z [36;1m  fi[0m
+2026-11-08T16:19:16.0874579Z [36;1melse[0m
+2026-11-08T16:19:16.0875019Z [36;1m  echo "::notice::setup-api-client: ${INSTALL_DIR}/node_modules not found; skipping NODE_PATH export."[0m
+2026-11-08T16:19:16.0875521Z [36;1mfi[0m
+2026-11-08T16:19:16.0923478Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-08T16:19:16.0923863Z env:
+2026-11-08T16:19:16.0925726Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:16.0927646Z ##[endgroup]
+2026-11-08T16:19:16.1006000Z ##[end-action id=__self.__run_2;outcome=success;conclusion=success;duration_ms=22]
+2026-11-08T16:19:16.1014970Z ##[start-action display=Export load balancer tokens;id=__self.export-tokens]
+2026-11-08T16:19:16.1036529Z ##[group]Run set -euo pipefail
+2026-11-08T16:19:16.1037124Z [36;1mset -euo pipefail[0m
+2026-11-08T16:19:16.1037385Z [36;1m[0m
+2026-11-08T16:19:16.1037601Z [36;1mtoken_count=0[0m
+2026-11-08T16:19:16.1037867Z [36;1mavailable_tokens=""[0m
+2026-11-08T16:19:16.1038123Z [36;1m[0m
+2026-11-08T16:19:16.1038358Z [36;1m# Export a variable to GITHUB_ENV[0m
+2026-11-08T16:19:16.1038812Z [36;1m# Note: Empty values are intentionally not counted as available tokens[0m
+2026-11-08T16:19:16.1039240Z [36;1mexport_var() {[0m
+2026-11-08T16:19:16.1039495Z [36;1m  local name="$1"[0m
+2026-11-08T16:19:16.1039753Z [36;1m  local value="${2-}"[0m
+2026-11-08T16:19:16.1040278Z [36;1m  if [ -z "${value}" ]; then[0m
+2026-11-08T16:19:16.1040584Z [36;1m    return 0[0m
+2026-11-08T16:19:16.1040812Z [36;1m  fi[0m
+2026-11-08T16:19:16.1041023Z [36;1m[0m
+2026-11-08T16:19:16.1041284Z [36;1m  # Handle multiline values (like private keys)[0m
+2026-11-08T16:19:16.1041646Z [36;1m  if [[ "${value}" == *$'\n'* ]]; then[0m
+2026-11-08T16:19:16.1041941Z [36;1m    {[0m
+2026-11-08T16:19:16.1042161Z [36;1m      echo "${name}<<EOF"[0m
+2026-11-08T16:19:16.1042447Z [36;1m      printf '%s\n' "${value}"[0m
+2026-11-08T16:19:16.1042911Z [36;1m      echo "EOF"[0m
+2026-11-08T16:19:16.1043161Z [36;1m    } >>"${GITHUB_ENV}"[0m
+2026-11-08T16:19:16.1043425Z [36;1m  else[0m
+2026-11-08T16:19:16.1043727Z [36;1m    printf '%s=%s\n' "${name}" "${value}" >>"${GITHUB_ENV}"[0m
+2026-11-08T16:19:16.1044076Z [36;1m  fi[0m
+2026-11-08T16:19:16.1044287Z [36;1m[0m
+2026-11-08T16:19:16.1044513Z [36;1m  token_count=$((token_count + 1))[0m
+2026-11-08T16:19:16.1044977Z [36;1m  if [ -n "$available_tokens" ]; then[0m
+2026-11-08T16:19:16.1045355Z [36;1m    available_tokens="${available_tokens},${name}"[0m
+2026-11-08T16:19:16.1045691Z [36;1m  else[0m
+2026-11-08T16:19:16.1045919Z [36;1m    available_tokens="${name}"[0m
+2026-11-08T16:19:16.1046193Z [36;1m  fi[0m
+2026-11-08T16:19:16.1046398Z [36;1m[0m
+2026-11-08T16:19:16.1046637Z [36;1m  if [ "${INPUT_VERBOSE}" = "true" ]; then[0m
+2026-11-08T16:19:16.1046972Z [36;1m    echo "  ✅ ${name} exported"[0m
+2026-11-08T16:19:16.1047252Z [36;1m  fi[0m
+2026-11-08T16:19:16.1047470Z [36;1m}[0m
+2026-11-08T16:19:16.1047671Z [36;1m[0m
+2026-11-08T16:19:16.1047943Z [36;1mecho "🔐 Exporting tokens to environment..."[0m
+2026-11-08T16:19:16.1048268Z [36;1m[0m
+2026-11-08T16:19:16.1048540Z [36;1m# Try to extract from JSON secrets first (requires jq)[0m
+2026-11-08T16:19:16.1049009Z [36;1mif [ -n "${INPUT_SECRETS:-}" ] && [ "${INPUT_SECRETS}" != "null" ]; then[0m
+2026-11-08T16:19:16.1049447Z [36;1m  if ! command -v jq >/dev/null 2>&1; then[0m
+2026-11-08T16:19:16.1050215Z [36;1m    echo "::warning::'jq' is not installed; falling back to individual token inputs instead of parsing JSON secrets."[0m
+2026-11-08T16:19:16.1050919Z [36;1m    # Fall back to individual inputs when jq is unavailable[0m
+2026-11-08T16:19:16.1051348Z [36;1m    SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"[0m
+2026-11-08T16:19:16.1051731Z [36;1m    ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"[0m
+2026-11-08T16:19:16.1052096Z [36;1m    OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"[0m
+2026-11-08T16:19:16.1052503Z [36;1m    AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"[0m
+2026-11-08T16:19:16.1052938Z [36;1m    WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"[0m
+2026-11-08T16:19:16.1053397Z [36;1m    WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1053854Z [36;1m    KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"[0m
+2026-11-08T16:19:16.1054301Z [36;1m    KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1054722Z [36;1m    GH_APP_ID="${INPUT_GH_APP_ID:-}"[0m
+2026-11-08T16:19:16.1055089Z [36;1m    GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1055457Z [36;1m    APP_1_ID="${INPUT_APP_1_ID:-}"[0m
+2026-11-08T16:19:16.1055813Z [36;1m    APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1056177Z [36;1m    APP_2_ID="${INPUT_APP_2_ID:-}"[0m
+2026-11-08T16:19:16.1056528Z [36;1m    APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1056853Z [36;1m  else[0m
+2026-11-08T16:19:16.1057105Z [36;1m    # Parse JSON secrets using jq[0m
+2026-11-08T16:19:16.1057408Z [36;1m    extract_secret() {[0m
+2026-11-08T16:19:16.1057682Z [36;1m      local key="$1"[0m
+2026-11-08T16:19:16.1058064Z [36;1m      echo "${INPUT_SECRETS}" | jq -r ".${key} // empty" 2>/dev/null || echo ""[0m
+2026-11-08T16:19:16.1058472Z [36;1m    }[0m
+2026-11-08T16:19:16.1058686Z [36;1m[0m
+2026-11-08T16:19:16.1058974Z [36;1m    SERVICE_BOT_PAT=$(extract_secret "SERVICE_BOT_PAT")[0m
+2026-11-08T16:19:16.1059389Z [36;1m    ACTIONS_BOT_PAT=$(extract_secret "ACTIONS_BOT_PAT")[0m
+2026-11-08T16:19:16.1059799Z [36;1m    OWNER_PR_PAT=$(extract_secret "OWNER_PR_PAT")[0m
+2026-11-08T16:19:16.1060560Z [36;1m    AGENTS_AUTOMATION_PAT=$(extract_secret "AGENTS_AUTOMATION_PAT")[0m
+2026-11-08T16:19:16.1061053Z [36;1m    WORKFLOWS_APP_ID=$(extract_secret "WORKFLOWS_APP_ID")[0m
+2026-11-08T16:19:16.1061647Z [36;1m    WORKFLOWS_APP_PRIVATE_KEY=$(extract_secret "WORKFLOWS_APP_PRIVATE_KEY")[0m
+2026-11-08T16:19:16.1062742Z [36;1m    KEEPALIVE_APP_ID=$(extract_secret "KEEPALIVE_APP_ID")[0m
+2026-11-08T16:19:16.1063483Z [36;1m    KEEPALIVE_APP_PRIVATE_KEY=$(extract_secret "KEEPALIVE_APP_PRIVATE_KEY")[0m
+2026-11-08T16:19:16.1063955Z [36;1m    GH_APP_ID=$(extract_secret "GH_APP_ID")[0m
+2026-11-08T16:19:16.1064362Z [36;1m    GH_APP_PRIVATE_KEY=$(extract_secret "GH_APP_PRIVATE_KEY")[0m
+2026-11-08T16:19:16.1064775Z [36;1m    APP_1_ID=$(extract_secret "APP_1_ID")[0m
+2026-11-08T16:19:16.1065313Z [36;1m    APP_1_PRIVATE_KEY=$(extract_secret "APP_1_PRIVATE_KEY")[0m
+2026-11-08T16:19:16.1065722Z [36;1m    APP_2_ID=$(extract_secret "APP_2_ID")[0m
+2026-11-08T16:19:16.1066111Z [36;1m    APP_2_PRIVATE_KEY=$(extract_secret "APP_2_PRIVATE_KEY")[0m
+2026-11-08T16:19:16.1066469Z [36;1m  fi[0m
+2026-11-08T16:19:16.1066686Z [36;1melse[0m
+2026-11-08T16:19:16.1066934Z [36;1m  # Fall back to individual inputs[0m
+2026-11-08T16:19:16.1067293Z [36;1m  SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"[0m
+2026-11-08T16:19:16.1067688Z [36;1m  ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"[0m
+2026-11-08T16:19:16.1068064Z [36;1m  OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"[0m
+2026-11-08T16:19:16.1068479Z [36;1m  AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"[0m
+2026-11-08T16:19:16.1068912Z [36;1m  WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"[0m
+2026-11-08T16:19:16.1069364Z [36;1m  WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1069828Z [36;1m  KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"[0m
+2026-11-08T16:19:16.1070490Z [36;1m  KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1070918Z [36;1m  GH_APP_ID="${INPUT_GH_APP_ID:-}"[0m
+2026-11-08T16:19:16.1071281Z [36;1m  GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1071650Z [36;1m  APP_1_ID="${INPUT_APP_1_ID:-}"[0m
+2026-11-08T16:19:16.1072011Z [36;1m  APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1072360Z [36;1m  APP_2_ID="${INPUT_APP_2_ID:-}"[0m
+2026-11-08T16:19:16.1072712Z [36;1m  APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1073050Z [36;1mfi[0m
+2026-11-08T16:19:16.1073260Z [36;1m[0m
+2026-11-08T16:19:16.1073587Z [36;1m# Export GITHUB_TOKEN (GH_TOKEN is the same value, only count once)[0m
+2026-11-08T16:19:16.1074047Z [36;1mif [ -n "${INPUT_GITHUB_TOKEN:-}" ]; then[0m
+2026-11-08T16:19:16.1074426Z [36;1m  export_var "GITHUB_TOKEN" "${INPUT_GITHUB_TOKEN}"[0m
+2026-11-08T16:19:16.1074831Z [36;1m  # GH_TOKEN is exported but not double-counted[0m
+2026-11-08T16:19:16.1075276Z [36;1m  printf '%s=%s\n' "GH_TOKEN" "${INPUT_GITHUB_TOKEN}" >>"${GITHUB_ENV}"[0m
+2026-11-08T16:19:16.1075657Z [36;1mfi[0m
+2026-11-08T16:19:16.1075866Z [36;1m[0m
+2026-11-08T16:19:16.1076078Z [36;1m# Export PATs[0m
+2026-11-08T16:19:16.1076407Z [36;1mexport_var "SERVICE_BOT_PAT" "${SERVICE_BOT_PAT:-}"[0m
+2026-11-08T16:19:16.1076832Z [36;1mexport_var "ACTIONS_BOT_PAT" "${ACTIONS_BOT_PAT:-}"[0m
+2026-11-08T16:19:16.1077224Z [36;1mexport_var "OWNER_PR_PAT" "${OWNER_PR_PAT:-}"[0m
+2026-11-08T16:19:16.1077660Z [36;1mexport_var "AGENTS_AUTOMATION_PAT" "${AGENTS_AUTOMATION_PAT:-}"[0m
+2026-11-08T16:19:16.1078052Z [36;1m[0m
+2026-11-08T16:19:16.1078279Z [36;1m# Export App credentials[0m
+2026-11-08T16:19:16.1078638Z [36;1mexport_var "WORKFLOWS_APP_ID" "${WORKFLOWS_APP_ID:-}"[0m
+2026-11-08T16:19:16.1079133Z [36;1mexport_var "WORKFLOWS_APP_PRIVATE_KEY" "${WORKFLOWS_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1079637Z [36;1mexport_var "KEEPALIVE_APP_ID" "${KEEPALIVE_APP_ID:-}"[0m
+2026-11-08T16:19:16.1080381Z [36;1mexport_var "KEEPALIVE_APP_PRIVATE_KEY" "${KEEPALIVE_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1080858Z [36;1mexport_var "GH_APP_ID" "${GH_APP_ID:-}"[0m
+2026-11-08T16:19:16.1081265Z [36;1mexport_var "GH_APP_PRIVATE_KEY" "${GH_APP_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1081667Z [36;1mexport_var "APP_1_ID" "${APP_1_ID:-}"[0m
+2026-11-08T16:19:16.1082064Z [36;1mexport_var "APP_1_PRIVATE_KEY" "${APP_1_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1082588Z [36;1mexport_var "APP_2_ID" "${APP_2_ID:-}"[0m
+2026-11-08T16:19:16.1082968Z [36;1mexport_var "APP_2_PRIVATE_KEY" "${APP_2_PRIVATE_KEY:-}"[0m
+2026-11-08T16:19:16.1083323Z [36;1m[0m
+2026-11-08T16:19:16.1083544Z [36;1m# Output summary[0m
+2026-11-08T16:19:16.1083874Z [36;1mecho "token_count=${token_count}" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:19:16.1084339Z [36;1mecho "available_tokens=${available_tokens}" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:19:16.1084846Z [36;1m[0m
+2026-11-08T16:19:16.1085088Z [36;1minstall_dir="${INPUT_INSTALL_DIR:-}"[0m
+2026-11-08T16:19:16.1085425Z [36;1mif [ -z "$install_dir" ]; then[0m
+2026-11-08T16:19:16.1085793Z [36;1m  install_dir="${GITHUB_WORKSPACE}/.github/scripts"[0m
+2026-11-08T16:19:16.1086131Z [36;1mfi[0m
+2026-11-08T16:19:16.1086357Z [36;1msetup_contract="$([0m
+2026-11-08T16:19:16.1086661Z [36;1m  AVAILABLE_TOKENS="${available_tokens}" \[0m
+2026-11-08T16:19:16.1087003Z [36;1m  TOKEN_COUNT="${token_count}" \[0m
+2026-11-08T16:19:16.1087321Z [36;1m  INSTALL_DIR="${install_dir}" \[0m
+2026-11-08T16:19:16.1087613Z [36;1m  node <<'NODE'[0m
+2026-11-08T16:19:16.1087882Z [36;1mconst fs = require('node:fs');[0m
+2026-11-08T16:19:16.1088203Z [36;1mconst path = require('node:path');[0m
+2026-11-08T16:19:16.1088503Z [36;1m[0m
+2026-11-08T16:19:16.1088788Z [36;1mconst installDir = process.env.INSTALL_DIR || '';[0m
+2026-11-08T16:19:16.1089235Z [36;1mconst tokenNames = (process.env.AVAILABLE_TOKENS || '')[0m
+2026-11-08T16:19:16.1089606Z [36;1m  .split(',')[0m
+2026-11-08T16:19:16.1089876Z [36;1m  .map((value) => value.trim())[0m
+2026-11-08T16:19:16.1090374Z [36;1m  .filter(Boolean);[0m
+2026-11-08T16:19:16.1090670Z [36;1mconst tokenSet = new Set(tokenNames);[0m
+2026-11-08T16:19:16.1090988Z [36;1mconst appPairs = [[0m
+2026-11-08T16:19:16.1091365Z [36;1m  ['WORKFLOWS_APP', 'WORKFLOWS_APP_ID', 'WORKFLOWS_APP_PRIVATE_KEY'],[0m
+2026-11-08T16:19:16.1091947Z [36;1m  ['KEEPALIVE_APP', 'KEEPALIVE_APP_ID', 'KEEPALIVE_APP_PRIVATE_KEY'],[0m
+2026-11-08T16:19:16.1092696Z [36;1m  ['GH_APP', 'GH_APP_ID', 'GH_APP_PRIVATE_KEY'],[0m
+2026-11-08T16:19:16.1093331Z [36;1m  ['APP_1', 'APP_1_ID', 'APP_1_PRIVATE_KEY'],[0m
+2026-11-08T16:19:16.1093701Z [36;1m  ['APP_2', 'APP_2_ID', 'APP_2_PRIVATE_KEY'],[0m
+2026-11-08T16:19:16.1094012Z [36;1m];[0m
+2026-11-08T16:19:16.1094243Z [36;1mconst authModes = [];[0m
+2026-11-08T16:19:16.1094542Z [36;1mif (tokenSet.has('GITHUB_TOKEN')) {[0m
+2026-11-08T16:19:16.1094969Z [36;1m  authModes.push({ source: 'GITHUB_TOKEN', mode: 'github-token' });[0m
+2026-11-08T16:19:16.1095363Z [36;1m}[0m
+2026-11-08T16:19:16.1095595Z [36;1mfor (const name of tokenNames) {[0m
+2026-11-08T16:19:16.1095916Z [36;1m  if (name.endsWith('_PAT')) {[0m
+2026-11-08T16:19:16.1096280Z [36;1m    authModes.push({ source: name, mode: 'pat' });[0m
+2026-11-08T16:19:16.1096618Z [36;1m  }[0m
+2026-11-08T16:19:16.1096831Z [36;1m}[0m
+2026-11-08T16:19:16.1097115Z [36;1mfor (const [source, idName, keyName] of appPairs) {[0m
+2026-11-08T16:19:16.1097548Z [36;1m  if (tokenSet.has(idName) && tokenSet.has(keyName)) {[0m
+2026-11-08T16:19:16.1097913Z [36;1m    authModes.push({[0m
+2026-11-08T16:19:16.1098186Z [36;1m      source,[0m
+2026-11-08T16:19:16.1098440Z [36;1m      mode: 'github-app',[0m
+2026-11-08T16:19:16.1098767Z [36;1m      credential_names: [idName, keyName],[0m
+2026-11-08T16:19:16.1099077Z [36;1m    });[0m
+2026-11-08T16:19:16.1099300Z [36;1m  }[0m
+2026-11-08T16:19:16.1099510Z [36;1m}[0m
+2026-11-08T16:19:16.1099714Z [36;1m[0m
+2026-11-08T16:19:16.1100177Z [36;1mconst moduleDir = path.join(installDir, 'node_modules');[0m
+2026-11-08T16:19:16.1100798Z [36;1mconst hasModule = (name) => fs.existsSync(path.join(moduleDir, ...name.split('/')));[0m
+2026-11-08T16:19:16.1101276Z [36;1mconst contract = {[0m
+2026-11-08T16:19:16.1101595Z [36;1m  schema: 'workflows-api-client-setup/v1',[0m
+2026-11-08T16:19:16.1102065Z [36;1m  token_count: Number.parseInt(process.env.TOKEN_COUNT || '0', 10) || 0,[0m
+2026-11-08T16:19:16.1102684Z [36;1m  available_token_names: tokenNames,[0m
+2026-11-08T16:19:16.1103012Z [36;1m  auth_modes: authModes,[0m
+2026-11-08T16:19:16.1103304Z [36;1m  dependency_state: {[0m
+2026-11-08T16:19:16.1103626Z [36;1m    node_path_ready: fs.existsSync(moduleDir),[0m
+2026-11-08T16:19:16.1104029Z [36;1m    octokit_rest_ready: hasModule('@octokit/rest'),[0m
+2026-11-08T16:19:16.1104468Z [36;1m    octokit_auth_app_ready: hasModule('@octokit/auth-app'),[0m
+2026-11-08T16:19:16.1105085Z [36;1m    lru_cache_ready: hasModule('lru-cache'),[0m
+2026-11-08T16:19:16.1105624Z [36;1m  },[0m
+2026-11-08T16:19:16.1105943Z [36;1m};[0m
+2026-11-08T16:19:16.1106390Z [36;1mprocess.stdout.write(JSON.stringify(contract));[0m
+2026-11-08T16:19:16.1106746Z [36;1mNODE[0m
+2026-11-08T16:19:16.1106961Z [36;1m)"[0m
+2026-11-08T16:19:16.1107289Z [36;1mprintf 'setup_contract=%s\n' "$setup_contract" >> "$GITHUB_OUTPUT"[0m
+2026-11-08T16:19:16.1107693Z [36;1m[0m
+2026-11-08T16:19:16.1107906Z [36;1mecho ""[0m
+2026-11-08T16:19:16.1108158Z [36;1mecho "📊 Token Setup Summary:"[0m
+2026-11-08T16:19:16.1108504Z [36;1mecho "  Total tokens exported: ${token_count}"[0m
+2026-11-08T16:19:16.1108942Z [36;1mecho "  Setup contract schema: workflows-api-client-setup/v1"[0m
+2026-11-08T16:19:16.1109360Z [36;1mif [ "${INPUT_VERBOSE}" = "true" ]; then[0m
+2026-11-08T16:19:16.1109717Z [36;1m  echo "  Available: ${available_tokens}"[0m
+2026-11-08T16:19:16.1110305Z [36;1m  echo "  Setup contract: ${setup_contract}"[0m
+2026-11-08T16:19:16.1110638Z [36;1mfi[0m
+2026-11-08T16:19:16.1110850Z [36;1m[0m
+2026-11-08T16:19:16.1111079Z [36;1m# Warn if no tokens were exported[0m
+2026-11-08T16:19:16.1111410Z [36;1mif [ "${token_count}" -eq 0 ]; then[0m
+2026-11-08T16:19:16.1111820Z [36;1m  echo "::warning::No tokens were exported! API calls may fail."[0m
+2026-11-08T16:19:16.1112300Z [36;1m  echo "::warning::Ensure secrets are passed to this action."[0m
+2026-11-08T16:19:16.1112673Z [36;1mfi[0m
+2026-11-08T16:19:16.1156293Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-08T16:19:16.1156669Z env:
+2026-11-08T16:19:16.1158368Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:16.1161218Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:19:16.1161656Z   INPUT_SECRETS: 
+2026-11-08T16:19:16.1164429Z   INPUT_GITHUB_TOKEN: ***
+2026-11-08T16:19:16.1164857Z   INPUT_SERVICE_BOT_PAT: ***
+2026-11-08T16:19:16.1165270Z   INPUT_ACTIONS_BOT_PAT: 
+2026-11-08T16:19:16.1166196Z   INPUT_OWNER_PR_PAT: ***
+2026-11-08T16:19:16.1166616Z   INPUT_AGENTS_AUTOMATION_PAT: 
+2026-11-08T16:19:16.1166899Z   INPUT_WORKFLOWS_APP_ID: 
+2026-11-08T16:19:16.1167168Z   INPUT_WORKFLOWS_APP_PRIVATE_KEY: 
+2026-11-08T16:19:16.1167460Z   INPUT_KEEPALIVE_APP_ID: 
+2026-11-08T16:19:16.1167722Z   INPUT_KEEPALIVE_APP_PRIVATE_KEY: 
+2026-11-08T16:19:16.1167985Z   INPUT_GH_APP_ID: 
+2026-11-08T16:19:16.1168218Z   INPUT_GH_APP_PRIVATE_KEY: 
+2026-11-08T16:19:16.1168468Z   INPUT_APP_1_ID: 
+2026-11-08T16:19:16.1168690Z   INPUT_APP_1_PRIVATE_KEY: 
+2026-11-08T16:19:16.1168938Z   INPUT_APP_2_ID: 
+2026-11-08T16:19:16.1169164Z   INPUT_APP_2_PRIVATE_KEY: 
+2026-11-08T16:19:16.1169409Z   INPUT_INSTALL_DIR: 
+2026-11-08T16:19:16.1169641Z   INPUT_VERBOSE: false
+2026-11-08T16:19:16.1169871Z ##[endgroup]
+2026-11-08T16:19:16.1236347Z 🔐 Exporting tokens to environment...
+2026-11-08T16:19:16.1589221Z 
+2026-11-08T16:19:16.1590220Z 📊 Token Setup Summary:
+2026-11-08T16:19:16.1590848Z   Total tokens exported: 3
+2026-11-08T16:19:16.1591556Z   Setup contract schema: workflows-api-client-setup/v1
+2026-11-08T16:19:16.1599212Z ##[end-action id=__self.export-tokens;outcome=success;conclusion=success;duration_ms=58]
+2026-11-08T16:19:16.1702645Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+2026-11-08T16:19:16.1703113Z with:
+2026-11-08T16:19:16.1703768Z   github-token: ***
+2026-11-08T16:19:16.1709791Z   script: const { createTokenAwareRetry } = require(
+  './.github/scripts/github-api-with-retry.js'
+);
+const { withRetry } = await createTokenAwareRetry({
+  github,
+  core,
+  env: process.env,
+  task: 'maint-68-continue-generated-delivery',
+  capabilities: ['actions:write'],
+});
+const phase = process.env.SYNC_PHASE;
+// Candidate heads stay open after canary validation. Promotion prepares
+// the non-canary delivery heads, then Maint 71 commits both stable lanes
+// from one exact-head campaign authorization.
+const activeSyncHash = phase === 'canary' ? 'candidate' : 'campaign';
+const nonAdminRepos = String(process.env.REGISTERED_CONSUMER_REPOS || '')
+  .split(/\s+/)
+  .map((repo) => repo.trim())
+  .filter((repo) => repo && repo !== 'stranske/Collab-Admin');
+const inputs = {
+  active_sync_hash: activeSyncHash,
+  auto_merge: 'true',
+  dry_run: 'false',
+  cleanup_branches: process.env.CLEANUP_BRANCHES_INPUT || 'true',
+  immutable_handoff_json: JSON.stringify({
+    plan_id: process.env.PLAN_ID,
+    plan_scope: process.env.PLAN_SCOPE,
+    scope_base_sha: process.env.SCOPE_BASE_SHA,
+    source_commit: process.env.SOURCE_COMMIT,
+  }),
+};
+if (activeSyncHash === 'candidate') {
+  inputs.canary_baseline_evidence_json =
+    process.env.CANARY_BASELINE_EVIDENCE_JSON || '';
+}
+if (activeSyncHash === 'campaign') {
+  inputs.campaign_no_change_evidence_json =
+    process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON || '';
+}
+if (activeSyncHash === 'campaign') inputs.repos = nonAdminRepos.join(',');
+await withRetry((client) => client.rest.actions.createWorkflowDispatch({
+  owner: context.repo.owner,
+  repo: context.repo.repo,
+  workflow_id: 'maint-71-merge-sync-prs.yml',
+  ref: context.payload.repository?.default_branch || 'main',
+  inputs,
+}));
+core.notice(`Dispatched Maint 71 ${activeSyncHash} reconciliation`);
+
+2026-11-08T16:19:16.1716294Z   debug: false
+2026-11-08T16:19:16.1716535Z   user-agent: actions/github-script
+2026-11-08T16:19:16.1716830Z   result-encoding: json
+2026-11-08T16:19:16.1717070Z   retries: 0
+2026-11-08T16:19:16.1717322Z   retry-exempt-status-codes: 400,401,403,404,422
+2026-11-08T16:19:16.1717632Z env:
+2026-11-08T16:19:16.1719309Z   REGISTERED_CONSUMER_REPOS: stranske/Travel-Plan-Permission
+stranske/Template
+stranske/Counter_Risk
+stranske/Pension-Data
+stranske/Inv-Man-Intake
+stranske/Ready
+stranske/trip-planner
+stranske/Manager-Database
+stranske/Portable-Alpha-Extension-Model
+stranske/Trend_Model_Project
+stranske/learning-management-system
+stranske/Fine-Art-Archive
+stranske/Orchestrator
+stranske/Doc-Lineage
+stranske/Deliverable-Render
+stranske/Manager-Mosaic
+
+2026-11-08T16:19:16.1721539Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+2026-11-08T16:19:16.1724088Z   GITHUB_TOKEN: ***
+2026-11-08T16:19:16.1726411Z   GH_TOKEN: ***
+2026-11-08T16:19:16.1726749Z   SERVICE_BOT_PAT: ***
+2026-11-08T16:19:16.1727447Z   OWNER_PR_PAT: ***
+2026-11-08T16:19:16.1727692Z   SYNC_PHASE: canary
+2026-11-08T16:19:16.1727978Z   CLEANUP_BRANCHES_INPUT: true
+2026-11-08T16:19:16.1728484Z   PLAN_ID: sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4
+2026-11-08T16:19:16.1728916Z   PLAN_SCOPE: full
+2026-11-08T16:19:16.1729148Z   SCOPE_BASE_SHA: 
+2026-11-08T16:19:16.1729449Z   SOURCE_COMMIT: bbfc6ae604c8e8c4021138c5efe964a368482957
+2026-11-08T16:19:16.1730256Z   CANARY_BASELINE_EVIDENCE_JSON: {"schema":"workflows.consumer-sync-canary-evidence/v1","version":1,"results":[]}
+2026-11-08T16:19:16.1731094Z   CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: {"schema":"workflows.consumer-sync-no-change-evidence/v1","version":1,"results":[]}
+2026-11-08T16:19:16.1731651Z ##[endgroup]
+2026-11-08T16:19:16.2954710Z Token registry initialized with 3 tokens
+2026-11-08T16:19:16.8780633Z Selected token: SERVICE_BOT_PAT (4998 remaining, 100.0% capacity)
+2026-11-08T16:19:17.9906484Z [@octokit/request] "POST https://api.github.com/repos/stranske/Workflows/actions/workflows/maint-71-merge-sync-prs.yml/dispatches" is deprecated. It is scheduled to be removed on Fri, 10 Mar 2028 00:00:00 GMT. See https://docs.github.com/en/rest/about-the-rest-api/api-versions
+2026-11-08T16:19:17.9950305Z ##[notice]Dispatched Maint 71 candidate reconciliation
+2026-11-08T16:19:18.0144270Z Post job cleanup.
+2026-11-08T16:19:18.0962937Z [command]/usr/bin/git version
+2026-11-08T16:19:18.1011769Z git version 2.56.0
+2026-11-08T16:19:18.1049851Z Temporarily overriding HOME='/home/runner/work/_temp/0a1c31e1-5ad4-4086-83a1-71c1fa8c0410' before making global git config changes
+2026-11-08T16:19:18.1051560Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-08T16:19:18.1056201Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows
+2026-11-08T16:19:18.1088519Z Removing SSH command configuration
+2026-11-08T16:19:18.1095027Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-08T16:19:18.1156449Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-08T16:19:18.1431268Z Removing HTTP extra header
+2026-11-08T16:19:18.1436635Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-08T16:19:18.1476711Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-08T16:19:18.1748861Z Removing includeIf entries pointing to credentials config files
+2026-11-08T16:19:18.1755822Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-08T16:19:18.1789643Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-08T16:19:18.2216803Z Cleaning up orphan processes
+

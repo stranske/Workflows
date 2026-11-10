@@ -1,0 +1,22 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-reporter=tap",
+    "--test-timeout=10000",
+    ".github/scripts/__tests__/keepalive-loop.test.js"
+  ],
+  "revision": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec",
+  "started_at": "2026-11-08T08:24:56.820271+00:00",
+  "python": "/tmp/workflows-4369-venv/bin/python3\n3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "node": "v24.22.2",
+  "working_tree_changes": [
+    "docs/CONTRIBUTING.md"
+  ],
+  "timeout_seconds": 90,
+  "exit_code": 124,
+  "timed_out": true,
+  "duration_seconds": 90.018,
+  "finished_at": "2026-11-08T08:26:26.909080+00:00",
+  "log_sha256": "63bc75d5c391c9695d8edab53b3d2509a33f13aa4c5bba948114eff229d428b7"
+}

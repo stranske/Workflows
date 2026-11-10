@@ -1,0 +1,31 @@
+{
+  "final_pr_readback": {
+    "number": 4558,
+    "state": "open",
+    "draft": false,
+    "head_sha": "8d9f9348f23e62f4c87a97a581748f4023659f20"
+  },
+  "pr_body_update": {
+    "succeeded": false,
+    "reconciled_checkboxes": 5,
+    "error": "MCP tool call requires approval, but approval policy is never"
+  },
+  "label": {
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ],
+    "isError": true
+  },
+  "comment": {
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ],
+    "isError": true
+  }
+}

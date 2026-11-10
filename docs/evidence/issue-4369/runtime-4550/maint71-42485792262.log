@@ -1,0 +1,1491 @@
+merge_sync_prs	Set up job	﻿2026-11-08T13:36:50.7808817Z Current runner version: '2.338.2'
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7843141Z ##[group]Runner Image Provisioner
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7843816Z Hosted Compute Agent
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7844224Z Version: 20261028.624
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7844600Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7845066Z Build Date: 2026-10-28T21:51:42Z
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7845488Z Worker ID: {536482b1-a134-43a5-b3a8-3ae99c42c063}
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7845951Z Region: centralus
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7846331Z Cloud: Azure
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7846664Z ##[endgroup]
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7847449Z ##[group]Operating System
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7847895Z Ubuntu
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7848375Z 26.04.1
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7848870Z LTS
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7849301Z ##[endgroup]
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7849850Z ##[group]Runner Image
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7850408Z Image: ubuntu-26.04
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7850953Z Version: 20261101.186.1
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7852003Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7853989Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7854896Z ##[endgroup]
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7856367Z ##[group]GITHUB_TOKEN Permissions
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7858360Z Actions: write
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7858958Z Checks: read
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7859423Z Contents: write
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7859906Z Metadata: read
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7860544Z PullRequests: write
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7861037Z Statuses: read
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7861574Z ##[endgroup]
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7863356Z Secret source: Actions
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7864294Z Cache mode: write
+merge_sync_prs	Set up job	2026-11-08T13:36:50.7865098Z Prepare workflow directory
+merge_sync_prs	Set up job	2026-11-08T13:36:50.8097152Z Prepare all required actions
+merge_sync_prs	Set up job	2026-11-08T13:36:50.8128526Z Getting action download info
+merge_sync_prs	Set up job	2026-11-08T13:36:51.0238618Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+merge_sync_prs	Set up job	2026-11-08T13:36:51.1193749Z Download action repository 'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0' (SHA:6d4fd22b20465ccc0f7354476588e8df7c9ca0e0)
+merge_sync_prs	Set up job	2026-11-08T13:36:51.4653624Z Download action repository 'actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3' (SHA:3a2844b7e9c422d3c10d287c895573f7108da1b3)
+merge_sync_prs	Set up job	2026-11-08T13:36:51.7548978Z Download action repository 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+merge_sync_prs	Set up job	2026-11-08T13:36:51.9654686Z Complete job name: merge_sync_prs
+merge_sync_prs	Checkout	﻿2026-11-08T13:36:52.0263355Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0264012Z with:
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0264291Z   persist-credentials: false
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0264619Z   repository: stranske/Workflows
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0266813Z   token: ***
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0267075Z   ssh-strict: true
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0267341Z   ssh-user: git
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0267600Z   clean: true
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0267879Z   sparse-checkout-cone-mode: true
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0268213Z   fetch-depth: 1
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0268484Z   fetch-tags: false
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0268756Z   show-progress: true
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0269032Z   lfs: false
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0269304Z   submodules: false
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0269580Z   set-safe-directory: true
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0269892Z   allow-unsafe-pr-checkout: false
+merge_sync_prs	Checkout	2026-11-08T13:36:52.0270286Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2523798Z Syncing repository: stranske/Workflows
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2525127Z ##[group]Getting Git version info
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2525674Z Working directory is '/home/runner/work/Workflows/Workflows'
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2526340Z [command]/usr/bin/git version
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2530222Z git version 2.56.0
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2542233Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2549525Z Temporarily overriding HOME='/home/runner/work/_temp/2971c093-5f04-4cc9-bf6a-ec3b959321a7' before making global git config changes
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2550800Z Adding repository directory to the temporary git global config as a safe directory
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2552197Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2609985Z Deleting the contents of '/home/runner/work/Workflows/Workflows'
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2611836Z ##[group]Determining repository object format
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2613006Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2613445Z ##[group]Initializing the repository
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2615577Z [command]/usr/bin/git init /home/runner/work/Workflows/Workflows
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2705495Z hint: Using 'master' as the name for the initial branch. This default branch name
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2706366Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2707314Z hint: to use in all of your new repositories, which will suppress this warning,
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2707876Z hint: call:
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2708130Z hint:
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2708466Z hint: 	git config --global init.defaultBranch <name>
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2708859Z hint:
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2709214Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2709780Z hint: 'development'. The just-created branch can be renamed via this command:
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2710226Z hint:
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2710487Z hint: 	git branch -m <name>
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2710778Z hint:
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2711167Z hint: Disable this message with "git config set advice.defaultBranchName false"
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2720551Z Initialized empty Git repository in /home/runner/work/Workflows/Workflows/.git/
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2728673Z [command]/usr/bin/git remote add origin https://github.com/stranske/Workflows
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2770473Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2771286Z ##[group]Disabling automatic garbage collection
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2773562Z [command]/usr/bin/git config --local gc.auto 0
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2819580Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2820169Z ##[group]Setting up auth
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2820502Z Removing SSH command configuration
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2823456Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+merge_sync_prs	Checkout	2026-11-08T13:36:52.2850356Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3216574Z Removing HTTP extra header
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3221074Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3248333Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3464141Z Removing includeIf entries pointing to credentials config files
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3467561Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3497605Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3719228Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3751627Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/.git.path /home/runner/work/_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3778063Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3808300Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3835702Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3860704Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3861194Z ##[group]Fetching the repository
+merge_sync_prs	Checkout	2026-11-08T13:36:52.3865277Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e8f9dc2373563dea50a708501a63a9ad58f8db06:refs/remotes/origin/main
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4000496Z From https://github.com/stranske/Workflows
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4001052Z  * [new ref]         e8f9dc2373563dea50a708501a63a9ad58f8db06 -> origin/main
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4007319Z [command]/usr/bin/git branch --list --remote origin/main
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4031108Z   origin/main
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4037279Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4057313Z e8f9dc2373563dea50a708501a63a9ad58f8db06
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4060403Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4060934Z ##[group]Determining the checkout info
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4061479Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4064304Z [command]/usr/bin/git sparse-checkout disable
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4335034Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4715356Z ##[group]Checking out the ref
+merge_sync_prs	Checkout	2026-11-08T13:36:54.4718912Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+merge_sync_prs	Checkout	2026-11-08T13:36:54.7929639Z Switched to a new branch 'main'
+merge_sync_prs	Checkout	2026-11-08T13:36:54.7933304Z branch 'main' set up to track 'origin/main'.
+merge_sync_prs	Checkout	2026-11-08T13:36:54.7954061Z ##[endgroup]
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8028411Z [command]/usr/bin/git log -1 --format=%H
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8028769Z e8f9dc2373563dea50a708501a63a9ad58f8db06
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8033227Z ##[group]Removing auth
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8033766Z Removing SSH command configuration
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8036536Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8063384Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8294046Z Removing HTTP extra header
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8296545Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8323764Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8544506Z Removing includeIf entries pointing to credentials config files
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8547331Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8572577Z includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8573096Z includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8573438Z includeif.gitdir:/github/workspace/.git.path
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8573825Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8579547Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8600038Z /home/runner/work/_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8607712Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-5221d2b3\-5365\-4ca0\-a923\-5406a9a652df\.config
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8649042Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8661846Z /home/runner/work/_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8668446Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-5221d2b3\-5365\-4ca0\-a923\-5406a9a652df\.config
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8698802Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8719176Z /github/runner_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8724894Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-5221d2b3\-5365\-4ca0\-a923\-5406a9a652df\.config
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8752846Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8772251Z /github/runner_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8777284Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-5221d2b3\-5365\-4ca0\-a923\-5406a9a652df\.config
+merge_sync_prs	Checkout	2026-11-08T13:36:54.8804341Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+merge_sync_prs	Checkout	2026-11-08T13:36:54.9020275Z Removing credentials config '/home/runner/work/_temp/git-credentials-5221d2b3-5365-4ca0-a923-5406a9a652df.config'
+merge_sync_prs	Checkout	2026-11-08T13:36:54.9027149Z ##[endgroup]
+merge_sync_prs	Setup delivery renderer Python	﻿2026-11-08T13:36:54.9228170Z ##[group]Run actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9228426Z with:
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9228556Z   python-version: 3.14
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9228699Z   check-latest: false
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9230065Z   token: ***
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9230264Z   mirror: https://raw.githubusercontent.com/actions/python-versions/main
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9230504Z   update-environment: true
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9230657Z   allow-prereleases: false
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9230814Z   freethreaded: false
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9230949Z ##[endgroup]
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:54.9982586Z ##[group]Installed versions
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:55.0065237Z Successfully set up CPython (3.14.10)
+merge_sync_prs	Setup delivery renderer Python	2026-11-08T13:36:55.0065777Z ##[endgroup]
+merge_sync_prs	Install delivery renderer dependencies	﻿2026-11-08T13:36:55.1282868Z ##[group]Run python -m pip install pyyaml
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1283181Z ^[[36;1mpython -m pip install pyyaml^[[0m
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1655535Z shell: /usr/bin/bash -e {0}
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1655796Z env:
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1656002Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1656281Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1656541Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1656771Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1657011Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1657248Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:55.1657449Z ##[endgroup]
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.3635892Z Collecting pyyaml
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.4243485Z   Downloading pyyaml-6.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.4406861Z Downloading pyyaml-6.0.3-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (794 kB)
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.5024378Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 794.2/794.2 kB 17.5 MB/s  0:00:00
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.6323285Z Installing collected packages: pyyaml
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.6830047Z Successfully installed pyyaml-6.0.3
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.6835530Z 
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.6835702Z [notice] A new release of pip is available: 26.2.2 -> 26.3
+merge_sync_prs	Install delivery renderer dependencies	2026-11-08T13:36:57.6836044Z [notice] To update, run: pip install --upgrade pip
+merge_sync_prs	Setup API client	﻿2026-11-08T13:36:57.7479633Z Prepare all required actions
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7622711Z ##[group]Run ./.github/actions/setup-api-client
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7622911Z with:
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7624318Z   github_token: ***
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7624602Z   owner_pr_pat: ***
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7624795Z   service_bot_pat: ***
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7624937Z   skip_deps: false
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7625066Z   verbose: false
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7625352Z env:
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7625510Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7625765Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7626018Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7626244Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7626470Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7626694Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7626889Z ##[endgroup]
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7665002Z ##[start-action display=Install API client dependencies;id=__self.__run]
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7698267Z ##[group]Run set -euo pipefail
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7698817Z ^[[36;1mset -euo pipefail^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7698955Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7699118Z ^[[36;1m# Use dedicated scripts dir, create if needed^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7699311Z ^[[36;1mINSTALL_DIR=""^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7699467Z ^[[36;1mif [ -z "$INSTALL_DIR" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7699661Z ^[[36;1m  INSTALL_DIR="${GITHUB_WORKSPACE}/.github/scripts"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7699851Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7699979Z ^[[36;1mmkdir -p "$INSTALL_DIR"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7700121Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7700299Z ^[[36;1mecho "📦 Installing @octokit dependencies in $INSTALL_DIR..."^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7700523Z ^[[36;1mcd "$INSTALL_DIR"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7700661Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7700789Z ^[[36;1mdeclare -a VENDORED_ALIAS_DIRS=()^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7700948Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7701078Z ^[[36;1mcleanup_vendor_aliases() {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7701264Z ^[[36;1m  if [ "${#VENDORED_ALIAS_DIRS[@]}" -eq 0 ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7701445Z ^[[36;1m    return 0^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7701574Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7701687Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7701814Z ^[[36;1m  local cleanup_dir="$INSTALL_DIR"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7701996Z ^[[36;1m  if [ -z "$cleanup_dir" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7702223Z ^[[36;1m    echo "::warning::Install dir is empty, skipping vendored alias cleanup"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7702649Z ^[[36;1m    return 0^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7702774Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7702890Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7703031Z ^[[36;1m  if ! pushd "$cleanup_dir" >/dev/null 2>&1; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7703328Z ^[[36;1m    echo "::warning::Failed to enter install dir \"$cleanup_dir\"; skipping vendored alias cleanup"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7703592Z ^[[36;1m    return 0^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7703717Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7703834Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7703987Z ^[[36;1m  for vendored_alias in "${VENDORED_ALIAS_DIRS[@]}"; do^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7704197Z ^[[36;1m    if [ -z "$vendored_alias" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7704366Z ^[[36;1m      continue^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7704495Z ^[[36;1m    fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7704637Z ^[[36;1m    rm -rf -- "$vendored_alias" || true^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7704811Z ^[[36;1m    local parent_dir^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7704980Z ^[[36;1m    parent_dir=$(dirname "$vendored_alias")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7705252Z ^[[36;1m    # Remove empty parent directories that may have been created for scoped packages^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7705549Z ^[[36;1m    while [ "$parent_dir" != "." ] && [ "$parent_dir" != "/" ]; do^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7705777Z ^[[36;1m      rmdir -- "$parent_dir" 2>/dev/null || break^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7705977Z ^[[36;1m      parent_dir=$(dirname "$parent_dir")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7706147Z ^[[36;1m    done^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7706261Z ^[[36;1m  done^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7706554Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7706674Z ^[[36;1m  popd >/dev/null 2>&1 || true^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7706829Z ^[[36;1m}^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7706937Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7707058Z ^[[36;1mtrap cleanup_vendor_aliases EXIT^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7707208Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7707324Z ^[[36;1mcreate_vendor_aliases() {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7707628Z ^[[36;1m  if [ ! -f "package.json" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7707889Z ^[[36;1m    return 0^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7722664Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7722822Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7722944Z ^[[36;1m  local alias_tmp^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7723099Z ^[[36;1m  alias_tmp=$(mktemp)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7723241Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7723477Z ^[[36;1m  local helper_root="${GITHUB_ACTION_PATH:-${GITHUB_WORKSPACE}/.github/actions/setup-api-client}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7723808Z ^[[36;1m  local alias_helper="${helper_root}/create_vendor_aliases.js"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7724050Z ^[[36;1m  if [ ! -f "$alias_helper" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7724267Z ^[[36;1m    echo "::error::Missing vendored alias helper: $alias_helper"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7724479Z ^[[36;1m    rm -f "$alias_tmp"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7724633Z ^[[36;1m    return 1^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7724768Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7724954Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7725142Z ^[[36;1m  if node "$alias_helper" "$INSTALL_DIR" >"$alias_tmp"; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7725345Z ^[[36;1m    :^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7725464Z ^[[36;1m  else^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7725644Z ^[[36;1m    echo "::error::Failed to prepare vendored dependency aliases"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7725857Z ^[[36;1m    rm -f "$alias_tmp"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7726002Z ^[[36;1m    return 1^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7726133Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7726245Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7726379Z ^[[36;1m  while IFS= read -r vendored_alias; do^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7726562Z ^[[36;1m    if [ -z "$vendored_alias" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7726736Z ^[[36;1m      continue^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7726864Z ^[[36;1m    fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7727006Z ^[[36;1m    VENDORED_ALIAS_DIRS+=("$vendored_alias")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7727190Z ^[[36;1m  done <"$alias_tmp"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7727338Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7727458Z ^[[36;1m  rm -f "$alias_tmp"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7727594Z ^[[36;1m}^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7727707Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7727824Z ^[[36;1mcreate_vendor_aliases^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7727966Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7728159Z ^[[36;1m# Strip unresolvable file: dependencies from package.json so npm install^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7728463Z ^[[36;1m# doesn't choke when vendored packages are missing (e.g. sparse checkout^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7728748Z ^[[36;1m# that doesn't include node_modules/).  Back up the original first so we^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7729044Z ^[[36;1m# can restore it after npm install — avoids leaking modified state into^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7729298Z ^[[36;1m# downstream steps that expect a clean workspace.^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7729497Z ^[[36;1mSTRIPPED_PKG_JSON=false^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7729655Z ^[[36;1mif [ -f "package.json" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7729818Z ^[[36;1m  node -e '^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7729956Z ^[[36;1m    const fs = require("fs");^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7730123Z ^[[36;1m    const path = require("path");^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7730333Z ^[[36;1m    const raw = fs.readFileSync("package.json", "utf8");^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7730540Z ^[[36;1m    const pkg = JSON.parse(raw);^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7730710Z ^[[36;1m    let changed = false;^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7730911Z ^[[36;1m    for (const section of ["dependencies", "devDependencies"]) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7731135Z ^[[36;1m      if (!pkg[section]) continue;^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7731345Z ^[[36;1m      for (const [name, spec] of Object.entries(pkg[section])) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7731703Z ^[[36;1m        if (typeof spec === "string" && spec.startsWith("file:")) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7732097Z ^[[36;1m          const target = path.resolve(spec.slice(5));^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7732295Z ^[[36;1m          if (!fs.existsSync(target)) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7732617Z ^[[36;1m            delete pkg[section][name];^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7732799Z ^[[36;1m            changed = true;^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7733065Z ^[[36;1m            console.log("::notice::Stripped unresolvable vendored dep: " + name + " (" + spec + ")");^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7733409Z ^[[36;1m          }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7733533Z ^[[36;1m        }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7733658Z ^[[36;1m      }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7733833Z ^[[36;1m      if (pkg[section] && Object.keys(pkg[section]).length === 0) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7734044Z ^[[36;1m        delete pkg[section];^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7734192Z ^[[36;1m      }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7734313Z ^[[36;1m    }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7734438Z ^[[36;1m    if (changed) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7734625Z ^[[36;1m      fs.copyFileSync("package.json", "package.json.bak");^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7734898Z ^[[36;1m      fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7735158Z ^[[36;1m      process.stdout.write("STRIPPED");^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7735323Z ^[[36;1m    }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7735439Z ^[[36;1m  '^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7735577Z ^[[36;1m  if [ -f "package.json.bak" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7735756Z ^[[36;1m    STRIPPED_PKG_JSON=true^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7735909Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7736022Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7736133Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7736347Z ^[[36;1m# Vendored packages often ship lifecycle scripts (tshy builds, custom bundlers, etc.)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7736703Z ^[[36;1m# that expect repo-specific tooling. Disable lifecycle scripts globally so npm install^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7736972Z ^[[36;1m# never invokes those hooks inside CI.^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7737156Z ^[[36;1mexport npm_config_ignore_scripts=true^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7737326Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7737488Z ^[[36;1m# Track if we create package.json so we can clean it up^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7737690Z ^[[36;1mCREATED_PACKAGE_JSON=false^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7737844Z ^[[36;1mif [ ! -f "package.json" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7738021Z ^[[36;1m  echo '{"private":true}' > package.json^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7738203Z ^[[36;1m  CREATED_PACKAGE_JSON=true^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7738350Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7738462Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7738639Z ^[[36;1m# Check if already installed (including lru-cache@10.4.3, a required^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7738931Z ^[[36;1m# transitive dep of @octokit/auth-app used for GitHub App token minting).^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7739236Z ^[[36;1mif [ -d "node_modules/@octokit/rest" ] && [ -d "node_modules/lru-cache" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7739497Z ^[[36;1m  echo "✅ @octokit/rest already installed"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7739669Z ^[[36;1melse^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7739841Z ^[[36;1m  # Snapshot vendored package metadata before npm install.^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7740097Z ^[[36;1m  # npm may overwrite transitive deps (e.g. minimatch) that are^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7740362Z ^[[36;1m  # committed as vendored packages with intentional version pins.^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7740584Z ^[[36;1m  VENDORED_SNAPSHOT=""^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7740781Z ^[[36;1m  if [ -f "node_modules/minimatch/package.json" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7740992Z ^[[36;1m    VENDORED_SNAPSHOT=$(mktemp -d)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7741176Z ^[[36;1m    for pkg_dir in node_modules/*/; do^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7741370Z ^[[36;1m      if [ -f "${pkg_dir}package.json" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7741564Z ^[[36;1m        pkg_name=$(basename "$pkg_dir")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7741760Z ^[[36;1m        mkdir -p "${VENDORED_SNAPSHOT}/${pkg_name}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7742021Z ^[[36;1m        cp "${pkg_dir}package.json" "${VENDORED_SNAPSHOT}/${pkg_name}/package.json"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7742248Z ^[[36;1m      fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7742466Z ^[[36;1m    done^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7742726Z ^[[36;1m    echo "📸 Snapshotted vendored package metadata"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7742910Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7743023Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7743170Z ^[[36;1m  # Install with pinned versions for consistency.^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7743430Z ^[[36;1m  # lru-cache is an explicit transitive dep of @octokit/auth-app required for^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7743837Z ^[[36;1m  # GitHub App token minting; pin it here so npm always hoists a specific version^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7744120Z ^[[36;1m  # even if a prior cached node_modules state is missing it.^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7744309Z ^[[36;1m  #^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7744510Z ^[[36;1m  # Retry with exponential backoff to survive transient npm registry errors^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7744810Z ^[[36;1m  # (e.g. 403 Forbidden from CDN/rate-limit on safe-buffer, undici, etc.).^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7745037Z ^[[36;1m  NPM_PACKAGES=(^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7745184Z ^[[36;1m    @octokit/rest@20.0.2^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7745349Z ^[[36;1m    @octokit/plugin-retry@6.0.1^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7745535Z ^[[36;1m    @octokit/plugin-paginate-rest@9.1.5^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7745712Z ^[[36;1m    @octokit/auth-app@6.0.3^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7745866Z ^[[36;1m    lru-cache@10.4.3^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7746010Z ^[[36;1m  )^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7746132Z ^[[36;1m  NPM_MAX_RETRIES=3^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7746315Z ^[[36;1m  NPM_BACKOFF=5  # seconds; doubles each retry (5, 10)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7746510Z ^[[36;1m  npm_installed=false^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7746656Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7746818Z ^[[36;1m  for (( attempt=1; attempt<=NPM_MAX_RETRIES; attempt++ )); do^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7747027Z ^[[36;1m    npm_output=$(mktemp)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7747171Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7747384Z ^[[36;1m    if npm install --no-save --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7747645Z ^[[36;1m      rm -f "$npm_output"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7747802Z ^[[36;1m      npm_installed=true^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7747952Z ^[[36;1m      break^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7748078Z ^[[36;1m    fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7748200Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7748322Z ^[[36;1m    npm_err=$(cat "$npm_output")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7748489Z ^[[36;1m    rm -f "$npm_output"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7748725Z ^[[36;1m    echo "::warning::npm install attempt $attempt/$NPM_MAX_RETRIES failed (see logs)"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7749005Z ^[[36;1m    echo "::group::npm stderr (attempt $attempt)"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7749194Z ^[[36;1m    echo "$npm_err"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7749340Z ^[[36;1m    echo "::endgroup::"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7749482Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7749677Z ^[[36;1m    # On peer-dep / ERESOLVE failures, also try --legacy-peer-deps^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7749980Z ^[[36;1m    if echo "$npm_err" | grep -qiE 'ERESOLVE|peer dep|Could not resolve dependency'; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7750333Z ^[[36;1m      echo "::warning::Detected peer dependency conflict, retrying with --legacy-peer-deps"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7750595Z ^[[36;1m      npm_output=$(mktemp)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7750887Z ^[[36;1m      if npm install --no-save --legacy-peer-deps --location=project "${NPM_PACKAGES[@]}" 2>"$npm_output"; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7751186Z ^[[36;1m        rm -f "$npm_output"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7751342Z ^[[36;1m        npm_installed=true^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7751500Z ^[[36;1m        break^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7751627Z ^[[36;1m      fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7751772Z ^[[36;1m      npm_err_legacy=$(cat "$npm_output")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7751945Z ^[[36;1m      rm -f "$npm_output"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7752168Z ^[[36;1m      echo "::warning::npm install with --legacy-peer-deps failed (see logs)"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7752508Z ^[[36;1m      echo "::group::npm stderr (--legacy-peer-deps)"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7752701Z ^[[36;1m      echo "$npm_err_legacy"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7752860Z ^[[36;1m      echo "::endgroup::"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7753009Z ^[[36;1m    fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7753231Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7753376Z ^[[36;1m    if [ "$attempt" -lt "$NPM_MAX_RETRIES" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7753600Z ^[[36;1m      echo "::notice::Waiting ${NPM_BACKOFF}s before retry..."^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7753803Z ^[[36;1m      sleep "$NPM_BACKOFF"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7753972Z ^[[36;1m      NPM_BACKOFF=$((NPM_BACKOFF * 2))^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7754212Z ^[[36;1m    fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7754325Z ^[[36;1m  done^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7754437Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7754575Z ^[[36;1m  if [ "$npm_installed" != "true" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7754803Z ^[[36;1m    echo "::error::npm install failed after $NPM_MAX_RETRIES attempts"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7755017Z ^[[36;1m    exit 1^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7755139Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7755252Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7755433Z ^[[36;1m  # Restore vendored package metadata that npm may have overwritten^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7755711Z ^[[36;1m  if [ -n "${VENDORED_SNAPSHOT:-}" ] && [ -d "${VENDORED_SNAPSHOT}" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7755966Z ^[[36;1m    for pkg_backup in "${VENDORED_SNAPSHOT}"/*/; do^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7756173Z ^[[36;1m      pkg_name=$(basename "$pkg_backup")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7756381Z ^[[36;1m      if [ -f "node_modules/${pkg_name}/package.json" ] && \^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7756601Z ^[[36;1m         [ -f "${pkg_backup}package.json" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7756854Z ^[[36;1m        cp "${pkg_backup}package.json" "node_modules/${pkg_name}/package.json"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7757082Z ^[[36;1m      fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7757197Z ^[[36;1m    done^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7757331Z ^[[36;1m    rm -rf "${VENDORED_SNAPSHOT}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7757526Z ^[[36;1m    echo "📸 Restored vendored package metadata"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7757699Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7757815Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7757955Z ^[[36;1m  echo "✅ @octokit dependencies installed"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7758123Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7758231Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7758416Z ^[[36;1m# Restore original package.json if we stripped file: deps earlier,^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7758669Z ^[[36;1m# so downstream steps see an unmodified workspace.^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7758925Z ^[[36;1mif [ "$STRIPPED_PKG_JSON" = "true" ] && [ -f "package.json.bak" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7759164Z ^[[36;1m  mv "package.json.bak" "package.json"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7759336Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7759445Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7759567Z ^[[36;1mcleanup_vendor_aliases^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7759719Z ^[[36;1mtrap - EXIT^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7802257Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7802529Z env:
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7802692Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7802940Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7803192Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7803413Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7803643Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7803870Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7804065Z ##[endgroup]
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.7887733Z 📦 Installing @octokit dependencies in /home/runner/work/Workflows/Workflows/.github/scripts...
+merge_sync_prs	Setup API client	2026-11-08T13:36:57.9910795Z 📸 Snapshotted vendored package metadata
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6633901Z 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6634624Z added 66 packages, changed 1 package, and audited 70 packages in 3s
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6634953Z 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6635083Z 2 packages are looking for funding
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6635349Z   run `npm fund` for details
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6650863Z 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6651059Z 2 moderate severity vulnerabilities
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6651241Z 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6651341Z To address all issues possible, run:
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6651614Z   npm audit fix --force
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6651730Z 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6652206Z Some issues need review, and may require choosing
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6652530Z a different dependency.
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6652660Z 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.6652720Z Run `npm audit` for details.
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7213193Z 📸 Restored vendored package metadata
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7213637Z ✅ @octokit dependencies installed
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7266340Z ##[end-action id=__self.__run;outcome=success;conclusion=success;duration_ms=2960]
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7268885Z ##[start-action display=Export NODE_PATH for shared deps;id=__self.__run_2]
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7284450Z ##[group]Run set -euo pipefail
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7284669Z ^[[36;1mset -euo pipefail^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7284818Z ^[[36;1mINSTALL_DIR=""^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7284971Z ^[[36;1mif [ -z "$INSTALL_DIR" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7285169Z ^[[36;1m  INSTALL_DIR="${GITHUB_WORKSPACE}/.github/scripts"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7285370Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7285516Z ^[[36;1mif [ -d "${INSTALL_DIR}/node_modules" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7285731Z ^[[36;1m  if [ -n "${NODE_PATH:-}" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7285969Z ^[[36;1m    echo "NODE_PATH=${INSTALL_DIR}/node_modules:${NODE_PATH}" >> "$GITHUB_ENV"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7286206Z ^[[36;1m  else^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7286383Z ^[[36;1m    echo "NODE_PATH=${INSTALL_DIR}/node_modules" >> "$GITHUB_ENV"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7286592Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7286717Z ^[[36;1melse^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7286965Z ^[[36;1m  echo "::notice::setup-api-client: ${INSTALL_DIR}/node_modules not found; skipping NODE_PATH export."^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7287251Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7327181Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7327385Z env:
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7327554Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7327804Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7328057Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7328295Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7328526Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7328757Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7328954Z ##[endgroup]
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7386415Z ##[end-action id=__self.__run_2;outcome=success;conclusion=success;duration_ms=11]
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7390454Z ##[start-action display=Export load balancer tokens;id=__self.export-tokens]
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7402033Z ##[group]Run set -euo pipefail
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7402669Z ^[[36;1mset -euo pipefail^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7402809Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7402932Z ^[[36;1mtoken_count=0^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7403071Z ^[[36;1mavailable_tokens=""^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7403208Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7403337Z ^[[36;1m# Export a variable to GITHUB_ENV^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7403584Z ^[[36;1m# Note: Empty values are intentionally not counted as available tokens^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7403827Z ^[[36;1mexport_var() {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7403968Z ^[[36;1m  local name="$1"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7404113Z ^[[36;1m  local value="${2-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7404265Z ^[[36;1m  if [ -z "${value}" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7404424Z ^[[36;1m    return 0^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7404550Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7404666Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7404814Z ^[[36;1m  # Handle multiline values (like private keys)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7405015Z ^[[36;1m  if [[ "${value}" == *$'\n'* ]]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7405176Z ^[[36;1m    {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7405299Z ^[[36;1m      echo "${name}<<EOF"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7405457Z ^[[36;1m      printf '%s\n' "${value}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7405617Z ^[[36;1m      echo "EOF"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7405757Z ^[[36;1m    } >>"${GITHUB_ENV}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7405899Z ^[[36;1m  else^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7406059Z ^[[36;1m    printf '%s=%s\n' "${name}" "${value}" >>"${GITHUB_ENV}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7406374Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7406496Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7406623Z ^[[36;1m  token_count=$((token_count + 1))^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7406804Z ^[[36;1m  if [ -n "$available_tokens" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7407009Z ^[[36;1m    available_tokens="${available_tokens},${name}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7407198Z ^[[36;1m  else^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7407417Z ^[[36;1m    available_tokens="${name}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7407570Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7407681Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7407818Z ^[[36;1m  if [ "${INPUT_VERBOSE}" = "true" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7408003Z ^[[36;1m    echo "  ✅ ${name} exported"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7408155Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7408265Z ^[[36;1m}^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7408375Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7408525Z ^[[36;1mecho "🔐 Exporting tokens to environment..."^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7408701Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7408857Z ^[[36;1m# Try to extract from JSON secrets first (requires jq)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7409118Z ^[[36;1mif [ -n "${INPUT_SECRETS:-}" ] && [ "${INPUT_SECRETS}" != "null" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7409363Z ^[[36;1m  if ! command -v jq >/dev/null 2>&1; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7409680Z ^[[36;1m    echo "::warning::'jq' is not installed; falling back to individual token inputs instead of parsing JSON secrets."^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7410028Z ^[[36;1m    # Fall back to individual inputs when jq is unavailable^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7410265Z ^[[36;1m    SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7410481Z ^[[36;1m    ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7410684Z ^[[36;1m    OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7410903Z ^[[36;1m    AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7411141Z ^[[36;1m    WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7411393Z ^[[36;1m    WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7411650Z ^[[36;1m    KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7411893Z ^[[36;1m    KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7412127Z ^[[36;1m    GH_APP_ID="${INPUT_GH_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7412327Z ^[[36;1m    GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7412681Z ^[[36;1m    APP_1_ID="${INPUT_APP_1_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7412877Z ^[[36;1m    APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7413077Z ^[[36;1m    APP_2_ID="${INPUT_APP_2_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7413274Z ^[[36;1m    APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7413454Z ^[[36;1m  else^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7413588Z ^[[36;1m    # Parse JSON secrets using jq^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7413756Z ^[[36;1m    extract_secret() {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7413910Z ^[[36;1m      local key="$1"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7414119Z ^[[36;1m      echo "${INPUT_SECRETS}" | jq -r ".${key} // empty" 2>/dev/null || echo ""^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7414341Z ^[[36;1m    }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7414457Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7414615Z ^[[36;1m    SERVICE_BOT_PAT=$(extract_secret "SERVICE_BOT_PAT")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7414856Z ^[[36;1m    ACTIONS_BOT_PAT=$(extract_secret "ACTIONS_BOT_PAT")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7415080Z ^[[36;1m    OWNER_PR_PAT=$(extract_secret "OWNER_PR_PAT")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7415328Z ^[[36;1m    AGENTS_AUTOMATION_PAT=$(extract_secret "AGENTS_AUTOMATION_PAT")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7415593Z ^[[36;1m    WORKFLOWS_APP_ID=$(extract_secret "WORKFLOWS_APP_ID")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7415877Z ^[[36;1m    WORKFLOWS_APP_PRIVATE_KEY=$(extract_secret "WORKFLOWS_APP_PRIVATE_KEY")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7416154Z ^[[36;1m    KEEPALIVE_APP_ID=$(extract_secret "KEEPALIVE_APP_ID")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7416421Z ^[[36;1m    KEEPALIVE_APP_PRIVATE_KEY=$(extract_secret "KEEPALIVE_APP_PRIVATE_KEY")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7416677Z ^[[36;1m    GH_APP_ID=$(extract_secret "GH_APP_ID")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7416992Z ^[[36;1m    GH_APP_PRIVATE_KEY=$(extract_secret "GH_APP_PRIVATE_KEY")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7417213Z ^[[36;1m    APP_1_ID=$(extract_secret "APP_1_ID")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7417428Z ^[[36;1m    APP_1_PRIVATE_KEY=$(extract_secret "APP_1_PRIVATE_KEY")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7417645Z ^[[36;1m    APP_2_ID=$(extract_secret "APP_2_ID")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7417939Z ^[[36;1m    APP_2_PRIVATE_KEY=$(extract_secret "APP_2_PRIVATE_KEY")^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7418131Z ^[[36;1m  fi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7418247Z ^[[36;1melse^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7418379Z ^[[36;1m  # Fall back to individual inputs^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7418576Z ^[[36;1m  SERVICE_BOT_PAT="${INPUT_SERVICE_BOT_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7418782Z ^[[36;1m  ACTIONS_BOT_PAT="${INPUT_ACTIONS_BOT_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7418980Z ^[[36;1m  OWNER_PR_PAT="${INPUT_OWNER_PR_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7419201Z ^[[36;1m  AGENTS_AUTOMATION_PAT="${INPUT_AGENTS_AUTOMATION_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7419439Z ^[[36;1m  WORKFLOWS_APP_ID="${INPUT_WORKFLOWS_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7419684Z ^[[36;1m  WORKFLOWS_APP_PRIVATE_KEY="${INPUT_WORKFLOWS_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7419928Z ^[[36;1m  KEEPALIVE_APP_ID="${INPUT_KEEPALIVE_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7420167Z ^[[36;1m  KEEPALIVE_APP_PRIVATE_KEY="${INPUT_KEEPALIVE_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7420401Z ^[[36;1m  GH_APP_ID="${INPUT_GH_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7420602Z ^[[36;1m  GH_APP_PRIVATE_KEY="${INPUT_GH_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7420799Z ^[[36;1m  APP_1_ID="${INPUT_APP_1_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7420995Z ^[[36;1m  APP_1_PRIVATE_KEY="${INPUT_APP_1_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7421197Z ^[[36;1m  APP_2_ID="${INPUT_APP_2_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7421388Z ^[[36;1m  APP_2_PRIVATE_KEY="${INPUT_APP_2_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7421567Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7421682Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7421861Z ^[[36;1m# Export GITHUB_TOKEN (GH_TOKEN is the same value, only count once)^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7422105Z ^[[36;1mif [ -n "${INPUT_GITHUB_TOKEN:-}" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7422310Z ^[[36;1m  export_var "GITHUB_TOKEN" "${INPUT_GITHUB_TOKEN}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7422686Z ^[[36;1m  # GH_TOKEN is exported but not double-counted^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7422923Z ^[[36;1m  printf '%s=%s\n' "GH_TOKEN" "${INPUT_GITHUB_TOKEN}" >>"${GITHUB_ENV}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7423130Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7423241Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7423357Z ^[[36;1m# Export PATs^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7423535Z ^[[36;1mexport_var "SERVICE_BOT_PAT" "${SERVICE_BOT_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7423759Z ^[[36;1mexport_var "ACTIONS_BOT_PAT" "${ACTIONS_BOT_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7423972Z ^[[36;1mexport_var "OWNER_PR_PAT" "${OWNER_PR_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7424205Z ^[[36;1mexport_var "AGENTS_AUTOMATION_PAT" "${AGENTS_AUTOMATION_PAT:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7424422Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7424544Z ^[[36;1m# Export App credentials^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7424739Z ^[[36;1mexport_var "WORKFLOWS_APP_ID" "${WORKFLOWS_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7425001Z ^[[36;1mexport_var "WORKFLOWS_APP_PRIVATE_KEY" "${WORKFLOWS_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7425275Z ^[[36;1mexport_var "KEEPALIVE_APP_ID" "${KEEPALIVE_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7425538Z ^[[36;1mexport_var "KEEPALIVE_APP_PRIVATE_KEY" "${KEEPALIVE_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7425783Z ^[[36;1mexport_var "GH_APP_ID" "${GH_APP_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7425993Z ^[[36;1mexport_var "GH_APP_PRIVATE_KEY" "${GH_APP_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7426216Z ^[[36;1mexport_var "APP_1_ID" "${APP_1_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7426428Z ^[[36;1mexport_var "APP_1_PRIVATE_KEY" "${APP_1_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7426640Z ^[[36;1mexport_var "APP_2_ID" "${APP_2_ID:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7426847Z ^[[36;1mexport_var "APP_2_PRIVATE_KEY" "${APP_2_PRIVATE_KEY:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7427044Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7427161Z ^[[36;1m# Output summary^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7427434Z ^[[36;1mecho "token_count=${token_count}" >> "$GITHUB_OUTPUT"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7427677Z ^[[36;1mecho "available_tokens=${available_tokens}" >> "$GITHUB_OUTPUT"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7427887Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7428015Z ^[[36;1minstall_dir="${INPUT_INSTALL_DIR:-}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7428191Z ^[[36;1mif [ -z "$install_dir" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7428463Z ^[[36;1m  install_dir="${GITHUB_WORKSPACE}/.github/scripts"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7428647Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7428775Z ^[[36;1msetup_contract="$(^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7428941Z ^[[36;1m  AVAILABLE_TOKENS="${available_tokens}" \^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7429124Z ^[[36;1m  TOKEN_COUNT="${token_count}" \^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7429291Z ^[[36;1m  INSTALL_DIR="${install_dir}" \^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7429456Z ^[[36;1m  node <<'NODE'^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7429601Z ^[[36;1mconst fs = require('node:fs');^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7429775Z ^[[36;1mconst path = require('node:path');^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7429943Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7430096Z ^[[36;1mconst installDir = process.env.INSTALL_DIR || '';^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7430337Z ^[[36;1mconst tokenNames = (process.env.AVAILABLE_TOKENS || '')^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7430538Z ^[[36;1m  .split(',')^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7430692Z ^[[36;1m  .map((value) => value.trim())^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7430857Z ^[[36;1m  .filter(Boolean);^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7431027Z ^[[36;1mconst tokenSet = new Set(tokenNames);^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7431202Z ^[[36;1mconst appPairs = [^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7431411Z ^[[36;1m  ['WORKFLOWS_APP', 'WORKFLOWS_APP_ID', 'WORKFLOWS_APP_PRIVATE_KEY'],^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7431694Z ^[[36;1m  ['KEEPALIVE_APP', 'KEEPALIVE_APP_ID', 'KEEPALIVE_APP_PRIVATE_KEY'],^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7431943Z ^[[36;1m  ['GH_APP', 'GH_APP_ID', 'GH_APP_PRIVATE_KEY'],^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7432150Z ^[[36;1m  ['APP_1', 'APP_1_ID', 'APP_1_PRIVATE_KEY'],^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7432486Z ^[[36;1m  ['APP_2', 'APP_2_ID', 'APP_2_PRIVATE_KEY'],^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7432677Z ^[[36;1m];^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7432813Z ^[[36;1mconst authModes = [];^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7432975Z ^[[36;1mif (tokenSet.has('GITHUB_TOKEN')) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7433204Z ^[[36;1m  authModes.push({ source: 'GITHUB_TOKEN', mode: 'github-token' });^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7433419Z ^[[36;1m}^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7433552Z ^[[36;1mfor (const name of tokenNames) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7433726Z ^[[36;1m  if (name.endsWith('_PAT')) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7433919Z ^[[36;1m    authModes.push({ source: name, mode: 'pat' });^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7434101Z ^[[36;1m  }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7434222Z ^[[36;1m}^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7434379Z ^[[36;1mfor (const [source, idName, keyName] of appPairs) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7434617Z ^[[36;1m  if (tokenSet.has(idName) && tokenSet.has(keyName)) {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7434818Z ^[[36;1m    authModes.push({^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7434965Z ^[[36;1m      source,^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7435110Z ^[[36;1m      mode: 'github-app',^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7435285Z ^[[36;1m      credential_names: [idName, keyName],^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7435454Z ^[[36;1m    });^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7435572Z ^[[36;1m  }^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7435690Z ^[[36;1m}^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7435802Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7435971Z ^[[36;1mconst moduleDir = path.join(installDir, 'node_modules');^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7436268Z ^[[36;1mconst hasModule = (name) => fs.existsSync(path.join(moduleDir, ...name.split('/')));^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7436531Z ^[[36;1mconst contract = {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7436707Z ^[[36;1m  schema: 'workflows-api-client-setup/v1',^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7436962Z ^[[36;1m  token_count: Number.parseInt(process.env.TOKEN_COUNT || '0', 10) || 0,^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7437211Z ^[[36;1m  available_token_names: tokenNames,^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7437392Z ^[[36;1m  auth_modes: authModes,^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7437550Z ^[[36;1m  dependency_state: {^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7437728Z ^[[36;1m    node_path_ready: fs.existsSync(moduleDir),^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7438039Z ^[[36;1m    octokit_rest_ready: hasModule('@octokit/rest'),^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7438275Z ^[[36;1m    octokit_auth_app_ready: hasModule('@octokit/auth-app'),^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7438505Z ^[[36;1m    lru_cache_ready: hasModule('lru-cache'),^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7438678Z ^[[36;1m  },^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7438795Z ^[[36;1m};^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7439034Z ^[[36;1mprocess.stdout.write(JSON.stringify(contract));^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7439226Z ^[[36;1mNODE^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7439344Z ^[[36;1m)"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7439526Z ^[[36;1mprintf 'setup_contract=%s\n' "$setup_contract" >> "$GITHUB_OUTPUT"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7439741Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7439858Z ^[[36;1mecho ""^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7439994Z ^[[36;1mecho "📊 Token Setup Summary:"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7440181Z ^[[36;1mecho "  Total tokens exported: ${token_count}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7440417Z ^[[36;1mecho "  Setup contract schema: workflows-api-client-setup/v1"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7440653Z ^[[36;1mif [ "${INPUT_VERBOSE}" = "true" ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7440858Z ^[[36;1m  echo "  Available: ${available_tokens}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7441055Z ^[[36;1m  echo "  Setup contract: ${setup_contract}"^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7441227Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7441342Z ^[[36;1m^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7441480Z ^[[36;1m# Warn if no tokens were exported^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7441663Z ^[[36;1mif [ "${token_count}" -eq 0 ]; then^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7441879Z ^[[36;1m  echo "::warning::No tokens were exported! API calls may fail."^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7442138Z ^[[36;1m  echo "::warning::Ensure secrets are passed to this action."^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7442339Z ^[[36;1mfi^[[0m
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7478107Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7478308Z env:
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7478472Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7478725Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7478983Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7479209Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7479435Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7479668Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7479936Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7480172Z   INPUT_SECRETS: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7481747Z   INPUT_GITHUB_TOKEN: ***
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7481959Z   INPUT_SERVICE_BOT_PAT: ***
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7482112Z   INPUT_ACTIONS_BOT_PAT: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7482609Z   INPUT_OWNER_PR_PAT: ***
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7482758Z   INPUT_AGENTS_AUTOMATION_PAT: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7482913Z   INPUT_WORKFLOWS_APP_ID: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7483069Z   INPUT_WORKFLOWS_APP_PRIVATE_KEY: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7483231Z   INPUT_KEEPALIVE_APP_ID: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7483459Z   INPUT_KEEPALIVE_APP_PRIVATE_KEY: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7483717Z   INPUT_GH_APP_ID: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7484018Z   INPUT_GH_APP_PRIVATE_KEY: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7484239Z   INPUT_APP_1_ID: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7484434Z   INPUT_APP_1_PRIVATE_KEY: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7484700Z   INPUT_APP_2_ID: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7484927Z   INPUT_APP_2_PRIVATE_KEY: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7485155Z   INPUT_INSTALL_DIR: 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7485368Z   INPUT_VERBOSE: false
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7485582Z ##[endgroup]
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7549164Z 🔐 Exporting tokens to environment...
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7792310Z 
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7792846Z 📊 Token Setup Summary:
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7793042Z   Total tokens exported: 3
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7793241Z   Setup contract schema: workflows-api-client-setup/v1
+merge_sync_prs	Setup API client	2026-11-08T13:37:00.7814518Z ##[end-action id=__self.export-tokens;outcome=success;conclusion=success;duration_ms=42]
+merge_sync_prs	Extract consumer repos from sync workflow	﻿2026-11-08T13:37:00.7856382Z ##[group]Run repos=$(python scripts/list_registered_consumer_repos.py --separator ',')
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7856743Z ^[[36;1mrepos=$(python scripts/list_registered_consumer_repos.py --separator ',')^[[0m
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7857006Z ^[[36;1mecho "list=${repos}" >> "$GITHUB_OUTPUT"^[[0m
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7857196Z ^[[36;1mecho "Extracted repos: ${repos}"^[[0m
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7896015Z shell: /usr/bin/bash -e {0}
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7896164Z env:
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7896327Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7896700Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7896954Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7897185Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7897414Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7897639Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7897901Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7899518Z   GITHUB_TOKEN: ***
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7900775Z   GH_TOKEN: ***
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7900968Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7901262Z   OWNER_PR_PAT: ***
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.7901389Z ##[endgroup]
+merge_sync_prs	Extract consumer repos from sync workflow	2026-11-08T13:37:00.8307499Z Extracted repos: stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic
+merge_sync_prs	Resolve immutable handoff inputs	﻿2026-11-08T13:37:00.8332964Z ##[group]Run node <<'NODE'
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8333167Z ^[[36;1mnode <<'NODE'^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8333308Z ^[[36;1mconst fs = require('fs');^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8333499Z ^[[36;1mconst pick = (value) => String(value || '').trim();^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8333745Z ^[[36;1mlet planId = pick(process.env.EXPECTED_PLAN_ID_RAW);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8333993Z ^[[36;1mlet planScope = pick(process.env.EXPECTED_PLAN_SCOPE_RAW);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8334262Z ^[[36;1mlet scopeBaseSha = pick(process.env.EXPECTED_SCOPE_BASE_SHA_RAW);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8334544Z ^[[36;1mlet sourceCommit = pick(process.env.EXPECTED_SOURCE_COMMIT_RAW);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8334814Z ^[[36;1mconst rawJson = pick(process.env.IMMUTABLE_HANDOFF_JSON);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8335028Z ^[[36;1mif (rawJson) {^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8335163Z ^[[36;1m  try {^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8335306Z ^[[36;1m    const parsed = JSON.parse(rawJson);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8335529Z ^[[36;1m    if (parsed.plan_id != null) planId = pick(parsed.plan_id);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8335825Z ^[[36;1m    if (parsed.plan_scope != null) planScope = pick(parsed.plan_scope);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8336126Z ^[[36;1m    if (parsed.scope_base_sha != null) scopeBaseSha = pick(parsed.scope_base_sha);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8336443Z ^[[36;1m    if (parsed.source_commit != null) sourceCommit = pick(parsed.source_commit);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8336681Z ^[[36;1m  } catch (error) {^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8336911Z ^[[36;1m    throw new Error(`immutable_handoff_json is not valid JSON: ${error.message}`);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8337145Z ^[[36;1m  }^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8337259Z ^[[36;1m}^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8337465Z ^[[36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_plan_id=${planId}\n`);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8337817Z ^[[36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_plan_scope=${planScope}\n`);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8338177Z ^[[36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_scope_base_sha=${scopeBaseSha}\n`);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8338552Z ^[[36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `expected_source_commit=${sourceCommit}\n`);^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8338812Z ^[[36;1mNODE^[[0m
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8377902Z shell: /usr/bin/bash -e {0}
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8378053Z env:
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8378211Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8378467Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8378719Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8378945Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8379168Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8379400Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8379791Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8381361Z   GITHUB_TOKEN: ***
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8382841Z   GH_TOKEN: ***
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8383024Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8383317Z   OWNER_PR_PAT: ***
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8383847Z   IMMUTABLE_HANDOFF_JSON: {"plan_id":"sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2","plan_scope":"source-delta","scope_base_sha":"7e377b7ad8cc06e506393218bc7459ba47757f01","source_commit":"9acdde6d5f0731bf968a6766d83f2b47db8375a3"}
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8384410Z   EXPECTED_PLAN_ID_RAW: 
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8384558Z   EXPECTED_PLAN_SCOPE_RAW: 
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8384711Z   EXPECTED_SCOPE_BASE_SHA_RAW: 
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8384865Z   EXPECTED_SOURCE_COMMIT_RAW: 
+merge_sync_prs	Resolve immutable handoff inputs	2026-11-08T13:37:00.8385016Z ##[endgroup]
+merge_sync_prs	Resolve candidate evidence mode	﻿2026-11-08T13:37:00.8680485Z ##[group]Run node <<'NODE'
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8680677Z ^[[36;1mnode <<'NODE'^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8680833Z ^[[36;1mconst fs = require('fs');^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8681004Z ^[[36;1mconst prefix = 'sync/workflows-';^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8681167Z ^[[36;1mconst raw = [^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8681318Z ^[[36;1m  process.env.INPUT_ACTIVE_SYNC_HASH,^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8681501Z ^[[36;1m  process.env.INPUT_SYNC_HASH,^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8681680Z ^[[36;1m  process.env.DISPATCH_ACTIVE_SYNC_HASH,^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8681868Z ^[[36;1m  process.env.DISPATCH_SYNC_HASH,^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8682079Z ^[[36;1m].map((value) => String(value || '').trim()).find(Boolean) || '';^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8682589Z ^[[36;1mconst selector = raw.startsWith(prefix) ? raw.slice(prefix.length) : raw;^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8682958Z ^[[36;1mconst namedSelectors = new Set(['candidate', 'campaign', 'delivery', 'dev-tool']);^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8683243Z ^[[36;1mconst legacyHash = /^[0-9a-f]{12,64}$/i.test(selector);^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8683536Z ^[[36;1mif (selector && !namedSelectors.has(selector) && !legacyHash) {^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8683759Z ^[[36;1m  throw new Error(^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8683980Z ^[[36;1m    'active sync selector must be candidate, campaign, delivery, dev-tool, ' +^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8684227Z ^[[36;1m    'or a legacy hex hash',^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8684373Z ^[[36;1m  );^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8684492Z ^[[36;1m}^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8684685Z ^[[36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `selector=${selector}\n`);^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8685025Z ^[[36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `candidate=${selector === 'candidate'}\n`);^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8685385Z ^[[36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `campaign=${selector === 'campaign'}\n`);^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8685638Z ^[[36;1mNODE^[[0m
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8722977Z shell: /usr/bin/bash -e {0}
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8723138Z env:
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8723303Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8723562Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8723817Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8724043Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8724264Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8724491Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8724754Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8726374Z   GITHUB_TOKEN: ***
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8727702Z   GH_TOKEN: ***
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8727887Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8728179Z   OWNER_PR_PAT: ***
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8728316Z   INPUT_ACTIVE_SYNC_HASH: candidate
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8728472Z   INPUT_SYNC_HASH: 
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8728602Z   DISPATCH_ACTIVE_SYNC_HASH: 
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8728776Z   DISPATCH_SYNC_HASH: 
+merge_sync_prs	Resolve candidate evidence mode	2026-11-08T13:37:00.8728910Z ##[endgroup]
+merge_sync_prs	Collect and validate canary evidence before merge	﻿2026-11-08T13:37:00.9053237Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9053621Z with:
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9054014Z   github-token: ***
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9054280Z   script: const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
+merge_sync_prs	Collect and validate canary evidence before merge	await run({ github, context, core });
+merge_sync_prs	Collect and validate canary evidence before merge	
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9054582Z   debug: false
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9054716Z   user-agent: actions/github-script
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9054878Z   result-encoding: json
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9055011Z   retries: 0
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9055155Z   retry-exempt-status-codes: 400,401,403,404,422
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9055337Z env:
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9055496Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9055748Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9055997Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9056227Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9056453Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9056708Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9056971Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9058372Z   GITHUB_TOKEN: ***
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9059746Z   GH_TOKEN: ***
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9059920Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9060200Z   OWNER_PR_PAT: ***
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9060336Z   REPOS_INPUT: all
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9060466Z   AUTO_MERGE_INPUT: false
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9060607Z   DRY_RUN_INPUT: true
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9060746Z   ACTIVE_SYNC_HASH_INPUT: candidate
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9061014Z   EXPECTED_PLAN_ID_INPUT: sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9061299Z   EXPECTED_PLAN_SCOPE_INPUT: source-delta
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9061521Z   EXPECTED_SCOPE_BASE_SHA_INPUT: 7e377b7ad8cc06e506393218bc7459ba47757f01
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9061799Z   EXPECTED_SOURCE_COMMIT_INPUT: 9acdde6d5f0731bf968a6766d83f2b47db8375a3
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9062166Z   CANARY_BASELINE_EVIDENCE_JSON: {"schema":"workflows.consumer-sync-canary-evidence/v1","version":1,"results":[]}
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9062817Z   CLEANUP_BRANCHES_INPUT: false
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9062973Z   EVIDENCE_ONLY_INPUT: true
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9063163Z   CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9063437Z   CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9063734Z   TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9064022Z   TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9064242Z   REVIEW_RESOLUTION_JSON: 
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9064402Z   EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9064609Z   MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9064853Z   SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-premerge-report.json
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9065857Z   REGISTERED_REPOS_INPUT: stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9066795Z ##[endgroup]
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:00.9787628Z Token registry initialized with 3 tokens
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5422006Z Selected token: SERVICE_BOT_PAT (5000 remaining, 100.0% capacity)
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5428830Z Registered consumer repos: stranske/Travel-Plan-Permission, stranske/Template, stranske/Counter_Risk, stranske/Pension-Data, stranske/Inv-Man-Intake, stranske/Ready, stranske/trip-planner, stranske/Manager-Database, stranske/Portable-Alpha-Extension-Model, stranske/Trend_Model_Project, stranske/learning-management-system, stranske/Fine-Art-Archive, stranske/Orchestrator, stranske/Doc-Lineage, stranske/Deliverable-Render, stranske/Manager-Mosaic
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5431314Z Processing repos: stranske/Travel-Plan-Permission, stranske/trip-planner, stranske/Portable-Alpha-Extension-Model
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5431823Z Auto-merge: false, Dry run: true
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5432049Z Evidence only: true
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5432242Z Prepare only: false
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5432581Z Resolution only: false
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5432797Z Candidate evidence authorized: false
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5433062Z Reviewer policy: minimum=1, quiet=7m, max=15m
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5433338Z Cleanup stale sync branches: false
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5433592Z Cleanup merged/stale PR branches: false
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5433769Z 
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5433868Z Target sync hash: candidate
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5434398Z Expected plan identity: sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2 @ 9acdde6d5f0731bf968a6766d83f2b47db8375a3
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5434871Z 
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:01.5434973Z === stranske/Travel-Plan-Permission ===
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:02.2562076Z 
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:02.2562653Z === stranske/trip-planner ===
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:02.9548632Z 
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:02.9549203Z === stranske/Portable-Alpha-Extension-Model ===
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:04.2526545Z 
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:04.2527208Z Processing active PR #2486: chore: sync workflow templates
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:04.2527590Z Branch: sync/workflows-candidate
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:04.2527763Z Created: 2026-11-08T13:36:19Z
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:06.0248747Z GET /repos/stranske/Portable-Alpha-Extension-Model/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 0C40:207FBA:542238:115B54B:6AF07B01 in 111ms
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:06.0263694Z stranske/Portable-Alpha-Extension-Model@653f443b52ec: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:06.3002779Z Checks (branch-protection): 2 gating, 2 failed, 0 pending
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5510523Z seal: stranske/Portable-Alpha-Extension-Model#2486 pending(dry-run)
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5519015Z canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=1
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5519877Z 
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5520176Z === Summary ===
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5527467Z [
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5535276Z   {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5535502Z     "owner": "stranske",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5535789Z     "repo": "Travel-Plan-Permission",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5536062Z     "branch": "sync/workflows-candidate",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5536326Z     "status": "stable_base_refresh_required",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5536652Z     "next_command": "dispatch-maint-68-phase-canary-no-filter",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5537019Z     "reason": "candidate_pr_and_no_change_evidence_missing"
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5537298Z   },
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5537463Z   {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5537635Z     "owner": "stranske",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5537855Z     "repo": "trip-planner",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5538106Z     "branch": "sync/workflows-candidate",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5538395Z     "status": "stable_base_refresh_required",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5538740Z     "next_command": "dispatch-maint-68-phase-canary-no-filter",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5539109Z     "reason": "candidate_pr_and_no_change_evidence_missing"
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5539394Z   },
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5539551Z   {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5539723Z     "owner": "stranske",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5539968Z     "repo": "Portable-Alpha-Extension-Model",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5540219Z     "pr": 2486,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5540432Z     "branch": "sync/workflows-candidate",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5540749Z     "head_sha": "653f443b52ec179c6680ee369be06ed3e3ce2617",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5541047Z     "delivery_generation": "0347f9f5fd1c",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5541323Z     "plan_id": "sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5541582Z     "plan_scope": "source-delta",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5541777Z     "scope_base_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5542022Z     "source_commit": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5542998Z     "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5543338Z     "campaign_no_change_evidence_json": "",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5543566Z     "delivery_lane": "sync",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5543712Z     "continuation_lane": "",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5543904Z     "delivery_disposition": "awaiting-sealed-gate",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5544091Z     "blocker_owner": "ci",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5544288Z     "next_command": "rerun-after-generated-delivery-seal-gate",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5544504Z     "review_finding_disposition": {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5544675Z       "schema": "sync-finding-evaluation/v1",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5544841Z       "binding": {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5545014Z         "repository": "stranske/Portable-Alpha-Extension-Model",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5545207Z         "pr": 2486,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5545367Z         "head_sha": "653f443b52ec179c6680ee369be06ed3e3ce2617",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5545606Z         "source_commit": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5558295Z         "plan_id": "sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5558762Z         "delivery_generation": "0347f9f5fd1c"
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5559036Z       },
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5559227Z       "raw_active_count": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5559469Z       "blocked": false,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5559677Z       "errors": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5559803Z       "findings": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5559935Z       "aggregates": {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5560063Z         "blocking": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5560198Z         "nonblocking": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5560329Z         "unknown": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5560459Z         "by_disposition": {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5560611Z           "shared-source": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5560756Z           "sync-caused": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5560896Z           "unrelated": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5561033Z           "unknown": 0
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5561166Z         }
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5561277Z       },
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5561398Z       "disposition_thread_ids": {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5561576Z         "shared-source": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5561723Z         "sync-caused": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5561866Z         "unrelated": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5562001Z         "unknown": []
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5562123Z       },
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5562239Z       "blocking_thread_ids": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5562537Z       "nonblocking_thread_ids": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5562703Z       "unknown_thread_ids": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5562853Z       "unrelated_handoffs": []
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5562992Z     },
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5563110Z     "review_state": "clear",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5563269Z     "review_resolution_thread_ids": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5563452Z     "review_resolution_would_resolve_thread_ids": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5563635Z     "review_resolution_errors": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5563810Z     "consumer_declared_contexts": {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5563961Z       "state": "none",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5564095Z       "passed": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5564237Z       "failed": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5564377Z       "pending": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5564508Z       "never_started": [],
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5564667Z       "also_required": []
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5564829Z     },
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5564970Z     "conversation_resolution": {
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5565149Z       "ok": true,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5565279Z       "unresolved_count": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5565455Z       "unresolved_outdated_count": 0,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5565617Z       "unresolved_thread_ids": []
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5565775Z     },
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5565890Z     "seal_pending": true,
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5566053Z     "check_status": "seal_pending",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5566217Z     "raw_check_status": "checks_failed",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5566395Z     "status": "dry_run_seal",
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5566553Z     "review_mode": "integration-only"
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5566951Z   }
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5567074Z ]
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5580927Z ##[notice]Canary evidence is incomplete or unsafe: missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5587014Z 
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5587132Z Merged: 0
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5587268Z Stale closed: 0
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5587430Z Leftover branches deleted: 0
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5587591Z Failed: 0
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5587708Z Pending: 0
+merge_sync_prs	Collect and validate canary evidence before merge	2026-11-08T13:37:07.5587850Z Ready (not auto-merged): 0
+merge_sync_prs	Persist pre-merge canary evidence	﻿2026-11-08T13:37:07.5697738Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5697983Z with:
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5698106Z   retention-days: 30
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5698255Z   name: sync-canary-evidence-premerge
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5698518Z   path: artifacts/sync-pr-premerge-report.json
+merge_sync_prs	Persist pre-merge canary evidence	artifacts/sync-canary-evidence.json
+merge_sync_prs	Persist pre-merge canary evidence	
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5698783Z   if-no-files-found: error
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5698929Z   compression-level: 6
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5699060Z   overwrite: false
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5699189Z   include-hidden-files: false
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5699336Z   archive: true
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5699462Z env:
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5699616Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5699864Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5700117Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5700342Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5700586Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5700810Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5701074Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5702738Z   GITHUB_TOKEN: ***
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5704005Z   GH_TOKEN: ***
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5704196Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5704482Z   OWNER_PR_PAT: ***
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.5704613Z ##[endgroup]
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.6697113Z Multiple search paths detected. Calculating the least common ancestor of all paths
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.6698655Z The least common ancestor is /home/runner/work/Workflows/Workflows/artifacts. This will be the root directory of the artifact
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.6699054Z With the provided path, there will be 2 files uploaded
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.6701943Z Artifact name is valid!
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.6702298Z Root directory input is valid!
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.9328588Z Uploading artifact: sync-canary-evidence-premerge.zip
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:07.9353965Z Beginning upload of artifact content to blob storage
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:08.0765896Z Uploaded bytes 2488
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:08.1117266Z Finished uploading artifact content to blob storage!
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:08.1118021Z SHA256 digest of uploaded artifact is ead74b2be713bb0a0f4e78b95337c4edb8b807d9d4ff8d6a798fe48c75148955
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:08.1118605Z Finalizing artifact upload
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:08.5439419Z Artifact sync-canary-evidence-premerge successfully finalized. Artifact ID 13619482130
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:08.5439942Z Artifact sync-canary-evidence-premerge has been successfully uploaded! Final size is 2488 bytes. Artifact ID is 13619482130
+merge_sync_prs	Persist pre-merge canary evidence	2026-11-08T13:37:08.5443139Z Artifact download URL: https://github.com/stranske/Workflows/actions/runs/42485792262/artifacts/13619482130
+merge_sync_prs	Validate complete pre-merge canary evidence	﻿2026-11-08T13:37:08.5554271Z ##[group]Run node <<'NODE'
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5554475Z ^[[36;1mnode <<'NODE'^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5554622Z ^[[36;1mconst fs = require('fs');^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5554783Z ^[[36;1mconst {^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5554921Z ^[[36;1m  validateCanaryEvidence,^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5555131Z ^[[36;1m} = require('./.github/scripts/sync_pr_merge_contract.js');^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5555356Z ^[[36;1mconst evidence = JSON.parse(^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5555583Z ^[[36;1m  fs.readFileSync('artifacts/sync-canary-evidence.json', 'utf8'),^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5555924Z ^[[36;1m);^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5556058Z ^[[36;1mconst canaryConfig = JSON.parse(^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5556281Z ^[[36;1m  fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5556497Z ^[[36;1m);^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5556670Z ^[[36;1mconst expectedCanaries = (canaryConfig.canaries || [])^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5556913Z ^[[36;1m  .map((entry) => String(entry.repo || '').trim())^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5557106Z ^[[36;1m  .filter(Boolean);^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5557335Z ^[[36;1mconst rows = Array.isArray(evidence) ? evidence : evidence.results;^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5557627Z ^[[36;1mconst validation = validateCanaryEvidence(rows, expectedCanaries);^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5557947Z ^[[36;1mfs.appendFileSync(process.env.GITHUB_OUTPUT, `authorized=${validation.ok}\n`);^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5558207Z ^[[36;1mif (!validation.ok) {^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5558368Z ^[[36;1m  console.log(^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5558612Z ^[[36;1m    `Pre-merge canary evidence remains incomplete: ${validation.errors.join(', ')}`,^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5558865Z ^[[36;1m  );^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5558987Z ^[[36;1m} else {^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5559209Z ^[[36;1m  console.log(`Validated complete pre-merge evidence for ${validation.plan_id}`);^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5559459Z ^[[36;1m}^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5559574Z ^[[36;1mNODE^[[0m
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5599783Z shell: /usr/bin/bash -e {0}
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5599938Z env:
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5600100Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5600367Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5600620Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5600851Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5601085Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5601318Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5601595Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5603297Z   GITHUB_TOKEN: ***
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5604560Z   GH_TOKEN: ***
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5604750Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5605041Z   OWNER_PR_PAT: ***
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5605181Z ##[endgroup]
+merge_sync_prs	Validate complete pre-merge canary evidence	2026-11-08T13:37:08.5863723Z Pre-merge canary evidence remains incomplete: missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope
+merge_sync_prs	Check and merge sync PRs	﻿2026-11-08T13:37:08.5942957Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5943225Z with:
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5943594Z   github-token: ***
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5943870Z   script: const { run } = require("./.github/scripts/maint71_merge_sync_prs.js");
+merge_sync_prs	Check and merge sync PRs	await run({ github, context, core });
+merge_sync_prs	Check and merge sync PRs	
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5944198Z   debug: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5944337Z   user-agent: actions/github-script
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5944505Z   result-encoding: json
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5944651Z   retries: 0
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5944800Z   retry-exempt-status-codes: 400,401,403,404,422
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5944979Z env:
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5945146Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5945408Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5945672Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5945907Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5946141Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5946401Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5946688Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5948153Z   GITHUB_TOKEN: ***
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5949677Z   GH_TOKEN: ***
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5949858Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5950153Z   OWNER_PR_PAT: ***
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5950285Z   REPOS_INPUT: all
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5950423Z   AUTO_MERGE_INPUT: true
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5950562Z   DRY_RUN_INPUT: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5950709Z   ACTIVE_SYNC_HASH_INPUT: candidate
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5950980Z   EXPECTED_PLAN_ID_INPUT: sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5951268Z   EXPECTED_PLAN_SCOPE_INPUT: source-delta
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5951503Z   EXPECTED_SCOPE_BASE_SHA_INPUT: 7e377b7ad8cc06e506393218bc7459ba47757f01
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5951788Z   EXPECTED_SOURCE_COMMIT_INPUT: 9acdde6d5f0731bf968a6766d83f2b47db8375a3
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5952163Z   CANARY_BASELINE_EVIDENCE_JSON: {"schema":"workflows.consumer-sync-canary-evidence/v1","version":1,"results":[]}
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5952813Z   CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5952984Z   CANDIDATE_EVIDENCE_AUTHORIZED: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5953164Z   CANDIDATE_ARTIFACT_RESULT: success
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5953331Z   PREPARE_ONLY_INPUT: true
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5953486Z   CLEANUP_BRANCHES_INPUT: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5953696Z   CONSUMER_SYNC_CANARIES_PATH: config/consumer_sync_canaries.json
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5953977Z   CONSUMER_SYNC_REVIEW_POLICY_PATH: config/consumer_sync_review_policy.json
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5954288Z   TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5954586Z   TRUSTED_REVIEW_RESOLUTION_ACTORS: stranske,stranske-automation-bot
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5954811Z   REVIEW_RESOLUTION_JSON: 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5954976Z   EXCLUDED_REPOS_INPUT: stranske/Collab-Admin
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5955190Z   MANUAL_RECONCILIATION_REPOS_INPUT: stranske/Collab-Admin
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5955436Z   SYNC_PR_MERGE_REPORT_JSON: artifacts/sync-pr-merge-report.json
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5956447Z   REGISTERED_REPOS_INPUT: stranske/Travel-Plan-Permission,stranske/Template,stranske/Counter_Risk,stranske/Pension-Data,stranske/Inv-Man-Intake,stranske/Ready,stranske/trip-planner,stranske/Manager-Database,stranske/Portable-Alpha-Extension-Model,stranske/Trend_Model_Project,stranske/learning-management-system,stranske/Fine-Art-Archive,stranske/Orchestrator,stranske/Doc-Lineage,stranske/Deliverable-Render,stranske/Manager-Mosaic
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.5957405Z ##[endgroup]
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:08.6683758Z Token registry initialized with 3 tokens
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2489116Z Selected token: SERVICE_BOT_PAT (5000 remaining, 100.0% capacity)
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2495885Z Registered consumer repos: stranske/Travel-Plan-Permission, stranske/Template, stranske/Counter_Risk, stranske/Pension-Data, stranske/Inv-Man-Intake, stranske/Ready, stranske/trip-planner, stranske/Manager-Database, stranske/Portable-Alpha-Extension-Model, stranske/Trend_Model_Project, stranske/learning-management-system, stranske/Fine-Art-Archive, stranske/Orchestrator, stranske/Doc-Lineage, stranske/Deliverable-Render, stranske/Manager-Mosaic
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2497641Z Processing repos: stranske/Travel-Plan-Permission, stranske/trip-planner, stranske/Portable-Alpha-Extension-Model
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2497980Z Auto-merge: true, Dry run: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2498147Z Evidence only: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2498291Z Prepare only: true
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2498430Z Resolution only: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2498584Z Candidate evidence authorized: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2498770Z Reviewer policy: minimum=1, quiet=7m, max=15m
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2498968Z Cleanup stale sync branches: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2499143Z Cleanup merged/stale PR branches: false
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2499261Z 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2499332Z Target sync hash: candidate
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2499685Z Expected plan identity: sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2 @ 9acdde6d5f0731bf968a6766d83f2b47db8375a3
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2499992Z 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.2500063Z === stranske/Travel-Plan-Permission ===
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.8991057Z 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:09.8992114Z === stranske/trip-planner ===
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:10.5916092Z 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:10.5916797Z === stranske/Portable-Alpha-Extension-Model ===
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:11.9309467Z 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:11.9310315Z Processing active PR #2486: chore: sync workflow templates
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:11.9310770Z Branch: sync/workflows-candidate
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:11.9311043Z Created: 2026-11-08T13:36:19Z
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:13.7682712Z GET /repos/stranske/Portable-Alpha-Extension-Model/contents/.github%2Fconfig%2Frequired-contexts.json?ref=main - 404 with id 0C42:5E2D7:55345E:118B5D8:6AF07B09 in 116ms
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:13.7697078Z stranske/Portable-Alpha-Extension-Model@653f443b52ec: Consumer-declared delivery checks: none (.github/config/required-contexts.json absent)
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:13.9716358Z Checks (branch-protection): 2 gating, 2 failed, 0 pending
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:16.9188154Z DELETE /repos/stranske/Portable-Alpha-Extension-Model/issues/2486/labels/sync%3Adelivery-ready - 404 with id 0C42:5E2D7:55430E:118E654:6AF07B0C in 395ms
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0622955Z seal: stranske/Portable-Alpha-Extension-Model#2486 gate rerun run=42485765535
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0627990Z seal: stranske/Portable-Alpha-Extension-Model#2486 sealed
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0637674Z canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=1
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0638507Z 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0638611Z === Summary ===
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0639134Z [
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0639307Z   {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0639600Z     "owner": "stranske",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0639859Z     "repo": "Travel-Plan-Permission",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0640154Z     "branch": "sync/workflows-candidate",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0640441Z     "status": "stable_base_refresh_required",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0640833Z     "next_command": "dispatch-maint-68-phase-canary-no-filter",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0641247Z     "reason": "candidate_pr_and_no_change_evidence_missing"
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0641562Z   },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0641735Z   {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0641926Z     "owner": "stranske",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0642184Z     "repo": "trip-planner",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0642614Z     "branch": "sync/workflows-candidate",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0642923Z     "status": "stable_base_refresh_required",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0643377Z     "next_command": "dispatch-maint-68-phase-canary-no-filter",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0643829Z     "reason": "candidate_pr_and_no_change_evidence_missing"
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0644182Z   },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0644367Z   {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0644589Z     "owner": "stranske",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0644897Z     "repo": "Portable-Alpha-Extension-Model",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0645234Z     "pr": 2486,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0645493Z     "branch": "sync/workflows-candidate",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0646198Z     "head_sha": "653f443b52ec179c6680ee369be06ed3e3ce2617",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0646563Z     "delivery_generation": "0347f9f5fd1c",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0647003Z     "plan_id": "sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0647484Z     "plan_scope": "source-delta",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0647854Z     "scope_base_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0648304Z     "source_commit": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0648944Z     "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0649532Z     "campaign_no_change_evidence_json": "",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0649844Z     "delivery_lane": "sync",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0650132Z     "continuation_lane": "",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0650445Z     "delivery_disposition": "awaiting-sealed-gate",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0650773Z     "blocker_owner": "ci",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0651127Z     "next_command": "rerun-after-generated-delivery-seal-gate",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0651537Z     "review_finding_disposition": {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0651860Z       "schema": "sync-finding-evaluation/v1",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0652183Z       "binding": {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0652694Z         "repository": "stranske/Portable-Alpha-Extension-Model",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0653260Z         "pr": 2486,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0653557Z         "head_sha": "653f443b52ec179c6680ee369be06ed3e3ce2617",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0653999Z         "source_commit": "9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0654532Z         "plan_id": "sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0655024Z         "delivery_generation": "0347f9f5fd1c"
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0655335Z       },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0655552Z       "raw_active_count": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0655840Z       "blocked": false,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0656095Z       "errors": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0656344Z       "findings": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0656594Z       "aggregates": {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0656847Z         "blocking": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0657100Z         "nonblocking": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0657350Z         "unknown": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0657605Z         "by_disposition": {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0657887Z           "shared-source": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0658174Z           "sync-caused": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0658460Z           "unrelated": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0658726Z           "unknown": 0
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0658978Z         }
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0659167Z       },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0659356Z       "disposition_thread_ids": {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0659657Z         "shared-source": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0659935Z         "sync-caused": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0660211Z         "unrelated": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0660463Z         "unknown": []
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0660699Z       },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0660934Z       "blocking_thread_ids": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0661228Z       "nonblocking_thread_ids": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0661540Z       "unknown_thread_ids": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0661824Z       "unrelated_handoffs": []
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0662096Z     },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0662316Z     "review_state": "clear",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0662952Z     "review_resolution_thread_ids": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0663272Z     "review_resolution_would_resolve_thread_ids": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0663572Z     "review_resolution_errors": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0663824Z     "consumer_declared_contexts": {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0664085Z       "state": "none",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0664298Z       "passed": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0664502Z       "failed": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0664708Z       "pending": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0664913Z       "never_started": [],
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0665129Z       "also_required": []
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0665340Z     },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0665541Z     "conversation_resolution": {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0665783Z       "ok": true,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0665996Z       "unresolved_count": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0666403Z       "unresolved_outdated_count": 0,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0666574Z       "unresolved_thread_ids": []
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0666723Z     },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0666846Z     "seal_pending": true,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0667002Z     "check_status": "seal_pending",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0667169Z     "raw_check_status": "checks_failed",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0667351Z     "status": "delivery_sealed_checks_pending",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0667537Z     "gate_request": {
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0667671Z       "mode": "rerun",
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0667805Z       "status": 201,
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0667947Z       "run_id": 42485765535
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0668083Z     },
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0668209Z     "review_mode": "integration-only"
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0668368Z   }
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.0668477Z ]
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.2496701Z 
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.2497265Z Merged: 0
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.2497538Z Stale closed: 0
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.2497798Z Leftover branches deleted: 0
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.2498052Z Failed: 0
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.2498258Z Pending: 0
+merge_sync_prs	Check and merge sync PRs	2026-11-08T13:37:25.2498469Z Ready (not auto-merged): 0
+merge_sync_prs	Refresh stale candidate bases	﻿2026-11-08T13:37:25.2673755Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2674010Z with:
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2674372Z   github-token: ***
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2676693Z   script: const fs = require('fs');
+merge_sync_prs	Refresh stale candidate bases	const { createTokenAwareRetry } = require(
+merge_sync_prs	Refresh stale candidate bases	  './.github/scripts/github-api-with-retry.js'
+merge_sync_prs	Refresh stale candidate bases	);
+merge_sync_prs	Refresh stale candidate bases	const { withRetry } = await createTokenAwareRetry({
+merge_sync_prs	Refresh stale candidate bases	  github,
+merge_sync_prs	Refresh stale candidate bases	  core,
+merge_sync_prs	Refresh stale candidate bases	  env: process.env,
+merge_sync_prs	Refresh stale candidate bases	  task: 'maint-71-refresh-stale-candidate-bases',
+merge_sync_prs	Refresh stale candidate bases	  capabilities: ['actions:write'],
+merge_sync_prs	Refresh stale candidate bases	});
+merge_sync_prs	Refresh stale candidate bases	const {
+merge_sync_prs	Refresh stale candidate bases	  candidateRefreshDecision,
+merge_sync_prs	Refresh stale candidate bases	} = require('./.github/scripts/sync_pr_merge_contract.js');
+merge_sync_prs	Refresh stale candidate bases	const report = JSON.parse(
+merge_sync_prs	Refresh stale candidate bases	  fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+merge_sync_prs	Refresh stale candidate bases	);
+merge_sync_prs	Refresh stale candidate bases	const decision = candidateRefreshDecision({ report });
+merge_sync_prs	Refresh stale candidate bases	if (!decision.eligible) {
+merge_sync_prs	Refresh stale candidate bases	  core.notice(`Candidate refresh not required: ${decision.errors.join(', ')}`);
+merge_sync_prs	Refresh stale candidate bases	  return;
+merge_sync_prs	Refresh stale candidate bases	}
+merge_sync_prs	Refresh stale candidate bases	const { dispatchCandidateRefreshFromReport } = require('./.github/scripts/maint71_merge_sync_prs.js');
+merge_sync_prs	Refresh stale candidate bases	const config = JSON.parse(fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'));
+merge_sync_prs	Refresh stale candidate bases	await dispatchCandidateRefreshFromReport({ withRetry, context, core, report,
+merge_sync_prs	Refresh stale candidate bases	  trustedActors: String(process.env.TRUSTED_SYNC_ACTORS || '').split(',').filter(Boolean),
+merge_sync_prs	Refresh stale candidate bases	  expectedCanaries: (config.canaries || []).map((entry) => entry.repo) });
+merge_sync_prs	Refresh stale candidate bases	fs.writeFileSync('artifacts/sync-pr-merge-report.json', JSON.stringify(report, null, 2));
+merge_sync_prs	Refresh stale candidate bases	
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2679055Z   debug: false
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2679202Z   user-agent: actions/github-script
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2679371Z   result-encoding: json
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2679511Z   retries: 0
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2679662Z   retry-exempt-status-codes: 400,401,403,404,422
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2679844Z env:
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2680005Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2680268Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2680521Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2680759Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2680994Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2681227Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2681505Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2683242Z   GITHUB_TOKEN: ***
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2684597Z   GH_TOKEN: ***
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2684782Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2685070Z   OWNER_PR_PAT: ***
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2685284Z   TRUSTED_SYNC_ACTORS: stranske,stranske-automation-bot,github-actions[bot]
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.2685522Z ##[endgroup]
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.3397987Z Token registry initialized with 3 tokens
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.8399026Z Selected token: OWNER_PR_PAT (4923 remaining, 98.5% capacity)
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.8485859Z Error: canary_refresh_report_subject_unknown
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.8486345Z     at dispatchCandidateRefreshFromReport (/home/runner/work/Workflows/Workflows/.github/scripts/maint71_merge_sync_prs.js:786:60)
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.8487035Z     at eval (eval at callAsyncFunction (/home/runner/work/_actions/actions/github-script/3a2844b7e9c422d3c10d287c895573f7108da1b3/dist/index.js:64949:16), <anonymous>:27:7)
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.8487758Z     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.8488183Z     at async main (/home/runner/work/_actions/actions/github-script/3a2844b7e9c422d3c10d287c895573f7108da1b3/dist/index.js:65100:20)
+merge_sync_prs	Refresh stale candidate bases	2026-11-08T13:37:25.8492049Z ##[error]Unhandled error: Error: canary_refresh_report_subject_unknown
+merge_sync_prs	Upload sync PR merge report	﻿2026-11-08T13:37:25.8618600Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8618851Z with:
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8618979Z   retention-days: 30
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8619143Z   name: sync-pr-merge-and-canary-evidence
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8619500Z   path: artifacts/sync-pr-merge-report.json
+merge_sync_prs	Upload sync PR merge report	artifacts/sync-canary-evidence.json
+merge_sync_prs	Upload sync PR merge report	artifacts/sync-campaign-commit-authorization.json
+merge_sync_prs	Upload sync PR merge report	
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8619861Z   if-no-files-found: warn
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8620014Z   compression-level: 6
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8620150Z   overwrite: false
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8620292Z   include-hidden-files: false
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8620575Z   archive: true
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8620701Z env:
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8620866Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8621127Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8621378Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8621614Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8621861Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8622094Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8622541Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8624231Z   GITHUB_TOKEN: ***
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8625484Z   GH_TOKEN: ***
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8625676Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8625967Z   OWNER_PR_PAT: ***
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.8626102Z ##[endgroup]
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.9616540Z Multiple search paths detected. Calculating the least common ancestor of all paths
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.9617809Z The least common ancestor is /home/runner/work/Workflows/Workflows/artifacts. This will be the root directory of the artifact
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.9618224Z With the provided path, there will be 2 files uploaded
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.9642757Z Artifact name is valid!
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:25.9643030Z Root directory input is valid!
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.2313718Z Uploading artifact: sync-pr-merge-and-canary-evidence.zip
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.2337734Z Beginning upload of artifact content to blob storage
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.4075609Z Uploaded bytes 2507
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.4494127Z Finished uploading artifact content to blob storage!
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.4494764Z SHA256 digest of uploaded artifact is 8c163a97ba18cb554751a3c4e79a01bf660e044f1b18304d201f5296a659c760
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.4495253Z Finalizing artifact upload
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.9142218Z Artifact sync-pr-merge-and-canary-evidence successfully finalized. Artifact ID 13619203499
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.9143165Z Artifact sync-pr-merge-and-canary-evidence has been successfully uploaded! Final size is 2507 bytes. Artifact ID is 13619203499
+merge_sync_prs	Upload sync PR merge report	2026-11-08T13:37:26.9145598Z Artifact download URL: https://github.com/stranske/Workflows/actions/runs/42485792262/artifacts/13619203499
+merge_sync_prs	Promote complete exact-plan canary evidence	﻿2026-11-08T13:37:26.9288992Z ##[group]Run actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9289251Z with:
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9289620Z   github-token: ***
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9291418Z   script: const fs = require('fs');
+merge_sync_prs	Promote complete exact-plan canary evidence	const { createTokenAwareRetry } = require(
+merge_sync_prs	Promote complete exact-plan canary evidence	  './.github/scripts/github-api-with-retry.js'
+merge_sync_prs	Promote complete exact-plan canary evidence	);
+merge_sync_prs	Promote complete exact-plan canary evidence	const { withRetry } = await createTokenAwareRetry({
+merge_sync_prs	Promote complete exact-plan canary evidence	  github,
+merge_sync_prs	Promote complete exact-plan canary evidence	  core,
+merge_sync_prs	Promote complete exact-plan canary evidence	  env: process.env,
+merge_sync_prs	Promote complete exact-plan canary evidence	  task: 'maint-71-promote-canary-evidence',
+merge_sync_prs	Promote complete exact-plan canary evidence	  capabilities: ['actions:write'],
+merge_sync_prs	Promote complete exact-plan canary evidence	});
+merge_sync_prs	Promote complete exact-plan canary evidence	const { dispatchCanaryPromotion } = require(
+merge_sync_prs	Promote complete exact-plan canary evidence	  './.github/scripts/maint71_merge_sync_prs.js'
+merge_sync_prs	Promote complete exact-plan canary evidence	);
+merge_sync_prs	Promote complete exact-plan canary evidence	const report = JSON.parse(
+merge_sync_prs	Promote complete exact-plan canary evidence	  fs.readFileSync('artifacts/sync-pr-merge-report.json', 'utf8'),
+merge_sync_prs	Promote complete exact-plan canary evidence	);
+merge_sync_prs	Promote complete exact-plan canary evidence	const evidence = JSON.parse(
+merge_sync_prs	Promote complete exact-plan canary evidence	  fs.readFileSync('artifacts/sync-canary-evidence.json', 'utf8'),
+merge_sync_prs	Promote complete exact-plan canary evidence	);
+merge_sync_prs	Promote complete exact-plan canary evidence	const canaryConfig = JSON.parse(
+merge_sync_prs	Promote complete exact-plan canary evidence	  fs.readFileSync('config/consumer_sync_canaries.json', 'utf8'),
+merge_sync_prs	Promote complete exact-plan canary evidence	);
+merge_sync_prs	Promote complete exact-plan canary evidence	// The helper preserves the exact-head prepared/recovered gate
+merge_sync_prs	Promote complete exact-plan canary evidence	// and records every dispatch disposition in the summary.
+merge_sync_prs	Promote complete exact-plan canary evidence	await dispatchCanaryPromotion({
+merge_sync_prs	Promote complete exact-plan canary evidence	  report, evidence,
+merge_sync_prs	Promote complete exact-plan canary evidence	  expectedCanaries: canaryConfig.canaries.map((entry) => entry.repo),
+merge_sync_prs	Promote complete exact-plan canary evidence	  withRetry, context, core,
+merge_sync_prs	Promote complete exact-plan canary evidence	});
+merge_sync_prs	Promote complete exact-plan canary evidence	
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9293564Z   debug: false
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9293711Z   user-agent: actions/github-script
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9293879Z   result-encoding: json
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9294024Z   retries: 0
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9294173Z   retry-exempt-status-codes: 400,401,403,404,422
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9294360Z env:
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9294524Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9294785Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9295043Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9295407Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9295640Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9295879Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9296153Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9297570Z   GITHUB_TOKEN: ***
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9298996Z   GH_TOKEN: ***
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9299183Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9299475Z   OWNER_PR_PAT: ***
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:26.9299612Z ##[endgroup]
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:27.0017273Z Token registry initialized with 3 tokens
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:27.4972526Z Selected token: OWNER_PR_PAT (4923 remaining, 98.5% capacity)
+merge_sync_prs	Promote complete exact-plan canary evidence	2026-11-08T13:37:27.5045966Z ##[notice]promote: blocked held: missing_or_mixed_source_commit, missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope, missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope, stranske/Travel-Plan-Permission: candidate was not prepared or recovered, stranske/trip-planner: candidate was not prepared or recovered, stranske/Portable-Alpha-Extension-Model: candidate was not prepared or recovered; canaries green 0/3; drainable UNKNOWN (unmeasurable); missing 3 (drainable 1): stranske/Travel-Plan-Permission=stable_base_refresh_required, stranske/trip-planner=stable_base_refresh_required, stranske/Portable-Alpha-Extension-Model=delivery_sealed_checks_pending drainable-by-rerun run 42485765535; Canary promotion <unbound>: held; missing_or_mixed_source_commit, missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope, missing_canary_evidence:stranske/Travel-Plan-Permission, missing_canary_evidence:stranske/trip-planner, missing_canary_evidence:stranske/Portable-Alpha-Extension-Model, missing_or_mixed_canary_plan, missing_or_mixed_canary_plan_scope, stranske/Travel-Plan-Permission: candidate was not prepared or recovered, stranske/trip-planner: candidate was not prepared or recovered, stranske/Portable-Alpha-Extension-Model: candidate was not prepared or recovered
+merge_sync_prs	Upload final rate limit incidents	﻿2026-11-08T13:37:27.5174338Z ##[group]Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5174599Z with:
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5174754Z   name: sync-pr-rate-limit-incidents
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5174948Z   path: artifacts/rate-limit-incidents.ndjson
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5175145Z   if-no-files-found: ignore
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5175302Z   retention-days: 14
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5175464Z   compression-level: 6
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5175608Z   overwrite: false
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5175758Z   include-hidden-files: false
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5175917Z   archive: true
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5176053Z env:
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5176221Z   pythonLocation: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5176492Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib/pkgconfig
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5176752Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5176997Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5177232Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.14.10/x64
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5177503Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.14.10/x64/lib
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5177785Z   NODE_PATH: /home/runner/work/Workflows/Workflows/.github/scripts/node_modules
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5179258Z   GITHUB_TOKEN: ***
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5180566Z   GH_TOKEN: ***
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5180755Z   SERVICE_BOT_PAT: ***
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5181168Z   OWNER_PR_PAT: ***
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.5181305Z ##[endgroup]
+merge_sync_prs	Upload final rate limit incidents	2026-11-08T13:37:27.6188086Z No files were found with the provided path: artifacts/rate-limit-incidents.ndjson. No artifacts will be uploaded.
+merge_sync_prs	Post Checkout	﻿2026-11-08T13:37:27.6326879Z Post job cleanup.
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.6904771Z [command]/usr/bin/git version
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.6938121Z git version 2.56.0
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.6959034Z Temporarily overriding HOME='/home/runner/work/_temp/b58782f8-f588-424f-a286-7689dbfbf20e' before making global git config changes
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.6962578Z Adding repository directory to the temporary git global config as a safe directory
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.6963149Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.6994107Z Removing SSH command configuration
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.6997928Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.7028003Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.7266732Z Removing HTTP extra header
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.7270888Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.7302506Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.7531813Z Removing includeIf entries pointing to credentials config files
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.7537002Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+merge_sync_prs	Post Checkout	2026-11-08T13:37:27.7565455Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+merge_sync_prs	Complete job	﻿2026-11-08T13:37:27.7924156Z Cleaning up orphan processes

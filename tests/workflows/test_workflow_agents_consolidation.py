@@ -423,6 +423,51 @@ def test_consumer_guarded_merge_binds_exact_head_and_review_gate():
     )
 
 
+def test_consumer_guarded_merge_publishes_failure_receipt():
+    """Assert the guarded-merge script contains the warning/comment path for a failed merge."""
+    workflow_path = Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml")
+    text = workflow_path.read_text(encoding="utf-8")
+    guarded_merge = text.split("guarded-merge:", 1)[1]
+
+    # The reportMergeFailure function must exist
+    assert "async function reportMergeFailure" in guarded_merge
+    # It must use the correct marker
+    assert "<!-- agents-guarded-merge-result:v1 -->" in guarded_merge
+    # It must call core.warning
+    assert "core.warning(message)" in guarded_merge
+    # It must use paginateWithRetry for listing comments
+    assert "paginateWithRetry(github.rest.issues.listComments" in guarded_merge
+    # It must handle github.token fallback specially
+    assert "workflowToken = guardedMergeCredentialSource() === 'github.token'" in guarded_merge
+    # It must use the correct actor for github.token
+    assert "{ login: 'github-actions[bot]', type: 'Bot' }" in guarded_merge
+    # The merge failure catch must call reportMergeFailure
+    assert "await reportMergeFailure(prNumber, note)" in guarded_merge
+    # The merge call must be wrapped to log credential source
+    assert "const credentialSource = guardedMergeCredentialSource()" in guarded_merge
+    assert "Guarded merge credential source=" in guarded_merge
+    # The receipt body is the marker plus the same HTTP status/message text.
+    assert "const receipt = `${marker}\\n${message}`;" in guarded_merge
+    # The guardedMergeCredentialSource function must exist
+    assert "function guardedMergeCredentialSource()" in guarded_merge
+    # getTokenSource must be extracted from createTokenAwareRetry
+    assert "const { withRetry, paginateWithRetry, getTokenSource }" in guarded_merge
+    # Job start names the winning secret and the masked token's /user login.
+    assert "GUARDED_MERGE_TOKEN_SOURCE:" in guarded_merge
+    assert "secrets.SERVICE_BOT_PAT || secrets.ACTIONS_BOT_PAT || github.token" in guarded_merge
+    assert (
+        "AGENTS_AUTOMATION_PAT"
+        not in guarded_merge.split("github-token:", 1)[1].split("script:", 1)[0]
+    )
+    assert "core.setSecret(mergeTokenEnv[secretName])" in guarded_merge
+    assert "Guarded merge job start token source=" in guarded_merge
+    assert "/user login=" in guarded_merge
+    assert "tokenRegistry: null, github" in guarded_merge
+    assert "GUARDED_MERGE_GITHUB_TOKEN:" in guarded_merge
+    assert "PUT /repos/${owner}/${repo}/pulls/${prNumber}/merge - ${httpStatus}" in guarded_merge
+    assert "retrying with github.token." in guarded_merge
+
+
 def test_generated_sync_prs_are_excluded_from_autofix_lanes():
     workflow_paths = [
         WORKFLOWS_DIR / "agents-autofix-loop.yml",

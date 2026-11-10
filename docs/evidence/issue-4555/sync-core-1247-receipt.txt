@@ -1,0 +1,79 @@
+# Sync-core receipts for stranske/Orchestrator#1247 (read-only; no workflow or sync-core run triggered)
+source:  ~/.codex/orchestrator/sync-core/rounds.jsonl, targets/stranske_orchestrator_1247.json, classifications/6e7ea8f8...json
+classifier: ~/.codex/sync-core/sync_core.py; target terminal set (line 51):
+  TERMINAL = {delivered, delivered-mismatch, superseded, handed-off, pin-held, not-a-sync-pr}
+  'retired' exists only as a repairs-ledger state (resume_repair), not as a target disposition.
+  No repairs/ ledger row exists for #1247 under ~/.codex/orchestrator/sync-core.
+rounds.jsonl items carry no per-round head; the target ledger records the head at its last round.
+
+## Every round containing stranske/Orchestrator#1247 from the finding onward
+line 626 round 20261108T192823Z ts 2026-11-08T19:29:26Z apply=True disposition=shipment-caused owner=stranske/Workflows terminal=None
+    handoff: shipment-caused -> stranske/Workflows #4555 (filed)
+    handoff: pre-existing -> stranske/Orchestrator #1257 (filed)
+    reason: generated delivery seal: delivery_not_sealed (pipeline state)
+    reason: detect changed files: delivery_not_sealed (pipeline state)
+    reason: pytest + coverage shard 4/6: failed, unclassified
+    reason: maint71: checks_failed; next=repair-required-checks; refresh_reason=None
+    reason: verify.py aggregate + combined coverage: classifier says shipment-caused
+    reason: summary: classifier says pre-existing
+line 631 round 20261108T194358Z ts 2026-11-08T19:53:41Z apply=True disposition=seal-pending owner=sync-classifier terminal=None
+    reason: verify.py aggregate + combined coverage: failed, unclassified
+    reason: summary: failed, unclassified
+    reason: generated delivery seal: delivery_not_sealed (pipeline state)
+    reason: detect changed files: delivery_not_sealed (pipeline state)
+    reason: pytest + coverage shard 4/6: failed, unclassified
+    reason: maint71: checks_failed; next=repair-required-checks; refresh_reason=None
+line 632 round 20261108T195953Z ts 2026-11-08T20:04:04Z apply=True disposition=pre-existing owner=stranske/Orchestrator terminal=None
+    handoff: pre-existing -> stranske/Orchestrator #1262 (filed)
+    reason: verify.py aggregate + combined coverage: failed, unclassified
+    reason: generated delivery seal: delivery_not_sealed (pipeline state)
+    reason: detect changed files: delivery_not_sealed (pipeline state)
+    reason: pytest + coverage shard 4/6: failed, unclassified
+    reason: maint71: checks_failed; next=repair-required-checks; refresh_reason=None
+    reason: summary: classifier says pre-existing
+line 633 round 20261108T201627Z ts 2026-11-08T20:16:41Z apply=True disposition=ready-for-maint71 owner=maint-71 terminal=None
+    reason: maint71: delivery_sealed_checks_pending; next=rerun-after-generated-delivery-seal-gate; refresh_reason=None
+line 634 round 20261108T202925Z ts 2026-11-08T20:29:35Z apply=True disposition=ready-for-maint71 owner=maint-71 terminal=None
+    reason: maint71: campaign_prepared; next=merge-current-delivery; refresh_reason=None
+line 635 round 20261108T204423Z ts 2026-11-08T20:44:28Z apply=True disposition=ready-for-maint71 owner=maint-71 terminal=None
+    reason: maint71: campaign_prepared; next=merge-current-delivery; refresh_reason=None
+line 636 round 20261108T205305Z ts 2026-11-08T20:53:13Z apply=False disposition=delivered owner=- terminal=delivered
+    reason: merged 2026-11-08T20:49:16Z; 2 files, 0 mismatches
+line 637 round 20261108T205926Z ts 2026-11-08T20:59:36Z apply=True disposition=delivered owner=- terminal=delivered
+    reason: merged 2026-11-08T20:49:16Z; 2 files, 0 mismatches
+
+latest round in file: 20261109T031452Z (2026-11-09T03:14:55Z); contains #1247: False
+
+## targets/stranske_orchestrator_1247.json
+{
+ "disposition": "delivered",
+ "first_seen": 1794157136.223565,
+ "head": "c0c5cb6aa8bf79aa855a54258c0ed423011cebeb",
+ "hold_until": null,
+ "last_round": "20261108T205926Z",
+ "owner": "-",
+ "terminal": "delivered",
+ "terminal_at": 1794157136.223574
+}
+
+## The classification that produced the finding (classifications/6e7ea8f8596bcd20c19f4c8a4bf641ae391a8b29e31c242e3c2bbee32f8da61e.json)
+{
+ "state": "classified",
+ "attempts": 1,
+ "classified_at": 1794166155.5493472,
+ "verdict": {
+  "label": "shipment-caused",
+  "reason": "The sync PR updated only registry.yml and subscription_llm.py; the failing capacity test expects a time-sensitive fix present in main but absent from the PR base, so the shipment omitted that test change."
+ }
+}
+{
+ "target": "stranske/Orchestrator#1247",
+ "head": "7ba7006dc3243a7bf0221d709e4de5562c89f042",
+ "check": "verify.py aggregate + combined coverage"
+}
+
+## Head correlation (from GitHub run timestamps; rounds.jsonl has no per-round head)
+gh run view 42500846328 -R stranske/Orchestrator: head 7ba7006dc3243a7bf0221d709e4de5562c89f042, created 2026-11-08T16:37:34Z, conclusion failure (the finding's Evidence run)
+gh run view 42518195788 -R stranske/Orchestrator: head c0c5cb6aa8bf79aa855a54258c0ed423011cebeb, created 2026-11-08T20:04:14Z, updated 2026-11-08T20:13:38Z, conclusion success
+Rounds 631 and 632 (19:53Z, 20:04Z) still list the old head's verify.py aggregate failure as "failed, unclassified"; round 633 (20:16Z),
+the first round after run 42518195788 finished, lists no failing check, and rounds 636/637 are terminal "delivered".

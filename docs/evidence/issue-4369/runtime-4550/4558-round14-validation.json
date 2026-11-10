@@ -1,0 +1,361 @@
+[
+  {
+    "argv": [
+      "node",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "started_at": "2026-11-09T03:06:14.389514+00:00",
+    "completed_at": "2026-11-09T03:06:14.509749+00:00",
+    "wall_seconds": 0.11980190600002061,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-observer-tests-stdout.log",
+        "sha256": "9403661562c6e3f30a1d1b792d3d4615f153784f59628879841f87633a4a1847"
+      },
+      "stderr": {
+        "path": "4558-round14-observer-tests-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "node",
+      "--check",
+      "docs/evidence/issue-4369/observe-maint68.js"
+    ],
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "started_at": "2026-11-09T03:06:14.509985+00:00",
+    "completed_at": "2026-11-09T03:06:14.537486+00:00",
+    "wall_seconds": 0.02715262399999574,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-observer-syntax-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "4558-round14-observer-syntax-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "node",
+      "--check",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "started_at": "2026-11-09T03:06:14.537746+00:00",
+    "completed_at": "2026-11-09T03:06:14.566201+00:00",
+    "wall_seconds": 0.02814623599999777,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-test-syntax-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "4558-round14-test-syntax-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "tests/scripts/test_issue_4369_downstream_evidence.py",
+      "-m",
+      "not slow"
+    ],
+    "executable_path": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+    "started_at": "2026-11-09T03:06:14.566580+00:00",
+    "completed_at": "2026-11-09T03:06:18.043654+00:00",
+    "wall_seconds": 3.476685004999979,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-receipt-tests-stdout.log",
+        "sha256": "489672cc884c963ad7ff7acad69a152140b3bc9432ada0abc432fd5508284d56"
+      },
+      "stderr": {
+        "path": "4558-round14-receipt-tests-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+    ],
+    "executable_path": "/usr/bin/git",
+    "started_at": "2026-11-09T03:06:18.044023+00:00",
+    "completed_at": "2026-11-09T03:06:18.047514+00:00",
+    "wall_seconds": 0.0032180599999946935,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-required-ancestry-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "4558-round14-required-ancestry-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+    ],
+    "executable_path": "/usr/bin/git",
+    "started_at": "2026-11-09T03:06:18.047783+00:00",
+    "completed_at": "2026-11-09T03:06:18.050286+00:00",
+    "wall_seconds": 0.00227758799996991,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-repair-ancestry-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "4558-round14-repair-ancestry-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "origin/main"
+    ],
+    "executable_path": "/usr/bin/git",
+    "started_at": "2026-11-09T03:06:18.050555+00:00",
+    "completed_at": "2026-11-09T03:06:18.053226+00:00",
+    "wall_seconds": 0.002443658000004234,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-published-ancestry-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "4558-round14-published-ancestry-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "cmp",
+      "docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt",
+      "docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt"
+    ],
+    "executable_path": "/usr/bin/cmp",
+    "started_at": "2026-11-09T03:06:18.053524+00:00",
+    "completed_at": "2026-11-09T03:06:18.055178+00:00",
+    "wall_seconds": 0.001432150000027832,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-byte-comparison-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "4558-round14-byte-comparison-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "docs/evidence/issue-4369/runtime-4550/4558-round14-origin-inventory.json"
+    ],
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "started_at": "2026-11-09T03:06:18.055435+00:00",
+    "completed_at": "2026-11-09T03:06:18.089149+00:00",
+    "wall_seconds": 0.0333611830000109,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-producer-replay-stdout.log",
+        "sha256": "ab1c372096a3e02a8d1cc146115e163dcf79c37776fc6ff8b52a24f137c66083"
+      },
+      "stderr": {
+        "path": "4558-round14-producer-replay-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "--collect",
+      "docs/evidence/issue-4369/runtime-4550/4558-round14-collect-query.json"
+    ],
+    "executable_path": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+    "started_at": "2026-11-09T03:06:18.089580+00:00",
+    "completed_at": "2026-11-09T03:06:18.167170+00:00",
+    "wall_seconds": 0.0772596890000159,
+    "bound_seconds": 120,
+    "exit_code": 2,
+    "expected_exit_code": 2,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-native-collection-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "4558-round14-native-collection-stderr.log",
+        "sha256": "248a4f4ce2b40505491e69dd20fc61a9efb397cca95e242d23ce8cc32ac88aa3"
+      }
+    }
+  },
+  {
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "executable_path": "/usr/bin/git",
+    "started_at": "2026-11-09T03:06:18.167584+00:00",
+    "completed_at": "2026-11-09T03:06:18.185048+00:00",
+    "wall_seconds": 0.017134976999955143,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-diff-check-stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "4558-round14-diff-check-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "/tmp/4558-round14-producer-sequence.json"
+    ],
+    "started_at": "2026-11-09T03:07:02.651948+00:00",
+    "completed_at": "2026-11-09T03:07:02.689008+00:00",
+    "wall_seconds": 0.03704039800004466,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "inputs": [
+      {
+        "path": "docs/evidence/issue-4369/runtime-4550/4558-round10-origin-inventory.json",
+        "sha256": "26a01983e66d3e90d7828d7c82182684c35be774476809f693deddf27c70abaf"
+      },
+      {
+        "path": "docs/evidence/issue-4369/runtime-4550/4558-round11-origin-inventory.json",
+        "sha256": "e4f856f05240c404d5d0d90d1f0a5863819c096e397b5de2ab074805dac66a1f"
+      },
+      {
+        "path": "docs/evidence/issue-4369/runtime-4550/4558-round13-origin-inventory.json",
+        "sha256": "b961dba10607e22ede705b1880ac59091bc2c897e3de8f41161f3664a8e32528"
+      },
+      {
+        "path": "docs/evidence/issue-4369/runtime-4550/4558-round14-origin-inventory.json",
+        "sha256": "a0f9eb760d31f0ef5bd8dfc426e0e215e4a155664a45ae3a74a5e6551799cb2b"
+      }
+    ],
+    "workflow_path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-producer-sequence-stdout.log",
+        "sha256": "5a136f2c404fab610e8c6b94dda16a4efbb5cb8d947248b81aea7866a9c761c1"
+      },
+      "stderr": {
+        "path": "4558-round14-producer-sequence-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "/tmp/4558-round14-merger-sequence.json"
+    ],
+    "started_at": "2026-11-09T03:07:02.690548+00:00",
+    "completed_at": "2026-11-09T03:07:02.725527+00:00",
+    "wall_seconds": 0.03496560899998258,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "inputs": [
+      {
+        "path": "docs/evidence/issue-4369/runtime-4550/4558-round10-origin-inventory.json",
+        "sha256": "26a01983e66d3e90d7828d7c82182684c35be774476809f693deddf27c70abaf"
+      },
+      {
+        "path": "docs/evidence/issue-4369/runtime-4550/4558-round11-origin-inventory.json",
+        "sha256": "e4f856f05240c404d5d0d90d1f0a5863819c096e397b5de2ab074805dac66a1f"
+      },
+      {
+        "path": "docs/evidence/issue-4369/runtime-4550/4558-round13-origin-inventory.json",
+        "sha256": "b961dba10607e22ede705b1880ac59091bc2c897e3de8f41161f3664a8e32528"
+      },
+      {
+        "path": "docs/evidence/issue-4369/runtime-4550/4558-round14-origin-inventory.json",
+        "sha256": "a0f9eb760d31f0ef5bd8dfc426e0e215e4a155664a45ae3a74a5e6551799cb2b"
+      }
+    ],
+    "workflow_path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "logs": {
+      "stdout": {
+        "path": "4558-round14-merger-sequence-stdout.log",
+        "sha256": "5134d5cf6d8d4d803e59b378e0b22b24d37510b42f00e1b90f51cdf0c6162927"
+      },
+      "stderr": {
+        "path": "4558-round14-merger-sequence-stderr.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  }
+]

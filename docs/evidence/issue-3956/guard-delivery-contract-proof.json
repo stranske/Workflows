@@ -1,0 +1,38 @@
+{
+  "scope": "Supplemental local delivery-contract regression. No hosted success or main delivery is claimed.",
+  "test": "tests/test_followup_guard_contract.py::test_guard_repair_does_not_restore_the_coverage_only_helper",
+  "source_revision": "866772b3da731216fa67ee9fdf1823dd96a9ef3a",
+  "red_source_revision": "4928870982db3bc3b85c701b4cca2492128739b2",
+  "red_source_git_blob": "c3a19cbf41a476954b8afcde6d214b3cf8c82a00",
+  "red_source_sha256": "52e0fb4155736caae67a930d400a9559238a8f7b142b8b2af2596c17073b32f3",
+  "restored_source_sha256": "59393aa4e1c644bbbeab8309a980782c3bd3f40cc5c2590c37706b2ab0df7925",
+  "test_sha256": "34897b996ec176537f7a68e4710833e1a1acc2f045147ba84a84fd2e4c42e184",
+  "config_sha256": "3147eeb9bc2853fdad215c0c010c373abcdd33db1093588f459ae560b57d6b5c",
+  "test_overlay": "Only the new test is uncommitted on source_revision; production source is byte-identical to that revision.",
+  "command": [
+    "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+    "-m",
+    "pytest",
+    "-c",
+    "/home/runner/work/Workflows/Workflows/pyproject.toml",
+    "--import-mode=importlib",
+    "/home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_repair_does_not_restore_the_coverage_only_helper",
+    "-vv",
+    "--tb=long",
+    "-m",
+    "not slow"
+  ],
+  "isolation": "Identical temporary package paths and test/configuration bytes for RED and GREEN. Support imports fall back to the checkout. Only the isolated generator is replaced; checkout production source is unchanged.",
+  "red_exit": 1,
+  "red_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\n../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_repair_does_not_restore_the_coverage_only_helper FAILED [100%]\n\n=================================== FAILURES ===================================\n_________ test_guard_repair_does_not_restore_the_coverage_only_helper __________\n\n    def test_guard_repair_does_not_restore_the_coverage_only_helper():\n        \"\"\"Helper-assisted coverage must not silently replace the accepted inline repair.\"\"\"\n>       assert not hasattr(generator, \"_blocked_reason_with_source\"), (\n            \"Issue #3956 requires inline source annotation; merge the existing repair \"\n            \"instead of accepting the historical helper-assisted implementation\"\n        )\nE       AssertionError: Issue #3956 requires inline source annotation; merge the existing repair instead of accepting the historical helper-assisted implementation\nE       assert not True\nE        +  where True = hasattr(generator, '_blocked_reason_with_source')\n\n/home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py:9: AssertionError\n=========================== short test summary info ============================\nFAILED ../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_repair_does_not_restore_the_coverage_only_helper - AssertionError: Issue #3956 requires inline source annotation; merge the existing repair instead of accepting the historical helper-assisted implementation\nassert not True\n +  where True = hasattr(generator, '_blocked_reason_with_source')\n============================== 1 failed in 0.89s ===============================\n",
+  "green_exit": 0,
+  "green_output": "============================= test session starts ==============================\nplatform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /opt/hostedtoolcache/Python/3.14.10/x64/bin/python\ncachedir: .pytest_cache\nhypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)\nrootdir: /home/runner/work/Workflows/Workflows\nconfigfile: pyproject.toml\nplugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15\ncollecting ... collected 1 item\n\n../../home/runner/work/Workflows/Workflows/tests/test_followup_guard_contract.py::test_guard_repair_does_not_restore_the_coverage_only_helper PASSED [100%]\n\n============================== 1 passed in 0.81s ===============================\n",
+  "repair_pr_source_revision": "9eaf43313c0e57ef964e4171f645985dca5742b8",
+  "repair_pr_source_matches_restored_source": true,
+  "retained_test_comparison": {
+    "original_revision": "314895ec5d0b1e102fc80aff8001eae2545ed7fa",
+    "retained_test_sha256": "ff4395d0b4803c16dea2caed573f548dda1137d38a2b68bca9050b4b9fce791c",
+    "removed_function": "test_blocked_reason_with_source_omits_blank_annotation_for_empty_label",
+    "ast_identical_after_only_helper_test_removal": true
+  }
+}

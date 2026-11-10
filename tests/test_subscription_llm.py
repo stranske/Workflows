@@ -29,25 +29,115 @@ def claude_client(request, monkeypatch, tmp_path):
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.setattr(transport.shutil, "which", lambda _: "/fixture/bin/claude")
+
+    def unexpected_cli(*_args, **_kwargs):
+        pytest.fail("Availability checks must not launch the CLI")
+
+    monkeypatch.setattr(transport.subprocess, "run", unexpected_cli)
     return transport.SubscriptionClient(agent="claude", model="fixture-model")
 
 
-def test_claude_available_with_configured_directory(claude_client, monkeypatch, tmp_path):
+@pytest.mark.parametrize("default_auth_exists", (False, True))
+def test_claude_config_dir_available_with_credentials(
+    claude_client, monkeypatch, tmp_path, default_auth_exists
+):
     config = tmp_path / "custom-claude"
     config.mkdir()
     (config / ".credentials.json").touch()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
     legacy = Path.home() / ".claude" / ".credentials.json"
+    if default_auth_exists:
+        legacy.parent.mkdir(parents=True)
+        legacy.touch()
 
-    assert (legacy.is_file() is False,) == (True,)
+    assert sorted(path.name for path in config.iterdir()) == [".credentials.json"]
+    assert (legacy.is_file() is default_auth_exists,) == (True,)
     assert (claude_client.available() is True,) == (True,)
 
 
-@pytest.mark.parametrize("default_auth_exists", (False, True))
-def test_claude_invocation_uses_configured_directory(
-    claude_client, monkeypatch, tmp_path, default_auth_exists
+def test_claude_config_dir_credentials_do_not_replace_missing_cli(
+    claude_client, monkeypatch, tmp_path
 ):
     config = tmp_path / "custom-claude"
+    config.mkdir()
+    (config / ".credentials.json").touch()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
+    transport = sys.modules[type(claude_client).__module__]
+    monkeypatch.setattr(transport.shutil, "which", lambda _: None)
+
+    assert claude_client.available() is False
+    with pytest.raises(RuntimeError, match="claude subscription CLI/auth unavailable"):
+        claude_client.invoke("fixture prompt")
+
+
+def test_claude_config_dir_changes_are_observed_by_existing_client(
+    claude_client, monkeypatch, tmp_path
+):
+    default = Path.home() / ".claude"
+    default.mkdir(parents=True)
+    (default / ".credentials.json").touch()
+    configured = tmp_path / "configured"
+    configured.mkdir()
+    (configured / ".credentials.json").touch()
+    empty = tmp_path / "empty"
+    empty.mkdir()
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(configured))
+    assert claude_client.available() is True
+
+    # Switching directories must not reuse either the earlier auth or the default.
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(empty))
+    assert claude_client.available() is False
+
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR")
+    assert claude_client.available() is True
+
+    (default / ".credentials.json").unlink()
+    assert claude_client.available() is False
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(configured))
+    assert claude_client.available() is True
+
+
+@pytest.mark.parametrize("auth_present", (False, True))
+@pytest.mark.parametrize("resolution_error", (RuntimeError, OSError))
+def test_claude_config_dir_unresolvable_directory(
+    claude_client, monkeypatch, tmp_path, auth_present, resolution_error
+):
+    configured = "~unresolvable-claude-user/config"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", configured)
+    if auth_present:
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "fixture-oauth")
+    # Default credentials must not hide an invalid explicitly configured directory.
+    default = Path.home() / ".claude"
+    default.mkdir(parents=True)
+    (default / ".credentials.json").touch()
+    original_expanduser = Path.expanduser
+    resolutions = []
+
+    def expanduser(path):
+        if str(path) == configured:
+            resolutions.append(str(path))
+            raise resolution_error("Fixture directory cannot be resolved")
+        return original_expanduser(path)
+
+    monkeypatch.setattr(Path, "expanduser", expanduser)
+
+    assert claude_client.available() is auth_present
+    if auth_present:
+        assert resolutions == []
+    else:
+        assert resolutions == [configured]
+        with pytest.raises(RuntimeError, match="claude subscription CLI/auth unavailable"):
+            claude_client.invoke("fixture prompt")
+
+
+@pytest.mark.parametrize("default_auth_exists", (False, True))
+@pytest.mark.parametrize("config_name", ("custom-claude", "custom claude"))
+def test_claude_config_dir_invocation_uses_configured_directory(
+    claude_client, monkeypatch, tmp_path, default_auth_exists, config_name
+):
+    config = tmp_path / config_name
     config.mkdir()
     (config / ".credentials.json").touch()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(config))
@@ -74,9 +164,45 @@ def test_claude_invocation_uses_configured_directory(
     assert calls == [("claude", str(config))]
 
 
+@pytest.mark.parametrize("path_kind", ("relative", "tilde"))
+def test_claude_config_dir_invocation_resolves_path_before_changing_directory(
+    claude_client, monkeypatch, tmp_path, path_kind
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
+    if path_kind == "relative":
+        configured = "../custom claude"
+        config = tmp_path / "custom claude"
+    else:
+        configured = "~/custom claude"
+        config = Path.home() / "custom claude"
+    config.mkdir(parents=True)
+    (config / ".credentials.json").touch()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", configured)
+    transport = sys.modules[type(claude_client).__module__]
+    calls = []
+
+    def run_cli(command, **options):
+        child_config = Path(options["env"]["CLAUDE_CONFIG_DIR"])
+        assert Path(options["cwd"]) != workspace
+        assert child_config.is_absolute()
+        assert child_config == config
+        assert (child_config / ".credentials.json").is_file()
+        calls.append(command[0])
+        return SimpleNamespace(returncode=0, stdout='{"result": "fixture analysis"}')
+
+    monkeypatch.setattr(transport.subprocess, "run", run_cli)
+
+    assert claude_client.available() is True
+    assert claude_client.invoke("fixture prompt").content == "fixture analysis"
+    assert calls == ["claude"]
+    assert transport.os.environ["CLAUDE_CONFIG_DIR"] == configured
+
+
 @pytest.mark.parametrize("default_auth_exists", (False, True))
 @pytest.mark.parametrize("config_state", ("missing", "empty", "directory-entry"))
-def test_claude_unavailable_without_configured_credentials(
+def test_claude_config_dir_unavailable_without_credentials(
     claude_client, monkeypatch, tmp_path, default_auth_exists, config_state
 ):
     config = tmp_path / "custom-claude"
@@ -102,10 +228,31 @@ def test_claude_unavailable_without_configured_credentials(
 
 
 @pytest.mark.parametrize("auth_exists", (False, True))
-def test_claude_available_with_default_directory(claude_client, auth_exists):
+def test_claude_config_dir_unset_uses_default_directory(
+    claude_client, monkeypatch, tmp_path, auth_exists
+):
     if auth_exists:
         default = Path.home() / ".claude"
         default.mkdir(parents=True)
         (default / ".credentials.json").touch()
 
     assert (claude_client.available() is auth_exists,) == (True,)
+
+    transport = sys.modules[type(claude_client).__module__]
+    calls = []
+
+    def run_cli(command, **options):
+        calls.append(command[0])
+        assert options["env"]["HOME"] == str(tmp_path / "home")
+        assert "CLAUDE_CONFIG_DIR" not in options["env"]
+        assert options["input"] == "fixture prompt"
+        return SimpleNamespace(returncode=0, stdout='{"result": "fixture analysis"}')
+
+    monkeypatch.setattr(transport.subprocess, "run", run_cli)
+    if auth_exists:
+        assert claude_client.invoke("fixture prompt").content == "fixture analysis"
+        assert calls == ["claude"]
+    else:
+        with pytest.raises(RuntimeError, match="claude subscription CLI/auth unavailable"):
+            claude_client.invoke("fixture prompt")
+        assert calls == []

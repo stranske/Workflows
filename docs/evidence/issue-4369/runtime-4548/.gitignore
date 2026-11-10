@@ -1,0 +1,2 @@
+# Preserve complete raw validation output with its revision/timing receipts.
+!*.log

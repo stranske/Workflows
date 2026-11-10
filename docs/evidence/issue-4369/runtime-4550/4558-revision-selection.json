@@ -1,0 +1,195 @@
+{
+  "checked_at": "2026-11-08T21:13:33.323901+00:00",
+  "selected_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "repair_head": "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+  "required_ancestor": "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+  "observed_main": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "ancestry_checks": [
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "origin/main"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "fix_blobs": [
+    {
+      "path": ".github/scripts/__tests__/keepalive-loop.test.js",
+      "before_blob": "943a4e3b0882cdd0f2f45b1f024347fd75ca0dc7",
+      "repair_blob": "df4b3fcc0adff4e0a98b8e912f4caf333678cdce",
+      "selected_blob": "df4b3fcc0adff4e0a98b8e912f4caf333678cdce",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        ".github/scripts/__tests__/keepalive-loop.test.js"
+      ],
+      "comparison_exit_code": 0
+    },
+    {
+      "path": ".github/scripts/__tests__/maint71-delivery-receipts.test.js",
+      "before_blob": null,
+      "repair_blob": "ceed865eb5cdbbb61a5e316963b329a2d328b854",
+      "selected_blob": "ceed865eb5cdbbb61a5e316963b329a2d328b854",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        ".github/scripts/__tests__/maint71-delivery-receipts.test.js"
+      ],
+      "comparison_exit_code": 0
+    },
+    {
+      "path": ".github/scripts/__tests__/verifier-correction-artifacts.test.js",
+      "before_blob": "a11eaf59568a51929fd0b6b6a7f87323a430d072",
+      "repair_blob": "df68f982dbca0a376291981eceeef3ff272f4adb",
+      "selected_blob": "df68f982dbca0a376291981eceeef3ff272f4adb",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        ".github/scripts/__tests__/verifier-correction-artifacts.test.js"
+      ],
+      "comparison_exit_code": 0
+    },
+    {
+      "path": ".github/scripts/__tests__/verifier-correction-coding.test.js",
+      "before_blob": "dc474831a389d9c56147ce86fea6d18d7d0fb672",
+      "repair_blob": "cbce60b3fe1461bf0facfdfda6c40ed322da9153",
+      "selected_blob": "cbce60b3fe1461bf0facfdfda6c40ed322da9153",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        ".github/scripts/__tests__/verifier-correction-coding.test.js"
+      ],
+      "comparison_exit_code": 0
+    },
+    {
+      "path": ".github/scripts/maint71_merge_sync_prs.js",
+      "before_blob": "fd34fe8aee19dde874f2d73304f07445218ffb75",
+      "repair_blob": "0ab62b3314a46bbdce99b686805e050d7291f41e",
+      "selected_blob": "0ab62b3314a46bbdce99b686805e050d7291f41e",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        ".github/scripts/maint71_merge_sync_prs.js"
+      ],
+      "comparison_exit_code": 0
+    },
+    {
+      "path": "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "before_blob": null,
+      "repair_blob": "0f15d41954da0948763167a5484c33bf732a1c32",
+      "selected_blob": "0f15d41954da0948763167a5484c33bf732a1c32",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py"
+      ],
+      "comparison_exit_code": 0
+    },
+    {
+      "path": "tests/scripts/test_issue_4369_downstream_evidence.py",
+      "before_blob": "764f2498e156201c968dc951a508f2fe2f577974",
+      "repair_blob": "6c6b5444e2f58802ff362ada9049b5d057c5a77e",
+      "selected_blob": "6c6b5444e2f58802ff362ada9049b5d057c5a77e",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        "tests/scripts/test_issue_4369_downstream_evidence.py"
+      ],
+      "comparison_exit_code": 0
+    },
+    {
+      "path": "tests/scripts/test_issue_pr_context.py",
+      "before_blob": "17c95cf5b0882a5059d7435c82471e5d67547751",
+      "repair_blob": "b8b304b224ace1dd4d3c8e47d1bf6ccdfd73a13b",
+      "selected_blob": "b8b304b224ace1dd4d3c8e47d1bf6ccdfd73a13b",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        "tests/scripts/test_issue_pr_context.py"
+      ],
+      "comparison_exit_code": 0
+    },
+    {
+      "path": "tests/scripts/test_llm_client_shared.py",
+      "before_blob": "31eb97001106deabb76a6db094a3e5f50839a1c3",
+      "repair_blob": "7580e0ea46833ffa175eb95862e9d92785cf2e25",
+      "selected_blob": "7580e0ea46833ffa175eb95862e9d92785cf2e25",
+      "comparison_argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        "tests/scripts/test_llm_client_shared.py"
+      ],
+      "comparison_exit_code": 0
+    }
+  ],
+  "full_suite_acceptance": false,
+  "publication_receipt": "4558-main-observation.json",
+  "remote_ancestry_receipt": "4558-ancestor-compare.json",
+  "remote_repair_tree_receipt": "4558-repair-compare.json"
+}

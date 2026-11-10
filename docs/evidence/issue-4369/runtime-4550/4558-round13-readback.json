@@ -1,0 +1,28 @@
+{
+  "checked_at": "2026-11-09T02:52:15Z",
+  "main": {
+    "name": "main",
+    "sha": "7a9d652445cee388cb5c39e15b8d2de53f0dda68"
+  },
+  "source_issue": {
+    "url": "https://github.com/stranske/Workflows/issues/4550",
+    "state": "closed"
+  },
+  "fixture_pr": {
+    "url": "https://github.com/stranske/Workflows/pull/4551",
+    "state": "closed",
+    "merged": true,
+    "draft": false,
+    "head_sha": "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+    "merge_commit_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+  },
+  "pr": {
+    "url": "https://github.com/stranske/Workflows/pull/4558",
+    "state": "open",
+    "merged": false,
+    "draft": false,
+    "head_sha": "94750ea2a373ff68ac049276ec557ec7d5c49209"
+  },
+  "projection_note": "Field projections of read-only native GitHub responses. No body, diff, or other fields retained here.",
+  "workflow_dispatches_performed": 0
+}

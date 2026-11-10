@@ -1,0 +1,1112 @@
+{
+  "start": "2026-11-08T21:45:56Z",
+  "end": "2026-11-08T22:10:00Z",
+  "pages": [
+    {
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=1&created=2026-11-08T21:45:56Z..2026-11-08T22:10:00Z",
+      "body": {
+        "total_count": 109,
+        "workflow_runs": [
+          {
+            "id": 42528713355,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "schedule",
+            "created_at": "2026-11-08T22:08:26Z",
+            "workflow_id": 216399413,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "queued",
+            "conclusion": null
+          },
+          {
+            "id": 42528665344,
+            "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:07:52Z",
+            "workflow_id": 227032001,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42528607429,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_dispatch",
+            "created_at": "2026-11-08T22:07:13Z",
+            "workflow_id": 218468808,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528584925,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:58Z",
+            "workflow_id": 216399413,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528584691,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:58Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528584817,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:58Z",
+            "workflow_id": 218465302,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528584705,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:58Z",
+            "workflow_id": 216399424,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528584763,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:58Z",
+            "workflow_id": 218468808,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "cancelled"
+          },
+          {
+            "id": 42528584732,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:58Z",
+            "workflow_id": 216399425,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528584690,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:58Z",
+            "workflow_id": 219679175,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528584695,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:58Z",
+            "workflow_id": 216399435,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42528583330,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-08T22:06:57Z",
+            "workflow_id": 221022961,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42528583325,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-08T22:06:57Z",
+            "workflow_id": 216399422,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528583512,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-08T22:06:57Z",
+            "workflow_id": 216399424,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528577114,
+            "path": ".github/workflows/agents-autofix-dispatcher.yml",
+            "event": "repository_dispatch",
+            "created_at": "2026-11-08T22:06:53Z",
+            "workflow_id": 237051413,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528573821,
+            "path": ".github/workflows/health-75-api-rate-diagnostic.yml",
+            "event": "schedule",
+            "created_at": "2026-11-08T22:06:51Z",
+            "workflow_id": 224633541,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528533701,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:23Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528504392,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:03Z",
+            "workflow_id": 218468808,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528504376,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:03Z",
+            "workflow_id": 216399425,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528504454,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:03Z",
+            "workflow_id": 216399413,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528504310,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:03Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528504377,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:03Z",
+            "workflow_id": 216399435,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42528504342,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:03Z",
+            "workflow_id": 219679175,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528504340,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:03Z",
+            "workflow_id": 216399424,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528504371,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:06:03Z",
+            "workflow_id": 218465302,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 42528452904,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:05:29Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528430508,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:05:15Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528305333,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "created_at": "2026-11-08T22:03:52Z",
+            "workflow_id": 328243471,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528305260,
+            "path": ".github/workflows/agents-auto-label.yml",
+            "event": "issues",
+            "created_at": "2026-11-08T22:03:52Z",
+            "workflow_id": 221540317,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42528296940,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T22:03:47Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42528165656,
+            "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+            "event": "schedule",
+            "created_at": "2026-11-08T22:02:16Z",
+            "workflow_id": 296105697,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527447388,
+            "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:53:33Z",
+            "workflow_id": 227032001,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42527413979,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:53:09Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527400122,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:52:59Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527350320,
+            "path": ".github/workflows/agents-auto-label.yml",
+            "event": "issues",
+            "created_at": "2026-11-08T21:52:21Z",
+            "workflow_id": 221540317,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42527350422,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "created_at": "2026-11-08T21:52:21Z",
+            "workflow_id": 328243471,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527348633,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:52:20Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527314940,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:51:56Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527306811,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:51:50Z",
+            "workflow_id": 384990025,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527303282,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:51:47Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527299893,
+            "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+            "event": "schedule",
+            "created_at": "2026-11-08T21:51:44Z",
+            "workflow_id": 296105697,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527257430,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:51:13Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527199526,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:50:30Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527180541,
+            "path": ".github/workflows/agents-auto-label.yml",
+            "event": "issues",
+            "created_at": "2026-11-08T21:50:18Z",
+            "workflow_id": 221540317,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42527180733,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "created_at": "2026-11-08T21:50:18Z",
+            "workflow_id": 328243471,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527170352,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:50:11Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165713,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399443,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165802,
+            "path": ".github/workflows/health-74-template-drift.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 229442410,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42527165718,
+            "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 219161177,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165892,
+            "path": ".github/workflows/health-69-consumer-sync-shadow-evidence.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 311125079,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165884,
+            "path": ".github/workflows/health-73-template-completeness.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 224869764,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165814,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399439,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165756,
+            "path": ".github/workflows/health-51-zizmor.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 295603936,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165839,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399424,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165888,
+            "path": ".github/workflows/maint-metrics-retention.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 276372697,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165790,
+            "path": ".github/workflows/health-78-backplane-contract.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 285842923,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165780,
+            "path": ".github/workflows/health-40-sweep.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399428,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165772,
+            "path": ".github/workflows/health-43-ci-signature-guard.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399431,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165819,
+            "path": ".github/workflows/agents-guard.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399419,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165877,
+            "path": ".github/workflows/health-keepalive-e2e.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 220583856,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165875,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 295761985,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165829,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399433,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165852,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216409243,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42527165857,
+            "path": ".github/workflows/selftest-reusable-ci.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399449,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165835,
+            "path": ".github/workflows/health-44-gate-branch-protection.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399432,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527165928,
+            "path": ".github/workflows/pr-00-gate.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:50:08Z",
+            "workflow_id": 216399442,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42527163449,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "created_at": "2026-11-08T21:50:07Z",
+            "workflow_id": 324598833,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527161041,
+            "path": ".github/workflows/health-74-template-drift.yml",
+            "event": "push",
+            "created_at": "2026-11-08T21:50:05Z",
+            "workflow_id": 229442410,
+            "head_sha": "42414c47bdf832cb9056bac966aa33d96dfb05a4",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42527127204,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:49:40Z",
+            "workflow_id": 369057596,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527056034,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-08T21:48:49Z",
+            "workflow_id": 221022961,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42527055911,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-08T21:48:49Z",
+            "workflow_id": 216399422,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527055957,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "created_at": "2026-11-08T21:48:49Z",
+            "workflow_id": 216399424,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527032589,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "created_at": "2026-11-08T21:48:32Z",
+            "workflow_id": 328243471,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527032545,
+            "path": ".github/workflows/agents-auto-pilot.yml",
+            "event": "issues",
+            "created_at": "2026-11-08T21:48:32Z",
+            "workflow_id": 222302722,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527031258,
+            "path": ".github/workflows/health-53-scorecard.yml",
+            "event": "push",
+            "created_at": "2026-11-08T21:48:31Z",
+            "workflow_id": 295793769,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527031158,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "push",
+            "created_at": "2026-11-08T21:48:31Z",
+            "workflow_id": 216399433,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527031390,
+            "path": ".github/workflows/agents-auto-pilot.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:48:31Z",
+            "workflow_id": 222302722,
+            "head_sha": "43ca62c3c4dc8791539ca6dcbca12ad7d03fae0c",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527031206,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "push",
+            "created_at": "2026-11-08T21:48:31Z",
+            "workflow_id": 295761985,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527031263,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "push",
+            "created_at": "2026-11-08T21:48:31Z",
+            "workflow_id": 216399443,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527031311,
+            "path": ".github/workflows/maint-61-release-please.yml",
+            "event": "push",
+            "created_at": "2026-11-08T21:48:31Z",
+            "workflow_id": 296089215,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527031189,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "push",
+            "created_at": "2026-11-08T21:48:31Z",
+            "workflow_id": 216399439,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42527031399,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "push",
+            "created_at": "2026-11-08T21:48:31Z",
+            "workflow_id": 216409243,
+            "head_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+            "status": "in_progress",
+            "conclusion": null
+          },
+          {
+            "id": 42527011347,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:48:16Z",
+            "workflow_id": 369057596,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526979092,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:52Z",
+            "workflow_id": 384990025,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526970128,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:46Z",
+            "workflow_id": 216399424,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526970226,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:46Z",
+            "workflow_id": 216399425,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526970197,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:46Z",
+            "workflow_id": 369057596,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42526970231,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:46Z",
+            "workflow_id": 216399435,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526970155,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:46Z",
+            "workflow_id": 219679175,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526970344,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:46Z",
+            "workflow_id": 216399413,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526970331,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:46Z",
+            "workflow_id": 218468808,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526970450,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:46Z",
+            "workflow_id": 218465302,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526933660,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:20Z",
+            "workflow_id": 369057596,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42526910851,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:47:04Z",
+            "workflow_id": 369057596,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526908315,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216399433,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526908358,
+            "path": ".github/workflows/agents-guard.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216399419,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526908401,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216399439,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42526908393,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216399443,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526908371,
+            "path": ".github/workflows/health-40-sweep.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216399428,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526908389,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 295761985,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ]
+      }
+    },
+    {
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=2&created=2026-11-08T21:45:56Z..2026-11-08T22:10:00Z",
+      "body": {
+        "total_count": 109,
+        "workflow_runs": [
+          {
+            "id": 42526908307,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216399424,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526908446,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216409243,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526908293,
+            "path": ".github/workflows/health-44-gate-branch-protection.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216399432,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526908438,
+            "path": ".github/workflows/pr-00-gate.yml",
+            "event": "pull_request",
+            "created_at": "2026-11-08T21:47:02Z",
+            "workflow_id": 216399442,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 42526905900,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "created_at": "2026-11-08T21:47:00Z",
+            "workflow_id": 324598833,
+            "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42526891363,
+            "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:46:48Z",
+            "workflow_id": 227032001,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42526877923,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "created_at": "2026-11-08T21:46:37Z",
+            "workflow_id": 324598833,
+            "head_sha": "e925444af29e451ad4c8278943c2a618680ace26",
+            "status": "completed",
+            "conclusion": "skipped"
+          },
+          {
+            "id": 42526877301,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:46:37Z",
+            "workflow_id": 384990025,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "failure"
+          },
+          {
+            "id": 42526867804,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "created_at": "2026-11-08T21:46:30Z",
+            "workflow_id": 369057596,
+            "head_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+            "status": "completed",
+            "conclusion": "failure"
+          }
+        ]
+      }
+    }
+  ]
+}

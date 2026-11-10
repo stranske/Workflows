@@ -624,7 +624,7 @@ _SETTLEMENT_IMPLICIT_SUCCESS = (
 
 
 @_needs_node
-def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
+def test_deliberate_break_restored_raw_verdict_fallback_then_restore(tmp_path: Path) -> None:
     """Acceptance deliberate-break: restore the pre-fix skip+fallback path.
 
     Recreate the interrupted-upload failure mode by (1) dropping ``always()``
@@ -654,7 +654,9 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
         broken_path.write_text(broken, encoding="utf-8")
         broken_env = {**child_env, _WORKFLOW_ENV: str(broken_path)}
         broken_run = subprocess.run(
-            _nested_pytest_cmd(str(Path(__file__).resolve()), "-k", target),
+            _nested_pytest_cmd(
+                str(Path(__file__).resolve()), "-k", target, "--basetemp", str(tmp_path / "broken")
+            ),
             cwd=ROOT,
             env=broken_env,
             capture_output=True,
@@ -666,7 +668,9 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
 
     assert _DEFAULT_WORKFLOW.read_bytes() == original_bytes
     restored_run = subprocess.run(
-        _nested_pytest_cmd(str(Path(__file__).resolve()), "-k", target),
+        _nested_pytest_cmd(
+            str(Path(__file__).resolve()), "-k", target, "--basetemp", str(tmp_path / "restored")
+        ),
         cwd=ROOT,
         env=child_env,
         capture_output=True,
@@ -680,10 +684,12 @@ def test_deliberate_break_restored_raw_verdict_fallback_then_restore() -> None:
 def test_deliberate_break_children_do_not_publish_acceptance_traces(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("VERIFIER_SETTLEMENT_TRACE_DIR", str(tmp_path))
+    trace_dir = tmp_path / "traces"
+    trace_dir.mkdir()
+    monkeypatch.setenv("VERIFIER_SETTLEMENT_TRACE_DIR", str(trace_dir))
     monkeypatch.setenv("SETTLEMENT_UPLOAD_OUTCOME", "failed")
-    test_deliberate_break_restored_raw_verdict_fallback_then_restore()
-    assert not list(tmp_path.iterdir()), "Child mutation traces polluted acceptance evidence"
+    test_deliberate_break_restored_raw_verdict_fallback_then_restore(tmp_path)
+    assert not list(trace_dir.iterdir()), "Child mutation traces polluted acceptance evidence"
 
 
 @pytest.mark.parametrize(

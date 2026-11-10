@@ -1,6 +1,6 @@
 name: Maint 88 Verifier Runtime Comparison
 
-# One finite #3904 experiment. Manual dispatch after ordinary review/merge only.
+# One finite #3904 experiment over the reviewed PR #4527 source pair.
 on:
   workflow_dispatch:
 
@@ -29,12 +29,17 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: ${{ matrix.python }}
-      - name: Fetch retained pre-squash candidate and verify immutable identity
+      - name: Fetch reviewed source pair and verify immutable identity
         run: |
-          git fetch --no-tags origin refs/pull/3950/head
-          test "$(git rev-parse FETCH_HEAD)" = "999ffe5fa00ac9c8ae8a807447f053277032b670"
+          git fetch --no-tags origin 00f43f81e51c4f8b9a057ac51f7e3c2d870d7769
+          test "$(git rev-parse FETCH_HEAD)" = "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769"
+          git fetch --no-tags origin 8c0afc3ef0263cf85949b6167435ceabed5dd2a3
+          test "$(git rev-parse FETCH_HEAD)" = "8c0afc3ef0263cf85949b6167435ceabed5dd2a3"
       - name: Prepare immutable arms
-        run: python scripts/measure_verifier_runtime.py prepare --output measurement
+        run: >-
+          python scripts/measure_verifier_runtime.py prepare --output measurement
+          --baseline 00f43f81e51c4f8b9a057ac51f7e3c2d870d7769
+          --candidate 8c0afc3ef0263cf85949b6167435ceabed5dd2a3
       - name: Install one common immutable dependency lock
         env:
           PIP_NO_CACHE_DIR: '1'
@@ -55,6 +60,8 @@ jobs:
             measurement/baseline/coverage.json
             measurement/baseline/coverage.xml
             measurement/baseline/pytest-junit.xml
+            measurement/baseline/phase-clocks/*.json
             measurement/candidate/coverage.json
             measurement/candidate/coverage.xml
             measurement/candidate/pytest-junit.xml
+            measurement/candidate/phase-clocks/*.json

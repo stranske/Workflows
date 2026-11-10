@@ -1,0 +1,50 @@
+{
+  "revision": "69c8345dd1fd5744d0fd5312a7ef55c88dc66f7e",
+  "interpreter": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+  "version": "v24.22.2",
+  "test_sha256": "e4171626f99e7a4814050456f7b1f0c72de477bfc3542300e61691da89ff3617",
+  "runs": [
+    {
+      "command": [
+        "node",
+        ".github/scripts/__tests__/maint71-delivery-receipts.test.js"
+      ],
+      "exit_code": 0,
+      "external_timeout_seconds": 60,
+      "duration_seconds": 0.11422906100000318,
+      "log": "native-tuple-tests-1.log",
+      "log_sha256": "bad4538860aa756e89ac190c3cc6c73d4a479c07fe42c1dd5d6480b1b141629c"
+    },
+    {
+      "command": [
+        "node",
+        ".github/scripts/__tests__/maint71_merge_sync_prs.test.js"
+      ],
+      "exit_code": 0,
+      "external_timeout_seconds": 60,
+      "duration_seconds": 0.5653179660000092,
+      "log": "native-tuple-tests-2.log",
+      "log_sha256": "0f66957e85cb34f9b40452dda4388a6e54f56cc5f49b930fa4f7d856586efcb9"
+    },
+    {
+      "command": [
+        "node",
+        ".github/scripts/__tests__/scoped-canary-refresh.test.js"
+      ],
+      "exit_code": 0,
+      "external_timeout_seconds": 60,
+      "duration_seconds": 0.11423937600002887,
+      "log": "native-tuple-tests-3.log",
+      "log_sha256": "19c3bea25fd2a74cde6d86a9aaa24a00cb7dec415e85206c4fca086c382a7b27"
+    }
+  ],
+  "publication": {
+    "pr_body_update": "rejected",
+    "needs_human_label": "rejected",
+    "blocker_comment": "rejected",
+    "automatic_approval_review_reason": "MCP tool call requires approval, but approval policy is never",
+    "git_add_exit_code": 128,
+    "git_add_error": ".git/index.lock: Read-only file system",
+    "commit_created": false
+  }
+}

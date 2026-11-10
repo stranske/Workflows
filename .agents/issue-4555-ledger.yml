@@ -1,0 +1,181 @@
+version: 1
+issue: 4555
+base: main
+branch: codex/issue-4555
+tasks:
+  - id: task-01
+    title: 'Fix the source of `KeyError: ''a''` in `tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers`.'
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Completed in Orchestrator PR #1251: repaired fixture injects logical clock into deadline construction and admission.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-02
+    title: 'Reproduce the KeyError ''a'' locally by running tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers
+      (verify: tests pass)'
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Reproduced via injected 0.1s delay before admission in disposable /tmp/issue-4555-orchestrator clone.'
+      - 'Full traceback captured in docs/evidence/issue-4555/original-traceback.txt.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-03
+    title: 'capture the full traceback (verify: confirm completion in repo)'
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Traceback preserved in docs/evidence/issue-4555/original-traceback.txt.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-04
+    title: 'Identify which dictionary lookup raises KeyError ''a'' (verify: confirm
+      completion in repo)'
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Identified: receipt["targets"]["a"] at line 1569 (test assertion). Root cause: fixture timing defect with 0.06s wall-time budget consumed by scheduling pause. Production deadline guard correctly returned reason="admission_deadline_expired" with targets={}.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-05
+    title: 'whether the cause is the test fixture or the closer pipeline source (verify:
+      confirm completion in repo)'
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Confirmed: fixture timing defect. Production deadline guard must remain intact.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-06
+    title: 'Fix the identified lookup in the source or fixture so the test passes
+      without weakening its assertions (verify: confirm completion in repo)'
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Fixed in Orchestrator: fixture now injects same logical clock into deadline construction and admission, advances wall time across deadline, retains original missing-target assertion, checks worker-capacity evidence and valid stop, verifies later invocation resamples positive capacity and completes target.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-07
+    title: Add or extend a regression test in `tests/test_closer_pipeline.py` that
+      reproduces the failure and passes after the fix.
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Regression test in Orchestrator PR #1251: deliberate-break/restoration evidence in docs/evidence/issue-4555/deliberate-break.txt and docs/evidence/issue-4555/restored-pass.txt.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-08
+    title: 'Check `shipment-caused: verify.py aggregate + combined coverage on sync
+      PR st` passes on regenerated sync PR stranske/Orchestrator#1247, verified with
+      `gh run view <run-id>`; the repository''s test command passes locally.'
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - 'Partially evidenced: successful CI run 42518195788 on head c0c5cb6aa8bf79aa855a54258c0ed423011cebeb confirms verify.py aggregate + combined coverage passed (15042 passed, 0 failed, 87.8% coverage).'
+      - 'Deferred: local-suite portion remains unmet. Bounded local command `timeout 300 python -m pytest tests/ -m ''not slow'' -q -x` exited 124 after 300 seconds at ~4% progress. No terminal pytest summary, no full-suite pass.'
+      - 'Leave no impossible executable todo: local full-suite pass is unclaimed.'
+      - 'Continuation 2026-11-09: configured command `VERIFY_PYTEST_WORKERS=8 timeout 1500 /opt/anaconda3/bin/python3 src/verify.py` on clean Orchestrator 27266f8165064f88256ee2a97f99762db51f129a exited 124 with no terminal summary; local pass still unclaimed (docs/evidence/issue-4555/orchestrator-local-suite.txt).'
+      - 'Closer repair 2026-11-09: run 42518195788 re-read (success, c0c5cb6). Named regression passed on Orchestrator b26e642 (exit 0). Configured local command not re-run: declared stop rule of zero attempts, because the owner 10-minute cap is below the measured >1500 s exit-124 run on 27266f8. The local half is still unclaimed and the criterion stays unchecked.'
+  - id: task-09
+    title: Reintroducing the reported behavior makes the named test fail; reverting
+      it makes the test pass.
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Verified: deliberate break via line 1070 change (ignore injected now, build deadline from time.time) causes KeyError: ''a'' at tests/test_closer_pipeline.py:1586. git checkout restores file and test passes.'
+      - 'Evidence in docs/evidence/issue-4555/rerun-main-fd139a1.txt and docs/evidence/issue-4555/deliberate-break.txt.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-10
+    title: The next sync-core round classifies stranske/Orchestrator#1247 without
+      this finding.
+    status: done
+    started_at: null
+    finished_at: '2026-11-09T03:30:00Z'
+    commit: '7bb2e1aa974c43175bf840409225909725918bdc'
+    notes:
+      - 'External-only: depends on sync-core process. Deferred with sync-core ownership.'
+      - 'Missing classifier observation: no sync-core comment appeared on #4555 after Orchestrator #1247 merged at 2026-11-08T20:49:16Z.'
+      - '#1247 has merged, so the finding can no longer reappear on that head. A sync-core comment confirming the clearance was not observed when this was written.'
+      - 'Closer repair 2026-11-09: sync-core receipt observed (docs/evidence/issue-4555/sync-core-1247-receipt.txt). Round 20261108T201627Z (first after run 42518195788 on c0c5cb6) is ready-for-maint71 with no failing check; rounds 20261108T205305Z/205926Z are terminal delivered (merged, 0 mismatches), target ledger head c0c5cb6aa8bf79aa855a54258c0ed423011cebeb. The classifier has no retired target disposition; delivered is the terminal.'
+  - id: task-11
+    title: 'Fix the failure named in the title (`shipment-caused: verify.py aggregate
+      + combined coverage on sync PR st`) at its source; the failing check''s log
+      is linked under Evidence and the sync PR is stranske/Orchestrator#1247.'
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Fixed at source in Orchestrator PR #1251: fixture timing defect repaired.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-12
+    title: Add or extend a test that reproduces the failure and passes after the fix
+      (`pytest` or `node --test`, whichever the source uses).
+    status: done
+    started_at: null
+    finished_at: '2026-11-08T20:38:52Z'
+    commit: '04d1647e8e437e036f00d0e12683d972f08eb6de'
+    notes:
+      - 'Regression test added in Orchestrator PR #1251. Node regression: 6 passed including all three wall-clock negative controls. Pytest: 252 passed with -m ''not slow''.'
+      - 'Evidence preserved in docs/evidence/issue-4555/ by commit 04d1647e8e437e036f00d0e12683d972f08eb6de.'
+  - id: task-13
+    title: 'Acceptance criterion: Check `shipment-caused: verify.py aggregate + combined
+      coverage on sync PR st` passes on regenerated sync PR stranske/Orchestrator#1247,
+      verified with `gh run view <run-id>` (The sync PR is regenerated by `.github/workflows/maint-68-sync-consumer-repos.yml`,
+      which the agent cannot modify or trigger. It also cannot retry CI pipelines.
+      The check runs on a different repository''s PR, so the agent cannot confirm
+      it. The check name is also truncated (''on sync PR st''). | Limit the agent''s
+      verifiable scope to running the test and the repo''s full test command locally.
+      Leave the sync PR regeneration and check confirmation to a human or to the next
+      sync-core round.)'
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - 'Partially evidenced: gh run view 42518195788 -R stranske/Orchestrator reports conclusion success on head c0c5cb6aa8bf79aa855a54258c0ed423011cebeb. Both verify.py aggregate + combined coverage and verify.py aggregate in the flat exec-mirror shape report success.'
+      - 'Deferred: sync PR regeneration and check confirmation left to human/sync-core. Agent verifiable scope limited to local test command.'
+      - 'Local-suite portion remains unmet: bounded local command `timeout 300 python -m pytest tests/ -m ''not slow'' -q -x` exited 124 after 300 seconds at ~4% progress.'
+      - 'Continuation 2026-11-09: gh run view 42518195788 re-read (head c0c5cb6, both named aggregate jobs success). Configured local verify.py run exited 124 after 1500s; local half unclaimed, so the combined criterion stays unchecked.'
+      - 'Closer repair 2026-11-09: run 42518195788 re-read (success, c0c5cb6). Named regression passed on Orchestrator b26e642 (exit 0). Configured local command not re-run: declared stop rule of zero attempts, because the owner 10-minute cap is below the measured >1500 s exit-124 run on 27266f8. The local half is still unclaimed and the criterion stays unchecked.'
+  - id: task-14
+    title: 'Acceptance criterion: The next sync-core round classifies stranske/Orchestrator#1247
+      without this finding. (This depends on an external process (sync-core) and a
+      workflow run that the agent cannot trigger, retry, or observe. | Move this to
+      a post-merge manual verification step or a human-owned checklist item, not an
+      agent-completed criterion.)'
+    status: done
+    started_at: null
+    finished_at: '2026-11-09T03:30:00Z'
+    commit: '7bb2e1aa974c43175bf840409225909725918bdc'
+    notes:
+      - 'External-only: depends on sync-core process. Deferred with sync-core ownership.'
+      - 'Missing classifier observation: no sync-core comment appeared on #4555 after Orchestrator #1247 merged at 2026-11-08T20:49:16Z.'
+      - '#1247 has merged, so the finding can no longer reappear on that head. A sync-core comment confirming the clearance was not observed when this was written.'
+      - 'Continuation 2026-11-09: re-read #4555, #1247 and later sync PRs/issues; no subsequent sync-core classification exists. Still deferred.'
+      - 'Closer repair 2026-11-09: sync-core receipt observed (docs/evidence/issue-4555/sync-core-1247-receipt.txt). Round 20261108T201627Z (first after run 42518195788 on c0c5cb6) is ready-for-maint71 with no failing check; rounds 20261108T205305Z/205926Z are terminal delivered (merged, 0 mismatches), target ledger head c0c5cb6aa8bf79aa855a54258c0ed423011cebeb. The classifier has no retired target disposition; delivered is the terminal.'
+  - id: task-15
+    title: 'Implementation note: Let `.github/workflows/maint-68-sync-consumer-repos.yml`
+      regenerate the sync PR. (The workflow file is protected and the agent cannot
+      run it. This is informational only, but it must not be read as an agent action.
+      | Keep it as a note that the agent should not touch the workflow file or the
+      generated sync PR. Make clear that a human or automation triggers regeneration.)'
+    status: deferred
+    started_at: null
+    finished_at: null
+    commit: ''
+    notes:
+      - 'External workflow instruction: protected workflow cannot be triggered by agent.'
+      - 'Deferred: sync PR regeneration is human/sync-core owned.'

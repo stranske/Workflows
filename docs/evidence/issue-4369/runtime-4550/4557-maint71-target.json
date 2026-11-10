@@ -1,0 +1,235 @@
+{
+  "schema": "workflows-sync-pr-merge/v1",
+  "generated_at": "2026-11-08T20:49:56.962Z",
+  "run": {
+    "repository": "stranske/Workflows",
+    "run_id": 42521606142,
+    "run_number": 8033,
+    "workflow": "Merge Sync PRs",
+    "ref": "refs/heads/main",
+    "sha": "1a7a3c7de40b62af2839cb138e8d2abfe72fc766"
+  },
+  "results": [
+    {
+      "owner": "stranske",
+      "repo": "Portable-Alpha-Extension-Model",
+      "pr": 2486,
+      "branch": "sync/workflows-candidate",
+      "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+      "delivery_generation": "a478e45c16b6",
+      "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+      "canary_baseline_evidence_json": "",
+      "campaign_no_change_evidence_json": "",
+      "delivery_lane": "sync",
+      "continuation_lane": "campaign",
+      "delivery_disposition": "current",
+      "blocker_owner": "maint-71",
+      "next_command": "merge-current-delivery",
+      "review_finding_disposition": {
+        "schema": "sync-finding-evaluation/v1",
+        "binding": {
+          "repository": "stranske/Portable-Alpha-Extension-Model",
+          "pr": 2486,
+          "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+          "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+          "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+          "delivery_generation": "a478e45c16b6"
+        },
+        "raw_active_count": 0,
+        "blocked": false,
+        "errors": [],
+        "findings": [],
+        "aggregates": {
+          "blocking": 0,
+          "nonblocking": 0,
+          "unknown": 0,
+          "by_disposition": {
+            "shared-source": 0,
+            "sync-caused": 0,
+            "unrelated": 0,
+            "unknown": 0
+          }
+        },
+        "disposition_thread_ids": {
+          "shared-source": [],
+          "sync-caused": [],
+          "unrelated": [],
+          "unknown": []
+        },
+        "blocking_thread_ids": [],
+        "nonblocking_thread_ids": [],
+        "unknown_thread_ids": [],
+        "unrelated_handoffs": []
+      },
+      "review_state": "clear",
+      "review_resolution_thread_ids": [],
+      "review_resolution_would_resolve_thread_ids": [],
+      "review_resolution_errors": [],
+      "consumer_declared_contexts": {
+        "state": "none",
+        "passed": [],
+        "failed": [],
+        "pending": [],
+        "never_started": [],
+        "also_required": []
+      },
+      "conversation_resolution": {
+        "ok": true,
+        "unresolved_count": 0,
+        "unresolved_outdated_count": 0,
+        "unresolved_thread_ids": []
+      },
+      "status": "branch_delete_failed",
+      "error": "Reference does not exist - https://docs.github.com/rest/git/refs#delete-a-reference"
+    },
+    {
+      "owner": "stranske",
+      "repo": "Portable-Alpha-Extension-Model",
+      "pr": 2486,
+      "branch": "sync/workflows-candidate",
+      "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+      "delivery_generation": "a478e45c16b6",
+      "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+      "canary_baseline_evidence_json": "",
+      "campaign_no_change_evidence_json": "",
+      "delivery_lane": "sync",
+      "continuation_lane": "campaign",
+      "delivery_disposition": "current",
+      "blocker_owner": "maint-71",
+      "next_command": "merge-current-delivery",
+      "review_finding_disposition": {
+        "schema": "sync-finding-evaluation/v1",
+        "binding": {
+          "repository": "stranske/Portable-Alpha-Extension-Model",
+          "pr": 2486,
+          "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+          "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+          "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+          "delivery_generation": "a478e45c16b6"
+        },
+        "raw_active_count": 0,
+        "blocked": false,
+        "errors": [],
+        "findings": [],
+        "aggregates": {
+          "blocking": 0,
+          "nonblocking": 0,
+          "unknown": 0,
+          "by_disposition": {
+            "shared-source": 0,
+            "sync-caused": 0,
+            "unrelated": 0,
+            "unknown": 0
+          }
+        },
+        "disposition_thread_ids": {
+          "shared-source": [],
+          "sync-caused": [],
+          "unrelated": [],
+          "unknown": []
+        },
+        "blocking_thread_ids": [],
+        "nonblocking_thread_ids": [],
+        "unknown_thread_ids": [],
+        "unrelated_handoffs": []
+      },
+      "review_state": "clear",
+      "review_resolution_thread_ids": [],
+      "review_resolution_would_resolve_thread_ids": [],
+      "review_resolution_errors": [],
+      "consumer_declared_contexts": {
+        "state": "none",
+        "passed": [],
+        "failed": [],
+        "pending": [],
+        "never_started": [],
+        "also_required": []
+      },
+      "conversation_resolution": {
+        "ok": true,
+        "unresolved_count": 0,
+        "unresolved_outdated_count": 0,
+        "unresolved_thread_ids": []
+      },
+      "status": "merged"
+    }
+  ],
+  "handoff_records": [
+    {
+      "schema": "workflows-generated-delivery-handoff/v1",
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "pr": 2486,
+      "branch": "sync/workflows-candidate",
+      "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+      "delivery_generation": "a478e45c16b6",
+      "lane": "sync",
+      "disposition": "merged",
+      "blocker_owner": "none",
+      "next_command": "none",
+      "check_state": "ready",
+      "review_state": "clear",
+      "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+      "canary_baseline_evidence_json": "",
+      "campaign_no_change_evidence_json": "",
+      "cleanup_branches": true,
+      "continuation": {
+        "class": "terminal",
+        "lane": "campaign",
+        "reason": "merged",
+        "resume_after": "",
+        "key": "0529d27ea3d2514a6795"
+      },
+      "observed_at": "2026-11-08T20:49:56.962Z"
+    }
+  ],
+  "canary_refresh": {
+    "canaries": [
+      {
+        "owner": "stranske",
+        "repo": "Portable-Alpha-Extension-Model",
+        "pr": 2486,
+        "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+        "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+        "default_branch": "main",
+        "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+        "mergeable_state": "clean",
+        "mergeable": true,
+        "check_status": "ready",
+        "raw_check_status": "ready",
+        "expected_preseal_gate_hold": false,
+        "failed_check_names": [],
+        "seal_state": "sealed",
+        "active_review_thread_count": 0,
+        "review_disposition": {
+          "binding": {
+            "repository": "stranske/Portable-Alpha-Extension-Model",
+            "pr": 2486,
+            "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+            "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+            "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+            "delivery_generation": "a478e45c16b6"
+          },
+          "reviewThreads": [],
+          "comments": [],
+          "handoffs": [],
+          "evidenceComplete": true
+        },
+        "delivery_generation": "a478e45c16b6",
+        "head_observed_at": "2026-11-08T16:18:53Z",
+        "updated_at": "2026-11-08T16:20:44Z",
+        "created_at": "2026-11-08T13:36:19Z",
+        "threads": [],
+        "refresh_reason": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+Parse and lint workflows	Check GitHub API wrapper usage	﻿2026-11-08T20:55:48.8083314Z ##[group]Run set -euo pipefail
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:48.8083731Z ^[[36;1mset -euo pipefail^[[0m
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:48.8084281Z ^[[36;1mpython scripts/check_api_wrapper_guard.py --base-ref "${BASE_REF:-main}"^[[0m
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:48.8116946Z shell: /usr/bin/bash -e {0}
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:48.8117334Z env:
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:48.8117633Z   BASE_REF: main
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:48.8117983Z ##[endgroup]
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:49.2522947Z API guard violations detected:
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:49.2523296Z 
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:49.2523692Z - .github/workflows/selftest-ci.yml:340: direct gh api usage
+Parse and lint workflows	Check GitHub API wrapper usage	2026-11-08T20:55:49.2618753Z ##[error]Process completed with exit code 1.

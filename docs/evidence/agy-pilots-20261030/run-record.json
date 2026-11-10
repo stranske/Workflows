@@ -1,0 +1,267 @@
+{
+  "schema": "workflows-agy-pilots-run/v1",
+  "date": "2026-10-30",
+  "evidence_class": "run record: no model produced a scored answer in this run",
+  "agy": {
+    "cli_version": "1.4.11",
+    "model": "gemini-4-argon-medium",
+    "calls_made": 1,
+    "result": "quota error on the first call: 'Individual quota reached ... Resets in 8h6m57s' (RESOURCE_EXHAUSTED)",
+    "quota_error_observed_utc": "2026-10-30T18:40Z",
+    "reported_reset_utc_approx": "2026-10-31T02:47Z",
+    "calls_not_made": "31 replay, all audit and testgen (never retried, per the pilot rule)"
+  },
+  "claude": {
+    "backend": "local Claude CLI, tools off, subscription login",
+    "calls_made": 32,
+    "tokens_spent": 0,
+    "result": "every call failed authentication: 'Failed to authenticate: OAuth session expired and could not be refreshed'; claude auth status reported loggedIn false",
+    "harness_note": "the backend reported only 'Claude CLI error'; it now names the CLI message (this change)"
+  },
+  "pilot_4_evaluator_replay": {
+    "experiments_selected": 32,
+    "selection": "the 8 experiments of the 2026-10-17 replay, plus 24 evenly spaced from the 135 archived experiments with >=3 scored real judges, >=3 anonymised members and a replay prompt <=60k chars",
+    "experiments": [
+      "tick-1782906017-stranske-workflows-2710",
+      "tick-1782891618-stranske-manager-database-1283",
+      "tick-1783118421-stranske-workflows-2710",
+      "tick-1782992421-stranske-manager-database-1278",
+      "tick-1783604432-stranske-manager-database-1279",
+      "tick-1782996020-stranske-manager-database-1278",
+      "tick-1782709571-stranske-manager-database-1283",
+      "tick-1783402818-stranske-manager-database-1279",
+      "tick-1781890818-stranske-workflows-2469",
+      "tick-1781944815-stranske-workflows-2478",
+      "tick-1782596421-stranske-workflows-2557",
+      "tick-1782621616-stranske-workflows-2648",
+      "tick-1782643219-stranske-workflows-2672",
+      "tick-1782664817-stranske-manager-database-1283",
+      "tick-1782682815-stranske-manager-database-1283",
+      "tick-1782704414-stranske-manager-database-1283",
+      "tick-1782722419-stranske-manager-database-1283",
+      "tick-1782805220-stranske-manager-database-1283",
+      "tick-1782826821-stranske-manager-database-1283",
+      "tick-1782844821-stranske-manager-database-1283",
+      "tick-1782870020-stranske-manager-database-1283",
+      "tick-1782895218-stranske-manager-database-1283",
+      "tick-1783003221-stranske-manager-database-1278",
+      "tick-1783089619-stranske-manager-database-1278",
+      "tick-1783176017-stranske-manager-database-1279",
+      "tick-1783413618-stranske-manager-database-1279",
+      "tick-1783456820-stranske-manager-database-1279",
+      "tick-1783482020-stranske-manager-database-1279",
+      "tick-1783503618-stranske-manager-database-1279",
+      "tick-1783532419-stranske-manager-database-1279",
+      "tick-1783564823-stranske-manager-database-1279",
+      "tick-1783611619-stranske-manager-database-1279"
+    ],
+    "pass_number": "agy candidate_mae_mean <= 1.5 x real_judges_mae_mean (leave-one-out)",
+    "result": "not measured: 0 usable agy rows, 0 usable Claude rows"
+  },
+  "pilots_3_and_5_audit_testgen": {
+    "status": "not run (agy quota exhausted before they started)",
+    "modules_validated_for_next_run": [
+      {
+        "name": "disable_legacy_workflows",
+        "mutants": [
+          {
+            "line": 19,
+            "from": "-",
+            "to": "+"
+          },
+          {
+            "line": 74,
+            "from": "<",
+            "to": "<="
+          }
+        ]
+      },
+      {
+        "name": "discover_model_catalog",
+        "mutants": [
+          {
+            "line": 104,
+            "from": "!=",
+            "to": "=="
+          },
+          {
+            "line": 124,
+            "from": "==",
+            "to": "!="
+          },
+          {
+            "line": 188,
+            "from": "+",
+            "to": "-"
+          }
+        ]
+      },
+      {
+        "name": "ensure_workflow_timeout_variables",
+        "mutants": [
+          {
+            "line": 112,
+            "from": "or",
+            "to": "and"
+          },
+          {
+            "line": 118,
+            "from": "or",
+            "to": "and"
+          },
+          {
+            "line": 253,
+            "from": "and",
+            "to": "or"
+          }
+        ]
+      },
+      {
+        "name": "integration_repo",
+        "mutants": [
+          {
+            "line": 35,
+            "from": "and",
+            "to": "or"
+          },
+          {
+            "line": 50,
+            "from": "True",
+            "to": "False"
+          },
+          {
+            "line": 77,
+            "from": "==",
+            "to": "!="
+          }
+        ]
+      },
+      {
+        "name": "refresh_model_eval_candidates",
+        "mutants": [
+          {
+            "line": 63,
+            "from": "or",
+            "to": "and"
+          },
+          {
+            "line": 96,
+            "from": "and",
+            "to": "or"
+          },
+          {
+            "line": 177,
+            "from": "==",
+            "to": "!="
+          }
+        ]
+      },
+      {
+        "name": "resolve_mypy_pin",
+        "mutants": [
+          {
+            "line": 77,
+            "from": "or",
+            "to": "and"
+          },
+          {
+            "line": 92,
+            "from": "==",
+            "to": "!="
+          }
+        ]
+      },
+      {
+        "name": "verifier_artifact_capture",
+        "mutants": [
+          {
+            "line": 92,
+            "from": "!=",
+            "to": "=="
+          },
+          {
+            "line": 110,
+            "from": "!=",
+            "to": "=="
+          },
+          {
+            "line": 111,
+            "from": "or",
+            "to": "and"
+          }
+        ]
+      },
+      {
+        "name": "verifier_proof_resource_plan",
+        "mutants": [
+          {
+            "line": 117,
+            "from": "!=",
+            "to": "=="
+          },
+          {
+            "line": 130,
+            "from": "+",
+            "to": "-"
+          },
+          {
+            "line": 210,
+            "from": "+",
+            "to": "-"
+          }
+        ]
+      },
+      {
+        "name": "verifier_semantic_execution",
+        "mutants": [
+          {
+            "line": 58,
+            "from": "==",
+            "to": "!="
+          },
+          {
+            "line": 234,
+            "from": "True",
+            "to": "False"
+          },
+          {
+            "line": 264,
+            "from": "False",
+            "to": "True"
+          }
+        ]
+      },
+      {
+        "name": "coverage_trend",
+        "mutants": [
+          {
+            "line": 123,
+            "from": "+",
+            "to": "-"
+          },
+          {
+            "line": 308,
+            "from": "and",
+            "to": "or"
+          },
+          {
+            "line": 349,
+            "from": "True",
+            "to": "False"
+          }
+        ]
+      }
+    ],
+    "modules_without_validated_mutants": [
+      "stable_pass_cases",
+      "verifier_standards_model",
+      "verifier_compare_run_receipt"
+    ],
+    "validation": "local, seed 7, 3 mutants per module, each kept only if the module's own tests fail on it (no model calls)",
+    "pass_numbers": {
+      "audit": "agy recall >= Claude recall on the same modules, citations resolving",
+      "testgen": "agy kill rate >= Claude kill rate"
+    },
+    "result": "not measured"
+  }
+}

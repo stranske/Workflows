@@ -27,6 +27,7 @@ SKIP_FILES = {
     ROOT / "scripts" / "check_consumer_sync_drift.py",
     ROOT / "scripts" / "api_client.py",
     # Offline provenance validation compares frozen URL strings; it performs no API calls.
+    ROOT / "docs" / "evidence" / "issue-4369" / "observe-maint68.js",
     ROOT / "tools" / "verifier_proof_resource_plan.py",
     ROOT / "templates" / "consumer-repo" / "tools" / "verifier_proof_resource_plan.py",
     ROOT / "templates" / "consumer-repo" / "scripts" / "api_client.py",

@@ -1,0 +1,201 @@
+{
+  "schema": "workflows-sync-pr-merge/v1",
+  "generated_at": "2026-11-09T03:46:04.567Z",
+  "run": {
+    "repository": "stranske/Workflows",
+    "run_id": 42558127073,
+    "run_number": 8041,
+    "workflow": "Merge Sync PRs",
+    "ref": "refs/heads/main",
+    "sha": "dc88475b617e52bb06f86ab4d79b01d21462ee67"
+  },
+  "inputs": {
+    "repos": [
+      "stranske/Ready"
+    ],
+    "registered_repos": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/Template",
+      "stranske/Counter_Risk",
+      "stranske/Pension-Data",
+      "stranske/Inv-Man-Intake",
+      "stranske/Ready",
+      "stranske/trip-planner",
+      "stranske/Manager-Database",
+      "stranske/Portable-Alpha-Extension-Model",
+      "stranske/Trend_Model_Project",
+      "stranske/learning-management-system",
+      "stranske/Fine-Art-Archive",
+      "stranske/Orchestrator",
+      "stranske/Doc-Lineage",
+      "stranske/Deliverable-Render",
+      "stranske/Manager-Mosaic"
+    ],
+    "auto_merge": true,
+    "dry_run": false,
+    "cleanup_branches": true,
+    "sync_hash": "dev-tool",
+    "expected_branch": "sync/workflows-dev-tool"
+  },
+  "summary": {
+    "no_prs": 0,
+    "target_missing": 0,
+    "stale_closed": 0,
+    "stale_close_failed": 0,
+    "branch_deleted": 0,
+    "branch_delete_failed": 0,
+    "checks_failed": 0,
+    "checks_pending": 1,
+    "candidate_evidence_required": 0,
+    "review_window_pending": 0,
+    "review_window_started": 0,
+    "reviewer_settlement_pending": 0,
+    "delivery_review_not_started": 0,
+    "delivery_sealed_checks_pending": 0,
+    "gate_label_fallback": 0,
+    "delivery_promotion_evidence_missing": 0,
+    "sealed_head_mismatch": 0,
+    "stable_base_refresh_required": 0,
+    "dev_tool_base_refresh_required": 0,
+    "head_changed": 0,
+    "head_commit_unverified": 0,
+    "review_blocked": 0,
+    "merge_blocked_repository_policy": 0,
+    "ready": 0,
+    "dry_run_merge": 0,
+    "dry_run_review_start": 0,
+    "dry_run_unrequested_seal": 0,
+    "dry_run_seal": 0,
+    "merge_blocked_runtime_ac": 0,
+    "merged": 0,
+    "merge_failed": 0,
+    "delivery_contract_blocked": 0,
+    "delivery_handoff_repin": 0,
+    "delivery_plan_handoff": 0,
+    "evidence_recovered": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "owner": "stranske",
+      "repo": "Ready",
+      "pr": 670,
+      "branch": "deps/sync-dev-versions-ad117052ce8a",
+      "head_sha": "ac227f62200b22e60a6a902c8ce5624ab8ea1f45",
+      "delivery_generation": "ad117052ce8a",
+      "plan_id": "dev-tool-ad117052ce8a",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "dc88475b617e52bb06f86ab4d79b01d21462ee67",
+      "canary_baseline_evidence_json": "",
+      "campaign_no_change_evidence_json": "",
+      "delivery_lane": "dev-tool-sync",
+      "continuation_lane": "",
+      "delivery_disposition": "awaiting-checks",
+      "blocker_owner": "ci",
+      "next_command": "await-required-checks",
+      "review_finding_disposition": {
+        "schema": "sync-finding-evaluation/v1",
+        "binding": {
+          "repository": "stranske/Ready",
+          "pr": 670,
+          "head_sha": "ac227f62200b22e60a6a902c8ce5624ab8ea1f45",
+          "source_commit": "dc88475b617e52bb06f86ab4d79b01d21462ee67",
+          "plan_id": "dev-tool-ad117052ce8a",
+          "delivery_generation": "ad117052ce8a"
+        },
+        "raw_active_count": 0,
+        "blocked": false,
+        "errors": [],
+        "findings": [],
+        "aggregates": {
+          "blocking": 0,
+          "nonblocking": 0,
+          "unknown": 0,
+          "by_disposition": {
+            "shared-source": 0,
+            "sync-caused": 0,
+            "unrelated": 0,
+            "unknown": 0
+          }
+        },
+        "disposition_thread_ids": {
+          "shared-source": [],
+          "sync-caused": [],
+          "unrelated": [],
+          "unknown": []
+        },
+        "blocking_thread_ids": [],
+        "nonblocking_thread_ids": [],
+        "unknown_thread_ids": [],
+        "unrelated_handoffs": []
+      },
+      "review_state": "clear",
+      "review_resolution_thread_ids": [],
+      "review_resolution_would_resolve_thread_ids": [],
+      "review_resolution_errors": [],
+      "consumer_declared_contexts": {
+        "state": "none",
+        "passed": [],
+        "failed": [],
+        "pending": [],
+        "never_started": [],
+        "also_required": []
+      },
+      "conversation_resolution": {
+        "ok": true,
+        "unresolved_count": 0,
+        "unresolved_outdated_count": 0,
+        "unresolved_thread_ids": []
+      },
+      "status": "checks_pending",
+      "pending_checks": [
+        {
+          "name": "Gate / gate",
+          "status": "queued"
+        }
+      ]
+    }
+  ],
+  "handoff_records": [
+    {
+      "schema": "workflows-generated-delivery-handoff/v1",
+      "repository": "stranske/Ready",
+      "pr": 670,
+      "branch": "deps/sync-dev-versions-ad117052ce8a",
+      "head_sha": "ac227f62200b22e60a6a902c8ce5624ab8ea1f45",
+      "delivery_generation": "ad117052ce8a",
+      "lane": "dev-tool-sync",
+      "disposition": "awaiting-checks",
+      "blocker_owner": "ci",
+      "next_command": "await-required-checks",
+      "check_state": "checks_pending",
+      "review_state": "clear",
+      "plan_id": "dev-tool-ad117052ce8a",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "dc88475b617e52bb06f86ab4d79b01d21462ee67",
+      "canary_baseline_evidence_json": "",
+      "campaign_no_change_evidence_json": "",
+      "cleanup_branches": true,
+      "continuation": {
+        "class": "transient",
+        "lane": "dev-tool",
+        "reason": "checks_pending",
+        "resume_after": "2026-11-09T03:56:04.567Z",
+        "key": "4a33d352ff717a21b558"
+      },
+      "observed_at": "2026-11-09T03:46:04.567Z"
+    }
+  ],
+  "canary_refresh": {
+    "red": 0,
+    "drainable": 0,
+    "review_blocked": 0,
+    "stale": 0,
+    "refresh_dispatched": 0,
+    "held_plans": [],
+    "errors": [],
+    "canaries": []
+  }
+}

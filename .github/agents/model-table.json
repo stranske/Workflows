@@ -1,0 +1,132 @@
+{
+  "schema": "agent-model-table/v1",
+  "as_of": "2026-11-08",
+  "purpose": "The ONE agent model table for hosted (GitHub Actions) and local (Orchestrator) agent runs: per provider, a pinned model per tier, a reasoning level per kind of work, the surfaces each agent runs on, and one fallback. Hosted runners read this file at run time from .workflows-lib (stranske/Workflows@workflows_ref). Orchestrator carries a byte-identical copy as TABLE_JSON in src/model_table.py; scripts/check_model_tables.py fails when the two disagree.",
+  "change_rule": "Edit this file and merge it first, then copy it to stranske/Orchestrator in a paired PR with `python3 src/model_table.py --sync <this file>`. Codex execution_profiles in .github/agents/registry.yml must agree with work_kinds below (the drift check counts every disagreement).",
+  "tiers": ["cheap", "mid", "full", "frontier"],
+  "work_kinds": {
+    "extract": {"tier": "cheap", "effort": "low", "meaning": "structured reads, summaries, classification"},
+    "routine": {"tier": "mid", "effort": "medium", "meaning": "bounded edits, autofix, tests, review, codemods"},
+    "coordinate": {"tier": "full", "effort": "medium", "meaning": "planning, coordination, closer/lane decisions"},
+    "implement": {"tier": "full", "effort": "high", "meaning": "feature/fix implementation (keepalive default)"},
+    "hard": {"tier": "frontier", "effort": "medium", "meaning": "epics, cross-repo plans, runtime acceptance evidence"},
+    "hardest": {"tier": "frontier", "effort": "high", "meaning": "explicit escalation only"}
+  },
+  "default_work_kind": "implement",
+  "mode_work_kinds": {
+    "autofix": "routine",
+    "keepalive": "implement"
+  },
+  "execution_profile_work_kinds": {
+    "codex-default": "implement",
+    "codex-fast": "routine",
+    "codex-extract": "extract",
+    "codex-routine": "routine",
+    "codex-coordinate": "coordinate",
+    "codex-implement": "implement",
+    "codex-hard": "hard",
+    "codex-hardest": "hardest"
+  },
+  "providers": {
+    "codex": {
+      "surfaces": ["hosted", "local"],
+      "role": "primary",
+      "models": {
+        "cheap": "gpt-6-luna",
+        "mid": "gpt-5.6-terra",
+        "full": "gpt-6.1-sol",
+        "frontier": "gpt-6-astra"
+      },
+      "fallback": "gpt-5.6-terra",
+      "effort": {"flag": "-c model_reasoning_effort", "levels": ["low", "medium", "high", "xhigh"]}
+    },
+    "claude": {
+      "surfaces": ["hosted", "local"],
+      "role": "primary",
+      "models": {
+        "cheap": "claude-haiku-4-5",
+        "mid": "claude-sonnet-5-5",
+        "full": "claude-opus-5-5",
+        "frontier": "claude-opus-5-5"
+      },
+      "fallback": "claude-sonnet-5-5",
+      "effort": {
+        "flag": "--effort",
+        "levels": ["low", "medium", "high", "xhigh", "max"],
+        "models": ["claude-sonnet-5-5", "claude-opus-5-5"]
+      }
+    },
+    "gemini": {
+      "surfaces": ["hosted", "local"],
+      "role": "primary",
+      "models": {
+        "cheap": "gemini-3.8-flash-low",
+        "mid": "gemini-3.8-flash-high",
+        "full": "gemini-4-argon-high",
+        "frontier": "gemini-4-argon-high"
+      },
+      "surface_models": {
+        "hosted": {
+          "cheap": "gemini-3.8-flash",
+          "mid": "gemini-3.8-flash",
+          "full": "gemini-4-argon",
+          "frontier": "gemini-4-argon"
+        }
+      },
+      "surface_model_evidence": {
+        "hosted": "Gemini API ids for the models the fleet runs and evaluates (Gemini 3.8 Flash, Gemini 4 Argon), the same ids config/verifier_shadow.json calls on GEMINI_API_KEY. The API id carries no effort rung; local agy ids do. Corrected 2026-11-09: the first hosted ids (gemini-3.5-flash, gemini-2.5-pro) were copied from the gemini-cli built-in model list, which lags the fleet."
+      },
+      "fallback": "gemini-3.8-flash-high",
+      "surface_fallbacks": {"hosted": "gemini-3.8-flash"},
+      "effort": {"flag": "", "levels": [], "note": "local agy ids carry the effort rung in the model id; hosted gemini-cli has no effort flag"}
+    },
+    "cursor": {
+      "surfaces": ["hosted", "local"],
+      "role": "primary",
+      "models": {
+        "cheap": "composer-2.5",
+        "mid": "composer-2.5",
+        "full": "composer-2.5",
+        "frontier": "composer-2.5"
+      },
+      "fallback": "composer-2.5",
+      "effort": {"flag": "", "levels": [], "note": "owner policy 2026-08-08: Composer only; never `auto` or a frontier model"}
+    },
+    "muse": {
+      "surfaces": ["hosted", "local"],
+      "role": "backup",
+      "models": {
+        "cheap": "muse-wonder-1.0",
+        "mid": "muse-wonder-1.0",
+        "full": "muse-wonder-1.0",
+        "frontier": "muse-wonder-1.0"
+      },
+      "fallback": "muse-wonder-1.0",
+      "effort": {"flag": "--reasoning-effort", "levels": ["low", "medium", "high", "xhigh"]}
+    },
+    "vibe": {
+      "surfaces": ["local"],
+      "role": "primary",
+      "models": {
+        "cheap": "mistral-medium-3.5",
+        "mid": "mistral-medium-3.5",
+        "full": "mistral-medium-3.5",
+        "frontier": "mistral-medium-3.5"
+      },
+      "fallback": "mistral-medium-3.5",
+      "effort": {"flag": "", "levels": [], "note": "single-model lane; the CLI config names the model"}
+    },
+    "aider": {
+      "surfaces": ["local"],
+      "role": "late",
+      "models": {
+        "cheap": "mistral/codestral-latest",
+        "mid": "mistral/codestral-latest",
+        "full": "mistral/codestral-latest",
+        "frontier": "mistral/codestral-latest"
+      },
+      "fallback": "mistral/codestral-latest",
+      "effort": {"flag": "", "levels": []}
+    }
+  }
+}

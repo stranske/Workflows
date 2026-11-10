@@ -1,0 +1,21 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "state": "MERGED",
+        "merged": true,
+        "mergeCommit": {
+          "oid": "1ff9e11cd51a456333c626cb354543b63202bef6"
+        },
+        "reviewThreads": {
+          "totalCount": 0,
+          "pageInfo": {
+            "hasNextPage": false,
+            "endCursor": null
+          },
+          "nodes": []
+        }
+      }
+    }
+  }
+}

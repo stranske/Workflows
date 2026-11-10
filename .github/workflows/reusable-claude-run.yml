@@ -76,6 +76,14 @@ on:
         required: false
         default: ''
         type: string
+      work_kind:
+        description: >-
+          Kind of work for the shared model table (.github/agents/model-table.json):
+          extract | routine | coordinate | implement | hard | hardest. Empty infers it
+          from mode (autofix -> routine, otherwise implement).
+        required: false
+        default: ''
+        type: string
       appendix:
         description: 'Optional context appended to the prompt passed to Claude.'
         required: false
@@ -773,6 +781,41 @@ jobs:
           echo "Installed Claude CLI: $(command -v claude)"
           claude --version || true
 
+      - name: Resolve pinned model from shared table
+        id: model_table
+        if: always() && steps.capability_evidence.outcome != 'failure'
+        env:
+          WORK_KIND: ${{ inputs.work_kind }}
+          RUN_MODE: ${{ inputs.mode }}
+        run: |
+          set -uo pipefail
+          # One table for hosted and local runs (stranske/Workflows@workflows_ref). A missing
+          # table never blocks the run: the CLI default model runs and this step says so.
+          resolver=".workflows-lib/scripts/agent_model_table.py"
+          table=".workflows-lib/.github/agents/model-table.json"
+          resolved="${RUNNER_TEMP:-/tmp}/model-table-claude.txt"
+          if [ -f "$resolver" ] && [ -f "$table" ] && python3 "$resolver" resolve \
+              --agent claude --surface hosted --work-kind "${WORK_KIND:-}" \
+              --mode "${RUN_MODE:-}" --table "$table" > "$resolved"; then
+            cat "$resolved" >> "$GITHUB_OUTPUT"
+            model="$(sed -n 's/^model=//p' "$resolved")"
+            effort="$(sed -n 's/^reasoning_effort=//p' "$resolved")"
+            kind="$(sed -n 's/^work_kind=//p' "$resolved")"
+            source="$(sed -n 's/^work_kind_source=//p' "$resolved")"
+            fallback="$(sed -n 's/^fallback_model=//p' "$resolved")"
+            echo "Pinned model: ${model} (work kind ${kind} via ${source}; effort ${effort:-none}; fallback ${fallback:-none})"
+            {
+              echo "## Claude pinned model"
+              echo ""
+              echo "- Model: \`${model}\`"
+              echo "- Work kind: \`${kind}\` (${source})"
+              echo "- Reasoning effort: \`${effort:-none}\`"
+              echo "- Fallback: \`${fallback:-none}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Shared model table unavailable at this workflows_ref; the claude CLI default model runs unpinned."
+          fi
+
       - name: Run Claude
         id: run_claude
         if: always() && steps.capability_evidence.outcome != 'failure'
@@ -785,6 +828,9 @@ jobs:
           SKIP_PERMISSIONS: ${{ inputs.skip_permissions }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           PR_REF: ${{ inputs.pr_ref }}
+          MODEL: ${{ steps.model_table.outputs.model }}
+          MODEL_EFFORT: ${{ steps.model_table.outputs.reasoning_effort }}
+          MODEL_FALLBACK: ${{ steps.model_table.outputs.fallback_model }}
         run: |
           set -euo pipefail
 
@@ -892,6 +938,9 @@ jobs:
           set +e
           claude -p "$prompt_content" \
             "${perm_flag[@]}" \
+            ${MODEL:+--model "$MODEL"} \
+            ${MODEL_EFFORT:+--effort "$MODEL_EFFORT"} \
+            ${MODEL_FALLBACK:+--fallback-model "$MODEL_FALLBACK"} \
             "${extra_args[@]}" \
             2>&1 | tee "$SESSION_LOG" > "$output_file"
           status=${PIPESTATUS[0]}

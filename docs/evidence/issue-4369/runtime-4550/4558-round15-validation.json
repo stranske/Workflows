@@ -1,0 +1,227 @@
+{
+  "check_date": "2026-11-09T03:28:37.194274+00:00",
+  "input_files": {
+    "4558-round10-origin-inventory.json": "26a01983e66d3e90d7828d7c82182684c35be774476809f693deddf27c70abaf",
+    "4558-round11-origin-inventory.json": "e4f856f05240c404d5d0d90d1f0a5863819c096e397b5de2ab074805dac66a1f",
+    "4558-round13-origin-inventory.json": "b961dba10607e22ede705b1880ac59091bc2c897e3de8f41161f3664a8e32528",
+    "4558-round14-origin-inventory.json": "a0f9eb760d31f0ef5bd8dfc426e0e215e4a155664a45ae3a74a5e6551799cb2b",
+    "4558-round15-origin-inventory.json": "d2a3470af39a08202573057d0a06edf6e49a5df5ef0da2af3ffaff1a0fd8b830"
+  },
+  "implementation_files": {
+    "docs/evidence/issue-4369/observe-maint68.js": "a35321491da4634131a67a9ab750c6b7b740491f0eeda4b86fc00abc04e4738a",
+    "tests/scripts/test_issue_4369_origin_observation.js": "34da7b429d99eb56d460588b3f9d5107df2e17a12d7b7a055a829f9ac3f312dd"
+  },
+  "commands": [
+    {
+      "argv": [
+        "node",
+        "tests/scripts/test_issue_4369_origin_observation.js"
+      ],
+      "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+      "started_at": "2026-11-09T03:28:37.194566+00:00",
+      "finished_at": "2026-11-09T03:28:37.306306+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.111749,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-observer-tests-stdout.log",
+      "stdout_sha256": "ff10a6e19019354fb245956abc20bd1fc9c581a2bf8a2076493532e26fdb9d6d",
+      "stderr": "4558-round15-observer-tests-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "node",
+        "--check",
+        "docs/evidence/issue-4369/observe-maint68.js"
+      ],
+      "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+      "started_at": "2026-11-09T03:28:37.306363+00:00",
+      "finished_at": "2026-11-09T03:28:37.334282+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.027929,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-observer-syntax-stdout.log",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "4558-round15-observer-syntax-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "node",
+        "--check",
+        "tests/scripts/test_issue_4369_origin_observation.js"
+      ],
+      "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+      "started_at": "2026-11-09T03:28:37.334323+00:00",
+      "finished_at": "2026-11-09T03:28:37.357337+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.023024,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-test-syntax-stdout.log",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "4558-round15-test-syntax-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "-m",
+        "not slow"
+      ],
+      "executable": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3.14",
+      "started_at": "2026-11-09T03:28:37.357375+00:00",
+      "finished_at": "2026-11-09T03:28:40.282431+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 2.925069,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-receipt-tests-stdout.log",
+      "stdout_sha256": "985fa9ea7ec1921e3df2cdb2eebbf5a95052eac462c6fb18085d202993d044e8",
+      "stderr": "4558-round15-receipt-tests-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "node",
+        "docs/evidence/issue-4369/observe-maint68.js",
+        "/tmp/issue4369-round15-sequence.json"
+      ],
+      "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+      "started_at": "2026-11-09T03:28:40.282476+00:00",
+      "finished_at": "2026-11-09T03:28:40.319994+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.03753,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-producer-sequence-stdout.log",
+      "stdout_sha256": "8f9a744f3d7bd3bfd25e46fc9c363dead088d07f455ea749c61df05f6823f422",
+      "stderr": "4558-round15-producer-sequence-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "node",
+        "docs/evidence/issue-4369/observe-maint68.js",
+        "/tmp/issue4369-round15-mergers.json"
+      ],
+      "executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+      "started_at": "2026-11-09T03:28:40.320040+00:00",
+      "finished_at": "2026-11-09T03:28:40.354556+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.034527,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-merger-sequence-stdout.log",
+      "stdout_sha256": "e5ce2845d4ca9bb7e2ba664c8af71d1ce67fb76552edace2b183e85424f7d100",
+      "stderr": "4558-round15-merger-sequence-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "executable": "/usr/bin/git",
+      "started_at": "2026-11-09T03:28:40.354596+00:00",
+      "finished_at": "2026-11-09T03:28:40.357316+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.002724,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-required-ancestry-stdout.log",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "4558-round15-required-ancestry-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "executable": "/usr/bin/git",
+      "started_at": "2026-11-09T03:28:40.357335+00:00",
+      "finished_at": "2026-11-09T03:28:40.359089+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.001757,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-repair-ancestry-stdout.log",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "4558-round15-repair-ancestry-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "dc88475b617e52bb06f86ab4d79b01d21462ee67"
+      ],
+      "executable": "/usr/bin/git",
+      "started_at": "2026-11-09T03:28:40.359105+00:00",
+      "finished_at": "2026-11-09T03:28:40.360861+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.00176,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-published-ancestry-stdout.log",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "4558-round15-published-ancestry-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "cmp",
+        "/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt",
+        "/home/runner/work/Workflows/Workflows/docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt"
+      ],
+      "executable": "/usr/bin/cmp",
+      "started_at": "2026-11-09T03:28:40.360877+00:00",
+      "finished_at": "2026-11-09T03:28:40.361949+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.001074,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-byte-comparison-stdout.log",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "4558-round15-byte-comparison-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "executable": "/usr/bin/git",
+      "started_at": "2026-11-09T03:28:40.361962+00:00",
+      "finished_at": "2026-11-09T03:28:40.374145+00:00",
+      "bound_seconds": 120,
+      "wall_seconds": 0.012192,
+      "exit_code": 0,
+      "timed_out": false,
+      "stdout": "4558-round15-diff-check-stdout.log",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr": "4558-round15-diff-check-stderr.log",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "sequence_input": "/tmp/issue4369-round15-sequence.json",
+  "merger_input": "/tmp/issue4369-round15-mergers.json",
+  "chain_acceptance": false
+}

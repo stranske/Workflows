@@ -215,7 +215,7 @@ test('owner-excluded cached and incoming handoffs never reach reconciliation API
     records: [], errors: [], blockedKeys: [],
   });
   assert.deepEqual(await reconcileClosedDeliveryHandoffs([handoff], [], api, retry), {
-    records: [], errors: [], blockedKeys: [],
+    records: [], errors: [], blockedKeys: [], reassessments: [],
   });
   assert.equal(calls, 0);
 });

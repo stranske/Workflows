@@ -1,0 +1,90 @@
+{
+  "job_id": 128490204476,
+  "conclusion": "success",
+  "started_at": "2026-11-07T18:29:40Z",
+  "completed_at": "2026-11-07T18:45:21Z",
+  "job_wall_seconds": 941.0,
+  "source": "jobs-readback-2026-11-07T1846.json; Actions clock resolution is one second",
+  "steps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:29:41Z",
+      "completed_at": "2026-11-07T18:29:42Z",
+      "seconds": 1.0
+    },
+    {
+      "name": "Checkout reviewed harness and immutable source objects",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:29:42Z",
+      "completed_at": "2026-11-07T18:29:46Z",
+      "seconds": 4.0
+    },
+    {
+      "name": "Set up common interpreter without dependency cache",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:29:46Z",
+      "completed_at": "2026-11-07T18:29:46Z",
+      "seconds": 0.0
+    },
+    {
+      "name": "Fetch reviewed source pair and verify immutable identity",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:29:46Z",
+      "completed_at": "2026-11-07T18:29:46Z",
+      "seconds": 0.0
+    },
+    {
+      "name": "Prepare immutable arms",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:29:46Z",
+      "completed_at": "2026-11-07T18:29:48Z",
+      "seconds": 2.0
+    },
+    {
+      "name": "Install one common immutable dependency lock",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:29:48Z",
+      "completed_at": "2026-11-07T18:30:21Z",
+      "seconds": 33.0
+    },
+    {
+      "name": "Run both arms with identical coverage and four workers",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:30:21Z",
+      "completed_at": "2026-11-07T18:45:19Z",
+      "seconds": 898.0
+    },
+    {
+      "name": "Upload exact source manifests and raw evidence",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:45:19Z",
+      "completed_at": "2026-11-07T18:45:20Z",
+      "seconds": 1.0
+    },
+    {
+      "name": "Post Set up common interpreter without dependency cache",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:45:20Z",
+      "completed_at": "2026-11-07T18:45:20Z",
+      "seconds": 0.0
+    },
+    {
+      "name": "Post Checkout reviewed harness and immutable source objects",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:45:20Z",
+      "completed_at": "2026-11-07T18:45:20Z",
+      "seconds": 0.0
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:45:20Z",
+      "completed_at": "2026-11-07T18:45:20Z",
+      "seconds": 0.0
+    }
+  ],
+  "per_arm_collection_seconds": null,
+  "per_arm_reporting_seconds": null,
+  "timing_controlled": null
+}

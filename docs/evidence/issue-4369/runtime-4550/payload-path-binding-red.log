@@ -1,0 +1,67 @@
+F.FF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_payload_binding_rejects_an_unrelated_file_with_identical_bytes[source] __
+
+role = 'source'
+
+    @pytest.mark.parametrize("role", ["source", "template", "consumer_candidate", "consumer_main"])
+    def test_payload_binding_rejects_an_unrelated_file_with_identical_bytes(role: str) -> None:
+        observation = read("supported-live-observation.json")
+        template = read("downstream-followup.json")["payloads"]["template"]
+        payload = template if role == "template" else observation["payloads"][role]
+        payload["path"] = "unrelated/subscription_llm.py"
+        # Keep the URL internally consistent and the content/hash untouched. Blob
+        # equality alone cannot bind the requested source and destination paths.
+        payload["url"] = (
+            f'https://github.com/{payload["repository"]}/blob/{payload["ref"]}/{payload["path"]}'
+        )
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:165: Failed
+_ test_payload_binding_rejects_an_unrelated_file_with_identical_bytes[consumer_candidate] _
+
+role = 'consumer_candidate'
+
+    @pytest.mark.parametrize("role", ["source", "template", "consumer_candidate", "consumer_main"])
+    def test_payload_binding_rejects_an_unrelated_file_with_identical_bytes(role: str) -> None:
+        observation = read("supported-live-observation.json")
+        template = read("downstream-followup.json")["payloads"]["template"]
+        payload = template if role == "template" else observation["payloads"][role]
+        payload["path"] = "unrelated/subscription_llm.py"
+        # Keep the URL internally consistent and the content/hash untouched. Blob
+        # equality alone cannot bind the requested source and destination paths.
+        payload["url"] = (
+            f'https://github.com/{payload["repository"]}/blob/{payload["ref"]}/{payload["path"]}'
+        )
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:165: Failed
+_ test_payload_binding_rejects_an_unrelated_file_with_identical_bytes[consumer_main] _
+
+role = 'consumer_main'
+
+    @pytest.mark.parametrize("role", ["source", "template", "consumer_candidate", "consumer_main"])
+    def test_payload_binding_rejects_an_unrelated_file_with_identical_bytes(role: str) -> None:
+        observation = read("supported-live-observation.json")
+        template = read("downstream-followup.json")["payloads"]["template"]
+        payload = template if role == "template" else observation["payloads"][role]
+        payload["path"] = "unrelated/subscription_llm.py"
+        # Keep the URL internally consistent and the content/hash untouched. Blob
+        # equality alone cannot bind the requested source and destination paths.
+        payload["url"] = (
+            f'https://github.com/{payload["repository"]}/blob/{payload["ref"]}/{payload["path"]}'
+        )
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:165: Failed
+=========================== short test summary info ============================
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_payload_binding_rejects_an_unrelated_file_with_identical_bytes[source] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_payload_binding_rejects_an_unrelated_file_with_identical_bytes[consumer_candidate] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_payload_binding_rejects_an_unrelated_file_with_identical_bytes[consumer_main] - Failed: DID NOT RAISE AssertionError
+3 failed, 1 passed, 18 deselected in 0.55s

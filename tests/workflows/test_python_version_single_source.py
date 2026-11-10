@@ -144,3 +144,16 @@ def test_python_runtime_literals_follow_shared_env() -> None:
 )
 def test_runtime_literal_extraction(source: str, expected: list[tuple[int, str]]) -> None:
     assert _runtime_literals(source) == expected
+
+
+def test_historical_runtime_experiment_is_manual_and_read_only() -> None:
+    workflow = yaml.load(
+        (ROOT / ".github/workflows/maint-88-verifier-runtime-comparison.yml").read_text(),
+        Loader=yaml.BaseLoader,
+    )
+    assert set(workflow["on"]) == {"workflow_dispatch"}
+    assert workflow["permissions"] == {"contents": "read"}
+    job = workflow["jobs"]["compare"]
+    assert "permissions" not in job
+    assert "continue-on-error" not in job
+    assert job["strategy"]["matrix"]["python"] == ["3.13", "3.14"]

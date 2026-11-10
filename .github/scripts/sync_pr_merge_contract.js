@@ -1775,10 +1775,12 @@ function devToolBaseRefreshDecision({ report = {} } = {}) {
     errors.push('merge report is not an active merge attempt');
   }
   const requests = (Array.isArray(report?.results) ? report.results : []).filter(
-    (result) => String(result.status || '') === 'dev_tool_base_refresh_required',
+    (result) => String(result.status || '') === 'dev_tool_base_refresh_required'
+      && `${result.owner || ''}/${result.repo || ''}`.toLowerCase() !== 'stranske/collab-admin',
   );
   if (requests.length === 0) errors.push('report has no dev-tool base refresh request');
   const repositories = new Set();
+  const sources = new Map();
   for (const request of requests) {
     const repository = `${request.owner || ''}/${request.repo || ''}`;
     if (
@@ -1787,16 +1789,21 @@ function devToolBaseRefreshDecision({ report = {} } = {}) {
       || request.blocker_owner !== 'maint-52'
       || request.next_command !== 'dispatch-maint-52-scoped'
       || !/^stranske\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(repository)
+      || !/^[0-9a-f]{40}$/.test(String(request.source_commit || ''))
     ) {
       errors.push(`${repository}: invalid dev-tool producer handoff`);
       continue;
     }
     repositories.add(repository);
+    if (!sources.has(request.source_commit)) sources.set(request.source_commit, new Set());
+    sources.get(request.source_commit).add(repository);
   }
   return {
     eligible: requests.length > 0 && errors.length === 0,
     errors,
     repositories: [...repositories].sort(),
+    source_requests: [...sources].sort(([left], [right]) => left.localeCompare(right))
+      .map(([source_commit, repos]) => ({ source_commit, repositories: [...repos].sort() })),
   };
 }
 

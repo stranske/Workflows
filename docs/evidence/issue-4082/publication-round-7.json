@@ -1,0 +1,32 @@
+[
+  {
+    "action": "WF#4082 evidence comment",
+    "isError": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ]
+  },
+  {
+    "action": "Workflows#4503 needs-human label",
+    "isError": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ]
+  },
+  {
+    "action": "Workflows#4503 first-task checkbox and evidence",
+    "isError": true,
+    "content": [
+      {
+        "type": "text",
+        "text": "MCP tool call requires approval, but approval policy is never"
+      }
+    ]
+  }
+]

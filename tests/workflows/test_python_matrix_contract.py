@@ -27,6 +27,12 @@ def _load(path: Path) -> dict:
     return yaml.safe_load((ROOT / path).read_text(encoding="utf-8"))
 
 
+def _root_grammar_files() -> list[str]:
+    """Files the root Gate runs in its separate python-ci-grammar call."""
+    args = shlex.split(_load(GATES[0])["jobs"]["python-ci-grammar"]["with"]["pytest_args"])
+    return args[4:]
+
+
 def _pins(path: Path) -> dict[str, str]:
     return dict(
         line.split("=", 1)
@@ -46,7 +52,11 @@ def test_gate_matrix_and_workload(path: Path) -> None:
     assert inputs.get("changed-files-json", "[]") == "[]", f"{path}: keep full-suite selection"
     assert inputs["pytest-workers"] == "4", f"{path}: use the same four-way split"
     assert inputs["pytest_markers"] == "${{ needs.detect.outputs.pytest_markers }}", str(path)
-    expected_args = ["-n", "auto", "--dist", "load"] if path == GATES[0] else []
+    expected_args = (
+        ["-n", "auto", "--dist", "load", *(f"--ignore={f}" for f in _root_grammar_files())]
+        if path == GATES[0]
+        else []
+    )
     assert (
         shlex.split(inputs.get("pytest_args", "")) == expected_args
     ), f"{path}: only scheduling/timing flags may supplement full-suite discovery"

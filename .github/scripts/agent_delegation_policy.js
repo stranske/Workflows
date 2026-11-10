@@ -263,7 +263,7 @@ function explorationSeedFromState(state = {}) {
 
 /**
  * @param {Object} options
- * @returns {{ agent: string|null, delegationSource: 'route_weights'|'route_weights_exploration'|'static', staticReason?: string, policy_version?: string }}
+ * @returns {{ agent: string|null, delegationSource: 'route_weights'|'route_weights_exploration'|'route_weights_comparative'|'static', staticReason?: string, policy_version?: string }}
  */
 function selectAgentFromRouteWeights({
   routeWeights,
@@ -309,7 +309,35 @@ function selectAgentFromRouteWeights({
   }
 
   const ranking = Array.isArray(taskEntry.ranking) ? taskEntry.ranking : [];
-  for (const row of ranking) {
+  
+  // Check if comparative routing is enabled
+  const comparativeEnabled = routeWeights?.comparative?.route_enabled === true;
+  
+  // Select agent using either comparative or posterior order
+  let sortedRanking;
+  if (comparativeEnabled && ranking.length > 0) {
+    // Sort by comparative_rank ascending, nulls last, original order as stable tiebreak
+    sortedRanking = [...ranking].sort((a, b) => {
+      const aRank = a.comparative_rank ?? null;
+      const bRank = b.comparative_rank ?? null;
+      
+      // Both null -> maintain original order (stable sort)
+      if (aRank === null && bRank === null) return 0;
+      // a is null -> a goes after b
+      if (aRank === null) return 1;
+      // b is null -> b goes after a
+      if (bRank === null) return -1;
+      // Both numeric -> sort ascending
+      return aRank - bRank;
+    });
+  } else {
+    // Use original posterior order
+    sortedRanking = ranking;
+  }
+  
+  // Find first eligible agent from the sorted ranking
+  let comparativeAgent = null;
+  for (const row of sortedRanking) {
     const candidate = String(row?.agent || '').toLowerCase();
     if (!candidate || candidate === normalizedCurrentAgent || reserveSet.has(candidate)) {
       continue;
@@ -320,7 +348,35 @@ function selectAgentFromRouteWeights({
     if (!hasKeepaliveRunner(agents[candidate])) {
       continue;
     }
-    return { agent: candidate, delegationSource: 'route_weights' };
+    comparativeAgent = candidate;
+    break;
+  }
+  
+  // Determine delegation source
+  // If comparative is enabled but selected the same agent as posterior order, use 'route_weights'
+  if (comparativeAgent) {
+    // Check if posterior order would have selected the same agent
+    let posteriorAgent = null;
+    for (const row of ranking) {
+      const candidate = String(row?.agent || '').toLowerCase();
+      if (!candidate || candidate === normalizedCurrentAgent || reserveSet.has(candidate)) {
+        continue;
+      }
+      if (!availableAgents.includes(candidate)) {
+        continue;
+      }
+      if (!hasKeepaliveRunner(agents[candidate])) {
+        continue;
+      }
+      posteriorAgent = candidate;
+      break;
+    }
+    
+    const delegationSource = (comparativeEnabled && comparativeAgent !== posteriorAgent)
+      ? 'route_weights_comparative'
+      : 'route_weights';
+    
+    return { agent: comparativeAgent, delegationSource };
   }
 
   return {
@@ -945,13 +1001,14 @@ function hasIntakeRunner(agentConfig = {}) {
 function getAgentPoolState(routeWeights, agent, row) {
   const key = String(agent || '').trim().toLowerCase();
   const candidates = [
+    // The published capacity snapshot is authoritative over legacy row hints.
+    routeWeights?.capacity?.[key]?.state,
+    typeof routeWeights?.capacity?.[key] === 'string' ? routeWeights.capacity[key] : undefined,
     row?.pool_state,
     row?.poolState,
     row?.capacity?.state,
     row?.capacity_state,
     row?.state,
-    routeWeights?.capacity?.[key]?.state,
-    typeof routeWeights?.capacity?.[key] === 'string' ? routeWeights.capacity[key] : undefined,
     routeWeights?.pools?.[key]?.state,
     typeof routeWeights?.pools?.[key] === 'string' ? routeWeights.pools[key] : undefined,
     routeWeights?.pool_capacity?.[key]?.state,
@@ -962,7 +1019,7 @@ function getAgentPoolState(routeWeights, agent, row) {
       return candidate.trim().toLowerCase();
     }
   }
-  // Until Orchestrator#645 publishes capacity in schema v2, treat every pool as ok.
+  // Older exports and agents without a capacity entry retain the ok assumption.
   return 'ok';
 }
 

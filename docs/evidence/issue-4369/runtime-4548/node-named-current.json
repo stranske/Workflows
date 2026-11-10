@@ -1,0 +1,23 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-isolation=none",
+    "--test-reporter=spec",
+    "--test-name-pattern=^exit-zero quota classification yields to actual productivity",
+    ".github/scripts/__tests__/keepalive-loop.test.js"
+  ],
+  "revision": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec",
+  "started_at": "2026-11-08T08:27:26.761454+00:00",
+  "python": "/tmp/workflows-4369-venv/bin/python3\n3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "node": "v24.22.2",
+  "working_tree_changes": [
+    "docs/CONTRIBUTING.md"
+  ],
+  "timeout_seconds": 45,
+  "exit_code": 124,
+  "timed_out": true,
+  "duration_seconds": 50.009,
+  "finished_at": "2026-11-08T08:28:16.836775+00:00",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

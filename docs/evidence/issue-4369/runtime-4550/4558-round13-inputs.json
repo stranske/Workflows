@@ -1,0 +1,26 @@
+{
+  "inputs": [
+    {
+      "path": "docs/evidence/issue-4369/observe-maint68.js",
+      "sha256": "8218f7a6831c282a1de2130ef48dff58dc5231d9bca9505e3323b31542bc2a0e"
+    },
+    {
+      "path": "tests/scripts/test_issue_4369_origin_observation.js",
+      "sha256": "98a20f6c822d60d5f6b7810b8104ab4450e4e82f94dd6c332d47ecfb47388779"
+    },
+    {
+      "path": "docs/evidence/issue-4369/runtime-4550/4558-round10-origin-inventory.json",
+      "sha256": "26a01983e66d3e90d7828d7c82182684c35be774476809f693deddf27c70abaf"
+    },
+    {
+      "path": "docs/evidence/issue-4369/runtime-4550/4558-round11-origin-inventory.json",
+      "sha256": "e4f856f05240c404d5d0d90d1f0a5863819c096e397b5de2ab074805dac66a1f"
+    },
+    {
+      "path": "docs/evidence/issue-4369/runtime-4550/4558-round13-origin-inventory.json",
+      "sha256": "b961dba10607e22ede705b1880ac59091bc2c897e3de8f41161f3664a8e32528"
+    }
+  ],
+  "node": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+  "python3": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3"
+}

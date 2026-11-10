@@ -1,0 +1,24 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/",
+    "-k",
+    "claude_config_dir"
+  ],
+  "revision": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec",
+  "started_at": "2026-11-08T08:22:31.205685+00:00",
+  "python": "/tmp/workflows-4369-venv/bin/python3\n3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "node": "v24.22.2",
+  "working_tree_changes": [
+    "docs/CONTRIBUTING.md"
+  ],
+  "timeout_seconds": 120,
+  "exit_code": 0,
+  "timed_out": false,
+  "duration_seconds": 36.919,
+  "finished_at": "2026-11-08T08:23:08.170200+00:00",
+  "log_sha256": "67ab463d32fda2343aa36f6caeea449b2c8e05884f6918b806a73ee5db38d33a"
+}

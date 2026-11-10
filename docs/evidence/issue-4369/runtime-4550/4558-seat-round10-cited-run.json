@@ -1,0 +1,11 @@
+{
+  "id": 42553729063,
+  "head_sha": "8d9f9348f23e62f4c87a97a581748f4023659f20",
+  "status": "completed",
+  "conclusion": "cancelled",
+  "event": "pull_request",
+  "path": ".github/workflows/pr-00-gate.yml",
+  "created_at": "2026-11-09T02:57:36Z",
+  "updated_at": "2026-11-09T03:11:44Z",
+  "html_url": "https://github.com/stranske/Workflows/actions/runs/42553729063"
+}

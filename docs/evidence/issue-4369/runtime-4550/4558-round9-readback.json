@@ -1,0 +1,100 @@
+{
+  "checked_at": "2026-11-09 01:26:32 UTC",
+  "incoming_head": "0b03620ce5bbc954b4a6385a1048df1ffbe6e759",
+  "pr": {
+    "number": 4558,
+    "url": "https://github.com/stranske/Workflows/pull/4558",
+    "state": "open",
+    "draft": false
+  },
+  "previous_changes_reviewed": [
+    "0b03620c",
+    "4a99f38d",
+    "8d8f3552",
+    "48a2d682",
+    "17a2ff3b"
+  ],
+  "acceptance_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "pull_4551": {
+    "number": 4551,
+    "state": "closed",
+    "merged": true,
+    "draft": false,
+    "head_sha": "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+    "merge_commit_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "merged_at": "2026-11-08T20:54:56Z"
+  },
+  "supported_ids": [
+    "T1",
+    "T2",
+    "T3",
+    "T4",
+    "T6",
+    "T7",
+    "A1",
+    "A2",
+    "A4"
+  ],
+  "unverified_ids": [
+    "T5",
+    "A3",
+    "upstream verification"
+  ],
+  "checklist_update": {
+    "attempted": true,
+    "succeeded": false,
+    "error": "MCP tool call requires approval, but approval policy is never",
+    "local_copy": "4558-round9-pr-body-reconciled.md",
+    "changes": [
+      "T1",
+      "T3",
+      "T6",
+      "A1",
+      "A2",
+      "A4"
+    ]
+  },
+  "inventory": {
+    "start": "2026-11-09T01:04:17Z",
+    "end": "2026-11-09T01:23:40Z",
+    "total_count": 182,
+    "page_counts": [
+      100,
+      82
+    ],
+    "file": "4558-round9-origin-inventory.json",
+    "maint68_count": 0,
+    "maint71_count": 1
+  },
+  "merger_lead": {
+    "id": 42544857435,
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "workflow_id": 221137962,
+    "created_at": "2026-11-09T01:18:15Z",
+    "event": "workflow_dispatch",
+    "head_sha": "e8aa27930bddd15f479b1312db14828b1542e2ee",
+    "status": "completed",
+    "conclusion": "success",
+    "run_attempt": 1,
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42544857435"
+  },
+  "merger_origin": {
+    "actor": "stranske-automation-bot",
+    "triggering_actor": "stranske-automation-bot",
+    "authenticated_automation_origin": false,
+    "reason": "workflow_dispatch and bot login alone do not authenticate the caller or bind a producer"
+  },
+  "qualifying_chain_observed": false,
+  "chain_acceptance": false,
+  "manual_dispatches": 0,
+  "comment_completeness_boundary_extended": false,
+  "upstream_verification_cleared": false,
+  "publication": {
+    "stage_exit_code": 128,
+    "commit_created": false,
+    "pushed": false,
+    "error": "Unable to create .git/index.lock: Read-only file system",
+    "working_tree_changes_preserved": true,
+    "metadata_workaround_attempted": false
+  }
+}

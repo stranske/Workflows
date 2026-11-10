@@ -1,0 +1,113 @@
+{
+  "sha": "1ff9e11cd51a456333c626cb354543b63202bef6",
+  "node_id": "C_kwDOO15QxNoAKDFmZjllMTFjZDUxYTQ1NjMzM2M2MjZjYjM1NDU0M2I2MzIwMmJlZjY",
+  "commit": {
+    "author": {
+      "name": "stranske",
+      "email": "stranske@gmail.com",
+      "date": "2026-11-08T20:48:23Z"
+    },
+    "committer": {
+      "name": "GitHub",
+      "email": "noreply@github.com",
+      "date": "2026-11-08T20:48:23Z"
+    },
+    "message": "chore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: a478e45c16b6",
+    "tree": {
+      "sha": "44fe6ccbeabbc1910fa01558fd60d579ddaf75c0",
+      "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/git/trees/44fe6ccbeabbc1910fa01558fd60d579ddaf75c0"
+    },
+    "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/git/commits/1ff9e11cd51a456333c626cb354543b63202bef6",
+    "comment_count": 0,
+    "verification": {
+      "verified": true,
+      "reason": "valid",
+      "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8OAXCRC1aQ7uu5UhlAAAfokQAKfO3mGNgzWC2KIRz1KUyDJH\nX+Ei+HJOJLmU7DZRMf/fQREvOEELj/AxqFNhuhKszIwJ2rfzrDDNC2rzkVi2/um3\nEtcESBmc41jF0EY6IcGJUJR83q7S2DoGiqgwjz8FxCrbkVtlsyGk7zn38wgywv7s\nc9EdCf+VgL8jcMG1b0Kk3QjdW9oYiLkSceQAZEonpEqcZwNEPjfSwA+DSLTB1fP1\nldHDIG+PNz+oUGuDfqSjg5BW5JUzbTFmJqOxNQHF3GVIP8qug2BfTofpXze42ICb\nbJabvTtE2ou8bjyzodPcGDWVdcWQRGbYPti+KSBNmCvNtA+RyvKQgzyBEWAuusHj\nbcZ73S7olktx7Rj7ZqKA2647OwTI9ycPCeLzHPSluZ67k2MGJh22emLijQ1rGmKE\nCNA5nlJkk0Dh7pV8DFP6mqUNawvDMo/1U7eSM1L8/OVxm+zHjgZSftTTmzxkOdD2\njaNDYaBFGeVqzQ8Ioy8w99X2K2ocbT3BZROs28zgQ/S93wSEzdKac4tMODjZnIP0\nvOtbiJNOrfJlJLeh0o3mgcs2lhh+OxwfLgK9nlLfu2HuApPV7L38+4EWSGMoxoqf\nv093fAGNFGUEgqo5ufcGSSvKykfXJkIqAl4+eDsS2VoONFSeViMk568ZnT5etkyK\n68TfuS3Ee2IF07McJe9t\n=Y52n\n-----END PGP SIGNATURE-----\n",
+      "payload": "tree 44fe6ccbeabbc1910fa01558fd60d579ddaf75c0\nparent 0543dc9732eab0ad12227308749566a937581eea\nauthor stranske <stranske@gmail.com> 1794170903 -0600\ncommitter GitHub <noreply@github.com> 1794170903 -0600\n\nchore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: a478e45c16b6",
+      "verified_at": "2026-11-08T20:48:24Z"
+    }
+  },
+  "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/commits/1ff9e11cd51a456333c626cb354543b63202bef6",
+  "html_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/commit/1ff9e11cd51a456333c626cb354543b63202bef6",
+  "comments_url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/commits/1ff9e11cd51a456333c626cb354543b63202bef6/comments",
+  "author": {
+    "login": "stranske",
+    "id": 23046322,
+    "node_id": "MDQ6VXNlcjIzMDQ2MzIy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/stranske",
+    "html_url": "https://github.com/stranske",
+    "followers_url": "https://api.github.com/users/stranske/followers",
+    "following_url": "https://api.github.com/users/stranske/following{/other_user}",
+    "gists_url": "https://api.github.com/users/stranske/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/stranske/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/stranske/subscriptions",
+    "organizations_url": "https://api.github.com/users/stranske/orgs",
+    "repos_url": "https://api.github.com/users/stranske/repos",
+    "events_url": "https://api.github.com/users/stranske/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/stranske/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "committer": {
+    "login": "web-flow",
+    "id": 19864447,
+    "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/web-flow",
+    "html_url": "https://github.com/web-flow",
+    "followers_url": "https://api.github.com/users/web-flow/followers",
+    "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+    "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+    "organizations_url": "https://api.github.com/users/web-flow/orgs",
+    "repos_url": "https://api.github.com/users/web-flow/repos",
+    "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/web-flow/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "parents": [
+    {
+      "sha": "0543dc9732eab0ad12227308749566a937581eea",
+      "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/commits/0543dc9732eab0ad12227308749566a937581eea",
+      "html_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/commit/0543dc9732eab0ad12227308749566a937581eea"
+    }
+  ],
+  "stats": {
+    "total": 37,
+    "additions": 23,
+    "deletions": 14
+  },
+  "files": [
+    {
+      "sha": "5b392147d34cc21384fd74d0adf0d7be712734a4",
+      "filename": ".github/agents/registry.yml",
+      "status": "modified",
+      "additions": 8,
+      "deletions": 8,
+      "changes": 16,
+      "blob_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/blob/1ff9e11cd51a456333c626cb354543b63202bef6/.github%2Fagents%2Fregistry.yml",
+      "raw_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/raw/1ff9e11cd51a456333c626cb354543b63202bef6/.github%2Fagents%2Fregistry.yml",
+      "contents_url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/contents/.github%2Fagents%2Fregistry.yml?ref=1ff9e11cd51a456333c626cb354543b63202bef6",
+      "patch": "@@ -41,7 +41,7 @@ execution_profiles:\n   codex-default:\n     agent: codex\n     model: gpt-6.1-sol\n-    fallback_model: gpt-5.5\n+    fallback_model: gpt-5.6-terra\n     runner: reusable-codex-run\n     capacity_pool: codex-standard\n     safety: standard\n@@ -50,7 +50,7 @@ execution_profiles:\n   codex-fast:\n     agent: codex\n     model: gpt-5.6-terra\n-    fallback_model: gpt-5.5\n+    fallback_model: gpt-5.6-terra\n     runner: reusable-codex-run\n     capacity_pool: codex-standard\n     safety: standard\n@@ -59,7 +59,7 @@ execution_profiles:\n   codex-implement:\n     agent: codex\n     model: gpt-6.1-sol\n-    fallback_model: gpt-5.5\n+    fallback_model: gpt-5.6-terra\n     runner: reusable-codex-run\n     capacity_pool: codex-standard\n     safety: standard\n@@ -68,7 +68,7 @@ execution_profiles:\n   codex-coordinate:\n     agent: codex\n     model: gpt-6.1-sol\n-    fallback_model: gpt-5.5\n+    fallback_model: gpt-5.6-terra\n     runner: reusable-codex-run\n     capacity_pool: codex-standard\n     safety: standard\n@@ -77,7 +77,7 @@ execution_profiles:\n   codex-routine:\n     agent: codex\n     model: gpt-5.6-terra\n-    fallback_model: gpt-5.5\n+    fallback_model: gpt-5.6-terra\n     runner: reusable-codex-run\n     capacity_pool: codex-standard\n     safety: standard\n@@ -86,7 +86,7 @@ execution_profiles:\n   codex-extract:\n     agent: codex\n     model: gpt-6-luna\n-    fallback_model: gpt-5.5\n+    fallback_model: gpt-5.6-terra\n     runner: reusable-codex-run\n     capacity_pool: codex-standard\n     safety: standard\n@@ -95,7 +95,7 @@ execution_profiles:\n   codex-hard:\n     agent: codex\n     model: gpt-6-astra\n-    fallback_model: gpt-5.5\n+    fallback_model: gpt-5.6-terra\n     runner: reusable-codex-run\n     capacity_pool: codex-standard\n     safety: standard\n@@ -104,7 +104,7 @@ execution_profiles:\n   codex-hardest:\n     agent: codex\n     model: gpt-6-astra\n-    fallback_model: gpt-5.5\n+    fallback_model: gpt-5.6-terra\n     runner: reusable-codex-run\n     capacity_pool: codex-standard\n     safety: standard"
+    },
+    {
+      "sha": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+      "filename": "tools/subscription_llm.py",
+      "status": "modified",
+      "additions": 15,
+      "deletions": 6,
+      "changes": 21,
+      "blob_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/blob/1ff9e11cd51a456333c626cb354543b63202bef6/tools%2Fsubscription_llm.py",
+      "raw_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/raw/1ff9e11cd51a456333c626cb354543b63202bef6/tools%2Fsubscription_llm.py",
+      "contents_url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/contents/tools%2Fsubscription_llm.py?ref=1ff9e11cd51a456333c626cb354543b63202bef6",
+      "patch": "@@ -50,11 +50,16 @@ def analysis_model(agent: str) -> str:\n \n def _has_subscription_auth(agent: str) -> bool:\n     if agent == \"claude\":\n-        home = Path(os.environ.get(\"CLAUDE_CONFIG_DIR\", str(Path.home() / \".claude\")))\n-        return (\n-            bool(os.environ.get(\"CLAUDE_CODE_OAUTH_TOKEN\"))\n-            or (home / \".credentials.json\").is_file()\n-        )\n+        if os.environ.get(\"CLAUDE_CODE_OAUTH_TOKEN\"):\n+            return True\n+        try:\n+            config_dir = os.environ.get(\"CLAUDE_CONFIG_DIR\")\n+            home = (\n+                Path(config_dir).expanduser().resolve() if config_dir else Path.home() / \".claude\"\n+            )\n+            return (home / \".credentials.json\").is_file()\n+        except (OSError, RuntimeError):\n+            return False\n     home = Path(os.environ.get(\"CODEX_HOME\", str(Path.home() / \".codex\")))\n     try:\n         auth = json.loads((home / \"auth.json\").read_text(encoding=\"utf-8\"))\n@@ -83,7 +88,11 @@ def build_environment(self, environ: Mapping[str, str]) -> dict[str, str]:\n             if self.agent == \"claude\"\n             else {\"CODEX_HOME\"}\n         )\n-        return {key: value for key, value in environ.items() if key in allowed}\n+        env = {key: value for key, value in environ.items() if key in allowed}\n+        if self.agent == \"claude\" and env.get(\"CLAUDE_CONFIG_DIR\"):\n+            # Resolve before the CLI starts in its unrelated temporary cwd.\n+            env[\"CLAUDE_CONFIG_DIR\"] = str(Path(env[\"CLAUDE_CONFIG_DIR\"]).expanduser().resolve())\n+        return env\n \n     def build_command(self) -> list[str]:\n         \"\"\"Build argv independently of prompt text and the parent environment.\"\"\""
+    }
+  ]
+}

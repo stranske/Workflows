@@ -1,0 +1,69 @@
+{
+  "checked_at": "2026-11-09T01:05:56.273464+00:00",
+  "bound_seconds": 30,
+  "inventories": {
+    "before": {
+      "argv": [
+        "git",
+        "ls-tree",
+        "-r",
+        "1a7a3c7de40b62af2839cb138e8d2abfe72fc766",
+        "--",
+        ".github/scripts/__tests__/keepalive-loop.test.js",
+        ".github/scripts/__tests__/maint71-delivery-receipts.test.js",
+        ".github/scripts/__tests__/verifier-correction-artifacts.test.js",
+        ".github/scripts/__tests__/verifier-correction-coding.test.js",
+        ".github/scripts/maint71_merge_sync_prs.js",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "tests/scripts/test_issue_pr_context.py",
+        "tests/scripts/test_llm_client_shared.py"
+      ],
+      "exit_code": 0,
+      "stdout": "100644 blob 943a4e3b0882cdd0f2f45b1f024347fd75ca0dc7\t.github/scripts/__tests__/keepalive-loop.test.js\n100644 blob a11eaf59568a51929fd0b6b6a7f87323a430d072\t.github/scripts/__tests__/verifier-correction-artifacts.test.js\n100644 blob dc474831a389d9c56147ce86fea6d18d7d0fb672\t.github/scripts/__tests__/verifier-correction-coding.test.js\n100644 blob fd34fe8aee19dde874f2d73304f07445218ffb75\t.github/scripts/maint71_merge_sync_prs.js\n100644 blob 764f2498e156201c968dc951a508f2fe2f577974\ttests/scripts/test_issue_4369_downstream_evidence.py\n100644 blob 17c95cf5b0882a5059d7435c82471e5d67547751\ttests/scripts/test_issue_pr_context.py\n100644 blob 31eb97001106deabb76a6db094a3e5f50839a1c3\ttests/scripts/test_llm_client_shared.py\n",
+      "stderr": ""
+    },
+    "repair": {
+      "argv": [
+        "git",
+        "ls-tree",
+        "-r",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "--",
+        ".github/scripts/__tests__/keepalive-loop.test.js",
+        ".github/scripts/__tests__/maint71-delivery-receipts.test.js",
+        ".github/scripts/__tests__/verifier-correction-artifacts.test.js",
+        ".github/scripts/__tests__/verifier-correction-coding.test.js",
+        ".github/scripts/maint71_merge_sync_prs.js",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "tests/scripts/test_issue_pr_context.py",
+        "tests/scripts/test_llm_client_shared.py"
+      ],
+      "exit_code": 0,
+      "stdout": "100644 blob df4b3fcc0adff4e0a98b8e912f4caf333678cdce\t.github/scripts/__tests__/keepalive-loop.test.js\n100644 blob ceed865eb5cdbbb61a5e316963b329a2d328b854\t.github/scripts/__tests__/maint71-delivery-receipts.test.js\n100644 blob df68f982dbca0a376291981eceeef3ff272f4adb\t.github/scripts/__tests__/verifier-correction-artifacts.test.js\n100644 blob cbce60b3fe1461bf0facfdfda6c40ed322da9153\t.github/scripts/__tests__/verifier-correction-coding.test.js\n100644 blob 0ab62b3314a46bbdce99b686805e050d7291f41e\t.github/scripts/maint71_merge_sync_prs.js\n100644 blob 0f15d41954da0948763167a5484c33bf732a1c32\ttests/scripts/test_issue_4369_delivery_lifecycle.py\n100644 blob 6c6b5444e2f58802ff362ada9049b5d057c5a77e\ttests/scripts/test_issue_4369_downstream_evidence.py\n100644 blob b8b304b224ace1dd4d3c8e47d1bf6ccdfd73a13b\ttests/scripts/test_issue_pr_context.py\n100644 blob 7580e0ea46833ffa175eb95862e9d92785cf2e25\ttests/scripts/test_llm_client_shared.py\n",
+      "stderr": ""
+    },
+    "selected": {
+      "argv": [
+        "git",
+        "ls-tree",
+        "-r",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "--",
+        ".github/scripts/__tests__/keepalive-loop.test.js",
+        ".github/scripts/__tests__/maint71-delivery-receipts.test.js",
+        ".github/scripts/__tests__/verifier-correction-artifacts.test.js",
+        ".github/scripts/__tests__/verifier-correction-coding.test.js",
+        ".github/scripts/maint71_merge_sync_prs.js",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "tests/scripts/test_issue_pr_context.py",
+        "tests/scripts/test_llm_client_shared.py"
+      ],
+      "exit_code": 0,
+      "stdout": "100644 blob df4b3fcc0adff4e0a98b8e912f4caf333678cdce\t.github/scripts/__tests__/keepalive-loop.test.js\n100644 blob ceed865eb5cdbbb61a5e316963b329a2d328b854\t.github/scripts/__tests__/maint71-delivery-receipts.test.js\n100644 blob df68f982dbca0a376291981eceeef3ff272f4adb\t.github/scripts/__tests__/verifier-correction-artifacts.test.js\n100644 blob cbce60b3fe1461bf0facfdfda6c40ed322da9153\t.github/scripts/__tests__/verifier-correction-coding.test.js\n100644 blob 0ab62b3314a46bbdce99b686805e050d7291f41e\t.github/scripts/maint71_merge_sync_prs.js\n100644 blob 0f15d41954da0948763167a5484c33bf732a1c32\ttests/scripts/test_issue_4369_delivery_lifecycle.py\n100644 blob 6c6b5444e2f58802ff362ada9049b5d057c5a77e\ttests/scripts/test_issue_4369_downstream_evidence.py\n100644 blob b8b304b224ace1dd4d3c8e47d1bf6ccdfd73a13b\ttests/scripts/test_issue_pr_context.py\n100644 blob 7580e0ea46833ffa175eb95862e9d92785cf2e25\ttests/scripts/test_llm_client_shared.py\n",
+      "stderr": ""
+    }
+  }
+}

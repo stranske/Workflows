@@ -364,13 +364,17 @@ def sync_pyproject(
     return changes, errors
 
 
+def _normalized_package_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
 def _build_lockfile_targets(pins: dict[str, str]) -> dict[str, str]:
     targets: dict[str, str] = {}
     for env_key, package_names in TOOL_MAPPING.items():
         if env_key not in pins:
             continue
         for name in package_names:
-            targets[name.lower()] = pins[env_key]
+            targets[_normalized_package_name(name)] = pins[env_key]
     return targets
 
 
@@ -457,16 +461,8 @@ def sync_workflow_run_pins(
     return changes, []
 
 
-def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list[str], list[str]]:
-    """Resolve a generated lock using its recorded inputs, never shell replay.
-
-    Direct pin rewriting is not sufficient when a tool adds or tightens a
-    transitive requirement. Preserve the consumer's extras/platform choices
-    and existing output preferences, permitting managed tools to upgrade.
-    Unsupported provenance fails closed instead of guessing a lock scope.
-    """
-    if not lockfile_path.exists():
-        return [], []
+def _lockfile_source(lockfile_path: Path) -> tuple[str, str]:
+    """Validate unprovenanced lock scope before any pin can be rewritten."""
     content = lockfile_path.read_text(encoding="utf-8")
     command = next(
         (
@@ -478,8 +474,41 @@ def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list
     )
     # requirements-dev.txt may be a manually authored direct requirement list.
     if not command and lockfile_path.suffix == ".txt":
+        return content, command
+    # A runtime-only hand-maintained lock has no dev-tool payload to resolve.
+    # Keep it byte-identical rather than inventing an extras/platform scope.
+    if not command:
+        managed = {
+            _normalized_package_name(name) for names in TOOL_MAPPING.values() for name in names
+        }
+        entries = [
+            LOCKFILE_PATTERN.fullmatch(line)
+            for line in content.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        if all(
+            match is not None and _normalized_package_name(match.group("name")) not in managed
+            for match in entries
+        ):
+            return content, command
+        raise ValueError("missing supported uv compile provenance")
+    return content, command
+
+
+def regenerate_lockfile(lockfile_path: Path, pins: dict[str, str]) -> tuple[list[str], list[str]]:
+    """Resolve a generated lock using its recorded inputs, never shell replay.
+
+    Direct pin rewriting is not sufficient when a tool adds or tightens a
+    transitive requirement. Preserve the consumer's extras/platform choices
+    and existing output preferences, permitting managed tools to upgrade.
+    Unsupported provenance fails closed instead of guessing a lock scope.
+    """
+    if not lockfile_path.exists():
         return [], []
     try:
+        content, command = _lockfile_source(lockfile_path)
+        if not command:
+            return [], []
         tokens = shlex.split(command)
         if tokens[:3] != ["uv", "pip", "compile"]:
             raise ValueError("missing supported uv compile provenance")
@@ -599,7 +628,7 @@ def sync_lockfile(
             continue
 
         name = match.group("name")
-        target_version = targets.get(name.lower())
+        target_version = targets.get(_normalized_package_name(name))
         current_requirement = f"{match.group('specifier') or ''}{match.group('marker') or ''}"
         target_requirement = f"=={target_version}{match.group('marker') or ''}"
         if target_version and current_requirement != target_requirement:
@@ -811,6 +840,18 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 2
+
+    if args.resolve_locks:
+        for lockfile_path in LOCKFILE_FILES:
+            if lockfile_path.exists():
+                try:
+                    _lockfile_source(lockfile_path)
+                except ValueError as exc:
+                    print(
+                        f"Error: {lockfile_path}: transitive lock regeneration failed ({exc})",
+                        file=sys.stderr,
+                    )
+                    return 2
 
     changes, errors = sync_pyproject(
         args.pyproject,

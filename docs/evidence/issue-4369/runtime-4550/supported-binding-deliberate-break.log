@@ -1,0 +1,120 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+____ test_refreshed_binding_rejects_substituted_metadata[repository-source] ____
+
+refreshed_receipt = {'schema': 'issue-4369/downstream-refresh/v1', 'observed_at_utc': '2026-11-08T11:44:30Z', 'repository': 'stranske/Workflows', 'consumer_repository': 'stranske/Portable-Alpha-Extension-Model', ...}
+payload_key = 'source', field = 'repository'
+
+    @pytest.mark.parametrize("payload_key", ["source", "consumer"])
+    @pytest.mark.parametrize("field", ["repository", "url"])
+    def test_refreshed_binding_rejects_substituted_metadata(
+        refreshed_receipt: dict, payload_key: str, field: str
+    ) -> None:
+        mutated = deepcopy(refreshed_receipt)
+        payload = mutated["payloads"][payload_key]
+        if field == "repository":
+            payload[field] = "stranske/unrelated"
+            # Keep related metadata consistent so receipt ownership is decisive.
+            payload["url"] = (
+                f'https://github.com/{payload[field]}/blob/{payload["ref"]}/{payload["path"]}'
+            )
+            if payload_key == "consumer":
+                mutated["consumer_default_branch"]["url"] = (
+                    f'https://api.github.com/repos/{payload[field]}/branches/main'
+                )
+        else:
+            payload[field] += "-substituted"
+>       with pytest.raises(AssertionError):
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_downstream_evidence.py:310: Failed
+___ test_refreshed_binding_rejects_substituted_metadata[repository-consumer] ___
+
+refreshed_receipt = {'schema': 'issue-4369/downstream-refresh/v1', 'observed_at_utc': '2026-11-08T11:44:30Z', 'repository': 'stranske/Workflows', 'consumer_repository': 'stranske/Portable-Alpha-Extension-Model', ...}
+payload_key = 'consumer', field = 'repository'
+
+    @pytest.mark.parametrize("payload_key", ["source", "consumer"])
+    @pytest.mark.parametrize("field", ["repository", "url"])
+    def test_refreshed_binding_rejects_substituted_metadata(
+        refreshed_receipt: dict, payload_key: str, field: str
+    ) -> None:
+        mutated = deepcopy(refreshed_receipt)
+        payload = mutated["payloads"][payload_key]
+        if field == "repository":
+            payload[field] = "stranske/unrelated"
+            # Keep related metadata consistent so receipt ownership is decisive.
+            payload["url"] = (
+                f'https://github.com/{payload[field]}/blob/{payload["ref"]}/{payload["path"]}'
+            )
+            if payload_key == "consumer":
+                mutated["consumer_default_branch"]["url"] = (
+                    f'https://api.github.com/repos/{payload[field]}/branches/main'
+                )
+        else:
+            payload[field] += "-substituted"
+>       with pytest.raises(AssertionError):
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_downstream_evidence.py:310: Failed
+_______ test_refreshed_binding_rejects_substituted_metadata[url-source] ________
+
+refreshed_receipt = {'schema': 'issue-4369/downstream-refresh/v1', 'observed_at_utc': '2026-11-08T11:44:30Z', 'repository': 'stranske/Workflows', 'consumer_repository': 'stranske/Portable-Alpha-Extension-Model', ...}
+payload_key = 'source', field = 'url'
+
+    @pytest.mark.parametrize("payload_key", ["source", "consumer"])
+    @pytest.mark.parametrize("field", ["repository", "url"])
+    def test_refreshed_binding_rejects_substituted_metadata(
+        refreshed_receipt: dict, payload_key: str, field: str
+    ) -> None:
+        mutated = deepcopy(refreshed_receipt)
+        payload = mutated["payloads"][payload_key]
+        if field == "repository":
+            payload[field] = "stranske/unrelated"
+            # Keep related metadata consistent so receipt ownership is decisive.
+            payload["url"] = (
+                f'https://github.com/{payload[field]}/blob/{payload["ref"]}/{payload["path"]}'
+            )
+            if payload_key == "consumer":
+                mutated["consumer_default_branch"]["url"] = (
+                    f'https://api.github.com/repos/{payload[field]}/branches/main'
+                )
+        else:
+            payload[field] += "-substituted"
+>       with pytest.raises(AssertionError):
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_downstream_evidence.py:310: Failed
+______ test_refreshed_binding_rejects_substituted_metadata[url-consumer] _______
+
+refreshed_receipt = {'schema': 'issue-4369/downstream-refresh/v1', 'observed_at_utc': '2026-11-08T11:44:30Z', 'repository': 'stranske/Workflows', 'consumer_repository': 'stranske/Portable-Alpha-Extension-Model', ...}
+payload_key = 'consumer', field = 'url'
+
+    @pytest.mark.parametrize("payload_key", ["source", "consumer"])
+    @pytest.mark.parametrize("field", ["repository", "url"])
+    def test_refreshed_binding_rejects_substituted_metadata(
+        refreshed_receipt: dict, payload_key: str, field: str
+    ) -> None:
+        mutated = deepcopy(refreshed_receipt)
+        payload = mutated["payloads"][payload_key]
+        if field == "repository":
+            payload[field] = "stranske/unrelated"
+            # Keep related metadata consistent so receipt ownership is decisive.
+            payload["url"] = (
+                f'https://github.com/{payload[field]}/blob/{payload["ref"]}/{payload["path"]}'
+            )
+            if payload_key == "consumer":
+                mutated["consumer_default_branch"]["url"] = (
+                    f'https://api.github.com/repos/{payload[field]}/branches/main'
+                )
+        else:
+            payload[field] += "-substituted"
+>       with pytest.raises(AssertionError):
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_downstream_evidence.py:310: Failed
+=========================== short test summary info ============================
+FAILED tests/scripts/test_issue_4369_downstream_evidence.py::test_refreshed_binding_rejects_substituted_metadata[repository-source]
+FAILED tests/scripts/test_issue_4369_downstream_evidence.py::test_refreshed_binding_rejects_substituted_metadata[repository-consumer]
+FAILED tests/scripts/test_issue_4369_downstream_evidence.py::test_refreshed_binding_rejects_substituted_metadata[url-source]
+FAILED tests/scripts/test_issue_4369_downstream_evidence.py::test_refreshed_binding_rejects_substituted_metadata[url-consumer]
+4 failed in 0.34s

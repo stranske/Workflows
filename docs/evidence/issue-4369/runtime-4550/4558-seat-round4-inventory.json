@@ -1,0 +1,18 @@
+{
+  "boundary_utc": "2026-11-09T00:01:34Z",
+  "inventories": [
+    {
+      "endpoint": "repos/stranske/Workflows/actions/workflows/maint-68-sync-consumer-repos.yml/runs?per_page=100&created=2026-11-08T23:20:00Z..2026-11-09T00:01:34Z",
+      "total_count": 0,
+      "pagination_complete": true,
+      "runs": []
+    },
+    {
+      "endpoint": "repos/stranske/Workflows/actions/workflows/maint-71-merge-sync-prs.yml/runs?per_page=100&created=2026-11-08T23:20:00Z..2026-11-09T00:01:34Z",
+      "total_count": 0,
+      "pagination_complete": true,
+      "runs": []
+    }
+  ],
+  "chain_acceptance": false
+}

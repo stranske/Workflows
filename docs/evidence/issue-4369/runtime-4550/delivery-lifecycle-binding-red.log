@@ -1,0 +1,208 @@
+FFFFFFFFFFFF                                                             [100%]
+=================================== FAILURES ===================================
+_ test_causal_report_rejects_a_disposition_from_another_delivery[repository-42485792262] _
+
+run_id = 42485792262, field = 'repository'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[repository-42485974523] _
+
+run_id = 42485974523, field = 'repository'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[pr-42485792262] _
+
+run_id = 42485792262, field = 'pr'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[pr-42485974523] _
+
+run_id = 42485974523, field = 'pr'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[head_sha-42485792262] _
+
+run_id = 42485792262, field = 'head_sha'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[head_sha-42485974523] _
+
+run_id = 42485974523, field = 'head_sha'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[source_commit-42485792262] _
+
+run_id = 42485792262, field = 'source_commit'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[source_commit-42485974523] _
+
+run_id = 42485974523, field = 'source_commit'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[plan_id-42485792262] _
+
+run_id = 42485792262, field = 'plan_id'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[plan_id-42485974523] _
+
+run_id = 42485974523, field = 'plan_id'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[delivery_generation-42485792262] _
+
+run_id = 42485792262, field = 'delivery_generation'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+_ test_causal_report_rejects_a_disposition_from_another_delivery[delivery_generation-42485974523] _
+
+run_id = 42485974523, field = 'delivery_generation'
+
+    @pytest.mark.parametrize("run_id", [FOLLOWING, RETRY])
+    @pytest.mark.parametrize("field", list(expected_binding()))
+    def test_causal_report_rejects_a_disposition_from_another_delivery(run_id: int, field: str) -> None:
+        report = deepcopy(read(f"maint71-{run_id}-sync-pr-merge-report.json"))
+        row = next(row for row in report["results"] if row.get("repo") == CONSUMER.split("/")[1])
+        binding = row["review_finding_disposition"]["binding"]
+        binding[field] = binding[field] + 1 if field == "pr" else binding[field] + "-substituted"
+>       with pytest.raises(AssertionError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE AssertionError
+
+tests/scripts/test_issue_4369_delivery_lifecycle.py:76: Failed
+=========================== short test summary info ============================
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[repository-42485792262] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[repository-42485974523] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[pr-42485792262] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[pr-42485974523] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[head_sha-42485792262] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[head_sha-42485974523] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[source_commit-42485792262] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[source_commit-42485974523] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[plan_id-42485792262] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[plan_id-42485974523] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[delivery_generation-42485792262] - Failed: DID NOT RAISE AssertionError
+FAILED tests/scripts/test_issue_4369_delivery_lifecycle.py::test_causal_report_rejects_a_disposition_from_another_delivery[delivery_generation-42485974523] - Failed: DID NOT RAISE AssertionError
+12 failed, 6 deselected in 0.63s

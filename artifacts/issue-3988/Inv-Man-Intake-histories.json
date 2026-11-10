@@ -1,0 +1,73 @@
+[
+  {
+    "repository": "stranske/Inv-Man-Intake",
+    "number": 1068,
+    "url": "https://github.com/stranske/Inv-Man-Intake/pull/1068",
+    "created_at": "2026-11-09T00:48:11Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Inv-Man-Intake/issues/1068/timeline?per_page=100&page=1",
+        "count": 6
+      }
+    ],
+    "label_events": [],
+    "history_complete": true
+  },
+  {
+    "repository": "stranske/Inv-Man-Intake",
+    "number": 1067,
+    "url": "https://github.com/stranske/Inv-Man-Intake/pull/1067",
+    "created_at": "2026-11-08T16:38:55Z",
+    "timeline_pages": [
+      {
+        "endpoint": "repos/stranske/Inv-Man-Intake/issues/1067/timeline?per_page=100&page=1",
+        "count": 21
+      }
+    ],
+    "label_events": [
+      {
+        "id": 35502001103,
+        "url": "https://api.github.com/repos/stranske/Inv-Man-Intake/issues/events/35502001103",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:38:57Z",
+        "label": "sync"
+      },
+      {
+        "id": 35502001147,
+        "url": "https://api.github.com/repos/stranske/Inv-Man-Intake/issues/events/35502001147",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:38:57Z",
+        "label": "automated"
+      },
+      {
+        "id": 35502001186,
+        "url": "https://api.github.com/repos/stranske/Inv-Man-Intake/issues/events/35502001186",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:38:57Z",
+        "label": "workflow:source-sync"
+      },
+      {
+        "id": 35502001204,
+        "url": "https://api.github.com/repos/stranske/Inv-Man-Intake/issues/events/35502001204",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:38:57Z",
+        "label": "sync:delivery-staging"
+      },
+      {
+        "id": 35502261374,
+        "url": "https://api.github.com/repos/stranske/Inv-Man-Intake/issues/events/35502261374",
+        "event": "labeled",
+        "created_at": "2026-11-08T16:45:06Z",
+        "label": "sync:delivery-ready"
+      },
+      {
+        "id": 35512734147,
+        "url": "https://api.github.com/repos/stranske/Inv-Man-Intake/issues/events/35512734147",
+        "event": "unlabeled",
+        "created_at": "2026-11-08T20:47:39Z",
+        "label": "sync:delivery-staging"
+      }
+    ],
+    "history_complete": true
+  }
+]

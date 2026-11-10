@@ -111,6 +111,7 @@ function projectOwnerExclusions(state = {}) {
   const history = excludeOwnerBlockedRecords(state.source_review_history);
   const reconciliationErrors = excludeOwnerBlockedRecords(state.handoff_reconciliation_errors);
   const blockedKeys = excludeOwnerBlockedRecords(state.handoff_verification_blocked_keys);
+  const reassessments = excludeOwnerBlockedRecords(state.handoff_reassessments);
   const cachedClaims = cleanArray(state.stats?.local_codex_claims?.items);
   const claims = excludeOwnerBlockedRecords(cachedClaims);
   const pruned = nestedCandidatePruned || items.length !== cleanArray(state.items).length
@@ -119,6 +120,7 @@ function projectOwnerExclusions(state = {}) {
     || history.length !== cleanArray(state.source_review_history).length
     || reconciliationErrors.length !== cleanArray(state.handoff_reconciliation_errors).length
     || blockedKeys.length !== cleanArray(state.handoff_verification_blocked_keys).length
+    || reassessments.length !== cleanArray(state.handoff_reassessments).length
     || claims.length !== cachedClaims.length;
   if (!pruned) return state;
   return {
@@ -131,6 +133,7 @@ function projectOwnerExclusions(state = {}) {
     source_review_history: history,
     handoff_reconciliation_errors: reconciliationErrors,
     handoff_verification_blocked_keys: blockedKeys,
+    handoff_reassessments: reassessments,
     stats: {
       ...(state.stats || {}),
       ...deriveItemStats(items),
@@ -532,7 +535,63 @@ function preparedDeliveryContinuation(record = {}) {
   return continuation;
 }
 
-function planMaint71Continuations(records = [], { now = new Date().toISOString() } = {}) {
+function hasContinuationAcknowledgment(acknowledgments = [], intent = {}) {
+  return cleanArray(acknowledgments).some(ack => ack.lane === intent.lane
+    && ack.key === intent.continuation_key && cleanInteger(ack.run_id));
+}
+
+// Retain success receipts for every still-queued key, independently of Actions
+// history retention. Materially replaced/terminal intents retire their receipts.
+function mergeContinuationAcknowledgments(previous = [], runs = [], intents = [],
+  { repository = 'stranske/Workflows', defaultBranch = 'main' } = {}) {
+  const queued = new Set(cleanArray(intents).map(intent => `${intent.lane}:${intent.continuation_key}`));
+  const receipts = new Map(cleanArray(previous)
+    .filter(ack => queued.has(`${ack.lane}:${ack.key}`) && cleanInteger(ack.run_id))
+    .map(ack => [`${ack.lane}:${ack.key}`, ack]));
+  for (const run of cleanArray(runs)) {
+    if (run.status !== 'completed' || run.conclusion !== 'success'
+      || run.repository?.full_name !== repository || run.head_branch !== defaultBranch
+      || String(run.path || '').split('@')[0] !== '.github/workflows/maint-71-merge-sync-prs.yml'
+      || !['workflow_dispatch', 'repository_dispatch', 'schedule'].includes(run.event)
+      || !cleanInteger(run.id) || !cleanInteger(run.run_attempt)
+      || !Number.isFinite(Date.parse(run.updated_at))) continue;
+    const title = cleanString(run.display_title).replace(/\s+/g, ' ');
+    const match = title.match(/^Merge Sync PRs \[(candidate|campaign|delivery|dev-tool)\] ([\w-]{1,128})$/);
+    if (!match || !queued.has(`${match[1]}:${match[2]}`)) continue;
+    const ack = { lane: match[1], key: match[2], run_id: run.id,
+      run_attempt: run.run_attempt, completed_at: run.updated_at };
+    receipts.set(`${ack.lane}:${ack.key}`, ack);
+  }
+  return [...receipts.values()];
+}
+
+function queuedMaint71Intents(records = []) {
+  return excludeOwnerBlockedRecords(records).map(normalizeDeliveryHandoff).filter(Boolean)
+    .map(record => preparedDeliveryContinuation(record))
+    .filter(next => next.class === 'transient')
+    .map(next => ({ lane: next.lane, continuation_key: next.key }));
+}
+
+async function observeMaint71Runs({ read, owner, repo, workflowRun, completionRunId, pendingRunIds = [] }) {
+  const { data } = await read(client => client.rest.actions.listWorkflowRuns({
+    owner, repo, workflow_id: 'maint-71-merge-sync-prs.yml', per_page: 40 }));
+  if (!Array.isArray(data?.workflow_runs)) throw new Error('maint71_history_unknown; drainable=retry-actions-read');
+  const runs = data.workflow_runs;
+  // Existing repository-dispatch notifications carry only a run ID. Pending
+  // IDs survive an early wake, so later reconciliation can read completion
+  // even after unrelated history has pushed that run out of the bounded page.
+  const requested = [...new Set([...pendingRunIds, completionRunId, workflowRun?.id]
+    .map(cleanInteger).filter(Boolean))];
+  for (const id of requested.filter(id => !runs.some(run => run.id === id))) {
+    const response = await read(client => client.rest.actions.getWorkflowRun({
+      owner, repo, run_id: id }));
+    if (response?.data?.id !== id) throw new Error('maint71_completion_identity_changed');
+    runs.push(response.data);
+  }
+  return runs;
+}
+
+function planMaint71Continuations(records = [], { now = new Date().toISOString(), acknowledgments = [] } = {}) {
   const nowMs = Date.parse(now);
   if (!Number.isFinite(nowMs)) throw new Error(`invalid continuation time: ${now}`);
   const handoffs = excludeOwnerBlockedRecords(records)
@@ -546,6 +605,8 @@ function planMaint71Continuations(records = [], { now = new Date().toISOString()
   for (const record of handoffs) {
     const continuation = preparedDeliveryContinuation(record);
     if (continuation.class !== 'transient') continue;
+    if (hasContinuationAcknowledgment(acknowledgments,
+      { lane: continuation.lane, continuation_key: continuation.key })) continue;
     if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) continue;
     if (deliveryActive && continuation.lane === 'candidate') continue;
     const dueMs = Date.parse(continuation.resume_after || record.observed_at);
@@ -594,6 +655,10 @@ function selectMaint71ContinuationRepos(
   const allowed = cleanArray(registeredRepos)
     .map(cleanString)
     .filter((repo) => repo && !excluded.has(repositoryIdentity(repo)));
+  if (continuation.reassessment === true) {
+    return normalizeHandoffReassessment(continuation) && allowed.includes(continuation.repository)
+      ? [continuation.repository] : [];
+  }
   if (continuation.lane === 'campaign' || continuation.lane === 'dev-tool') {
     // Campaign authorization deliberately inspects the whole non-manual fleet.
     return allowed;
@@ -686,10 +751,42 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
     .slice(0, limit);
 }
 
+function normalizeHandoffReassessment(value = {}) {
+  if (isOwnerExcludedRepository(value) || value.reassessment !== true || value.lane !== 'dev-tool'
+    || (Object.hasOwn(value, 'cleanup_branches') && typeof value.cleanup_branches !== 'boolean')
+    || !/^[\w.-]+\/[\w.-]+$/.test(value.repository || '') || !cleanInteger(value.pr)
+    || !String(value.branch || '').startsWith(DEV_TOOL_SYNC_BRANCH_PREFIX)
+    || ![value.head_sha, value.prior_head_sha, value.base_sha].every(sha => /^[a-f0-9]{40}$/.test(sha || ''))
+    || value.head_sha === value.prior_head_sha) return null;
+  const key = `reconcile-${crypto.createHash('sha256').update(JSON.stringify([
+    value.repository, value.pr, value.branch, value.head_sha, value.base_sha,
+    cleanString(value.mergeable_state) || 'unknown',
+  ])).digest('hex').slice(0, 20)}`;
+  if (value.continuation_key && value.continuation_key !== key) return null;
+  return { repository: value.repository, pr: value.pr, branch: value.branch,
+    head_sha: value.head_sha, prior_head_sha: value.prior_head_sha, base_sha: value.base_sha,
+    mergeable_state: cleanString(value.mergeable_state) || 'unknown',
+    reassessment: true, lane: 'dev-tool', continuation_key: key,
+    ...(typeof value.cleanup_branches === 'boolean' ? { cleanup_branches: value.cleanup_branches } : {}) };
+}
+
+function mergeHandoffReassessments(previous = [], incoming = [], blockedKeys = []) {
+  const blocked = new Set(blockedKeys);
+  const requests = new Map();
+  for (const value of [...cleanArray(previous), ...cleanArray(incoming)]) {
+    const normalized = normalizeHandoffReassessment(value);
+    if (!normalized) continue;
+    const key = `${normalized.repository}#${normalized.pr}`;
+    if (blocked.has(key)) requests.set(key, normalized);
+  }
+  return [...requests.values()];
+}
+
 async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api, withRetry, now = '') {
   const records = [];
   const errors = [];
   const blockedKeys = [];
+  const reassessments = [];
   const incomingKeys = new Set(excludeOwnerBlockedRecords(incoming).map((row) => `${row.repository}#${row.pr}`));
   for (const retained of excludeOwnerBlockedRecords(previous).map((row) => normalizeDeliveryHandoff(row)).filter(Boolean)) {
     if (preparedDeliveryContinuation(retained).class === 'terminal') continue;
@@ -710,6 +807,20 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
         if (pr.head?.sha !== retained.head_sha || pr.head?.ref !== retained.branch) {
           errors.push(`${key}: open PR identity differs from retained delivery handoff`);
           blockedKeys.push(key);
+          // A wake request grants no adoption/merge authority. Maint 71 must
+          // independently prepare and validate the actual current native head.
+          if (retained.lane === 'dev-tool-sync' && pr.draft !== true
+            && pr.head?.ref === retained.branch && pr.head?.repo?.full_name === retained.repository
+            && pr.base?.repo?.full_name === retained.repository
+            && require('./sync_pr_merge_contract').isTrustedGeneratedDeliveryPr(pr,
+              [owner, `${owner}-automation-bot`, 'github-actions[bot]'])) {
+            const request = normalizeHandoffReassessment({ repository: retained.repository,
+              pr: retained.pr, branch: retained.branch, prior_head_sha: retained.head_sha,
+              head_sha: pr.head.sha, base_sha: pr.base.sha, mergeable_state: pr.mergeable_state,
+              ...(typeof retained.cleanup_branches === 'boolean' ? { cleanup_branches: retained.cleanup_branches } : {}),
+              lane: 'dev-tool', reassessment: true });
+            if (request) reassessments.push(request);
+          }
         }
         continue;
       }
@@ -746,7 +857,7 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
       blockedKeys.push(key);
     }
   }
-  return { records, errors, blockedKeys };
+  return { records, errors, blockedKeys, reassessments };
 }
 
 async function verifyIncomingDeliveryHandoffs(incoming = [], api, withRetry) {
@@ -946,6 +1057,9 @@ function mergeCampaignState(previousState = {}, discoveredItems = [], nowValue, 
     },
     source_review_history: sourceReviewHistory,
     delivery_handoffs: deliveryHandoffs,
+    continuation_acknowledgments: cleanArray(previousState.continuation_acknowledgments),
+    continuation_completion_runs: cleanArray(previousState.continuation_completion_runs),
+    handoff_reassessments: cleanArray(previousState.handoff_reassessments),
     items,
   };
 }
@@ -1292,6 +1406,9 @@ function compactStateForMarker(state = {}) {
       .map(compactSourceReviewHistoryEntry)
       .filter(Boolean),
     delivery_handoffs: cleanArray(state.delivery_handoffs).slice(0, DEFAULT_MAX_DELIVERY_HANDOFFS),
+    continuation_acknowledgments: cleanArray(state.continuation_acknowledgments),
+    continuation_completion_runs: cleanArray(state.continuation_completion_runs),
+    handoff_reassessments: cleanArray(state.handoff_reassessments),
     marker_item_filter: 'actionable-claimed-blocked-unpublished',
     items: markerItems.map(compactQueueItemForMarker),
   };
@@ -2085,6 +2202,7 @@ async function runCampaign({
   ignoredPaths = DEFAULT_IGNORED_PATHS,
   currentSyncHash = '',
   deliveryHandoffRecords = [],
+  observeContinuations = false,
   now = new Date().toISOString(),
 } = {}) {
   if (!github || !context?.repo) {
@@ -2103,6 +2221,11 @@ async function runCampaign({
 
   let campaignIssue = await findCampaignIssue(api, campaignOwner, campaignRepo, core, withRetry);
   let previousState = parseCampaignMarker(campaignIssue?.body) || {};
+  const maint71Runs = observeContinuations ? await observeMaint71Runs({
+    read: withRetry, owner: campaignOwner, repo: campaignRepo,
+    completionRunId: context.payload?.client_payload?.continuation_completion_run_id,
+    pendingRunIds: previousState.continuation_completion_runs || [],
+  }) : [];
   previousState = {
     ...previousState,
     items: excludeOwnerBlockedRecords(previousState.items),
@@ -2165,6 +2288,21 @@ async function runCampaign({
   state.handoff_verification_blocked_keys = [...new Set([
     ...verifiedIncoming.blockedKeys, ...closureReconciliation.blockedKeys,
   ])];
+  state.handoff_reassessments = mergeHandoffReassessments(previousState.handoff_reassessments,
+    closureReconciliation.reassessments, state.handoff_verification_blocked_keys);
+  state.continuation_acknowledgments = mergeContinuationAcknowledgments(
+    previousState.continuation_acknowledgments, maint71Runs,
+    [...queuedMaint71Intents(state.delivery_handoffs), ...state.handoff_reassessments], {
+      repository: `${campaignOwner}/${campaignRepo}`,
+      defaultBranch: context.payload?.repository?.default_branch || 'main',
+    });
+  if (observeContinuations) state.continuation_completion_runs = maint71Runs
+    .filter(run => run.status !== 'completed' && cleanInteger(run.id)
+      && run.repository?.full_name === `${campaignOwner}/${campaignRepo}`
+      && run.head_branch === (context.payload?.repository?.default_branch || 'main')
+      && String(run.path || '').split('@')[0] === '.github/workflows/maint-71-merge-sync-prs.yml'
+      && ['workflow_dispatch', 'repository_dispatch', 'schedule'].includes(run.event))
+    .map(run => run.id);
   if (errors.length) {
     state.errors = errors.slice(0, 20);
   }
@@ -2227,10 +2365,15 @@ async function runCampaign({
     core.setOutput('campaign_issue_url', campaignIssue?.html_url || '');
   }
 
-  return { state, issue: campaignIssue, body };
+  return { state, issue: campaignIssue, body, maint71Runs };
 }
 
 module.exports = {
+  normalizeHandoffReassessment,
+  mergeHandoffReassessments,
+  hasContinuationAcknowledgment,
+  mergeContinuationAcknowledgments,
+  observeMaint71Runs,
   CAMPAIGN_SCHEMA,
   CAMPAIGN_MARKER,
   CAMPAIGN_TITLE,

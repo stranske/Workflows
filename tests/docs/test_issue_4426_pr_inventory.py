@@ -1,8 +1,11 @@
 """Lock the #4000 and #4405 inventory against this branch and the evidence files.
 
-#4000's three verifier tests are already in the tree. #4405's added tests are
-not, and its Gate run failed lint while pytest passed. Coverage arithmetic uses
-the recovered 3.14 counters and keeps the original about-180 rule intact.
+#4000's three verifier tests are already in the tree. #4405 was closed unmerged
+(its Gate run failed lint while pytest passed); its pr_verifier tests were
+carried into the tree by #4602, and its langchain_client tests were dropped as
+duplicates of tests already on main. The inventory itself is a 2026-11-06
+snapshot, so its fields still say OPEN. Coverage arithmetic uses the recovered
+3.14 counters and keeps the original about-180 rule intact.
 """
 
 from __future__ import annotations
@@ -73,19 +76,31 @@ def test_pr_4000_tests_are_on_this_branch_and_artifacts_are_unavailable() -> Non
             assert f"def {name}" in merged
 
 
-def test_pr_4405_tests_are_not_on_this_branch() -> None:
+# #4602 carried these #4405 test files; tests/tools/test_langchain_client.py was not carried.
+CARRIED_4405_FILES = (
+    "tests/scripts/test_pr_verifier_config_and_report.py",
+    "tests/scripts/test_pr_verifier_diff_path_parsing.py",
+    "tests/scripts/test_verifier_config.py",
+)
+# A langchain_client slot test; tests/tools/test_langchain_client.py already covers those helpers.
+NOT_CARRIED_4405_TESTS = frozenset({"test_slot_config_wrappers_delegate_to_registry"})
+
+
+def test_pr_4405_snapshot_and_carried_tests() -> None:
     record = _inventory()["pull_requests"]["4405"]
+    # The 2026-11-06 snapshot, unchanged.
     assert record["state"] == "OPEN"
     assert record["merge_commit"] is None
     assert record["head_on_observed_main"] is False
     assert record["added_tests_on_observed_main"] is False
-    assert not (ROOT / "tests/scripts/test_pr_verifier_diff_path_parsing.py").exists()
 
-    for path, names in record["added_tests"].items():
-        file_path = ROOT / path
-        text = file_path.read_text(encoding="utf-8") if file_path.is_file() else ""
-        for name in names:
-            assert f"def {name}" not in text
+    # Every #4405 test in a carried file is now in the tree. One name already
+    # existed in test_verifier_config.py, so #4602 kept that copy instead.
+    carried = "".join((ROOT / path).read_text(encoding="utf-8") for path in CARRIED_4405_FILES)
+    for path in CARRIED_4405_FILES:
+        for name in record["added_tests"][path]:
+            if name not in NOT_CARRIED_4405_TESTS:
+                assert f"def {name}" in carried
 
     body = (ROOT / record["body_path"]).read_text(encoding="utf-8")
     assert hashlib.sha256(body.encode()).hexdigest() == record["body_sha256"]

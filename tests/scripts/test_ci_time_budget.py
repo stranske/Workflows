@@ -407,3 +407,44 @@ def test_denied_closure_does_not_claim_issue_closed(capsys):
     assert "drained_at" not in row
     assert "issue closed" not in capsys.readouterr().out
     assert "issue closed" not in api.calls[-1][2]["body"]
+
+
+def test_completed_run_jobs_are_reused_only_for_the_exact_revision(tmp_path):
+    class Cached(budget.GitHub):
+        def pages(self, path, key=None, **params):
+            self.reads += 1
+            if self.failure:
+                raise RuntimeError("unavailable")
+            return [{"run_id": 123, "status": self.status}]
+
+    api = Cached("fixture-token")
+    api.cache_dir = tmp_path
+    api.reads, api.failure, api.status = 0, False, "completed"
+    run = {
+        "id": 123,
+        "run_attempt": 1,
+        "status": "completed",
+        "head_sha": "a" * 40,
+        "updated_at": NOW.isoformat(),
+    }
+    first = api.run_jobs(REPO, run)
+    assert api.run_jobs(REPO, run) == first and api.reads == 1
+    run["run_attempt"] = 2
+    api.run_jobs(REPO, run)
+    assert api.reads == 2
+    run["updated_at"] = (NOW + timedelta(seconds=1)).isoformat()
+    api.run_jobs(REPO, run)
+    assert api.reads == 3
+    for path in tmp_path.glob("*.json"):
+        path.write_text("{incomplete")
+    api.run_jobs(REPO, run)
+    assert api.reads == 4
+    run["run_attempt"] = 3
+    api.status = "in_progress"
+    api.run_jobs(REPO, run)
+    api.run_jobs(REPO, run)
+    assert api.reads == 6
+    api.failure = True
+    with pytest.raises(RuntimeError, match="unavailable"):
+        api.run_jobs(REPO, run)
+    assert api.reads == 7
