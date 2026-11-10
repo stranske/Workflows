@@ -27,7 +27,7 @@ PRE_GATE = EVIDENCE / "gate-run-41771220527.json"
 GATE = EVIDENCE / "gate-run-42820421600.json"
 BUDGET = EVIDENCE / "ci-budget-report.json"
 DECISION = EVIDENCE / "completion-reconciliation.json"
-REPORT_BLOB_SHA = "e3c490b336175e61a944bf30257e81eebcdac76b"
+REPORT_BLOB_SHA = "f06d6f3fd0aa301b320cece179f97a8ef3c02aa7"
 
 
 def _load(path: Path) -> dict:
@@ -103,7 +103,7 @@ def test_retained_health85_series_for_4619_matches_observed_runs_and_does_not_qu
         "2026-11-07": None,
         "2026-11-08": None,
         "2026-11-09": None,
-        "2026-11-10": 11.241666666666667,
+        "2026-11-10": 11.133333333333333,
     }
 
 
@@ -217,13 +217,24 @@ def test_verify_published_ci_budget_alignment_matches_retained_series() -> None:
     retained = _load(BUDGET)
     published = {
         "stranske/Workflows": {
-            "p50": 11.241666666666667,
+            "p50": 11.133333333333333,
             "p50_series": {
                 "2026-11-04": 11.85,
                 "2026-11-05": None,
                 "2026-11-06": None,
                 "2026-11-07": None,
-                "2026-11-10": 11.241666666666667,
+                "2026-11-10": 11.133333333333333,
+            },
+            "daily_observations": {
+                "2026-11-10": {
+                    "date": "2026-11-10",
+                    "measured_at": "2026-11-10T14:55:15+00:00",
+                    "p50_minutes": 11.133333333333333,
+                    "run_attempt": 1,
+                    "run_id": 42838942059,
+                    "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42838942059",
+                    "window_start": "2026-11-03T14:55:15+00:00",
+                }
             },
         }
     }
@@ -236,6 +247,14 @@ def test_verify_published_ci_budget_alignment_matches_retained_series() -> None:
     ok_bad, failures_bad = verify_published_ci_budget_alignment(mismatched, retained)
     assert ok_bad is False
     assert any("date 2026-11-10 p50 mismatch" in f for f in failures_bad)
+
+    mismatched_native = deepcopy(published)
+    mismatched_native["stranske/Workflows"]["daily_observations"]["2026-11-10"]["run_id"] = 999
+    mismatched_native["stranske/Workflows"]["daily_observations"]["2026-11-10"]["p50_minutes"] = 9.0
+    ok_nat, failures_nat = verify_published_ci_budget_alignment(mismatched_native, retained)
+    assert ok_nat is False
+    assert any("date 2026-11-10 run_id mismatch" in f for f in failures_nat)
+    assert any("date 2026-11-10 native p50 mismatch" in f for f in failures_nat)
 
     missing_day = deepcopy(published)
     missing_day["stranske/Workflows"]["p50_series"]["2026-11-11"] = 9.0

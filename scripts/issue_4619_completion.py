@@ -159,6 +159,28 @@ def verify_published_ci_budget_alignment(
             failures.append(
                 f"date {day} p50 mismatch: published={value!r}, retained={retained_series[day]!r}"
             )
+    daily_obs = entry.get("daily_observations")
+    retained_obs = retained_report.get("observations")
+    if isinstance(daily_obs, Mapping) and isinstance(retained_obs, list):
+        by_day = {
+            row["date"]: row
+            for row in retained_obs
+            if isinstance(row, Mapping) and isinstance(row.get("date"), str)
+        }
+        for day, native_row in daily_obs.items():
+            if not isinstance(native_row, Mapping) or day not in by_day:
+                continue
+            retained_row = by_day[day]
+            if retained_row.get("run_id") != native_row.get("run_id"):
+                failures.append(
+                    f"date {day} run_id mismatch: published={native_row.get('run_id')!r}, "
+                    f"retained={retained_row.get('run_id')!r}"
+                )
+            if retained_row.get("p50_minutes") != native_row.get("p50_minutes"):
+                failures.append(
+                    f"date {day} native p50 mismatch: published={native_row.get('p50_minutes')!r}, "
+                    f"retained={retained_row.get('p50_minutes')!r}"
+                )
     return not failures, failures
 
 

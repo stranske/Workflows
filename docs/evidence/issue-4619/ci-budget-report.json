@@ -11,7 +11,7 @@
     "report_repo": "stranske/Workflows",
     "report_branch": "ci-time-budget",
     "report_path": "docs/reports/ci-budget.json",
-    "report_blob_sha": "e3c490b336175e61a944bf30257e81eebcdac76b",
+    "report_blob_sha": "f06d6f3fd0aa301b320cece179f97a8ef3c02aa7",
     "p50_units": "minutes",
     "gate_units": "seconds"
   },
@@ -27,7 +27,7 @@
     "2026-11-07: p50 missing (measurement_unavailable)",
     "2026-11-08: p50 missing (measurement_unavailable)",
     "2026-11-09: p50 missing (measurement_unavailable)",
-    "2026-11-10: p50 674.5s exceeds 600s (11.2417 min)"
+    "2026-11-10: p50 668.0s exceeds 600s (11.1333 min)"
   ],
   "p50_series_minutes": {
     "2026-11-04": 11.85,
@@ -36,7 +36,7 @@
     "2026-11-07": null,
     "2026-11-08": null,
     "2026-11-09": null,
-    "2026-11-10": 11.241666666666667
+    "2026-11-10": 11.133333333333333
   },
   "observations": [
     {
@@ -114,14 +114,14 @@
     {
       "date": "2026-11-10",
       "units": "minutes",
-      "p50_minutes": 11.241666666666667,
-      "p50_seconds": 674.5,
+      "p50_minutes": 11.133333333333333,
+      "p50_seconds": 668.0,
       "within_600_seconds": false,
       "status": "measured",
-      "run_id": 42809062881,
+      "run_id": 42838942059,
       "run_conclusion": "success",
-      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42809062881",
-      "note": "Health 85 published report: trailing-7-day Gate p50=11.241666666666667 min; target=10.0 min; distance=0.124; share=3.53%; drainable_in=7."
+      "source_run_url": "https://github.com/stranske/Workflows/actions/runs/42838942059",
+      "note": "Health 85 published report (run 42838942059 at 2026-11-10T14:55:15+00:00): trailing-7-day Gate p50=11.133333333333333 min (668.0s); target=10.0 min; distance=0.113; share=3.42%; drainable_in=7."
     }
   ]
 }

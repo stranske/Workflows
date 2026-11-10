@@ -43,9 +43,9 @@
   },
   {
     "date": "2026-11-10",
-    "p50_minutes": 11.241666666666667,
-    "run_id": 42809062881,
+    "p50_minutes": 11.133333333333333,
+    "run_id": 42838942059,
     "run_conclusion": "success",
-    "note": "Health 85 published report: trailing-7-day Gate p50=11.241666666666667 min; target=10.0 min; distance=0.124; share=3.53%; drainable_in=7."
+    "note": "Health 85 published report (run 42838942059 at 2026-11-10T14:55:15+00:00): trailing-7-day Gate p50=11.133333333333333 min (668.0s); target=10.0 min; distance=0.113; share=3.42%; drainable_in=7."
   }
 ]
