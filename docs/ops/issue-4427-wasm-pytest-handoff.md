@@ -325,6 +325,39 @@ This round changes documentation only. Cost: one refused dispatch, zero new
 production runs, one existing-run log read and one focused local test run.
 T1 and A2 remain unchecked; no dependency pins or report behavior changed.
 
+## Round 8 production report check (2026-11-10T17:44Z)
+
+Outcome: **A2 unsatisfied; T1 pending**. The acceptance outcome is a newly
+dispatched Maint 71 report naming both Trend_Model_Project#6189 and #6186,
+printed by `gh run view <new-run-id> --repo stranske/Workflows --log`.
+Stop rule: one dispatch and at most 15 minutes of observation, stopping at the
+first refusal or failed/omitting report.
+
+The exact requested command was attempted once:
+
+```bash
+gh workflow run maint-71-merge-sync-prs.yml --repo stranske/Workflows --ref main
+```
+
+It exited 77. The Orchestrator guard reserves shared production starts for
+schedules and sync-core and explicitly directs dispatched agents to leave a
+required production run undone. No new run was created and no bypass was used.
+The first broken step is production dispatch; the stop rule has been reached.
+Blocking/drainable pair: production dispatch is blocked in this seat; focused
+validation and this evidence update remain drainable. The scheduler/sync-core
+owner retains production continuation after the source repair reaches main.
+
+The latest listed run remains
+[42789507724](https://github.com/stranske/Workflows/actions/runs/42789507724).
+Its full log was read again: `6189|6186` matches five timestamp lines, while
+`#6189|#6186|/pull/6189|/pull/6186|Trend_Model_Project` matches zero lines.
+Those numeric matches do not satisfy A2. The exact A1 two-file Node command
+passed again: **243 passed, zero failed**, 597.89 ms.
+
+Cost: one refused dispatch, zero new production runs, one existing-run log read
+and one focused test run. This round changes documentation only; T1 and A2
+remain unchecked.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
