@@ -14,6 +14,7 @@ from scripts.issue_4619_completion import (
     DEFAULT_PRE_CHANGE_RUN_ID,
     compare_before_after_gate_runs,
     evaluate_native_daily_observations,
+    gate_run_supported,
     main,
     reconcile_completion,
     verify_published_ci_budget_alignment,
@@ -509,3 +510,61 @@ def test_reconcile_completion_and_main_with_published_budget(tmp_path: Path) -> 
         )
         == 1
     )
+
+
+def test_verify_published_ci_budget_alignment_and_gate_run_branch_coverage() -> None:
+    retained = _load(BUDGET)
+    published = {
+        "stranske/Workflows": {
+            "p50": 11.133333333333333,
+            "p50_series": {
+                "2026-11-04": 11.85,
+                "2026-11-05": None,
+                "2026-11-06": None,
+                "2026-11-07": None,
+                "2026-11-10": 11.133333333333333,
+            },
+            "daily_observations": "not-a-mapping",
+        }
+    }
+    ok, failures = verify_published_ci_budget_alignment(published, retained)
+    assert ok is True
+    assert failures == []
+
+    published_with_skipped_days = deepcopy(published)
+    published_with_skipped_days["stranske/Workflows"]["daily_observations"] = {
+        "2026-11-10": None,
+        "2026-11-99": {"run_id": 1, "p50_minutes": 1.0},
+    }
+    ok2, failures2 = verify_published_ci_budget_alignment(published_with_skipped_days, retained)
+    assert ok2 is True
+    assert failures2 == []
+
+    bad_jobs_evidence = {
+        "run_id": DEFAULT_POST_CHANGE_RUN_ID,
+        "jobs": None,
+        "passed": False,
+        "failures": ["missing job python ci / python 3.13", "extra failure"],
+    }
+    g_ok, g_fails = gate_run_supported(bad_jobs_evidence)
+    assert g_ok is False
+    assert "missing job python ci / python 3.13" in g_fails
+    assert "extra failure" in g_fails
+    assert g_fails.count("missing job python ci / python 3.13") == 1
+
+    non_mapping_job_evidence = {
+        "run_id": DEFAULT_POST_CHANGE_RUN_ID,
+        "jobs": ["not-a-dict", {"no_name": 1}],
+        "passed": False,
+        "failures": [],
+    }
+    g2_ok, g2_fails = gate_run_supported(non_mapping_job_evidence)
+    assert g2_ok is False
+    assert "missing job python ci / python 3.13" in g2_fails
+
+    passed_flag_false_evidence = deepcopy(_load(GATE))
+    passed_flag_false_evidence["passed"] = False
+    g3_ok, g3_fails = gate_run_supported(passed_flag_false_evidence)
+    assert g3_ok is False
+    assert "gate evidence passed flag is false" in g3_fails
+
