@@ -415,6 +415,29 @@ existing-run log read and one focused test run. This round changes documentation
 only. T1 and A2 remain unchecked; production continuation belongs to the
 scheduler/sync-core owner after the report repair reaches main.
 
+## Round 11 production report check (2026-11-10T18:30Z)
+
+Outcome: **A2 unsatisfied; T1 pending**. The one-dispatch stop rule tripped:
+the exact requested `gh workflow run maint-71-merge-sync-prs.yml --repo
+stranske/Workflows --ref main` exited 77 at the Orchestrator production-job
+guard. No run was created and no alternate dispatch route was attempted.
+Blocking/drainable pair: production dispatch blocked; existing-run readback and
+focused validation drainable.
+
+Fresh run-list and full-log reads still identify
+[42789507724](https://github.com/stranske/Workflows/actions/runs/42789507724)
+as the latest run. Its five literal `6189|6186` matches are timestamp fragments;
+there are zero matches for `#6189|#6186|/pull/6189|/pull/6186|Trend_Model_Project`.
+They do not satisfy A2. The exact A1 two-file Node command passed again:
+**243 passed, zero failed**, 621.82 ms.
+
+Cost: one refused dispatch, zero production runs created, one run-list read,
+one existing-run log read and one focused test run. This documentation-only
+update preserves T1/A2 as pending. The scheduler/sync-core owner must obtain
+the deployed report after the repair reaches main. Post-push review belongs
+to the next scheduled closer pass, no earlier than seven minutes after push;
+this round does not claim that review or current-head CI is complete.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
