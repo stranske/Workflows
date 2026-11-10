@@ -18,12 +18,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from scripts.ci_time_budget import SOURCE_REPO, GitHub, load_report, timestamp
-from scripts.health85_budget_observations import build_observations
+from scripts.health85_budget_observations import build_observations, build_report
 from scripts.issue_4284_completion import reconcile_completion
 
 ROOT = f"/repos/{SOURCE_REPO}"
 EVIDENCE = "docs/evidence/issue-4284"
-BRANCH_PREFIX = "health85/issue-4501-"
+DELIVERY_BRANCH = "health85/issue-4501"
 MARKER = "<!-- health85-followup/v1 -->"
 
 
@@ -94,25 +94,7 @@ def comment_once(api: GitHub, number: int, body: str) -> None:
     api.request("POST", f"{ROOT}/issues/{number}/comments", {"body": marker + "\n" + body})
 
 
-def reconcile(api: GitHub, report: dict, now: datetime) -> dict:
-    today = (
-        report.get(SOURCE_REPO, {}).get("daily_observations", {}).get(now.date().isoformat(), {})
-    )
-    # This invocation cannot certify its own final workflow conclusion. The next
-    # daily run reconciles yesterday's completed sources while collecting today.
-    previous_day = str(today.get("run_id", "")) == os.environ.get("GITHUB_RUN_ID", "absent")
-    budget = evaluate(report, now, previous_day=previous_day)
-    result = {
-        "checked_at": now.isoformat(),
-        "completion_reconciled": False,
-        "budget": budget,
-        "action": "retain_incomplete",
-        "blocking": 1,
-        "drainable": 1,
-    }
-    if not budget["qualifying_seven_day_series"]:
-        return result
-    # Bind every date to the real native Health85 run, not a supplied arbitrary URL.
+def sources_completed(api: GitHub, budget: dict) -> bool:
     for row in budget["observations"]:
         run = api.request("GET", f"{ROOT}/actions/runs/{row['run_id']}")
         if (
@@ -124,28 +106,27 @@ def reconcile(api: GitHub, report: dict, now: datetime) -> dict:
             or run.get("status") != "completed"
             or run.get("conclusion") != "success"
         ):
-            result["action"] = "await_completed_native_sources"
-            return result
-    gate = file_object(api, f"{EVIDENCE}/gate-run-40551187519.json")
-    series = "\n".join(
-        f"- {r['date']}: p50 {r['p50_seconds']:.1f} seconds; {r['source_run_url']}"
-        for r in budget["observations"]
+            return False
+    return True
+
+
+def reconcile(api: GitHub, report: dict, now: datetime) -> dict:
+    today = (
+        report.get(SOURCE_REPO, {}).get("daily_observations", {}).get(now.date().isoformat(), {})
     )
-    comment_once(api, 4284, "Genuine trailing-seven-day Health85 observations:\n" + series)
-    issue = api.request("GET", f"{ROOT}/issues/4284")
-    issue["comments"] = api.pages(f"{ROOT}/issues/4284/comments")
-    decision = reconcile_completion(issue, gate, budget, checked_on=now.date().isoformat())
-    result["decision"] = decision
-    if not decision["completion_reconciled"]:
-        return result
-    bundle = {
-        f"{EVIDENCE}/health85-daily-observations.json": budget["observations"],
-        "docs/reports/ci-budget.json": budget,
-        f"{EVIDENCE}/issue-view-4284.json": issue,
-        f"{EVIDENCE}/completion-reconciliation.json": decision,
+    # An in-progress native invocation cannot certify its own final conclusion.
+    previous_day = str(today.get("run_id", "")) == os.environ.get("GITHUB_RUN_ID", "absent")
+    budget = evaluate(report, now, previous_day=previous_day)
+    result = {
+        "checked_at": now.isoformat(),
+        "completion_reconciled": False,
+        "budget": budget,
+        "action": "retain_incomplete",
+        "blocking": 1,
+        "drainable": 1,
     }
-    # A dated immutable branch avoids overwriting an active evidence writer.
-    branch = BRANCH_PREFIX + budget["observations"][-1]["date"]
+    branch = DELIVERY_BRANCH
+    # One delivery identity survives daily window changes and eventual completion.
     pulls = api.pages(f"{ROOT}/pulls", state="all", head=f"stranske:{branch}")
     if pulls:
         pr = pulls[0]
@@ -156,7 +137,53 @@ def reconcile(api: GitHub, report: dict, now: datetime) -> dict:
         )
         return result
     existing = api.optional(f"{ROOT}/git/ref/heads/{branch}")
-    if existing is None:
+    if existing is not None:
+        # A ref-created / PR-not-created crash resumes the original frozen series,
+        # even when today's observations differ or no longer qualify.
+        budget = file_object(api, "docs/reports/ci-budget.json", branch)
+        issue = file_object(api, f"{EVIDENCE}/issue-view-4284.json", branch)
+        gate = file_object(api, f"{EVIDENCE}/gate-run-40551187519.json")
+        decision = reconcile_completion(issue, gate, budget, checked_on=now.date().isoformat())
+        result.update(budget=budget, decision=decision)
+        if not decision["completion_reconciled"] or not sources_completed(api, budget):
+            result["action"] = "existing_branch_requires_reconciliation"
+            return result
+    else:
+        if not budget["qualifying_seven_day_series"]:
+            return result
+        if not sources_completed(api, budget):
+            result["action"] = "await_completed_native_sources"
+            return result
+        workflow = api.request("GET", f"{ROOT}/actions/workflows/health-85-ci-time-budget.yml")
+        report_file = api.request(
+            "GET", f"{ROOT}/contents/docs/reports/ci-budget.json?ref=ci-time-budget"
+        )
+        rows = budget["observations"]
+        budget = build_report(
+            [workflow], rows, report_branch="ci-time-budget", report_blob_sha=report_file["sha"]
+        )
+        for row, original in zip(budget["observations"], rows, strict=True):
+            for key in ("run_attempt", "measured_at", "window_start"):
+                row[key] = original.get(key)
+        result["budget"] = budget
+        gate = file_object(api, f"{EVIDENCE}/gate-run-40551187519.json")
+        series = "\n".join(
+            f"- {r['date']}: p50 {r['p50_seconds']:.1f} seconds; {r['source_run_url']}"
+            for r in budget["observations"]
+        )
+        comment_once(api, 4284, "Genuine trailing-seven-day Health85 observations:\n" + series)
+        issue = api.request("GET", f"{ROOT}/issues/4284")
+        issue["comments"] = api.pages(f"{ROOT}/issues/4284/comments")
+        decision = reconcile_completion(issue, gate, budget, checked_on=now.date().isoformat())
+        result["decision"] = decision
+        if not decision["completion_reconciled"]:
+            return result
+        bundle = {
+            f"{EVIDENCE}/health85-daily-observations.json": budget["observations"],
+            "docs/reports/ci-budget.json": budget,
+            f"{EVIDENCE}/issue-view-4284.json": issue,
+            f"{EVIDENCE}/completion-reconciliation.json": decision,
+        }
         parent = api.request("GET", f"{ROOT}/git/ref/heads/main")["object"]["sha"]
         tree = api.request("GET", f"{ROOT}/git/commits/{parent}")["tree"]["sha"]
         entries = []
@@ -178,17 +205,10 @@ def reconcile(api: GitHub, report: dict, now: datetime) -> dict:
         api.request(
             "POST", f"{ROOT}/git/refs", {"ref": "refs/heads/" + branch, "sha": commit["sha"]}
         )
-    else:
-        # Resume a ref-created / PR-not-created crash only after byte-identical readback.
-        saved_budget = file_object(api, "docs/reports/ci-budget.json", branch)
-        saved_issue = file_object(api, f"{EVIDENCE}/issue-view-4284.json", branch)
-        saved_decision = reconcile_completion(
-            saved_issue, gate, saved_budget, checked_on=now.date().isoformat()
-        )
-        for valid in (saved_budget == budget, saved_decision["completion_reconciled"]):
-            if not valid:
-                result["action"] = "existing_branch_requires_reconciliation"
-                return result
+    series = "\n".join(
+        f"- {r['date']}: p50 {r['p50_seconds']:.1f} seconds; {r['source_run_url']}"
+        for r in budget["observations"]
+    )
     pr = api.request(
         "POST",
         f"{ROOT}/pulls",

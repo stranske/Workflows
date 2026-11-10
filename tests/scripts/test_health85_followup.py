@@ -38,6 +38,12 @@ def test_missing_day_and_failed_measurement_do_not_authorize_network_writes(monk
     report = native_series(monkeypatch, bad_day=3)
 
     class NoAPI:
+        def pages(self, *args, **kwargs):
+            return []
+
+        def optional(self, *args):
+            return None
+
         def __getattr__(self, name):
             raise AssertionError(f"incomplete evidence must not call {name}")
 
@@ -53,6 +59,12 @@ def test_current_native_run_waits_for_its_final_conclusion(monkeypatch):
     report = native_series(monkeypatch)
 
     class NoAPI:
+        def pages(self, *args, **kwargs):
+            return []
+
+        def optional(self, *args):
+            return None
+
         def __getattr__(self, name):
             raise AssertionError(name)
 
@@ -98,6 +110,15 @@ def test_qualifying_sources_publish_once_then_observe_merge(monkeypatch):
                     "conclusion": "success",
                     "created_at": (NOW - timedelta(days=6 - index)).isoformat(),
                 }
+            if "/actions/workflows/" in path:
+                return {
+                    "id": 387854305,
+                    "name": "Health 85 CI Time Budget",
+                    "path": ".github/workflows/health-85-ci-time-budget.yml",
+                    "state": "active",
+                }
+            if "/contents/docs/reports/" in path:
+                return {"sha": "d" * 40}
             if "/contents/" in path:
                 return {"content": base64.b64encode(json.dumps(gate).encode()).decode()}
             if path.endswith("/comments"):
@@ -122,5 +143,63 @@ def test_qualifying_sources_publish_once_then_observe_merge(monkeypatch):
     assert follow.reconcile(api, report, NOW)["action"] == "existing_evidence_pr"
     api.pr["merged_at"] = NOW.isoformat()
     assert follow.reconcile(api, report, NOW)["completion_reconciled"]
+    report[budget.SOURCE_REPO]["daily_observations"] = {}
+    assert follow.reconcile(api, report, NOW + timedelta(days=1))["completion_reconciled"]
     assert api.creations == 1
     assert len(api.comments) == 1
+
+
+def test_branch_creation_crash_resumes_original_frozen_series_after_window_changes(monkeypatch):
+    import json
+    from pathlib import Path
+
+    report = native_series(monkeypatch)
+    monkeypatch.delenv("GITHUB_RUN_ID")
+    frozen = follow.evaluate(report, NOW)
+    gate = json.loads(Path("docs/evidence/issue-4284/gate-run-40551187519.json").read_text())
+    issue = {
+        "state": "closed",
+        "comments": [],
+        "body": "\n".join(
+            f"- {r['date']}: {r['p50_seconds']:.1f} seconds; {r['source_run_url']}"
+            for r in frozen["observations"]
+        ),
+    }
+
+    def read_file(api, path, ref="main"):
+        if "gate-run" in path:
+            return gate
+        if "issue-view" in path:
+            return issue
+        return frozen
+
+    monkeypatch.setattr(follow, "file_object", read_file)
+
+    class API:
+        def pages(self, *args, **kwargs):
+            return []
+
+        def optional(self, path):
+            assert path.endswith(follow.DELIVERY_BRANCH)
+            return {"object": {"sha": "a" * 40}}
+
+        def request(self, method, path, payload=None):
+            if "/actions/runs/" in path:
+                i = int(path.rsplit("/", 1)[1]) - 1000
+                return {
+                    "path": ".github/workflows/health-85-ci-time-budget.yml",
+                    "head_branch": "main",
+                    "event": "schedule",
+                    "run_attempt": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "created_at": (NOW - timedelta(days=6 - i)).isoformat(),
+                }
+            assert method == "POST" and path.endswith("/pulls")
+            assert payload["head"] == follow.DELIVERY_BRANCH
+            assert "2026-11-04" in payload["body"]
+            return {"html_url": "https://github.com/stranske/Workflows/pull/9999"}
+
+    result = follow.reconcile(API(), {}, NOW + timedelta(days=2))
+    assert result["action"] == "evidence_pr_created"
+    assert result["budget"] == frozen
