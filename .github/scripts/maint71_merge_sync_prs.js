@@ -6438,7 +6438,7 @@ async function run({ github, context, core }) {
     },
   });
   const reportPath = process.env.SYNC_PR_MERGE_REPORT_JSON || 'artifacts/sync-pr-merge-report.json';
-  report.canary_refresh = canaryRefresh;
+  report.canary_refresh = require('./sync_refresh_diagnostics').compactCanaryRefresh(canaryRefresh);
   const canaryEvidencePath = 'artifacts/sync-canary-evidence.json';
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.mkdirSync(path.dirname(canaryEvidencePath), { recursive: true });
