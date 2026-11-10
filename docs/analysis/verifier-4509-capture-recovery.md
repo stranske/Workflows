@@ -607,3 +607,63 @@ The scoped commit was attempted after validation. `git add` exited 128 because
 No commit was created; the test and report changes remain in the working tree.
 Completion requires a runner with writable Git metadata, working archive
 downloads and authenticated canonical recovery admission.
+
+## Persisted capture-manifest validation — 2026-11-10
+
+Reviewed the recent commits through `7824e504` and reconciled the live PR body:
+the implemented tasks are already checked. Successful native admission and
+complete required capture remain unverified; no additional checkbox is complete.
+PR #4631 was open with `draft=false` at readback.
+
+The five exact first-archive cases now also invoke the existing provider-free
+`record_capture_obligations` path. They verify the serialized obligation
+manifest, byte inventory and reassembly contract, including every raw member's
+byte ranges when admitted. Missing, altered or misidentified sidecars contribute
+no artifact input ranges. The reassembly contract retains the remaining required
+gaps and `sufficient=false` in every case. A derived context paired with the
+original input snapshot is rejected before any output is written; the snapshot
+remains byte-identical. Standalone derived outputs use a separate temporary
+directory and do not replace the original event, comparison or retained ZIP.
+Provider construction and invocation remain forbidden by the test sentinels.
+
+Validation on changes based on `7824e504`, Python 3.14.10:
+
+- Exact-capture tests with `-k exact_4509 -m 'not slow' --no-cov -q`:
+  **6 passed**, 25 deselected, exit 0.
+- Recovery/artifact tests with `-m 'not slow' --no-cov -q --tb=short`:
+  **36 passed, 6 failed**, exit 1; the failures are the same two authored
+  publisher cases and four authored retry cases documented in preceding rounds.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  **31 passed**, exit 0; `scripts/ci_history.py` code coverage **73.55%**.
+  Retained provider review coverage remains **0 of 2 files per provider**.
+- Pre-edit named Node command: exit 1, **4.713 seconds** elapsed, selecting
+  `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`. The cross-repository
+  file passed and the context file failed, consistent with the preceding
+  restricted-runner results. No JavaScript or fixture bytes changed this round.
+- Ruff and `git diff --check` pass. Black formatted the changed Python file
+  at line length 100; full formatting-gate results follow below.
+
+The connector supplied another download reference for artifact `13555815325`;
+retrieving its bytes failed with `URLError` / DNS `gaierror`. No new authenticated
+archive bytes, member hashes or native recovery authority were obtained. No
+provider evaluation occurred. The PR-body reconciliation update and `needs-human`
+label were both rejected: `MCP tool call requires approval, but approval policy
+is never`. The operational acceptance remains **NON_PASS**.
+
+Sequential Black validation with the CLI's configured source selection checked
+all 999 files after the worker-based invocation stalled. The required full
+command then passed with the verified cache:
+
+```sh
+BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .
+```
+
+Exit 0, **999 files unchanged**. The scoped staging attempt exited 128:
+`.git/index.lock` cannot be created on the read-only Git metadata filesystem.
+No commit was created. The blocker comment was also rejected by the connector
+with the same approval-policy error. The changed test SHA-256 is
+`501b637282bfa82ad2692eac00785c6ae2368cc82a4f53f5dbd40acff49941aa`.
+Final PR readback: open, `draft=false`, head
+`7824e504730eb715d4654c633acc85b71147a354`. Completion requires writable Git
+metadata, functioning archive downloads and authenticated complete-capture native
+admission; local test success supplies none of those missing authorities.

@@ -15,6 +15,7 @@ from tools.verifier_artifact_capture import load_artifact_capture
 from tools.verifier_capture_obligation_manifest import (
     build_capture_obligation_manifest,
     parse_context_source_coverage,
+    record_capture_obligations,
     validate_capture_byte_inventory,
 )
 from tools.verifier_corpus_evidence import admitted_decision, event_metadata, validated_payload
@@ -209,6 +210,48 @@ def test_exact_4509_raw_archive_admission_clears_only_its_own_gap(tmp_path, monk
     assert blocked.semantic_acceptance["capture"] == semantic
     assert blocked.semantic_acceptance["admission"]["verdict"] == "CONCERNS"
     assert "execution" not in blocked.semantic_acceptance
+
+    # Persist the derived capture through the existing provider-free recorder.
+    # Its byte ranges must bind the recovered members without clearing other
+    # required gaps or allowing the original snapshot to be silently replaced.
+    derived = tmp_path / "derived"
+    derived.mkdir()
+    context_path = derived / "verifier-context.md"
+    context_path.write_bytes(derived_context.encode())
+    diff_path = derived / "verifier-pr-diff.patch"
+    diff_path.write_bytes(diff)
+    snapshot_path = derived / "verifier-input-manifest.json"
+    with zipfile.ZipFile(capture_path) as retained:
+        original_snapshot = retained.read("verifier-input-manifest.json")
+    snapshot_path.write_bytes(original_snapshot)
+    with pytest.raises(ValueError, match="context does not match the verifier input snapshot"):
+        record_capture_obligations(context_path, diff_path=diff_path)
+    assert snapshot_path.read_bytes() == original_snapshot
+    assert {path.name for path in derived.iterdir()} == {
+        context_path.name,
+        diff_path.name,
+        snapshot_path.name,
+    }
+    snapshot_path.unlink()
+    recorded = record_capture_obligations(context_path, diff_path=diff_path)
+    assert recorded == result
+    assert (
+        json.loads((derived / "verifier-capture-obligation-manifest.json").read_bytes()) == result
+    )
+    inventory = json.loads((derived / "verifier-capture-byte-inventory.json").read_bytes())
+    admitted_inputs = {"context": derived_context.encode(), "diff": diff}
+    if defect is None:
+        admitted_inputs.update(expected_inputs)
+    validate_capture_byte_inventory(inventory, admitted_inputs)
+    contract = json.loads((derived / "verifier-capture-reassembly-contract.json").read_bytes())
+    assert contract["sufficient"] is False
+    assert [gap["value"] for gap in contract["gaps"]] == result["gaps"]
+    assert contract["required_range_ids"] == [
+        part["id"] for entry in inventory["inputs"] for part in entry["ranges"]
+    ]
+    assert context_path.read_bytes() == derived_context.encode()
+    assert diff_path.read_bytes() == diff
+    assert not snapshot_path.exists()
 
     # No original event or provider verdict is upgraded by this partial recovery.
     with zipfile.ZipFile(capture_path) as retained:
