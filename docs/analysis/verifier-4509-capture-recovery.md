@@ -1221,3 +1221,69 @@ populated Black's verified cache (the initial worker-based check stalled):
 `git add`, exit **128**, because `.git/index.lock` cannot be created on the
 read-only Git metadata filesystem. No commit was created; the tested changes
 remain local for the controller to commit from a writable checkout.
+
+## Round 8 authenticated raw capture admission — 2026-11-10
+
+**Accepted recoveries: 0.** At source
+`76f86a7d09b106c6e6fdd737b27ee4cb0fa73f86`, authenticated
+`gh api repos/stranske/Workflows/actions/artifacts/{id}` and the corresponding
+`/zip` downloads confirmed the five remaining archives were unexpired. All five
+downloads matched both the API digest and the original inventory. Artifact
+`13555815325` repeated the round 6 observation. The four newly admitted
+archives all belong to Workflows run `42327185276`, head
+`37e230009cdba04743376410c9f72356b85fb64f`.
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `13556432562` | 23,871 | `bcf7b3c5576277f7b23e7e627306621fc4218eda9ccf091a5bd6e44d4a7bb7a7` |
+| `13555867095` | 532,744 | `2af1d0fd96172df9c17e762ce1d38952d256d3f4c1870dd51b53e6dca51f16f6` |
+| `13555456977` | 532,734 | `5b49ce4cb3dea823f348ab3783c5d750fbe54715f786eb17de32fe603f478b68` |
+| `13555184662` | 1,006,968 | `06461421d85a14e891dc65b39b1947b3efa821947f2b462922cb4b1b16a72272` |
+
+The table records the extracted member identities for these four archives.
+Member names and occurrence order matched the original inventory, and every
+available original member hash matched.
+
+| Artifact | Occurrence | Member | Bytes | SHA-256 |
+| --- | ---: | --- | ---: | --- |
+| 13556432562 | 0 | `index.ndjson` | 102351 | `f13ce68b86014cdb3970da1f7df5ef6e5403f29df2d22374f413c228b7d30df1` |
+| 13556432562 | 1 | `runtimes/3.13/pytest-resources.json` | 150 | `1461d32a955617be2e887c864dc10f125625383604439f9f6b4eb3a14fd3c6ea` |
+| 13556432562 | 2 | `runtimes/3.13/coverage.json` | 20268 | `304609647a6eeeac0714d20f1dd51eac733760ec7fe00b64e40ac48b230d7cde` |
+| 13556432562 | 3 | `runtimes/3.13/summary.json` | 755 | `9669f7a6e8bbf26e41cfd5e8818f6d96c6a2954bdab7e40a99511ca15e7b29b8` |
+| 13555867095 | 0 | `pytest-junit.xml` | 1679 | `4a56713ae7f27b95b2b4e87738b23c1c85306945f33c67eaae67c8ade5c4ffe1` |
+| 13555867095 | 1 | `coverage.xml` | 2551782 | `3d1f5a0de07fe1c8352a91fe07883e4fbcfd9c7f039c983888b6d22e7a7de47d` |
+| 13555867095 | 2 | `coverage.json` | 3899648 | `e625f23e3ad9e733fc51fad1042dab7a17cc03e65dea2e468c84e4800b3cd3c7` |
+| 13555456977 | 0 | `pytest-junit.xml` | 1679 | `e92aabd68f16455abe158830698e829a595697e5f586acc97ff69ae78d184d47` |
+| 13555456977 | 1 | `coverage.xml` | 2551677 | `7ce4cc25930c28baeb4ee45d5800462fb5cda7550edf5ff867ea6ba7c2cdcf38` |
+| 13555456977 | 2 | `coverage.json` | 3899600 | `ee4270761844ab900c08429039588094b3831052eb7adc771b90f7bd19ddc328` |
+| 13555184662 | 0 | `index.ndjson` | 68116 | `0938f76ddb70308dcf20c8ca64465b7a807bb8ad0b8fa0c0c0cd4a83df856fbb` |
+| 13555184662 | 1 | `runtimes/3.14/coverage.json` | 3962514 | `1ab866de346144396389ce31fc3f4f07420663a00f0b6aefd3037a0f781a2dce` |
+| 13555184662 | 2 | `runtimes/3.14/coverage.xml` | 2352021 | `dd2561008efb8a01d4aea81c191ac33556ba3b5f90b3da2ffe70ed6d42a7fada` |
+| 13555184662 | 3 | `runtimes/3.14/pytest-collection.json` | 32303 | `487b47f9855a235dcd588ba7d3726d46a504b61823481cb192a4bbcf1741e51a` |
+| 13555184662 | 4 | `runtimes/3.14/pytest-junit.xml` | 9604713 | `38e1b18863f3b100f5a83cdfa1d90fa5c528f12aba70d4d70e1f9acb66cbbcf9` |
+| 13555184662 | 5 | `runtimes/3.14/pytest-resources.json` | 2025 | `c89b0e7969108bac015e314fee8b03a0b259e185a27cbc16f73f068086eae88d` |
+| 13555184662 | 6 | `runtimes/3.14/summary.json` | 40345 | `83294a87dfbf91c79b6e5ec8b839c06fc6f880fb254eb297b7453777eeece11a` |
+
+Using temporary content-addressed sidecars for all six archives,
+`load_artifact_capture` admitted 23 raw inputs. With the derived inventory and
+original diff, `build_capture_obligation_manifest` cleared four truncation gaps
+and returned `sufficient=false` with two required gaps:
+
+- `acceptance_evidence:artifacts:integrity_failure_or_unknown_kind`
+- `acceptance_evidence:artifacts:unavailable`
+
+The exact retained CLI regression still exits 1 at missing authenticated
+`verification-recovery-origin.json`. It preserves all original members and
+event `872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+Both retained providers reviewed 0/2 files, `scripts/ci_history.py` and
+`tests/scripts/test_ci_history.py`. The verdict remains `UNVERIFIABLE_INPUT`.
+The derived byte admission and exact CLI replay ran without provider evaluation.
+
+With `/opt/anaconda3/bin` first in `PATH`, the issue-named Node command exited 0
+with 332 passed in 5.10 seconds wall time. The focused recovery command
+`python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function`
+exited 0 with 18 passed, 25 deselected, in 3.40 seconds wall time.
+
+Gate run `42915453457` belongs to the preceding head `a441d75f` and reported
+cancelled Python CI. Replacement run `42916933015` belongs to `76f86a7d` and
+was in progress at readback.
