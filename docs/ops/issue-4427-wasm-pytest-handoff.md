@@ -358,6 +358,35 @@ Cost: one refused dispatch, zero new production runs, one existing-run log read
 and one focused test run. This round changes documentation only; T1 and A2
 remain unchecked.
 
+## Round 9 production report check (2026-11-10T17:59Z)
+
+Outcome: **A2 unsatisfied; T1 pending**. The proof remains a newly dispatched
+Maint 71 run whose log explicitly names Trend_Model_Project#6189 and #6186,
+read with `gh run view <new-run-id> --repo stranske/Workflows --log`.
+Stop rule: one dispatch and at most 15 minutes of observation, stopping at the
+first refusal or failed/omitting report.
+
+The exact requested dispatch command exited 77. The Orchestrator guard reserves
+shared production starts for schedules and sync-core and directs dispatched
+agents to leave a required production run undone. No new run was created and
+no alternate route was attempted. The stop rule tripped at production dispatch.
+Blocking/drainable pair: production dispatch is blocked in this seat; focused
+validation and recording the result remain drainable. The scheduler/sync-core
+owner retains the production continuation after the report repair reaches main.
+
+The latest listed run remains
+[42789507724](https://github.com/stranske/Workflows/actions/runs/42789507724),
+successful at source head `9dcc645ba2b51f6db655486cec7e06e1f7d5e5b4`.
+Its freshly fetched full log has five literal `6189|6186` timestamp matches and
+zero matches for `#6189|#6186|/pull/6189|/pull/6186|Trend_Model_Project`.
+Those timestamp matches do not satisfy A2. The exact A1 two-file Node command
+passed: **243 passed, zero failed**, 585.25 ms.
+
+Cost: one refused dispatch, zero new production runs, one run-list read, one
+existing-run log read and one focused test run. This round changes documentation
+only; T1 and A2 remain unchecked. Repeating this seat cannot establish production
+acceptance while its dispatch is refused and the source repair is undeployed.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
