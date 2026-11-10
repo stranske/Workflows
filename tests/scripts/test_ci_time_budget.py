@@ -502,17 +502,22 @@ def test_github_client_and_pagination_edge_cases(tmp_path, monkeypatch):
         "head_sha": "b" * 40,
         "updated_at": NOW.isoformat(),
     }
-    monkeypatch.setattr(
-        api,
-        "pages",
-        lambda *a, **kw: [{"run_id": 999, "status": "completed"}],
-    )
+    fetches = []
+
+    def pages(*args, **kwargs):
+        fetches.append(1)
+        return [{"run_id": 999, "status": "completed"}]
+
+    monkeypatch.setattr(api, "pages", pages)
     api.run_jobs(REPO, run)
+    assert len(fetches) == 1
     for cache_file in tmp_path.glob("*.json"):
         data = json.loads(cache_file.read_text())
         data["schema"] = "wrong-schema"
         cache_file.write_text(json.dumps(data))
     assert api.run_jobs(REPO, run) == [{"run_id": 999, "status": "completed"}]
+
+    assert len(fetches) == 2
 
     # request delegates to api_client._request_json
     called = []
@@ -678,3 +683,13 @@ def test_reconcile_creates_missing_labels_and_load_report_and_main(monkeypatch):
     monkeypatch.setattr(budget, "extract_repos", lambda p: [REPO])
     monkeypatch.setattr(budget, "run", lambda a, r, n: 0)
     assert budget.main() == 0
+
+
+def test_native_daily_observation_is_bound_to_measured_repository(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", budget.SOURCE_REPO)
+    monkeypatch.setenv("GITHUB_RUN_ID", "123")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    source = budget.observation({}, metrics(), NOW, repo=budget.SOURCE_REPO)
+    consumer = budget.observation({}, metrics(), NOW, repo="example/consumer")
+    assert source["daily_observations"][NOW.date().isoformat()]["run_id"] == 123
+    assert consumer["daily_observations"] == {}

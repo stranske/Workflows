@@ -6,9 +6,11 @@ ignore exactly the files python-ci-grammar runs; any other path, marker or
 deselection would narrow what the Gate tests.
 """
 
+import ast
 import shlex
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,16 +60,82 @@ def test_grammar_call_partitions_the_full_suite() -> None:
     assert "needs.python-ci-grammar.result == 'failure'" in summarize["env"]["PYTHON_RESULT"]
 
 
+def _sha256_input(node: ast.expr) -> ast.expr:
+    match node:
+        case ast.Call(
+            func=ast.Attribute(
+                value=ast.Call(
+                    func=ast.Attribute(value=ast.Name(id="hashlib"), attr="sha256"),
+                    args=[data],
+                    keywords=[],
+                ),
+                attr="hexdigest" | "digest",
+            ),
+            args=[],
+            keywords=[],
+        ):
+            return data
+    return node
+
+
+def _assert_digest_guards(
+    statements: list[ast.stmt],
+    location: str,
+    reads: dict[str, str] | None = None,
+    guards: set[frozenset[str]] | None = None,
+) -> int:
+    reads = dict(reads or {})
+    guards = set(guards or ())
+    comparisons = 0
+    assigned = {}
+
+    def file_read(node: ast.expr) -> str | None:
+        match node:
+            case ast.Call(func=ast.Attribute(value=path, attr="read_bytes" | "read_text")):
+                return ast.dump(path)
+            case ast.Name(id=name):
+                return reads.get(name)
+        return None
+
+    for statement in statements:
+        match statement:
+            case ast.Assign(targets=[ast.Name(id=name)], value=value):
+                guards = {pair for pair in guards if reads.get(name) not in pair}
+                # Digest booleans must refer to the reads in effect at the assertion.
+                if name in reads:
+                    assigned.clear()
+                assigned[name] = value
+                if (path := file_read(value)) is not None:
+                    reads[name] = path
+                else:
+                    reads.pop(name, None)
+            case ast.For(body=body):
+                comparisons += _assert_digest_guards(body, location, reads, guards)
+            case ast.Assert(test=test):
+                if isinstance(test, ast.Name):
+                    test = assigned.get(test.id, test)
+                match test:
+                    case ast.Compare(left=left, ops=[ast.Eq()], comparators=[right]):
+                        pass
+                    case _:
+                        continue
+                left_data, right_data = _sha256_input(left), _sha256_input(right)
+                left_path, right_path = file_read(left_data), file_read(right_data)
+                if left_path is None or right_path is None:
+                    continue
+                pair = frozenset((left_path, right_path))
+                if left_data is not left and right_data is not right:
+                    guards.add(pair)
+                elif left_data is left and right_data is right:
+                    comparisons += 1
+                    assert (
+                        pair in guards
+                    ), f"{location}:{statement.lineno} must check sha256 digest before raw equality"
+    return comparisons
+
+
 def test_synced_large_file_parity_checks_guard_against_difflib_hangs() -> None:
-    """Parity checks on large managed files (e.g. pr_verifier.py, keepalive_loop.js) must compare digests.
-
-    Comparing raw byte strings directly in pytest causes unconstrained difflib
-    ndiff calculations on assertion failure, which can stall a test worker for
-    over 30 minutes (Workflows#4619). Tests asserting template parity must check
-    digest equality first so failures report immediately.
-    """
-    import ast
-
+    """Require each managed-file equality to follow a digest equality for the same pair."""
     parity_test_functions = {
         "tests/scripts/test_pr_verifier_sync_manifest.py": (
             "test_pr_verifier_api_client_is_available_in_consumer_template",
@@ -88,85 +156,23 @@ def test_synced_large_file_parity_checks_guard_against_difflib_hangs() -> None:
         ),
     }
     for rel_path, func_names in parity_test_functions.items():
-        content = (ROOT / rel_path).read_text(encoding="utf-8")
-        tree = ast.parse(content, filename=rel_path)
-        functions = {
-            node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-        }
+        tree = ast.parse((ROOT / rel_path).read_text(encoding="utf-8"), filename=rel_path)
+        functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
         for func_name in func_names:
-            assert func_name in functions, f"{rel_path}::{func_name} missing"
-            func_src = ast.get_source_segment(content, functions[func_name]) or ""
-            digest_pos = func_src.find("hashlib.sha256(")
-            assert digest_pos != -1, f"{rel_path}::{func_name} must assert sha256 digest"
-            # Verify the digest assertion precedes the raw byte/text equality assertion.
-            for eq_check in (
-                "assert template.read_bytes() == PR_VERIFIER.read_bytes()",
-                "assert template_bytes == source_bytes",
-                "assert source_bytes == template_bytes",
-                'assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(encoding="utf-8")',
-            ):
-                eq_pos = func_src.find(eq_check)
-                if eq_pos != -1:
-                    assert (
-                        digest_pos < eq_pos
-                    ), f"{rel_path}::{func_name} must check sha256 digest before raw equality"
-            
-            # Verify that there is an actual digest equality assertion, not just a call
-            # by checking that hashlib.sha256 is in an assert statement
-            for node in ast.walk(functions[func_name]):
-                if isinstance(node, ast.Assert):
-                    assert_src = ast.get_source_segment(content, node) or ""
-                    if "hashlib.sha256(" in assert_src:
-                        # Found at least one assert with hashlib.sha256
-                        break
-            else:
-                # No break means no assert with hashlib.sha256 found
-                raise AssertionError(
-                    f"{rel_path}::{func_name} must have hashlib.sha256 in an assert statement"
-                )
+            location = f"{rel_path}::{func_name}"
+            assert func_name in functions, f"{location} missing"
+            assert _assert_digest_guards(
+                functions[func_name].body, location
+            ), f"{location} must check managed-file parity"
 
 
-def test_digest_assertion_removal_causes_failure() -> None:
-    """Verify that removing or replacing digest assertion causes test failure."""
-    import ast
-    
-    # Test by checking that all functions with raw equality checks also have digest checks
-    # This is a static verification that the test above would catch removal
-    test_file = ROOT / "tests/scripts/test_pr_verifier_sync_manifest.py"
-    content = test_file.read_text(encoding="utf-8")
-    tree = ast.parse(content, filename=str(test_file))
-    
-    # Find all functions
-    functions = {
-        node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-    }
-    
-    # Check each function that has raw equality assertions
-    for func_name, func_node in functions.items():
-        func_src = ast.get_source_segment(content, func_node) or ""
-        
-        # Check if function has raw equality assertions
-        has_raw_eq = any(
-            eq_check in func_src 
-            for eq_check in (
-                "assert template.read_bytes() == PR_VERIFIER.read_bytes()",
-                "assert template_bytes == source_bytes",
-                "assert source_bytes == template_bytes",
-                'assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(encoding="utf-8")',
-            )
-        )
-        
-        if has_raw_eq:
-            # Must have hashlib.sha256 digest check before the raw equality
-            digest_pos = func_src.find("hashlib.sha256(")
-            assert digest_pos != -1, f"{test_file}::{func_name} must have hashlib.sha256"
-            
-            # Must have it in an assert statement
-            has_digest_assert = False
-            for node in ast.walk(func_node):
-                if isinstance(node, ast.Assert):
-                    assert_src = ast.get_source_segment(content, node) or ""
-                    if "hashlib.sha256(" in assert_src:
-                        has_digest_assert = True
-                        break
-            assert has_digest_assert, f"{test_file}::{func_name} must have hashlib.sha256 in assert"
+@pytest.mark.parametrize("guard", ["", "assert hashlib.sha256(other.read_bytes()).digest()"])
+def test_digest_assertion_removal_causes_failure(guard: str) -> None:
+    """A missing or unrelated digest assertion must leave raw parity unguarded."""
+    tree = ast.parse(
+        f"{guard}\n"
+        "actual = source.read_bytes()\n"
+        "assert (template.read_text(encoding='utf-8')) == actual\n"
+    )
+    with pytest.raises(AssertionError, match="must check sha256 digest before raw equality"):
+        _assert_digest_guards(tree.body, "example")

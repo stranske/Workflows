@@ -82,9 +82,10 @@ def test_authority_helpers_are_manifested_and_byte_aligned() -> None:
         source_bytes = (ROOT / source).read_bytes()
         template_bytes = (TEMPLATE / source).read_bytes()
         # Compare digests first to avoid difflib assertion hangs on large scripts like keepalive_loop.js (Workflows#4619).
-        assert (
+        digests_match = (
             hashlib.sha256(source_bytes).hexdigest() == hashlib.sha256(template_bytes).hexdigest()
         )
+        assert digests_match, "managed source and template SHA-256 digests differ"
         assert source_bytes == template_bytes
 
 

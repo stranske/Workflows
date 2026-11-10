@@ -250,7 +250,10 @@ def test_template_repeat_bypasses_only_coarse_fingerprint_and_threads_all_inputs
     template_bytes = (
         ROOT / "templates/consumer-repo/.github/scripts/verification_event.js"
     ).read_bytes()
-    assert hashlib.sha256(source_bytes).hexdigest() == hashlib.sha256(template_bytes).hexdigest()
+    digests_match = (
+        hashlib.sha256(source_bytes).hexdigest() == hashlib.sha256(template_bytes).hexdigest()
+    )
+    assert digests_match, "managed source and template SHA-256 digests differ"
     assert source_bytes == template_bytes
 
 

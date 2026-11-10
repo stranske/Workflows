@@ -69,9 +69,10 @@ def test_workflow_and_template_forward_basis_to_authenticated_manifest_and_marke
     for name in ["verification_event.js", "agents_verifier_context.js"]:
         source_bytes = (ROOT / ".github/scripts" / name).read_bytes()
         template_bytes = (ROOT / "templates/consumer-repo/.github/scripts" / name).read_bytes()
-        assert (
+        digests_match = (
             hashlib.sha256(source_bytes).hexdigest() == hashlib.sha256(template_bytes).hexdigest()
         )
+        assert digests_match, "managed source and template SHA-256 digests differ"
         assert source_bytes == template_bytes
 
 

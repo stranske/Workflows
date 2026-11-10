@@ -7,7 +7,7 @@ Issue #4619 identified an extreme duration bottleneck in `python ci / python 3.1
 - **Run URL:** https://github.com/stranske/Workflows/actions/runs/41771220527
 - **Job ID:** `126381546540`
 - **Head SHA:** `9784a90013c9cc9ce5a0269d781ed3ab16e6ffed` (PR #4438)
-- **Bottleneck:** `Pytest (unit tests with coverage)` ran for 2,256.81s (37m 36s). Template parity assertions on large managed files (specifically `scripts/langchain/pr_verifier.py` >150 KB) asserted raw byte equality. On assertion failure, pytest's assertion rewriting invoked `difflib.ndiff`, hanging worker processes for 1,752s–1,902s.
+- **Bottleneck:** `Pytest (unit tests with coverage)` ran for 2,263s (37m 43s). Template parity assertions on large managed files (specifically `scripts/langchain/pr_verifier.py` >150 KB) asserted raw byte equality. On assertion failure, pytest's assertion rewriting invoked `difflib.ndiff`, hanging worker processes for 1,752s–1,902s.
 
 ## Bounded Implementation
 - Guarded template parity assertions on large synced files with SHA-256 digest-first assertions:
@@ -20,9 +20,21 @@ Issue #4619 identified an extreme duration bottleneck in `python ci / python 3.1
 - Documented requirement in `docs/ci/WORKFLOWS.md`.
 
 ## Focused Acceptance Check
-- **Command:** `pytest tests/test_ci_gate_budget.py tests/scripts/test_pr_verifier_sync_manifest.py tests/scripts/test_native_capacity_registry.py`
-- **Check Date:** 2026-11-10
-- **Duration & Result:** `71 passed, 149 skipped in 1.21s` (well within the 2-minute bounded limit).
+Check date: 2026-11-10.
+
+```bash
+PYTEST_ADDOPTS='-p no:asyncio' /opt/anaconda3/bin/python3 -m pytest \
+  tests/test_ci_gate_budget.py tests/scripts/test_pr_verifier_sync_manifest.py \
+  tests/scripts/test_native_capacity_registry.py tests/workflows/test_keepalive_authority_delivery.py \
+  tests/workflows/test_repeat_verification_lifecycle.py tests/tools/test_verifier_request_correlation.py \
+  -rs -q
+```
+
+Pytest reported `253 passed in 21.19s`. All six files ran with zero skips, so `-rs` printed no skip reasons. The repository virtual environment lacked pytest. Anaconda's pytest installation required disabling its asyncio plugin because a startup deprecation warning was treated as an error.
+
+To investigate the earlier 149 skips, the original three-file selection was rerun with imports of both optional LangChain provider packages blocked. It reported `73 passed, 149 skipped in 1.79s`. The `-rs` output attributed all skips to failed imports of `langchain_openai` and `langchain_anthropic` in `test_native_capacity_registry.py`. This reproduces the skip count when the packages are unavailable. The historical run's skip log was unavailable. The managed-file parity assertions ran successfully with the provider packages present.
+
+A one-byte change to the synced `pr_verifier.py` failed its parity test at the digest guard with `managed source and template SHA-256 digests differ` in 0.27s and zero calls to `difflib.ndiff`. The same test passed after byte-for-byte restoration.
 
 ## Live Gate Before / After Comparison
 
@@ -34,12 +46,12 @@ Issue #4619 identified an extreme duration bottleneck in `python ci / python 3.1
   - Result: failure / timed out workers
 - **Post-change Run (42820421600):**
   - Head: `2c5e646cf6c2f7425997c4e4d7c2001dafe385b1`
-  - `python ci / python 3.13`: 5m 49s job duration (349s), 4m 58s pytest step (298s) — **84.8% job duration reduction, 87.1% pytest step reduction**
+  - `python ci / python 3.13`: 5m 49s job duration (349s), 4m 58s pytest step (298s) — **84.8% shorter observed job duration, 86.8% shorter observed pytest step**
   - `python ci grammar / python 3.14`: 2m 04s job duration (124s), 1m 42s pytest step (102s)
   - Gate total duration: 7m 44s (464s) — **below 10 min target**
   - Result: success across all 44 jobs
 
-**Workload and Coverage Differences:** The pre-change run included the full test suite without digest guards, causing difflib hangs. The post-change run has identical test coverage but with SHA-256 digest-first assertions that fail fast on mismatch. The reduction is attributable to this change because the only difference between the runs is the digest-first guard implementation; no tests were removed or skipped.
+The failed pre-change run on PR #4438 stalled while pytest rendered a failed raw-byte parity assertion. The digest-first guard makes that mismatch fail quickly. The successful run was on a different commit, and the comparison does not establish identical workload or coverage. The 84.8% figure is the observed difference between the failed and successful job durations. These runs cannot isolate how much of the difference came from the guard. Run 42820421600 covers an earlier PR #4620 head. Its retained JSON records that historical run.
 
 ## Health 85 Daily Observations Series (2026-11-04 to 2026-11-10)
 Health 85 is workflow id `387854305` (`Health 85 CI Time Budget`, `.github/workflows/health-85-ci-time-budget.yml`).
@@ -84,4 +96,4 @@ python -m scripts.issue_4619_completion \
 ```
 
 ### Status of Sustained Gate (A4)
-Current trailing-7-day Gate p50 is 11.13 min (668.0s, down from 11.24 min / 674.5s earlier on 2026-11-10) because pre-fix runs remain in the 7-day window, and 2026-11-05 through 2026-11-09 lack valid measurements. `completion-reconciliation.json` records `action=leave_incomplete` and leaves the sustained-performance acceptance criterion unchecked until Health 85 reports seven consecutive daily measurements <= 10 min.
+Current trailing-7-day Gate p50 is 11.13 min (668.0s, down from 11.24 min / 674.5s earlier on 2026-11-10). The retained series lacks valid measurements for 2026-11-05 through 2026-11-09. `completion-reconciliation.json` records `action=leave_incomplete` and leaves the sustained-performance acceptance criterion unchecked until Health 85 reports seven consecutive daily measurements <= 10 min.

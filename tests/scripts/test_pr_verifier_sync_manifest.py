@@ -49,17 +49,21 @@ def test_pr_verifier_api_client_is_available_in_consumer_template() -> None:
     assert TEMPLATE_API_CLIENT.exists()
     template_bytes = TEMPLATE_API_CLIENT.read_bytes()
     source_bytes = API_CLIENT.read_bytes()
-    assert hashlib.sha256(template_bytes).hexdigest() == hashlib.sha256(source_bytes).hexdigest()
+    digests_match = (
+        hashlib.sha256(template_bytes).hexdigest() == hashlib.sha256(source_bytes).hexdigest()
+    )
+    assert digests_match, "managed source and template SHA-256 digests differ"
     assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(encoding="utf-8")
 
 
 def test_pr_verifier_source_and_consumer_template_are_identical() -> None:
     template = ROOT / "templates/consumer-repo/scripts/langchain/pr_verifier.py"
     # Compare digests first to avoid difflib assertion hangs on multi-thousand-line files (Workflows#4619).
-    assert (
+    digests_match = (
         hashlib.sha256(template.read_bytes()).hexdigest()
         == hashlib.sha256(PR_VERIFIER.read_bytes()).hexdigest()
     )
+    assert digests_match, "managed source and template SHA-256 digests differ"
     assert template.read_bytes() == PR_VERIFIER.read_bytes()
 
 
@@ -103,7 +107,10 @@ def test_capture_obligation_dependency_is_managed_and_identical() -> None:
     assert source in _manifest_sources()
     template_bytes = (ROOT / "templates/consumer-repo" / source).read_bytes()
     source_bytes = (ROOT / source).read_bytes()
-    assert hashlib.sha256(template_bytes).hexdigest() == hashlib.sha256(source_bytes).hexdigest()
+    digests_match = (
+        hashlib.sha256(template_bytes).hexdigest() == hashlib.sha256(source_bytes).hexdigest()
+    )
+    assert digests_match, "managed source and template SHA-256 digests differ"
     assert template_bytes == source_bytes
 
 

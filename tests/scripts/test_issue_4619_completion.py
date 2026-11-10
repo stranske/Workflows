@@ -431,22 +431,22 @@ def test_evaluate_native_daily_observations_validates_seven_day_series() -> None
 
 def test_reconcile_completion_and_main_with_published_budget(tmp_path: Path) -> None:
     report = _qualifying_report()
+    native = {}
+    for offset, row in enumerate(report["observations"]):
+        measured_at = datetime.fromisoformat(row["date"]).replace(tzinfo=UTC)
+        row.update(run_id=6000 + offset, p50_minutes=9.0)
+        native[row["date"]] = {
+            **row,
+            "measured_at": measured_at.isoformat(),
+            "window_start": (measured_at - timedelta(days=7)).isoformat(),
+        }
     report["p50_series_minutes"] = {row["date"]: 9.0 for row in report["observations"]}
     published_ok = {
         "stranske/Workflows": {
-            "p50_series": {row["date"]: 9.0 for row in report["observations"]},
-            "daily_observations": {
-                "2026-01-01": "not-a-dict",
-                report["observations"][0]["date"]: {
-                    "run_id": 6000,
-                    "p50_minutes": None,
-                },
-            },
+            "p50_series": report["p50_series_minutes"],
+            "daily_observations": native,
         }
     }
-    # Add run_id and p50_minutes to first observation so native check matches
-    report["observations"][0]["run_id"] = 6000
-    report["observations"][0]["p50_minutes"] = None
     decision = reconcile_completion(
         _issue_for(report),
         _load(GATE),
@@ -456,18 +456,15 @@ def test_reconcile_completion_and_main_with_published_budget(tmp_path: Path) -> 
     assert decision["published_budget_aligned"] is True
     assert decision["completion_reconciled"] is True
 
-    published_bad = {
-        "stranske/Workflows": {
-            "p50_series": {report["observations"][0]["date"]: 12.0},
-        }
-    }
+    published_without_native = {"stranske/Workflows": {"p50_series": report["p50_series_minutes"]}}
     decision_bad = reconcile_completion(
         _issue_for(report),
         _load(GATE),
         report,
-        published_budget=published_bad,
+        published_budget=published_without_native,
     )
-    assert decision_bad["published_budget_aligned"] is False
+    assert decision_bad["published_budget_aligned"] is True
+    assert decision_bad["native_series_qualifying"] is False
     assert decision_bad["completion_reconciled"] is False
     assert decision_bad["sustained_performance_criterion"] == "incomplete"
 
@@ -571,7 +568,7 @@ def test_verify_published_ci_budget_alignment_and_gate_run_branch_coverage() -> 
 
 
 def test_gate_run_supported_rejects_invalid_durations() -> None:
-    """ gate_run_supported must reject non-finite and negative durations."""
+    """gate_run_supported must reject non-finite and negative durations."""
     # Test with negative duration
     neg_job = {
         "run_id": DEFAULT_POST_CHANGE_RUN_ID,
@@ -638,7 +635,7 @@ def test_load_object_catches_oserror_and_valueerror(tmp_path: Path) -> None:
 def test_evaluate_native_daily_observations_wired_into_reconciliation() -> None:
     """When published_budget is supplied, evaluate_native_daily_observations is used."""
     now = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
-    
+
     # Create valid native observations
     observations = {}
     for offset in range(7):
@@ -653,24 +650,26 @@ def test_evaluate_native_daily_observations_wired_into_reconciliation() -> None:
             "window_start": (dt - timedelta(days=7)).isoformat(),
             "source_run_url": f"https://github.com/stranske/Workflows/actions/runs/{50000 + offset}",
         }
-    
+
     # Create matching report observations
     report_obs = []
     for offset in range(7):
         dt = now - timedelta(days=6 - offset)
         day = dt.date().isoformat()
-        report_obs.append({
-            "date": day,
-            "p50_minutes": 9.2,
-            "run_id": 50000 + offset,
-            "p50_seconds": 552.0,
-            "within_600_seconds": True,
-            "status": "measured",
-            "run_conclusion": "success",
-            "source_run_url": f"https://github.com/stranske/Workflows/actions/runs/{50000 + offset}",
-            "note": None,
-        })
-    
+        report_obs.append(
+            {
+                "date": day,
+                "p50_minutes": 9.2,
+                "run_id": 50000 + offset,
+                "p50_seconds": 552.0,
+                "within_600_seconds": True,
+                "status": "measured",
+                "run_conclusion": "success",
+                "source_run_url": f"https://github.com/stranske/Workflows/actions/runs/{50000 + offset}",
+                "note": None,
+            }
+        )
+
     report = {
         "repo": "stranske/Workflows",
         "target_minutes": 10.0,
@@ -681,25 +680,25 @@ def test_evaluate_native_daily_observations_wired_into_reconciliation() -> None:
         "p50_series_minutes": {obs["date"]: 9.2 for obs in report_obs},
         "observations": report_obs,
     }
-    
+
     published_budget = {
         "stranske/Workflows": {
             "daily_observations": observations,
         }
     }
-    
+
     decision = reconcile_completion(
         _issue_for(report),
         _load(GATE),
         report,
         published_budget=published_budget,
     )
-    
+
     # Should have native observation checks in decision
     assert "native_observations_match" in decision
     assert decision["native_observations_match"] is True
     assert "native_series_qualifying" in decision
-    
+
 
 def test_native_observations_match_rejects_incomplete_evidence() -> None:
     """verify_native_daily_observations_match rejects partial/incomplete native evidence."""
@@ -712,7 +711,7 @@ def test_native_observations_match_rejects_incomplete_evidence() -> None:
         "observations": report_obs,
         "p50_series_minutes": {"2026-11-04": 9.2, "2026-11-05": 9.2},
     }
-    
+
     # Published budget with only one observation (missing 2026-11-05)
     published_budget = {
         "stranske/Workflows": {
@@ -725,11 +724,11 @@ def test_native_observations_match_rejects_incomplete_evidence() -> None:
             },
         },
     }
-    
+
     ok, failures = verify_native_daily_observations_match(published_budget, report)
     assert ok is False
     assert any("missing date" in f for f in failures)
-    
+
     # Published budget with mismatched run_id
     published_budget_bad = {
         "stranske/Workflows": {
@@ -750,7 +749,7 @@ def test_native_observations_match_rejects_incomplete_evidence() -> None:
     ok_bad, failures_bad = verify_native_daily_observations_match(published_budget_bad, report)
     assert ok_bad is False
     assert any("run_id mismatch" in f for f in failures_bad)
-    
+
     # Published budget with mismatched p50_minutes
     published_budget_p50 = {
         "stranske/Workflows": {
@@ -776,21 +775,21 @@ def test_native_observations_match_rejects_incomplete_evidence() -> None:
 def test_reconciliation_fails_closed_on_missing_native_dates() -> None:
     """Reconciliation fails closed when native observations are missing or invalid."""
     report = _qualifying_report()
-    
+
     # Published budget missing daily_observations entirely
     published_incomplete = {
         "stranske/Workflows": {
             "p50_series": {row["date"]: 9.0 for row in report["observations"]},
         }
     }
-    
+
     decision = reconcile_completion(
         _issue_for(report),
         _load(GATE),
         report,
         published_budget=published_incomplete,
     )
-    
+
     assert decision["completion_reconciled"] is False
     assert decision["action"] == "leave_incomplete"
     assert any("daily_observations" in f or "native" in f.lower() for f in decision["failures"])

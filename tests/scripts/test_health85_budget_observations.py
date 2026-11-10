@@ -219,10 +219,15 @@ def test_health85_validation_and_cli_branches(tmp_path: Path) -> None:
                 str(out_file),
                 "--report-blob-sha",
                 REPORT_BLOB_SHA,
+                "--issue",
+                "4619",
             ]
         )
         == 0
     )
+    result = json.loads(out_file.read_text(encoding="utf-8"))
+    assert result["issue"] == 4619
+    assert result["schema"] == "issue-4619-health85-observations/v1"
 
     bad_file = tmp_path / "bad.json"
     bad_file.write_text("{}\n", encoding="utf-8")
@@ -241,3 +246,15 @@ def test_health85_validation_and_cli_branches(tmp_path: Path) -> None:
         )
         == 1
     )
+
+
+def test_build_report_honors_explicit_schema() -> None:
+    report = build_report(
+        _workflows(),
+        [{"date": "2026-11-01", "p50_minutes": 9.0, "run_id": 1}],
+        report_branch="ci-time-budget",
+        report_blob_sha=REPORT_BLOB_SHA,
+        issue=4619,
+        schema="custom-health85/v1",
+    )
+    assert report["schema"] == "custom-health85/v1"
