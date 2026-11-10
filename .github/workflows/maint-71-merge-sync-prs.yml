@@ -206,9 +206,11 @@ jobs:
       - name: Checkout deployed recovery source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Setup API client
-        uses: $/.github/actions/setup-api-client
+        # actionlint 1.7.3 lacks $/ support; the preceding checkout pins these bytes.
+        uses: ./.github/actions/setup-api-client # zizmor: ignore[self-repository]
         with:
           github_token: ${{ github.token }}
           owner_pr_pat: ${{ secrets.OWNER_PR_PAT }}
