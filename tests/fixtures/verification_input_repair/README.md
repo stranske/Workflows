@@ -170,7 +170,7 @@ observations; the original published archive digests are retained.
 
 ### Source revision and working-tree state
 
-- Source revision: `8c678c19a4f9f60fa5be6a00f08794a9626c87bd`
+- Source revision: `3079e58ab89019832be4a1c8dc8a0f25f40aca64`
 - Working-tree state: Clean, with no uncommitted changes
 - Both comment outcomes: Explicit expired-artifact rejection
 - Explicit provider-call evidence: 0 (no provider calls observed)
