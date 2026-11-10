@@ -282,8 +282,7 @@ def test_native_facts_and_helper_are_managed_with_exact_template_parity():
         template_bytes = (ROOT / "templates/consumer-repo" / name).read_bytes()
         # Compare digests first to avoid difflib assertion hangs on multi-thousand-line files (Workflows#4619).
         assert (
-            hashlib.sha256(source_bytes).hexdigest()
-            == hashlib.sha256(template_bytes).hexdigest()
+            hashlib.sha256(source_bytes).hexdigest() == hashlib.sha256(template_bytes).hexdigest()
         )
         assert source_bytes == template_bytes
     registry = json.loads(REGISTRY.read_text())

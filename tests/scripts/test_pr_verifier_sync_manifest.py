@@ -100,10 +100,7 @@ def test_capture_obligation_dependency_is_managed_and_identical() -> None:
     assert source in _manifest_sources()
     template_bytes = (ROOT / "templates/consumer-repo" / source).read_bytes()
     source_bytes = (ROOT / source).read_bytes()
-    assert (
-        hashlib.sha256(template_bytes).hexdigest()
-        == hashlib.sha256(source_bytes).hexdigest()
-    )
+    assert hashlib.sha256(template_bytes).hexdigest() == hashlib.sha256(source_bytes).hexdigest()
     assert template_bytes == source_bytes
 
 
