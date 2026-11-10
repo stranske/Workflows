@@ -476,3 +476,189 @@ def test_completed_run_jobs_are_reused_only_for_the_exact_revision(tmp_path):
     with pytest.raises(RuntimeError, match="unavailable"):
         api.run_jobs(REPO, run)
     assert api.reads == 7
+
+
+def test_github_client_and_pagination_edge_cases(tmp_path, monkeypatch):
+    monkeypatch.setattr(budget, "is_owner_excluded", lambda repo: repo == "excluded/repo")
+    api = budget.GitHub("tok")
+    api.cache_dir = tmp_path
+
+    with pytest.raises(ValueError, match="Repository is excluded"):
+        api.run_jobs("excluded/repo", {"id": 1})
+
+    # Cache file exists with valid JSON and "jobs" key, but schema mismatch triggers refetch
+    run = {
+        "id": 999,
+        "run_attempt": 1,
+        "status": "completed",
+        "head_sha": "b" * 40,
+        "updated_at": NOW.isoformat(),
+    }
+    monkeypatch.setattr(
+        api,
+        "pages",
+        lambda *a, **kw: [{"run_id": 999, "status": "completed"}],
+    )
+    api.run_jobs(REPO, run)
+    for cache_file in tmp_path.glob("*.json"):
+        data = json.loads(cache_file.read_text())
+        data["schema"] = "wrong-schema"
+        cache_file.write_text(json.dumps(data))
+    assert api.run_jobs(REPO, run) == [{"run_id": 999, "status": "completed"}]
+
+    # request delegates to api_client._request_json
+    called = []
+    monkeypatch.setattr(
+        budget.api_client,
+        "_request_json",
+        lambda method, url, token, payload, max_attempts: (
+            called.append((method, url, token, payload, max_attempts)) or {"ok": True}
+        ),
+    )
+    assert api.request("GET", "/test") == {"ok": True}
+    assert called[-1][4] == 3
+
+    # optional handles 404 and re-raises other RuntimeErrors
+    monkeypatch.setattr(
+        api,
+        "request",
+        lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("GitHub API error 404: not found")),
+    )
+    assert api.optional("/missing") is None
+
+    monkeypatch.setattr(
+        api,
+        "request",
+        lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("GitHub API error 500: boom")),
+    )
+    with pytest.raises(RuntimeError, match="500: boom"):
+        api.optional("/boom")
+
+    # pages without key and incomplete pagination error
+    p_api = budget.GitHub("tok")
+    monkeypatch.setattr(p_api, "request", lambda *a, **kw: [{"id": 1}])
+    assert p_api.pages("/items") == [{"id": 1}]
+
+    monkeypatch.setattr(
+        p_api,
+        "request",
+        lambda *a, **kw: {"total_count": 5, "items": [{"id": 1}]},
+    )
+    with pytest.raises(RuntimeError, match="Incomplete or changing pagination"):
+        p_api.pages("/items", "items")
+
+
+def test_gate_runs_and_measure_validation_errors(monkeypatch):
+    class CeilingAPI:
+        def request(self, method, path, payload=None):
+            return {"total_count": 1001}
+
+    with pytest.raises(RuntimeError, match="exceeds the API ceiling within one second"):
+        budget.gate_runs(CeilingAPI(), REPO, NOW, NOW + timedelta(seconds=1))
+
+    class ChangingSubdivisionAPI:
+        def request(self, method, path, payload=None):
+            query = parse_qs(urlsplit(path).query)
+            start, end = map(datetime.fromisoformat, query["created"][0].split(".."))
+            if (end - start).total_seconds() > 10:
+                return {"total_count": 1001}
+            return {"total_count": 1, "workflow_runs": [{"id": 1}]}
+
+    with pytest.raises(RuntimeError, match="Gate run window changed during subdivision"):
+        budget.gate_runs(ChangingSubdivisionAPI(), REPO, NOW, NOW + timedelta(seconds=20))
+
+    class ChangingPagingAPI:
+        def __init__(self):
+            self.calls = 0
+
+        def request(self, method, path, payload=None):
+            self.calls += 1
+            if self.calls == 1:
+                return {"total_count": 1}
+            return {"total_count": 2, "workflow_runs": [{"id": 1}]}
+
+    with pytest.raises(RuntimeError, match="Gate run count changed while paging"):
+        budget.gate_runs(ChangingPagingAPI(), REPO, NOW - timedelta(days=1), NOW)
+
+    class DuplicateRunsAPI:
+        def request(self, method, path, payload=None):
+            if "per_page=1&" in path or path.endswith("per_page=1"):
+                return {"total_count": 2}
+            return {"total_count": 2, "workflow_runs": [{"id": 1}, {"id": 1}]}
+
+    with pytest.raises(RuntimeError, match="Incomplete Gate run window"):
+        budget.gate_runs(DuplicateRunsAPI(), REPO, NOW - timedelta(days=1), NOW)
+
+    monkeypatch.setattr(budget, "is_owner_excluded", lambda repo: repo == "excluded/repo")
+    with pytest.raises(ValueError, match="Repository is excluded"):
+        budget.measure("excluded/repo", api=FakeGitHub(), now=NOW)
+    monkeypatch.setattr(budget, "is_owner_excluded", lambda repo: False)
+
+    # Measure skips cancelled runs, jobs outside window, and rejects jobs missing timestamps
+    monkeypatch.setattr(
+        budget,
+        "gate_runs",
+        lambda *a: [
+            {"id": 1, "conclusion": "cancelled"},
+            {"id": 2, "conclusion": "success"},
+        ],
+    )
+
+    class JobChecksAPI:
+        def __init__(self, jobs_list):
+            self.jobs_list = jobs_list
+
+        def run_jobs(self, repo, run):
+            return self.jobs_list
+
+    with pytest.raises(RuntimeError, match="Executed Gate job has no duration"):
+        budget.measure(
+            REPO,
+            api=JobChecksAPI([{"name": "j", "conclusion": "success", "started_at": None}]),
+            now=NOW,
+        )
+
+    outside_job = job(
+        "old",
+        5,
+        started_at=(NOW - timedelta(days=9)).isoformat(),
+        completed_at=(NOW - timedelta(days=8)).isoformat(),
+    )
+    valid_job = job("curr", 8)
+    res = budget.measure(REPO, api=JobChecksAPI([outside_job, valid_job]), now=NOW)
+    assert res["p50"] == 8
+
+
+def test_reconcile_creates_missing_labels_and_load_report_and_main(monkeypatch):
+    api = FakeGitHub()
+    api.optional = lambda path: None
+    row = budget.observation({}, metrics(), NOW)
+    budget.reconcile(api, REPO, row)
+    label_posts = [c for c in api.calls if c[0] == "POST" and c[1].endswith("/labels")]
+    assert len(label_posts) == 2
+
+    # load_report when branch ref is None vs existing
+    assert budget.load_report(api) == ({}, None)
+    api.optional = lambda path: {"ref": "refs/heads/ci-time-budget"}
+    encoded = base64.b64encode(b'{"hello": "world"}').decode()
+    api.request = lambda method, path, payload=None: {"content": encoded, "sha": "abc123"}
+    assert budget.load_report(api) == ({"hello": "world"}, "abc123")
+
+    # run skips excluded repo
+    monkeypatch.setattr(budget, "is_owner_excluded", lambda repo: repo == "excluded/repo")
+    monkeypatch.setattr(budget, "load_report", lambda a: ({}, "sha1"))
+    monkeypatch.setattr(budget, "measure", lambda *a, **kw: metrics(8))
+    monkeypatch.setattr(budget, "publish", lambda *a, **kw: "sha2")
+    assert budget.run(FakeGitHub(), ["excluded/repo"], NOW) == 0
+    monkeypatch.setattr(budget, "is_owner_excluded", lambda repo: False)
+
+    # main without GH_TOKEN and with GH_TOKEN
+    monkeypatch.setattr("sys.argv", ["ci_time_budget.py"])
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    with pytest.raises(SystemExit, match="GH_TOKEN"):
+        budget.main()
+
+    monkeypatch.setenv("GH_TOKEN", "test-token")
+    monkeypatch.setattr(budget, "extract_repos", lambda p: [REPO])
+    monkeypatch.setattr(budget, "run", lambda a, r, n: 0)
+    assert budget.main() == 0

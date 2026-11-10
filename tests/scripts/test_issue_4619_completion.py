@@ -567,4 +567,3 @@ def test_verify_published_ci_budget_alignment_and_gate_run_branch_coverage() -> 
     g3_ok, g3_fails = gate_run_supported(passed_flag_false_evidence)
     assert g3_ok is False
     assert "gate evidence passed flag is false" in g3_fails
-
