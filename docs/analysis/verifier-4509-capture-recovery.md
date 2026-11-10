@@ -1037,3 +1037,48 @@ its verified cache, the required full formatting gate passed:
 — exit 0, **999 files unchanged**. The initial uncached CLI stalled and was
 interrupted; the final command uses the repository's configured exclusions and
 Python target. No frozen evidence or unrelated source was reformatted.
+
+## Round 6 authenticated archive readback — 2026-11-10
+
+Outcome: **0 accepted recoveries**. On source
+`82613bbb45d1e9a449322623b96854a290439d2d`, authenticated
+`gh api repos/stranske/Workflows/actions/artifacts/13555815325/zip` obtained
+the previously unavailable `selftest-autofix-3.14` archive for run
+`42326161711`. The 532,745-byte ZIP matches the authenticated API digest and
+the original inventory's SHA-256,
+`5d24350bca5ac35e29b36dbb36785fc8017beea7c61c58fcad276de98e292112`.
+The API reports repository and head repository ID `1117447156`, source head
+`aa7fe9537cb9c448a50b51ff6eb5da162fd819b1`, and `expired=false`.
+
+| Member / occurrence | Extracted bytes | SHA-256 |
+| --- | ---: | --- |
+| `pytest-junit.xml` / 0 | 1,679 | `c5a6bf3b431d018e73ad6c28f7af7d63d92e1572816f12c759dbc577df9c06a9` |
+| `coverage.xml` / 1 | 2,551,677 | `e6d4a8efe8896fecb493bc841bae189f4901079030c4c614a2818929b3c9f0e1` |
+| `coverage.json` / 2 | 3,899,600 | `a4fb27012591bdf141187f4a9bdc921039e351ea6f2be51c41f1e07ba594c7ca` |
+
+Member names and occurrence order matched the original inventory. The JUnit
+hash matched the original; the two coverage members originally reported
+`extraction_byte`. With this archive and its three content-addressed members
+in a temporary directory, `load_artifact_capture` admitted all three byte
+inputs. `build_capture_obligation_manifest` cleared only this archive's
+`truncated` gap in the temporary derived context. The derived context still
+has five required gaps and `sufficient=false`. The retained capture ZIP
+stayed byte-identical, preserving event
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+Native recovery admission remains blocked. Both provider slots still report
+zero of two files reviewed (`scripts/ci_history.py` and
+`tests/scripts/test_ci_history.py`), and `UNVERIFIABLE_INPUT` remains the
+historical verdict.
+
+Authenticated run readback confirmed `stranske/trip-planner` run
+`42327976097` at head `948406465cf7cd65d1ac92206b4514aaad455443` and
+`stranske/Workflows` run `42330898168` at head
+`aa7fe9537cb9c448a50b51ff6eb5da162fd819b1`, both completed/success.
+The wrong-repository Workflows lookup for run `42327976097` returned 404.
+
+- `PATH=/opt/anaconda3/bin:$PATH node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`
+  exited 0 with 332 passed in 5.056 seconds wall time.
+- `/opt/anaconda3/bin/python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function`
+  exited 0 with 9 passed and 25 deselected in 2.928 seconds wall time.
+- Gate run `42910028859` reported cancelled Python CI. Replacement Gate
+  `42911452645` completed successfully on `82613bbb`.
