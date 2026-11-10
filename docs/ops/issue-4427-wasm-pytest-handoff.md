@@ -1,6 +1,6 @@
 # Issue #4427: consumer WASM pytest pin handoff
 
-## Current status (2026-11-05, post PR #4446 on `main`)
+## Current status (2026-11-09, continuation of orch/issue-4458)
 
 **Source repair (complete, merged).** PR #4446 (`fac332ae`) extends Maint 52 so
 `scripts/sync_dev_dependencies.py` rewrites quoted dev-tool pins in
@@ -13,31 +13,51 @@ and `PYTEST_VERSION`; no further Workflows source pin change was required.
 `--apply --pre-commit --resolve-locks` on the reported consumer split (development
 dependency at `9.2.0`, workflow install still `pytest==9.1.1`) and read back
 `pytest==9.2.0` from `pages-wasm-demo.yml`. Deliberate-break runs are recorded in
-PR #4446 (aligner stub → expected failure; restored rewriter → pass). Named
-source-fix gates on that branch passed: JavaScript
-`node --test .github/scripts/__tests__/*.test.js` (3369 passed, 1 skipped);
-Python `python3 -m pytest -q tests/` (50354 passed, 25 skipped, 3 xfailed).
+PR #4446 (aligner stub -> expected failure; restored rewriter -> pass).
 
-**Consumer delivery (regenerated candidate; live acceptance pending).** The original
-sync-core evidence pointed at Trend_Model_Project#6186 head `73120b9a594e`, which
-still had `pytest==9.1.1` in the workflow. That head predates the merged Maint 52
-repair. After #4446 landed, Maint 52 was dispatched for
-`stranske/Trend_Model_Project` (Workflows run `41964217277`, wave hash
-`91791b44e525`). It published a new dev-tool candidate
+**Consumer candidate.** The original sync-core evidence pointed at
+Trend_Model_Project#6186 head `73120b9a594e`, which still had `pytest==9.1.1` in the
+workflow. That head predates the merged Maint 52 repair. After #4446 landed, Maint 52
+was dispatched for `stranske/Trend_Model_Project` (Workflows run `41964217277`, wave
+hash `91791b44e525`). It published a new dev-tool candidate
 [Trend_Model_Project#6189](https://github.com/stranske/Trend_Model_Project/pull/6189)
-at exact head `3083f697e6e9bb675b67fe5dc5b71192935873fb`, branch
-`deps/sync-dev-versions-91791b44e525`. At that head, `pyproject.toml` declares
-`pytest==9.2.0` and `pages-wasm-demo.yml` installs `pytest==9.2.0` — the reported
-mismatch is substantively resolved on the generated candidate. No separate manual
-edit of the consumer workflow is required; delivery is through Maint 52 only.
+on branch `deps/sync-dev-versions-91791b44e525`. The previously inspected candidate
+head was `3083f697e6e9bb675b67fe5dc5b71192935873fb`; at that head `pyproject.toml`
+declared `pytest==9.2.0` and `pages-wasm-demo.yml` installed `pytest==9.2.0`.
 
-**Live acceptance (still open).** Review thread
-[r4457616005](https://github.com/stranske/Trend_Model_Project/pull/6186#discussion_r4457616005)
-remains on the superseded open PR #6186 (`73120b9a594e`, unresolved). Maint 71 must
-report the current dev-tool candidate, #6189 must merge (or supersede #6186 with the
-aligned tree), and sync-core must stop bumping #4427 on head changes. Issue #4427
-was closed when #4446 merged; sync-core had not posted a new round on #4427 after the
-#6189 head as of this handoff update.
+**Gate blocker for #6189 (resolved before merge).** Trend_Model_Project Actions run
+`41964883333` (Gate for #6189) failed first in Python CI / python 3.14 job
+`127041978995` with `AssertionError: Expected at least 1 CSV output, found 0` in
+`tests/golden/test_demo.py::TestDemoGoldenMaster::test_demo_pipeline_end_to_end`.
+Cause: under pytest 9.2.0, pytest-xdist 3.8.0 loadgroup grouping degraded to plain load
+scheduling, so one worker's `rmtree` of `demo/exports` raced another worker's CSV check.
+Trend_Model_Project#6192 (merged 2026-11-06T14:10:04Z, before #6189) restored loadgroup
+grouping with a `trylast` collection hook that copies the stranded suffix into
+`Node._id`. The pytest pin alignment in #6189 was not the cause.
+
+**Consumer delivery (merged).**
+- Trend_Model_Project#6189 merged via the Maint 52 native lane on
+  2026-11-08T05:33:47Z, merge commit `9937ec146bcd9416b638b2e1889f89fa8b2f7650`.
+  Delivered head (final commit of #6189): `ad09728581df4a27d421f272f9e307efaa581e63`.
+- Trend_Model_Project#6186 (head `73120b9a594e`) was closed unmerged on
+  2026-11-05T05:34:58Z, superseded by #6189.
+- Review thread [r4457616005](https://github.com/stranske/Trend_Model_Project/pull/6186#discussion_r4457616005)
+  remains on the closed #6186; its finding (workflow `pytest==9.1.1` vs development
+  `pytest==9.2.0`) was absent from #6189 at the inspected head `3083f697`.
+
+**Maint 71 report.** `maint-71-merge-sync-prs.yml` run
+[42596605795](https://github.com/stranske/Workflows/actions/runs/42596605795)
+(2026-11-09T09:51:40Z) concluded `success`, but its log does not name the dev-tool
+candidate, #6189 or #6186 (a search of the full run log for `6186` and `6189` finds no
+report line). Its Trend_Model_Project line is
+`stranske/Trend_Model_Project@c6b85ffe: Consumer-declared delivery checks: 1 of 2 passed; 1 never started, merge blocked: Health 45 Agents Guard / guard; 1 also required, gated as required`.
+A3 is therefore NOT satisfied.
+
+**Sync-core observation.** Pending: no post-merge sync-core round has been identified
+for Trend_Model_Project after 2026-11-08T05:33:47Z. A4 is not satisfied.
+
+Issue #4427 is closed. Issue #4458 is open; the remaining A3/A4 observations and the
+re-verification at `ad09728` are follow-up work under #4458.
 
 ## Investigation summary
 
@@ -54,11 +74,11 @@ dependency was already moving to `9.2.0`.
 
 Key tests (all on `main` after #4446):
 
-- `tests/scripts/test_sync_dev_dependencies.py` — Maint 52 apply aligns
+- `tests/scripts/test_sync_dev_dependencies.py` - Maint 52 apply aligns
   `pages-wasm-demo.yml` to the development pytest pin.
-- `tests/test_dependency_version_alignment.py` — ownership boundary vs Maint 68;
+- `tests/test_dependency_version_alignment.py` - ownership boundary vs Maint 68;
   WASM install alignment regression.
-- `tests/workflows/test_maint52_sync_dev_versions_pr_body.py` — workflow stages the
+- `tests/workflows/test_maint52_sync_dev_versions_pr_body.py` - workflow stages the
   WASM file.
 
 Focused validation command for this closer repair:
@@ -73,13 +93,15 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
 
 - [x] Merge the Workflows source repair (#4446).
 - [x] Regenerate the consumer dev-tool candidate through Maint 52 (do not hand-edit
-  the generated branch). Record exact head and matching workflow / development pytest
-  pins (#6189 @ `3083f697e6e9bb675b67fe5dc5b71192935873fb`).
-- [ ] Merge or supersede Trend_Model_Project#6189 so the aligned pins reach the
-  consumer default branch; retire stale #6186 if still open.
-- [ ] Confirm the next successful `maint-71-merge-sync-prs.yml` report for the
-  current dev-tool candidate no longer treats review thread `r4457616005` as blocking,
-  and sync-core stops reporting this finding on new heads.
+  the generated branch).
+- [x] Merge Trend_Model_Project#6189 (2026-11-08T05:33:47Z, merge commit `9937ec14`,
+  delivered head `ad097285`); #6186 closed unmerged (2026-11-05T05:34:58Z).
+- [ ] Obtain a Maint 71 report that names the dev-tool delivery (#6189) and obsolete
+  #6186. Run 42596605795 succeeded but names neither.
+- [ ] Identify the first sync-core round on Trend_Model_Project after
+  2026-11-08T05:33:47Z and record whether it recreated or bumped #6186 or r4457616005.
+- [ ] Re-run the pin grep and the two WASM test files at delivered head `ad097285`
+  (or current Trend_Model_Project main), quoting interpreter path, pass count and pin lines.
 - [ ] Optional Maint 68 preview (expect no WASM workflow replacement):
 
   ```bash
@@ -88,13 +110,30 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
     -f phase=preview -f repos=stranske/Trend_Model_Project -f dry_run=true
   ```
 
-## Historical notes (prior agent sessions, not current blockers)
+## Task completion status
 
-Earlier handoff drafts recorded sandbox failures that do not apply on the merged
-branch: read-only `.git`, incomplete JavaScript gate timeouts, and Python collection
-failures from LangSmith on Python 3.14 before #4446's gate fixes (`e8371dd0`,
-`baf570de`). Those items are historical; PR #4446 records the passing full gates.
+- **T1**: Evidenced - Gate run `41964883333` for #6189 inspected; first failing step was
+  Python CI / python 3.14 job `127041978995` (golden demo CSV race), fixed natively by
+  Trend_Model_Project#6192 without bypassing Gate.
+- **T2**: Evidenced at the previously inspected head `3083f697` only: `pyproject.toml` and
+  `pages-wasm-demo.yml` both declared `pytest==9.2.0`. Not re-verified at delivered head
+  `ad097285`.
+- **T3**: Evidenced - #6189 merged via the Maint 52 native lane
+  (2026-11-08T05:33:47Z, merge commit `9937ec14`); #6186 closed unmerged
+  (2026-11-05T05:34:58Z).
+- **T4**: Open - Maint 71 run 42596605795 succeeded but does not name the dev-tool
+  candidate or #6186.
+- **T5**: Open - delivered head `ad097285` and stale-candidate disposition are recorded;
+  the Maint 71 report naming the candidate and a post-merge sync-core observation are
+  still missing.
 
-Prior text incorrectly stated the WASM mismatch was unfixed in Workflows and required
-a separate consumer-owned workflow patch. That path is superseded by the Maint 52
-workflow pin rewriter and regenerated candidate #6189.
+## Acceptance criteria status
+
+- **A1**: Not re-verified at `ad09728` - pins matched at the inspected head `3083f697`;
+  the WASM test run and pin grep at the delivered head have not been recorded with a
+  quoted command and output.
+- **A2**: Not re-verified at `ad09728` - no Maint 71 selection change was made on this
+  branch; no test output is recorded here.
+- **A3**: Open - run 42596605795 is `success`, but does not name the dev-tool candidate
+  or #6186.
+- **A4**: Pending: no post-merge sync-core round identified.
