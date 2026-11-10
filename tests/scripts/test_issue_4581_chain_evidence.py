@@ -95,8 +95,7 @@ def test_terminal_run_dispatch_lineage_is_bound() -> None:
     terminal_excerpt_path = EVIDENCE / terminal["log_excerpt"]
     terminal_excerpt = terminal_excerpt_path.read_text(encoding="utf-8")
     handoff_line = [
-        line for line in terminal_excerpt.splitlines()
-        if "IMMUTABLE_HANDOFF_JSON" in line
+        line for line in terminal_excerpt.splitlines() if "IMMUTABLE_HANDOFF_JSON" in line
     ][0]
     handoff_json_str = handoff_line.split("IMMUTABLE_HANDOFF_JSON: ", 1)[1]
     handoff = json.loads(handoff_json_str)
