@@ -288,3 +288,92 @@ subprocess IPC to commit and rerun these changes, plus authenticated canonical
 recovery origin and complete required capture evidence before evaluation.
 Final readback confirms PR #4631 is open with `draft=false`, still at
 `70bae977e1491aa29b979e449bea12b53d7e2bde`.
+
+## Keepalive round 2 readback — 2026-11-10
+
+**Outcome: 0 accepted recoveries; NON_PASS remains.** Stop rule for this round:
+two repair attempts or 25 minutes. No production repair was justified by the
+reported CI failures. Authenticated run/job readback of
+[run 42893223647](https://github.com/stranske/Workflows/actions/runs/42893223647)
+shows `Resolve Context` (job `130099474097`) and `Record autofix dispatch
+completion` (job `130099486638`) were **cancelled**, with empty step inventories;
+the autofix job was skipped. These observations do not identify a script defect
+or establish why the workflow was cancelled. A later
+[run 42893224277](https://github.com/stranske/Workflows/actions/runs/42893224277)
+has successful context resolution and skipped autofix/completion. No workflow
+change or rerun was made to turn cancellation into a passing repair claim.
+
+On committed source `70bae977e1491aa29b979e449bea12b53d7e2bde`, the named
+Node command above exited **0**, with **325 passed / 0 failed**, in **5.097
+seconds** total wall time. Python resolved to `/opt/anaconda3/bin/python3`.
+Authenticated GETs at approximately 20:32 UTC reproduced the consumer 200,
+wrong-repository 404, and verifier 200 with the same heads and completed/success
+identities recorded above. The 404 remains non-authoritative for consumer absence.
+
+The following provider-free readback is runnable from the repository root,
+without relying on the investigation's earlier temporary extraction directory:
+
+```sh
+/opt/anaconda3/bin/python3 - <<'PY'
+from pathlib import Path
+import json, tempfile, zipfile
+from tools.verifier_capture_obligation_manifest import (
+    build_capture_obligation_manifest, validate_capture_byte_inventory,
+)
+from tools.verifier_corpus_evidence import event_metadata, validated_payload
+
+with tempfile.TemporaryDirectory(prefix='verifier-4509-') as directory:
+    p = Path(directory)
+    with zipfile.ZipFile('.github/scripts/__tests__/fixtures/verifier-4509-capture.zip') as archive:
+        archive.extractall(p)
+    snapshot = json.loads((p / 'verifier-input-manifest.json').read_text())
+    context = (p / 'verifier-context.md').read_bytes()
+    diff = (p / 'verifier-pr-diff.patch').read_bytes()
+    validate_capture_byte_inventory(snapshot['capture_byte_inventory'],
+                                    {'context': context, 'diff': diff})
+    obligations = build_capture_obligation_manifest(context.decode(), full_diff_bytes=diff)
+    event = event_metadata(p / 'verification-event-manifest.json')
+    comparison = json.loads((p / 'comparison.json').read_text())
+    rows, verdict, available = validated_payload(comparison, mode='compare')
+    print(obligations['sufficient'], verdict, available)
+    print(event['verification_event']['event_id'])
+    for result in comparison['results']:
+        assert result['used_llm'] is False
+        assert result['files_reviewed'] is None
+        assert result['files_not_reviewed'] == ['scripts/ci_history.py', 'tests/scripts/test_ci_history.py']
+    assert obligations['sufficient'] is False
+    assert verdict == 'UNVERIFIABLE_INPUT' and available is False
+    print('provider coverage: 0/2 files in both retained slots')
+PY
+```
+
+This command exited **0** on the same source and printed
+`False UNVERIFIABLE_INPUT False`, the unchanged event ID above, and zero coverage
+for both provider slots. This is offline validation, **not** successful native
+recovery admission. The earlier canonical-source refusal and required capture
+gaps remain unresolved; T5's successful-admission requirement and A2 remain
+unmet. Blocking/drainable pair: native exact-capture admission remains blocked;
+offline hash, event, inventory, coverage and bounded-reproduction checks remain
+available. This round made no collector changes, provider calls, original-event
+mutations or dependency-pin edits. CodeRabbit's linked-issue objection about
+unmet operational acceptance remains valid.
+
+The remote branch advanced during this round to
+`52ca352f99b2e1eb4f570400b95c3f9a9fdac031`; this local worktree fast-forwarded
+and preserved the hosted runner's two added regressions. On that committed source,
+the named Node command exited **0**, **326 passed / 0 failed**, **5.004 seconds**
+total wall time with `/opt/anaconda3/bin/python3` selected. This supersedes the
+hosted runner's environment-specific named-command failure for these source bytes.
+The focused new Python regression was also checked locally:
+
+```sh
+/opt/anaconda3/bin/python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function
+```
+
+The initial invocation without the explicit loop scope exited 3 during
+pytest-asyncio configuration, before tests, because its unset-scope deprecation
+is treated as an error. Selecting the scope in the invocation required no source
+or dependency change. The explicit-scope invocation exited **0**, **1 passed**.
+Only documentation changes follow this tested source in this round. No full
+suite was run. T5 successful admission and A2 are still unmet; passing refusal
+regressions do not resolve the captured operational failure.
