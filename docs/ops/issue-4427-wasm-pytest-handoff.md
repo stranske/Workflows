@@ -68,7 +68,7 @@ The Orchestrator `gh` guard refused it (exit 77): shared production jobs cannot
 be started inside a dispatched agent; schedules and sync-core own those starts.
 No new run was created, and no alternative dispatch path was used.
 
-**Report repair (local, not deployed).** The missing history is upstream of the
+**Report repair (branch, not deployed to main).** The missing history is upstream of the
 formatter: `listMaint71PullRequests` reads open PRs plus the latest closed stable
 workflow heads, excluding closed dev-tool heads. Maint 71 now makes one bounded,
 read-only GraphQL search (up to 100 recent dev-tool candidates per repository)
@@ -203,6 +203,17 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
     --repo stranske/Workflows --ref main \
     -f phase=preview -f repos=stranske/Trend_Model_Project -f dry_run=true
   ```
+
+## Round 4 stale-closure report regression (2026-11-10)
+
+Inline review `4527153576` identified a remaining report omission: the controller's
+actual stale-closure rows include `branch` and `status`, but omit `delivery_lane`.
+Removing the invented lane/disposition fields from the existing formatter fixture
+reproduced the failure: the summary omitted #6186. The formatter now uses its
+existing branch-to-lane helper when an explicit lane is absent. The regression
+requires `#6186 closed unmerged`, and still checks the dry-run `would close` label.
+The exact two-file Node command was rerun after this repair: 243 passed, zero failed.
+This affects reporting only; merge selection and dependency pins are unchanged.
 
 ## Round 4 CI readback (2026-11-10)
 

@@ -2093,7 +2093,7 @@ function buildMarkdownSummary(report) {
   // Retain dispositions for candidates acted on during this run.
   const devToolByRepo = new Map();
   for (const result of report.results || []) {
-    if (result.delivery_lane === 'dev-tool-sync' && result.pr) {
+    if ((result.delivery_lane || generatedDeliveryLane(result.branch)) === 'dev-tool-sync' && result.pr) {
       const repoKey = `${result.owner}/${result.repo}`;
       if (!devToolByRepo.has(repoKey)) {
         devToolByRepo.set(repoKey, []);

@@ -85,15 +85,13 @@ test('Maint 71 summary names dev-tool candidate and obsolete PRs explicitly', ()
         repo: 'Trend_Model_Project',
         pr: 6186,
         branch: 'deps/sync-dev-versions-91791b44e525',
-        delivery_lane: 'dev-tool-sync',
-        delivery_disposition: 'superseded',
         status: 'stale_closed',
       },
     ],
   };
   const summary = buildMarkdownSummary(report);
   assert.match(summary, /6189/);
-  assert.match(summary, /6186/);
+  assert.match(summary, /#6186 closed unmerged/);
   report.results[1].dry_run = true;
   assert.match(buildMarkdownSummary(report), /#6186 would close unmerged/);
 });
