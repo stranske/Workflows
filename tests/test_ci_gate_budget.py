@@ -66,13 +66,47 @@ def test_synced_large_file_parity_checks_guard_against_difflib_hangs() -> None:
     over 30 minutes (Workflows#4619). Tests asserting template parity must check
     digest equality first so failures report immediately.
     """
-    parity_test_files = (
-        "tests/scripts/test_pr_verifier_sync_manifest.py",
-        "tests/scripts/test_native_capacity_registry.py",
-        "tests/workflows/test_keepalive_authority_delivery.py",
-        "tests/workflows/test_repeat_verification_lifecycle.py",
-        "tests/tools/test_verifier_request_correlation.py",
-    )
-    for rel_path in parity_test_files:
+    import ast
+
+    parity_test_functions = {
+        "tests/scripts/test_pr_verifier_sync_manifest.py": (
+            "test_pr_verifier_api_client_is_available_in_consumer_template",
+            "test_pr_verifier_source_and_consumer_template_are_identical",
+            "test_capture_obligation_dependency_is_managed_and_identical",
+        ),
+        "tests/scripts/test_native_capacity_registry.py": (
+            "test_native_facts_and_helper_are_managed_with_exact_template_parity",
+        ),
+        "tests/workflows/test_keepalive_authority_delivery.py": (
+            "test_authority_helpers_are_manifested_and_byte_aligned",
+        ),
+        "tests/workflows/test_repeat_verification_lifecycle.py": (
+            "test_template_repeat_bypasses_only_coarse_fingerprint_and_threads_all_inputs",
+        ),
+        "tests/tools/test_verifier_request_correlation.py": (
+            "test_workflow_and_template_forward_basis_to_authenticated_manifest_and_markers",
+        ),
+    }
+    for rel_path, func_names in parity_test_functions.items():
         content = (ROOT / rel_path).read_text(encoding="utf-8")
-        assert "hashlib.sha256(" in content, rel_path
+        tree = ast.parse(content, filename=rel_path)
+        functions = {
+            node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+        }
+        for func_name in func_names:
+            assert func_name in functions, f"{rel_path}::{func_name} missing"
+            func_src = ast.get_source_segment(content, functions[func_name]) or ""
+            digest_pos = func_src.find("hashlib.sha256(")
+            assert digest_pos != -1, f"{rel_path}::{func_name} must assert sha256 digest"
+            # Verify the digest assertion precedes the raw byte/text equality assertion.
+            for eq_check in (
+                "assert template.read_bytes() == PR_VERIFIER.read_bytes()",
+                "assert template_bytes == source_bytes",
+                "assert source_bytes == template_bytes",
+                'assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(encoding="utf-8")',
+            ):
+                eq_pos = func_src.find(eq_check)
+                if eq_pos != -1:
+                    assert (
+                        digest_pos < eq_pos
+                    ), f"{rel_path}::{func_name} must check sha256 digest before raw equality"

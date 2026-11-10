@@ -479,7 +479,8 @@ They hold ~35.6k cases and ~38% of the suite's worker time, and in one job they 
 the pytest step at 6.7–13.3 minutes (Workflows#3904). The Gate passes only when both
 calls pass; `tests/test_ci_gate_budget.py` keeps the ignore list equal to the
 grammar call's files, so the two calls still discover the full suite. Coverage
-percentages therefore exclude lines only those suites reach. In addition,
+does not record execution by the grammar suites. Non-excluded executable source
+lines reached only by those suites count as missed in the 70% guard. In addition,
 parity checks on large managed files (such as `scripts/langchain/pr_verifier.py`,
 `.github/scripts/keepalive_loop.js`, and `.github/scripts/verification_event.js`)
 assert content digests before byte equality so assertion failures cannot trigger
