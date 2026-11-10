@@ -267,6 +267,12 @@ on:
       llm-quality-warnings:
         description: 'JSON array of quality warnings from BS detector'
         value: ${{ jobs.codex.outputs.llm-quality-warnings }}
+  pull_request:
+    paths:
+      - '.github/workflows/reusable-codex-run.yml'
+      - 'tools/subscription_llm.py'
+      - 'templates/consumer-repo/tools/subscription_llm.py'
+      - 'tests/workflows/test_subscription_llm_pinned_cli_canary.py'
 
 permissions:
   contents: write
@@ -284,7 +290,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
-    if: ${{ !inputs.skip }}
+    if: ${{ !inputs.skip && inputs.prompt_file != '' }}
     outputs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
       final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
@@ -2233,3 +2239,68 @@ jobs:
             } catch (error) {
               console.log(`Could not add label: ${error.message}`);
             }
+
+  codex-pinned-canary:
+    name: Pinned Codex CLI Canary
+    runs-on: ubuntu-latest
+    if: ${{ inputs.prompt_file == '' && github.repository == 'stranske/Workflows' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.workflows_ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+
+      - name: Expose cached Codex CLI
+        run: echo "${{ runner.temp }}/agent-cli/codex/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pinned Codex CLI
+        id: pinned_codex_cli_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/agent-cli/codex
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-codex-cli-0.160.0
+
+      - name: Install Codex CLI
+        if: steps.pinned_codex_cli_cache.outputs.cache-hit != 'true'
+        env:
+          NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/codex
+          CODEX_CLI_VERSION: '0.160.0'
+        run: | # zizmor: ignore[adhoc-packages]
+          set -euo pipefail
+          echo "Installing Codex CLI..."
+          npm install -g "@openai/codex@${CODEX_CLI_VERSION}"
+          echo "Installed Codex CLI version: $(codex --version)"
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.14'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip pytest pyyaml
+
+      - name: Run pinned Codex CLI canary
+        env:
+          WORKFLOWS_PINNED_CODEX_BIN: ${{ runner.temp }}/agent-cli/codex/bin/codex
+        run: |
+          set -euo pipefail
+          junit_xml="${RUNNER_TEMP:-/tmp}/pinned-codex-canary-junit.xml"
+          python -m pytest tests/workflows/test_subscription_llm_pinned_cli_canary.py -vv --junitxml="$junit_xml"
+          python - "$junit_xml" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse(sys.argv[1]).getroot()
+          suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
+          tests = sum(int(s.attrib.get("tests", 0)) for s in suites)
+          skipped = sum(int(s.attrib.get("skipped", 0)) for s in suites)
+          if tests == 0 or skipped > 0:
+              raise SystemExit(f"Expected 0 skipped tests across >0 cases, got tests={tests}, skipped={skipped}")
+          PY
