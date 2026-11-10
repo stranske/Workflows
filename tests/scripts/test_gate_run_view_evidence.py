@@ -177,3 +177,71 @@ def test_recalculated_matches_rejects_a_tampered_duration() -> None:
 def test_max_seconds_must_be_positive() -> None:
     with pytest.raises(ValueError, match="max_seconds"):
         retain_gate_run_view(_payload(), max_seconds=0)
+
+
+def test_gate_run_view_evidence_edge_cases_and_cli(tmp_path: Path) -> None:
+    from scripts.gate_run_view_evidence import (
+        _database_id,
+        load_evidence,
+        main,
+        select_named_jobs,
+    )
+
+    assert _database_id({"databaseId": "not-int"}) is None
+    assert select_named_jobs("not-a-list") == {}
+    assert select_named_jobs(["not-a-dict", {"name": 123}]) == {}
+
+    no_duration = retain_gate_run_view(
+        _payload(
+            {
+                "name": "python ci / python 3.13",
+                "status": "completed",
+                "conclusion": "success",
+                "url": PYTHON_313_URL,
+            },
+            _job(
+                "python ci / python 3.14",
+                url=PYTHON_314_URL,
+                database_id=122355504921,
+            ),
+            status="in_progress",
+        )
+    )
+    assert no_duration["passed"] is False
+    assert "run status is 'in_progress', expected 'completed'" in no_duration["failures"]
+    assert "python ci / python 3.13 has no duration" in no_duration["failures"]
+
+    assert recalculated_matches({"gh_run_view": "not-a-dict"}) is False
+
+    valid_loaded = load_evidence(EVIDENCE_PATH)
+    assert valid_loaded["run_id"] == 40551187519
+
+    non_obj_path = tmp_path / "array.json"
+    non_obj_path.write_text("[]\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="does not contain a JSON object"):
+        load_evidence(non_obj_path)
+
+    out_path = tmp_path / "out.json"
+    assert main(["--input", str(non_obj_path), "--output", str(out_path)]) == 1
+
+    pass_in = tmp_path / "pass_in.json"
+    pass_in.write_text(
+        json.dumps(
+            _payload(
+                _job("python ci / python 3.13"),
+                _job(
+                    "python ci / python 3.14",
+                    completed="2026-10-27T17:40:40Z",
+                    url=PYTHON_314_URL,
+                    database_id=122355504921,
+                ),
+            )
+        ),
+        encoding="utf-8",
+    )
+    assert main(["--input", str(pass_in), "--output", str(out_path)]) == 0
+    assert load_evidence(out_path)["passed"] is True
+
+    fail_in = tmp_path / "fail_in.json"
+    fail_in.write_text(json.dumps(_payload()), encoding="utf-8")
+    assert main(["--input", str(fail_in), "--output", str(out_path)]) == 1
