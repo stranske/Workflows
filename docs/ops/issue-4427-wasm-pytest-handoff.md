@@ -299,6 +299,32 @@ The exact A1 two-file Node command passed again: **243 passed, zero failed**,
 581.40 ms. This round changes evidence only. Cost: one refused dispatch, zero
 production runs, one existing-run log read, and one focused local test run.
 
+## Round 7 production report check (2026-11-10T17:32Z)
+
+Outcome: **A2 unsatisfied; T1 pending**. Acceptance requires a newly dispatched
+Maint 71 run whose log explicitly names Trend_Model_Project#6189 and #6186;
+check command: `gh run view <new-run-id> --repo stranske/Workflows --log`.
+Stop rule: one dispatch attempt and at most 15 minutes of observation, stopping
+at the first refusal or failed/omitting report.
+
+The exact requested dispatch exited 77. The Orchestrator `gh` guard states that
+shared production starts are refused inside dispatched agents and belong to
+schedules and sync-core. No run was created and no alternate route was attempted.
+The refusal reached this round's stop rule. Blocking/drainable pair: production
+dispatch is blocked in this seat; focused validation and recording evidence are
+drainable. The native schedule/sync-core owner retains production continuation.
+
+The latest listed run remains [42789507724](https://github.com/stranske/Workflows/actions/runs/42789507724),
+completed successfully at `9dcc645ba2b51f6db655486cec7e06e1f7d5e5b4`.
+Its full log was read again. The literal `6189|6186` regex matches five timestamp
+lines; candidate-aware `#6189`, `#6186`, `/pull/6189`, and `/pull/6186` searches
+match zero lines. Timestamp digits do not establish either candidate disposition.
+
+The exact A1 two-file Node command passed: **243 passed, zero failed**, 655.51 ms.
+This round changes documentation only. Cost: one refused dispatch, zero new
+production runs, one existing-run log read and one focused local test run.
+T1 and A2 remain unchecked; no dependency pins or report behavior changed.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
