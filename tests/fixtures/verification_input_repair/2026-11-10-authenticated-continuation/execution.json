@@ -1,0 +1,163 @@
+{
+  "schema": "retained-collector-execution/v1",
+  "started": "2026-11-10T19:42:48.207Z",
+  "finished": "2026-11-10T19:42:54.269Z",
+  "source_head": "195082dfef043929b2f706d915f15d6fbdf548ef",
+  "collector_sha256": "5e3df4874086c40fa78a7105c111c82a21af2d6139ff500b5d5a1ff935aa5753",
+  "harness_sha256": "355f2aaaffe508b7819a5b8bb19cc0f635678b5a80248583a6a1cd8bccd97f32",
+  "node": "v24.3.0",
+  "transport": "Node fetch, authenticated with gh auth token; GET only; no provider adapter",
+  "command": "node tests/fixtures/verification_input_repair/collect-retained-evidence.cjs tests/fixtures/verification_input_repair/2026-11-10-authenticated-continuation",
+  "subjects": [
+    {
+      "pr": 4231,
+      "comment": 6390994169,
+      "run_id": 40143755394,
+      "artifact_id": 12579928048,
+      "selectors": [
+        {
+          "kind": "comment",
+          "url": "https://github.com/stranske/Workflows/pull/4231#issuecomment-6390994169"
+        },
+        {
+          "kind": "artifact_member",
+          "run_id": 40143755394,
+          "artifact_id": 12579928048,
+          "path": "comparison.json"
+        },
+        {
+          "kind": "artifact_member",
+          "run_id": 40143755394,
+          "artifact_id": 12579928048,
+          "path": "comparison-execution.json"
+        }
+      ],
+      "output": "4231-collector.json",
+      "sha256": "bcc829c2d77e91d7ead77f68ec601883f046368c4cf7545afe898920b8e8ad9c"
+    },
+    {
+      "pr": 4235,
+      "comment": 6392557346,
+      "run_id": 40155311407,
+      "artifact_id": 12584318436,
+      "selectors": [
+        {
+          "kind": "comment",
+          "url": "https://github.com/stranske/Workflows/pull/4235#issuecomment-6392557346"
+        },
+        {
+          "kind": "artifact_member",
+          "run_id": 40155311407,
+          "artifact_id": 12584318436,
+          "path": "comparison.json"
+        },
+        {
+          "kind": "artifact_member",
+          "run_id": 40155311407,
+          "artifact_id": 12584318436,
+          "path": "comparison-execution.json"
+        }
+      ],
+      "output": "4235-collector.json",
+      "sha256": "d197413ab268da6b4359b1db653a0d4b58a9f159df193d6f1716ed9d63d62417"
+    }
+  ],
+  "calls": [
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/pulls/4231",
+      "status": 200,
+      "at": "2026-11-10T19:42:49.095Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/issues/comments/6390994169",
+      "status": 200,
+      "at": "2026-11-10T19:42:49.875Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/issues/4231/comments?sort=created&direction=desc&per_page=100&page=1",
+      "status": 200,
+      "at": "2026-11-10T19:42:50.290Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/pulls/4231/comments?sort=created&direction=desc&per_page=50&page=1",
+      "status": 200,
+      "at": "2026-11-10T19:42:50.553Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/pulls/4231/reviews?per_page=50&page=1",
+      "status": 200,
+      "at": "2026-11-10T19:42:50.792Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/runs/40143755394",
+      "status": 200,
+      "at": "2026-11-10T19:42:51.092Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/runs/40143755394/artifacts?per_page=1&page=1",
+      "status": 200,
+      "at": "2026-11-10T19:42:51.322Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/12579928048",
+      "status": 404,
+      "at": "2026-11-10T19:42:51.535Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/pulls/4235",
+      "status": 200,
+      "at": "2026-11-10T19:42:51.896Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/issues/comments/6392557346",
+      "status": 200,
+      "at": "2026-11-10T19:42:52.542Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/issues/4235/comments?sort=created&direction=desc&per_page=100&page=1",
+      "status": 200,
+      "at": "2026-11-10T19:42:52.852Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/pulls/4235/comments?sort=created&direction=desc&per_page=50&page=1",
+      "status": 200,
+      "at": "2026-11-10T19:42:53.124Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/pulls/4235/reviews?per_page=50&page=1",
+      "status": 200,
+      "at": "2026-11-10T19:42:53.438Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/runs/40155311407",
+      "status": 200,
+      "at": "2026-11-10T19:42:53.779Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/runs/40155311407/artifacts?per_page=1&page=1",
+      "status": 200,
+      "at": "2026-11-10T19:42:54.019Z"
+    },
+    {
+      "method": "GET",
+      "url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/12584318436",
+      "status": 404,
+      "at": "2026-11-10T19:42:54.264Z"
+    }
+  ]
+}
