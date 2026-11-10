@@ -2800,6 +2800,44 @@ function selectReconciliationTargets({
   );
 }
 
+// Reporting only: keep historical dev-tool observations out of merge selection,
+// cleanup and this run's merged/stale counters. One bounded search also finds
+// closed generated heads that the stable-branch recovery inventory omits.
+async function readDevToolCandidateAccounting({ owner, repo, withRetry, trustedActors = [] }) {
+  const repository = `${owner}/${repo}`;
+  try {
+    const data = await withRetry((client) => client.graphql(`
+      query($query:String!){search(query:$query,type:ISSUE,first:100){
+        pageInfo{hasNextPage} nodes{... on PullRequest{
+          number state headRefName headRefOid author{login}
+          repository{nameWithOwner} headRepository{nameWithOwner}
+        }}
+      }}`, { query: `repo:${repository} is:pr head:deps/sync-dev-versions- sort:updated-desc` }),
+    { rateResource: 'graphql' });
+    const search = data?.search;
+    if (!Array.isArray(search?.nodes) || typeof search?.pageInfo?.hasNextPage !== 'boolean') {
+      throw new Error('dev-tool candidate inventory incomplete');
+    }
+    if (search.nodes.some(pr => !pr || !Number.isInteger(pr.number)
+      || !['OPEN', 'CLOSED', 'MERGED'].includes(pr.state)
+      || !pr.repository?.nameWithOwner || !pr.author?.login
+      || typeof pr.headRefName !== 'string' || !/^[a-f0-9]{40}$/.test(pr.headRefOid))) {
+      throw new Error('dev-tool candidate identity incomplete');
+    }
+    const candidates = search.nodes.filter(pr => pr
+      && pr.repository?.nameWithOwner === repository
+      && pr.headRepository?.nameWithOwner === repository
+      && pr.headRefName?.startsWith('deps/sync-dev-versions-')
+      && trustedActors.includes(pr.author?.login)
+      && ['OPEN', 'CLOSED', 'MERGED'].includes(pr.state))
+      .map(pr => ({ pr: pr.number, head_sha: pr.headRefOid, branch: pr.headRefName,
+        status: pr.state === 'MERGED' ? 'merged' : pr.state === 'CLOSED' ? 'closed unmerged' : 'open' }));
+    return { repository, status: search.pageInfo.hasNextPage ? 'truncated' : 'complete', candidates };
+  } catch (error) {
+    return { repository, status: 'unknown', candidates: [], error: String(error.message || error) };
+  }
+}
+
 async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed = false }) {
   const {
     SYNC_CANDIDATE_BRANCH,
@@ -4141,6 +4179,7 @@ async function run({ github, context, core }) {
   
   const results = [];
   const canaryEvidence = [];
+  const devToolCandidates = [];
   const stableCanaries = [];
   
   let canaryRefreshRunsCache = null;
@@ -4647,6 +4686,12 @@ async function run({ github, context, core }) {
     });
   
     console.log(`\n=== ${owner}/${repo} ===`);
+
+    if (!requestedSyncHash || requestedSyncHash === 'dev-tool') {
+      devToolCandidates.push(await readDevToolCandidateAccounting({
+        owner, repo, withRetry, trustedActors: trustedSyncActors,
+      }));
+    }
   
     try {
       const pullRequests = await listMaint71PullRequests({
@@ -6500,6 +6545,7 @@ async function run({ github, context, core }) {
     },
   });
   const reportPath = process.env.SYNC_PR_MERGE_REPORT_JSON || 'artifacts/sync-pr-merge-report.json';
+  report.dev_tool_candidates = devToolCandidates;
   report.canary_refresh = require('./sync_refresh_diagnostics').compactCanaryRefresh(canaryRefresh);
   const canaryEvidencePath = 'artifacts/sync-canary-evidence.json';
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
@@ -6522,7 +6568,9 @@ async function run({ github, context, core }) {
       `Canary evidence is incomplete or unsafe: ${evidenceValidation.errors.join(', ')}`,
     );
   }
-  await core.summary.addRaw(buildMarkdownSummary(report)).write();
+  const markdownSummary = buildMarkdownSummary(report);
+  console.log(markdownSummary);
+  await core.summary.addRaw(markdownSummary).write();
   if (!dryRun && !evidenceOnly && report.handoff_records.length > 0) {
     // Fleet-wide refresh: a targeted Maint 71 repos filter must not cause
     // Maint 82 to stale unscanned repos. Dispatch is best-effort so a
@@ -6601,6 +6649,7 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  readDevToolCandidateAccounting,
   runAgentsGuardRecoveryTargets,
   recoverCancelledAgentsGuard,
   reconcileLegacyCanaryHistory,

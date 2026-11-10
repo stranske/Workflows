@@ -2081,7 +2081,16 @@ function buildMarkdownSummary(report) {
     if (restage) lines.push('', `seal: ${result.owner ? `${result.owner}/` : ''}${result.repo}#${result.pr_number || result.pr} rerun refused; forced restage ${restage.state} run=${restage.run_id || 'unknown'}${restage.reason ? ` (${restage.reason})` : ''}`);
   }
   
-  // Group dev-tool deliveries by repo and add per-candidate disposition lines
+  // Historical observations are separate from actions performed by this run.
+  for (const row of report.dev_tool_candidates || []) {
+    const dispositions = row.candidates.map(candidate => `#${candidate.pr} ${candidate.status}`).join(', ');
+    const noneOpen = row.status === 'complete' && !row.candidates.some(candidate => candidate.status === 'open');
+    lines.push('', `${row.repository} dev-tool: ${noneOpen ? 'none open; ' : ''}` +
+      `${dispositions || (row.status === 'complete' ? 'no candidates' : 'inventory unavailable')}` +
+      `${row.status === 'complete' ? '' : `; accounting ${row.status}`}`);
+  }
+
+  // Retain dispositions for candidates acted on during this run.
   const devToolByRepo = new Map();
   for (const result of report.results || []) {
     if (result.delivery_lane === 'dev-tool-sync' && result.pr) {
@@ -2092,7 +2101,7 @@ function buildMarkdownSummary(report) {
       devToolByRepo.get(repoKey).push({
         pr: result.pr,
         status: result.status,
-        disposition: result.delivery_disposition,
+        dry_run: result.dry_run,
       });
     }
   }
@@ -2100,11 +2109,11 @@ function buildMarkdownSummary(report) {
     if (candidates.length > 0) {
       const dispositions = candidates.map(c => {
         const statusLabel = c.status === 'merged' ? 'merged' :
-                          c.status === 'stale_closed' ? 'closed unmerged' :
+                          c.status === 'stale_closed' ? (c.dry_run ? 'would close unmerged' : 'closed unmerged') :
                           c.status;
         return `#${c.pr} ${statusLabel}`;
       }).join(', ');
-      lines.push('', `dev-tool: ${dispositions}`);
+      lines.push('', `${repo} dev-tool: ${dispositions}`);
     }
   }
   

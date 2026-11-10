@@ -1,6 +1,6 @@
 # Issue #4427: consumer WASM pytest pin handoff
 
-## Current status (2026-11-09, continuation of orch/issue-4458)
+## Current status (2026-11-10, issue #4612)
 
 **Source repair (complete, merged).** PR #4446 (`fac332ae`) extends Maint 52 so
 `scripts/sync_dev_dependencies.py` rewrites quoted dev-tool pins in
@@ -52,17 +52,106 @@ candidate, #6189 or #6186 (a search of the full run log for `6186` and `6189` fi
 report line). Its Trend_Model_Project line is
 `stranske/Trend_Model_Project@c6b85ffe: Consumer-declared delivery checks: 1 of 2 passed; 1 never started, merge blocked: Health 45 Agents Guard / guard; 1 also required, gated as required`.
 
-Code fix: `buildMarkdownSummary` in `sync_pr_merge_contract.js` now includes per-candidate
-disposition lines for dev-tool-sync deliveries. A subsequent Maint 71 run dispatched after this
-fix will name the dev-tool candidates explicitly (e.g., `dev-tool: #6189 merged, #6186 closed unmerged`).
+The post-issue scheduled run
+[42762829524](https://github.com/stranske/Workflows/actions/runs/42762829524)
+(2026-11-10T05:33:03Z, Workflows head `ee964d5139fed02fcba57844ce93fc84a29dbc3e`)
+also omitted both numbers. Its Trend_Model_Project section processed workflow
+delivery #6217 at `24e3bc2e94f6`, rather than the historical dev-tool candidates.
 
-Pending: A new Maint 71 run to verify the fix. A3 is NOT YET satisfied.
+On 2026-11-10 the exact requested dispatch was attempted:
 
-**Sync-core observation.** pending: no post-merge sync-core round has been identified
-for Trend_Model_Project after 2026-11-08T05:33:47Z. A4 is not satisfied.
+```bash
+gh workflow run maint-71-merge-sync-prs.yml --repo stranske/Workflows --ref main
+```
 
-Issue #4427 is closed. Issue #4458 is open; the remaining A3/A4 observations and the
-re-verification at `ad09728` are follow-up work under #4458.
+The Orchestrator `gh` guard refused it (exit 77): shared production jobs cannot
+be started inside a dispatched agent; schedules and sync-core own those starts.
+No new run was created, and no alternative dispatch path was used.
+
+**Report repair (local, not deployed).** The missing history is upstream of the
+formatter: `listMaint71PullRequests` reads open PRs plus the latest closed stable
+workflow heads, excluding closed dev-tool heads. Maint 71 now makes one bounded,
+read-only GraphQL search (up to 100 recent dev-tool candidates per repository)
+for unscoped/dev-tool reports. It records historical states separately from
+merge actions, prints repository-qualified candidate lines in logs and the job
+summary, and labels unavailable/truncated accounting explicitly. Historical rows
+never enter merge selection, cleanup, handoffs or this run's merge counters.
+A live read of that query returned 58 candidates, `hasNextPage=false`, including
+#6189 merged and #6186 closed unmerged. This is API-read evidence, not a deployed
+Maint 71 acceptance run.
+
+**A3 remains pending:** after this source change ships, the native production
+owner must obtain a new unscoped/dev-tool report and record its run id. The issue's
+acceptance command must print both candidate numbers:
+
+```bash
+gh run view <id> --repo stranske/Workflows --log | grep -E '6189|6186'
+```
+
+**Sync-core observation (observed).** The first retained local sync-core round
+containing Trend_Model_Project after the merge is `20261108T054334Z`, recorded
+at `2026-11-08T05:43:42Z` with `apply=true`. Its target is #6189, disposition and
+terminal state `delivered`, reason `merged 2026-11-08T05:33:47Z; 5 files, 0 mismatches`,
+and `handoffs=[]`. The matching target receipt binds that round to delivered head
+`ad09728581df4a27d421f272f9e307efaa581e63`.
+
+Sources read on 2026-11-10 (no sync-core round was launched):
+
+- `~/.codex/orchestrator/sync-core/rounds.jsonl`: the round/item above.
+- `~/.codex/orchestrator/sync-core/targets/stranske_trend_model_project_6189.json`:
+  `last_round=20261108T054334Z`, `head=ad09728581df4a27d421f272f9e307efaa581e63`,
+  `disposition=delivered`, `terminal=delivered`.
+
+The round created no handoff and did not recreate/bump #6186 or its finding.
+GitHub readback found #6186 still closed, last updated 2026-11-05T05:34:59Z;
+comment r4457616005 last updated 2026-11-03T16:36:18Z, with no post-merge replies.
+Issue #4427 remains closed with no post-merge comments. The only newly created
+`deps/sync-dev-versions-*` PR found after the merge was #6213, head
+`b2666625709170f951508d4c79f026c631bcea89`, merged 2026-11-09T01:20:03Z.
+This establishes the retained round's result, not a guarantee against future recurrence.
+
+For the requested hosted inventory, the first Maint 82 campaign run after the
+merge was [42451269313](https://github.com/stranske/Workflows/actions/runs/42451269313),
+created 2026-11-08T05:33:56Z at Workflows head
+`9acdde6d5f0731bf968a6766d83f2b47db8375a3`; its log names discovery of
+Trend_Model_Project. Maint 82 campaign discovery is distinct from the local
+sync-core classification above and does not substitute for it.
+
+## Delivered-head pin and WASM check (2026-11-10)
+
+An isolated archive at `/tmp/workflows-4612-consumer` contains exact delivered
+head `ad09728581df4a27d421f272f9e307efaa581e63`; the consumer checkout was not changed.
+The selected repository interpreter is
+`/Users/teacher/Library/CloudStorage/Dropbox/Learning/Code/Trend_Model_Project/.venv/bin/python`
+(CPython 3.12.2, its existing virtual environment). From the archive:
+
+```bash
+grep -n 'pytest==' pyproject.toml .github/workflows/pages-wasm-demo.yml
+# pyproject.toml:115:    "pytest==9.2.0",
+# .github/workflows/pages-wasm-demo.yml:48:        run: python -m pip install "pytest==9.2.0" "pytest-xdist==3.8.0"
+/Users/teacher/Library/CloudStorage/Dropbox/Learning/Code/Trend_Model_Project/.venv/bin/python -m pytest -q tests/wasm/test_build_wasm_site.py tests/wasm/test_demo_no_external_cdn.py
+# 23 passed in 0.35s
+```
+
+The two requested files pass. This existing local interpreter is older than the
+consumer's declared Python >=3.13, so this result does not establish full supported-runtime
+CI compatibility or the installed environment's pytest version matching the declared pin.
+
+## Maint 71 regression check (2026-11-10)
+
+```bash
+node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js
+# 243 tests, 243 passed, 0 failed; 537.49 ms
+```
+
+Before the collector repair, the new end-to-end regression
+`Maint 71 accounts for closed dev-tool candidates when no generated PR is open`
+failed because the actual controller summary contained only `no_prs` and neither
+candidate. After the repair it passes, checks log and summary dispositions,
+and proves historical merges do not inflate this run's merge count. Additional
+cases cover open, truncated, unavailable, malformed, untrusted and fork evidence,
+and distinguish a dry-run proposed closure from an actual closed-unmerged PR.
+No full local suite was run.
 
 ## Investigation summary
 
@@ -102,10 +191,10 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
 - [x] Merge Trend_Model_Project#6189 (2026-11-08T05:33:47Z, merge commit `9937ec14`,
   delivered head `ad097285`); #6186 closed unmerged (2026-11-05T05:34:58Z).
 - [ ] Obtain a Maint 71 report that names the dev-tool delivery (#6189) and obsolete
-  #6186. Run 42596605795 succeeded but names neither.
-- [ ] Identify the first sync-core round on Trend_Model_Project after
-  2026-11-08T05:33:47Z and record whether it recreated or bumped #6186 or r4457616005.
-- [ ] Re-run the pin grep and the two WASM test files at delivered head `ad097285`
+  #6186. Runs 42596605795 and 42762829524 name neither; dispatch refused by the production guard.
+- [x] Identify the first sync-core round on Trend_Model_Project after
+  2026-11-08T05:33:47Z: `20261108T054334Z` delivered #6189, no handoff or old-finding bump.
+- [x] Re-run the pin grep and the two WASM test files at delivered head `ad097285`
   (or current Trend_Model_Project main), quoting interpreter path, pass count and pin lines.
 - [ ] Optional Maint 68 preview (expect no WASM workflow replacement):
 
@@ -120,27 +209,23 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
 - **T1**: Evidenced - Gate run `41964883333` for #6189 inspected; first failing step was
   Python CI / python 3.14 job `127041978995` (golden demo CSV race), fixed natively by
   Trend_Model_Project#6192 without bypassing Gate.
-- **T2**: Evidenced at the previously inspected head `3083f697` only: `pyproject.toml` and
-  `pages-wasm-demo.yml` both declared `pytest==9.2.0`. Not re-verified at delivered head
-  `ad097285`.
+- **T2**: Evidenced at delivered head `ad097285`: both pins are `pytest==9.2.0`,
+  and the two requested WASM test files pass (23 tests, interpreter/limitations above).
 - **T3**: Evidenced - #6189 merged via the Maint 52 native lane
   (2026-11-08T05:33:47Z, merge commit `9937ec14`); #6186 closed unmerged
   (2026-11-05T05:34:58Z).
-- **T4**: Implemented - `buildMarkdownSummary` in `sync_pr_merge_contract.js` updated to
-  include per-candidate disposition lines for dev-tool-sync deliveries. Test added to
-  `maint71_devtool_final_binding.test.js` to verify the fix. Verification pending a
-  new Maint 71 run.
-- **T5**: Partially implemented - Code fix for Maint 71 report completed and tested;
-  sync-core observation and delivered head re-verification still pending.
+- **T4**: Report collector/formatter repaired locally; the named regression command
+  passes. Production observation remains pending because dispatch was refused.
+- **T5**: Delivered-head and sync-core evidence recorded; production report still pending.
 
 ## Acceptance criteria status
 
-- **A1**: Not re-verified at `ad09728` - pins matched at the inspected head `3083f697`;
-  the WASM test run and pin grep at the delivered head have not been recorded with a
-  quoted command and output.
-- **A2**: Not re-verified at `ad09728` - no Maint 71 selection change was made on this
-  branch; no test output is recorded here.
-- **A3**: Implemented - Code fix in place; `node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js`
-  passes with new test asserting dev-tool PR numbers appear in summary. A3 satisfaction
-  pending a Maint 71 run dispatched after this change.
-- **A4**: pending: no post-merge sync-core round identified.
+- **A1**: Observed at delivered head `ad097285`: matching pins and 23 requested WASM
+  tests passed with the quoted repository interpreter; supported-runtime limitation above.
+- **A2**: Satisfied locally: the exact two-file Node command passes, 243 tests.
+  Historical report accounting does not alter merge selection.
+- **A3**: **pending**: no qualifying deployed Maint 71 report names both candidates.
+  A passing local regression is not production acceptance.
+- **A4**: Observed: delivered state is aligned; #6186 is closed unmerged, its finding
+  is absent from the delivered head, and round `20261108T054334Z` delivered #6189
+  with zero mismatches and no handoff. No post-merge old-finding bump was found.
