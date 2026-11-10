@@ -1317,3 +1317,28 @@ With `/opt/anaconda3/bin` first in `PATH`:
   exit 0, 332 passed, 5.041 seconds wall time.
 - `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function`:
   exit 0, 18 passed, 25 deselected, 3.393 seconds wall time.
+
+## Local keepalive round 10 — 2026-11-10
+
+**Accepted recoveries: 0.** On source
+`2dfd07eee38ea87d777a70df68f5aa2e11a0bc1e`, authenticated metadata and ZIP
+readback for unexpired artifact `13556839741` bound the download to Workflows
+run `42330898168`. The downloaded ZIP matched the API digest
+`sha256:539f5843e83cda38afc9944d7f2a705f1105fc9a53c93380885a9e6a9407de82`
+and was byte-identical to the retained fixture.
+
+The provider-free classifier exited 0 with `validated_no_evaluation`.
+The `--revalidate-retained` command exited 1 before evaluation because
+`verification-recovery-origin.json` was absent. The original ZIP, its nine
+members, the preexisting Actions output, and event
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`
+were preserved byte for byte. The exact input still has six required gaps.
+Both retained provider slots recorded `used_llm=false` and zero coverage
+of `scripts/ci_history.py` and `tests/scripts/test_ci_history.py`. The
+verdict remains `UNVERIFIABLE_INPUT`.
+
+The focused command
+`/opt/anaconda3/bin/python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function`
+exited 0 with 18 passed and 25 deselected in 3.33 seconds wall time. Native
+recovery admission remains blocked. Authenticated artifact readback and
+provider-free diagnostics remain available.
