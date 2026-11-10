@@ -19,6 +19,20 @@ function agentsGuardNeedsRecovery(classification) {
     || (classification?.declared_contexts?.never_started || []).includes(CONTEXT);
 }
 
+function agentsGuardNeedsInspection(classification, checks = []) {
+  return agentsGuardNeedsRecovery(classification)
+    || (!checks.some(check => check.name === CONTEXT) && checks.some(check => check.name === 'guard'
+      && check.app?.slug === 'github-actions' && /\/actions\/runs\/\d+\/job\/\d+/.test(check.details_url || '')));
+}
+
+function agentsGuardRefusalHandoff(classification, recovery, reviewBlocked = false) {
+  if (reviewBlocked || recovery?.mode !== 'refused' || !agentsGuardNeedsRecovery(classification)) return null;
+  const other = [...(classification.failed || []), ...(classification.pending || [])]
+    .some(check => check.name !== CONTEXT)
+    || (classification.declared_contexts?.never_started || []).some(name => name !== CONTEXT);
+  return other ? null : recovery.next_command;
+}
+
 async function recoverCancelledAgentsGuard({ owner, repo, pr: selected, withRetry,
   verifyPlan, dryRunMode = false, context }) {
   const target = { owner, repo }, repository = `${owner}/${repo}`;
@@ -147,4 +161,5 @@ async function recoverCancelledAgentsGuard({ owner, repo, pr: selected, withRetr
   }
 }
 
-module.exports = { CONTEXT, MAX_ATTEMPT, agentsGuardNeedsRecovery, recoverCancelledAgentsGuard };
+module.exports = { CONTEXT, MAX_ATTEMPT, agentsGuardNeedsRecovery, agentsGuardNeedsInspection,
+  agentsGuardRefusalHandoff, recoverCancelledAgentsGuard };

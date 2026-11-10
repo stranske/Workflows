@@ -2,7 +2,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const native = require('../maint71_merge_sync_prs');
-const { CONTEXT, agentsGuardNeedsRecovery } = require('../maint71_agents_guard_recovery');
+const { CONTEXT, agentsGuardNeedsRecovery, agentsGuardNeedsInspection,
+  agentsGuardRefusalHandoff } = require('../maint71_agents_guard_recovery');
 const real = require('./fixtures/ready-jobless-guard.json');
 
 function fixture() {
@@ -129,11 +130,30 @@ test('only the exact Guard context activates recovery', () => {
   assert.equal(agentsGuardNeedsRecovery({ failed: [{ name: 'Gate / gate' }] }), false);
 });
 
+test('refusal repair hint does not replace independent check or review blockers', () => {
+  const recovery = { mode: 'refused', next_command: 'repair-workflow-admission' };
+  const onlyGuard = { pending: [{ name: CONTEXT }] };
+  assert.equal(agentsGuardRefusalHandoff(onlyGuard, recovery), recovery.next_command);
+  assert.equal(agentsGuardRefusalHandoff(onlyGuard, recovery, true), null);
+  assert.equal(agentsGuardRefusalHandoff({ ...onlyGuard, failed: [{ name: 'production tests' }] }, recovery), null);
+});
+
+test('real Gate-only protection and target-event Guard success still select original-event inspection', () => {
+  const input = require('./fixtures/ready-unqualified-guard-selection.json');
+  const checks = [...input.checks, ...input.statuses.map(native.legacyStatusAsCheck)];
+  const classification = require('../sync_pr_merge_contract').classifySyncPrChecks({
+    checkRuns: checks, requiredContexts: input.required_contexts });
+  assert.equal(classification.status, 'ready');
+  assert.equal(agentsGuardNeedsRecovery(classification), false);
+  assert.equal(agentsGuardNeedsInspection(classification, checks), true);
+});
+
 test('native Guard-only script invokes production recovery and excludes the normal merge job', async () => {
   const fs = require('node:fs'), path = require('node:path');
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-71-merge-sync-prs.yml'), 'utf8');
   assert.match(workflow, /github\.event\.action != 'maint71-review-reassessment' && inputs\.agents_guard_recovery_json == ''/);
   assert.match(workflow, /inputs\.agents_guard_recovery_json != '' && github\.ref == 'refs\/heads\/main'/);
+  assert.match(workflow, /group: \$\{\{ inputs\.agents_guard_recovery_json == '' && github\.event\.action == 'maint71-review-reassessment'/);
   const script = workflow.split('      - name: Recover original jobless Guard events')[1]
     .split('      - name: Upload Guard recovery result')[0].split('          script: |\n')[1]
     .split('\n').map(line => line.replace(/^ {12}/, '')).join('\n');

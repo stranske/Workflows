@@ -5486,13 +5486,17 @@ async function run({ github, context, core }) {
 
       if (autoMerge && !dryRun && !recoveredMergedCandidate
         && deliveryRecord?.delivery_state === 'sealed'
-        && require('./maint71_agents_guard_recovery').agentsGuardNeedsRecovery(classification)) {
+        && require('./maint71_agents_guard_recovery').agentsGuardNeedsInspection(classification, allChecks)) {
         const recovery = await recoverCancelledAgentsGuard({ owner, repo, pr, withRetry, context });
         deliveryContext.agents_guard_request = recovery;
-        if (['requested', 'wait', 'unknown'].includes(recovery.mode)) {
-          results.push({ ...deliveryContext, status: 'checks_pending',
-            delivery_disposition: 'awaiting-sealed-gate', blocker_owner: 'ci',
-            next_command: recovery.next_command,
+        const explicitGuardHold = require('./maint71_agents_guard_recovery').agentsGuardNeedsRecovery(classification);
+        const repairHint = require('./maint71_agents_guard_recovery').agentsGuardRefusalHandoff(
+          classification, recovery, findingDisposition.blocked);
+        if (['requested', 'wait'].includes(recovery.mode) || (recovery.mode === 'unknown' && explicitGuardHold) || repairHint) {
+          results.push({ ...deliveryContext, status: repairHint ? classification.status : 'checks_pending',
+            delivery_disposition: repairHint ? deliveryContext.delivery_disposition : 'awaiting-sealed-gate',
+            blocker_owner: repairHint ? 'maint-71' : 'ci',
+            next_command: repairHint || recovery.next_command,
             raw_check_status: classification.status,
             failed_checks: failedChecks, pending_checks: pendingChecks });
           continue;

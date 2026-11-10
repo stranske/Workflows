@@ -189,7 +189,7 @@ permissions:
 # Maint 82 dispatch (2026-11-06: three of five requests cancelled before any job ran),
 # so it serializes only with other reassessment requests (its job-level group).
 concurrency:
-  group: ${{ github.event.action == 'maint71-review-reassessment' && format('maint71-review-reassessment-dispatch-{0}', github.repository) || format('consumer-sync-stable-pr-writers-{0}', github.repository) }}
+  group: ${{ inputs.agents_guard_recovery_json == '' && github.event.action == 'maint71-review-reassessment' && format('maint71-review-reassessment-dispatch-{0}', github.repository) || format('consumer-sync-stable-pr-writers-{0}', github.repository) }}
   cancel-in-progress: false
 
 jobs:

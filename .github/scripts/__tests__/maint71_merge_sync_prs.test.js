@@ -1382,7 +1382,7 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
       getBranchProtection: async () => ({ data: { required_status_checks: {
         contexts: presealDual ? ['Gate / gate', 'gate-summary', ...(sealRecovery ? ['generated delivery seal', 'classify changed paths'] : []),
           ...(realFailure ? ['production tests'] : [])] : ['Gate / gate',
-          ...(guardRecovery ? ['Health 45 Agents Guard / guard'] : [])],
+          ...(guardRecovery && guardRecovery !== 'unqualified' ? ['Health 45 Agents Guard / guard'] : [])],
       } } }),
       getCommit: async ({ ref }) => ({ data: { sha: ref === 'main' && !producerSucceeded ? 'a'.repeat(40) : source, commit: { committer: { date: observed } } } }),
       getContent: async ({ path: filePath }) => {
@@ -1459,6 +1459,8 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
         details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/2` },
     ];
     if (method === github.rest.checks.listForRef) return (preseal || state === 'no_change_merged') ? [] : [
+      ...(guardRecovery === 'unqualified' ? [{ name: 'guard', status: 'completed', conclusion: 'success',
+        app: { slug: 'github-actions' }, details_url: `https://github.com/${owner}/${repo}/actions/runs/123/job/1` }] : []),
       { name: 'Gate / gate', status: 'completed',
         conclusion: ['checks_failed', 'producer_success_red'].includes(state) ? 'failure' : 'success' },
     ];
@@ -1506,8 +1508,10 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
   const guardRequests = [];
   if (guardRecovery) t.mock.method(require('../maint71_agents_guard_recovery'), 'recoverCancelledAgentsGuard', async args => {
     guardRequests.push(args);
-    return { mode: 'requested', run_id: 999, blocking: 1, drainable: 1,
-      next_command: 'reread-original-agents-guard-run-and-qualified-status' };
+    return { mode: guardRecovery === 'refused' ? 'refused' : 'requested', run_id: 999, blocking: 1, drainable: 1,
+      reason: guardRecovery === 'refused' ? 'guard_repeated_cancellation' : 'requested',
+      next_command: guardRecovery === 'refused' ? 'repair-workflow-admission-then-trigger-a-new-original-pr-event'
+        : 'reread-original-agents-guard-run-and-qualified-status' };
   });
   t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
   t.mock.method(retryHelpers, 'withRetry', async (fn) => fn(github));
@@ -1558,7 +1562,8 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
   if (guardRecovery) {
     assert.equal(guardRequests.length, 1, JSON.stringify(report.results));
     assert.equal(row.status, 'checks_pending');
-    assert.equal(row.agents_guard_request.mode, 'requested');
+    assert.equal(row.agents_guard_request.mode, guardRecovery === 'refused' ? 'refused' : 'requested');
+    if (guardRecovery === 'refused') assert.equal(row.next_command, 'repair-workflow-admission-then-trigger-a-new-original-pr-event');
     assert.equal(merges.length, 0); assert.equal(dispatches.length, 0); assert.equal(updates.length, 0);
     return;
   }
@@ -1744,6 +1749,10 @@ async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, ov
 
 test('actual executor routes missing qualified Guard to recovery without merge or source refresh', t =>
   assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: true }));
+test('actual executor inspects unqualified raw Guard success with Gate-only protection', t =>
+  assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: 'unqualified' }));
+test('actual executor preserves actionable repeated-cancellation refusal in its handoff', t =>
+  assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: 'refused' }));
 
 for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
   test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,

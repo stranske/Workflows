@@ -19,6 +19,13 @@ publication failures require repair of the named original workflow step. Three
 successive canceled attempts require workflow-admission repair and a new PR
 event. A real current-attempt PR-qualified success is required before recovery
 clears; neither a rerun request nor an ordinary workflow success grants merge.
+Inspection also covers a raw Guard result without its qualified context, even
+when branch protection names only Gate: a label event's successful `guard` job
+can otherwise conceal the canceled ordinary event. This does not add a new
+required-context policy; the original-event proof still controls any request.
+Actionable refusal hints reach the handoff without replacing independent check
+or review blockers. Recovery always uses the writer mutex, including reusable
+calls inherited from a review-reassessment event.
 
 The optional `agents_guard_recovery_json` Maint 71 input accepts up to ten exact
 `repository`, `pr` and `head_sha` targets. It runs only from deployed `main`,
