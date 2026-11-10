@@ -2246,7 +2246,7 @@ jobs:
     if: ${{ inputs.prompt_file == '' && github.repository == 'stranske/Workflows' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ inputs.workflows_ref || github.ref }}
@@ -2264,21 +2264,21 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/agent-cli/codex
-          key: ${{ runner.os }}-${{ runner.arch }}-node24-codex-cli-${{ inputs.codex_cli_version || '0.160.0' }}
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-codex-cli-0.160.0
 
       - name: Install Codex CLI
         if: steps.pinned_codex_cli_cache.outputs.cache-hit != 'true'
         env:
           NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/codex
-          CODEX_CLI_VERSION: ${{ inputs.codex_cli_version || '0.160.0' }}
+          CODEX_CLI_VERSION: '0.160.0'
         run: |
           set -euo pipefail
           echo "Installing Codex CLI..."
-          npm install -g "@openai/codex@${CODEX_CLI_VERSION}"
+          npm install -g "@openai/codex@${CODEX_CLI_VERSION}" # zizmor: ignore[adhoc-packages]
           echo "Installed Codex CLI version: $(codex --version)"
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.14'
 
