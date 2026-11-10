@@ -1170,3 +1170,54 @@ Gate run `42913510716` was cancelled on the preceding head `73b9c89c`.
 Its summary reported cancelled Python CI awaiting rerun. Gate run
 `42914527241` was active on `5672a625` during this readback. The supplied
 failure provides no evidence of a failing test assertion on the tested head.
+
+## Real recovery CLI regression — 2026-11-10
+
+On source `a441d75f9a0ad59215d3e83c9228a9fc750df797`, two new tests run
+the existing `tools.verifier_event_recovery` module in separate Python processes
+against the pinned exact ZIP. Classification exits 0 with
+`validated_no_evaluation`; native `--revalidate-retained` exits 1 at missing
+`verification-recovery-origin.json`. Both commands preserve every extracted
+member, the original ZIP and an existing Actions output file byte for byte.
+Neither emits a recovery receipt or origin. The six required gaps, original
+event and `UNVERIFIABLE_INPUT` remain unchanged. Each provider still reviewed
+**0/2 files**, naming `scripts/ci_history.py` and
+`tests/scripts/test_ci_history.py` in `files_not_reviewed`, with `used_llm=false`.
+Successful admission remains unchecked.
+
+Authenticated artifact discovery confirms `13555815325` is unexpired, with
+532,745 bytes and digest
+`5d24350bca5ac35e29b36dbb36785fc8017beea7c61c58fcad276de98e292112`.
+Its repository/head identity still matches the round 6 record. The connector
+supplies a remote download reference, but direct `gh api` acquisition exits 1
+with `error connecting to api.github.com`. No new archive bytes were obtained.
+
+Validation with `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`:
+
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  exit 0, **18 passed**, 25 deselected, 2.41 seconds; baseline **16 passed**.
+- `python3 -m pytest tests/tools/test_retained_artifact_expiry.py -m 'not slow' --no-cov -q`:
+  exit 0, **51 passed**, 1.90 seconds.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  exit 0, **31 passed**, 9.52 seconds; `scripts/ci_history.py`
+  **Cover = 73.55%**, separate from historical provider review coverage.
+- The issue-named combined Node command, with the approved Python directory
+  first in `PATH`: exit **1**, **3.876 seconds** wall time. The context suite
+  reports `spawnSync git EPERM`, `spawnSync zip EPERM` and
+  `spawnSync python3 EPERM`; the cross-repository file passes. No JavaScript
+  or production collector changed.
+- Scoped Black formatting, Ruff and `git diff --check` pass.
+
+PR #4631 readback confirms open, `draft=false`. The automated summary still
+incorrectly checks its no-required-gaps criterion. Automatic approval review
+rejected its correction, the requested `needs-human` label and the blocker
+comment: `MCP tool call requires approval, but approval policy is never`.
+No remote state or task checkbox changed.
+
+The full required formatting gate passed after sequential, read-only checks
+populated Black's verified cache (the initial worker-based check stalled):
+`BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+— exit 0, **999 files unchanged**. The scoped commit attempt stopped at
+`git add`, exit **128**, because `.git/index.lock` cannot be created on the
+read-only Git metadata filesystem. No commit was created; the tested changes
+remain local for the controller to commit from a writable checkout.

@@ -6,6 +6,8 @@ import hashlib
 import io
 import json
 import re
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -34,6 +36,86 @@ def encoded(value):
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+@pytest.mark.parametrize("revalidate", [False, True], ids=["classify", "revalidate"])
+def test_exact_4509_operational_cli_preserves_capture_and_publication_output(
+    tmp_path, monkeypatch, revalidate
+):
+    checkout = Path(__file__).resolve().parents[2]
+    fixtures = checkout / ".github/scripts/__tests__/fixtures"
+    capture = fixtures / "verifier-4509-capture.zip"
+    original = capture.read_bytes()
+    identity = json.loads((fixtures / "verifier-4509-capture-identity.json").read_bytes())
+    assert f"sha256:{sha(original)}" == identity["capture"]["digest"]
+    with zipfile.ZipFile(io.BytesIO(original)) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    for name, raw in files.items():
+        assert Path(name).name == name
+        (tmp_path / name).write_bytes(raw)
+    # Replay the installed module entry point, rather than replacing sys.argv
+    # and calling main in this process. A zero classifier exit is not recovery.
+    source = tmp_path / "verification-recovery-source.zip"
+    source.write_bytes(original)
+    output = tmp_path / "actions-output"
+    output.write_bytes(b"existing_output=preserved\n")
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+    monkeypatch.setenv("PYTHONPATH", str(checkout))
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    for name in ("VERIFIER_MODEL", "VERIFIER_MODEL2", "LANGCHAIN_MODEL", "LANGCHAIN_SLOT_CONFIG"):
+        monkeypatch.delenv(name, raising=False)
+    args = (
+        ["--revalidate-retained"]
+        if revalidate
+        else ["--manifest", "verification-event-manifest.json", "--step-outcome", "success"]
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "tools.verifier_event_recovery", *args],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if revalidate:
+        assert result.returncode == 1
+        assert result.stdout == ""
+        assert "FileNotFoundError" in result.stderr
+        assert "verification-recovery-origin.json" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        assert result.stderr == ""
+        assert json.loads(result.stdout) == {
+            "retry_kind": "known_no_evaluation",
+            "retryable": True,
+            "failure_cause": "validated_no_evaluation",
+        }
+    # Neither CLI mode may replace historical inputs, emit an accepting Actions
+    # verdict, or manufacture the missing origin/revalidation receipt.
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+    assert capture.read_bytes() == original
+    manifest = json.loads(files["verification-event-manifest.json"])
+    assert (
+        manifest["verification_event"]["event_id"]
+        == "872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c"
+    )
+    obligations = build_capture_obligation_manifest(
+        files["verifier-context.md"].decode(), full_diff_bytes=files["verifier-pr-diff.patch"]
+    )
+    assert obligations["sufficient"] is False
+    assert len(obligations["gaps"]) == 6
+    rows, verdict, available = validated_payload(
+        json.loads(files["comparison.json"]), mode="compare"
+    )
+    assert verdict == "UNVERIFIABLE_INPUT" and available is False
+    assert len(rows) == 2
+    assert all(
+        row["used_llm"] is False
+        and row["files_reviewed"] is None
+        and row["files_not_reviewed"]
+        == ["scripts/ci_history.py", "tests/scripts/test_ci_history.py"]
+        for row in rows
+    )
 
 
 @pytest.mark.parametrize(
