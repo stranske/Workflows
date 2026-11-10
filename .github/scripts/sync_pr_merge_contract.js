@@ -2080,6 +2080,34 @@ function buildMarkdownSummary(report) {
     const restage = result.gate_request?.forced_restage;
     if (restage) lines.push('', `seal: ${result.owner ? `${result.owner}/` : ''}${result.repo}#${result.pr_number || result.pr} rerun refused; forced restage ${restage.state} run=${restage.run_id || 'unknown'}${restage.reason ? ` (${restage.reason})` : ''}`);
   }
+  
+  // Group dev-tool deliveries by repo and add per-candidate disposition lines
+  const devToolByRepo = new Map();
+  for (const result of report.results || []) {
+    if (result.delivery_lane === 'dev-tool-sync' && result.pr) {
+      const repoKey = `${result.owner}/${result.repo}`;
+      if (!devToolByRepo.has(repoKey)) {
+        devToolByRepo.set(repoKey, []);
+      }
+      devToolByRepo.get(repoKey).push({
+        pr: result.pr,
+        status: result.status,
+        disposition: result.delivery_disposition,
+      });
+    }
+  }
+  for (const [repo, candidates] of devToolByRepo) {
+    if (candidates.length > 0) {
+      const dispositions = candidates.map(c => {
+        const statusLabel = c.status === 'merged' ? 'merged' :
+                          c.status === 'stale_closed' ? 'closed unmerged' :
+                          c.status;
+        return `#${c.pr} ${statusLabel}`;
+      }).join(', ');
+      lines.push('', `dev-tool: ${dispositions}`);
+    }
+  }
+  
   lines.push('', 'Artifact: `sync-pr-merge-report`');
   return `${lines.join('\n')}\n`;
 }

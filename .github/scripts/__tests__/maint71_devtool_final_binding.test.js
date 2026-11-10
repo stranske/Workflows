@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { independentVerificationDeliveryUnchanged: unchanged } = require('../maint71_merge_sync_prs');
 const { parseDeliveryRecord } = require('../sync_pr_lease_contract');
+const { buildMarkdownSummary } = require('../sync_pr_merge_contract');
 
 const head = '39ab28414db3944adcb74f73daee66806921edfc';
 const record = {
@@ -61,4 +62,35 @@ test('controller uses the same binding guard on REST and immediately-pre-resolut
   assert.match(source, /previous: currentRecord, current: latestRecord/);
   assert.match(source, /currentPr\.head\?\.sha !== pr\.head\.sha/);
   assert.match(source, /latest\?\.headRefOid !== pr\.head\.sha \|\| !finalVerification\.ok/);
+});
+
+test('Maint 71 summary names dev-tool candidate and obsolete PRs explicitly', () => {
+  const report = {
+    schema: 'sync-pr-merge-report/v1',
+    inputs: { repos: ['stranske/Trend_Model_Project'], auto_merge: true, dry_run: false },
+    summary: { merged: 1, stale_closed: 1, no_prs: 0 },
+    results: [
+      {
+        owner: 'stranske',
+        repo: 'Trend_Model_Project',
+        pr: 6189,
+        branch: 'deps/sync-dev-versions-91791b44e525',
+        delivery_lane: 'dev-tool-sync',
+        delivery_disposition: 'merged',
+        status: 'merged',
+      },
+      {
+        owner: 'stranske',
+        repo: 'Trend_Model_Project',
+        pr: 6186,
+        branch: 'deps/sync-dev-versions-91791b44e525',
+        delivery_lane: 'dev-tool-sync',
+        delivery_disposition: 'superseded',
+        status: 'stale_closed',
+      },
+    ],
+  };
+  const summary = buildMarkdownSummary(report);
+  assert.match(summary, /6189/);
+  assert.match(summary, /6186/);
 });

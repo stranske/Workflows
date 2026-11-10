@@ -51,9 +51,14 @@ grouping with a `trylast` collection hook that copies the stranded suffix into
 candidate, #6189 or #6186 (a search of the full run log for `6186` and `6189` finds no
 report line). Its Trend_Model_Project line is
 `stranske/Trend_Model_Project@c6b85ffe: Consumer-declared delivery checks: 1 of 2 passed; 1 never started, merge blocked: Health 45 Agents Guard / guard; 1 also required, gated as required`.
-A3 is therefore NOT satisfied.
 
-**Sync-core observation.** Pending: no post-merge sync-core round has been identified
+Code fix: `buildMarkdownSummary` in `sync_pr_merge_contract.js` now includes per-candidate
+disposition lines for dev-tool-sync deliveries. A subsequent Maint 71 run dispatched after this
+fix will name the dev-tool candidates explicitly (e.g., `dev-tool: #6189 merged, #6186 closed unmerged`).
+
+Pending: A new Maint 71 run to verify the fix. A3 is NOT YET satisfied.
+
+**Sync-core observation.** pending: no post-merge sync-core round has been identified
 for Trend_Model_Project after 2026-11-08T05:33:47Z. A4 is not satisfied.
 
 Issue #4427 is closed. Issue #4458 is open; the remaining A3/A4 observations and the
@@ -121,11 +126,12 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
 - **T3**: Evidenced - #6189 merged via the Maint 52 native lane
   (2026-11-08T05:33:47Z, merge commit `9937ec14`); #6186 closed unmerged
   (2026-11-05T05:34:58Z).
-- **T4**: Open - Maint 71 run 42596605795 succeeded but does not name the dev-tool
-  candidate or #6186.
-- **T5**: Open - delivered head `ad097285` and stale-candidate disposition are recorded;
-  the Maint 71 report naming the candidate and a post-merge sync-core observation are
-  still missing.
+- **T4**: Implemented - `buildMarkdownSummary` in `sync_pr_merge_contract.js` updated to
+  include per-candidate disposition lines for dev-tool-sync deliveries. Test added to
+  `maint71_devtool_final_binding.test.js` to verify the fix. Verification pending a
+  new Maint 71 run.
+- **T5**: Partially implemented - Code fix for Maint 71 report completed and tested;
+  sync-core observation and delivered head re-verification still pending.
 
 ## Acceptance criteria status
 
@@ -134,6 +140,7 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
   quoted command and output.
 - **A2**: Not re-verified at `ad09728` - no Maint 71 selection change was made on this
   branch; no test output is recorded here.
-- **A3**: Open - run 42596605795 is `success`, but does not name the dev-tool candidate
-  or #6186.
-- **A4**: Pending: no post-merge sync-core round identified.
+- **A3**: Implemented - Code fix in place; `node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js`
+  passes with new test asserting dev-tool PR numbers appear in summary. A3 satisfaction
+  pending a Maint 71 run dispatched after this change.
+- **A4**: pending: no post-merge sync-core round identified.
