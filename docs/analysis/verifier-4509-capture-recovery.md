@@ -822,3 +822,61 @@ BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check
 Exit 0, **999 files unchanged**. Final PR readback: open, `draft=false`, head
 `4e50159db653dc37f1ae0052f6490e0884d36942`. The tested changes remain uncommitted
 because Git metadata is read-only.
+
+## Local keepalive round 5: exact recovery validation
+
+Checked 2026-11-10 at 21:48 UTC on source
+`b389663fa6adc524d10fa170eac8e8f8c0d2dbea`. **Outcome: 0 accepted
+recoveries.** Stop rule recorded before work: two validation attempts or
+30 minutes. The first broken recovery step is still missing authenticated
+origin; no collector repair is justified by this result.
+
+The existing CLI was executed directly against a temporary extraction of the
+unchanged retained ZIP, with `PYTHONPATH` selecting this checkout and
+`/opt/anaconda3/bin/python3` (Python 3.12.2):
+
+```sh
+# Run from the directory containing the nine unchanged archive members.
+/opt/anaconda3/bin/python3 -m tools.verifier_event_recovery \
+  --manifest verification-event-manifest.json --step-outcome success
+/opt/anaconda3/bin/python3 -m tools.verifier_event_recovery --revalidate-retained
+```
+
+- Classification: exit **0**, **0.435 seconds**; printed
+  `{"failure_cause": "validated_no_evaluation", "retry_kind": "known_no_evaluation", "retryable": true}`.
+- Retained revalidation: exit **1**, **0.052 seconds**; first broken step
+  `FileNotFoundError` for `verification-recovery-origin.json`. No origin was
+  synthesized, provider invoked, or publication attempted. The successful
+  classifier exit is not successful recovery admission.
+- A fresh authenticated GET for artifact `13556839741` confirmed run
+  `42330898168`, repository/head-repository ID `1117447156`, source head
+  `aa7fe9537cb9c448a50b51ff6eb5da162fd819b1`, 18,725 bytes, not expired,
+  and digest `sha256:539f5843e83cda38afc9944d7f2a705f1105fc9a53c93380885a9e6a9407de82`.
+  Local archive bytes matched that digest. All nine extracted members and the
+  source ZIP remained byte-identical after both CLI invocations.
+- The original event remains
+  `872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+  Both retained providers have `used_llm=false`, `files_reviewed=null`, and
+  `files_not_reviewed=["scripts/ci_history.py", "tests/scripts/test_ci_history.py"]`:
+  actual provider coverage is **0/2** for each slot. Verdict remains
+  `UNVERIFIABLE_INPUT`.
+
+Focused verification on the same source:
+
+- The issue-named Node command with `PATH=/opt/anaconda3/bin:$PATH`:
+  exit **0**, **332 passed**, **0 failed**, **5.266 seconds** total wall time.
+  Resolved Python: `/opt/anaconda3/bin/python3`.
+- `PATH=/opt/anaconda3/bin:$PATH /opt/anaconda3/bin/python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function`:
+  exit **0**, **8 passed**, **25 deselected**, **1.86 seconds** reported by pytest.
+  These include provider sentinels, unchanged event/member checks, both evidence
+  profiles, missing-origin refusal and partial raw-capture admission.
+
+T5's validation, coverage recording and event preservation have now been
+executed on this source. The stronger successful-admission requirement in the
+PR's manual task list remains unmet, as does A2's no-required-gaps requirement;
+neither is certified by this report. The supplied checked A2 conflicts with the
+retained required gaps. No acceptance is inferred from green CI. Blocking/drainable
+pair: native recovery admission remains blocked; exact-byte offline validation
+remains available and passed. This round changes only this evidence report.
+The controller continuation owns current-head CI and the seven-minute post-push
+review readback; no merge is attempted here.
