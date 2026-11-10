@@ -186,6 +186,30 @@ def test_exact_4509_raw_archive_admission_clears_only_its_own_gap(tmp_path, monk
             load_artifact_capture(coverage, tmp_path)
         assert set(baseline["gaps"]) <= set(result["gaps"])
         assert any(gap.startswith("artifact_raw_capture:") for gap in result["gaps"])
+
+    # Exercise the real semantic comparison preflight, beyond the raw loader.
+    # Partial byte recovery must never reach client construction or generation.
+    monkeypatch.setattr(pr_verifier, "_build_semantic_clients", unexpected_provider)
+    monkeypatch.setattr(pr_verifier, "_invoke_llm", unexpected_provider)
+    monkeypatch.setenv("PR_HEAD_SHA", record["head_sha"])
+    monkeypatch.delenv("VERIFIER_SEMANTIC_KEY_PATH", raising=False)
+    semantic = pr_verifier._semantic_capture(derived_context, diff.decode())
+    assert semantic["manifest"] == result
+    assert semantic["resource_admitted"] is False
+    assert set(result["gaps"]) <= set(semantic["gaps"])
+    expected_hashes = {"context": sha(derived_context.encode()), "diff": sha(diff)}
+    if defect is None:
+        expected_hashes.update({name: sha(raw) for name, raw in expected_inputs.items()})
+    assert semantic["raw_inputs"] == expected_hashes
+    blocked = pr_verifier.evaluate_pr_multiple(derived_context, diff.decode())
+    assert len(blocked) == 1
+    assert blocked[0].used_llm is False
+    assert blocked[0].verdict != "PASS"
+    assert "complete capture is unavailable" in blocked[0].error
+    assert blocked.semantic_acceptance["capture"] == semantic
+    assert blocked.semantic_acceptance["admission"]["verdict"] == "CONCERNS"
+    assert "execution" not in blocked.semantic_acceptance
+
     # No original event or provider verdict is upgraded by this partial recovery.
     with zipfile.ZipFile(capture_path) as retained:
         assert retained.read("verification-event-manifest.json") == event

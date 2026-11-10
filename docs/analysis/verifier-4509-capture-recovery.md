@@ -558,3 +558,52 @@ Required follow-up: commit the tested changes on a runner with writable Git
 metadata, retrieve the remaining exact archives with working network access,
 and establish authenticated canonical admission before provider evaluation.
 This round completes no additional operational acceptance checkbox.
+
+## Semantic preflight follow-up — 2026-11-10
+
+Reconciliation of commits through `47a2a605` and the live PR body confirms that
+completed tasks are already checked. All four remaining admission/completeness
+checkboxes remain unmet. PR #4631 was open with `draft=false` at readback.
+
+The five exact first-archive cases now additionally exercise `_semantic_capture`
+and `evaluate_pr_multiple`. Complete recovered members enter the semantic input
+hash inventory; missing, altered or misidentified members do not. Every case
+retains required gaps, `resource_admitted=false`, and a non-PASS comparison with
+`used_llm=false` and no execution ledger. Client construction and invocation are
+forbidden by test sentinels. Original event, comparison and archive bytes remain
+unchanged. These checks advance partial-capture validation only.
+
+Validation on changes based on `47a2a605`, Python 3.14.10:
+
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  **6 passed**, 25 deselected, exit 0.
+- Recovery/artifact tests together with `-m 'not slow' --no-cov -q --tb=short`:
+  **36 passed, 6 failed**, exit 1; the same six authored lifecycle failures
+  documented in the preceding round remain. No tests were disabled or changed
+  to bypass those failures.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  **31 passed**, exit 0; the `scripts/ci_history.py` row reports **73.55%**.
+  Actual retained provider review coverage remains **0 of 2 files per provider**.
+- Named Node command: exit 1, **5.423 seconds** elapsed, selecting
+  `/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3`. The cross-repository
+  file passes; direct context-test execution confirms `spawnSync python3 EPERM`.
+  This runner result does not supersede the recorded historical passing head.
+- Ruff and `git diff --check` pass.
+
+Artifact `13555815325` again returned a connector download reference, but fetching
+its bytes failed with `URLError` caused by DNS resolution. No new archive bytes,
+hashes, native recovery authority or provider calls are claimed. The connector
+rejected the task-reconciliation PR-body update, `needs-human` label and blocker
+comment with `MCP tool call requires approval, but approval policy is never`.
+
+Black formatted the changed test at line length 100. The CLI's full source
+selection was checked sequentially after its worker scheduling stalled in this
+runner. The required command then passed against the verified cache:
+`BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+— exit 0, **999 files unchanged**.
+
+The scoped commit was attempted after validation. `git add` exited 128 because
+`.git/index.lock` cannot be created on the read-only Git metadata filesystem.
+No commit was created; the test and report changes remain in the working tree.
+Completion requires a runner with writable Git metadata, working archive
+downloads and authenticated canonical recovery admission.
