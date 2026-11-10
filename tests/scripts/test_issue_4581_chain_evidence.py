@@ -85,6 +85,9 @@ def test_terminal_run_dispatch_lineage_is_bound() -> None:
     assert lineage["binding"]["plan_id"] in excerpt
     assert lineage["binding"]["source_commit"] in excerpt
     assert dispatcher["notice"] in excerpt
+    assert f'{dispatcher["dispatch_notice_at"]} ##[notice]{dispatcher["notice"]}' in excerpt
+    # The notice is logged after the dispatches POST returns, so it trails createdAt.
+    assert dispatcher["dispatch_notice_at"] > run["createdAt"]
     assert lineage["binding"]["plan_id"] == _load("chain-receipt.json")["plan"]["plan_id"]
 
 
