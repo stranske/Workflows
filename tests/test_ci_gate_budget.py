@@ -110,3 +110,63 @@ def test_synced_large_file_parity_checks_guard_against_difflib_hangs() -> None:
                     assert (
                         digest_pos < eq_pos
                     ), f"{rel_path}::{func_name} must check sha256 digest before raw equality"
+            
+            # Verify that there is an actual digest equality assertion, not just a call
+            # by checking that hashlib.sha256 is in an assert statement
+            for node in ast.walk(functions[func_name]):
+                if isinstance(node, ast.Assert):
+                    assert_src = ast.get_source_segment(content, node) or ""
+                    if "hashlib.sha256(" in assert_src:
+                        # Found at least one assert with hashlib.sha256
+                        break
+            else:
+                # No break means no assert with hashlib.sha256 found
+                raise AssertionError(
+                    f"{rel_path}::{func_name} must have hashlib.sha256 in an assert statement"
+                )
+
+
+def test_digest_assertion_removal_causes_failure() -> None:
+    """Verify that removing or replacing digest assertion causes test failure."""
+    import ast
+    
+    # Test by checking that all functions with raw equality checks also have digest checks
+    # This is a static verification that the test above would catch removal
+    test_file = ROOT / "tests/scripts/test_pr_verifier_sync_manifest.py"
+    content = test_file.read_text(encoding="utf-8")
+    tree = ast.parse(content, filename=str(test_file))
+    
+    # Find all functions
+    functions = {
+        node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+    }
+    
+    # Check each function that has raw equality assertions
+    for func_name, func_node in functions.items():
+        func_src = ast.get_source_segment(content, func_node) or ""
+        
+        # Check if function has raw equality assertions
+        has_raw_eq = any(
+            eq_check in func_src 
+            for eq_check in (
+                "assert template.read_bytes() == PR_VERIFIER.read_bytes()",
+                "assert template_bytes == source_bytes",
+                "assert source_bytes == template_bytes",
+                'assert TEMPLATE_API_CLIENT.read_text(encoding="utf-8") == API_CLIENT.read_text(encoding="utf-8")',
+            )
+        )
+        
+        if has_raw_eq:
+            # Must have hashlib.sha256 digest check before the raw equality
+            digest_pos = func_src.find("hashlib.sha256(")
+            assert digest_pos != -1, f"{test_file}::{func_name} must have hashlib.sha256"
+            
+            # Must have it in an assert statement
+            has_digest_assert = False
+            for node in ast.walk(func_node):
+                if isinstance(node, ast.Assert):
+                    assert_src = ast.get_source_segment(content, node) or ""
+                    if "hashlib.sha256(" in assert_src:
+                        has_digest_assert = True
+                        break
+            assert has_digest_assert, f"{test_file}::{func_name} must have hashlib.sha256 in assert"

@@ -17,6 +17,7 @@ from scripts.issue_4619_completion import (
     gate_run_supported,
     main,
     reconcile_completion,
+    verify_native_daily_observations_match,
     verify_published_ci_budget_alignment,
 )
 
@@ -567,3 +568,229 @@ def test_verify_published_ci_budget_alignment_and_gate_run_branch_coverage() -> 
     g3_ok, g3_fails = gate_run_supported(passed_flag_false_evidence)
     assert g3_ok is False
     assert "gate evidence passed flag is false" in g3_fails
+
+
+def test_gate_run_supported_rejects_invalid_durations() -> None:
+    """ gate_run_supported must reject non-finite and negative durations."""
+    # Test with negative duration
+    neg_job = {
+        "run_id": DEFAULT_POST_CHANGE_RUN_ID,
+        "passed": True,
+        "jobs": [
+            {
+                "name": "python ci / python 3.13",
+                "seconds": -1.0,
+                "status": "completed",
+                "conclusion": "success",
+                "url": "https://github.com/stranske/Workflows/actions/runs/123",
+            },
+            {
+                "name": "python ci / python 3.14",
+                "seconds": 300.0,
+                "status": "completed",
+                "conclusion": "success",
+                "url": "https://github.com/stranske/Workflows/actions/runs/124",
+            },
+        ],
+        "failures": [],
+    }
+    ok, failures = gate_run_supported(neg_job)
+    assert ok is False
+    assert any("invalid duration" in f for f in failures)
+
+    # Test with infinity
+    inf_job = deepcopy(neg_job)
+    inf_job["jobs"][0]["seconds"] = float("inf")
+    ok_inf, failures_inf = gate_run_supported(inf_job)
+    assert ok_inf is False
+    assert any("invalid duration" in f for f in failures_inf)
+
+    # Test with NaN
+    nan_job = deepcopy(neg_job)
+    nan_job["jobs"][0]["seconds"] = float("nan")
+    ok_nan, failures_nan = gate_run_supported(nan_job)
+    assert ok_nan is False
+    assert any("invalid duration" in f for f in failures_nan)
+
+
+def test_load_object_catches_oserror_and_valueerror(tmp_path: Path) -> None:
+    """_load_object must catch OSError and ValueError."""
+    from scripts.issue_4619_completion import _load_object
+
+    # Test with non-existent file (OSError)
+    nonexistent = tmp_path / "nonexistent.json"
+    result = _load_object(nonexistent)
+    assert result is None
+
+    # Test with invalid JSON (ValueError)
+    invalid_json = tmp_path / "invalid.json"
+    invalid_json.write_text("not valid json", encoding="utf-8")
+    result_invalid = _load_object(invalid_json)
+    assert result_invalid is None
+
+    # Test with valid JSON but not an object
+    array_json = tmp_path / "array.json"
+    array_json.write_text("[]", encoding="utf-8")
+    result_array = _load_object(array_json)
+    assert result_array is None
+
+
+def test_evaluate_native_daily_observations_wired_into_reconciliation() -> None:
+    """When published_budget is supplied, evaluate_native_daily_observations is used."""
+    now = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
+    
+    # Create valid native observations
+    observations = {}
+    for offset in range(7):
+        dt = now - timedelta(days=6 - offset)
+        day = dt.date().isoformat()
+        observations[day] = {
+            "date": day,
+            "p50_minutes": 9.2,
+            "run_id": 50000 + offset,
+            "run_attempt": 1,
+            "measured_at": dt.isoformat(),
+            "window_start": (dt - timedelta(days=7)).isoformat(),
+            "source_run_url": f"https://github.com/stranske/Workflows/actions/runs/{50000 + offset}",
+        }
+    
+    # Create matching report observations
+    report_obs = []
+    for offset in range(7):
+        dt = now - timedelta(days=6 - offset)
+        day = dt.date().isoformat()
+        report_obs.append({
+            "date": day,
+            "p50_minutes": 9.2,
+            "run_id": 50000 + offset,
+            "p50_seconds": 552.0,
+            "within_600_seconds": True,
+            "status": "measured",
+            "run_conclusion": "success",
+            "source_run_url": f"https://github.com/stranske/Workflows/actions/runs/{50000 + offset}",
+            "note": None,
+        })
+    
+    report = {
+        "repo": "stranske/Workflows",
+        "target_minutes": 10.0,
+        "max_seconds": 600.0,
+        "consecutive_calendar_dates": True,
+        "qualifying_seven_day_series": True,
+        "failures": [],
+        "p50_series_minutes": {obs["date"]: 9.2 for obs in report_obs},
+        "observations": report_obs,
+    }
+    
+    published_budget = {
+        "stranske/Workflows": {
+            "daily_observations": observations,
+        }
+    }
+    
+    decision = reconcile_completion(
+        _issue_for(report),
+        _load(GATE),
+        report,
+        published_budget=published_budget,
+    )
+    
+    # Should have native observation checks in decision
+    assert "native_observations_match" in decision
+    assert decision["native_observations_match"] is True
+    assert "native_series_qualifying" in decision
+    
+
+def test_native_observations_match_rejects_incomplete_evidence() -> None:
+    """verify_native_daily_observations_match rejects partial/incomplete native evidence."""
+    # Create report with observations
+    report_obs = [
+        {"date": "2026-11-04", "p50_minutes": 9.2, "run_id": 50000},
+        {"date": "2026-11-05", "p50_minutes": 9.2, "run_id": 50001},
+    ]
+    report = {
+        "observations": report_obs,
+        "p50_series_minutes": {"2026-11-04": 9.2, "2026-11-05": 9.2},
+    }
+    
+    # Published budget with only one observation (missing 2026-11-05)
+    published_budget = {
+        "stranske/Workflows": {
+            "daily_observations": {
+                "2026-11-04": {
+                    "date": "2026-11-04",
+                    "p50_minutes": 9.2,
+                    "run_id": 50000,
+                },
+            },
+        },
+    }
+    
+    ok, failures = verify_native_daily_observations_match(published_budget, report)
+    assert ok is False
+    assert any("missing date" in f for f in failures)
+    
+    # Published budget with mismatched run_id
+    published_budget_bad = {
+        "stranske/Workflows": {
+            "daily_observations": {
+                "2026-11-04": {
+                    "date": "2026-11-04",
+                    "p50_minutes": 9.2,
+                    "run_id": 99999,  # Wrong run_id
+                },
+                "2026-11-05": {
+                    "date": "2026-11-05",
+                    "p50_minutes": 9.2,
+                    "run_id": 50001,
+                },
+            },
+        },
+    }
+    ok_bad, failures_bad = verify_native_daily_observations_match(published_budget_bad, report)
+    assert ok_bad is False
+    assert any("run_id mismatch" in f for f in failures_bad)
+    
+    # Published budget with mismatched p50_minutes
+    published_budget_p50 = {
+        "stranske/Workflows": {
+            "daily_observations": {
+                "2026-11-04": {
+                    "date": "2026-11-04",
+                    "p50_minutes": 10.0,  # Wrong p50
+                    "run_id": 50000,
+                },
+                "2026-11-05": {
+                    "date": "2026-11-05",
+                    "p50_minutes": 9.2,
+                    "run_id": 50001,
+                },
+            },
+        },
+    }
+    ok_p50, failures_p50 = verify_native_daily_observations_match(published_budget_p50, report)
+    assert ok_p50 is False
+    assert any("p50_minutes mismatch" in f for f in failures_p50)
+
+
+def test_reconciliation_fails_closed_on_missing_native_dates() -> None:
+    """Reconciliation fails closed when native observations are missing or invalid."""
+    report = _qualifying_report()
+    
+    # Published budget missing daily_observations entirely
+    published_incomplete = {
+        "stranske/Workflows": {
+            "p50_series": {row["date"]: 9.0 for row in report["observations"]},
+        }
+    }
+    
+    decision = reconcile_completion(
+        _issue_for(report),
+        _load(GATE),
+        report,
+        published_budget=published_incomplete,
+    )
+    
+    assert decision["completion_reconciled"] is False
+    assert decision["action"] == "leave_incomplete"
+    assert any("daily_observations" in f or "native" in f.lower() for f in decision["failures"])

@@ -17,7 +17,7 @@ import math
 import re
 import sys
 from collections.abc import Mapping
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -251,6 +251,75 @@ def sustained_checkbox_checked(issue: Mapping[str, Any]) -> bool:
     return _CHECKED_HEALTH85_RE.search(str(issue.get("body") or "")) is not None
 
 
+def verify_native_daily_observations_match(
+    published_budget: Mapping[str, Any],
+    report: Mapping[str, Any],
+) -> tuple[bool, list[str]]:
+    """Verify that native daily observations in published_budget match retained report exactly.
+    
+    Requires every retained acceptance date, value, and run identity to match.
+    Does not permit partial overlap to authorize completion.
+    """
+    failures: list[str] = []
+    repo_key = SOURCE_REPO
+    
+    # Get retained observations from report
+    retained_obs = report.get("observations")
+    if not isinstance(retained_obs, list):
+        return False, ["retained report missing observations list"]
+    
+    # Get native daily observations from published budget
+    pub_repo = published_budget.get(repo_key)
+    if not isinstance(pub_repo, Mapping):
+        return False, [f"published budget missing {repo_key!r} entry"]
+    
+    pub_daily = pub_repo.get("daily_observations")
+    if not isinstance(pub_daily, Mapping):
+        # If there are no retained observations, we don't need native daily observations
+        if not retained_obs:
+            return True, []
+        return False, [f"published budget {repo_key!r} missing daily_observations"]
+    
+    # Build lookup from retained observations
+    retained_by_date: dict[str, dict[str, Any]] = {}
+    for obs in retained_obs:
+        if isinstance(obs, Mapping):
+            date_str = obs.get("date")
+            if isinstance(date_str, str):
+                retained_by_date[date_str] = obs
+    
+    # If there are no retained observations, we're done
+    if not retained_by_date:
+        return True, []
+    
+    # Check that all retained dates have matching native observations
+    for date_str, retained_row in retained_by_date.items():
+        pub_obs = pub_daily.get(date_str)
+        if not isinstance(pub_obs, Mapping):
+            failures.append(f"native daily_observations missing date {date_str!r}")
+            continue
+        
+        # Check run_id
+        retained_run_id = retained_row.get("run_id")
+        pub_run_id = pub_obs.get("run_id")
+        if retained_run_id != pub_run_id:
+            failures.append(
+                f"date {date_str!r} run_id mismatch: retained={retained_run_id!r}, "
+                f"published={pub_run_id!r}"
+            )
+        
+        # Check p50_minutes
+        retained_p50 = retained_row.get("p50_minutes")
+        pub_p50 = pub_obs.get("p50_minutes")
+        if retained_p50 != pub_p50:
+            failures.append(
+                f"date {date_str!r} p50_minutes mismatch: retained={retained_p50!r}, "
+                f"published={pub_p50!r}"
+            )
+    
+    return not failures, failures
+
+
 def gate_run_supported(
     evidence: Mapping[str, Any],
     *,
@@ -274,6 +343,8 @@ def gate_run_supported(
         seconds = row.get("seconds")
         if isinstance(seconds, bool) or not isinstance(seconds, (int, float)):
             failures.append(f"{name} has no duration")
+        elif not math.isfinite(seconds) or seconds < 0:
+            failures.append(f"{name} has invalid duration {seconds!r}")
         elif float(seconds) > DEFAULT_MAX_SECONDS:
             failures.append(f"{name} took {float(seconds):.0f}s (limit {DEFAULT_MAX_SECONDS:.0f}s)")
         if row.get("status") != "completed" or row.get("conclusion") != "success":
@@ -363,8 +434,29 @@ def reconcile_completion(
         if published_budget is not None
         else (True, [])
     )
-    both = gate_ok and series_ok and match_ok and pub_ok
-    failures = [*gate_failures, *series_failures, *match_failures, *pub_failures]
+    
+    # When published_budget is supplied, wire in evaluate_native_daily_observations
+    # with explicit UTC evaluation time and fail closed on missing/invalid dates
+    if published_budget is not None:
+        # Evaluate native daily observations with explicit UTC time
+        now_utc = datetime.now(timezone.utc)
+        native_series_result = evaluate_native_daily_observations(
+            published_budget,
+            now_utc,
+            repo=SOURCE_REPO,
+            previous_day=False,
+        )
+        native_series_ok = native_series_result.get("qualifying_seven_day_series", False)
+        native_series_failures = native_series_result.get("failures", [])
+        
+        # Verify that native evidence matches retained report
+        native_ok, native_failures = verify_native_daily_observations_match(published_budget, report)
+    else:
+        native_ok, native_failures = True, []
+        native_series_ok, native_series_failures = True, []
+    
+    both = gate_ok and series_ok and match_ok and pub_ok and native_ok and native_series_ok
+    failures = [*gate_failures, *series_failures, *match_failures, *pub_failures, *native_failures, *native_series_failures]
     if sustained_checkbox_checked(issue) and not both:
         failures.append("issue body checks the Health 85 gate without qualifying evidence")
     decision = {
@@ -384,13 +476,15 @@ def reconcile_completion(
         "action": "mark_complete" if both else "leave_incomplete",
         "issue_mutation": "none",
         "sustained_performance_criterion": (
-            "complete" if series_ok and match_ok and pub_ok else "incomplete"
+            "complete" if series_ok and match_ok and pub_ok and native_ok and native_series_ok else "incomplete"
         ),
         "matched_dates": matched_dates,
         "failures": failures,
     }
     if published_budget is not None:
         decision["published_budget_aligned"] = pub_ok
+        decision["native_observations_match"] = native_ok
+        decision["native_series_qualifying"] = native_series_ok
     decision["comment"] = reconciliation_comment(decision)
     return decision
 
@@ -400,7 +494,11 @@ def decision_json(decision: Mapping[str, Any]) -> str:
 
 
 def _load_object(path: Path) -> dict[str, Any] | None:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"{path}: {exc}", file=sys.stderr)
+        return None
     if not isinstance(payload, dict):
         print(f"{path} must contain a JSON object", file=sys.stderr)
         return None
@@ -469,6 +567,7 @@ __all__ = [
     "reconciliation_comment",
     "sustained_checkbox_checked",
     "sustained_series_supported",
+    "verify_native_daily_observations_match",
     "verify_published_ci_budget_alignment",
 ]
 

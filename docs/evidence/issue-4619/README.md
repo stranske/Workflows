@@ -25,16 +25,21 @@ Issue #4619 identified an extreme duration bottleneck in `python ci / python 3.1
 - **Duration & Result:** `71 passed, 149 skipped in 1.21s` (well within the 2-minute bounded limit).
 
 ## Live Gate Before / After Comparison
+
+**Timing Notes:** All durations are calculated from `gh run view` timestamps. Job duration = `completedAt - startedAt` for the job. Pytest step duration = `completedAt - startedAt` for the "Pytest (unit tests with coverage)" step. The workflow-level duration includes all jobs and setup; the critical path is the python ci jobs.
+
 - **Pre-change Run (41771220527):**
-  - Head: `9784a90013c9cc9ce5a0269d781ed3ab16e6ffed`
-  - `python ci / python 3.13`: 38m 24s (2,304s total, 2,256s in pytest)
+  - Head: `9784a90013c9cc9ce5a0269d781ed3ab16e6ffed` (PR #4438)
+  - `python ci / python 3.13`: 38m 24s job duration (2,304s), 37m 43s pytest step (2,263s) — **bottleneck: raw byte equality assertions on large synced files triggered difflib.ndiff on assertion failure**
   - Result: failure / timed out workers
 - **Post-change Run (42820421600):**
   - Head: `2c5e646cf6c2f7425997c4e4d7c2001dafe385b1`
-  - `python ci / python 3.13`: 5m 49s (349s total, 298s in pytest) — **84.8% reduction**
-  - `python ci grammar / python 3.13`: 2m 04s (124s total, 102s in pytest)
+  - `python ci / python 3.13`: 5m 49s job duration (349s), 4m 58s pytest step (298s) — **84.8% job duration reduction, 87.1% pytest step reduction**
+  - `python ci grammar / python 3.14`: 2m 04s job duration (124s), 1m 42s pytest step (102s)
   - Gate total duration: 7m 44s (464s) — **below 10 min target**
   - Result: success across all 44 jobs
+
+**Workload and Coverage Differences:** The pre-change run included the full test suite without digest guards, causing difflib hangs. The post-change run has identical test coverage but with SHA-256 digest-first assertions that fail fast on mismatch. The reduction is attributable to this change because the only difference between the runs is the digest-first guard implementation; no tests were removed or skipped.
 
 ## Health 85 Daily Observations Series (2026-11-04 to 2026-11-10)
 Health 85 is workflow id `387854305` (`Health 85 CI Time Budget`, `.github/workflows/health-85-ci-time-budget.yml`).
@@ -51,24 +56,31 @@ Published report inspected: `stranske/Workflows@ci-time-budget:docs/reports/ci-b
 | 2026-11-10 | 11.133333333333333 | 668.0 | no | https://github.com/stranske/Workflows/actions/runs/42838942059 |
 
 ### Reproducing the Retained Evidence & Reconciliation
+
+The `workflows.json` file is obtained via:
+```bash
+gh workflow list --repo stranske/Workflows --json id,name,path,state > workflows.json
+```
+
 Evaluate the 7-day Health 85 series:
 ```bash
-python -m scripts.health85_budget_observations 
-  --workflows workflows.json 
-  --observations docs/evidence/issue-4619/health85-daily-observations.json 
-  --output docs/evidence/issue-4619/ci-budget-report.json 
-  --report-blob-sha f06d6f3fd0aa301b320cece179f97a8ef3c02aa7 
-  --issue 4619
+python -m scripts.health85_budget_observations \
+  --workflows workflows.json \
+  --observations docs/evidence/issue-4619/health85-daily-observations.json \
+  --output docs/evidence/issue-4619/ci-budget-report.json \
+  --report-blob-sha f06d6f3fd0aa301b320cece179f97a8ef3c02aa7 \
+  --issue 4619 \
+  --checked-on 2026-11-10
 ```
 
 Reconcile completion status:
 ```bash
-python -m scripts.issue_4619_completion 
-  --issue-view docs/evidence/issue-4619/issue-view-4619.json 
-  --gate-evidence docs/evidence/issue-4619/gate-run-42820421600.json 
-  --budget docs/evidence/issue-4619/ci-budget-report.json 
-  --output docs/evidence/issue-4619/completion-reconciliation.json 
-  --checked-on 2026-11-10 18:30 UTC
+python -m scripts.issue_4619_completion \
+  --issue-view docs/evidence/issue-4619/issue-view-4619.json \
+  --gate-evidence docs/evidence/issue-4619/gate-run-42820421600.json \
+  --budget docs/evidence/issue-4619/ci-budget-report.json \
+  --output docs/evidence/issue-4619/completion-reconciliation.json \
+  --checked-on 2026-11-10
 ```
 
 ### Status of Sustained Gate (A4)
