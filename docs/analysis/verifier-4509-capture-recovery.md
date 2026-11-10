@@ -1287,3 +1287,33 @@ exited 0 with 18 passed, 25 deselected, in 3.40 seconds wall time.
 Gate run `42915453457` belongs to the preceding head `a441d75f` and reported
 cancelled Python CI. Replacement run `42916933015` belongs to `76f86a7d` and
 was in progress at readback.
+
+## Local keepalive round 9 — 2026-11-10
+
+**Accepted recoveries: 0.** On source
+`eff553d64c3dc1d0e10ab7c3953c9b87578b98a0`, the authenticated download of
+artifact `13556839741` from Workflows run `42330898168` matched the retained
+ZIP byte for byte and the API digest recorded above. The authenticated
+comparison of the source run head against current main returned `diverged`
+with merge base `75d4c8360c7a31db51366ca08d736cf4be1bc894`.
+
+Against the freshly downloaded capture, the provider-free classifier
+`python3 -m tools.verifier_event_recovery --manifest verification-event-manifest.json --step-outcome success`
+exited 0 with `validated_no_evaluation`. The same module's
+`--revalidate-retained` command exited 1 at missing
+`verification-recovery-origin.json`. Both commands preserved the ZIP and all
+nine members byte for byte, including original event
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+The exact capture still has six required gaps. The derived byte admission
+recorded in round 8 leaves two required gaps. Both retained providers reviewed
+0 of 2 files, `scripts/ci_history.py` and `tests/scripts/test_ci_history.py`,
+with `used_llm=false`. The verdict remains `UNVERIFIABLE_INPUT`.
+No provider was invoked. Native admission and complete required capture
+remain open.
+
+With `/opt/anaconda3/bin` first in `PATH`:
+
+- `node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`:
+  exit 0, 332 passed, 5.041 seconds wall time.
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function`:
+  exit 0, 18 passed, 25 deselected, 3.393 seconds wall time.
