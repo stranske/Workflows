@@ -727,3 +727,47 @@ The scoped commit attempt stopped at staging: `git add` exited 128 because
 `.git/index.lock` is on a read-only filesystem. No commit was created; the tested
 changes remain in the working tree. Final PR readback: open, `draft=false`, head
 `e6b0330cc64c1005f36231d0dbccdee71bbcc77c`. No recovery or acceptance is claimed.
+
+## Local keepalive round 4: current-source verification
+
+Checked 2026-11-10 at 21:31 UTC. **Outcome: 0 accepted recoveries;
+6/8 task/criterion checks verified (T1–T4, A1, A3).** T5 and A2 remain
+unmet; the exact capture has required gaps and canonical-origin admission still
+refuses recovery. No provider evaluation or original-event mutation occurred.
+Stop rule for this round, recorded before investigation: three repair attempts
+or 45 minutes. No repair attempt was warranted by the observed Gate result.
+
+The supplied Gate run `42903599768` actually names source head
+`e6b0330cc64c1005f36231d0dbccdee71bbcc77c`, not round-start head
+`aaab49e86500fd863ceba7dc54403b3f719bf4cc`. Its overall conclusion is
+`cancelled`; the summary job failed with **Python CI cancelled; waiting for
+rerun.** Python 3.14 and its logs summary were cancelled, while Python 3.13,
+lint, typecheck and JavaScript checks succeeded. This is not an observed
+current-source assertion failure and does not justify a production code edit.
+Current-head CI was still running at readback; it is not certified here.
+
+Authenticated `gh api` GETs rechecked all three endpoints in the identity table
+above: consumer completed/success at the same head and referenced merge,
+wrong-repository HTTP 404 (non-authoritative for consumer absence), and verifier
+completed/success at the same head, each successful run at attempt 1. Artifact
+GETs for `13556839741` and `13556090021` confirmed the recorded run/head IDs,
+byte sizes and digests; neither was expired. The focused Node regressions
+independently matched those digests against the committed archive bytes.
+
+On source commit `aaab49e86500fd863ceba7dc54403b3f719bf4cc`:
+
+- The exact issue-named Node command above exited **0**, **332 passed**,
+  **0 failed**, in **5.047 seconds** total wall time. PATH resolved `python3`
+  to `/opt/anaconda3/bin/python3`.
+- `PATH=/opt/anaconda3/bin:$PATH /opt/anaconda3/bin/python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -q -o asyncio_default_fixture_loop_scope=function`
+  exited **0**, **8 passed**, **25 deselected**, in **1.83 seconds** reported
+  by pytest. This includes unchanged-event/zero-coverage validation, standard
+  and expanded no-provider-output refusal, and partial raw-capture admission.
+
+Blocking/drainable pair: complete native recovery remains blocked; exact-byte
+validation and authenticated identity readback remain available and passed.
+Both provider slots still reviewed **0/2** requested files, retaining
+`UNVERIFIABLE_INPUT`. No dependency pins, collectors or tests changed this round.
+The only change is this durable verification record. The next scheduled
+controller continuation owns the seven-minute post-push review and current-head
+CI readback; this local round does not claim those pending checks passed.
