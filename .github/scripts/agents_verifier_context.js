@@ -808,12 +808,21 @@ function retainCaptureBytes(directory, digest, suffix, value) {
   const base = fs.realpathSync(directory);
   const target = path.resolve(base, `${digest}.${suffix}`);
   if (path.dirname(target) !== base) throw new Error('Capture target escapes its directory');
-  if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) {
-    throw new Error('Capture target cannot be a symlink');
-  }
+  const targetStat = (() => {
+    try { return fs.lstatSync(target); }
+    catch (error) {
+      if (error?.code === 'ENOENT') return null;
+      throw error;
+    }
+  })();
+  if (targetStat?.isSymbolicLink()) throw new Error('Capture target cannot be a symlink');
+  if (targetStat && !targetStat.isFile()) throw new Error('Capture target must be a regular file');
   try { fs.writeFileSync(target, value, { flag: 'wx', mode: 0o600 }); }
   catch (error) {
-    if (error.code !== 'EEXIST' || !fs.readFileSync(target).equals(value)) throw error;
+    if (error.code !== 'EEXIST') throw error;
+    const existing = fs.lstatSync(target);
+    if (existing.isSymbolicLink()) throw new Error('Capture target cannot be a symlink');
+    if (!existing.isFile() || !fs.readFileSync(target).equals(value)) throw error;
   }
 }
 

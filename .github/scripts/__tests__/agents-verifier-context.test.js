@@ -5192,6 +5192,10 @@ test('retained capture paths refuse traversal and symbolic-link replacement', ()
     fs.symlinkSync(sentinel,target);
     assert.throws(() => retainCaptureBytes(directory,digest,'txt',Buffer.from('changed')), /symlink/);
     assert.equal(fs.readFileSync(sentinel,'utf8'),'unchanged');
+    fs.unlinkSync(target);
+    fs.symlinkSync(path.join(directory,'missing-sentinel'),target);
+    assert.throws(() => retainCaptureBytes(directory,digest,'txt',Buffer.from('changed')), /symlink/);
+    assert.equal(fs.existsSync(path.join(directory,'missing-sentinel')),false);
   } finally { fs.rmSync(directory,{recursive:true,force:true}); }
 });
 

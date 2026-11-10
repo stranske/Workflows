@@ -3,9 +3,75 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from scripts.langchain import pr_verifier
+
+
+@pytest.mark.parametrize("failure_kind", ["provenance", "extraction_byte", "character"])
+def test_4509_capture_gaps_withhold_review_of_both_changed_files(failure_kind):
+    """Replay the original failure classes against the exact merged two-file diff.
+
+    This is an admission regression, not the original input bundle or a provider
+    assessment. Complete changed code cannot cure unavailable required proof.
+    """
+    root = Path(__file__).resolve().parents[2]
+    patch = (root / ".github/scripts/__tests__/fixtures/verifier-4509-merge.patch").read_text()
+    coverage = {
+        "schema": "verifier-context-source-coverage/v1",
+        "stage": "generated-context",
+        "acceptance_sources": [
+            {
+                "source": "Pull request #4509",
+                "status": "included",
+                "included_chars": 1,
+                "total_chars": 1,
+            }
+        ],
+        "acceptance_source_discovery": {"required": False, "status": "included"},
+        "changed_code_sources": [
+            {"source": name, "status": "included", "included_chars": 1, "total_chars": 1}
+            for name in ["scripts/ci_history.py", "tests/scripts/test_ci_history.py"]
+        ],
+        "full_diff_artifact": {
+            "source": "verifier-pr-diff.patch",
+            "status": "included",
+            "chars": len(patch),
+        },
+        "acceptance_evidence_sources": [
+            {
+                "channel": "artifacts",
+                "source": "artifacts",
+                "status": "unavailable",
+                "failure_kinds": [failure_kind, "extraction_incomplete"],
+            }
+        ],
+    }
+    context = (
+        "# Verifier context\n\n## Context source coverage\n\n```json\n"
+        + json.dumps(coverage)
+        + "\n```\n\n## CI Information\n\n| CI | success |\n\n"
+        + "## Plan sources (scope, tasks, acceptance)\n\n### Acceptance criteria\n"
+        + "- [ ] Attach consumer validation artifacts.\n\n"
+        + "## Acceptance evidence\n\n- Overall retrieval status: **unavailable**\n"
+        + "- Referenced workflow artifacts: **unavailable**\n\n"
+        + "## PR Diff (full)\n\n```diff\n"
+        + patch
+        + "```\n"
+    )
+    # An accidental provider invocation fails: this object has no client methods.
+    result = pr_verifier._evaluate_chunked(
+        object(), context, patch, "fixture", None, evaluate_minimum=False
+    )
+    assert result is not None
+    assert result.verdict == "UNVERIFIABLE_INPUT"
+    assert result.used_llm is False
+    assert result.files_not_reviewed == [
+        "scripts/ci_history.py",
+        "tests/scripts/test_ci_history.py",
+    ]
+    assert result.input_coverage["files_complete"] == 0
 
 
 def _argv(monkeypatch, tmp_path, context: object, *args: str) -> None:

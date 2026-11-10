@@ -4,6 +4,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {createHash} = require('crypto');
 const {execFileSync} = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const native = require('./fixtures/verifier-4509-run-identity.json');
 const modules = [
   require('../agents_verifier_context'),
@@ -16,16 +19,65 @@ const URL = native.consumer.data.html_url;
 const payload = Buffer.from('bounded archive transport fixture');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
+function withJsonInput(value, run) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-test-input-'));
+  let descriptor;
+  try {
+    const filename = path.join(directory, 'input.json');
+    fs.writeFileSync(filename, JSON.stringify(value));
+    descriptor = fs.openSync(filename, 'r');
+    return run(descriptor);
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
+}
+
 // Synthetic archive bytes exercise the real extractor; only the API identity
 // comes from the native observation. This is not the exact #4509 input capture.
 function makeArchive(entries) {
-  return execFileSync('python3', ['-I', '-c', [
+  return withJsonInput(entries, descriptor => execFileSync('python3', ['-I', '-c', [
     'import io,json,sys,zipfile',
     'output=io.BytesIO()',
-    'with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_STORED) as archive:',
-    ' for name,text in json.loads(sys.argv[1]).items(): archive.writestr(name,text)',
+    'with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED) as archive:',
+    ' for name,text in json.load(sys.stdin).items(): archive.writestr(name,text)',
     'sys.stdout.buffer.write(output.getvalue())',
-  ].join('\n'), JSON.stringify(entries)], {stdio: ['ignore', 'pipe', 'pipe'], timeout: 10000});
+  ].join('\n')], {stdio: [descriptor, 'pipe', 'pipe'], timeout: 10000}));
+}
+
+// This is the exact two-file merge patch, not a reconstruction of the unavailable
+// original input bundle. The large proof members below are explicitly synthetic.
+const mergePatch = fs.readFileSync(path.join(__dirname, 'fixtures/verifier-4509-merge.patch'), 'utf8');
+const changedPaths = ['scripts/ci_history.py', 'tests/scripts/test_ci_history.py'];
+function captureContext(collector, evidence) {
+  const plan = '### Acceptance criteria\n- [ ] Attach consumer validation artifacts.';
+  const coverage = collector.buildContextSourceCoverage({
+    planSources: [{source: 'Pull request #4509', body: plan}], diffText: mergePatch, evidence,
+  });
+  coverage.acceptance_source_discovery = {required: false, status: 'included'};
+  assert.deepEqual(coverage.changed_code_sources.map(row => row.source), changedPaths);
+  return '# Verifier context\n\n## Context source coverage\n\n```json\n'
+    + JSON.stringify(coverage) + '\n```\n\n## CI Information\n\n| CI | success |\n\n'
+    + '## Plan sources (scope, tasks, acceptance)\n\n' + plan + '\n\n'
+    + collector.formatVerifierEvidence(evidence) + '\n\n## PR Diff (full)\n\n```diff\n'
+    + mergePatch + '```\n';
+}
+
+function checkCapture(context, directory) {
+  return withJsonInput({context, directory, diff: mergePatch}, descriptor =>
+    JSON.parse(execFileSync('python3', ['-S', '-c', [
+    'import json,sys',
+    'from pathlib import Path',
+    'from tools.verifier_artifact_capture import load_artifact_capture',
+    'from tools.verifier_capture_obligation_manifest import build_capture_obligation_manifest,parse_context_source_coverage',
+    'data=json.load(sys.stdin)',
+    'context=data["context"]',
+    'manifest=build_capture_obligation_manifest(context,full_diff_bytes=data["diff"].encode())',
+    'inputs={}',
+    'if manifest["sufficient"]:',
+    ' inputs,_=load_artifact_capture(parse_context_source_coverage(context),Path(data["directory"]))',
+    'print(json.dumps({"manifest":manifest,"input_lengths":{key:len(value) for key,value in inputs.items()}}))',
+  ].join('\n')], {stdio: [descriptor, 'pipe', 'pipe'], encoding: 'utf8', timeout: 30000})));
 }
 
 function setup(defect, archive = payload) {
@@ -214,6 +266,78 @@ for (const [index, collector] of modules.entries()) {
     assert.ok(coverage.acceptance_evidence_sources.some(source => source.channel === 'artifacts'
       && source.status === 'unavailable'));
   });
+
+  test(`source/template ${index}: bounded raw capture crosses collector/native admission without inventing review`,
+    {timeout: 120000}, async () => {
+      const started = performance.now();
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-4509-capture-'));
+      const names = ['VERIFIER_SEMANTIC_MODE', 'VERIFIER_EVIDENCE_CAPTURE_DIR',
+        'VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES'];
+      const previous = names.map(name => process.env[name]);
+      // The original log records coverage.xml/json extraction-byte gaps and a
+      // 102351-byte index.ndjson rendering omission. Exercise both failure types
+      // with synthetic, compressible members larger than the ordinary preview.
+      const entries = {'pytest-junit.xml': '<testsuite tests="9" failures="0"/>',
+        'coverage.xml': '<coverage>' + 'x'.repeat(600000) + '</coverage>',
+        'coverage.json': JSON.stringify({payload: 'y'.repeat(600000)}),
+        'index.ndjson': '0'.repeat(102350) + '\n'};
+      const archive = makeArchive(entries);
+      try {
+        process.env.VERIFIER_SEMANTIC_MODE = '0';
+        process.env.VERIFIER_EVIDENCE_CAPTURE_DIR = directory;
+        delete process.env.VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES;
+        const preview = await collect(undefined, native.source_evidence, {archive});
+        assert.equal(preview.evidence.artifacts.complete, false);
+        assert.ok(preview.evidence.diagnostics.failures.some(row => row.kind === 'extraction_byte'));
+        const incomplete = checkCapture(captureContext(collector, preview.evidence), directory);
+        assert.equal(incomplete.manifest.sufficient, false);
+
+        process.env.VERIFIER_SEMANTIC_MODE = '1';
+        const full = await collect(undefined, native.source_evidence, {archive});
+        assert.equal(full.evidence.artifacts.complete, true, full.evidence.artifacts.reason);
+        const inventory = full.evidence.diagnostics.archive_inventory[0];
+        assert.equal(inventory.status, 'captured');
+        assert.equal(inventory.downstream_binding.current_head_proof, false);
+        assert.equal(inventory.head_sha, native.consumer.data.head_sha);
+        assert.deepEqual(inventory.members.map(row => row.name), Object.keys(entries));
+        assert.ok(inventory.members.slice(1).every(row => row.status === 'captured'));
+        assert.equal(full.evidence.diagnostics.counters.extracted_bytes,
+          Object.values(entries).reduce((total, value) => total + Buffer.byteLength(value), 0));
+        const context = captureContext(collector, full.evidence);
+        const complete = checkCapture(context, directory);
+        assert.equal(complete.manifest.sufficient, true, complete.manifest.gaps.join('; '));
+        assert.deepEqual(Object.values(complete.input_lengths), Object.values(entries).map(Buffer.byteLength));
+        assert.deepEqual(complete.manifest.obligations.filter(row => row.kind === 'changed_code')
+          .map(row => row.source), changedPaths);
+
+        // A complete collector ledger alone cannot admit missing/tampered bytes.
+        const lateMember = inventory.members.at(-1);
+        const sidecar = path.join(directory, `${lateMember.raw_sha256}.txt`);
+        const original = fs.readFileSync(sidecar);
+        for (const defect of ['tampered', 'missing']) {
+          if (defect === 'tampered') fs.writeFileSync(sidecar, Buffer.alloc(original.length, 120));
+          else fs.unlinkSync(sidecar);
+          const rejected = checkCapture(context, directory);
+          assert.equal(rejected.manifest.sufficient, false, defect);
+          assert.ok(rejected.manifest.gaps.some(gap => gap.startsWith('artifact_raw_capture:')), defect);
+          fs.writeFileSync(sidecar, original);
+        }
+
+        process.env.VERIFIER_EVIDENCE_TOTAL_EXTRACT_BYTES = '1000';
+        const bounded = await collect(undefined, native.source_evidence, {archive});
+        assert.equal(bounded.evidence.artifacts.complete, false);
+        assert.notEqual(bounded.evidence.diagnostics.archive_inventory[0].status, 'captured');
+        const refused = checkCapture(captureContext(collector, bounded.evidence), directory);
+        assert.equal(refused.manifest.sufficient, false);
+        assert.ok(performance.now() - started < 120000);
+      } finally {
+        names.forEach((name, offset) => {
+          if (previous[offset] === undefined) delete process.env[name];
+          else process.env[name] = previous[offset];
+        });
+        fs.rmSync(directory, {recursive: true, force: true});
+      }
+    });
 
   for (const defect of ['artifact-list-denied', 'artifact-download-denied']) {
     test(`source/template ${index}: authenticated run cannot hide ${defect}`, async () => {

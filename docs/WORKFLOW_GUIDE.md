@@ -518,6 +518,14 @@ When no labelled evidence set exists, non-negated absolute consumer citations in
 ordinary narrative retain this downstream role through fallback discovery too.
 They still require the same authenticated run and artifact identities; negative
 citations remain excluded, and a labelled evidence union still takes priority.
+The focused regression is
+`node .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`.
+It exercises both collectors and the standard-library Python raw-capture admission
+with synthetic large archives and the exact #4509 merge patch. Missing or tampered
+sidecars and extraction limits remain gaps. The Python evaluator regression in
+`tests/scripts/test_pr_verifier_capture_obligation_failure.py` also verifies that
+these gaps withhold review credit for both changed files. These tests do not
+certify repair of the original #4509 input bundle or a live provider assessment.
 In evaluate mode, a generic evidence duty
 requires enough available material to reason: one complete present body, comments,
 or artifacts channel can satisfy that availability screen. It does not require every
