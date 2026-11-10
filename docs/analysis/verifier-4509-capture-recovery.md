@@ -439,3 +439,56 @@ was made.
 The requested blocker comment and `needs-human` label were also rejected by the
 connector with the same approval-policy error. Remote task state could not be
 changed; the evidence and proposed reconciliation remain local.
+
+## Round 3 exact-head validation and Gate attribution (2026-11-10)
+
+Outcome: **0 accepted recoveries; UNVERIFIABLE_INPUT**. Before this round's
+documentation edit, the operational target and command remained those at the top
+of this report. The stop rule was three attempts at one broken step or 60 minutes.
+Blocking/drainable pair: authenticated canonical recovery admission and required
+capture completeness remain blocked; exact-byte offline validation and native
+run-identity readback remain available. No recovery authority was manufactured.
+
+The supplied failing Gate run
+[`42896554486`](https://github.com/stranske/Workflows/actions/runs/42896554486)
+belongs to **`65fd5eaa0d66c4c7be4c32141689280a7d68aaa7`**, not the round's
+starting head `b9c8729c5bc13b9e1d687931a0dce0671ab0edd2`. Authenticated run/job
+readback reports the run cancelled, both main Python matrix jobs cancelled, and
+the summary failed at `Enforce explicit Gate success`. The Python 3.13 job log
+prints `The operation was canceled`, then `CI checks failed: pytest cancelled`.
+This establishes interrupted validation, not a demonstrated source assertion
+failure. The cancellation initiator is unknown. No Gate check was weakened and
+no workflow, collector or dependency pin was changed in response.
+
+On committed source **`b9c8729c5bc13b9e1d687931a0dce0671ab0edd2`**, the exact
+issue-named command above selected `/opt/anaconda3/bin/python3` and exited **0**:
+**332 passed, 0 failed, 5.194 seconds** total wall time (Node-reported test
+duration 4.997 seconds). This includes all six newly committed native-GET replays
+that the previous managed runner could not run through the combined command.
+The exact-capture regression also ran:
+
+```sh
+/opt/anaconda3/bin/python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function
+```
+
+Exit **0**, **1 passed, 25 deselected**, 0.28 seconds pytest duration. It verifies
+the retained archive digest, inventory, original event, unresolved required gaps,
+zero provider coverage of both named files and missing-origin recovery refusal.
+No full suite ran. This documentation-only update preserves those tested bytes.
+
+At **20:48 UTC**, fresh authenticated `gh api` GETs again returned consumer run
+`42327976097` under trip-planner (repository ID `993784438`, head repository
+`stranske/trip-planner`, attempt 1, completed/success, head
+`948406465cf7cd65d1ac92206b4514aaad455443`) and verifier run `42330898168`
+under Workflows (attempt 1, completed/success, head
+`aa7fe9537cb9c448a50b51ff6eb5da162fd819b1`). Their update times match the
+identity table above. The same consumer run ID under Workflows returned HTTP
+404 again; it remains non-authoritative for consumer absence.
+
+The current-head Gate run
+[`42897764849`](https://github.com/stranske/Workflows/actions/runs/42897764849)
+was still in progress at this readback. Its outcome is not inferred from the
+older cancelled run or local tests. The capture remains incomplete, both retained
+provider slots still reviewed **0 of 2 files**, and successful native recovery
+admission is unproved. **T5 successful admission and A2 remain unmet.** This
+round adds no provider calls or original-event mutations.
