@@ -1,5 +1,7 @@
 {
   "description": "Authenticated GitHub connector GET observations, 2026-11-10; selected native identity fields only. No provider assessment.",
+  "last_authenticated_get_gate": {"observed_at_utc":"2026-11-10 14:17:03 UTC","transport":"authenticated GitHub connector GET","result":"PASS","consumer_status":200,"wrong_repository_status":404,"wrong_repository_authoritative_for_consumer":false},
+  "source_evidence": "## Independent delivery evidence (2026-11-07 UTC)\nExact merge `37e230009cdba04743376410c9f72356b85fb64f`, head `aa7fe9537cb9c448a50b51ff6eb5da162fd819b1`: deliberate duplicate-annotation break failed with `no-redef`; restored merged source passed 9/9 tests. Consumer head `948406465cf7cd65d1ac92206b4514aaad455443` contains byte-identical script (SHA256 `2fcae99987567c150ee12c483dce6df2e286f506c028981d3a64b9e59ec7cfab`) and completed successful run https://github.com/stranske/trip-planner/actions/runs/42327976097, mypy job https://github.com/stranske/trip-planner/actions/runs/42327976097/job/128267659502. Native comparison remains a separate pending verdict; this does not certify historical premerge gates.\n",
   "consumer": {
     "endpoint": "repos/stranske/trip-planner/actions/runs/42327976097",
     "http_status": 200,

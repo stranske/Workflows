@@ -70,8 +70,13 @@ function setup(defect) {
 }
 
 for (const [index, collector] of modules.entries()) {
-  const collect = async (defect, body = `Validation evidence: ${URL}`) => {
+  const collect = async (defect, body = `Validation evidence: ${URL}`, options = {}) => {
     const fixture = setup(defect);
+    if (options.legacyRouting) {
+      const getRun = fixture.github.rest.actions.getWorkflowRun;
+      // Reproduce the old adapter's local numeric-ID lookup through the collector.
+      fixture.github.rest.actions.getWorkflowRun = args => getRun({...args, repo: 'Workflows'});
+    }
     const evidence = await collector.fetchVerifierEvidence({github: fixture.github,
       owner: 'stranske', repo: 'Workflows', pullNumber: 4509, pullRequestBody: body,
       associatedCommitShas: [HEAD, MERGE], evaluatedSha: MERGE,
@@ -104,11 +109,47 @@ for (const [index, collector] of modules.entries()) {
   });
 
   test(`source/template ${index}: wrong-repository 404 cannot determine consumer absence`, async () => {
-    const {github} = setup();
-    await assert.rejects(github.rest.actions.getWorkflowRun({owner: 'stranske', repo: 'Workflows', run_id: RUN}), {status: 404});
-    const {evidence} = await collect();
+    const before = await collect(undefined, native.source_evidence, {legacyRouting: true});
+    assert.equal(before.evidence.artifacts.complete, false);
+    assert.equal(before.evidence.artifacts.records.length, 0);
+    assert.equal(before.evidence.diagnostics.references.run_lookups[0].http_status, 404);
+    assert.deepEqual(before.calls.filter(call => call.operation === 'run')
+      .map(call => call.repo), ['Workflows']);
+    assert.ok(!before.calls.some(call => call.operation === 'download'));
+    const {evidence, calls} = await collect(undefined, native.source_evidence);
     assert.equal(native.wrong_repository.authoritative_for_consumer, false);
     assert.equal(evidence.artifacts.status, 'present');
+    assert.equal(evidence.artifacts.complete, true, evidence.artifacts.reason);
+    assert.deepEqual(calls.filter(call => call.operation !== 'discovery').map(call => [call.operation, call.repo]),
+      [['run', 'trip-planner'], ['artifacts', 'trip-planner'], ['download', 'trip-planner']]);
+    const lookup = evidence.diagnostics.references.run_lookups[0];
+    assert.equal(lookup.repository, 'stranske/trip-planner');
+    assert.equal(lookup.head_sha, '948406465cf7cd65d1ac92206b4514aaad455443');
+    assert.equal(lookup.conclusion, 'success');
+    assert.equal(lookup.downstream_binding.status, 'completed');
+    assert.equal(lookup.downstream_binding.current_head_proof, false);
+  });
+
+  test(`source/template ${index}: a negative Workflows lookup citation does not rebind consumer proof`, async () => {
+    const diagnostic = `https://github.com/stranske/Workflows/actions/runs/${RUN} is not evidence of consumer absence (404).`;
+    const {evidence, calls} = await collect(undefined, `${diagnostic}\n\n${native.source_evidence}`);
+    assert.equal(evidence.artifacts.complete, true, evidence.artifacts.reason);
+    assert.equal(evidence.artifacts.records[0].head_sha, native.consumer.data.head_sha);
+    assert.ok(calls.filter(call => call.operation !== 'discovery').every(call => call.repo === 'trip-planner'));
+  });
+
+  test(`source/template ${index}: negative consumer prose never enters fallback discovery`, async () => {
+    const {evidence, calls} = await collect(undefined, `${URL} is not current validation evidence.`);
+    assert.equal(evidence.artifacts.records.length, 0);
+    assert.ok(calls.every(call => call.operation === 'discovery'));
+    assert.deepEqual(evidence.diagnostics.references.requested_run_ids, []);
+  });
+
+  test(`source/template ${index}: a labelled union still excludes unselected foreign citations`, async () => {
+    const {evidence, calls} = await collect(undefined, `Evidence: ${URL}\nUnrelated history: https://github.com/stranske/Other/actions/runs/123`);
+    assert.equal(evidence.artifacts.complete, true, evidence.artifacts.reason);
+    assert.deepEqual(evidence.diagnostics.references.requested_run_ids, [RUN]);
+    assert.ok(calls.every(call => call.repo === 'trip-planner'));
   });
 
   for (const defect of [401, 403, 404, 'wrong-run', 'missing-repository', 'wrong-repository',
@@ -116,15 +157,17 @@ for (const [index, collector] of modules.entries()) {
     'short-head', 'missing-attempt', 'pending', 'missing-conclusion', 'artifact-run',
     'artifact-head', 'artifact-repository', 'artifact-head-repository', 'artifact-missing-digest',
     'artifact-missing-expiration', 'artifact-digest']) {
-    test(`source/template ${index}: fails closed on ${defect}`, async () => {
-      const {evidence, calls} = await collect(defect);
-      assert.equal(evidence.artifacts.complete, false);
-      assert.equal(evidence.artifacts.status, 'unavailable');
-      assert.equal(evidence.artifacts.records.length, 0);
-      assert.ok(evidence.diagnostics.failures.some(row => ['provenance', 'archive_integrity'].includes(row.kind)));
-      if (![ 'artifact-digest' ].includes(defect)) assert.ok(!calls.some(call => call.operation === 'download'));
-      if (typeof defect === 'number') assert.equal(evidence.diagnostics.references.run_lookups[0].http_status, defect);
-    });
+    for (const body of [`Validation evidence: ${URL}`, native.source_evidence]) {
+      test(`source/template ${index}: fails closed on ${defect}, narrative=${body === native.source_evidence}`, async () => {
+        const {evidence, calls} = await collect(defect, body);
+        assert.equal(evidence.artifacts.complete, false);
+        assert.equal(evidence.artifacts.status, 'unavailable');
+        assert.equal(evidence.artifacts.records.length, 0);
+        assert.ok(evidence.diagnostics.failures.some(row => ['provenance', 'archive_integrity'].includes(row.kind)));
+        if (![ 'artifact-digest' ].includes(defect)) assert.ok(!calls.some(call => call.operation === 'download'));
+        if (typeof defect === 'number') assert.equal(evidence.diagnostics.references.run_lookups[0].http_status, defect);
+      });
+    }
   }
 
   test(`source/template ${index}: local discovery cannot replace a failed foreign identity gate`, async () => {

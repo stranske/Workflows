@@ -1539,7 +1539,11 @@ async function fetchVerifierEvidence({
         continue;
       }
       if (downstream) {
-        if (!explicitEvidenceRunIds.has(runId) || !/^[a-f0-9]{40}$/.test(runHeadSha)
+        // With no labelled selection, non-negated absolute citations still
+        // enter fallback discovery. Authenticate their own downstream identity;
+        // a missing prose label cannot turn a valid consumer run into a local
+        // absence. This never grants an exact-source or current-head role.
+        if (!/^[a-f0-9]{40}$/.test(runHeadSha)
             || !Number.isSafeInteger(workflowRun.repository?.id) || workflowRun.repository.id < 1
             || workflowRun.repository.full_name?.toLowerCase() !== repository.toLowerCase()
             || workflowRun.head_repository?.id !== workflowRun.repository.id

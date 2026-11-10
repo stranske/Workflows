@@ -514,6 +514,10 @@ This role never establishes current-head source proof. Missing/mismatched identi
 permission failures and artifact digest mismatches keep collection unavailable;
 a numeric ID's absence under the PR repository cannot establish consumer absence.
 Conflicting repository citations or local-only material selectors fail closed.
+When no labelled evidence set exists, non-negated absolute consumer citations in
+ordinary narrative retain this downstream role through fallback discovery too.
+They still require the same authenticated run and artifact identities; negative
+citations remain excluded, and a labelled evidence union still takes priority.
 In evaluate mode, a generic evidence duty
 requires enough available material to reason: one complete present body, comments,
 or artifacts channel can satisfy that availability screen. It does not require every
