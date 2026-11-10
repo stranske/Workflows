@@ -1,5 +1,18 @@
 # Consumer Repository Maintenance Guide
 
+Maint 71 caches positive terminal Maint 68 receipts across its steps and later
+trusted default-branch runs. Current Actions run inventory is still read; a new
+attempt, head or update invalidates the cached receipt. Active or unknown
+outcomes are never cached as completed. Cache keys include repository, canary
+roster, default branch and reader version; corrupt entries fall back to native
+verification. This does not discard old unknown writers or expire their custody.
+
+Saved refresh diagnostics deduplicate historical run lists and retain compact
+run/attempt/head/disposition records. Compiled plan bodies are referenced by
+identity and digest; their original producer artifact ID and archive digest
+remain in the receipt. These diagnostic references do not authorize mutations:
+the executor uses the complete live/native state before serialization.
+
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
 ## Integration repository manifest subset

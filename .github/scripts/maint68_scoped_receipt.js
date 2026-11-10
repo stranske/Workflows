@@ -78,7 +78,7 @@ const SOURCE_WORKFLOWS = new Set([
   'e6f00c2e6835ebcf449a48bed2e84f24f04179914fa9199fd92168d1fbd00990',
 ]);
 
-async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch = 'main', candidates }) {
+async function readScopedCanaryReceiptUncached({ withRetry, context, run, defaultBranch = 'main', candidates }) {
   const proof = {};
   let source, sourceMode;
   const location = { owner: context.repo.owner, repo: context.repo.repo };
@@ -233,6 +233,57 @@ async function readScopedCanaryReceipt({ withRetry, context, run, defaultBranch 
     if (Number.isSafeInteger(error?.status) && error.status >= 100 && error.status <= 599) proof.http_status = error.status;
     return { state: 'unknown', ...(source ? { source_commit: source } : {}), reason: String(error.message || error), proof };
   }
+}
+
+// Only positive, terminal native receipts are reusable. Every caller still
+// obtains current run metadata from Actions, so a rerun invalidates its old key.
+// This directory is restored/saved only by the trusted default-branch workflow.
+async function readScopedCanaryReceipt(args) {
+  const fs = require('node:fs'), path = require('node:path');
+  const directory = args.cacheDir || process.env.MAINT68_RECEIPT_CACHE;
+  const run = args.run;
+  let key, file;
+  if (directory && run?.status === 'completed' && positive(run.id)
+    && positive(run.run_attempt) && commit(run.head_sha)
+    && Number.isFinite(Date.parse(run.updated_at))) {
+    const identity = { repository: `${args.context.repo.owner}/${args.context.repo.repo}`,
+      run: Object.fromEntries(['id', 'run_attempt', 'head_sha', 'updated_at', 'status',
+        'conclusion', 'path', 'event', 'head_branch', 'display_title'].map(k => [k, run[k]])),
+      repository_id: run.repository?.id, repository_name: run.repository?.full_name,
+      head_repository_id: run.head_repository?.id,
+      default_branch: args.defaultBranch || 'main', candidates: [...args.candidates].sort(),
+      reader: sha(Buffer.concat([fs.readFileSync(__filename),
+        fs.readFileSync(require.resolve('./verifier_pending_execution'))])) };
+    key = sha(canonical(identity));
+    file = path.join(directory, `${key}.json`);
+    try {
+      const bytes = fs.readFileSync(file);
+      need(bytes.length <= MAX_BYTES * 2, 'native_scope_cache_bound');
+      const entry = JSON.parse(bytes);
+      need(entry.key === key && entry.sha256 === sha(canonical(entry.receipt)), 'native_scope_cache_digest');
+      const receipt = entry.receipt;
+      need(['completed', 'not_started'].includes(receipt.state)
+        && receipt.proof?.run_id === run.id && receipt.proof.run_attempt === run.run_attempt
+        && receipt.proof.head_sha === run.head_sha, 'native_scope_cache_binding');
+      if (receipt.plan) validatePlan(receipt.plan);
+      return receipt;
+    } catch (_) {
+      // A missing/corrupt cache is a cache miss, never a native disposition.
+    }
+  }
+  const receipt = await readScopedCanaryReceiptUncached(args);
+  if (file && ['completed', 'not_started'].includes(receipt.state)) {
+    const entry = { key, sha256: sha(canonical(receipt)), receipt };
+    try {
+      fs.mkdirSync(directory, { recursive: true });
+      const temporary = `${file}.${process.pid}.tmp`;
+      fs.writeFileSync(temporary, JSON.stringify(entry));
+      fs.renameSync(temporary, file);
+    } catch (_) {
+      // Cache storage must not turn a verified result into an API retry.
+    }
+  }
+  return receipt;
 }
 
 module.exports = { readScopedCanaryReceipt };
