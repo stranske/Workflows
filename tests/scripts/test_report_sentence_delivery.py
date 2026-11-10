@@ -38,26 +38,31 @@ def test_reported_sentence_requires_pr_comment_and_rejects_ungrounded_pass() -> 
     """Current-main execution of the exact reported sentence."""
     report_channels = verifier._required_evidence_channels(REPORTED)
     record_channels = verifier._required_evidence_channels(RECORDED)
-    absent = _floor_verdict(REPORTED, "absent")
-    unavailable = _floor_verdict(REPORTED, "unavailable")
-    present = _floor_verdict(REPORTED, "present")
-    failures = int(
-        report_channels != {"comments"}
-        or report_channels != record_channels
-        or absent == "PASS"
-        or unavailable == "PASS"
+    expected = {
+        "absent": "CONCERNS",
+        "unavailable": "UNVERIFIABLE_INPUT",
+        "present": "PASS",
+    }
+    report_verdicts = {status: _floor_verdict(REPORTED, status) for status in expected}
+    record_verdicts = {status: _floor_verdict(RECORDED, status) for status in expected}
+    failures = sum(
+        (
+            report_channels != {"comments"},
+            report_channels != record_channels,
+            *(report_verdicts[status] != verdict for status, verdict in expected.items()),
+            *(record_verdicts[status] != verdict for status, verdict in expected.items()),
+        )
     )
     print(
         "required_channels="
         + str(sorted(report_channels))
-        + f" comments_absent_verdict={absent}"
-        + f" comments_unavailable_verdict={unavailable}"
-        + f" comments_present_verdict={present}"
+        + f" comments_absent_verdict={report_verdicts['absent']}"
+        + f" comments_unavailable_verdict={report_verdicts['unavailable']}"
+        + f" comments_present_verdict={report_verdicts['present']}"
         + f" report_delivery_failures={failures}"
     )
     assert report_channels == {"comments"}
     assert report_channels == record_channels
-    assert absent == "CONCERNS"
-    assert unavailable == "UNVERIFIABLE_INPUT"
-    assert present == "PASS"
+    assert report_verdicts == expected
+    assert record_verdicts == expected
     assert failures == 0
