@@ -28,7 +28,7 @@ function fixture() {
   const args = { owner: 'stranske', repo: 'Ready', pr: structuredClone(data.pr),
     withRetry: (fn, opts) => { options.push(opts); return fn(client); },
     context: { repo: { owner: 'stranske', repo: 'Workflows' }, runId: 999999 } };
-  return { data, sdk, reads, writes, comments, args, options, original,
+  return { data, sdk, client, reads, writes, comments, args, options, original,
     run: extra => native.recoverCancelledAgentsGuard({ ...args, ...extra }) };
 }
 
@@ -148,7 +148,7 @@ test('real Gate-only protection and target-event Guard success still select orig
   assert.equal(agentsGuardNeedsInspection(classification, checks), true);
 });
 
-test('native Guard-only script invokes production recovery and excludes the normal merge job', async () => {
+for (const dryRun of [true, false]) test(`native Guard-only script pins the owner client (dry=${dryRun})`, async () => {
   const fs = require('node:fs'), path = require('node:path');
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-71-merge-sync-prs.yml'), 'utf8');
   assert.match(workflow, /github\.event\.action != 'maint71-review-reassessment' && inputs\.agents_guard_recovery_json == ''/);
@@ -159,11 +159,15 @@ test('native Guard-only script invokes production recovery and excludes the norm
     .split('\n').map(line => line.replace(/^ {12}/, '')).join('\n');
   const f = fixture(); let report;
   const load = name => name === 'fs' ? { mkdirSync() {}, writeFileSync(_name, body) { report = JSON.parse(body); } }
-    : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: f.args.withRetry }) }
+    : name.includes('github-api-with-retry') ? {
+      createTokenAwareRetry: async () => ({ withRetry: async () => { throw new Error('wrong-scoped pool client'); } }),
+      withRetry: (fn, options) => { assert.equal(options.github, f.client); return f.args.withRetry(fn, options); },
+    }
       : native;
   const fn = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'github', 'context', 'core', script);
   await fn(load, { env: { GUARD_RECOVERY_TARGETS: JSON.stringify([{ repository: 'stranske/Ready', pr: 677,
-    head_sha: f.data.pr.head.sha }]), GUARD_RECOVERY_DRY_RUN: 'true' } }, {}, f.args.context, { notice() {} });
-  assert.equal(report.results[0].mode, 'would-rerun'); assert.equal(report.requests, 0);
-  assert.equal(f.writes.length, 0);
+    head_sha: f.data.pr.head.sha }]), GUARD_RECOVERY_DRY_RUN: String(dryRun), OWNER_PR_PAT: 'test-owner' } }, f.client, f.args.context, { notice() {} });
+  assert.equal(report.results[0].mode, dryRun ? 'would-rerun' : 'requested');
+  assert.equal(report.requests, dryRun ? 0 : 1);
+  assert.equal(f.writes.filter(row => row.action === 'rerun').length, dryRun ? 0 : 1);
 });

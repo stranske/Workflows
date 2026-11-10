@@ -7,8 +7,8 @@ const WORKFLOW = 'agents-guard.yml';
 const CONTEXT = 'Health 45 Agents Guard / guard';
 const ACTORS = ['stranske', 'stranske-automation-bot', 'github-actions[bot]'];
 const MAX_ATTEMPT = 3;
-// Both native callers inject withRetry from createTokenAwareRetry; this helper
-// uses that transport for every read and disables retries on non-idempotent writes.
+// Both native callers inject the owner-pinned github-api-with-retry.js transport.
+// Every read uses it, and non-idempotent writes explicitly disable retries.
 const sha = value => /^[a-f0-9]{40}$/.test(value || '');
 const need = (condition, reason) => { if (!condition) throw new Error(reason); };
 const version = run => JSON.stringify([run.id, run.run_attempt, run.head_sha, run.status, run.conclusion, run.updated_at]);

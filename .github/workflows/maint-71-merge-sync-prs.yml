@@ -224,10 +224,13 @@ jobs:
           github-token: ${{ secrets.OWNER_PR_PAT }}
           script: |
             const fs = require('fs');
-            const { createTokenAwareRetry } = require('./.github/scripts/github-api-with-retry');
+            const retryHelpers = require('./.github/scripts/github-api-with-retry.js');
             const { runAgentsGuardRecoveryTargets } = require('./.github/scripts/maint71_merge_sync_prs');
-            const { withRetry } = await createTokenAwareRetry({ github, core, env: process.env,
-              task: 'maint71-agents-guard-recovery' });
+            if (!String(process.env.OWNER_PR_PAT || '').trim()) {
+              throw new Error('Guard recovery requires OWNER_PR_PAT for cross-repository mutations');
+            }
+            // Match the normal Maint 71 writer: never rotate a mutation to a narrower installation.
+            const withRetry = (fn, options = {}) => retryHelpers.withRetry(fn, { github, core, ...options });
             const report = await runAgentsGuardRecoveryTargets({ withRetry, context,
               targets: JSON.parse(process.env.GUARD_RECOVERY_TARGETS),
               dryRunMode: process.env.GUARD_RECOVERY_DRY_RUN === 'true' });
