@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from collections.abc import Mapping
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +25,9 @@ from scripts.check_gate_python_job_timings import (
     job_duration_seconds,
     pytest_step_duration_seconds,
 )
+from scripts.ci_time_budget import SOURCE_REPO, timestamp
 from scripts.gate_run_view_evidence import DEFAULT_MAX_SECONDS, NAMED_JOBS
+from scripts.health85_budget_observations import build_observations
 from scripts.issue_4284_completion import (
     followup_issue,
     issue_text,
@@ -156,6 +160,68 @@ def verify_published_ci_budget_alignment(
                 f"date {day} p50 mismatch: published={value!r}, retained={retained_series[day]!r}"
             )
     return not failures, failures
+
+
+def evaluate_native_daily_observations(
+    report: Mapping[str, Any],
+    now: datetime,
+    *,
+    repo: str = SOURCE_REPO,
+    previous_day: bool = False,
+) -> dict[str, Any]:
+    """Evaluate retained source-bound daily_observations from ci-budget.json over 7 days."""
+    row = report.get(repo, {})
+    retained = row.get("daily_observations", {}) if isinstance(row, Mapping) else {}
+    if not isinstance(retained, Mapping):
+        retained = {}
+    end = now.date() - timedelta(days=int(previous_day))
+    days = [(end - timedelta(days=n)).isoformat() for n in reversed(range(7))]
+    rows: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for day in days:
+        item = retained.get(day)
+        if not isinstance(item, Mapping):
+            missing.append(day)
+            continue
+        value = item.get("p50_minutes")
+        if value is not None and (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+        ):
+            raise ValueError(f"invalid native p50 on {day}")
+        measured_raw = item.get("measured_at")
+        window_raw = item.get("window_start")
+        if not isinstance(measured_raw, str) or not isinstance(window_raw, str):
+            raise ValueError(f"invalid native observation timestamps on {day}")
+        measured = timestamp(measured_raw)
+        if (
+            measured.date().isoformat() != day
+            or measured > now
+            or measured - timestamp(window_raw) != timedelta(days=7)
+            or type(item.get("run_id")) is not int
+            or item["run_id"] <= 0
+        ):
+            raise ValueError(f"invalid native observation identity on {day}")
+        rows.append({**item, "date": day})
+    budget = (
+        build_observations(rows, repo=repo)
+        if rows
+        else {
+            "observations": [],
+            "qualifying_seven_day_series": False,
+            "failures": ["no source-bound native observations retained"],
+        }
+    )
+    for item in budget["observations"]:
+        original = retained[item["date"]]
+        for key in ("run_attempt", "measured_at", "window_start"):
+            item[key] = original.get(key)
+    if missing:
+        budget["qualifying_seven_day_series"] = False
+        budget["failures"].append("missing native dates: " + ", ".join(missing))
+    return budget
 
 
 def sustained_checkbox_checked(issue: Mapping[str, Any]) -> bool:
@@ -353,6 +419,7 @@ __all__ = [
     "SCHEMA",
     "compare_before_after_gate_runs",
     "decision_json",
+    "evaluate_native_daily_observations",
     "followup_issue",
     "gate_run_supported",
     "issue_text",

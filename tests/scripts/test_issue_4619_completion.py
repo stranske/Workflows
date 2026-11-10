@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from scripts.health85_budget_observations import HEALTH85_PATH, build_report, report_json
 from scripts.issue_4619_completion import (
     DEFAULT_POST_CHANGE_RUN_ID,
     DEFAULT_PRE_CHANGE_RUN_ID,
     compare_before_after_gate_runs,
+    evaluate_native_daily_observations,
     main,
     reconcile_completion,
     verify_published_ci_budget_alignment,
@@ -349,3 +351,58 @@ def test_gate_run_supported_and_cli_error_branches(tmp_path: Path) -> None:
         )
         == 1
     )
+
+
+def test_evaluate_native_daily_observations_validates_seven_day_series() -> None:
+    now = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
+    observations = {}
+    for offset in range(7):
+        dt = now - timedelta(days=6 - offset)
+        day = dt.date().isoformat()
+        observations[day] = {
+            "date": day,
+            "p50_minutes": 9.2,
+            "run_id": 50000 + offset,
+            "run_attempt": 1,
+            "measured_at": dt.isoformat(),
+            "window_start": (dt - timedelta(days=7)).isoformat(),
+            "source_run_url": f"https://github.com/stranske/Workflows/actions/runs/{50000 + offset}",
+        }
+    report = {"stranske/Workflows": {"daily_observations": observations}}
+    evaluated = evaluate_native_daily_observations(report, now)
+    assert evaluated["qualifying_seven_day_series"] is True
+    assert evaluated["failures"] == []
+    assert len(evaluated["observations"]) == 7
+    assert evaluated["observations"][0]["run_attempt"] == 1
+
+    # Missing dates fail closed
+    partial = deepcopy(report)
+    partial["stranske/Workflows"]["daily_observations"].pop("2026-11-08")
+    partial_eval = evaluate_native_daily_observations(partial, now)
+    assert partial_eval["qualifying_seven_day_series"] is False
+    assert any("missing native dates: 2026-11-08" in f for f in partial_eval["failures"])
+
+    # Empty report
+    empty_eval = evaluate_native_daily_observations(
+        {"stranske/Workflows": {"daily_observations": "bad"}}, now
+    )
+    assert empty_eval["qualifying_seven_day_series"] is False
+    assert "no source-bound native observations retained" in empty_eval["failures"]
+
+    # Invalid p50 value
+    bad_p50 = deepcopy(report)
+    bad_p50["stranske/Workflows"]["daily_observations"]["2026-11-10"]["p50_minutes"] = -1.0
+    with pytest.raises(ValueError, match="invalid native p50"):
+        evaluate_native_daily_observations(bad_p50, now)
+
+    # Invalid timestamps
+    bad_ts = deepcopy(report)
+    bad_ts["stranske/Workflows"]["daily_observations"]["2026-11-10"]["measured_at"] = None
+    with pytest.raises(ValueError, match="invalid native observation timestamps"):
+        evaluate_native_daily_observations(bad_ts, now)
+
+    # Invalid identity
+    bad_id = deepcopy(report)
+    bad_id["stranske/Workflows"]["daily_observations"]["2026-11-10"]["run_id"] = 0
+    with pytest.raises(ValueError, match="invalid native observation identity"):
+        evaluate_native_daily_observations(bad_id, now)

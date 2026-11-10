@@ -132,6 +132,34 @@ def test_same_day_reruns_do_not_accelerate_drain_and_target_equality_is_healthy(
     assert len(row["p50_series"]) == 1
 
 
+def test_source_repo_retains_native_daily_observations_within_thirty_days(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", budget.SOURCE_REPO)
+    monkeypatch.setenv("GITHUB_RUN_ID", "42809062881")
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "2")
+    stale_day = (NOW.date() - timedelta(days=30)).isoformat()
+    previous = {
+        "daily_observations": {
+            stale_day: {
+                "date": stale_day,
+                "p50_minutes": 9.0,
+                "run_id": 100,
+            }
+        }
+    }
+    row = budget.observation(previous, metrics(9.5), NOW)
+    today = NOW.date().isoformat()
+    assert stale_day not in row["daily_observations"]
+    assert row["daily_observations"][today] == {
+        "date": today,
+        "p50_minutes": 9.5,
+        "run_id": 42809062881,
+        "run_attempt": 2,
+        "measured_at": NOW.isoformat(),
+        "window_start": (NOW - timedelta(days=7)).isoformat(),
+        "source_run_url": f"https://github.com/{budget.SOURCE_REPO}/actions/runs/42809062881",
+    }
+
+
 def test_unknown_cannot_close_issue_or_reserve_slots():
     api = FakeGitHub()
     row = budget.observation({}, metrics(), NOW)
