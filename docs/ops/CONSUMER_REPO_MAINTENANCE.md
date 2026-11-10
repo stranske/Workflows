@@ -1,5 +1,32 @@
 # Consumer Repository Maintenance Guide
 
+## Canceled ordinary Agents Guard recovery
+
+For a sealed generated PR with a missing or failed qualified
+`Health 45 Agents Guard / guard` context, Maint 71 inspects the original
+`pull_request` event on the exact current head. Only a terminal cancellation
+with a complete zero-job attempt may request a full rerun of that original
+event. Label-triggered `pull_request_target` results cannot replace it.
+Changed heads, active Guard writers, partial or unreadable inventories, failed
+or security-held runs and cancellations with jobs do not authorize this repair.
+
+A trusted PR comment binds each rerun claim to repository, PR, head, original
+run/attempt and frozen plan/source. It is written before the non-retried API
+request. Later rounds retain that claim and reread the original attempt instead
+of posting again. An uncertain response never releases a claim. Its drain is
+readback of the original attempt and durable native request report; admission or
+publication failures require repair of the named original workflow step. Three
+successive canceled attempts require workflow-admission repair and a new PR
+event. A real current-attempt PR-qualified success is required before recovery
+clears; neither a rerun request nor an ordinary workflow success grants merge.
+
+The optional `agents_guard_recovery_json` Maint 71 input accepts up to ten exact
+`repository`, `pr` and `head_sha` targets. It runs only from deployed `main`,
+shares the native stable-PR writer mutex, saves an `agents-guard-recovery`
+artifact and skips the normal merge/source-refresh job. `dry_run` inspects
+without writing. This bounded mode supports operational verification and repair
+without advancing another delivery's lifecycle.
+
 ## Legacy canary history reconciliation
 
 A terminal historical UNKNOWN is retained as UNKNOWN. It no longer blocks a

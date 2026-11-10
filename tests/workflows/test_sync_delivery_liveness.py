@@ -166,7 +166,8 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "const withReviewReadRetry" in executor
     assert "const withRetry = (fn, options = {}) => retryHelpers.withRetry" in executor
     assert "sha: pr.head.sha" in executor
-    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 5
+    # The bounded Guard-only recovery job also needs the cross-repository owner token.
+    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 6
 
 
 def test_maint71_reviewer_reassessment_is_trusted_request_only_dispatch():

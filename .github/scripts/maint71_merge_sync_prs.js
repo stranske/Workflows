@@ -26,6 +26,35 @@ const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const { parseBooleanInput } = require('./sync_pr_merge_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 
+async function recoverCancelledAgentsGuard(args) {
+  return require('./maint71_agents_guard_recovery').recoverCancelledAgentsGuard({
+    ...args, verifyPlan: verifiedCanaryRefreshPlan });
+}
+
+async function runAgentsGuardRecoveryTargets({ withRetry, context, targets, dryRunMode = false }) {
+  if (!Array.isArray(targets) || !targets.length || targets.length > 10
+    || targets.some(row => !/^stranske\/[\w.-]+$/.test(row?.repository || '')
+      || row.repository.toLowerCase() === 'stranske/collab-admin'
+      || !Number.isSafeInteger(row.pr) || row.pr < 1 || !/^[a-f0-9]{40}$/.test(row.head_sha || ''))
+    || new Set(targets.map(row => `${row.repository}#${row.pr}`)).size !== targets.length) {
+    throw new Error('guard_recovery_exact_targets_required');
+  }
+  const results = [];
+  for (const target of targets) {
+    const [owner, repo] = target.repository.split('/');
+    const { data: pr } = await withRetry(client => client.rest.pulls.get({ owner, repo, pull_number: target.pr }));
+    if (pr.head?.sha !== target.head_sha) {
+      results.push({ ...target, mode: 'refused', reason: 'guard_requested_head_changed', blocking: 1, drainable: 1 });
+      continue;
+    }
+    results.push({ ...target, ...await recoverCancelledAgentsGuard({ owner, repo, pr,
+      withRetry, context, dryRunMode }) });
+  }
+  return { schema: 'workflows.agents-guard-recovery/v1', source_run_id: context?.runId,
+    source_commit: context?.sha, results, requests: results.filter(row => row.mode === 'requested').length,
+    blocking: results.filter(row => row.blocking).length };
+}
+
 // Share the fleet's existing exhausted-primary-limit policy with Gate readers.
 function isPrimaryRateLimitExhausted(error) {
   const retryHelpers = require('./github-api-with-retry');
@@ -5454,6 +5483,21 @@ async function run({ github, context, core }) {
         `Checks (${checkGateMode}): ${gatingChecks.length} gating, ` +
           `${failedChecks.length} failed, ${pendingChecks.length} pending`,
       );
+
+      if (autoMerge && !dryRun && !recoveredMergedCandidate
+        && deliveryRecord?.delivery_state === 'sealed'
+        && require('./maint71_agents_guard_recovery').agentsGuardNeedsRecovery(classification)) {
+        const recovery = await recoverCancelledAgentsGuard({ owner, repo, pr, withRetry, context });
+        deliveryContext.agents_guard_request = recovery;
+        if (['requested', 'wait', 'unknown'].includes(recovery.mode)) {
+          results.push({ ...deliveryContext, status: 'checks_pending',
+            delivery_disposition: 'awaiting-sealed-gate', blocker_owner: 'ci',
+            next_command: recovery.next_command,
+            raw_check_status: classification.status,
+            failed_checks: failedChecks, pending_checks: pendingChecks });
+          continue;
+        }
+      }
   
       const stableDelivery = isStableSyncBranchName(pr.head.ref);
       let canary;
@@ -6553,6 +6597,8 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  runAgentsGuardRecoveryTargets,
+  recoverCancelledAgentsGuard,
   reconcileLegacyCanaryHistory,
   deleteSyncBranch,
   preserveFrozenCanaryRefresh,
