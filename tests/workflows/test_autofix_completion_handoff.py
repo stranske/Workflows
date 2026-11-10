@@ -184,7 +184,16 @@ def test_wired_collector_and_completion_shell_record_only_observed_heads(
             assert result.returncode != 0
             assert "retain reservation" in result.stderr
             assert state.read_bytes() == original
-        return
+
+        # Retry the wired measurement after the API recovers, using the same
+        # pending reservation and workflow attempt. The commit pushed before
+        # the failed lookups must receive productive credit on recovery.
+        observation = "changed"
+        outputs = _run_collector(workspace, helper_source, observation)
+        metrics = json.loads(outputs["metrics_json"])
+        assert outputs["head_observed"] == "true"
+        assert metrics["head_observed"] is True
+        env["METRICS_JSON"] = outputs["metrics_json"]
 
     changed = OBSERVATIONS[observation]["sha"] != NATIVE_HEAD
     assert metrics["head_sha_after"] == OBSERVATIONS[observation]["sha"]
@@ -200,6 +209,13 @@ def test_wired_collector_and_completion_shell_record_only_observed_heads(
     assert recorded["unproductive_completions"] == (0 if changed else 2)
     if changed:
         assert recorded["observed_head_sha"] == "b" * 40
+
+    # A retried completion must reuse its receipt rather than recording work
+    # again or spending another retry for an observed unchanged head.
+    completed = state.read_bytes()
+    result = completion_shell()
+    assert result.returncode == 0, result.stderr
+    assert state.read_bytes() == completed
 
 
 @pytest.mark.parametrize("advanced", [False, True])
