@@ -1082,3 +1082,57 @@ The wrong-repository Workflows lookup for run `42327976097` returned 404.
   exited 0 with 9 passed and 25 deselected in 2.928 seconds wall time.
 - Gate run `42910028859` reported cancelled Python CI. Replacement Gate
   `42911452645` completed successfully on `82613bbb`.
+
+## Exact-capture reassembly and archived coverage regression — 2026-11-10
+
+On source `73b9c89c3d021a01ea31f69a1efe1ecdde175550`, the provider-free
+exact-capture regression now also rejects a same-length, readable ZIP whose
+local-header timestamp was changed. All member CRCs still validate; archive
+digest authentication correctly refuses the changed bytes. After valid partial
+raw admission, the emitted byte inventory also rejects an omitted or same-length
+substituted `coverage.json` member across its multiple required ranges.
+
+The authenticated first archive's `coverage.json` records **0/96 executed
+statements (0.00%)** for `scripts/ci_history.py` and has **no entry** for
+`tests/scripts/test_ci_history.py`. These historical test-execution observations
+are separate from provider review: both original provider slots still name both
+files in `files_not_reviewed`, with `used_llm=false`, **0/2 reviewed files**, and
+`UNVERIFIABLE_INPUT`. The regression preserves the original ZIP, comparison,
+context and event
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+It supplies no native origin, recovery receipt or complete-capture admission.
+
+Validation with `/opt/hostedtoolcache/Python/3.14.10/x64/bin` first in `PATH`:
+
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  exit 0, **16 passed**, 25 deselected, 2.75 seconds; baseline was 15 passed.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  exit 0, **31 passed**, 12.81 seconds; `scripts/ci_history.py` **Cover = 73.55%**.
+- The issue-named combined Node command: exit **1**, **5.546 seconds** reported
+  duration. Direct context-suite execution reports **193 passed / 17 failed**,
+  including `spawnSync git EPERM`, `spawnSync zip EPERM` and
+  `spawnSync python3 EPERM`; direct cross-repository execution passes **122**.
+- Scoped Black formatting, Ruff and `git diff --check` pass.
+
+The connector returned a download reference for archive `13555815325`, but direct
+`gh api` acquisition failed with `error connecting to api.github.com` before
+obtaining bytes. This round admitted no additional archive. Recent-commit
+reconciliation and the live PR body agree: successful admission and complete
+required evidence remain unchecked. Automatic approval review rejected the
+PR-body reconciliation note with `MCP tool call requires approval, but approval
+policy is never`; no remote task status changed.
+
+The required full Black command passed after sequential checks of the same
+CLI-selected sources populated its verified cache:
+`BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+— exit 0, **999 files unchanged**. The initial uncached parallel check stalled
+and was interrupted. No unrelated source was reformatted.
+
+The scoped commit attempt stopped at `git add`, exit **128**:
+`.git/index.lock` cannot be created on the read-only Git metadata filesystem.
+No commit was created. The tested Python and report changes remain local for
+the controller to commit from a writable checkout.
+
+Automatic approval review also rejected the requested `needs-human` label and
+blocker comment with the same approval-policy reason. PR #4631 readback remains
+open, `draft=false`. No provider evaluation or remote mutation occurred.

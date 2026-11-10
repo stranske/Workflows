@@ -330,7 +330,8 @@ def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_co
 
 
 @pytest.mark.parametrize(
-    "defect", [None, "missing_archive", "missing_member", "tampered", "occurrence"]
+    "defect",
+    [None, "missing_archive", "archive_tampered", "missing_member", "tampered", "occurrence"],
 )
 def test_exact_4509_raw_archive_admission_clears_only_its_own_gap(tmp_path, monkeypatch, defect):
     from scripts.langchain import pr_verifier
@@ -387,6 +388,14 @@ def test_exact_4509_raw_archive_admission_clears_only_its_own_gap(tmp_path, monk
     member_sidecar = tmp_path / f"{record['members'][1]['raw_sha256']}.txt"
     if defect == "missing_archive":
         archive_sidecar.unlink()
+    elif defect == "archive_tampered":
+        # Keep both the ZIP readable and its length unchanged. Metadata and
+        # member hashes cannot replace authentication of the original archive.
+        changed_archive = bytearray(archive)
+        changed_archive[10] ^= 1  # Local-header timestamp, outside member data.
+        with zipfile.ZipFile(io.BytesIO(changed_archive)) as zipped:
+            assert zipped.testzip() is None
+        archive_sidecar.write_bytes(changed_archive)
     elif defect == "missing_member":
         member_sidecar.unlink()
     elif defect == "tampered":
@@ -470,6 +479,38 @@ def test_exact_4509_raw_archive_admission_clears_only_its_own_gap(tmp_path, monk
     if defect is None:
         admitted_inputs.update(expected_inputs)
     validate_capture_byte_inventory(inventory, admitted_inputs)
+    if defect is None:
+        # The real coverage sidecar spans many inventory ranges. Reassembly
+        # must reject an omitted or same-length substituted recovered member,
+        # even though the context/diff and all other members still match.
+        coverage_input = f"artifact:{record['run_id']}:{record['artifact_id']}:2"
+        raw_coverage = expected_inputs[coverage_input]
+        entry = next(row for row in inventory["inputs"] if row["input"] == coverage_input)
+        assert len(entry["ranges"]) > 1
+        omitted = {name: raw for name, raw in admitted_inputs.items() if name != coverage_input}
+        replaced = {**admitted_inputs, coverage_input: b" " + raw_coverage[1:]}
+        assert len(replaced[coverage_input]) == len(raw_coverage)
+        for candidate in (omitted, replaced):
+            with pytest.raises(ValueError, match="capture byte inventory does not match"):
+                validate_capture_byte_inventory(inventory, candidate)
+
+        # Archived test execution coverage is evidence, not provider review.
+        # This exact selftest ran none of ci_history.py's 96 statements and
+        # contains no coverage entry for the requested test file.
+        file_coverage = json.loads(raw_coverage)["files"]
+        summary = file_coverage["scripts/ci_history.py"]["summary"]
+        assert (summary["covered_lines"], summary["num_statements"]) == (0, 96)
+        assert summary["percent_covered"] == 0.0
+        assert "tests/scripts/test_ci_history.py" not in file_coverage
+        rows, verdict, available = validated_payload(json.loads(comparison), mode="compare")
+        assert verdict == "UNVERIFIABLE_INPUT" and available is False
+        assert len(rows) == 2
+        assert all(
+            row["used_llm"] is False
+            and row["files_not_reviewed"]
+            == ["scripts/ci_history.py", "tests/scripts/test_ci_history.py"]
+            for row in rows
+        )
     contract = json.loads((derived / "verifier-capture-reassembly-contract.json").read_bytes())
     assert contract["sufficient"] is False
     assert [gap["value"] for gap in contract["gaps"]] == result["gaps"]
