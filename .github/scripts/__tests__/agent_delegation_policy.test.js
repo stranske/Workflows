@@ -1081,7 +1081,7 @@ test('an export without route_enabled keeps posterior order', () => {
   const routeWeightsWithoutFlag = {
     schema: 'orchestrator.route-weights/v1',
     generated_at: now,
-    comparative: { route_enabled: false },
+    comparative: {},
     task_types: {
       implement: {
         evidence_ok: true,
@@ -1095,6 +1095,34 @@ test('an export without route_enabled keeps posterior order', () => {
 
   const result = selectAgentFromRouteWeights({
     routeWeights: routeWeightsWithoutFlag,
+    taskType: 'implement',
+    currentAgent: 'codex',
+    availableAgents: ['cursor', 'claude', 'codex'],
+    agents: mockRegistry.agents,
+  });
+
+  assert.equal(result.agent, 'cursor');
+  assert.equal(result.delegationSource, 'route_weights');
+});
+
+test('an export with route_enabled false keeps posterior order', () => {
+  const routeWeightsWithDisabledFlag = {
+    schema: 'orchestrator.route-weights/v1',
+    generated_at: now,
+    comparative: { route_enabled: false },
+    task_types: {
+      implement: {
+        evidence_ok: true,
+        ranking: [
+          { agent: 'cursor', posterior: 0.76, comparative_rank: 2 },
+          { agent: 'claude', posterior: 0.67, comparative_rank: 1 },
+        ],
+      },
+    },
+  };
+
+  const result = selectAgentFromRouteWeights({
+    routeWeights: routeWeightsWithDisabledFlag,
     taskType: 'implement',
     currentAgent: 'codex',
     availableAgents: ['cursor', 'claude', 'codex'],
