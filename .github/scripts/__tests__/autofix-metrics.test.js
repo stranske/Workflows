@@ -83,7 +83,7 @@ for (const source of sources) {
     const f = setup({ head: after, prError: true });
     const metrics = { head_sha_before: before, autofix_result: 'success',
       ...await observeAutofixHead(f.options) };
-    assert.equal(metrics.head_sha_after, before);
+    assert.equal(metrics.head_sha_after, '');
     assert.equal(metrics.fix_applied, false);
     assert.equal(metrics.head_observed, false);
     assert.equal(f.outputs.head_observed, 'false');

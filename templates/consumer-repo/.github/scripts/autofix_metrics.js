@@ -10,7 +10,8 @@ async function observeAutofixHead({
 }) {
   const metrics = {
     head_observed: false,
-    head_sha_after: headShaBefore,
+    // An unavailable PR read is unmeasured, never proof of no work.
+    head_sha_after: '',
     fix_applied: false,
     gate_result_after: gateConclusionBefore || 'unknown',
   };

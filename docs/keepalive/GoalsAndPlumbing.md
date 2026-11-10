@@ -84,13 +84,15 @@ the keepalive finish job cannot substitute for this independent autofix result.
 
 The shared `.github/scripts/autofix_metrics.js` helper provides explicit
 `head_observed` evidence and rejects fallback-only completion measurements before
-the runner receipt is written. A valid PR head remains observed if subsequent
-Gate telemetry or label cleanup fails. Its consumer copy is sync-managed.
-The protected consumer workflow still needs maintainer wiring: check out this
-helper in `metrics`, call `observeAutofixHead` from Collect metrics and include
-its returned fields in `metrics_json`, then use the helper's CLI for the
-completion step's validated read. Require `steps.collect.outputs.head_observed`
-to equal `'true'` in that step's condition.
+the runner receipt is written. Its consumer copy is sync-managed. The consumer
+`agents-81-gate-followups.yml` `metrics` job checks the helper out, and Collect
+metrics calls `observeAutofixHead`, whose returned `head_observed`,
+`head_sha_after`, `fix_applied` and `gate_result_after` fields are merged into
+`metrics_json`. A failed or malformed PR lookup leaves `head_sha_after` empty and
+`head_observed` false. A valid PR head remains observed if subsequent Gate
+telemetry or label cleanup fails. Record autofix completion runs only when
+`steps.collect.outputs.head_observed == 'true'`, and reads its validated
+head/productivity/exit values from the helper's CLI.
 
 The `runner_lib record-completion` CLI also checks the existing `METRICS_JSON`
 environment variable before accessing receipt storage: it requires boolean
@@ -99,9 +101,7 @@ head, and consistent fix/result values. The command-line head, productivity,
 and exit status must match that measurement. Missing or inconsistent evidence,
 malformed JSON and fallback-only metrics fail without writing a receipt or
 spending an unproductive retry. Callers without `METRICS_JSON` retain their
-existing completion contract. Until the workflow wiring lands, native autofix
-metrics contain no observation evidence, so even successful runs retain their
-reservations and must await recovery or the existing stale-pending timeout.
+existing completion contract.
 
 For a historical successful autofix on an already merged PR, run
 `python -m scripts.reconcile_runner_completion --repo OWNER/REPO --run-id ID --report`.
