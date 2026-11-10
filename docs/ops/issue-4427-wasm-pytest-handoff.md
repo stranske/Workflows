@@ -274,6 +274,31 @@ The exact A1 two-file Node command was rerun on the unchanged implementation:
 243 passed, zero failed, 613.10 ms. This round changes evidence only; no pins,
 selectors or workflow behavior were changed.
 
+## Round 6 production report check (2026-11-10T17:15Z)
+
+Outcome: **A2 unsatisfied; T1 pending**. The proof remains a newly dispatched
+Maint 71 run whose full log names both Trend_Model_Project#6189 and #6186.
+Check command: `gh run view <new-run-id> --repo stranske/Workflows --log`.
+Stop rule: one dispatch attempt and at most 15 minutes of monitoring; stop
+production attempts at the first refusal or failed/omitting report.
+
+The exact requested dispatch command above exited 77 again. The Orchestrator
+guard reserves shared production starts for schedules and sync-core. No new run
+was created and no bypass was attempted. Blocking/drainable pair: production
+dispatch is blocked in this seat; focused validation and this evidence update
+remain drainable. Production continuation stays with the scheduler/sync-core
+owner after the report repair reaches main.
+
+The latest listed run remains `42789507724` (completed successfully at source
+head `9dcc645ba2b51f6db655486cec7e06e1f7d5e5b4`). Its full log was fetched again:
+the literal acceptance regex matches five timestamp lines, while candidate-aware
+searches for `#6189`, `#6186`, `/pull/6189`, `/pull/6186`, or
+`Trend_Model_Project` match zero lines. A2 therefore remains pending.
+
+The exact A1 two-file Node command passed again: **243 passed, zero failed**,
+581.40 ms. This round changes evidence only. Cost: one refused dispatch, zero
+production runs, one existing-run log read, and one focused local test run.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
