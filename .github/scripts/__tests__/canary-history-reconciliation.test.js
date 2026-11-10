@@ -86,8 +86,35 @@ test('real newer open deliveries retain ownership after historical reconciliatio
   assert.equal(f.decide().next_action, 'follow-current-delivery-without-replacing-its-source');
 });
 
-test('production history collector reconciles retained UNKNOWNs and preserves current owners', async t => {
+test('current delivery ownership does not depend on historical UNKNOWNs', async () => {
   const f = fixture({ openOwners: true });
+  f.runs.splice(1);
+  await f.reconcile();
+  assert.equal(f.decide({ driftKey: 'e'.repeat(64) }).state, 'current-delivery-owned');
+  assert.equal(f.decide({ driftKey: 'e'.repeat(64) }).eligible, false);
+});
+
+test('ownership read failure without UNKNOWN history blocks admission', async () => {
+  const f = fixture({ openOwners: true });
+  f.runs.splice(1);
+  f.client.rest.pulls.list = async () => { throw Object.assign(new Error('unavailable'), { status: 403 }); };
+  await f.reconcile();
+  assert.equal(f.decide({ driftKey: 'e'.repeat(64) }).state, 'unknown');
+  assert.equal(f.decide({ driftKey: 'e'.repeat(64) }).eligible, false);
+  assert.equal(f.decide().next_action, 'reread-current-delivery-ownership');
+});
+
+test('no UNKNOWN history and no open owner permits scoped recovery without baseline reads', async () => {
+  const f = fixture();
+  f.runs.splice(1);
+  await f.reconcile();
+  assert.equal(f.decide({ driftKey: 'e'.repeat(64) }).eligible, true);
+  assert.equal(f.reads.filter(row => row.method === 'getTree' || row.args.state === 'closed').length, 0);
+});
+
+for (const unknownCount of [8, 0]) test(`production collector preserves owners with ${unknownCount} UNKNOWNs`, async t => {
+  const f = fixture({ openOwners: true });
+  if (!unknownCount) f.runs.splice(1);
   const receipt = require('../maint68_scoped_receipt');
   const payloads = require('../consumer_delivery_digest');
   t.mock.method(receipt, 'readScopedCanaryReceipt', async ({ run }) =>
@@ -106,10 +133,10 @@ test('production history collector reconciles retained UNKNOWNs and preserves cu
     expectedCanaries: f.args.candidates, sourceSha: f.request.source_commit,
     planId: f.request.plan_id, planScope: f.request.plan_scope,
     scopeBaseSha: f.request.scope_base_sha, plan: f.request.plan });
-  assert.equal(state.history_reconciliation.covered.length, 8, state.history_reconciliation.reason);
+  assert.equal(state.history_reconciliation.covered.length, unknownCount, state.history_reconciliation.reason);
   assert.equal(state.state, 'current-delivery-owned');
   assert.equal(state.eligible, false);
-  assert.equal(state.runs.filter(run => run.refresh_unknown).length, 8);
+  assert.equal(state.runs.filter(run => run.refresh_unknown).length, unknownCount);
 });
 
 for (const [name, change] of [

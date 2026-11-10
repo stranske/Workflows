@@ -401,12 +401,14 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
     producer_succeeded: Boolean(successful) && !unknown && !ownerConflict,
     ...(refreshPlan ? { refresh_plan: refreshPlan } : {}),
-    state: active ? active.status : writer ? 'writer-active' : ownerConflict ? 'current-delivery-owned'
+    state: active ? active.status : writer ? 'writer-active'
+      : ownerConflict?.reason === 'current_ownership_unreadable' ? 'unknown' : ownerConflict ? 'current-delivery-owned'
       : unknown ? 'unknown' : successful ? 'success'
       : recent ? recent.conclusion || 'completed' : 'unseen',
     run_id: prior?.id,
     ...(ownerConflict ? { current_owner: ownerConflict,
-      next_action: 'follow-current-delivery-without-replacing-its-source' } : {}),
+      next_action: ownerConflict.reason === 'current_ownership_unreadable'
+        ? 'reread-current-delivery-ownership' : 'follow-current-delivery-without-replacing-its-source' } : {}),
     debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
 }
 
@@ -604,7 +606,6 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
   }
   await attachCanaryRefreshFailureEvidence({ runs: observed, withRetry, location, now });
   const historyReconciliation = refreshPlan.plan_scope === 'source-delta' && payload
-    && observed.some(run => run.refresh_unknown)
     ? await reconcileLegacyCanaryHistory({ withRetry, context, runs: observed, candidates,
       refreshPlan, payload, verifyPlan: verifiedCanaryRefreshPlan, ignoreRunId, ignoreRunAttempt }) : null;
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,

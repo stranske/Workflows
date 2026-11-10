@@ -9,6 +9,7 @@ const ACTORS = ['stranske', 'stranske-automation-bot', 'github-actions[bot]'];
 // API-derived admission observations never survive JSON transport or caching.
 // The historical receipt and its UNKNOWN grade are left untouched.
 const coverage = new WeakMap();
+const currentOwners = new WeakMap();
 const sha = value => /^[a-f0-9]{40}$/.test(value || '');
 const need = (value, reason) => { if (!value) throw new Error(reason); };
 const version = run => JSON.stringify([run.id, run.run_attempt, run.head_sha,
@@ -24,6 +25,8 @@ function coveredByCurrentBaseline(run, request, digest) {
 }
 
 function currentBaselineOwnerConflict(runs, request, digest) {
+  const current = currentOwners.get(runs);
+  if (current?.request === key(request, digest) && current.conflicts.length) return current.conflicts[0];
   for (const run of runs) {
     if (coveredByCurrentBaseline(run, request, digest)) {
       const conflict = coverage.get(run).owner_conflicts[0];
@@ -33,15 +36,38 @@ function currentBaselineOwnerConflict(runs, request, digest) {
   return null;
 }
 
+async function inspectOpenOwners({ read, target, repositoryName, refreshPlan, verifyPlan, withRetry, result }) {
+  const open = await read('pulls', 'list', { ...target, state: 'open',
+    head: `${target.owner}:${BRANCH}`, per_page: 100, page: 1 });
+  need(Array.isArray(open) && open.length < 100, 'open_candidate_inventory_incomplete');
+  for (const current of open) {
+    let owned = false;
+    let currentBinding;
+    try {
+      const markers = [...String(current.body || '').matchAll(/<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/g)];
+      const metadata = markers.length === 1 && JSON.parse(markers[0][1]);
+      const record = parseDeliveryRecord(current.body);
+      need(isTrustedGeneratedDeliveryPr(current, ACTORS)
+        && current.head?.repo?.full_name === repositoryName
+        && metadata?.consumer_repo === repositoryName, 'open_candidate_binding_invalid');
+      currentBinding = await verifyPlan({ ...target, pr: current, record, metadata, withRetry });
+      owned = key(currentBinding, '') === key(refreshPlan, '');
+    } catch (_) { /* Unknown current ownership blocks admission, not the historical grade. */ }
+    if (!owned) result.owner_conflicts.push({ repository: repositoryName, pr: current.number,
+      head_sha: current.head?.sha, ...(currentBinding || {}), reason: 'another_current_delivery' });
+  }
+  return open;
+}
+
 async function reconcileLegacyCanaryHistory({ withRetry, context, runs, candidates,
   refreshPlan, payload, verifyPlan, ignoreRunId, ignoreRunAttempt,
   readBaselinePayload = (...args) => require('./consumer_delivery_digest').readDeliveryPayload(...args) }) {
   const unknown = runs.filter(run => run.refresh_unknown);
   for (const run of unknown) coverage.delete(run);
+  currentOwners.delete(runs);
   const result = { schema: 'workflows.canary-history-reconciliation/v1',
     historical_unknowns: unknown.length, covered: [], blocking: [], baselines: [], owner_conflicts: [],
     blocking_count: unknown.length, drainable: 0 };
-  if (!unknown.length) return result;
   const read = async (group, method, args) =>
     (await withRetry(client => client.rest[group][method](args))).data;
   const location = context.repo;
@@ -55,6 +81,26 @@ async function reconcileLegacyCanaryHistory({ withRetry, context, runs, candidat
     need(Array.isArray(candidates) && candidates.length > 0
       && candidates.every(repo => /^[\w.-]+\/[\w.-]+$/.test(repo)
         && repo.toLowerCase() !== 'stranske/collab-admin'), 'baseline_candidates_invalid');
+    // Current ownership is independent of whether legacy ambiguity exists.
+    // Explicit forced recovery retains its separate workflow path.
+    if (!unknown.length) {
+      const observations = [];
+      for (const repositoryName of candidates) {
+        const [owner, repo] = repositoryName.split('/');
+        const target = { owner, repo };
+        const open = await inspectOpenOwners({ read, target, repositoryName,
+          refreshPlan, verifyPlan, withRetry, result });
+        observations.push({ target, open: openIdentity(open) });
+      }
+      for (const { target, open: before } of observations) {
+        const open = await read('pulls', 'list', { ...target, state: 'open',
+          head: `${target.owner}:${BRANCH}`, per_page: 100, page: 1 });
+        need(Array.isArray(open) && openIdentity(open) === before, 'current_owner_changed');
+      }
+      currentOwners.set(runs, { request: key(refreshPlan, payload.digest), conflicts: result.owner_conflicts });
+      result.drainable = 1;
+      return result;
+    }
     const current = [];
     for (const run of unknown) {
       // A newer attempt, active run or unreadable identity cannot be covered
@@ -76,26 +122,8 @@ async function reconcileLegacyCanaryHistory({ withRetry, context, runs, candidat
     for (const repositoryName of candidates) {
       const [owner, repo] = repositoryName.split('/');
       const target = { owner, repo };
-      const open = await read('pulls', 'list', { ...target, state: 'open',
-        head: `${owner}:${BRANCH}`, per_page: 100, page: 1 });
-      need(Array.isArray(open) && open.length < 100, 'open_candidate_inventory_incomplete');
-      for (const current of open) {
-        let owned = false;
-        let currentBinding;
-        try {
-          const markers = [...String(current.body || '').matchAll(/<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/g)];
-          const metadata = markers.length === 1 && JSON.parse(markers[0][1]);
-          const record = parseDeliveryRecord(current.body);
-          need(isTrustedGeneratedDeliveryPr(current, ACTORS)
-            && current.head?.repo?.full_name === repositoryName
-            && metadata?.consumer_repo === repositoryName, 'open_candidate_binding_invalid');
-          const binding = await verifyPlan({ ...target, pr: current, record, metadata, withRetry });
-          currentBinding = binding;
-          owned = key(binding, '') === key(refreshPlan, '');
-        } catch (_) { /* Unknown current ownership blocks admission, not the historical grade. */ }
-        if (!owned) result.owner_conflicts.push({ repository: repositoryName, pr: current.number,
-          head_sha: current.head?.sha, ...(currentBinding || {}), reason: 'another_current_delivery' });
-      }
+      const open = await inspectOpenOwners({ read, target, repositoryName,
+        refreshPlan, verifyPlan, withRetry, result });
       const closed = [];
       for (let page = 1; page <= 10; page++) {
         const rows = await read('pulls', 'list', { ...target, state: 'closed',
@@ -235,6 +263,8 @@ async function reconcileLegacyCanaryHistory({ withRetry, context, runs, candidat
     result.blocking_count = 0; result.drainable = 1;
     result.baseline_sha256 = createHash('sha256').update(JSON.stringify(result.baselines)).digest('hex');
   } catch (error) {
+    if (!unknown.length) currentOwners.set(runs, { request: key(refreshPlan, payload?.digest),
+      conflicts: [{ reason: 'current_ownership_unreadable' }] });
     result.blocking = unknown.map(run => ({ run_id: run.id, run_attempt: run.run_attempt }));
     result.reason = /^[a-z][a-z0-9_]+$/.test(error?.message || '')
       ? error.message : 'baseline_read_failed';
