@@ -137,17 +137,26 @@ def test_exact_4509_without_provider_output_cannot_recover_a_review(
     assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == files
 
 
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
 def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_coverage(
-    tmp_path, monkeypatch, capsys
+    tmp_path, monkeypatch, capsys, profile
 ):
     from scripts.langchain import pr_verifier
 
     def unexpected_provider(*args, **kwargs):
         pytest.fail("Retained input validation must never construct a provider client")
 
-    for name in ("get_llm_client", "get_llm_clients", "_get_llm_client", "_get_llm_clients"):
+    for name in (
+        "get_llm_client",
+        "get_llm_clients",
+        "_get_llm_client",
+        "_get_llm_clients",
+        "_build_semantic_clients",
+        "_invoke_llm",
+        "_parse_semantic_evaluation_payload",
+    ):
         monkeypatch.setattr(pr_verifier, name, unexpected_provider)
-    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "standard")
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", profile)
     monkeypatch.setenv("VERIFICATION_MATERIAL", "[]")
     monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "0")
     monkeypatch.delenv("VERIFIER_EVIDENCE_CAPTURE_DIR", raising=False)
@@ -215,6 +224,24 @@ def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_co
             "scripts/ci_history.py",
             "tests/scripts/test_ci_history.py",
         ]
+    # Exercise the admission path with the exact original inputs, not the
+    # separately derived partial raw capture below. Recording valid byte ranges
+    # cannot make this incomplete capture eligible for either evidence profile.
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "1")
+    monkeypatch.setenv("PR_HEAD_SHA", metadata["verification_event"]["head_sha"])
+    monkeypatch.delenv("VERIFIER_SEMANTIC_KEY_PATH", raising=False)
+    blocked = pr_verifier.evaluate_pr_multiple(context.decode(), diff.decode())
+    assert len(blocked) == 1
+    assert blocked[0].used_llm is False
+    assert blocked[0].verdict != "PASS"
+    assert "complete capture is unavailable" in blocked[0].error
+    admission = blocked.semantic_acceptance
+    assert admission["capture"]["manifest"] == recorded
+    assert admission["capture"]["resource_admitted"] is False
+    assert set(recorded["gaps"]) <= set(admission["capture"]["gaps"])
+    assert admission["capture"]["raw_inputs"] == {"context": sha(context), "diff": sha(diff)}
+    assert admission["admission"]["verdict"] == "CONCERNS"
+    assert "execution" not in admission
     # The exact local archive cannot supply the native origin refused by the JS
     # collector. Exercise recovery without manufacturing that missing authority.
     source = tmp_path / "verification-recovery-source.zip"

@@ -939,3 +939,51 @@ exited 128: `.git/index.lock` cannot be created on the read-only Git metadata
 filesystem. No commit was created. Automatic approval review rejected both the
 requested `needs-human` label and blocker comment with `MCP tool call requires
 approval, but approval policy is never`. The changes and blocker remain local.
+
+## Exact-input provider admission regression — both evidence profiles
+
+On 2026-11-10, base `ecd810f6ce03d07767e4ba2ae31d8bb59e6e7094`, the
+exact-capture regression additionally exercises `evaluate_pr_multiple`'s semantic
+admission check with the unchanged original context and diff, after replaying the
+provider-free obligation recorder. Both `standard` and `expanded` profiles reject
+the six required gaps before provider construction, invocation or response parsing.
+The returned admission is `CONCERNS`, `resource_admitted=false`, with no execution
+record; its context/diff digests match the retained ZIP. All original members and
+the original verification event remain byte-identical. Neither profile acquires
+native recovery authority or clears the missing-origin refusal.
+
+Validation with approved Python 3.14.10:
+
+- Exact-capture tests before the change: **8 passed**, 25 deselected, 2.11 seconds.
+- `python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`:
+  **9 passed**, 25 deselected, 1.98 seconds, exit 0.
+- `python3 -m pytest tests/scripts/test_ci_history.py --cov=scripts.ci_history --cov-report=term-missing -m 'not slow' -q`:
+  **31 passed**, 8.98 seconds, exit 0; `scripts/ci_history.py` coverage **73.55%**.
+  Actual retained provider review coverage remains **0/2 files for each slot**:
+  `scripts/ci_history.py` and `tests/scripts/test_ci_history.py` remain unreviewed,
+  with `used_llm=false` and verdict `UNVERIFIABLE_INPUT`.
+- The issue-named combined Node command with the approved Python directory first
+  in `PATH`: exit **1**, **3.627 seconds**. Direct context-suite execution reports
+  **193 passed / 17 failed**, including `spawnSync git EPERM` and
+  `spawnSync python3 EPERM`; direct cross-repository execution passes **122 tests**.
+  No JavaScript or collector source changed.
+- Scoped Black formatting, Ruff and `git diff --check` pass.
+
+Authenticated artifact discovery again confirms artifact `13555815325` remains
+unexpired with the previously recorded digest and run/head identity. The connector
+returns a remote download reference; this runner's bounded acquisition fails with
+`URLError` before obtaining any bytes. No additional raw evidence is admitted.
+Successful exact-capture recovery and the no-required-gaps task remain unchecked.
+PR #4631 readback confirms open, `draft=false`.
+
+After Black's sequential, read-only checks populated its verified cache, the
+required full formatting gate passed: `BLACK_NUM_WORKERS=1 BLACK_CACHE_DIR=/tmp/verifier-4509-black-cache black --check --line-length 100 --exclude '(\.workflows-lib|node_modules)' .`
+— exit 0, **999 files unchanged**. The initial uncached invocation stalled in
+worker scheduling and was interrupted; the successful final command uses the same
+source selection and formatting rules.
+
+Commit attempt: `git add` exits **128** because `.git/index.lock` cannot be
+created on the read-only filesystem; no commit was created. Automatic approval
+review rejected both the requested `needs-human` label and blocker comment with
+`MCP tool call requires approval, but approval policy is never`. The scoped test
+and report changes remain in the working tree for the controller to commit.
