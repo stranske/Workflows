@@ -1,13 +1,13 @@
 # Issue #4619 — Gate python ci / python 3.13 Duration Reduction & Health 85 Tracking
 
 ## Context & Objectives
-Issue #4619 identified an extreme duration bottleneck in `python ci / python 3.13` (38.40 min in run 41771220527), causing trailing-7-day Gate p50 to exceed the 10-minute budget target (measured at 11.24 min).
+Issue #4619 identified an extreme duration bottleneck in `python ci / python 3.13` (38.40 min in run 41771220527). The trailing-7-day Gate p50 was 11.24 min against a 10-minute budget.
 
 ## Root Cause Analysis
 - **Run URL:** https://github.com/stranske/Workflows/actions/runs/41771220527
 - **Job ID:** `126381546540`
 - **Head SHA:** `9784a90013c9cc9ce5a0269d781ed3ab16e6ffed` (PR #4438)
-- **Bottleneck:** `Pytest (unit tests with coverage)` ran for 2,263s (37m 43s). Template parity assertions on large managed files (specifically `scripts/langchain/pr_verifier.py` >150 KB) asserted raw byte equality. On assertion failure, pytest's assertion rewriting invoked `difflib.ndiff`, hanging worker processes for 1,752s–1,902s.
+- **Bottleneck:** `Pytest (unit tests with coverage)` ran for 2,263s (37m 43s). The job log paused for about 22 minutes at 99% before reporting failures, including a raw-byte parity assertion on the large synced `scripts/langchain/pr_verifier.py`. Pytest printed a large byte diff for that assertion.
 
 ## Bounded Implementation
 - Guarded template parity assertions on large synced files with SHA-256 digest-first assertions:
@@ -42,8 +42,8 @@ A one-byte change to the synced `pr_verifier.py` failed its parity test at the d
 
 - **Pre-change Run (41771220527):**
   - Head: `9784a90013c9cc9ce5a0269d781ed3ab16e6ffed` (PR #4438)
-  - `python ci / python 3.13`: 38m 24s job duration (2,304s), 37m 43s pytest step (2,263s) — **bottleneck: raw byte equality assertions on large synced files triggered difflib.ndiff on assertion failure**
-  - Result: failure / timed out workers
+  - `python ci / python 3.13`: 38m 24s job duration (2,304s), 37m 43s pytest step (2,263s)
+  - Result: failed, including the raw-byte parity assertion
 - **Post-change Run (42820421600):**
   - Head: `2c5e646cf6c2f7425997c4e4d7c2001dafe385b1`
   - `python ci / python 3.13`: 5m 49s job duration (349s), 4m 58s pytest step (298s) — **84.8% shorter observed job duration, 86.8% shorter observed pytest step**
@@ -51,7 +51,7 @@ A one-byte change to the synced `pr_verifier.py` failed its parity test at the d
   - Gate total duration: 7m 44s (464s) — **below 10 min target**
   - Result: success across all 44 jobs
 
-The failed pre-change run on PR #4438 stalled while pytest rendered a failed raw-byte parity assertion. The digest-first guard makes that mismatch fail quickly. The successful run was on a different commit, and the comparison does not establish identical workload or coverage. The 84.8% figure is the observed difference between the failed and successful job durations. These runs cannot isolate how much of the difference came from the guard. Run 42820421600 covers an earlier PR #4620 head. Its retained JSON records that historical run.
+The pre-change run on PR #4438 stalled and then reported a failed raw-byte parity assertion. The large failure diff points to assertion rendering as the cause of the stall. The log gives the pytest step duration and the progress gap, while time spent inside individual diff calls remains unmeasured. The digest-first guard makes that mismatch fail quickly. The successful run was on a different commit, and the comparison does not establish identical workload or coverage. The 84.8% figure is the observed difference between the failed and successful job durations. These runs cannot isolate how much of the difference came from the guard. Run 42820421600 covers an earlier PR #4620 head. Its retained JSON records that historical run.
 
 ## Health 85 Daily Observations Series (2026-11-04 to 2026-11-10)
 Health 85 is workflow id `387854305` (`Health 85 CI Time Budget`, `.github/workflows/health-85-ci-time-budget.yml`).
