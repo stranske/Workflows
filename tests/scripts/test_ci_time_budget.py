@@ -287,6 +287,14 @@ def test_publish_json_includes_drain_and_uses_expected_sha(tmp_path, monkeypatch
     assert budget.publish(report, api=api, sha="previous-blob") == "new-blob"
     assert json.loads((tmp_path / "ci-budget.json").read_text()) == report
 
+    def request_no_sha(method, path, payload=None):
+        assert method == "PUT"
+        assert "sha" not in payload
+        return {"content": {"sha": "empty-sha-blob"}}
+
+    api.request = request_no_sha
+    assert budget.publish(report, api=api, sha="") == "empty-sha-blob"
+
 
 def test_run_persists_first_detection_before_failed_issue_write(monkeypatch):
     snapshots = []
@@ -546,6 +554,14 @@ def test_github_client_and_pagination_edge_cases(tmp_path, monkeypatch):
     )
     with pytest.raises(RuntimeError, match="Incomplete or changing pagination"):
         p_api.pages("/items", "items")
+
+    monkeypatch.setattr(
+        p_api,
+        "request",
+        lambda *a, **kw: [{"id": i} for i in range(100)],
+    )
+    with pytest.raises(RuntimeError, match="Pagination limit reached"):
+        p_api.pages("/infinite")
 
 
 def test_gate_runs_and_measure_validation_errors(monkeypatch):
