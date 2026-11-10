@@ -241,6 +241,39 @@ post-merge dev-tool PR inventory; the observations above remain unchanged.
 The local round's summary references Maint 71 run `42445636759`, created
 2026-11-08T04:09:17Z; that earlier hosted run is not the post-merge local round id.
 
+## Round 5 production report check (2026-11-10T16:45Z)
+
+Outcome: **A2 unsatisfied; T1 pending**. Proof command:
+`gh run view <new-run-id> --repo stranske/Workflows --log`, with explicit
+candidate dispositions for Trend_Model_Project#6189 and #6186. Stop rule:
+one dispatch and at most 15 minutes of monitoring; stop production attempts
+at the first refusal or failed/omitting report.
+
+The exact requested command was attempted once in this round:
+
+```bash
+gh workflow run maint-71-merge-sync-prs.yml --repo stranske/Workflows --ref main
+```
+
+It exited 77: the Orchestrator guard refuses shared production starts inside
+a dispatched agent and assigns them to schedules and sync-core. No run was
+created, and no alternate dispatch route was attempted. Blocking/drainable:
+production dispatch is blocked in this seat; focused tests and recording this
+evidence remain drainable. The scheduler/sync-core owner retains the production
+continuation after deployment of the report repair.
+
+Latest listed run [42789507724](https://github.com/stranske/Workflows/actions/runs/42789507724)
+was created 2026-11-10T09:17:48Z, concluded `success`, and used Workflows head
+`9dcc645ba2b51f6db655486cec7e06e1f7d5e5b4`. Its full log was read again.
+The literal acceptance grep `grep -E '6189|6186'` matches fractional timestamp
+digits, but no candidate disposition. Searching for `#6189`, `#6186`,
+`/pull/6189`, `/pull/6186`, or `Trend_Model_Project` returns no matches.
+Those timestamp matches do not satisfy A2.
+
+The exact A1 two-file Node command was rerun on the unchanged implementation:
+243 passed, zero failed, 613.10 ms. This round changes evidence only; no pins,
+selectors or workflow behavior were changed.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
