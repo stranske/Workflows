@@ -3450,11 +3450,13 @@ in the sync lineage, not a payload delivery. The payload was delivered by PR 248
 (merge `1ff9e11`), whose producer runs 42485644055 and 42499084007 were
 `workflow_dispatch`, so PR 2486 itself is not claimed as automation-started.
 
-**Criterion 3 is MET at the 2026-11-09T08:49:48.032611Z observation boundary:**
+**Criterion 3: consumer merge recorded at the 2026-11-09T08:49:48.032611Z observation boundary:**
 PR 2488 merged as `e4ccdaf177e3271173ae534a710ebc23f29341e8` at
 2026-11-09T08:25:48Z in Maint 71 run **42585644980**. The earlier 05:37Z
 snapshot above remains historical. The terminal receipt and fresh issue-4369
-comment observation are retained below. Blocking=0, drainable by Maint 71=0.
+comment observation are retained below. The terminal run's event is
+`workflow_dispatch` with an unknown dispatcher, so the schedule-started origin of
+the terminal merge is **not established** (follow-up on #4581).
 
 ## Closer repair 2: chain receipt and upstream concern reconciliation — 2026-11-09
 
@@ -3544,7 +3546,7 @@ no provider returned PASS.
 | Class | Count | Status | Evidence |
 | --- | --- | --- | --- |
 | Full suites | 17 + openai 1 | Resolved independently | Hosted run 42523162606 at `0a06f197`: `4557-exact-main/node-full.json` and `python-full.json`, both exit 0 |
-| Merged payload receipt | 22 + openai 1 | Resolved by independent payload and successor-chain evidence | PR 2486 merge `1ff9e11`, `4558-byte-comparison.json` exit 0; schedule-started successor PR 2488 merge `e4ccdaf1`, `4557r2/chain-receipt.json`, merged-payload `cmp` exit 0 |
+| Merged payload receipt | 22 + openai 1 | Payload resolved; terminal automation origin **unresolved** | PR 2486 merge `1ff9e11`, `4558-byte-comparison.json` exit 0; successor PR 2488 (schedule-started producer) merge `e4ccdaf1`, `4557r2/chain-receipt.json`, merged-payload `cmp` exit 0; terminal Maint 71 run was `workflow_dispatch`, dispatcher unknown |
 | `Closes #4550` / checked boxes | 6 | **Unresolved**, preserved | #4550 closed 20:54:58Z, two seconds after PR 4551 merged, while criteria 3 and 4 were still unmet |
 | Forbidden dispatch attempts | 7 | **Unresolved**, preserved | Failed attempts and forced run 42485644055 remain historical; this is why PR 2486 is not counted as automation-started |
 | Evidence integrity | 12 | **Unresolved**, preserved; acceptance no longer relies on these records | Records point to absent logs and uncommitted revisions; superseded for acceptance by the hash-bound hosted receipts |
@@ -3554,9 +3556,10 @@ no provider returned PASS.
 
 ### Remaining acceptance status
 
-- [x] Producer → plan → candidate → Maint 71 → actual consumer-main merge: **MET**.
-  PR 2488 merge `e4ccdaf177e3271173ae534a710ebc23f29341e8`, Maint 71 run
-  **42585644980**, schedule-started producer **42564882056**.
+- [ ] Producer → plan → candidate → Maint 71 → actual consumer-main merge: merge
+  **recorded**, PR 2488 `e4ccdaf177e3271173ae534a710ebc23f29341e8`, Maint 71 run
+  **42585644980**, schedule-started producer **42564882056**. Not marked met: the
+  terminal run's `workflow_dispatch` dispatcher is unknown.
 - [x] Non-PASS concerns reconciled against changed files and retained evidence.
   Four classes stay unresolved and are preserved, not waived.
 - [x] Validation report updated with this chain receipt and status.
@@ -3567,348 +3570,19 @@ and no new comment IDs since the retained #4557 final observation. Historical
 refusal discussion 4434491702 remains outside this issue-comment observation;
 no new verifier PASS or waiver of the four unresolved classes is claimed.
 
-## Issue 4581 acceptance plan — 2026-11-09
+## Issue 4581 result — 2026-11-09
 
-Outcome 1: retain the schedule-started producer → plan → candidate → Maint 71
-→ consumer-main merge for PAEM PR 2488, with matching subscription payload bytes
-and a passing Orchestrator model-table source comparison. Check date: 2026-11-09 UTC.
-The real-input command is
-`gh pr view 2488 --repo stranske/Portable-Alpha-Extension-Model --json state,mergedAt,mergeCommit`;
-success prints `MERGED` and a non-null merge SHA bound in `4557r2/chain-receipt.json`.
-Only the issue's JSON, byte-comparison and single-test acceptance commands will
-be run. Stop rule: two failed acceptance attempts or 45 minutes from starting this
-seat; report the first broken step if reached. No Maint 68/71 dispatch is permitted.
+Recorded read-only at the UTC boundary above. Live readback of
+`gh pr view 2488 --repo stranske/Portable-Alpha-Extension-Model --json state,mergedAt,mergeCommit`
+prints `MERGED`, merge `e4ccdaf177e3271173ae534a710ebc23f29341e8`, mergedAt
+`2026-11-09T08:25:48Z`; `consumer_merge` in the chain receipt holds that SHA and
+`json.tool` exits **0** on it. Both `cmp` commands in the byte-comparison receipt
+exit **0**. The Orchestrator model-table test passed at the PR 1288 merge, as
+recorded above. No Maint 68 or Maint 71 run was dispatched by this work.
 
-Outcome 1: **PASS**. The PR readback prints `MERGED`, merge SHA
-`e4ccdaf177e3271173ae534a710ebc23f29341e8`, mergedAt `2026-11-09T08:25:48Z`.
-The following named acceptance command exits **0**, and `consumer_merge` contains
-that SHA while `producer.event` remains `schedule`:
-
-```
-/opt/anaconda3/bin/python3 -m json.tool docs/evidence/issue-4369/runtime-4550/4557r2/chain-receipt.json
-```
-
-Both named `cmp` commands exit **0**, and the single named Orchestrator test
-passes as recorded above. PR #4579 already landed its receipts and Closer repair 2
-section on Workflows main as `75712a5bdf7c0f5791ec1b633f75b18bd3568562`
-at 08:04:51Z. No work from #4558 was redone, and no full suite was run locally.
-New evidence file hashes and the original terminal-run log hash are retained in
-[`4581-artifact-provenance.json`](runtime-4550/4557r2/4581-artifact-provenance.json).
-
-### PR 4582 keepalive round 2 — 2026-11-09
-
-Outcome 1: **PASS**, rechecked at **2026-11-09T09:16:59Z**. Live PAEM PR
-2488 readback still reports merge `e4ccdaf177e3271173ae534a710ebc23f29341e8`.
-Both retained payload comparisons and a fresh download at that merge SHA return
-`cmp` exit **0**. The chain receipt parses with `json.tool` exit **0**;
-producer 42564882056 independently reports event `schedule` and success, and
-terminal Maint 71 run 42585644980 reports success. Workflows main contains
-PR 4579's merge and the Closer repair 2 section. Orchestrator PR 1288 is merged
-with no unsuccessful checks; its exact merged archive's named model-table test
-again returns **1 passed in 0.44s**, exit **0**, no skip. All 3,888 archive files
-were checked unchanged against the previously hash-bound archive. The archive's
-missing Git metadata still limits the test-input tracking hook.
-
-The two checks reported as failures belong to CI Autofix Loop run
-42590017303: **Resolve Context** and **Record autofix dispatch completion** both
-have conclusion `cancelled` and empty step lists. This is no observed code-test
-failure and supplies no failing step to repair. No workflow change or manual
-Maint 68/71 dispatch was made. The fresh paginated issue-4369 observation retains
-49 comments in the [round-2 verification receipt](runtime-4550/4557r2/4582-round2-verification.json).
-The original observation and four unresolved historical concern classes remain
-preserved. **Blocking=0, drainable by Maint 71=0.**
-
-### PR 4582 keepalive round 3 — 2026-11-09
-
-Outcome 1: **PASS**, rechecked at **2026-11-09T09:30:36.236044Z**.
-The [round-3 verification receipt](runtime-4550/4557r2/4582-round3-verification.json)
-records successful execution of all four named acceptance criteria. PAEM PR 2488
-remains merged at `e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the
-chain receipt. `json.tool` exits **0**, producer 42564882056 reports event
-`schedule` and success, and terminal Maint 71 run 42585644980 reports success.
-Both retained payload comparisons and a fresh consumer download at the merge SHA
-return `cmp` exit **0**.
-
-Orchestrator PR 1288 is merged with no unsuccessful checks. Its exact merged
-archive's named model-table test returns **1 passed in 0.35s**, exit **0**, with
-no skip, against live Workflows main. The archive SHA-256 matches the retained
-receipt and all 3,888 archive files match the extracted test checkout. The archive
-has no Git metadata, so the test-input tracking hook remains **NOT CHECKED**;
-this does not represent a skipped model-table test. No full suite ran locally.
-Fetched Workflows main contains PR 4579's merge, chain receipt and Closer repair 2
-section. The fresh paginated issue-4369 comment observation contains 49 comments;
-the original observation and unresolved historical concerns remain preserved.
-
-No acceptance failure required a code repair. Only this report and the round-3
-receipt changed. No manual Maint 68/71 dispatch, merge, dependency-pin change or
-schedule change occurred. **Blocking=0, drainable by Maint 71=0.**
-
-### PR 4582 keepalive round 4 — 2026-11-09
-
-Outcome 1: **PASS**, rechecked at **2026-11-09T10:02:57.436449+00:00**.
-The [round-4 verification receipt](runtime-4550/4557r2/4582-round4-verification.json)
-records execution of A1–A4 against real input. PAEM PR 2488 remains merged at
-`e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching `consumer_merge` in the
-chain receipt. `json.tool` exits **0**. Producer 42564882056 independently
-reports event `schedule` and success; terminal Maint 71 run 42585644980 reports
-success. Its event is `workflow_dispatch`; the terminal dispatcher is unknown.
-This seat performed no manual dispatch.
-
-Both retained payload comparisons and the comparison against a fresh download
-of `tools/subscription_llm.py` at the actual consumer merge SHA exit **0**.
-Orchestrator PR 1288 is merged with no unsuccessful checks; its exact merged
-archive's named model-table test returns **1 passed in 0.38s**, exit **0**, with
-no skip. The archive hash matches its recorded source receipt and all **3,888**
-archived files match the test checkout. The archive lacks Git metadata, so its
-test-input tracking hook remains **NOT CHECKED**; the named test passed against
-live Workflows main.
-
-Fetched Workflows main contains PR 4579's merge, chain receipt and Closer repair 2
-section. The fresh complete issue-4369 comment read has **49** comments at the
-UTC boundary above. Earlier observations and unresolved historical concern
-classes remain preserved. No acceptance failure required a code change. Only
-this report and the round-4 receipt changed; no dependency pins, manual workflow
-dispatches, schedules or merges changed. **Blocking=0, drainable by Maint 71=0.**
-
-### PR 4582 keepalive round 5 — 2026-11-09
-
-Outcome 1: **PASS**, rechecked at **2026-11-09T10:45:37.942244+00:00**.
-The [round-5 verification receipt](runtime-4550/4557r2/4582-round5-verification.json)
-records actual execution of A1–A4; the reported inability to run acceptance
-commands did not recur. Live PAEM PR 2488 reports `MERGED`, merge SHA
-`e4ccdaf177e3271173ae534a710ebc23f29341e8` and mergedAt
-`2026-11-09T08:25:48Z`, matching the chain receipt. `json.tool` exits **0**;
-producer 42564882056 reports event `schedule` and success, and terminal Maint 71
-run 42585644980 reports success. No manual dispatch was performed.
-
-Both retained `cmp` commands and a comparison against a fresh consumer download
-at that merge SHA exit **0**. Orchestrator PR 1288 is merged with no unsuccessful
-checks. Its exact merged archive's named model-table test returns **1 passed in
-0.33s**, exit **0**, without skip, against live Workflows main. The archive hash
-matches its retained source receipt; all **3,888** archived files match the test
-checkout. Missing Git metadata leaves the test-input tracking hook **NOT CHECKED**.
-
-Fetched Workflows main contains PR 4579's merge, the chain receipt and Closer
-repair 2 section. Criterion 3 remains met at the consumer merge SHA above; the
-fresh complete issue-4369 comment observation contains **49** comments at the
-UTC boundary above. Earlier observations and unresolved historical concerns
-remain preserved. No acceptance failure required a code repair. Only this report
-and the round-5 receipt changed. **Blocking=0, drainable by Maint 71=0.**
-
-### PR 4582 keepalive round 6 — 2026-11-09
-
-Outcome 1: **PASS**, rechecked at **2026-11-09T11:02:56.835415+00:00**.
-The [round-6 verification receipt](runtime-4550/4557r2/4582-round6-verification.json)
-records actual execution of A1–A4. The reported inability to run acceptance
-commands did not recur. Live PAEM PR 2488 remains `MERGED` at
-`e4ccdaf177e3271173ae534a710ebc23f29341e8`, mergedAt
-`2026-11-09T08:25:48Z`, matching the chain receipt. `json.tool` exits **0**;
-producer 42564882056 reports event `schedule` and success. Terminal Maint 71
-run 42585644980 reports success with event `workflow_dispatch`; its dispatcher
-is unknown. This seat performed no manual dispatch.
-
-Both retained payload comparisons and `cmp` against a fresh consumer download
-at the merge SHA exit **0**. Orchestrator PR 1288 is merged with no unsuccessful
-checks. Its exact merged archive's named model-table test returns **1 passed in
-0.37s**, exit **0**, without skip, against live Workflows main. The archive hash
-matches the retained receipt; all **3,888** archived files match the test checkout.
-Missing Git metadata leaves the test-input tracking hook **NOT CHECKED**.
-
-Fetched Workflows main contains PR 4579's merge, the chain receipt and Closer
-repair 2 section. Criterion 3 remains met at the consumer merge SHA above; the
-fresh complete issue-4369 comment observation contains **49** comments at the
-UTC boundary above. Earlier observations and unresolved historical concerns
-remain preserved. No acceptance failure required a code repair. Only this report
-and the round-6 receipt changed. No dependency pins, workflow dispatches,
-schedules or merges changed. **Blocking=0, drainable by Maint 71=0.**
-
-### PR 4582 keepalive round 7 — 2026-11-09
-
-Outcome 1: **PASS**, rechecked at **2026-11-09T11:15:51.317144+00:00**.
-The [round-7 verification receipt](runtime-4550/4557r2/4582-round7-verification.json)
-records execution of A1–A4. Live PAEM PR 2488 is `MERGED` at
-`e4ccdaf177e3271173ae534a710ebc23f29341e8`, mergedAt
-`2026-11-09T08:25:48Z`, matching the chain receipt. `json.tool` exits **0**;
-producer 42564882056 reports event `schedule` and success. Terminal Maint 71
-run 42585644980 reports success. Its event is `workflow_dispatch`; its dispatcher
-is unknown. The scheduled producer event is independently verified; this seat
-dispatched neither workflow.
-
-Both retained payload comparisons and `cmp` against a fresh consumer download
-at that merge SHA exit **0**. Orchestrator PR 1288 is merged with no unsuccessful
-checks. Its exact merged archive's named model-table test returns **1 passed in
-0.38s**, exit **0**, without skip, against live Workflows main. The archive hash
-matches the retained receipt; all **3,888** archived files match the test checkout.
-Missing Git metadata leaves the test-input tracking hook **NOT CHECKED**.
-
-Fetched Workflows main contains PR 4579's merge, the chain receipt and Closer
-repair 2 section. Criterion 3 remains met at the consumer merge SHA above; the
-fresh complete issue-4369 comment observation contains **49** comments at the
-UTC boundary above. No acceptance failure required a code repair. Only this
-report and the round-7 receipt changed. No dependency pins, workflow dispatches,
-schedules or merges changed. **Blocking=0, drainable by Maint 71=0.**
-
-Post-push review continuation: inspect PR 4582's inline comments and checks on
-its next scheduled pass, at least seven minutes after this round's push. This
-automation does not wait for the review floor or claim new-head CI has passed.
-
-### PR 4582 keepalive round 8 — 2026-11-09
-
-Outcome 1: **PASS**, rechecked at **2026-11-09T11:32:21.359017+00:00**.
-The [round-8 verification receipt](runtime-4550/4557r2/4582-round8-verification.json)
-records actual execution of A1–A4. PAEM PR 2488 remains merged at
-`e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the chain receipt.
-`json.tool` and all three `cmp` commands (including a fresh download at that
-merge SHA) exit **0**. The producer event is `schedule`; terminal Maint 71
-run 42585644980 succeeded. No manual dispatch occurred.
-
-Orchestrator PR 1288 is merged with no unsuccessful checks. The named model-table
-test against live Workflows main passes without skip: **1 passed in 0.95s**,
-exit **0**. All **3,888** archived files match the retained archive; missing Git
-metadata leaves the test-input tracking hook **NOT CHECKED**.
-
-PR 4579's merge, chain receipt and Closer repair 2 section remain on Workflows
-main. Criterion 3 remains met at the merge SHA above; the complete issue-4369
-comment read contains **49** comments at this new UTC boundary. No acceptance
-failure required a code repair. Only this report and the round-8 receipt changed.
-**Blocking=0, drainable by Maint 71=0.**
-
-Post-push review continuation: the next scheduled pass must inspect PR 4582's
-inline comments and checks at least seven minutes after this round's push.
-New-head CI is not claimed by these local acceptance results.
-
-### PR 4582 keepalive round 9 — 2026-11-09
-
-Outcome 1: **A1–A4 PASS**, rechecked at **2026-11-09T11:47:25.155220+00:00**.
-The [round-9 verification receipt](runtime-4550/4557r2/4582-round9-verification.json)
-records successful execution of the named acceptance commands. PAEM PR 2488
-is merged at `e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the chain
-receipt. `json.tool` and all three `cmp` commands exit **0**, including a fresh
-consumer download at the merge SHA. Orchestrator PR 1288 has no unsuccessful
-checks; its named model-table test returns **1 passed in 0.35s**, without skip.
-All **3,888** archive files match the retained hash-bound source; missing Git
-metadata leaves the test-input tracking hook **NOT CHECKED**.
-
-The scheduled producer and successful terminal Maint 71 run are verified, but
-the terminal run's `workflow_dispatch` origin is **UNKNOWN**. The producer's
-retained dispatch binds an earlier Maint 71 run, not terminal run 42585644980.
-The terminal row and rounds 4, 6 and 7 above correct the unsupported attribution.
-Thus A1–A4 pass, while T3's stronger schedule-started terminal-run condition is
-not fully established. This seat dispatched neither workflow. No factual waiver
-is inferred from the earlier checked boxes or criterion-3 MET statements.
-
-Workflows main retains PR 4579's merge, chain receipt and Closer repair 2 section.
-The fresh complete issue-4369 observation contains **49** comments at the UTC
-boundary above. Follow-up only: the review request to add the chain receipt to
-the provenance map remains open; no existing hash receipt was rewritten.
-**Blocking=1** (terminal dispatcher provenance), **drainable by Maint 71=0**;
-read-only provenance investigation remains available without redispatch.
-
-Post-push review continuation: the next scheduled pass must inspect PR 4582's
-inline comments and checks at least seven minutes after this round's push.
-New-head CI is not claimed by these local acceptance results.
-
-### PR 4582 keepalive round 10 — 2026-11-09
-
-Outcome 1: **A1–A4 PASS**, rechecked at **2026-11-09T12:02:20.543927+00:00**.
-The [round-10 verification receipt](runtime-4550/4557r2/4582-round10-verification.json)
-records execution of the named acceptance commands on this branch. PAEM PR 2488
-is merged at `e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the chain
-receipt. `/opt/anaconda3/bin/python3 -m json.tool` exits **0** for the chain
-receipt, whose producer event is `schedule`. Both retained payload comparisons
-and `cmp` against a fresh consumer download at that merge SHA exit **0**.
-
-Orchestrator PR 1288 is merged with no unsuccessful checks. In its retained
-merged archive, `/opt/anaconda3/bin/python3 -m pytest -q
-tests/test_model_table.py::test_copy_matches_workflows_source` returns
-**1 passed in 0.25s**, exit **0**, without skip against live Workflows main.
-All **3,888** archive files still match the hash-bound source. Missing Git metadata
-leaves the test-input tracking hook **NOT CHECKED**; the model-table test ran.
-
-Workflows main contains PR 4579's merge, the chain receipt and Closer repair 2
-section. The fresh fully paginated issue-4369 comment observation contains
-**49** comments at the UTC boundary above. The consumer merge and byte equality
-remain established; T3's stronger schedule-started terminal-run requirement
-remains **UNKNOWN** because terminal Maint 71 run 42585644980 has event
-`workflow_dispatch` with no established dispatcher. No manual dispatch occurred.
-**Blocking=1, drainable by Maint 71=0**; the available drain is read-only terminal
-dispatch provenance investigation. The two existing review findings were read:
-the unsupported attribution was corrected in round 9; the provenance-map nit
-remains follow-up only under this round's acceptance-only scope.
-
-No acceptance failure required a code repair. This round changes only this report
-and its verification receipt. No dependency pins, schedules or workflow settings
-changed. The temporary receipt collector's field lookup error was corrected before
-writing the receipt; the completed acceptance run above is the retained result.
-
-Post-push review continuation: the next scheduled pass must inspect PR 4582's
-inline comments and checks at least seven minutes after this round's push.
-New-head CI is not claimed by these local acceptance results.
-
-### PR 4582 keepalive round 11 — 2026-11-09
-
-Outcome 1: **A1–A4 PASS**, observed at **2026-11-09T12:17:37.895415+00:00**.
-The [round-11 receipt](runtime-4550/4557r2/4582-round11-verification.json)
-records actual execution of the acceptance commands against parent head
-`71e7a827b4ed33d71cfeb32dc3d816702576187f`. PAEM PR 2488 is merged at
-`e4ccdaf177e3271173ae534a710ebc23f29341e8`, matching the chain receipt.
-`/opt/anaconda3/bin/python3 -m json.tool` and all three `cmp` commands,
-including a fresh consumer download at the merge SHA, exit **0**. The live
-producer run has event `schedule` and conclusion `success`.
-
-Orchestrator PR 1288 is merged with no unsuccessful checks. Its retained merged
-archive passes `/opt/anaconda3/bin/python3 -m pytest -q
-tests/test_model_table.py::test_copy_matches_workflows_source`: **1 passed in
-0.38s**, exit **0**, without skip against live Workflows main. All **3,888**
-archive files match the retained archive. Its missing Git metadata leaves the
-test-input tracking hook **NOT CHECKED**; the named model-table test did run.
-
-PR 4579's merge, chain receipt and Closer repair 2 section are present on
-Workflows main. The fresh fully paginated issue-4369 comment observation has
-**49** comments at the boundary above. T1, T2, T4 and T5 remain verified.
-T3's schedule-started terminal-run requirement remains **UNKNOWN**: terminal
-Maint 71 run 42585644980 used `workflow_dispatch`, and its dispatcher is not
-established. **Blocking=1, drainable by Maint 71=0**; the available drain is
-read-only dispatch provenance investigation without redispatch. The existing
-provenance-map review nit remains follow-up under this acceptance-only scope.
-
-No failed acceptance command required a code repair. Only this report and the
-round-11 receipt changed. No dependency pins, dispatches, schedules or merges
-changed. The preceding head's inline review comments and CI were re-read; no
-new finding required an acceptance repair. Post-push review belongs to the next
-scheduled pass, at least seven minutes after this push. New-head CI remains
-unverified until that pass observes it.
-
-
-### PR 4582 keepalive round 12 — 2026-11-09
-
-Outcome 1: **A1–A4 PASS**, observed at **2026-11-09T12:29:46.126292+00:00**.
-The [round-12 receipt](runtime-4550/4557r2/4582-round12-verification.json)
-records execution on parent head `95c28f66850c00173120e6535a12c0659ad33be6`.
-PAEM PR 2488 is MERGED at `e4ccdaf177e3271173ae534a710ebc23f29341e8`,
-matching `chain-receipt.json`. `/opt/anaconda3/bin/python3 -m json.tool`
-and all three `cmp` commands exit **0**, including the comparison against a
-fresh consumer download at that merge SHA. The producer event is `schedule`.
-
-Orchestrator PR 1288 is merged with no unsuccessful checks. Its retained merged
-archive passes `/opt/anaconda3/bin/python3 -m pytest -q
-tests/test_model_table.py::test_copy_matches_workflows_source`: **1 passed in
-0.41s**, exit **0**, without skip against live Workflows main. All **3,888**
-archive files match the hash-bound archive. The archive lacks Git metadata, so
-the test-input tracking hook remains **NOT CHECKED**; the named test ran.
-
-PR 4579's merge, chain receipt and Closer repair 2 section are on Workflows
-main. The fresh fully paginated issue-4369 observation contains **49** comments
-at the boundary above. T1, T2, T4 and T5 remain verified. T3 remains **UNKNOWN**:
-terminal Maint 71 run 42585644980 used `workflow_dispatch`, and the retained
-producer dispatch identifies an earlier run. **Blocking=1, drainable by Maint
-71=0**; read-only terminal dispatcher provenance investigation is the available
-drain. No dispatch occurred in this round.
-
-No acceptance command failed, so no code repair was warranted. Only this report
-and the round-12 receipt changed. The preceding head's inline comments and green
-CI were re-read; the provenance-map nit remains follow-up under the acceptance-only
-scope. No dependency pins, schedules or workflow settings changed. This final
-keepalive round does not establish T3 or authorize another dispatch. After the
-push, the next scheduled review must read PR 4582's comments and checks at least
-seven minutes later; new-head CI is not claimed by these acceptance results.
+**Open, follow-up on #4581:** terminal Maint 71 run 42585644980 has event
+`workflow_dispatch` and its dispatcher is **unknown**. The producer 42564882056 is
+schedule-started, but the producer's own dispatch binds the earlier Maint 71 run
+42565425171, not the terminal run. So the merge is recorded, while "the
+schedule-started Maint 71 run merged it" is not established. The artifact
+provenance map and a replay test of these receipts are also follow-up work.

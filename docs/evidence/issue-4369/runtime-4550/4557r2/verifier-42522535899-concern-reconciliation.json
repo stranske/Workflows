@@ -85,8 +85,8 @@
         73,
         83
       ],
-      "status": "resolved_by_independent_payload_and_successor_chain_evidence",
-      "evidence": "PR 2486 delivered the payload as 1ff9e11cd51a456333c626cb354543b63202bef6. Schedule-started producer 42564882056 created causal sync successor PR 2488, merged by Maint 71 run 42585644980 as e4ccdaf177e3271173ae534a710ebc23f29341e8 at 2026-11-09T08:25:48Z. chain-receipt.json binds producer plan/source/candidate to the terminal merged handoff and independent PR JSON. 4581-byte-comparison.json records cmp exit 0 for candidate and actual merge payload against the retained source. PR 2488 does not first introduce the payload. The providers original verdicts and remaining unresolved classes are preserved."
+      "status": "payload_resolved_by_independent_evidence; terminal_automation_origin_unresolved",
+      "evidence": "PR 2486 delivered the payload as 1ff9e11cd51a456333c626cb354543b63202bef6. Schedule-started producer 42564882056 created causal sync successor PR 2488, merged by Maint 71 run 42585644980 as e4ccdaf177e3271173ae534a710ebc23f29341e8 at 2026-11-09T08:25:48Z. chain-receipt.json binds producer plan/source/candidate to the terminal merged handoff and independent PR JSON. 4581-byte-comparison.json records cmp exit 0 for candidate and actual merge payload against the retained source. Run 42585644980 has event workflow_dispatch with an unknown dispatcher, so the schedule-started origin of the terminal merge is not established. PR 2488 does not first introduce the payload. The providers original verdicts and remaining unresolved classes are preserved."
     },
     "C3_closing_keyword_and_checkboxes": {
       "ids": [
