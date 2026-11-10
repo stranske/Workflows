@@ -182,6 +182,38 @@ validate them with its disposable Git regression tests. A checkpoint with only
 excluded artifacts creates no commit; unpushed existing commits retain their
 existing push path.
 
+### Cursor target PR lifecycle
+
+Cursor's agent step clears `GH_TOKEN`, `GITHUB_TOKEN` and `WORKFLOWS_TOKEN`;
+the keepalive prompt restricts agents to committing on the checked-out PR branch.
+The workflow re-reads the target PR after Cursor exits and permits its existing
+push step only for an open PR. A merged or closed target produces
+`skipped: target PR merged/closed mid-run`, skips all workflow pushes, and posts
+one source-issue comment per run with the new unpushed commit SHAs and run URL.
+The source issue is resolved by `source_context.js`; ambiguous or missing sources
+leave the evidence in the run summary with a warning, and a failed source-issue
+comment only warns. `pr_number` is required and must be a positive integer; the
+run fails before Cursor executes otherwise. Before Cursor starts, the persisted
+credentials of both checkouts are removed (authenticated pre-run fetches still
+work, and pushes use their explicit-token URLs). The state lookup retries
+transient errors three times; an exhausted lookup fails the step and withholds
+push permission. Every blocked delivery uploads
+`cursor-blocked-delivery-<run_id>-<attempt>` with a bundle of unpushed commits,
+staged and unstaged patches, an untracked-file archive and a receipt; the source
+issue comment names that artifact. The workflow requires `issues: write` for the
+source-issue comment. Token clearing is not a credential sandbox, and the
+post-run read does not prevent a later concurrent merge.
+Issue #4562's production acceptance still requires a mid-run merge observation
+and 14 days without new orphan slug-branch PRs after deployment.
+
+Run `python scripts/check_cursor_pr_outcome.py --fix-pr stranske/Workflows#4564`
+to collect the read-only PR search. JSON includes blocking and drainable counts;
+exit 0 (`clear_search`) means a full clear 14-day window, 1 means a matching PR,
+and 2 means pending or unavailable evidence. Missing, blank or malformed branch
+or author evidence is unavailable, never a clear search. Pending evidence drains
+through a later read; matching PRs require follow-up investigation. The acceptance box
+still needs a separately observed mid-run merge; a clear search cannot check it.
+
 ### Hosted agent startup recovery
 
 The pinned Cursor archive is installed in `runner.temp/agent-cli/cursor` and

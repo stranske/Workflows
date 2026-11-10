@@ -9,6 +9,7 @@ Your objective is to satisfy the **Acceptance Criteria** by completing each **Ta
 4. Focus on the FIRST unchecked task unless blocked, then move to the next.
 
 **Guidelines:**
+- Do not create branches or pull requests; commit only to the checked-out PR branch.
 - Keep edits scoped to the current task rather than reshaping the entire PR.
 - Use repository instructions, conventions, and tests to validate work.
 - Prefer small, reviewable commits; leave clear notes when follow-up is required.
