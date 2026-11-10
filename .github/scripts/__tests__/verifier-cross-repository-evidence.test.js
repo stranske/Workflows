@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {createHash} = require('crypto');
+const {execFileSync} = require('node:child_process');
 const native = require('./fixtures/verifier-4509-run-identity.json');
 const modules = [
   require('../agents_verifier_context'),
@@ -13,13 +14,25 @@ const MERGE = '37e230009cdba04743376410c9f72356b85fb64f';
 const RUN = native.consumer.data.id;
 const URL = native.consumer.data.html_url;
 const payload = Buffer.from('bounded archive transport fixture');
-const digest = 'sha256:' + createHash('sha256').update(payload).digest('hex');
+const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
-function setup(defect) {
+// Synthetic archive bytes exercise the real extractor; only the API identity
+// comes from the native observation. This is not the exact #4509 input capture.
+function makeArchive(entries) {
+  return execFileSync('python3', ['-I', '-c', [
+    'import io,json,sys,zipfile',
+    'output=io.BytesIO()',
+    'with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_STORED) as archive:',
+    ' for name,text in json.loads(sys.argv[1]).items(): archive.writestr(name,text)',
+    'sys.stdout.buffer.write(output.getvalue())',
+  ].join('\n'), JSON.stringify(entries)], {stdio: ['ignore', 'pipe', 'pipe'], timeout: 10000});
+}
+
+function setup(defect, archive = payload) {
   const calls = [];
   const run = structuredClone(native.consumer.data);
-  const artifact = {id: 42, name: 'consumer-proof', size_in_bytes: payload.length,
-    expired: false, digest, workflow_run: {id: RUN, head_sha: run.head_sha,
+  const artifact = {id: 42, name: 'consumer-proof', size_in_bytes: archive.length,
+    expired: false, digest: `sha256:${sha256(archive)}`, workflow_run: {id: RUN, head_sha: run.head_sha,
       repository_id: run.repository.id, head_repository_id: run.head_repository.id}};
   const changes = {
     'wrong-run': () => {run.id += 1;},
@@ -61,9 +74,14 @@ function setup(defect) {
       },
       listWorkflowRunArtifacts: async args => {
         record('artifacts', args);
+        if (defect === 'artifact-list-denied') throw Object.assign(new Error('Forbidden'), {status: 403});
         return {data: {total_count: 1, artifacts: [artifact]}, headers: {}};
       },
-      downloadArtifact: async args => {record('download', args); return {data: payload};},
+      downloadArtifact: async args => {
+        record('download', args);
+        if (defect === 'artifact-download-denied') throw Object.assign(new Error('Forbidden'), {status: 403});
+        return {data: archive};
+      },
     },
   }};
   return {github, calls};
@@ -71,7 +89,7 @@ function setup(defect) {
 
 for (const [index, collector] of modules.entries()) {
   const collect = async (defect, body = `Validation evidence: ${URL}`, options = {}) => {
-    const fixture = setup(defect);
+    const fixture = setup(defect, options.archive);
     if (options.legacyRouting) {
       const getRun = fixture.github.rest.actions.getWorkflowRun;
       // Reproduce the old adapter's local numeric-ID lookup through the collector.
@@ -80,9 +98,13 @@ for (const [index, collector] of modules.entries()) {
     const evidence = await collector.fetchVerifierEvidence({github: fixture.github,
       owner: 'stranske', repo: 'Workflows', pullNumber: 4509, pullRequestBody: body,
       associatedCommitShas: [HEAD, MERGE], evaluatedSha: MERGE,
-      // Extraction has its own archive tests; this regression isolates native API identity.
-      extractArtifactText: () => ({text: 'consumer test results', truncated: false,
-        extractedBytes: 21, entryCount: 1})});
+      // Keep the identity matrix fast, but use production extraction for ZIP cases.
+      ...(options.archive ? {extractArtifactText: args => collector.extractArtifactArchiveText({...args,
+        // unzip reads the archive path, never the test runner's stdin.
+        execFile: (command, argv, settings) => execFileSync(command, argv,
+          {...settings, stdio: ['ignore', 'pipe', 'pipe']}),
+      })} : {extractArtifactText: () => ({text: 'consumer test results', truncated: false,
+        extractedBytes: 21, entryCount: 1})})});
     return {...fixture, evidence};
   };
 
@@ -129,6 +151,80 @@ for (const [index, collector] of modules.entries()) {
     assert.equal(lookup.downstream_binding.status, 'completed');
     assert.equal(lookup.downstream_binding.current_head_proof, false);
   });
+
+  test(`source/template ${index}: real ZIP retains authenticated downstream member identities`, {timeout: 120000}, async () => {
+    const entries = {'results.ndjson': '{"tests":9,"failures":0}\n', 'summary.md': 'Consumer CI completed.'};
+    const archive = makeArchive(entries);
+    const {evidence, calls} = await collect(undefined, native.source_evidence, {archive});
+    assert.equal(evidence.artifacts.complete, true, evidence.artifacts.reason);
+    assert.deepEqual(evidence.diagnostics.failures, []);
+    assert.ok(calls.every(call => call.operation === 'discovery' || call.repo === 'trip-planner'));
+    const capture = evidence.diagnostics.archive_inventory[0];
+    assert.equal(capture.archive_sha256, sha256(archive));
+    assert.equal(capture.member_inventory_complete, true);
+    assert.equal(capture.member_count, 2);
+    assert.equal(capture.status, 'rendered');
+    assert.deepEqual(capture.members.map(member => [member.name, member.status, member.raw_sha256]),
+      Object.entries(entries).map(([name, text]) => [name, 'included', sha256(Buffer.from(text))]));
+    const proof = evidence.artifacts.records[0];
+    assert.match(proof.text, /### results\.ndjson/);
+    assert.match(proof.text, /Consumer CI completed/);
+    assert.equal(proof.head_sha, native.consumer.data.head_sha);
+    assert.equal(proof.downstream_binding.repository_id, native.consumer.data.repository.id);
+    assert.equal(proof.downstream_binding.current_head_proof, false);
+    assert.notEqual(proof.head_sha, MERGE);
+    const coverage = collector.buildContextSourceCoverage({planSources: [], diffText: '', evidence});
+    assert.equal(coverage.acceptance_evidence_sources[0].status, 'included');
+    assert.equal(coverage.acceptance_evidence_sources[0].evidence_role, 'downstream-evidence');
+    assert.deepEqual(coverage.acceptance_evidence_sources[0].downstream_binding, proof.downstream_binding);
+  });
+
+  test(`source/template ${index}: real ZIP keeps unsupported siblings as an unresolved capture gap`, async () => {
+    const archive = makeArchive({'results.ndjson': '{"tests":9}\n', 'unknown.bin': 'unsupported payload'});
+    const {evidence} = await collect(undefined, native.source_evidence, {archive});
+    assert.equal(evidence.artifacts.status, 'unavailable');
+    assert.equal(evidence.artifacts.complete, false);
+    // Useful text is retained, but cannot hide the sibling's extraction gap.
+    assert.equal(evidence.artifacts.records.length, 1);
+    assert.equal(evidence.artifacts.records[0].truncated, true);
+    assert.equal(evidence.artifacts.records[0].downstream_binding.current_head_proof, false);
+    const capture = evidence.diagnostics.archive_inventory[0];
+    assert.equal(capture.archive_sha256, sha256(archive));
+    assert.equal(capture.status, 'incomplete');
+    assert.equal(capture.members.find(member => member.name === 'unknown.bin').status, 'unsupported');
+    const coverage = collector.buildContextSourceCoverage({planSources: [], diffText: '', evidence});
+    const gap = coverage.acceptance_evidence_sources.find(source => source.status === 'unavailable');
+    assert.equal(gap.channel, 'artifacts');
+    assert.ok(gap.failure_kinds.includes('unsupported_payload'));
+    assert.ok(gap.failure_kinds.includes('extraction_incomplete'));
+  });
+
+  test(`source/template ${index}: matching archive digest cannot hide a corrupt ZIP`, async () => {
+    const archive = makeArchive({'results.ndjson': '{"tests":9}\n'}).subarray(0, 32);
+    const {evidence} = await collect(undefined, native.source_evidence, {archive});
+    assert.equal(evidence.artifacts.status, 'unavailable');
+    assert.equal(evidence.artifacts.complete, false);
+    assert.equal(evidence.artifacts.records.length, 0);
+    assert.equal(evidence.diagnostics.references.run_lookups[0].status, 'authenticated');
+    const capture = evidence.diagnostics.archive_inventory[0];
+    assert.equal(capture.archive_sha256, sha256(archive));
+    assert.equal(capture.members, null);
+    assert.equal(capture.status, 'unavailable');
+    const coverage = collector.buildContextSourceCoverage({planSources: [], diffText: '', evidence});
+    assert.ok(coverage.acceptance_evidence_sources.some(source => source.channel === 'artifacts'
+      && source.status === 'unavailable'));
+  });
+
+  for (const defect of ['artifact-list-denied', 'artifact-download-denied']) {
+    test(`source/template ${index}: authenticated run cannot hide ${defect}`, async () => {
+      const {evidence} = await collect(defect);
+      assert.equal(evidence.diagnostics.references.run_lookups[0].status, 'authenticated');
+      assert.equal(evidence.artifacts.status, 'unavailable');
+      assert.equal(evidence.artifacts.complete, false);
+      assert.equal(evidence.artifacts.records.length, 0);
+      assert.match(evidence.artifacts.reason, /Forbidden/);
+    });
+  }
 
   test(`source/template ${index}: a negative Workflows lookup citation does not rebind consumer proof`, async () => {
     const diagnostic = `https://github.com/stranske/Workflows/actions/runs/${RUN} is not evidence of consumer absence (404).`;
