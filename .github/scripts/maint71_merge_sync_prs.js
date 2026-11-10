@@ -2810,30 +2810,32 @@ function selectReconciliationTargets({
 const DEV_TOOL_ACCOUNTING_MAX_PAGES = 3;
 async function readDevToolCandidateAccounting({ owner, repo, withRetry, trustedActors = [] }) {
   const repository = `${owner}/${repo}`;
+  const nodes = [];
+  let accountingError;
+  let truncated = false;
+  const hasCompleteIdentity = pr => pr && Number.isInteger(pr.number)
+    && ['OPEN', 'CLOSED', 'MERGED'].includes(pr.state)
+    && pr.repository?.nameWithOwner && pr.headRepository?.nameWithOwner && pr.author?.login
+    && typeof pr.headRefName === 'string' && /^[a-f0-9]{40}$/.test(pr.headRefOid);
   try {
-    const nodes = [];
     let after = null;
-    let truncated = false;
     for (let page = 0; page < DEV_TOOL_ACCOUNTING_MAX_PAGES; page += 1) {
       const data = await withRetry((client) => client.graphql(`
-        query($query:String!,$after:String){search(query:$query,type:ISSUE,first:100,after:$after){
+        query($searchQuery:String!,$after:String){search(query:$searchQuery,type:ISSUE,first:100,after:$after){
           pageInfo{hasNextPage endCursor} nodes{... on PullRequest{
             number state headRefName headRefOid author{login}
             repository{nameWithOwner} headRepository{nameWithOwner}
           }}
-        }}`, { query: `repo:${repository} is:pr head:deps/sync-dev-versions- sort:updated-desc`, after }),
+        }}`, { searchQuery: `repo:${repository} is:pr head:deps/sync-dev-versions- sort:updated-desc`, after }),
       { rateResource: 'graphql' });
       const search = data?.search;
       if (!Array.isArray(search?.nodes) || typeof search?.pageInfo?.hasNextPage !== 'boolean') {
         throw new Error('dev-tool candidate inventory incomplete');
       }
-      if (search.nodes.some(pr => !pr || !Number.isInteger(pr.number)
-        || !['OPEN', 'CLOSED', 'MERGED'].includes(pr.state)
-        || !pr.repository?.nameWithOwner || !pr.author?.login
-        || typeof pr.headRefName !== 'string' || !/^[a-f0-9]{40}$/.test(pr.headRefOid))) {
-        throw new Error('dev-tool candidate identity incomplete');
+      if (search.nodes.some(pr => !hasCompleteIdentity(pr))) {
+        accountingError = 'dev-tool candidate identity incomplete';
       }
-      nodes.push(...search.nodes);
+      nodes.push(...search.nodes.filter(hasCompleteIdentity));
       if (!search.pageInfo.hasNextPage) break;
       const cursor = search.pageInfo.endCursor;
       if (typeof cursor !== 'string' || !cursor || cursor === after
@@ -2843,20 +2845,21 @@ async function readDevToolCandidateAccounting({ owner, repo, withRetry, trustedA
       }
       after = cursor;
     }
-    const seen = new Set();
-    const candidates = nodes.filter(pr => pr
-      && pr.repository?.nameWithOwner === repository
-      && pr.headRepository?.nameWithOwner === repository
-      && pr.headRefName?.startsWith('deps/sync-dev-versions-')
-      && trustedActors.includes(pr.author?.login)
-      && ['OPEN', 'CLOSED', 'MERGED'].includes(pr.state))
-      .filter(pr => !seen.has(pr.number) && seen.add(pr.number))
-      .map(pr => ({ pr: pr.number, head_sha: pr.headRefOid, branch: pr.headRefName,
-        status: pr.state === 'MERGED' ? 'merged' : pr.state === 'CLOSED' ? 'closed unmerged' : 'open' }));
-    return { repository, status: truncated ? 'truncated' : 'complete', candidates };
   } catch (error) {
-    return { repository, status: 'unknown', candidates: [], error: String(error.message || error) };
+    accountingError = String(error.message || error);
   }
+  const seen = new Set();
+  const candidates = nodes.filter(pr => pr
+    && pr.repository?.nameWithOwner === repository
+    && pr.headRepository?.nameWithOwner === repository
+    && pr.headRefName?.startsWith('deps/sync-dev-versions-')
+    && trustedActors.includes(pr.author?.login)
+    && ['OPEN', 'CLOSED', 'MERGED'].includes(pr.state))
+    .filter(pr => !seen.has(pr.number) && seen.add(pr.number))
+    .map(pr => ({ pr: pr.number, head_sha: pr.headRefOid, branch: pr.headRefName,
+      status: pr.state === 'MERGED' ? 'merged' : pr.state === 'CLOSED' ? 'closed unmerged' : 'open' }));
+  return { repository, status: accountingError ? 'unknown' : truncated ? 'truncated' : 'complete',
+    candidates, ...(accountingError ? { error: accountingError } : {}) };
 }
 
 async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed = false }) {

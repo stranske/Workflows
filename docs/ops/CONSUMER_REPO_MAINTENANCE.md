@@ -136,7 +136,8 @@ behavior.
 
 Maint 71 unscoped and `dev-tool` reports account for recent trusted same-repository
 `deps/sync-dev-versions-*` candidates, including merged and closed-unmerged PRs.
-One read-only GraphQL search per target returns at most 100 candidates. The JSON
+A read-only GraphQL search per target follows cursors for at most three pages
+(100 candidates per page, 300 total), de-duplicating repeated PRs. The JSON
 report retains these observations under `dev_tool_candidates`; repository-qualified
 disposition lines appear in both the run log and job summary. Unavailable or
 truncated history is explicitly marked and cannot establish `none open`.

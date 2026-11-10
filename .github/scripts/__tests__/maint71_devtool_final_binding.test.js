@@ -129,7 +129,8 @@ test('Maint 71 accounts for closed dev-tool candidates when no generated PR is o
     paginate: async () => [],
     rest: { pulls: { list: async () => ({ data: [] }) } },
     graphql: async (_query, variables) => {
-      assert.match(variables.query, /repo:stranske\/Trend_Model_Project/);
+      assert.equal('query' in variables, false, 'Octokit rejects reserved query options');
+      assert.match(variables.searchQuery, /repo:stranske\/Trend_Model_Project/);
       return { search: { nodes: rows, pageInfo: { hasNextPage: false } } };
     },
   };
@@ -183,6 +184,7 @@ test('dev-tool accounting bounds history and never presents partial reads as non
       assert.match(summary, /#6189 open/);
       assert.doesNotMatch(summary, /none open/);
     } else {
+      assert.equal(row.status, 'complete');
       assert.deepEqual(row.candidates, []);
     }
   }
@@ -204,6 +206,9 @@ test('dev-tool accounting follows cursors so older candidates beyond page one ar
   const row = await readDevToolCandidateAccounting({ owner: 'stranske', repo: 'Trend_Model_Project',
     trustedActors: ['stranske'], withRetry: async fn => fn({ graphql: async (query, variables) => {
       assert.match(query, /first:100/);
+      assert.match(query, /\$searchQuery:String!/);
+      assert.equal('query' in variables, false, 'Octokit rejects reserved query options');
+      assert.equal(variables.searchQuery, `repo:${repository} is:pr head:deps/sync-dev-versions- sort:updated-desc`);
       afters.push(variables.after);
       return pages[afters.length - 1];
     } }) });
@@ -232,4 +237,27 @@ test('dev-tool accounting stops at its page bound and stays truncated, never non
   const summary = buildMarkdownSummary({ dev_tool_candidates: [row] });
   assert.match(summary, /#6189 merged; accounting truncated/);
   assert.doesNotMatch(summary, /none open/);
+});
+
+test('dev-tool accounting preserves trusted observations alongside incomplete identities', async () => {
+  const { readDevToolCandidateAccounting } = require('../maint71_merge_sync_prs');
+  const repository = 'stranske/Trend_Model_Project';
+  const candidate = (number, state) => ({ number, state, headRefName: branch, headRefOid: head,
+    author: { login: 'stranske' }, repository: { nameWithOwner: repository },
+    headRepository: { nameWithOwner: repository } });
+  for (const missing of ['author', 'headRepository', 'headRefOid']) {
+    const row = await readDevToolCandidateAccounting({ owner: 'stranske', repo: 'Trend_Model_Project',
+      trustedActors: ['stranske'], withRetry: async fn => fn({ graphql: async (_query, variables) => {
+        assert.equal('query' in variables, false, 'Octokit rejects reserved query options');
+        return { search: { pageInfo: { hasNextPage: false }, nodes: [
+          candidate(6189, 'MERGED'), { ...candidate(6200, 'OPEN'), [missing]: null },
+          candidate(6186, 'CLOSED'),
+        ] } };
+      } }) });
+    assert.equal(row.status, 'unknown');
+    assert.deepEqual(row.candidates.map(c => c.pr), [6189, 6186]);
+    const summary = buildMarkdownSummary({ dev_tool_candidates: [row] });
+    assert.match(summary, /stranske\/Trend_Model_Project.*#6189 merged.*#6186 closed unmerged.*accounting unknown/);
+    assert.doesNotMatch(summary, /none open/);
+  }
 });

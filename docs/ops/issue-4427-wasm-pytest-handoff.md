@@ -71,7 +71,7 @@ No new run was created, and no alternative dispatch path was used.
 **Report repair (branch, not deployed to main).** The missing history is upstream of the
 formatter: `listMaint71PullRequests` reads open PRs plus the latest closed stable
 workflow heads, excluding closed dev-tool heads. Maint 71 now makes one bounded,
-read-only GraphQL search (up to 100 recent dev-tool candidates per repository)
+read-only GraphQL search (up to three pages of 100 recent dev-tool candidates per repository)
 for unscoped/dev-tool reports. It records historical states separately from
 merge actions, prints repository-qualified candidate lines in logs and the job
 summary, and labels unavailable/truncated accounting explicitly. Historical rows
@@ -87,6 +87,14 @@ acceptance command must print both candidate numbers:
 ```bash
 gh run view <id> --repo stranske/Workflows --log | grep -E '6189|6186'
 ```
+
+Inspect the full run log and job summary. Each must report both dispositions
+qualified by `stranske/Trend_Model_Project`: `#6189 merged` and
+`#6186 closed unmerged`. Timestamp matches or only one disposition do not satisfy
+A2. Record the run id, event/native owner, source/head SHA containing this repair,
+and the matching lines from both reports. The scheduler/sync-core owner supplies
+the qualifying run after deployment and normal merge gates; this seat must not
+bypass the production-start guard.
 
 **Sync-core observation (observed).** The first retained local sync-core round
 containing Trend_Model_Project after the merge is `20261108T054334Z`, recorded
@@ -494,7 +502,8 @@ repair reaches main. A passing local regression is not production
 acceptance, and the acceptance grep must still be run against a newly
 dispatched run's full log.
 
-Verification status for this round: the exact two-file Node command and
+Historical verification status for Round 13 (superseded for A1/T2 by the final
+continuation below): the exact two-file Node command and
 the Black gate could not be executed in this seat — every shell invocation
 failed at sandbox startup (`bwrap: loopback: Failed RTM_NEWADDR`), in both
 the primary and a delegated session. The new tests are committed-ready but
@@ -502,13 +511,44 @@ unrun here; the next seat with a working shell must run
 `node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js`
 before merging, and must not cite a pass count for Round 13 until it does.
 
+## Final continuation verification (2026-11-10)
+
+The continuation corrects Octokit's reserved `query` option to `searchQuery`,
+retains `$after` cursor pagination, and preserves complete trusted same-repository
+observations when another row has incomplete identity. Such accounting is
+`unknown`, never `none open`. Excluded complete untrusted/fork rows leave
+accounting `complete`. Historical observations still do not select merges or
+count as current actions.
+
+Current verification on the final continuation tree (not the unrun Round 13 tree):
+
+```bash
+node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js
+# ℹ tests 246
+# ℹ pass 246
+# ℹ fail 0
+# ℹ cancelled 0
+# ℹ skipped 0
+# ℹ todo 0
+# ℹ duration_ms 601.617709
+```
+
+This includes pagination, reserved-option rejection, `searchQuery` and cursor
+propagation, and mixed incomplete identities retaining #6189/#6186. The earlier
+243-test results and delivered-head WASM/sync-core observations remain historical
+results; the 245-test baseline included Round 13's two pagination cases.
+No production run was started by this continuation. **T1/A2 remain pending**
+until both repository-qualified dispositions are observed in each native-owner
+run report as specified above.
+
 ## Task completion status (issue #4612, current task IDs)
 
 - **T1: pending.** The exact dispatch was refused; existing run logs do not
   establish the requested newly dispatched report.
 - **T2: locally verified.** The closed-candidate omission was reproduced before
   the collector repair (recorded above). The current two-file Node command passes
-  all 243 tests, including per-candidate log/summary dispositions. Deployment
+  all 246 tests, including pagination, client-contract and per-candidate
+  log/summary dispositions (final continuation above). Deployment
   observation is tracked separately under A2.
 - **T3: observed with a hosting limitation.** First retained local sync-core round
   `20261108T054334Z` saw delivered head `ad09728581df4a27d421f272f9e307efaa581e63`,
@@ -520,7 +560,7 @@ before merging, and must not cite a pass count for Round 13 until it does.
 
 ## Acceptance criteria status (issue #4612, current criterion IDs)
 
-- **A1: locally verified.** Exact two-file Node command: 243 passed, zero failed;
+- **A1: locally verified.** Exact two-file Node command: 246 passed, zero failed;
   covers the collector and report changes. Historical rows do not select merges.
 - **A2: pending.** No qualifying deployed Maint 71 report names both candidates.
   A passing local regression is not production acceptance.
