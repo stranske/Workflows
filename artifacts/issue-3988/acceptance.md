@@ -136,6 +136,24 @@ rerun. A qualifying record needs the run's actual non-Codex default and either
 Codex's contemporaneous posterior rank or its shed state, along with the log
 retrieval specified in A2.
 
+## Issue #4587 round 5 A3 retrieval — 2026-11-11 UTC
+
+**Outcome A3: UNKNOWN (0 qualifying executions). Closure remains withheld.**
+The [latest successful source intake run](https://github.com/stranske/Workflows/actions/runs/43083618531)
+opened in the signed-in Chrome session, where GitHub returned its `Unicorn!`
+error page. The selection table was unavailable there. The check-run API
+returned null summary and text for jobs 128345864413 and 130742465381.
+Both `gh run view 42353296252 --repo stranske/Workflows --log` and
+`gh run view 43083618531 --repo stranske/Workflows --log` exited 1 after
+HTTP 502 from the jobs endpoints. Earlier successful reads are retained above.
+
+The `main` workflow listing returned zero runs since #4653 merged at
+2026-11-11T19:10:34Z. The chooser can also skip reserved agents and agents
+without a registered intake runner. A summary showing a non-Codex default
+would therefore still need same-run evidence of Codex's posterior rank or
+shed state. T2, A1 and A2 remain unverified. The next evidence pass requires
+a readable production selection table and routing condition for the same run.
+
 ## Current continuation disposition — 2026-11-09
 
 Outcome 1: **A4 PASS**, unchanged **17/51 = 33.33%**, complete coverage.
