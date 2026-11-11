@@ -49,7 +49,7 @@ def _args(tmp_path: Path, plan_id: str, out: Path) -> list[str]:
 def test_a_plan_id_mismatch_or_compile_failure_writes_nothing(tmp_path: Path, monkeypatch):
     out = tmp_path / "managed.json"
 
-    def fake_build(source_root, expected_plan_id, source_commit):
+    def fake_build(source_root, expected_plan_id, source_commit, plan_scope, scope_base_sha):
         return None, "compiled plan sha256:a is not the expected sha256:b"
 
     monkeypatch.setattr(cpmp, "build", fake_build)
@@ -79,3 +79,61 @@ def test_a_matching_plan_is_written_with_its_identity(tmp_path: Path, monkeypatc
     assert written["schema"] == "workflows.consumer-sync-plan-managed-paths/v1"
     assert written["plan_id"] == "sha256:p"
     assert written["paths"] == [".gitignore"]
+
+
+def _fake_source_root(tmp_path: Path, plan: dict) -> Path:
+    """A source checkout whose compiler and scoper are stand-ins; the scoper records its argv."""
+    root = tmp_path / "source"
+    (root / "scripts").mkdir(parents=True)
+    (root / ".github").mkdir()
+    (root / ".github" / "sync-manifest.yml").write_text("version: 1\n")
+    (root / "scripts" / "sync_manifest_compiler.py").write_text(
+        "import json, sys\n"
+        "out = sys.argv[sys.argv.index('--output-json') + 1]\n"
+        "json.dump({'schema': 'workflows.consumer-sync-plan/v1', 'plan_id': 'sha256:full',"
+        " 'entries': [], 'removals': []}, open(out, 'w'))\n"
+    )
+    (root / "scripts" / "scope_consumer_sync_plan.py").write_text(
+        "import json, sys\n"
+        "json.dump(sys.argv[1:], open('scope-argv.json', 'w'))\n"
+        "out = sys.argv[sys.argv.index('--output-json') + 1]\n"
+        f"json.dump({json.dumps(plan)}, open(out, 'w'))\n"
+    )
+    return root
+
+
+def test_build_selects_the_plan_as_maint68_does_and_checks_its_identity(tmp_path: Path):
+    plan = {
+        "schema": "workflows.consumer-sync-plan/v1",
+        "plan_id": "sha256:scoped",
+        "entries": [{"target": ".github/workflows/pr-00-gate.yml", "requires": []}],
+        "removals": [],
+    }
+    root = _fake_source_root(tmp_path, plan)
+    doc, reason = cpmp.build(root, "sha256:scoped", "C" * 40, "source-delta", "b" * 40)
+    assert reason == "ok"
+    assert doc == {
+        "schema": "workflows.consumer-sync-plan-managed-paths/v1",
+        "plan_id": "sha256:scoped",
+        "plan_scope": "source-delta",
+        "source_commit": "c" * 40,
+        "paths": [".github/workflows/pr-00-gate.yml", ".gitignore"],
+        "directories": [],
+    }
+    argv = json.loads((root / "scope-argv.json").read_text())
+    assert argv[argv.index("--mode") + 1] == "source-delta"
+    assert argv[argv.index("--base-ref") + 1] == "b" * 40
+    assert argv[argv.index("--head-ref") + 1] == "C" * 40
+
+
+def test_build_refuses_a_mismatched_plan_id_or_an_unexpected_schema(tmp_path: Path):
+    plan = {"schema": "workflows.consumer-sync-plan/v1", "plan_id": "sha256:other"}
+    doc, reason = cpmp.build(_fake_source_root(tmp_path / "a", plan), "sha256:scoped", "c" * 40)
+    assert doc is None
+    assert reason == "selected plan sha256:other is not the expected sha256:scoped"
+    wrong = {"schema": "something-else/v9", "plan_id": "sha256:scoped"}
+    doc, reason = cpmp.build(_fake_source_root(tmp_path / "b", wrong), "sha256:scoped", "c" * 40)
+    assert doc is None
+    assert reason == "unexpected plan schema 'something-else/v9'"
+    doc, reason = cpmp.build(tmp_path, "sha256:scoped", "c" * 40, "partial")
+    assert reason == "unsupported plan scope 'partial'"

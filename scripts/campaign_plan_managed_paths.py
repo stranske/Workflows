@@ -6,7 +6,8 @@ head only when no commit in between touches a path the plan manages. Maint 68's 
 those paths: each entry's target (a file, or a directory tree), each removal target, and the managed `.gitignore`
 block of a full plan. `requires` paths are added too, as a conservative margin.
 
-The plan is compiled from a checkout of the plan's own source commit and must hash to the expected plan id;
+The plan is compiled from a checkout of the plan's own source commit and scoped exactly as Maint 68 does
+(full or source-delta), and the selected plan must hash to the expected plan id;
 otherwise no file is written and Maint 71 keeps its exact-head rule. This script never fails the job: every
 refusal is printed and exits 0, because a missing file already means "no carry-over".
 """
@@ -42,35 +43,75 @@ def managed_paths(plan: dict) -> dict:
     return {"paths": sorted(paths), "directories": sorted(directories)}
 
 
-def build(source_root: Path, expected_plan_id: str, source_commit: str) -> tuple[dict | None, str]:
+def _run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
+
+
+def build(
+    source_root: Path,
+    expected_plan_id: str,
+    source_commit: str,
+    plan_scope: str = "full",
+    scope_base_sha: str = "",
+) -> tuple[dict | None, str]:
+    """Reproduce Maint 68's plan selection (compile, then scope) and return the managed-path document."""
+    plan_scope = plan_scope or "full"
     if not expected_plan_id or not source_commit:
         return None, "expected plan id or source commit missing"
+    if plan_scope not in {"full", "source-delta"}:
+        return None, f"unsupported plan scope {plan_scope!r}"
     with tempfile.TemporaryDirectory() as tmp:
-        out = Path(tmp) / "plan.json"
-        result = subprocess.run(
+        full, scoped = Path(tmp) / "full.json", Path(tmp) / "plan.json"
+        compiled = _run(
             [
                 sys.executable,
                 "scripts/sync_manifest_compiler.py",
                 "--manifest",
                 ".github/sync-manifest.yml",
                 "--output-json",
-                str(out),
+                str(full),
             ],
-            cwd=source_root,
-            capture_output=True,
-            text=True,
-            check=False,
+            source_root,
         )
-        if result.returncode != 0 or not out.is_file():
-            return None, f"plan compile failed: {(result.stderr or result.stdout).strip()[-300:]}"
-        plan = json.loads(out.read_text(encoding="utf-8"))
+        if compiled.returncode != 0 or not full.is_file():
+            return (
+                None,
+                f"plan compile failed: {(compiled.stderr or compiled.stdout).strip()[-300:]}",
+            )
+        selected = _run(
+            [
+                sys.executable,
+                "scripts/scope_consumer_sync_plan.py",
+                "--plan",
+                str(full),
+                "--mode",
+                plan_scope,
+                "--base-ref",
+                scope_base_sha,
+                "--head-ref",
+                source_commit,
+                "--repo-root",
+                ".",
+                "--output-json",
+                str(scoped),
+                "--scope-evidence-json",
+                str(Path(tmp) / "scope.json"),
+                "--github-output",
+                str(Path(tmp) / "github-output"),
+            ],
+            source_root,
+        )
+        if selected.returncode != 0 or not scoped.is_file():
+            return None, f"plan scope failed: {(selected.stderr or selected.stdout).strip()[-300:]}"
+        plan = json.loads(scoped.read_text(encoding="utf-8"))
     if plan.get("schema") != "workflows.consumer-sync-plan/v1":
         return None, f"unexpected plan schema {plan.get('schema')!r}"
     if plan.get("plan_id") != expected_plan_id:
-        return None, f"compiled plan {plan.get('plan_id')} is not the expected {expected_plan_id}"
+        return None, f"selected plan {plan.get('plan_id')} is not the expected {expected_plan_id}"
     return {
         "schema": SCHEMA,
         "plan_id": plan["plan_id"],
+        "plan_scope": plan_scope,
         "source_commit": source_commit.lower(),
         **managed_paths(plan),
     }, "ok"
@@ -81,11 +122,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-root", required=True, type=Path)
     parser.add_argument("--expected-plan-id", default="")
     parser.add_argument("--source-commit", default="")
+    parser.add_argument("--plan-scope", default="full")
+    parser.add_argument("--scope-base-sha", default="")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
     try:
         document, reason = build(
-            args.source_root, args.expected_plan_id.strip(), args.source_commit.strip()
+            args.source_root,
+            args.expected_plan_id.strip(),
+            args.source_commit.strip(),
+            args.plan_scope.strip(),
+            args.scope_base_sha.strip(),
         )
     except (OSError, ValueError) as exc:
         document, reason = None, f"{exc.__class__.__name__}: {exc}"

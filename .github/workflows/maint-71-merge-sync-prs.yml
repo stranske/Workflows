@@ -502,6 +502,8 @@ jobs:
           ref: ${{ steps.handoff.outputs.expected_source_commit }}
           path: .campaign-plan-source
           persist-credentials: false
+          # A source-delta plan is scoped from the base..source diff, which needs history.
+          fetch-depth: ${{ steps.handoff.outputs.expected_plan_scope == 'source-delta' && '0' || '1' }}
 
       - name: Compile campaign plan managed paths
         if: ${{ always() && steps.campaign_plan_source.outcome == 'success' }}
@@ -509,11 +511,15 @@ jobs:
         env:
           EXPECTED_PLAN_ID: ${{ steps.handoff.outputs.expected_plan_id }}
           EXPECTED_SOURCE_COMMIT: ${{ steps.handoff.outputs.expected_source_commit }}
+          EXPECTED_PLAN_SCOPE: ${{ steps.handoff.outputs.expected_plan_scope }}
+          EXPECTED_SCOPE_BASE_SHA: ${{ steps.handoff.outputs.expected_scope_base_sha }}
         run: |
           python scripts/campaign_plan_managed_paths.py \
             --source-root .campaign-plan-source \
             --expected-plan-id "$EXPECTED_PLAN_ID" \
             --source-commit "$EXPECTED_SOURCE_COMMIT" \
+            --plan-scope "${EXPECTED_PLAN_SCOPE:-full}" \
+            --scope-base-sha "$EXPECTED_SCOPE_BASE_SHA" \
             --output "$RUNNER_TEMP/campaign-plan-managed-paths.json"
 
       - name: Check and merge sync PRs
