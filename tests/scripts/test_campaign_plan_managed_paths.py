@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from scripts import campaign_plan_managed_paths as cpmp
 
 
@@ -97,7 +98,7 @@ def _fake_source_root(tmp_path: Path, plan: dict) -> Path:
         "import json, sys\n"
         "json.dump(sys.argv[1:], open('scope-argv.json', 'w'))\n"
         "out = sys.argv[sys.argv.index('--output-json') + 1]\n"
-        f"json.dump({json.dumps(plan)}, open(out, 'w'))\n"
+        f"json.dump({plan!r}, open(out, 'w'))\n"
     )
     return root
 
@@ -137,3 +138,41 @@ def test_build_refuses_a_mismatched_plan_id_or_an_unexpected_schema(tmp_path: Pa
     assert reason == "unexpected plan schema 'something-else/v9'"
     doc, reason = cpmp.build(tmp_path, "sha256:scoped", "c" * 40, "partial")
     assert reason == "unsupported plan scope 'partial'"
+
+
+def test_managed_paths_refuses_entries_and_removals_without_a_target():
+    with pytest.raises(ValueError, match="plan entry without a target"):
+        cpmp.managed_paths({"entries": [{"target": " ", "requires": []}]})
+    with pytest.raises(ValueError, match="plan removal without a target"):
+        cpmp.managed_paths({"entries": [], "removals": [{"target": ""}]})
+
+
+def test_build_refuses_when_the_scoper_fails(tmp_path: Path):
+    root = _fake_source_root(
+        tmp_path, {"schema": "workflows.consumer-sync-plan/v1", "is_directory": True}
+    )
+    (root / "scripts" / "scope_consumer_sync_plan.py").write_text("raise SystemExit(2)\n")
+    doc, reason = cpmp.build(root, "sha256:scoped", "c" * 40, "source-delta", "b" * 40)
+    assert doc is None
+    assert reason.startswith("plan scope failed:")
+
+
+def test_main_forwards_scope_arguments(tmp_path: Path, monkeypatch):
+    seen = {}
+
+    def fake_build(*args):
+        seen["args"] = args
+        return None, "stop"
+
+    monkeypatch.setattr(cpmp, "build", fake_build)
+    rc = cpmp.main(
+        [
+            *_args(tmp_path, "sha256:p", tmp_path / "o.json"),
+            "--plan-scope",
+            "source-delta",
+            "--scope-base-sha",
+            "b" * 40,
+        ]
+    )
+    assert rc == 0
+    assert seen["args"][3:] == ("source-delta", "b" * 40)
