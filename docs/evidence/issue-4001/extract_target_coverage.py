@@ -3,10 +3,16 @@
 
 from __future__ import annotations
 
+import argparse
+import gzip
 import json
 import math
+import re
 import sys
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 TARGETS = (
     "scripts/aggregate_agent_metrics.py",
@@ -15,8 +21,17 @@ TARGETS = (
 )
 
 
+def read_report(path: Path) -> bytes:
+    """Read a complete retained report, optionally compressed with gzip."""
+    if path.suffix == ".gz":
+        return gzip.decompress(path.read_bytes())
+    return path.read_bytes()
+
+
 def load_file_stats(coverage_path: Path) -> dict[str, dict[str, int | float]]:
-    payload = json.loads(coverage_path.read_text(encoding="utf-8"))
+    payload = json.loads(read_report(coverage_path))
+    if not isinstance(payload, dict):
+        raise ValueError("coverage report must be an object")
     files = payload.get("files")
     if not isinstance(files, dict):
         raise ValueError("coverage files must be an object")
@@ -52,13 +67,52 @@ def load_file_stats(coverage_path: Path) -> dict[str, dict[str, int | float]]:
     return out
 
 
+def check_xml_counts(xml_path: Path, stats: dict[str, dict[str, int | float]]) -> None:
+    """Independently count missing statements and branch exits in coverage XML."""
+    root = ET.fromstring(read_report(xml_path))
+    for target in TARGETS:
+        matches = []
+        for entry in root.iter("class"):
+            name = entry.get("filename", "").replace("\\", "/")
+            if name in (target, Path(target).name) or name.endswith("/" + target):
+                matches.append(entry)
+        if len(matches) != 1:
+            raise ValueError(f"{target}: expected exactly one XML target, found {len(matches)}")
+        lines = list(matches[0].iter("line"))
+        if not lines:
+            raise ValueError(f"{target}: XML target has no statements")
+        missing_lines = 0
+        missing_branches = 0
+        for line in lines:
+            hits = line.get("hits", "")
+            if not hits.isdecimal():
+                raise ValueError(f"{target}: invalid XML hits {hits!r}")
+            missing_lines += int(hits) == 0
+            if line.get("branch") == "true":
+                condition = line.get("condition-coverage", "")
+                match = re.fullmatch(r"\d+(?:\.\d+)?% \((\d+)/(\d+)\)", condition)
+                if match is None:
+                    raise ValueError(f"{target}: invalid XML condition-coverage {condition!r}")
+                covered, total = map(int, match.groups())
+                if not 0 <= covered <= total or total == 0:
+                    raise ValueError(f"{target}: invalid XML branch counts {condition!r}")
+                missing_branches += total - covered
+        actual = (missing_lines, missing_branches)
+        expected = (stats[target]["missing_lines"], stats[target]["missing_branches"])
+        if actual != expected:
+            raise ValueError(f"{target}: XML missing counts {actual} differ from JSON {expected}")
+
+
 def main() -> int:
-    if len(sys.argv) != 2:
-        print(f"usage: {sys.argv[0]} coverage.json", file=sys.stderr)
-        return 2
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("coverage_json", type=Path, help="coverage.json[.gz]")
+    parser.add_argument("--xml", type=Path, help="cross-check coverage.xml[.gz] missing counts")
+    args = parser.parse_args()
     try:
-        stats = load_file_stats(Path(sys.argv[1]))
-    except (OSError, ValueError) as exc:
+        stats = load_file_stats(args.coverage_json)
+        if args.xml is not None:
+            check_xml_counts(args.xml, stats)
+    except (OSError, EOFError, ValueError, ET.ParseError, DefusedXmlException) as exc:
         print(f"invalid coverage: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(stats, indent=2, sort_keys=True))

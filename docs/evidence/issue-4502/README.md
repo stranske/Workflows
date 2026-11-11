@@ -1,5 +1,13 @@
 # Three-module coverage evidence
 
+The continuation adds direct gzip input and an optional `--xml` count cross-check
+to the recovered extractor, with focused tests of the CLI and all four retained
+report pairs. See [round2-preflight.md](round2-preflight.md) for the commands
+recorded before those test edits. Original measurements below retain their
+original provenance and are not relabeled as continuation measurements.
+The continuation's full replay, mutation results and handoff blockers are in
+[round2-results.md](round2-results.md).
+
 The 18 new cases in the three requested test files pass, and each fails under its
 documented deliberate break and passes after exact byte restoration. The bounded
 suite increased from 250 to 268 passing cases. All three production modules are
@@ -59,9 +67,10 @@ populations. There are no remaining missing units to explain.
 
 See [preflight.md](preflight.md), created before test edits, for the concrete
 Gate job, exact expanded pytest command, bounded acceptance command, current-main
-SHA and missing-document/extractor recovery details. The extractor was restored
-verbatim from #4423's recorded head: its Git blob remains
-`9c2f2a054db24a0027d85bb89671bd49012325cb`.
+SHA and missing-document/extractor recovery details. The extractor was originally
+restored verbatim from #4423's recorded head, Git blob
+`9c2f2a054db24a0027d85bb89671bd49012325cb`. The continuation extends that version
+while preserving its JSON-only invocation.
 
 The Gate observer can be prepared without editing workflow files:
 
@@ -98,6 +107,14 @@ python docs/evidence/issue-4001/extract_target_coverage.py /tmp/issue-4502-cover
 Replace `target-after` with the desired phase. The full Gate artifacts are stored
 under `gate-before` and `gate-after`. XML has less detail than JSON: it identifies
 missing branch exits on source lines, while JSON retains destination arcs.
+The extended extractor verifies both complete compressed reports directly:
+
+```bash
+python docs/evidence/issue-4001/extract_target_coverage.py \
+  docs/evidence/issue-4502/gate-after/coverage.json.gz \
+  --xml docs/evidence/issue-4502/gate-after/coverage.xml.gz
+```
+
 An independent count cross-check, after decompressing both files as above:
 
 ```bash
