@@ -564,6 +564,14 @@ def test_verified_archives_bind_unique_inventory_comparison():
 
 def _inventory(*, missing_lines=(), executed_lines=(), missing_branches=(), executed_branches=()):
     return {
+        "summary": {
+            "num_statements": len(missing_lines) + len(executed_lines),
+            "covered_lines": len(executed_lines),
+            "missing_lines": len(missing_lines),
+            "num_branches": len(missing_branches) + len(executed_branches),
+            "covered_branches": len(executed_branches),
+            "missing_branches": len(missing_branches),
+        },
         "missing_lines": list(missing_lines),
         "executed_lines": list(executed_lines),
         "missing_branches": [list(arc) for arc in missing_branches],
@@ -626,6 +634,92 @@ def test_source_mapping_keeps_regressions_separate_from_gains():
 
 @pytest.mark.parametrize("side", ["baseline", "final"])
 @pytest.mark.parametrize(
+    "field",
+    [
+        "num_statements",
+        "covered_lines",
+        "missing_lines",
+        "num_branches",
+        "covered_branches",
+        "missing_branches",
+    ],
+)
+@pytest.mark.parametrize("corruption", ["omitted_unit", "boolean", "float"])
+def test_source_mapping_rejects_incomplete_or_mistyped_summary(side, field, corruption):
+    before = _inventory(
+        missing_lines=[1],
+        executed_lines=[2],
+        missing_branches=[(1, 2)],
+        executed_branches=[(1, -1)],
+    )
+    after = deepcopy(before)
+    summary = (before if side == "baseline" else after)["summary"]
+    if corruption == "omitted_unit":
+        summary[field] += 1
+    elif corruption == "boolean":
+        summary[field] = bool(summary[field])
+    else:
+        summary[field] = float(summary[field])
+    with pytest.raises(ValueError, match=f"inventory disagrees with summary: {field}"):
+        compare.compare_target(before, after, "if ready:\n    run()\n", "if ready:\n    run()\n")
+
+
+def test_source_mapping_accounts_for_missing_units_without_crediting_removed_code():
+    before_source = "if ready:\n    run()\nfinish()\ncleanup()\n"
+    after_source = "if ready:\n    run()\nfinish()\nstop()\n"
+    before = _inventory(
+        missing_lines=[2, 4],
+        executed_lines=[1, 3],
+        missing_branches=[(1, 2), (1, 4)],
+        executed_branches=[(1, 3)],
+    )
+    after = _inventory(
+        missing_lines=[3],
+        executed_lines=[1, 2, 4],
+        missing_branches=[(1, 3)],
+        executed_branches=[(1, 2), (1, 4)],
+    )
+    result = compare.compare_target(before, after, before_source, after_source)
+    assert result["missing_unit_accounting"] == {
+        "baseline_missing_units": 4,
+        "final_missing_units": 2,
+        "newly_covered": 2,
+        "newly_missing": 2,
+        "unmatched_baseline_missing": 2,
+        "unmatched_final_missing": 0,
+        "mapped_net_reduction": 0,
+        "unmatched_net_difference": 2,
+        "snapshot_difference": 2,
+    }
+    assert result["attributable_round_reduction"] is None
+
+    reverse = compare.compare_target(after, before, after_source, before_source)
+    counts = reverse["missing_unit_accounting"]
+    assert counts["unmatched_final_missing"] == 2
+    assert counts["snapshot_difference"] == -2
+    assert counts["snapshot_difference"] == (
+        counts["mapped_net_reduction"] + counts["unmatched_net_difference"]
+    )
+
+
+def test_source_mapping_accepts_complete_retained_gate_inventories():
+    import gzip
+
+    for label in ("historical", "current"):
+        coverage = json.loads(
+            gzip.decompress((reconcile.EVIDENCE / f"{label}-gate.coverage.json.gz").read_bytes())
+        )
+        for path in reconcile.TARGETS:
+            lines, arcs, missing_lines, missing_arcs = compare._units(coverage["files"][path])
+            summary = coverage["files"][path]["summary"]
+            assert len(lines) + len(arcs) == summary["num_statements"] + summary["num_branches"]
+            assert len(missing_lines) + len(missing_arcs) == (
+                summary["missing_lines"] + summary["missing_branches"]
+            )
+
+
+@pytest.mark.parametrize("side", ["baseline", "final"])
+@pytest.mark.parametrize(
     "corruption", ["duplicate", "boolean", "overlap", "out_of_bounds", "exit_out_of_bounds"]
 )
 def test_source_mapping_rejects_invalid_units(side, corruption):
@@ -638,9 +732,9 @@ def test_source_mapping_rejects_invalid_units(side, corruption):
     elif corruption == "overlap":
         row["missing_lines"] = row["executed_lines"] = [1]
     elif corruption == "out_of_bounds":
-        row["missing_lines"] = [2]
+        row.update(_inventory(missing_lines=[2]))
     else:
-        row["missing_branches"] = [[1, -2]]
+        row.update(_inventory(missing_branches=[(1, -2)]))
     with pytest.raises(ValueError, match="invalid|overlap|source length"):
         compare.compare_target(before, after, "run()\n", "run()\n")
 

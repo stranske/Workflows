@@ -28,6 +28,17 @@ def _units(row: dict) -> tuple[set[int], set[tuple[int, int]], set[int], set[tup
     arcs = set(map(tuple, row["executed_branches"]))
     if missing_lines & lines or missing_arcs & arcs:
         raise ValueError("executed and missing inventories overlap")
+    summary = row["summary"]
+    for field, expected in (
+        ("num_statements", len(missing_lines | lines)),
+        ("covered_lines", len(lines)),
+        ("missing_lines", len(missing_lines)),
+        ("num_branches", len(missing_arcs | arcs)),
+        ("covered_branches", len(arcs)),
+        ("missing_branches", len(missing_arcs)),
+    ):
+        if type(summary[field]) is not int or summary[field] != expected:
+            raise ValueError(f"coverage inventory disagrees with summary: {field}")
     return missing_lines | lines, missing_arcs | arcs, missing_lines, missing_arcs
 
 
@@ -79,6 +90,25 @@ def compare_target(before: dict, after: dict, before_source: str, after_source: 
 
     lines = accounting(line_pairs, before_lines, after_lines, before_missing, after_missing)
     arcs = accounting(arc_pairs, before_arcs, after_arcs, before_missing_arcs, after_missing_arcs)
+    counts = {
+        "baseline_missing_units": len(before_missing) + len(before_missing_arcs),
+        "final_missing_units": len(after_missing) + len(after_missing_arcs),
+        **{
+            key: len(lines[key]) + len(arcs[key])
+            for key in (
+                "newly_covered",
+                "newly_missing",
+                "unmatched_baseline_missing",
+                "unmatched_final_missing",
+            )
+        },
+    }
+    # Unmatched missing units explain denominator changes; they are never gains.
+    counts["mapped_net_reduction"] = counts["newly_covered"] - counts["newly_missing"]
+    counts["unmatched_net_difference"] = (
+        counts["unmatched_baseline_missing"] - counts["unmatched_final_missing"]
+    )
+    counts["snapshot_difference"] = counts["baseline_missing_units"] - counts["final_missing_units"]
     return {
         "source_sha256": {
             "baseline": hashlib.sha256(before_source.encode()).hexdigest(),
@@ -88,6 +118,7 @@ def compare_target(before: dict, after: dict, before_source: str, after_source: 
         "changed_final_lines": sorted(set(range(1, len(new_text) + 1)) - set(mapping.values())),
         "lines": lines,
         "arcs": arcs,
+        "missing_unit_accounting": counts,
         "observed_newly_covered_units": len(lines["newly_covered"]) + len(arcs["newly_covered"]),
         "observed_newly_missing_units": len(lines["newly_missing"]) + len(arcs["newly_missing"]),
         "attributable_round_reduction": None,

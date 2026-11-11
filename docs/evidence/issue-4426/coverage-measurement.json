@@ -760,6 +760,16 @@
     "mapper_receipts": "source-mapping-mutations.json",
     "acceptance_complete": false,
     "archive_receipts": "outstanding-archive-mutations.json",
-    "local_validation": "source-mapping-validation.json"
+    "local_validation": "source-mapping-validation.json",
+    "inventory_accounting_validation": {
+      "record": "inventory-accounting-validation.json",
+      "mutation_receipts": "inventory-accounting-mutations.json",
+      "inventory_summaries_checked": true,
+      "retained_real_gate_inventories_checked": 2,
+      "ranked_paths_per_inventory": 6,
+      "missing_unit_accounting_identity": "snapshot_difference = mapped_net_reduction + unmatched_net_difference",
+      "attributable_round_reduction": null,
+      "whole_gate_replayed": false
+    }
   }
 }

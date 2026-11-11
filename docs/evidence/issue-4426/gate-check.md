@@ -1,5 +1,33 @@
 # Issue #4426 Gate check and stop rule
 
+## Inventory accounting continuation, 2026-11-11
+
+The mapper now rejects inventories whose statement/branch counts disagree with
+their summaries, including boolean and float counters. Both retained real Gate
+inventories pass this check for all six ranked paths. Each target now includes
+`missing_unit_accounting`: baseline/final missing counts, mapped gains and
+regressions, and unmatched missing counts. The snapshot difference equals the
+mapped net reduction plus the unmatched net difference; removed source never
+counts as a mapped gain. Attribution remains null.
+
+`inventory-accounting-mutations.json` retains three named deliberate breaks and
+restored passes for summary validation, removed-code accounting, and retention
+of real Gate branch inventories. Reproduce them with
+`python docs/evidence/issue-4426/inventory-accounting-mutation-driver.txt`.
+`inventory-accounting-validation.json` records the focused validation results.
+The combined reconciler, ranked remainder and three documentation selections
+pass 206 tests, with 100.00% targeted coverage for the mapper utility only.
+
+The original baseline object remains absent, and a fresh isolated fetch fails
+DNS resolution for github.com. The exact acceptance command exits 127 because
+`/opt/anaconda3/bin/python3` is absent; the equivalent selection is tested with
+the installed Python 3.14.10. No whole-Gate replay or attributable round-wide
+reduction is claimed, and the remaining task/acceptance checkboxes stay open.
+Staging the two changed Python files fails creating `.git/index.lock` on the
+read-only filesystem, so no commit is created. The connector rejects the
+`needs-human` label and blocker comment because approval is required while this
+run's approval policy is `never`. PR #4665 is verified open with `draft=false`.
+
 ## Measurement continuation, 2026-11-11
 
 No controlled original-round comparison is claimed. Baseline checkout
