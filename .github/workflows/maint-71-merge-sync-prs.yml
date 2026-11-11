@@ -885,6 +885,17 @@ jobs:
               cleanupBranches: report.inputs.cleanup_branches,
             });
 
+      # The persisted summary is the headless-verifiable copy of the job
+      # summary (the rendered page needs an authenticated web session). A
+      # successful merge step that leaves it missing or empty must fail the
+      # job here instead of succeeding with only the log half of the report.
+      - name: Verify merge summary artifact
+        if: ${{ always() && steps.merge.outcome == 'success' }}
+        run: |
+          test -s artifacts/sync-pr-merge-report.json
+          test -s artifacts/sync-pr-merge-summary.md
+          grep -q '^### Sync PR Merge Summary' artifacts/sync-pr-merge-summary.md
+
       - name: Upload sync PR merge report
         id: merge_artifact
         if: always()

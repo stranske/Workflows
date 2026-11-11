@@ -283,3 +283,28 @@ def test_maint71_provisions_the_shared_manifest_renderer_runtime():
     assert workflow.index("name: Setup delivery renderer Python") < workflow.index(
         "name: Check and merge sync PRs"
     )
+
+
+def test_maint71_fails_closed_when_successful_merge_leaves_no_summary_artifact():
+    workflow = Path(".github/workflows/maint-71-merge-sync-prs.yml").read_text()
+    executor = Path(".github/scripts/maint71_merge_sync_prs.js").read_text()
+
+    # The executor persists the exact job-summary text beside the JSON report,
+    # and the upload step ships it so the summary half of a run is verifiable
+    # without an authenticated Actions web session.
+    assert "'sync-pr-merge-summary.md'" in executor
+    assert "fs.writeFileSync(summaryPath, markdownSummary, 'utf8')" in executor
+    assert "artifacts/sync-pr-merge-summary.md" in workflow
+
+    verify = workflow.split("      - name: Verify merge summary artifact")[1].split(
+        "      - name: Upload sync PR merge report"
+    )[0]
+    # Only a successful merge step is held to the artifact contract; a failed
+    # merge already fails the job and keeps the diagnostic upload on `warn`.
+    assert "steps.merge.outcome == 'success'" in verify
+    assert "test -s artifacts/sync-pr-merge-report.json" in verify
+    assert "test -s artifacts/sync-pr-merge-summary.md" in verify
+    assert "grep -q '^### Sync PR Merge Summary' artifacts/sync-pr-merge-summary.md" in verify
+    assert workflow.index("      - name: Verify merge summary artifact") < workflow.index(
+        "      - name: Upload sync PR merge report"
+    )

@@ -643,3 +643,15 @@ is the exact text sent to the job summary. From the next native run onward,
 the summary half of A2 is directly readable from the artifact; for run
 42966520283 itself it remains formatter-derived as recorded above, and no
 status changes on that basis.
+
+That persistence is now fail-closed: a `Verify merge summary artifact` step
+runs after a successful merge step and before the artifact upload, requiring
+a non-empty `artifacts/sync-pr-merge-report.json` and
+`artifacts/sync-pr-merge-summary.md` carrying the `### Sync PR Merge Summary`
+header. A successful merge that leaves either file missing now fails the job
+instead of succeeding with only the log half of the report.
+`tests/workflows/test_sync_delivery_liveness.py::test_maint71_fails_closed_when_successful_merge_leaves_no_summary_artifact`
+pins the executor write, the upload path, the gate condition and the step
+order. A1–A4 statuses above are unchanged: the next native run from a head
+containing this verify step is the first whose summary half is both directly
+readable and enforced.
