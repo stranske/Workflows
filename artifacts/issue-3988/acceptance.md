@@ -79,6 +79,33 @@ No failing code step was observed. T1's exact-unavailability record and T3's
 A3-only disposition are complete; T2 and qualifying production evidence remain
 unverified. Original mutation receipts and the 48-hour observation are unchanged.
 
+## Issue #4587 round 3 A3 retrieval — 2026-11-11 UTC
+
+**Outcome A3: UNKNOWN (0 qualifying executions); closure withheld.** The
+public Actions page for [the historical preflight job](https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413)
+returned HTTP 200 and displayed `Sign in to view logs`. The HTML contained no
+`Intake Agent Selection` table. The authenticated browser connection failed
+with `native pipe closed before response`, and the check-run API again returned
+null `output.summary` and `output.text`.
+
+Two additional successful production `issues` runs were checked. Both run
+heads descend from the #4578 merge, and `gh run view <id> --repo
+stranske/Workflows --log` exited 0 for each.
+
+| Run and preflight job | Runtime log | Check-run API and run artifacts |
+| --- | --- | --- |
+| [42944258596 / 130273170289](https://github.com/stranske/Workflows/actions/runs/42944258596/job/130273170289) | Issue #4635, empty `DEFAULT_AGENT` at 2026-11-11T02:11:31Z | Null summary and text, zero artifacts |
+| [42889435007 / 130086377783](https://github.com/stranske/Workflows/actions/runs/42889435007/job/130086377783) | Issue #4630, empty `DEFAULT_AGENT` at 2026-11-10T19:51:38Z | Null summary and text, zero artifacts |
+
+The checked runs predate [#4653](https://github.com/stranske/Workflows/pull/4653).
+That change adds the route-weights fetch status and generation time when
+available. The selection table still shows the chosen agent's posterior and
+pool state only. A fresh export and a non-Codex default alone would leave
+Codex's ranking and pool state unverified. Resuming acceptance requires the
+actual preflight summary and contemporaneous evidence of either the posterior
+ordering or Codex's shed state from the same execution. T2, A1 and A2 remain
+unchecked.
+
 ## Current continuation disposition — 2026-11-09
 
 Outcome 1: **A4 PASS**, unchanged **17/51 = 33.33%**, complete coverage.
