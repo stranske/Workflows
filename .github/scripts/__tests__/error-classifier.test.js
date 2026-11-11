@@ -57,6 +57,16 @@ test('classifyError recognizes routed runner missing-auth summaries', () => {
   }
 });
 
+test('classifyError treats subscription quota windows as transient, not unknown', () => {
+  const messages = [
+    'AGY_ERROR: {"short_error":"RESOURCE_EXHAUSTED (code 429): Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 7m59s."}',
+    'error: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 6m25s.',
+  ];
+  for (const message of messages) {
+    assert.equal(classifyError({ message }).category, ERROR_CATEGORIES.transient);
+  }
+});
+
 test('classifyError returns logic for validation errors', () => {
   const result = classifyError({ status: 422, message: 'Validation failed' });
   assert.equal(result.category, ERROR_CATEGORIES.logic);

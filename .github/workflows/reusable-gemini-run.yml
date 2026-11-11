@@ -56,19 +56,14 @@ on:
         type: string
       skip_permissions:
         description: >-
-          Pass --approval-mode yolo to the gemini CLI so it can apply edits and
-          run tool calls without confirmation. Set to false to run in
+          Pass --dangerously-skip-permissions to agy (the Antigravity CLI) so it can apply edits
+          and run tool calls without confirmation. Set to false to run in
           read-only / review mode.
         required: false
         default: true
         type: boolean
-      gemini_cli_version:
-        description: 'Pinned npm CLI version (empty uses the default release).'
-        required: false
-        default: '0.67.0'
-        type: string
       gemini_cli_args:
-        description: 'Optional additional gemini CLI arguments (string).'
+        description: 'Optional additional agy (Antigravity CLI) arguments (string).'
         required: false
         default: ''
         type: string
@@ -132,11 +127,13 @@ on:
     secrets:
       GEMINI_OAUTH_CREDS:
         description: >-
-          Contents of a gemini-cli ~/.gemini/oauth_creds.json written by a "Sign in with Google"
-          login, so hosted runs spend the owner's Gemini SUBSCRIPTION capacity (owner decision
-          2026-11-11). Restored to $HOME/.gemini/oauth_creds.json (0600) for the run step only and
-          deleted right after it. The CLI refreshes the hour-long access token from the stored
-          refresh_token, which Google does not rotate, so nothing is written back to the secret.
+          Contents of the owner's agy (Antigravity CLI) sign-in file,
+          ~/.gemini/antigravity-cli/antigravity-oauth-token, so hosted runs spend the owner's
+          Gemini SUBSCRIPTION (owner decision 2026-11-11). Google refuses subscription logins
+          from @google/gemini-cli ("UNSUPPORTED_CLIENT ... migrate to the Antigravity suite",
+          2026-11-11), so the hosted runner is agy. Restored to that path (0600) for the run
+          and deleted right after it. agy refreshes the hour-long access token from the stored
+          refresh_token, which does not rotate, so nothing is written back to the secret.
         required: false
       GEMINI_API_KEY:
         description: >-
@@ -264,7 +261,11 @@ jobs:
       error-type: ${{ steps.classify_failure.outputs.error_type }}
       error-recovery: ${{ steps.classify_failure.outputs.error_recovery }}
     env:
-      GEMINI_CLI_VERSION: ${{ inputs.gemini_cli_version || '0.67.0' }}
+      # agy updates itself in the background unless told not to; a run must use the version
+      # this job resolved and cached.
+      AGY_CLI_DISABLE_AUTO_UPDATE: 'true'
+      # Keep the account e-mail out of the public run logs.
+      AGY_CLI_HIDE_ACCOUNT_INFO: 'true'
     steps:
       - name: Mint GitHub App token (preferred)
         id: app_token
@@ -805,6 +806,29 @@ jobs:
             echo "No merge conflicts - merge succeeded automatically"
           fi
 
+      - name: Resolve Gemini CLI version
+        # agy (the Antigravity CLI) publishes one manifest per platform with the current
+        # version, download URL and SHA-512; its installer reads the same manifest and offers
+        # no version pin. Resolving it here gives the cache an exact version to key on.
+        run: |
+          set -euo pipefail
+          case "${RUNNER_ARCH}" in
+            X64) platform=linux_amd64 ;;
+            ARM64) platform=linux_arm64 ;;
+            *) echo "::error::Unsupported runner architecture for agy: ${RUNNER_ARCH}"; exit 1 ;;
+          esac
+          manifest="$(curl -fsSL --retry 3 --retry-delay 2 \
+            "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/${platform}.json")"
+          version="$(jq -er '.version | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' <<< "$manifest")"
+          url="$(jq -er '.url | select(startswith("https://"))' <<< "$manifest")"
+          sha512="$(jq -er '.sha512 | select(test("^[0-9a-f]{128}$"))' <<< "$manifest")"
+          {
+            echo "GEMINI_CLI_VERSION=$version"
+            echo "AGY_DOWNLOAD_URL=$url"
+            echo "AGY_SHA512=$sha512"
+          } >> "$GITHUB_ENV"
+          echo "agy release for ${platform}: ${version}"
+
       - name: Expose cached Gemini CLI
         run: echo "${{ runner.temp }}/agent-cli/gemini/bin" >> "$GITHUB_PATH"
 
@@ -812,8 +836,9 @@ jobs:
         id: gemini_cli_cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
+          # The agy binary only; never the ~/.gemini sign-in.
           path: ${{ runner.temp }}/agent-cli/gemini
-          key: ${{ runner.os }}-${{ runner.arch }}-node24-gemini-cli-${{ env.GEMINI_CLI_VERSION }}
+          key: ${{ runner.os }}-${{ runner.arch }}-agy-cli-${{ env.GEMINI_CLI_VERSION }}
 
       - name: Preflight auth
         id: preflight
@@ -822,16 +847,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Subscription auth only (owner decision 2026-11-11). gemini-cli 0.67.0 with
-          # GOOGLE_GENAI_USE_GCA=true selects "oauth-personal" in non-interactive mode and loads
-          # cached credentials from $HOME/.gemini/oauth_creds.json (code_assist/oauth2.js
-          # fetchCachedCredentialsList). With no valid cached login it fails fast in CI with
-          # "Manual authorization is required but the current session is non-interactive".
+          # Subscription auth only (owner decision 2026-11-11). Google refuses subscription
+          # logins from @google/gemini-cli (IneligibleTierError UNSUPPORTED_CLIENT), so the
+          # hosted runner is agy, which keeps its sign-in as a JSON file
+          # (~/.gemini/antigravity-cli/antigravity-oauth-token, {"token": {..., "refresh_token"}}).
           # A missing or malformed secret marks preflight failed so the run step short-circuits
           # with an auth error (mirrors the Claude runner's missing-auth path). Nothing below
           # prints the secret; only presence and shape are reported.
-          creds_dir="$HOME/.gemini"
-          creds_file="$creds_dir/oauth_creds.json"
+          creds_dir="$HOME/.gemini/antigravity-cli"
+          creds_file="$creds_dir/antigravity-oauth-token"
           if [ -z "$GEMINI_OAUTH_CREDS" ]; then
             echo "missing=true" >> "$GITHUB_OUTPUT"
             echo "error=Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret" >> "$GITHUB_OUTPUT"
@@ -839,7 +863,7 @@ jobs:
           fi
           umask 077
           mkdir -p "$creds_dir"
-          chmod 700 "$creds_dir"
+          chmod 700 "$HOME/.gemini" "$creds_dir"
           printf '%s' "$GEMINI_OAUTH_CREDS" > "$creds_file"
           chmod 600 "$creds_file"
           if ! python3 -I - "$creds_file" <<'PY'
@@ -849,48 +873,100 @@ jobs:
                   creds = json.load(handle)
           except (OSError, ValueError):
               sys.exit(1)
-          token = creds.get("refresh_token") if isinstance(creds, dict) else None
-          sys.exit(0 if isinstance(token, str) and token else 1)
+          token = creds.get("token") if isinstance(creds, dict) else None
+          refresh = token.get("refresh_token") if isinstance(token, dict) else None
+          sys.exit(0 if isinstance(refresh, str) and refresh else 1)
           PY
           then
             rm -f "$creds_file"
             echo "missing=true" >> "$GITHUB_OUTPUT"
-            echo "error=Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret to a gemini-cli oauth_creds.json (the current value has no refresh_token)" >> "$GITHUB_OUTPUT"
+            echo "error=Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret to the agy sign-in file ~/.gemini/antigravity-cli/antigravity-oauth-token (the current value has no token.refresh_token)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "auth-method=oauth-personal" >> "$GITHUB_OUTPUT"
+          echo "auth-method=agy-subscription-file" >> "$GITHUB_OUTPUT"
           echo "missing=false" >> "$GITHUB_OUTPUT"
 
       - name: Ensure Gemini CLI
         if: steps.preflight.outputs.missing != 'true'
         env:
-          NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/gemini
-          VERSION: ${{ env.GEMINI_CLI_VERSION }}
+          CLI_DIR: ${{ runner.temp }}/agent-cli/gemini
         run: |
           set -euo pipefail
 
-          # Resolve the gemini binary if it is already on PATH (print version and
-          # exit early so we don't reinstall on self-hosted/cached runners).
-          if command -v gemini >/dev/null 2>&1; then
-            echo "Gemini CLI already present: $(command -v gemini)"
-            gemini --version || true
-            exit 0
-          fi
-
-          # Install the exact release used by the cache key.
-          echo "Gemini CLI not found; installing @google/gemini-cli${VERSION:+@${VERSION}} ..."
-          npm install -g "@google/gemini-cli${VERSION:+@${VERSION}}"
-
-          # npm -g already exposes the binary on PATH, so no $GITHUB_PATH edit is
-          # needed — but verify it actually resolves before proceeding.
-          if command -v gemini >/dev/null 2>&1; then
-            echo "Installed Gemini CLI: $(command -v gemini)"
-            gemini --version || true
+          bin_dir="$CLI_DIR/bin"
+          if [ -x "$bin_dir/agy" ] && [ -f "$CLI_DIR/.agy-version" ] && \
+             [ "$(cat "$CLI_DIR/.agy-version")" = "$GEMINI_CLI_VERSION" ]; then
+            echo "agy $GEMINI_CLI_VERSION restored from cache"
           else
-            echo "::error::Gemini CLI (gemini) not found on PATH after install."
-            echo "::error::Check the npm install output above for @google/gemini-cli."
+            # Same download and SHA-512 check as https://antigravity.google/cli/install.sh,
+            # without its `agy install` hand-off (which edits shell profiles).
+            stage="$(mktemp -d)"
+            curl -fsSL --retry 3 --retry-delay 2 -o "$stage/payload" "$AGY_DOWNLOAD_URL"
+            actual="$(sha512sum "$stage/payload" | awk '{print $1}')"
+            if [ "$actual" != "$AGY_SHA512" ]; then
+              echo "::error::agy download checksum does not match the release manifest."
+              exit 1
+            fi
+            rm -rf "$CLI_DIR"
+            mkdir -p "$bin_dir"
+            case "$AGY_DOWNLOAD_URL" in
+              *.tar.gz*)
+                mkdir -p "$stage/x"
+                tar -xzf "$stage/payload" -C "$stage/x"
+                found="$(find "$stage/x" -type f -name agy | head -n 1)"
+                if [ -z "$found" ]; then
+                  echo "::error::agy release archive has no agy binary."
+                  exit 1
+                fi
+                cp -R "$(dirname "$found")"/. "$bin_dir"/
+                ;;
+              *)
+                cp "$stage/payload" "$bin_dir/agy"
+                ;;
+            esac
+            chmod +x "$bin_dir/agy"
+            printf '%s' "$GEMINI_CLI_VERSION" > "$CLI_DIR/.agy-version"
+            rm -rf "$stage"
+          fi
+          if ! command -v agy >/dev/null 2>&1; then
+            echo "::error::agy is not on PATH after install."
             exit 1
           fi
+          echo "agy: $(command -v agy) ($(agy --version))"
+
+      - name: Check Gemini subscription sign-in
+        # `agy models` is a server call that validates the sign-in and spends no quota. agy keeps
+        # personal sign-ins in the OS keyring and falls back to the file when it detects a
+        # remote/headless session; SSH_CONNECTION is the signal verified on agy 1.5.6
+        # ("Using file-based token storage because SSH session detected"). The checks below
+        # read agy's own log and print only yes/no, never the log (it names the account).
+        id: signin
+        if: always() && steps.preflight.outputs.missing == 'false'
+        env:
+          SSH_CONNECTION: '127.0.0.1 0 127.0.0.1 0'
+        run: |
+          set -uo pipefail
+          fail() {
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "error=$1" >> "$GITHUB_OUTPUT"
+            echo "::error::$1"
+            exit 0
+          }
+          command -v agy >/dev/null 2>&1 || fail "Gemini CLI (agy) unavailable: the install step failed"
+          log="$HOME/.gemini/antigravity-cli/cli.log"
+          models_out="$(mktemp)"
+          timeout 120 agy models > "$models_out" 2>&1
+          rc=$?
+          file_storage=no; signed_in=no
+          grep -q "Using file-based token storage" "$log" 2>/dev/null && file_storage=yes
+          grep -q "OAuth: authenticated successfully" "$log" 2>/dev/null && signed_in=yes
+          models="$(grep -c -E '^gemini-[0-9a-z.-]+[[:space:]]' "$models_out" || true)"
+          echo "agy models rc=$rc file_token_storage=$file_storage signed_in=$signed_in gemini_models=$models"
+          rm -f "$models_out"
+          [ "$file_storage" = yes ] || fail "Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret (agy did not read the restored sign-in file; no file-based token storage in its log)"
+          [ "$signed_in" = yes ] && [ "$rc" -eq 0 ] || \
+            fail "Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret to a current copy of ~/.gemini/antigravity-cli/antigravity-oauth-token (agy rejected the stored sign-in)"
+          echo "failed=false" >> "$GITHUB_OUTPUT"
 
       - name: Resolve pinned model from shared table
         id: model_table
@@ -905,8 +981,10 @@ jobs:
           resolver=".workflows-lib/scripts/agent_model_table.py"
           table=".workflows-lib/.github/agents/model-table.json"
           resolved="${RUNNER_TEMP:-/tmp}/model-table-gemini.txt"
+          # The hosted runner is agy, so it takes agy's model ids (the table's "local" surface,
+          # e.g. gemini-4-argon-high); the table's hosted ids are Gemini API ids agy rejects.
           if [ -f "$resolver" ] && [ -f "$table" ] && python3 "$resolver" resolve \
-              --agent gemini --surface hosted --work-kind "${WORK_KIND:-}" \
+              --agent gemini --surface local --work-kind "${WORK_KIND:-}" \
               --mode "${RUN_MODE:-}" --table "$table" > "$resolved"; then
             cat "$resolved" >> "$GITHUB_OUTPUT"
             model="$(sed -n 's/^model=//p' "$resolved")"
@@ -924,30 +1002,29 @@ jobs:
               echo "- Fallback: \`${fallback:-none}\`"
             } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "::warning::Shared model table unavailable at this workflows_ref; the gemini CLI default model runs unpinned."
+            echo "::warning::Shared model table unavailable at this workflows_ref; agy runs its default model, unpinned."
           fi
 
       - name: Run Gemini
         id: run_gemini
         if: always() && steps.capability_evidence.outcome != 'failure'
         env:
-          PREFLIGHT_MISSING: ${{ steps.preflight.outputs.missing || 'false' }}
-          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          PREFLIGHT_MISSING: >-
+            ${{ (steps.preflight.outputs.missing == 'true' ||
+                 steps.signin.outputs.failed != 'false') && 'true' || 'false' }}
+          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || steps.signin.outputs.error || 'Gemini sign-in check did not run' }}
           PROMPT_FILE: ${{ steps.prompt.outputs.file || '' }}
           EXTRA_ARGS_RAW: ${{ inputs.gemini_cli_args }}
           PR_NUMBER: ${{ inputs.pr_number }}
           SKIP_PERMISSIONS: ${{ inputs.skip_permissions }}
-          # Subscription login restored by Preflight auth; never an API key (owner decision 2026-11-11).
-          GOOGLE_GENAI_USE_GCA: 'true'
-          # Keep the plain-file credential path the preflight restored (no keychain on the runner).
-          GEMINI_FORCE_ENCRYPTED_FILE_STORAGE: 'false'
+          # Subscription sign-in file restored by Preflight auth; never an API key (owner decision
+          # 2026-11-11). SSH_CONNECTION makes agy use that file instead of the OS keyring (see
+          # "Check Gemini subscription sign-in").
+          SSH_CONNECTION: '127.0.0.1 0 127.0.0.1 0'
           PR_REF: ${{ inputs.pr_ref }}
           MODEL: ${{ steps.model_table.outputs.model }}
           MODEL_EFFORT: ${{ steps.model_table.outputs.reasoning_effort }}
           MODEL_FALLBACK: ${{ steps.model_table.outputs.fallback_model }}
-          # Headless gemini-cli refuses an untrusted folder (exit 55) before any model call; every hosted run
-          # 2026-11-01..07 stopped there. The runner checks out the PR into a throwaway workspace on purpose.
-          GEMINI_CLI_TRUST_WORKSPACE: 'true'
         run: |
           set -euo pipefail
 
@@ -1029,13 +1106,12 @@ jobs:
             output_file="gemini-output.md"
           fi
 
-          # --approval-mode yolo lets the gemini CLI apply edits and run tool
-          # calls without confirmation (the analogue of Claude's
-          # --dangerously-skip-permissions / cursor's --force). Omit it for
-          # read-only / review mode.
+          # --dangerously-skip-permissions lets agy apply edits and run tool calls without
+          # confirmation (headless agy otherwise soft-denies them and still exits 0). Omit it
+          # for read-only / review mode.
           perm_flag=()
           if [ "${SKIP_PERMISSIONS:-true}" = "true" ]; then
-            perm_flag=(--approval-mode yolo)
+            perm_flag=(--dangerously-skip-permissions)
           fi
 
           # Use PR-specific session log filename (mirrors Codex runner pattern)
@@ -1045,23 +1121,24 @@ jobs:
             SESSION_LOG="gemini-session.log"
           fi
 
-          echo "Running Gemini CLI in headless mode..."
-          echo "CLI: $(command -v gemini)"
+          echo "Running Gemini (agy) in headless mode..."
+          echo "CLI: $(command -v agy)"
           echo "Prompt file: $PROMPT_FILE"
           echo "Output file: $output_file"
           echo "Session log: $SESSION_LOG"
 
-          # gemini -p runs headlessly: it applies tools/edits and prints the
-          # final assistant message to stdout as plain text. We deliberately do
-          # NOT pass --output-format json (its JSON shape has been unstable across
-          # releases); the default text stdout is what the contract base64-encodes,
-          # matching the cursor/claude text path. Tee to $SESSION_LOG so we keep a
-          # debug artifact even if the run fails.
+          # agy -p runs headlessly: it applies tools/edits and prints the final assistant
+          # message to stdout as plain text, which the contract base64-encodes (the
+          # cursor/claude text path). --add-dir must name the checkout by absolute path:
+          # without it agy works in an internal scratch workspace and reports success with
+          # the real tree unchanged (seen 2026-06-15). Tee to $SESSION_LOG so we keep a debug
+          # artifact even if the run fails.
           GEMINI_CLI_ARGS=("${extra_args[@]}")
           echo "agent-execution-started=true" >> "$GITHUB_OUTPUT"
           set +e
-          gemini -p "$prompt_content" \
+          agy -p "$prompt_content" \
             "${perm_flag[@]}" \
+            --add-dir "${GITHUB_WORKSPACE}" \
             ${MODEL:+--model "$MODEL"} \
             "${GEMINI_CLI_ARGS[@]}" \
             2>&1 | tee "$SESSION_LOG" > "$output_file"
@@ -1095,7 +1172,7 @@ jobs:
         # The restored subscription login is needed by the Run Gemini step only. Delete it before
         # commit/push, analysis and diagnostics steps run, whatever the run's outcome.
         if: always()
-        run: rm -f "$HOME/.gemini/oauth_creds.json"
+        run: rm -f "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
 
       - name: Commit and push changes
         id: commit
@@ -1594,7 +1671,7 @@ jobs:
         env:
           EXIT_CODE: ${{ steps.run_gemini.outputs.exit-code }}
           OUTPUT_SUMMARY: ${{ steps.run_gemini.outputs.final-message-summary }}
-          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || '' }}
+          PREFLIGHT_ERROR: ${{ steps.preflight.outputs.error || steps.signin.outputs.error || '' }}
           MODE: ${{ inputs.mode }}
           PR_NUMBER: ${{ inputs.pr_number }}
         with:

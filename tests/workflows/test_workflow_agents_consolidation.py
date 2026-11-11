@@ -1959,8 +1959,9 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
 def test_hosted_gemini_runs_on_subscription_login_never_api_key():
     """Owner decision 2026-11-11: the Gemini API key belongs to the verify workflows only.
 
-    Hosted keepalive gemini restores the GEMINI_OAUTH_CREDS subscription login (gemini-cli
-    oauth_creds.json) and selects it with GOOGLE_GENAI_USE_GCA; no step may hand it an API key.
+    Google refuses subscription logins from @google/gemini-cli (UNSUPPORTED_CLIENT), so hosted
+    keepalive gemini runs agy (Antigravity CLI) on the owner's sign-in file restored from
+    GEMINI_OAUTH_CREDS; no step may hand it an API key or run the gemini-cli binary.
     """
     runner_path = WORKFLOWS_DIR / "reusable-gemini-run.yml"
     runner = yaml.safe_load(runner_path.read_text(encoding="utf-8"))
@@ -1972,21 +1973,45 @@ def test_hosted_gemini_runs_on_subscription_login_never_api_key():
         rendered = yaml.safe_dump(step)
         assert "secrets.GEMINI_API_KEY" not in rendered, step.get("name")
         assert "GEMINI_API_KEY" not in (step.get("env") or {}), step.get("name")
+        assert 'npm install -g "@google/gemini-cli' not in rendered, step.get("name")
 
+    token_path = "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
     preflight = steps[names.index("Preflight auth")]
     assert preflight["env"]["GEMINI_OAUTH_CREDS"] == "${{ secrets.GEMINI_OAUTH_CREDS || '' }}"
-    assert "$HOME/.gemini" in preflight["run"]
+    assert 'creds_dir="$HOME/.gemini/antigravity-cli"' in preflight["run"]
+    assert 'creds_file="$creds_dir/antigravity-oauth-token"' in preflight["run"]
     assert "Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret" in preflight["run"]
 
-    run = steps[names.index("Run Gemini")]
-    assert run["env"]["GOOGLE_GENAI_USE_GCA"] == "true"
-    assert run["env"]["GEMINI_FORCE_ENCRYPTED_FILE_STORAGE"] == "false"
+    signin = steps[names.index("Check Gemini subscription sign-in")]
+    assert signin["id"] == "signin"
+    assert signin["env"]["SSH_CONNECTION"]
+    assert "agy models" in signin["run"]
+    assert "Using file-based token storage" in signin["run"]
+    assert "OAuth: authenticated successfully" in signin["run"]
 
+    run = steps[names.index("Run Gemini")]
+    assert run["env"]["SSH_CONNECTION"] == signin["env"]["SSH_CONNECTION"]
+    assert "steps.signin.outputs.failed" in run["env"]["PREFLIGHT_MISSING"]
+    assert 'agy -p "$prompt_content"' in run["run"]
+    assert '--add-dir "${GITHUB_WORKSPACE}"' in run["run"]
+    assert "gemini -p" not in run["run"]
+    assert runner["jobs"]["gemini"]["env"]["AGY_CLI_DISABLE_AUTO_UPDATE"] == "true"
+
+    order = [
+        names.index(n)
+        for n in (
+            "Preflight auth",
+            "Ensure Gemini CLI",
+            "Check Gemini subscription sign-in",
+            "Run Gemini",
+            "Remove Gemini login",
+            "Commit and push changes",
+        )
+    ]
+    assert order == sorted(order)
     remove = steps[names.index("Remove Gemini login")]
     assert remove["if"] == "always()"
-    assert "oauth_creds.json" in remove["run"]
-    assert names.index("Run Gemini") < names.index("Remove Gemini login")
-    assert names.index("Remove Gemini login") < names.index("Commit and push changes")
+    assert token_path in remove["run"]
 
     callers = [
         WORKFLOWS_DIR / "agents-keepalive-loop.yml",

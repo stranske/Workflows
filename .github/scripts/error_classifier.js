@@ -51,6 +51,11 @@ const TRANSIENT_PATTERNS = [
   'fetch failed',
   'network error',
   'aborterror',
+  // Subscription quota windows (agy: "RESOURCE_EXHAUSTED (code 429): Individual quota
+  // reached ... Resets in 7m59s") clear on their own; they are capacity, not a broken run.
+  'quota reached',
+  'quota exceeded',
+  'resource_exhausted',
 ];
 
 const AUTH_PATTERNS = [
