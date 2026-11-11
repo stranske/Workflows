@@ -74,7 +74,8 @@ owner instead of being disguised as timer retries.
 One exception (#4636): an `actionable` handoff whose reason is
 `checks_failed` returns to Maint 71 once its checks pass on the same head.
 Maint 82 already reads each retained handoff's PR. When that PR is still open
-on the recorded head and GitHub reports `mergeable_state: clean`, Maint 82
+on the recorded head and GitHub reports `mergeable_state` `clean`, `unstable`
+(only a non-required check is not green) or `has_hooks`, Maint 82
 re-plans the handoff as a transient `checks_recovered` continuation. Before
 this, checks that finished after a Maint 71 pass left the PR waiting for the
 daily schedule (2026-11-10: about 20 hours). Each head is re-planned at most

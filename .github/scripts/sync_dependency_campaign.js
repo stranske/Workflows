@@ -798,12 +798,18 @@ function mergeHandoffReassessments(previous = [], incoming = [], blockedKeys = [
 // `mergeable_state: clean` on that unchanged head is the recovery signal. Each head is re-planned at most once:
 // `checks_recovery_head` marks it, and mergeDeliveryHandoffs carries the mark onto Maint 71's next report.
 const CHECKS_RECOVERY_REASON = 'checks_failed';
+// GitHub's view that required checks now pass: `clean`, or `unstable` (mergeable; only a non-required check is not
+// green) or `has_hooks`. `unstable` matters: on 2026-11-11 four recovered sync PRs (Counter_Risk#1244,
+// Inv-Man-Intake#1073, Manager-Database#1911, learning-management-system#827) were held only by cancelled
+// non-required autofix bookkeeping runs. `blocked`, `behind`, `dirty` and `unknown` never re-plan. Maint 71 still
+// re-checks the required checks itself, and checks_recovery_head bounds this to one re-plan per head.
+const CHECKS_RECOVERED_MERGEABLE_STATES = new Set(['clean', 'unstable', 'has_hooks']);
 
 function checksRecoveredHandoff(retained = {}, pr = {}, now = '') {
   const continuation = retained.continuation || {};
   if (continuation.class !== 'actionable' || continuation.reason !== CHECKS_RECOVERY_REASON) return null;
   if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) return null;
-  if (pr.state !== 'open' || pr.draft === true || pr.mergeable_state !== 'clean') return null;
+  if (pr.state !== 'open' || pr.draft === true || !CHECKS_RECOVERED_MERGEABLE_STATES.has(pr.mergeable_state)) return null;
   if (pr.head?.sha !== retained.head_sha || pr.head?.ref !== retained.branch) return null;
   if (retained.checks_recovery_head === retained.head_sha) return null;
   const observedAt = cleanString(now) || new Date().toISOString();

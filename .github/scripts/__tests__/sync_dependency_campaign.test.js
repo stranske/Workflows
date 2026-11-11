@@ -2073,7 +2073,13 @@ test('planMaint71Continuations re-plans a checks_failed handoff whose checks rec
   // Head changed, or checks still failing: nothing is re-planned.
   const moved = await reconcile([failed], { ...greenPr, head: { sha: 'c'.repeat(40), ref: failed.branch } });
   assert.equal(moved.records.length, 0);
-  for (const mergeableState of ['blocked', 'unstable', 'unknown', 'behind']) {
+  for (const mergeableState of ['unstable', 'has_hooks']) {
+    // 2026-11-11: required checks green, only cancelled non-required runs left -> GitHub reports `unstable`.
+    const greenEnough = await reconcile([failed], { ...greenPr, mergeable_state: mergeableState });
+    assert.equal(greenEnough.records.length, 1, mergeableState);
+    assert.equal(greenEnough.records[0].continuation.reason, 'checks_recovered');
+  }
+  for (const mergeableState of ['blocked', 'unknown', 'behind', 'dirty']) {
     const stillRed = await reconcile([failed], { ...greenPr, mergeable_state: mergeableState });
     assert.equal(stillRed.records.length, 0, mergeableState);
   }
