@@ -80,8 +80,8 @@ A live read of that query returned 58 candidates, `hasNextPage=false`, including
 #6189 merged and #6186 closed unmerged. This is API-read evidence, not a deployed
 Maint 71 acceptance run.
 
-**A2 (pending at this 2026-11-10 writing; satisfied by run 42966520283 on
-2026-11-11, see the final sections below):** after this source change ships, the
+**A2 (pending at this 2026-11-10 writing; see the November 11 evidence below):**
+after this source change ships, the
 native production owner must obtain a new unscoped/dev-tool report and record its run id. The issue's
 acceptance command must print both candidate numbers:
 
@@ -543,17 +543,16 @@ No production run was started by this continuation. **T1/A2 remain pending**
 until both repository-qualified dispositions are observed in each native-owner
 run report as specified above.
 
-## Task completion status (issue #4612, current task IDs)
+## Task completion status (issue #4612)
 
 - **T1: done.** Native-schedule run 42966520283 (2026-11-11T05:33:19Z, head
   `c1f27d82180b10b7213aea099f8feec30c3e15b1` containing #4629 merge `e0cff78a`)
-  was obtained and inspected; see "Production acceptance for #4632" below.
+  was obtained; see "Production evidence for #4632" below.
   Earlier in-seat dispatches were refused by the production guard.
 - **T2: locally verified.** The closed-candidate omission was reproduced before
-  the collector repair (recorded above). The current two-file Node command passes
-  all 246 tests, including pagination, client-contract and per-candidate
-  log/summary dispositions (final continuation above). Deployment
-  observation is tracked separately under A2.
+  the collector repair (recorded above). The focused Node tests cover pagination,
+  the client contract and per-candidate log and summary dispositions. A2 tracks
+  deployed summary verification.
 - **T3: observed with a hosting limitation.** First retained local sync-core round
   `20261108T054334Z` saw delivered head `ad09728581df4a27d421f272f9e307efaa581e63`,
   recorded zero mismatches and no handoff. No #6186/thread bump was found.
@@ -562,14 +561,16 @@ run report as specified above.
 - **T4: verified.** Fresh delivered-head archive: both pin lines read `pytest==9.2.0`
   and 23 WASM tests pass using the quoted repository interpreter.
 
-## Acceptance criteria status (issue #4612, current criterion IDs)
+## Acceptance criteria status (issue #4612)
 
-- **A1: locally verified.** Exact two-file Node command: 246 passed, zero failed;
-  covers the collector and report changes. Historical rows do not select merges.
-- **A2: satisfied.** Run 42966520283's full log (re-grepped 2026-11-11) shows
+- **A1 (locally verified).** The exact two-file Node command passed all 250 tests
+  on 2026-11-11. It covers the collector and report changes and confirms that
+  historical rows do not select merges.
+- **A2: pending rendered summary verification.** The prior full-log read of run
+  42966520283 on 2026-11-11 recorded
   `stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged,
-  #6187 closed unmerged, #6186 closed unmerged, ...`; the job summary is rendered
-  from the same formatter line. Sync-core round `20261108T054334Z` retained above.
+  #6187 closed unmerged, #6186 closed unmerged, ...`. The source passes the same
+  Markdown to the summary writer. The rendered summary could not be read back.
 - **A3: verified.** This handoff records the qualifying run id, event and source
   head (final section below), retains sync-core round `20261108T054334Z` and its
   delivered result, distinguishes the hosted campaign run, and each A1–A4 status
@@ -578,7 +579,7 @@ run report as specified above.
   and exact delivered head are recorded above; this does not certify a hosted
   sync-core workflow run or future recurrence prevention.
 
-## Production acceptance for #4632 (2026-11-11)
+## Production evidence for #4632 (2026-11-11)
 
 Qualifying run: [42966520283](https://github.com/stranske/Workflows/actions/runs/42966520283),
 event `schedule` (`[unscoped]`), created 2026-11-11T05:33:19Z, conclusion `success`,
@@ -587,40 +588,26 @@ merge commit `e0cff78a8537be83e296761536fbda3038b4ca2d`; PR #4629 state `MERGED`
 merged 2026-11-10T22:17:49Z, after #4612 opened 2026-11-10T03:08:47Z).
 Run started by the native scheduler, not by this seat.
 
-Acceptance command result:
+Previously recorded acceptance command result:
 
 ```bash
 gh run view 42966520283 --repo stranske/Workflows --log | grep -E '6189|6186'
 # stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged, #6187 closed unmerged, #6186 closed unmerged, ...
 ```
 
-The log line and the job-summary text generated from the same formatter show
-both dispositions qualified by `stranske/Trend_Model_Project`:
-`#6189 merged` and `#6186 closed unmerged`. Sync-core round `20261108T054334Z`
-and its delivered result (head `ad09728581df4a27d421f272f9e307efaa581e63`) are
-retained above.
+At the run's exact source head, Maint 71 logs `markdownSummary` and passes it
+to `core.summary.addRaw(...).write()`. On November 11, the run metadata and
+ancestry were confirmed again. The log and artifact downloads returned HTTP 502,
+and the [Actions summary page](https://github.com/stranske/Workflows/actions/runs/42966520283)
+timed out in Chrome. The log excerpt above comes from the earlier read. The
+rendered job summary remains unverified.
 
-Job-summary half (checked 2026-11-11): `merge_sync_prs` job `130345550700`
-concluded `success`. Direct summary retrieval was attempted via the Actions
-job API (no summary field in its response) and an authenticated web fetch of
-the job page (returned the unauthenticated shell; `/summary` fragment 404), so
-the rendered summary bytes are not directly observable from this headless
-seat. The summary is not independent evidence here: the workflow writes the
-job summary from the same formatter line verified in the log above
-(`#6189 merged`, `#6186 closed unmerged` for `stranske/Trend_Model_Project`),
-and the log line itself was re-grepped from the full run log this round.
-A browser-authenticated reader can confirm the rendered summary on the job
-page; this seat records it as formatter-derived, not directly observed.
-A final attempt from this seat (no browser installed; the job page requires a
-cookie-based GitHub web session that the `gh` token cannot provide) could not
-render it either, so A2's log half stands as the directly verified evidence
-and the summary half remains formatter-derived pending an authenticated read.
-
-Reconciled status: **T1 done** (qualifying native run obtained and inspected);
-**A1 verified** (246-test Node command, see above); **A2 satisfied** by run
-42966520283 (log directly verified; summary formatter-derived as noted);
-**A3 verified**; **A4 observed locally** as scoped above. Sync-core round
-`20261108T054334Z` and its delivered result remain retained above.
+For #4632, **T1 is verified**. **T2 and A1 remain pending** until the log and
+rendered job summary can be read back together. **A2 is verified** by this
+handoff's evidence and status readback. The local sync-core round and target
+receipt again confirm `20261108T054334Z` delivered #6189 at head
+`ad09728581df4a27d421f272f9e307efaa581e63`, with five files, zero mismatches
+and no handoffs. The earlier A1–A4 statuses above refer to #4612.
 
 ## Summary-artifact persistence (follow-up repair)
 
@@ -639,10 +626,9 @@ via `core.summary`. Maint 71 now also writes the exact rendered text to
 `sync-pr-merge-and-canary-evidence` artifact. The end-to-end dev-tool test in
 `maint71_devtool_final_binding.test.js` asserts the persisted file carries
 `stranske/Trend_Model_Project ... #6189 merged ... #6186 closed unmerged` and
-is the exact text sent to the job summary. From the next native run onward,
-the summary half of A2 is directly readable from the artifact; for run
-42966520283 itself it remains formatter-derived as recorded above, and no
-status changes on that basis.
+is the exact text sent to the job summary. A native run from a head containing
+this change can expose the summary text through the artifact. For run
+42966520283, the summary remains formatter-derived.
 
 That persistence is now fail-closed: a `Verify merge summary artifact` step
 runs after a successful merge step and before the artifact upload, requiring
@@ -652,6 +638,4 @@ header. A successful merge that leaves either file missing now fails the job
 instead of succeeding with only the log half of the report.
 `tests/workflows/test_sync_delivery_liveness.py::test_maint71_fails_closed_when_successful_merge_leaves_no_summary_artifact`
 pins the executor write, the upload path, the gate condition and the step
-order. A1–A4 statuses above are unchanged: the next native run from a head
-containing this verify step is the first whose summary half is both directly
-readable and enforced.
+order.
