@@ -20,9 +20,6 @@
 - name: agent:gemini
   color: "1a73e8"
   description: Assign to Gemini agent (gemini CLI)
-- name: agent:aider
-  color: "8d6e63"
-  description: Assign to Aider agent (cheap, low-complexity tasks)
 - name: agent:muse
   color: "f66a0a"
   description: Assign to Muse agent (muse CLI)

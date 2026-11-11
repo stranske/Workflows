@@ -8,8 +8,8 @@ DOCS = (
     Path("docs/keepalive/GoalsAndPlumbing.md"),
 )
 RETIRED_HEADING = "### Retired label names"
-RETIRED_LABELS = {"agents:max-parallel:<K>", "agent:codex-invite"}
-DISABLED_LABELS = {"agent:aider"}
+RETIRED_LABELS = {"agents:max-parallel:<K>", "agent:codex-invite", "agent:aider"}
+DISABLED_LABELS: set[str] = set()
 # Labels whose executable surface is local automation outside this repository, named here so the exemption is
 # deliberate. Each must say in docs/LABELS.md which local system owns it.
 LOCAL_AUTOMATION_LABELS = {"agents:local-loop": "stranske/Orchestrator"}
@@ -78,11 +78,15 @@ def test_retired_section_does_not_exempt_active_replacement_labels() -> None:
     assert "agent:<name>-invite" not in _documentation_only_labels()
 
 
-def test_disabled_labels_are_explicitly_documented_as_non_executable() -> None:
-    """A reserved label needs an explicit no-dispatch contract until implemented."""
+def test_retired_aider_label_has_no_runner_or_registry_entry() -> None:
+    """agent:aider is retired (2026-11-11): documented as retired and absent from every registry."""
     labels_doc = Path("docs/LABELS.md").read_text()
-    assert "`agent:aider` is reserved and disabled" in labels_doc
-    assert re.search(r"will not\s+dispatch a runner", labels_doc)
+    assert "`agent:aider` is retired" in labels_doc
+    for registry in (
+        Path(".github/agents/registry.yml"),
+        Path("templates/consumer-repo/.github/agents/registry.yml"),
+    ):
+        assert "\n  aider:\n" not in registry.read_text()
 
 
 def test_keepalive_sweeps_normalize_the_opt_in_label_before_filtering() -> None:
@@ -94,7 +98,7 @@ def test_keepalive_sweeps_normalize_the_opt_in_label_before_filtering() -> None:
     required_snippets = (
         "labelNames.includes('agents:keepalive')",
         "const routingLabels = labelNames.filter",
-        "'agent:aider', 'agent:needs-attention', 'agent:rate-limited', 'agent:retry'",
+        "'agent:needs-attention', 'agent:rate-limited', 'agent:retry'",
         "(label.name || '').toLowerCase() === 'agent:needs-attention'",
     )
     for snippet in required_snippets:

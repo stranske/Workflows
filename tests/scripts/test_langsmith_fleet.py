@@ -485,8 +485,9 @@ def test_agent_registry_capacity_blocks_validate() -> None:
     langsmith_fleet.validate_registry(registry)
 
     agents = registry["agents"]
-    assert set(agents) >= {"codex", "claude", "cursor", "gemini", "aider"}
-    for agent in ("codex", "claude", "cursor", "gemini", "aider"):
+    assert set(agents) >= {"codex", "claude", "cursor", "gemini"}
+    assert "aider" not in agents  # removed from the fleet 2026-11-11
+    for agent in ("codex", "claude", "cursor", "gemini"):
         assert agents[agent]["capacity"]["window"] in {"5h", "weekly", "daily"}
         assert isinstance(agents[agent]["capacity"]["limit"], int)
 

@@ -322,16 +322,18 @@ test('export stale -> static default', async () => {
 });
 
 test('no runner -> skipped using the shipped registry', () => {
-  const registryAgents = loadAgentRegistry({
+  const shipped = loadAgentRegistry({
     registryPath: path.resolve(__dirname, '../../.github/agents/registry.yml'),
   }).agents;
-  assert.equal(registryAgents.aider.runner_workflow, '');
-  assert.ok(registryAgents.claude.runner_workflow);
+  assert.ok(shipped.claude.runner_workflow);
+  // The shipped registry has no runner-less agent since aider's removal (2026-11-11), so the
+  // runner-less case is a shipped entry with its runner cleared.
+  const registryAgents = { ...shipped, norunner: { ...shipped.claude, runner_workflow: '' } };
   const routeWeights = {
     schema: 'orchestrator.route-weights/v2',
     generated_at: now,
     capacity: {
-      aider: { state: 'ok' },
+      norunner: { state: 'ok' },
       unregistered: { state: 'ok' },
       claude: { state: 'ok' },
     },
@@ -339,7 +341,7 @@ test('no runner -> skipped using the shipped registry', () => {
       implement: {
         evidence_ok: true,
         ranking: [
-          { agent: 'aider', posterior: 0.95, n_obs: 25 },
+          { agent: 'norunner', posterior: 0.95, n_obs: 25 },
           { agent: 'unregistered', posterior: 0.9, n_obs: 25 },
           { agent: 'claude', posterior: 0.78, n_obs: 25 },
         ],

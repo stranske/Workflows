@@ -112,9 +112,9 @@ def test_surface_specific_ids(table: dict) -> None:
 
 
 def test_local_only_agents_refuse_hosted(table: dict) -> None:
-    for agent in ("vibe", "aider"):
-        with pytest.raises(amt.TableError):
-            amt.resolve(table, agent, "hosted")
+    with pytest.raises(amt.TableError):
+        amt.resolve(table, "vibe", "hosted")
+    assert "aider" not in table["providers"]  # removed from the fleet 2026-11-11
 
 
 def test_unknown_kind_refuses(table: dict) -> None:
