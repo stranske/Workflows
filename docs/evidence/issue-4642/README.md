@@ -16,6 +16,11 @@ Commit 4b9c757f38bcdb07f67fec0357289e1b30e2989b (2026-11-11):
 - Sets `pytest-dist: 'worksteal'` for both `python-ci` and `python-ci-grammar` jobs in `pr-00-gate.yml`
 - Documents the new input in `docs/USAGE.md`
 
+Commit 5e98b89dd (2026-11-11):
+- Removes hardcoded `--dist load` from `pytest_args` in both python-ci and python-ci-grammar jobs to avoid conflict with `pytest-dist: 'worksteal'`
+- Updates template-drift-allowlist.txt fingerprints for pr-00-gate.yml
+- Updates divergence comment to reflect worksteal distribution strategy
+
 ## Live Gate Before / After Comparison
 
 Gate elapsed time uses `updatedAt - createdAt` for each run, including queue and setup time.
@@ -25,13 +30,14 @@ Job and step durations each use `completedAt - startedAt` at their respective le
 
 | Gate run | Head SHA | Result | Gate interval (UTC) | Gate elapsed | Python 3.14 job | Pytest step | Notes |
 | --- | --- | --- | --- | ---: | ---: | ---: | --- |
-| TBD | TBD | TBD | TBD | TBD | TBD | TBD | To be populated from historical run before change |
+| [42538564663](https://github.com/stranske/Workflows/actions/runs/42538564663) | `86e74e784` | success | 2026-10-27 11:44:41 UTC | ~10.5 min | 14.03 min | TBD | Baseline: p50 10.50 min, python ci / python 3.14 at 14.03 min; trailing-7-day Gate p50 at 10.50 min (first over-target measurement: 2026-10-27T11:44:41+00:00) |
 
 ### After: With worksteal distribution
 
 | Gate run | Head SHA | Result | Gate interval (UTC) | Gate elapsed | Python 3.14 job | Pytest step | Notes |
 | --- | --- | --- | --- | ---: | ---: | ---: | --- |
-| [First PR run](https://github.com/stranske/Workflows/actions/runs/TBD) | `a94a4a47c...` | TBD | TBD | TBD | TBD | TBD | To be populated from first Gate run after merge |
+| [PR run 1](https://github.com/stranske/Workflows/actions/runs/TBD) | `5e98b89dd` | TBD | TBD | TBD | TBD | TBD | To be populated from first Gate run after push to orch/issue-4642 |
+| [PR run 2](https://github.com/stranske/Workflows/actions/runs/TBD) | `5e98b89dd` | TBD | TBD | TBD | TBD | TBD | To be populated from subsequent Gate run |
 
 ## Health 85 Daily Observations Series
 
@@ -63,7 +69,9 @@ for seven consecutive daily measurements.
 
 ## Related Evidence
 
-- Commit: [4b9c757f3](https://github.com/stranske/Workflows/commit/4b9c757f38bcdb07f67fec0357289e1b30e2989b)
+- Commit: [4b9c757f3](https://github.com/stranske/Workflows/commit/4b9c757f38bcdb07f67fec0357289e1b30e2989b) (pytest-dist worksteal implementation)
+- Commit: [5e98b89dd](https://github.com/stranske/Workflows/commit/5e98b89dd) (remove hardcoded --dist load from pytest_args)
 - PR: [#4647](https://github.com/stranske/Workflows/pull/4647)
 - Source issue: [#4642](https://github.com/stranske/Workflows/issues/4642)
 - Related analysis: [issue-3904](docs/evidence/issue-3904/README.md) (verifier grammar suites workload)
+- Baseline run: [42538564663/job/128910700729](https://github.com/stranske/Workflows/actions/runs/42538564663/job/128910700729) (python ci / python 3.14: 14.03 min)
