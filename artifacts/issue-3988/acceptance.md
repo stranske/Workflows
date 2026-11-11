@@ -12,6 +12,36 @@ this label measure, but establishes no provider execution. The stricter
 first-label provider metric remains 13/51 = 25.49% as a separate limitation.
 T3/A3 remain UNVERIFIED; overall acceptance remains NOT ESTABLISHED.
 
+## Issue #4587 A3 evidence read — 2026-11-11 UTC
+
+**Outcome A3: UNKNOWN; closure remains withheld.** This read did find a new,
+genuine post-#4578 source intake execution, but GitHub does not expose the
+summary table that contains the required routing condition. No current or
+synthetic route-weights data is substituted for the missing contemporaneous
+source.
+
+- Historical candidate: [run 42353296252, job 128345864413](https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413).
+  `gh run view 42353296252 --repo stranske/Workflows --log` retrieves its
+  execution log. A fresh `repos/stranske/Workflows/check-runs/128345864413`
+  read returns `output.summary: null`, so its actual selection table and
+  contemporaneous route-weights snapshot remain unavailable.
+- New candidate: [run 43078860166, job 130725861398](https://github.com/stranske/Workflows/actions/runs/43078860166/job/130725861398), created
+  2026-11-11T18:33:14Z on `40a103f20968e85cba79a12ac5cebf1b7731e1dc`.
+  `gh run view 43078860166 --repo stranske/Workflows --log` retrieves the
+  genuine `issues` execution and shows `INPUT_ISSUE: 4635` with
+  `DEFAULT_AGENT:` empty. The job's check-run read likewise returns
+  `output.summary: null`; the log contains neither the summary-table values
+  (Chosen Agent, Posterior, Pool State, Default Agent) nor the fetched
+  route-weights snapshot. Therefore it cannot establish that Codex was not
+  the top posterior or was shed.
+
+The workflow writes those values through `core.summary`, not to the ordinary
+step log. Both job-summary URLs above are the authoritative locations, but the
+GitHub check-runs API exposes a null summary for each. This is exact
+unavailability evidence, not evidence of a non-Codex route. Do not close the
+issue until a readable genuine summary and contemporaneous condition establish
+A3.
+
 ## Current continuation disposition — 2026-11-09
 
 Outcome 1: **A4 PASS**, unchanged **17/51 = 33.33%**, complete coverage.
