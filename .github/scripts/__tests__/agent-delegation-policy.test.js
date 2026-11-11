@@ -15,6 +15,8 @@ const {
   getExplicitAgentFromLabels,
   formatDelegationSummary,
   loadRouteWeights,
+  loadRouteWeightsWithStatus,
+  formatRouteWeightsStatus,
   selectAgentFromRouteWeights,
   ROUTE_WEIGHT_TASK_TYPES,
 } = require('../agent_delegation_policy.js');
@@ -887,4 +889,76 @@ test('expired rate-limit receipt reopens original provider with exhausted pool',
     registry: mockRegistry, secrets: mockSecrets });
   assert.equal(decision.agent, 'codex');
   assert.equal(decision.reason, 'rate-limit-receipt-expired');
+});
+
+// Each fallback names its own cause, and the healthy state renders too. Before this, one
+// `null` covered all of them, so the Oct 24 - Nov 10 2026 writer outage logged the same
+// "unavailable or stale" line as an unreachable URL would have.
+const STATUS_NOW = Date.parse('2026-11-11T18:00:00Z');
+const okResponse = (document) => async () => ({ status: 200, json: async () => document });
+
+test('route-weights status: fresh document renders its age, bound and version', async () => {
+  const result = await loadRouteWeightsWithStatus({
+    url: 'https://example.test/rw.json',
+    now: STATUS_NOW,
+    fetchImpl: okResponse({
+      schema: 'orchestrator.route-weights/v1',
+      generated_at: '2026-11-11T13:00:00Z',
+      source_version: 72,
+      task_types: {},
+    }),
+  });
+  assert.equal(result.status, 'fresh');
+  assert.notEqual(result.document, null);
+  assert.equal(result.ageMs, 5 * 3600000);
+  assert.equal(
+    formatRouteWeightsStatus(result),
+    'route-weights: fresh (age 5.0h of max 336.0h, generated_at=2026-11-11T13:00:00Z, source_version=72)',
+  );
+});
+
+test('route-weights status: stale document names stale with age over the bound', async () => {
+  const result = await loadRouteWeightsWithStatus({
+    url: 'https://example.test/rw.json',
+    now: STATUS_NOW,
+    fetchImpl: okResponse({
+      schema: 'orchestrator.route-weights/v1',
+      generated_at: '2026-10-24T12:52:52Z',
+      source_version: 69,
+    }),
+  });
+  assert.equal(result.status, 'stale');
+  assert.equal(result.document, null);
+  const line = formatRouteWeightsStatus(result);
+  assert.match(line, /^route-weights: stale \(older than the reader max age, age 437\.1h > max 336\.0h, /);
+  assert.match(line, /generated_at=2026-10-24T12:52:52Z/);
+  // The compatibility wrapper keeps returning null for the same input.
+  assert.equal(
+    await loadRouteWeights({
+      url: 'https://example.test/rw.json',
+      now: STATUS_NOW,
+      fetchImpl: okResponse({ schema: 'orchestrator.route-weights/v1', generated_at: '2026-10-24T12:52:52Z' }),
+    }),
+    null,
+  );
+});
+
+test('route-weights status: each non-fresh cause has its own status', async () => {
+  const cases = [
+    [async () => { throw new Error('network down'); }, 'unavailable', /fetch failed: network down/],
+    [async () => ({ status: 404, json: async () => ({}) }), 'unavailable', /HTTP 404/],
+    [async () => ({ status: 200, json: async () => { throw new SyntaxError('x'); } }), 'malformed', /not JSON/],
+    [okResponse({ schema: 'other/v9', generated_at: '2026-11-11T13:00:00Z' }), 'schema', /unsupported schema "other\/v9"/],
+    [okResponse({ schema: 'orchestrator.route-weights/v1' }), 'undated', /generated_at missing/],
+    [okResponse({ schema: 'orchestrator.route-weights/v1', generated_at: '2026-11-12T18:00:00Z' }), 'future', /ahead of the reader clock/],
+  ];
+  for (const [fetchImpl, status, pattern] of cases) {
+    const result = await loadRouteWeightsWithStatus({ url: 'https://example.test/rw.json', now: STATUS_NOW, fetchImpl });
+    assert.equal(result.status, status);
+    assert.equal(result.document, null);
+    const line = formatRouteWeightsStatus(result);
+    assert.match(line, new RegExp(`^route-weights: ${status} `));
+    assert.match(line, pattern);
+    assert.match(line, /url=https:\/\/example\.test\/rw\.json/);
+  }
 });
