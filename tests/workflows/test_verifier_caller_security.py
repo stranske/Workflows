@@ -30,6 +30,8 @@ SECRET_MAPPING = {
         "OPENAI_API_KEY",
         "CLAUDE_API_STRANSKE",
         "MUSE_API_KEY",
+        "VERIFIER_GEMINI_API_KEY",
+        "CURSOR_API_KEY",
         "LANGSMITH_API_KEY",
     ]
 } | {

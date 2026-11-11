@@ -826,3 +826,125 @@ def test_backup_transport_refuses_a_non_https_base_url(monkeypatch):
     client = pv.CapacityBackupClient(model="m", base_url="file:///etc", key_env="MUSE_API_KEY")
     with pytest.raises(RuntimeError, match="must be https"):
         client.invoke("p")
+
+
+# ---------------------------------------------------------------- the ordered backup chain
+
+
+@pytest.fixture
+def chain_keys(monkeypatch):
+    monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("VERIFIER_GEMINI_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key-not-real")
+    monkeypatch.delenv("LANGCHAIN_SLOT_CONFIG", raising=False)
+    monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+    monkeypatch.setattr(pv.CursorCliBackupClient, "available", lambda self: True)
+
+
+def test_the_shipped_chain_is_muse_then_gemini_carbon_then_cursor(chain_keys):
+    order = [(provider, model) for _, provider, model in pv.capacity_backups()]
+    assert order == [
+        ("muse-api", "muse-spark-1.3"),
+        ("gemini-api", "gemini-4-carbon"),
+        ("cursor-cli", "composer-2.5"),
+    ]
+    gemini = pv.capacity_backups()[1][0]
+    # Its own secret name, so hosted Gemini implementation (GEMINI_API_KEY) never reads it.
+    assert gemini.key_env == "VERIFIER_GEMINI_API_KEY"
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    template = json.loads((ROOT / "templates/consumer-repo/config/llm_slots.json").read_text())
+    assert shipped["capacity_backup_chain"] == template["capacity_backup_chain"]
+
+
+def test_a_failed_backup_falls_through_to_the_next_one(monkeypatch, chain_keys):
+    calls = []
+
+    def run_single(self, client, provider, model):
+        calls.append(provider)
+        if provider == "muse-api":
+            return judged(provider, model, "CONCERNS", "capacity backup HTTP 429")
+        return judged(provider, model, "PASS")
+
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    results = [
+        judged("openai", "gpt-6.1-sol", "PASS"),
+        judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
+    ]
+    out = pv._with_capacity_backup(runner(), results, "application")
+    assert calls == ["muse-api", "gemini-api"]
+    assert (out[1].provider_used, out[1].model) == ("gemini-api", "gemini-4-carbon")
+    assert out[1].capacity_backup_for.startswith("anthropic/claude-sonnet-5-5: ")
+    assert "earlier backups failed: muse-api/muse-spark-1.3: capacity backup HTTP 429" in (
+        out[1].capacity_backup_for
+    )
+    assert pv.comparison_verdict(out) == "PASS"
+
+
+def test_when_every_backup_fails_the_last_failure_stands_and_nothing_passes(
+    monkeypatch, chain_keys
+):
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: judged(provider, model, "CONCERNS", "unavailable"),
+    )
+    results = [
+        judged("openai", "gpt-6.1-sol", "PASS"),
+        judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
+    ]
+    out = pv._with_capacity_backup(runner(), results, "application")
+    assert out[1].provider_used == "cursor-cli"
+    assert pv.comparison_verdict(out) != "PASS"
+
+
+def test_unkeyed_or_uninstalled_backups_are_skipped(monkeypatch, chain_keys):
+    monkeypatch.delenv("VERIFIER_GEMINI_API_KEY")
+    monkeypatch.setenv("GEMINI_API_KEY", "the-implementation-key-must-not-be-used")
+    monkeypatch.setattr(pv.CursorCliBackupClient, "available", lambda self: False)
+    assert [p for _, p, _ in pv.capacity_backups()] == ["muse-api"]
+
+
+def test_the_strict_paths_use_no_backup_chain(monkeypatch, chain_keys):
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    assert pv.capacity_backups() == []
+
+
+def test_cursor_answer_keeps_only_the_verdict_object():
+    text = 'I will evaluate the diff now.\n{"note": 1}\n{"verdict": "PASS", "scores": {"a": 1}}'
+    assert pv.last_verdict_object_text(text) == '{"verdict": "PASS", "scores": {"a": 1}}'
+    assert pv.last_verdict_object_text("no json here") == "no json here"
+
+
+def test_cursor_backup_runs_read_only_with_a_minimal_environment(monkeypatch, chain_keys):
+    import subprocess
+
+    monkeypatch.setenv("OPENAI_API_KEY", "must-not-leak")
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"], seen["env"], seen["input"] = command, kwargs["env"], kwargs["input"]
+        body = {"result": 'Reviewing.\n{"verdict": "CONCERNS"}', "is_error": False}
+        return subprocess.CompletedProcess(command, 0, stdout=json.dumps(body), stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    answer = pv.CursorCliBackupClient(model="composer-2.5").invoke("the prompt")
+    assert answer.content == '{"verdict": "CONCERNS"}'
+    assert seen["command"][:6] == ["cursor-agent", "-p", "--output-format", "json", "--mode", "ask"]
+    assert seen["command"][-2:] == ["--model", "composer-2.5"]
+    assert seen["input"] == "the prompt"
+    assert "OPENAI_API_KEY" not in seen["env"]
+    assert seen["env"]["CURSOR_API_KEY"] == "test-key-not-real"
+
+
+def test_cursor_backup_errors_never_carry_the_key(monkeypatch, chain_keys):
+    import subprocess
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **kw: subprocess.CompletedProcess(command, 3, stdout="oops", stderr=""),
+    )
+    with pytest.raises(RuntimeError) as caught:
+        pv.CursorCliBackupClient(model="composer-2.5").invoke("p")
+    assert "test-key-not-real" not in str(caught.value)

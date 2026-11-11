@@ -8792,8 +8792,113 @@ class CapacityBackupClient:
             raise RuntimeError("capacity backup returned an unexpected body") from None
 
 
-def capacity_backup() -> tuple[CapacityBackupClient, str, str] | None:
-    """The configured backup judge, or None when it is off, unkeyed or the path is strict."""
+class CursorCliBackupClient:
+    """The Cursor CLI in read-only ``ask`` mode as a capacity backup judge (invoke only).
+
+    The CLI bills the Cursor account behind ``CURSOR_API_KEY``. It runs in an empty scratch
+    directory with only PATH/HOME/locale and the key in its environment, so it sees the prompt and
+    nothing else on the runner.
+    """
+
+    key_env = "CURSOR_API_KEY"
+
+    def __init__(self, *, model: str, cursor: str = "cursor-agent", timeout: int = 420) -> None:
+        self.model, self.cursor, self.timeout = model, cursor, timeout
+
+    def available(self) -> bool:
+        import shutil
+
+        return shutil.which(self.cursor) is not None
+
+    def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:  # noqa: ARG002
+        import subprocess
+        import tempfile
+        from types import SimpleNamespace
+
+        key = os.environ.get(self.key_env, "")
+        if not key:
+            raise RuntimeError(f"{self.key_env} is not set")
+        command = [self.cursor, "-p", "--output-format", "json", "--mode", "ask", "--trust"]
+        command += ["--model", self.model]
+        env = {
+            k: os.environ[k]
+            for k in ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
+            if k in os.environ
+        }
+        env[self.key_env] = key
+        with tempfile.TemporaryDirectory(prefix="verifier-cursor-") as scratch:
+            try:
+                response = subprocess.run(  # noqa: S603 - fixed argv, prompt on stdin
+                    command,
+                    input=prompt,
+                    capture_output=True,
+                    text=True,
+                    cwd=scratch,
+                    timeout=self.timeout,
+                    check=False,
+                    env=env,
+                )
+            except subprocess.TimeoutExpired:
+                raise RuntimeError("capacity backup unavailable: Cursor CLI timed out") from None
+            except OSError as exc:
+                raise RuntimeError(f"capacity backup unavailable: {type(exc).__name__}") from None
+        try:
+            envelope = json.loads(response.stdout)
+        except ValueError:
+            raise RuntimeError(
+                f"capacity backup returned an unexpected body (rc {response.returncode})"
+            ) from None
+        if response.returncode or not isinstance(envelope, dict) or envelope.get("is_error"):
+            raise RuntimeError(f"capacity backup Cursor CLI error (rc {response.returncode})")
+        return SimpleNamespace(content=last_verdict_object_text(str(envelope.get("result") or "")))
+
+
+def last_verdict_object_text(text: str) -> str:
+    """The last JSON object in ``text`` that carries a ``verdict``, byte for byte; else ``text``.
+
+    The agent CLI prepends a progress note ("I'll evaluate the diff...") to the model's answer, which
+    the production parser would otherwise have to skip.
+    """
+    decoder = json.JSONDecoder()
+    found = None
+    for start, char in enumerate(text):
+        if char != "{":
+            continue
+        try:
+            value, end = decoder.raw_decode(text, start)
+        except ValueError:
+            continue
+        if isinstance(value, dict) and "verdict" in value:
+            found = text[start:end]
+    return found if found is not None else text
+
+
+BackupClient = CapacityBackupClient | CursorCliBackupClient
+
+
+def _backup_entry(block: Any) -> tuple[BackupClient, str, str] | None:
+    """One declared backup that is on, keyed, and runnable here; otherwise None."""
+    if not isinstance(block, dict) or block.get("enabled") is not True:
+        return None
+    try:
+        provider, model = str(block["provider"]), str(block["model"])
+        client: BackupClient
+        if block.get("transport", "chat_api") == "cursor_cli":
+            client = CursorCliBackupClient(model=model)
+            if not client.available():
+                return None
+        else:
+            client = CapacityBackupClient(
+                model=model, base_url=str(block["base_url"]), key_env=str(block["key_env"])
+            )
+    except KeyError:
+        return None
+    if not os.environ.get(client.key_env):
+        return None
+    return client, provider, model
+
+
+def _backup_config() -> dict | None:
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded" or _semantic_mode():
         return None
     # The backup shares the primary clients' execution allowlist. `_load_object`
@@ -8801,19 +8906,27 @@ def capacity_backup() -> tuple[CapacityBackupClient, str, str] | None:
     # that explicit file is empty or unavailable, so the bundled file is never
     # a fallback.
     payload = _load_object(_slot_path(), label="slot config")
-    block = None if payload is None else payload.get("capacity_backup")
-    if not isinstance(block, dict) or block.get("enabled") is not True:
-        return None
-    try:
-        provider, model = str(block["provider"]), str(block["model"])
-        client = CapacityBackupClient(
-            model=model, base_url=str(block["base_url"]), key_env=str(block["key_env"])
-        )
-    except KeyError:
-        return None
-    if not os.environ.get(client.key_env):
-        return None
-    return client, provider, model
+    return payload if isinstance(payload, dict) else None
+
+
+def capacity_backup() -> tuple[BackupClient, str, str] | None:
+    """The primary configured backup judge, or None when it is off, unkeyed or the path is strict."""
+    payload = _backup_config()
+    return None if payload is None else _backup_entry(payload.get("capacity_backup"))
+
+
+def capacity_backups() -> list[tuple[BackupClient, str, str]]:
+    """Every usable backup in order: `capacity_backup`, then `capacity_backup_chain`.
+
+    A backup that is off, has no key on this runner, or (Cursor) has no CLI installed is skipped,
+    so a consumer without a key simply has a shorter chain.
+    """
+    payload = _backup_config()
+    if payload is None:
+        return []
+    chain = payload.get("capacity_backup_chain")
+    blocks = [payload.get("capacity_backup"), *(chain if isinstance(chain, list) else [])]
+    return [entry for entry in map(_backup_entry, blocks) if entry is not None]
 
 
 def _with_capacity_backup(
@@ -8822,17 +8935,25 @@ def _with_capacity_backup(
     exhausted = [index for index, result in enumerate(results) if capacity_exhausted(result)]
     if len(exhausted) != 1 or len(results) != 2:
         return results
-    backup = capacity_backup()
-    if backup is None:
+    backups = capacity_backups()
+    if not backups:
         return results
-    client, provider, model = backup
     index = exhausted[0]
     failed = results[index]
-    result = runner.run_single(client, provider, model)
+    earlier: list[str] = []
+    for position, (client, provider, model) in enumerate(backups):
+        result = runner.run_single(client, provider, model)
+        usable = result.used_llm and not result.error
+        if usable or position == len(backups) - 1:
+            break
+        earlier.append(
+            f"{provider}/{model}: {_compact_text(result.error or 'no usable verdict', 120)}"
+        )
     result.change_type = change_type
-    result.capacity_backup_for = (
-        f"{failed.provider_used}/{failed.model}: {_compact_text(failed.error or '', 200)}"
-    )
+    note = f"{failed.provider_used}/{failed.model}: {_compact_text(failed.error or '', 200)}"
+    if earlier:
+        note += " | earlier backups failed: " + "; ".join(earlier)
+    result.capacity_backup_for = note
     return [*results[:index], result, *results[index + 1 :]]
 
 

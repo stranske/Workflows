@@ -259,6 +259,12 @@ The standard comparison capacity backup uses the same effective slot-config path
 as primary clients, including `LANGCHAIN_SLOT_CONFIG`. An explicit empty or
 unavailable configuration, or one that omits or disables `capacity_backup`,
 prevents backup execution; it never falls back to the bundled backup settings.
+The backups are tried in order, `capacity_backup` first and then each entry of
+`capacity_backup_chain` (2026-11-11: Muse Spark, then Gemini 4 Carbon on the
+verifier-only `VERIFIER_GEMINI_API_KEY`, then the Cursor CLI in ask mode on
+`CURSOR_API_KEY`). A backup with no key on the runner, or Cursor without its CLI,
+is skipped. The first usable verdict stands in for the exhausted judge;
+`capacity_backup_for` names the exhausted judge and any backup that failed first.
 
 Semantic evaluation responses keep `summary` as the canonical scalar string API.
 The parser also accepts only one observed provider transport alternate: a non-empty
