@@ -1,0 +1,85 @@
+[
+  {
+    "argv": [
+      "node",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "started_at": "2026-11-09T02:25:31.576180+00:00",
+    "completed_at": "2026-11-09T02:25:31.647337+00:00",
+    "wall_seconds": 0.0711605079999913,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "log": "4558-round11-observer-tests.log",
+    "log_sha256": "3afdcfc2fc3e6b6210d729318aad0c7a62546dbbc4f510e3f91d489bcc6901ff"
+  },
+  {
+    "argv": [
+      "node",
+      "--check",
+      "docs/evidence/issue-4369/observe-maint68.js"
+    ],
+    "started_at": "2026-11-09T02:25:31.647422+00:00",
+    "completed_at": "2026-11-09T02:25:31.673732+00:00",
+    "wall_seconds": 0.02632291999998415,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "log": "4558-round11-observer-syntax.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "argv": [
+      "node",
+      "--check",
+      "tests/scripts/test_issue_4369_origin_observation.js"
+    ],
+    "started_at": "2026-11-09T02:25:31.673806+00:00",
+    "completed_at": "2026-11-09T02:25:31.700479+00:00",
+    "wall_seconds": 0.026685402999987673,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "log": "4558-round11-tests-syntax.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "docs/evidence/issue-4369/runtime-4550/4558-round11-origin-inventory.json"
+    ],
+    "started_at": "2026-11-09T02:25:31.700525+00:00",
+    "completed_at": "2026-11-09T02:25:31.729734+00:00",
+    "wall_seconds": 0.029222846999971352,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "log": "4558-round11-single-cli.log",
+    "log_sha256": "4898e92d4eb2f8b22a39a4902b0712826fa79854ee904f18cae13e18733cb22d"
+  },
+  {
+    "argv": [
+      "node",
+      "docs/evidence/issue-4369/observe-maint68.js",
+      "/tmp/issue-4558-round11-sequence.json"
+    ],
+    "started_at": "2026-11-09T02:25:31.729804+00:00",
+    "completed_at": "2026-11-09T02:25:31.761602+00:00",
+    "wall_seconds": 0.03181137599995054,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "log": "4558-round11-sequence-cli.log",
+    "log_sha256": "1dc1379a9445693802f275d331142024cf922a9f7a9ad32f081f388d23b90e9b"
+  },
+  {
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "started_at": "2026-11-09T02:25:31.761654+00:00",
+    "completed_at": "2026-11-09T02:25:31.780153+00:00",
+    "wall_seconds": 0.018512734000012188,
+    "bound_seconds": 120,
+    "exit_code": 0,
+    "log": "4558-round11-diff-check.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

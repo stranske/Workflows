@@ -1,0 +1,39 @@
+{
+  "git_add": {
+    "exit_code": 128,
+    "stderr": "fatal: Unable to create '/home/runner/work/Workflows/Workflows/.git/index.lock': Read-only file system",
+    "commit_succeeded": false,
+    "push_succeeded": false
+  },
+  "remote": {
+    "label": {
+      "content": [
+        {
+          "type": "text",
+          "text": "MCP tool call requires approval, but approval policy is never"
+        }
+      ],
+      "isError": true
+    },
+    "comment": {
+      "content": [
+        {
+          "type": "text",
+          "text": "MCP tool call requires approval, but approval policy is never"
+        }
+      ],
+      "isError": true
+    }
+  },
+  "pr_body_update": {
+    "succeeded": false,
+    "reason": "MCP tool call requires approval, but approval policy is never"
+  },
+  "pr_readback": {
+    "number": 4558,
+    "state": "open",
+    "isDraft": false,
+    "head": "60e0985b655311222259bee533fd936eb362f8ed",
+    "url": "https://github.com/stranske/Workflows/pull/4558"
+  }
+}

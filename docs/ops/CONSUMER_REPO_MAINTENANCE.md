@@ -1,5 +1,74 @@
 # Consumer Repository Maintenance Guide
 
+## Canceled ordinary Agents Guard recovery
+
+For a sealed generated PR with a missing or failed qualified
+`Health 45 Agents Guard / guard` context, Maint 71 inspects the original
+`pull_request` event on the exact current head. Only a terminal cancellation
+with a complete zero-job attempt may request a full rerun of that original
+event. Label-triggered `pull_request_target` results cannot replace it.
+Changed heads, active Guard writers, partial or unreadable inventories, failed
+or security-held runs and cancellations with jobs do not authorize this repair.
+
+A trusted PR comment binds each rerun claim to repository, PR, head, original
+run/attempt and frozen plan/source. It is written before the non-retried API
+request. Later rounds retain that claim and reread the original attempt instead
+of posting again. An uncertain response never releases a claim. Its drain is
+readback of the original attempt and durable native request report; admission or
+publication failures require repair of the named original workflow step. Three
+successive canceled attempts require workflow-admission repair and a new PR
+event. A real current-attempt PR-qualified success is required before recovery
+clears; neither a rerun request nor an ordinary workflow success grants merge.
+Inspection also covers a raw Guard result without its qualified context, even
+when branch protection names only Gate: a label event's successful `guard` job
+can otherwise conceal the canceled ordinary event. This does not add a new
+required-context policy; the original-event proof still controls any request.
+Actionable refusal hints reach the handoff without replacing independent check
+or review blockers. Recovery always uses the writer mutex, including reusable
+calls inherited from a review-reassessment event.
+
+The optional `agents_guard_recovery_json` Maint 71 input accepts up to ten exact
+`repository`, `pr` and `head_sha` targets. It runs only from deployed `main`,
+shares the native stable-PR writer mutex, saves an `agents-guard-recovery`
+artifact and skips the normal merge/source-refresh job. `dry_run` inspects
+without writing. This bounded mode supports operational verification and repair
+without advancing another delivery's lifecycle.
+
+## Legacy canary history reconciliation
+
+A terminal historical UNKNOWN is retained as UNKNOWN. It no longer blocks a
+scoped refresh solely because its old native artifact is incomplete when a
+later accepted baseline accounts for the selected files in every canary.
+Its authenticated compiled plan must deliver those paths for that repository;
+unselected, excluded and create-only preserved files do not establish coverage.
+The native reader verifies the original attempt versions, the latest merged
+signed native canary PRs and their authenticated producer/plan bindings, merge
+ancestry, current default-tree blobs and modes, stable refs and active writers.
+The baseline merge must follow every covered attempt's terminal observation.
+Changed or retired files, missing evidence, a rerun or active writer fail closed.
+
+Coverage is a process-local observation bound to the current request and payload;
+saved reports and caller-supplied flags cannot grant admission. Current refs and
+attempts are reread before the observation is accepted. A newer open delivery
+for another source/plan remains its own blocker, with the drain to follow that
+existing delivery rather than replace it. Reconciliation never rewrites an old
+receipt, declares cancellation to mean no writes, releases a lock or reopens a
+completed campaign. Diagnostics report historical UNKNOWNs, baseline coverage
+and current ownership separately.
+
+Maint 71 caches positive terminal Maint 68 receipts across its steps and later
+trusted default-branch runs. Current Actions run inventory is still read; a new
+attempt, head or update invalidates the cached receipt. Active or unknown
+outcomes are never cached as completed. Cache keys include repository, canary
+roster, default branch and reader version; corrupt entries fall back to native
+verification. This does not discard old unknown writers or expire their custody.
+
+Saved refresh diagnostics deduplicate historical run lists and retain compact
+run/attempt/head/disposition records. Compiled plan bodies are referenced by
+identity and digest; their original producer artifact ID and archive digest
+remain in the receipt. These diagnostic references do not authorize mutations:
+the executor uses the complete live/native state before serialization.
+
 This document outlines the process for maintaining workflow system consistency across consumer repositories and debugging issues that may affect multiple repos.
 
 ## Integration repository manifest subset
@@ -64,6 +133,16 @@ code. This supplies test imports without allowing the installed head to mask bas
 behavior.
 
 ## Delivery scope and production checks
+
+Maint 71 unscoped and `dev-tool` reports account for recent trusted same-repository
+`deps/sync-dev-versions-*` candidates, including merged and closed-unmerged PRs.
+A read-only GraphQL search per target follows cursors for at most three pages
+(100 candidates per page, 300 total), de-duplicating repeated PRs. The JSON
+report retains these observations under `dev_tool_candidates`; repository-qualified
+disposition lines appear in both the run log and job summary. Unavailable or
+truncated history is explicitly marked and cannot establish `none open`.
+These historical observations do not enter merge selection, branch cleanup,
+handoffs, or counts of actions performed by the current run.
 
 Sync and dev-tool/dependency maintenance distribute a fixed source revision and
 payload to a finite consumer roster. Main advancing or a new incidental finding
@@ -215,8 +294,14 @@ is empty. Substituting the row's identity cannot renew another delivery's eviden
 
 Required checks, approvals, security, delivery integrity and branch protection
 remain independent gates. GitHub may still require all conversations resolved
-after the relevance contract accepts an unrelated handoff. A refused merge is
-reported as `merge_blocked_repository_policy` when GitHub names that condition;
+after the relevance contract accepts an unrelated handoff. Maint 71 reads the
+applicable active branch rules and legacy protection when unresolved threads
+remain, including outdated conversations. Both fleet preparation and the final
+exact-head boundary refuse before merge when resolution is required. Unknown
+policy reads retain an explicit retry action; a resolved inventory needs no
+policy read. The drain is the worker's evidence-backed disposition and truthful
+thread resolution, never treating `isOutdated` as `isResolved`. A refused merge is
+also reported as `merge_blocked_repository_policy` when GitHub names comments or conversations;
 there is no admin bypass or automatic resolution. This correction neither clears
 the existing shared-code blockers nor adds a campaign #1836 prerequisite, opens
 a campaign, or authorizes any consumer message or modification.
@@ -225,6 +310,31 @@ Maint82 retains its bounded ten-minute continuation sweep: consumer CI completio
 does not yet provide a native event wakeup for every delivery stage. The local
 worker follows active CI in the same run; the sweep is recovery and does not
 license dormant actionable work. Closed campaigns stay closed.
+Maint 82 compares active Maint 71 continuation titles after collapsing whitespace,
+because native run names may contain a newline before the continuation key.
+Maint 71 uses the existing repository-dispatch path to announce a completion
+run ID; the notification itself grants no authority. Maint 82 reads the exact
+canonical run if absent from the bounded history page. An early wake retains
+the pending run ID in the campaign marker until terminal success or failure;
+only observed success can acknowledge a key. Successful exact-key acknowledgments
+are persisted in the existing campaign marker for as long as that key remains
+queued. They survive process restarts and workflow-history eviction; replaced
+or terminal intents retire their acknowledgments. Only successful canonical
+Maint 71 runs on the default branch can supply them. Failed attempts and new
+material-state/due keys remain eligible. Acknowledged rows are removed before
+lane selection so they cannot starve a newer due key. The same observed history
+is reused for active-writer checks. Completed delivery does not count as an
+active writer for candidate priority.
+
+Maint 68 checks frozen source identity before honoring `force`. An unbound
+refresh of an existing same-plan signed candidate inherits that candidate's
+source and requests an exact-plan replay before any consumer mutation. Every
+downstream job in the replay therefore uses the frozen source; tooling revision
+is reported separately. An explicit expected-plan/source tuple remains the
+supported recovery input, including correction of a wrongly bound candidate.
+`force` bypasses the content-digest guard only. It cannot implicitly select a
+new release source merely because Workflows main advanced.
+
 
 ## Post-merge verifier security boundary
 
@@ -687,11 +797,13 @@ a PR comment require comment evidence. Passive product uploads through a UI or
 by an application actor do not require GitHub workflow artifacts; a separate
 review-evidence instruction still applies.
 
-Common `submit`, `deliver` and `report` evidence verbs normalize through the same
-obligation, optionality, negation, literal and destination rules as `record`.
+Common `submit`, `deliver`, and finite `report`, `reports`, `reported`, and
+`reporting` evidence verbs normalize through the same obligation, optionality,
+negation, literal and destination rules as `record`.
 The same shared alias mapping also precedes passive actor binding: supplied,
-shared, written, placed, submitted, delivered, pasted and put retain an explicit
-reviewer or product actor before or after the complete destination list.
+shared, written, placed, submitted, delivered, reported, pasted and put retain
+an explicit reviewer or product actor before or after the complete destination
+list.
 Human AND/OR deliveries and product-component alternatives retain independent
 reviewer/artifact obligations and actual missing/unavailable-channel floors;
 canonical recorded, optional, prohibited and quoted controls remain unchanged.
@@ -1699,6 +1811,15 @@ generation. Source observation times are ordered across the whole PR, not
 only within one generation.
 A retained nonterminal record whose live open PR moved to a new head is also
 withheld from continuation until its owner publishes a matching handoff.
+For a trusted same-repository dev-tool PR on the same generated branch, Maint 82
+also persists a scoped current-head reconciliation request. It preserves the old
+handoff identity and grants no seal, merge, or source authority. Maint 71 reads
+and validates the replacement through its normal native path. Forks, drafts,
+unknown identities, and full-sync source changes do not gain this wake-up.
+The request key binds head, consumer base, and mergeability; successful native
+receipts remain acknowledged while that request is queued. Fresh matching
+handoffs and closure retire it. Maint 82 dispatches one due writer per sweep and
+leaves all other intents durable while a Maint 71 writer is active or queued.
 `campaign_prepared` delivery records are stored as terminal evidence but
 schedule campaign authorization; Maint 82 therefore verifies their live open
 PR and reconciles closure before scheduling that continuation.
@@ -2080,7 +2201,20 @@ already terminal evidence and needs no PR mutation. Promotion-produced
 `no-change-delivery` evidence carries an explicit exact-tree validation marker;
 Maint 71 rechecks its immutable plan/source binding and recorded default-branch
 head, then treats it as terminal without dispatching a redundant Gate for an
-unchanged repository. Canary no-change evidence retains the live required-check
+unchanged repository. When that recorded head is no longer current, the
+evidence may carry over to the live head under one condition. The live head
+must strictly descend from the recorded one (compare status `ahead`, merge base
+equal to the recorded head). The compare must list fewer than 300 files. No
+changed file, including a rename's old name, may be one the exact plan manages:
+an entry target, a file under a directory target, a removal, a `requires` path,
+or `.gitignore`. That path set is compiled from the plan's own source commit
+and must hash to the expected plan id
+(`scripts/campaign_plan_managed_paths.py`). Maint 68 reads a consumer only at
+those paths, so the no-change verdict still holds. The row records
+`no_change_carried_from`. Any refusal keeps `target_missing` and names its
+`carry_over_refusal`. Before this rule, a consumer whose main moved every few
+minutes held every campaign merge (2026-11-11: Orchestrator, two failed passes
+while four sync PRs sat CLEAN). Canary no-change evidence retains the live required-check
 revalidation that authorized promotion. If a required PR-only context is absent
 from the current default commit, Maint 71 can use its actual merged PR's checked
 head only after native reads prove the exact merge SHA, same repository/base,
@@ -3144,6 +3278,13 @@ rechecks the new exact head, required checks, review threads, mergeability, and
 seven-minute review window. An active producer run or missing API evidence is a
 held handoff, not permission to overwrite the lease or merge the stale head.
 
+Producer refresh retains the original `source_commit`. Maint 71 groups requests
+by that immutable SHA and dispatches one group at a time using Maint 52's
+`source_sha` input; other groups remain in the durable handoff. Maint 52 checks
+out that exact source for its pin file, propagation script and wave hash, then
+regenerates against the current consumer base. Omitting `source_sha` selects the
+trigger's source commit for a new wave. A moving ref or malformed SHA is rejected.
+
 For a tool-only `pyproject.toml` with no package declaration (as in Orchestrator),
 Maint 52 leaves the file's tool configuration alone instead of adding
 `[project.optional-dependencies]`. It still synchronizes any supported direct
@@ -3608,6 +3749,22 @@ Coordinated negative subjects use shared descriptor-aware URL tokens and a bound
 
 ### Stable canary refresh clock
 
+Review-blocked canaries route each active synced-file finding to the latest
+merged Workflows PR in that manifest source path's history, including when newer
+changes were direct commits. The lookup paginates past direct commits; only a
+path with no merged source PR falls back to a comment on its newest commit.
+Existing authenticated-writer markers suppress duplicate comments on retries.
+Each comment links the consumer thread; the original finding remains blocking.
+
+Maint 71 counts stale producer observations independently of overlapping check
+and review blockers. A bound review snapshot does not suppress the stale count:
+an old review-blocked canary contributes to both `review_blocked` and `stale`.
+Healthy green canaries and expected pre-seal Gate holds retain their existing
+age exemptions.
+An unreadable live default-branch tip does not erase known blocker counts or
+the held plan from the summary. Refresh for that plan stays blocked, including
+requests from its siblings, and the live-tip read error still fails the run.
+
 Full-scope report refreshes retain the verified campaign source commit and pass
 its expected plan ID to Maint 68. The in-loop stable refresh does the same
 when the canary carries that sha256 plan and source, including when current
@@ -3630,6 +3787,14 @@ A held or failed dispatch emits no success receipt. This receipt is not
 production completion. Confirm the next Maint 71 run reaches the review/seal
 path without an identity mismatch.
 
+A canary row with no candidate PR (`candidate_pr_and_no_change_evidence_missing`,
+for example after a subset or source-delta plan opened a candidate in only one
+canary) has no native subject to derive a plan from. When every refresh row is of
+that shape, Maint 71 requests one full, unfiltered canary run from the default
+branch through the same refresh guard (debounce, active writer, unchanged digest)
+and prints `candidate refresh: no candidate PR for <repos>`. Any other row without
+an authenticated subject still fails with `canary_refresh_report_subject_unknown`.
+
 
 Maint 71 uses `STALE_CANARY_HOURS = 6` against the producer's
 `head_observed_at` to recover blocked or non-mergeable canaries. Green,
@@ -3639,7 +3804,10 @@ successful verified unchanged-base/tree run too, preserving its review
 lifecycle and head. This canary producer runs while promotion is held; it
 does not require the promotion evidence it helps unblock. Comments do not
 reset the clock. Maint 71 groups refresh reasons by plan, but dispatches at
-most one configured-candidate refresh per invocation. Full-scope refresh keeps
+most one configured-candidate refresh per invocation. A consumed recovery for
+one canary's payload/head or live tip/head does not suppress a sibling's new
+recovery key in that plan; active writers still hold the entire candidate set.
+Full-scope refresh keeps
 its existing **rendered delivery digest** identity across source SHAs.
 `scripts/consumer_delivery_digest.py:delivery_digest` hashes full delivery intent
 for refresh, Maint 68 preparation, and the seal writer.
@@ -3736,8 +3904,11 @@ and no `Sync <repo>` job started (rate limit, or a runner or transport failure
 before any consumer job). A second consecutive infrastructure failure for the
 same key keeps the six-hour debounce, as does any run whose consumer sync jobs
 ran and failed. `canaryRefreshDiagnostics` records each classified run as
-`infrastructure` or `consumer` without native error text. Missing job evidence
-keeps the six-hour hold. Source-delta, dry-run, other-branch or
+`infrastructure` or `consumer` without native error text. A cancelled run whose
+jobs show no `Sync <repo>` job started, or whose receipt says it never started, is
+not an attempt and never holds the next refresh; the stable-writer queue replaces
+pending Maint 68 runs, and such a run is reported as `cancelled_before_sync`.
+Missing job evidence keeps the six-hour hold. Source-delta, dry-run, other-branch or
 subset runs cannot supply full-set success. No canary uses `pulls.updateBranch`.
 Producer success never substitutes for passing consumer CI, settled review,
 valid signatures or an exact-head sealed Gate before promotion/merge.
@@ -3795,6 +3966,14 @@ unchanged. This prospective classification does not change a retained
 
 ### Scoped refresh refusal diagnostics
 
+Maint 71 preflights every requested report subject before native API reads.
+Absent or invalid PR/head identities emit `canary-refresh-subject-refusal` in
+the log and step summary, with blocking counts, zero drainable requests, and
+at most eight configured repository names and fixed refusal reasons. Unknown
+repository text is omitted. The original refusal code remains unchanged; the
+owner must recover the missing subjects without borrowing another candidate's
+identity or treating this diagnostic as delivery evidence.
+
 The content refresh guard and recovery controller emit `canary-refresh-diagnostics`
 notices and step summaries for scoped requests. These identify the blocking native
 run and attempt, source-owned refusal code, available plan/source identities and
@@ -3844,3 +4023,39 @@ Each stage repeats the native check inventories and head/linkage reads. A presen
 failed, pending or unknown required context remains blocking. Generated delivery
 PRs and their final merge guard continue to require their own exact-head checks;
 this no-change fallback does not apply to them.
+
+### Maint 71 inventory when REST is exhausted
+
+Maint 71 retries PR inventory through the separately budgeted GraphQL interface
+when REST reports primary rate-limit exhaustion after credential rotation. The
+fallback paginates every open PR and retrieves the latest closed stable candidate
+and delivery heads needed for recovery. It preserves exact PR/head/base identity,
+author, lifecycle body and labels; an incomplete identity or label inventory is an
+error, never an empty or ready result. Permission errors and secondary limits do
+not invoke this fallback. Subsequent delivery operations retain their existing
+required checks, source/plan bindings and merge guards; inventory fallback alone
+does not authorize a merge or claim that REST-only operations are available.
+
+## Reusing completed Gate job measurements
+
+Health 85 refreshes the completed-run inventory daily, then reuses fully observed job snapshots for the exact repository, run ID, attempt, head SHA and update revision. Changed attempts/updates, incomplete jobs and invalid cache records require a fresh read. Failed reads never become successful measurements. The Actions cache retains completed snapshots even when another repository's measurement fails, reducing repeated job-list reads across daily runs. The ten-minute target and seven consecutive genuine daily measurements are unchanged.
+
+## Idempotent sync branch cleanup
+
+GitHub may delete a merged sync branch before Maint 71's explicit cleanup. On a delete 404/422, Maint 71 re-reads the ref and confirms repository access. Only a missing ref with accessible repository is reported as successful cleanup (`branch_deleted`, `already_absent: true`). An existing/protected ref, inaccessible repository or uncertain write remains a failure. Dry runs and all publication/merge gates retain their existing behavior.
+
+## Starting a missing required Python matrix
+
+When a generated delivery declares required Gate Python contexts that never started, a successful ordinary PR Gate can still have skipped its Python parent job. Maint 71 requests the supported exact-head `pr-00-gate.yml` dispatch with that PR number instead of repeatedly rerunning the same skipped PR event. It preserves the current source, plan, seal and all mandatory checks. An active PR Gate or an existing same-head dispatch is reused; a completed dispatch does not authorize merging while a required context remains absent. This recovery applies only to the declared `python ci ... / python X.Y` contexts, and keeps other missing requirements unchanged.
+
+### Health85 sustained evidence
+
+The existing daily Health85 workflow retains source-bound `daily_observations` in
+`ci-time-budget:docs/reports/ci-budget.json`. `python -m scripts.health85_followup
+--apply` evaluates seven genuine dated trailing-seven-day Gate p50s (<=600s),
+confirms completed native run identities, records the same series on #4284, and
+opens one ready evidence PR for #4501. Normal CI/review/closer guards deliver it.
+The next daily invocation reconciles completed sources; its own in-progress run
+cannot certify itself. Missing dates, failed reads, and over-target values remain
+incomplete. Numeric history without native sources cannot qualify. The command
+without `--apply` supports a bounded local report check and writes no GitHub state.

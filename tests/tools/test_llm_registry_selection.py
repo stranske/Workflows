@@ -556,6 +556,41 @@ def test_selection_evidence_ids_ignore_non_strings(
     assert decision.evidence_ids == ("benchmark-1",)
 
 
+@pytest.mark.parametrize("use_missing_slot_config", [False, True], ids=["defaults", "missing-file"])
+@pytest.mark.parametrize("github_default_model", ["", "legacy-github-model"])
+def test_default_routing_excludes_github_even_with_a_legacy_active_selection(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    use_missing_slot_config: bool,
+    github_default_model: str,
+) -> None:
+    """Default routing must not rely on the consumer having received registry retirement."""
+    registry_path = tmp_path / "registry.json"
+    _write_registry(registry_path)
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    for provider, model in (
+        (registry.PROVIDER_ANTHROPIC, "anthropic-reviewed"),
+        (registry.PROVIDER_GITHUB, "github-reviewed"),
+    ):
+        payload["models"].append({"provider": provider, "model_id": model, "lifecycle": "current"})
+        payload["selections"].append(
+            {**payload["selections"][0], "provider": provider, "model_id": model}
+        )
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setenv(registry.ENV_MODEL_REGISTRY_CONFIG, str(registry_path))
+    monkeypatch.delenv(registry.ENV_SLOT_CONFIG, raising=False)
+    monkeypatch.setattr(registry, "DEFAULT_SLOT_CONFIG_PATH", tmp_path / "missing-slots.json")
+
+    assert registry.select_model_for_profile(provider=registry.PROVIDER_GITHUB) == "github-reviewed"
+    loader = registry.load_slot_config if use_missing_slot_config else registry.default_slots
+    slots = loader(github_default_model=github_default_model)
+
+    assert [(slot.name, slot.provider, slot.model) for slot in slots] == [
+        ("slot1", registry.PROVIDER_OPENAI, "model-balanced"),
+        ("slot2", registry.PROVIDER_ANTHROPIC, "anthropic-reviewed"),
+    ]
+
+
 def test_default_slots_keep_provider_positions_when_a_selection_is_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -28,7 +28,9 @@ def test_gate_workflow_matches_recorded_coverage_command() -> None:
         'python-versions: \'["3.13", "3.14"]\'',
         "pytest-workers: '4'",
         'marker: "not quarantine and not slow"',
-        'pytest_args: "-n auto --dist load"',
+        # Since Workflows#3904 the coverage call ignores the three verifier grammar
+        # suites, which python-ci-grammar runs without coverage.
+        'pytest_args: "-n auto --dist load --ignore=tests/scripts/test_pr_verifier_',
         "coverage-min: '70'",
         "artifact-prefix: 'gate-'",
     )
@@ -64,7 +66,7 @@ def test_gate_workflow_matches_recorded_coverage_command() -> None:
         'python-versions: \'["3.13", "3.14"]\'',
         "pytest-workers: '4'",
         'marker: "not quarantine and not slow"',
-        'pytest_args: "-n auto --dist load"',
+        'pytest_args: "-n auto --dist load --ignore=tests/scripts/test_pr_verifier_',
         "coverage-min: '70'",
         "artifact-prefix: 'gate-'",
     )

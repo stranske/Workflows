@@ -1,0 +1,167 @@
+{
+  "checked_at": "2026-11-09T09:17:00.743364+00:00",
+  "checked_head": "6ed58ebddc63a829d0eaefd9e7550e097a9b849a",
+  "commands": [
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3",
+        "artifacts/issue-3988/collect_observations.py",
+        "--from-saved"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"numerator\": 17, \"denominator\": 51, \"non_codex_share\": 0.3333333333333333, \"complete_coverage\": true, \"acceptance_metric\": {\"definition\": \"First routing label identifies a non-Codex provider; agent:auto is not credited. Same-second mixed labels use conservative bounds.\", \"numerator\": 13, \"denominator\": 51, \"share\": 0.2549019607843137, \"numerator_upper_bound\": 13}, \"verdict\": \"FAIL\"}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        "tests/scripts/test_agent_delegation_policy_intake.js"
+      ],
+      "exit_code": 0,
+      "stdout": "\u2714 source: top pool shed and next exhausted -> highest remaining ok agent (1.890334ms)\n\u2714 source: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.186375ms)\n\u2714 source: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.093083ms)\n\u2714 source: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.087375ms)\n\u2714 source: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.148959ms)\n\u2714 source: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.078083ms)\n\u2714 source: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.072541ms)\n\u2714 source: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.075375ms)\n\u2714 source: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.096708ms)\n\u2714 source: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.148875ms)\n\u2714 source: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.079417ms)\n\u2714 source: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.059833ms)\n\u2714 source: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.0555ms)\n\u2714 template: top pool shed and next exhausted -> highest remaining ok agent (0.376417ms)\n\u2714 template: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.072625ms)\n\u2714 template: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.099209ms)\n\u2714 template: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.069542ms)\n\u2714 template: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.066584ms)\n\u2714 template: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.069917ms)\n\u2714 template: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.058541ms)\n\u2714 template: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.072291ms)\n\u2714 template: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.056708ms)\n\u2714 template: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.06ms)\n\u2714 template: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.051833ms)\n\u2714 template: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.040583ms)\n\u2714 template: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.039ms)\n\u2714 source: explicit false preserves insufficient-evidence reason and configured default (0.051334ms)\n\u2714 source: intake evidence string \"false\" (0.061875ms)\n\u2714 source: intake evidence missing (0.031708ms)\n\u2714 source: intake evidence boolean false (0.0265ms)\n\u2714 source: intake evidence null (0.027584ms)\n\u2714 source: intake evidence number zero (0.0285ms)\n\u2714 source: intake evidence number one (0.035125ms)\n\u2714 source: intake evidence string \"true\" (0.028375ms)\n\u2714 source: intake evidence boolean true (0.04025ms)\n\u2714 template: explicit false preserves insufficient-evidence reason and configured default (0.026167ms)\n\u2714 template: intake evidence string \"false\" (0.027416ms)\n\u2714 template: intake evidence missing (0.040083ms)\n\u2714 template: intake evidence boolean false (0.025625ms)\n\u2714 template: intake evidence null (0.022334ms)\n\u2714 template: intake evidence number zero (0.021167ms)\n\u2714 template: intake evidence number one (0.020875ms)\n\u2714 template: intake evidence string \"true\" (0.020875ms)\n\u2714 template: intake evidence boolean true (0.029708ms)\n\u2714 ok pools -> highest posterior wins (0.079084ms)\n\u2714 top pool shed -> next agent (0.048833ms)\n\u2714 export stale -> static default (0.089459ms)\n\u2714 no runner -> skipped using the shipped registry (2.518667ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: empty input preserves the chooser default (6.79025ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: ok top pool selects and summarizes the eligible default (1.02975ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: shed top pool selects and summarizes the eligible default (1.067166ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.707875ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: explicit input bypasses the chooser (0.321625ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: require failure warns and retains static default (0.386667ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: registry failure warns and retains static default (0.306542ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: fetch failure warns and retains static default (0.811208ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: null-export failure warns and retains static default (3.384666ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: chooser failure warns and retains static default (0.752459ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: agent:auto remains a routing label (1.024292ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: empty input preserves the chooser default (0.749459ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: ok top pool selects and summarizes the eligible default (0.58375ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: shed top pool selects and summarizes the eligible default (0.488041ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.452917ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: explicit input bypasses the chooser (0.098167ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: require failure warns and retains static default (0.152167ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: registry failure warns and retains static default (0.119833ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: fetch failure warns and retains static default (0.47ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: null-export failure warns and retains static default (0.470083ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: chooser failure warns and retains static default (0.459625ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: agent:auto remains a routing label (1.235584ms)\n\u2714 root preflight still requires exactly one agent label (2.155166ms)\n\u2714 root bridge dispatch retains normalized bridge input precedence (0.205833ms)\n\u2714 preflight-disabled muse cannot win intake using the shipped registry (0.544ms)\n\u2714 preflight-disabled gemini cannot win intake using the shipped registry (0.345791ms)\n\u2139 tests 74\n\u2139 suites 0\n\u2139 pass 74\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 100.945625\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        ".github/scripts/__tests__/agent-delegation-policy-intake.test.js"
+      ],
+      "exit_code": 0,
+      "stdout": "\u2714 source: top pool shed and next exhausted -> highest remaining ok agent (1.508ms)\n\u2714 source: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.186083ms)\n\u2714 source: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.09125ms)\n\u2714 source: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.092375ms)\n\u2714 source: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.146875ms)\n\u2714 source: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.0765ms)\n\u2714 source: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.073709ms)\n\u2714 source: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.07525ms)\n\u2714 source: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.095625ms)\n\u2714 source: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.148542ms)\n\u2714 source: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.081958ms)\n\u2714 source: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.063833ms)\n\u2714 source: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.058583ms)\n\u2714 template: top pool shed and next exhausted -> highest remaining ok agent (0.377917ms)\n\u2714 template: orchestrator.route-weights/v1 absent capacity still picks by posterior (0.078833ms)\n\u2714 template: orchestrator.route-weights/v1 empty capacity still picks by posterior (0.075416ms)\n\u2714 template: orchestrator.route-weights/v1 partial capacity still picks by posterior (0.069916ms)\n\u2714 template: orchestrator.route-weights/v1 published shed capacity overrides ranking ok hints (0.068708ms)\n\u2714 template: orchestrator.route-weights/v1 published exhausted capacity overrides ranking ok hints (0.067583ms)\n\u2714 template: orchestrator.route-weights/v1 published unknown capacity overrides ranking ok hints (0.057125ms)\n\u2714 template: orchestrator.route-weights/v2 absent capacity still picks by posterior (0.074334ms)\n\u2714 template: orchestrator.route-weights/v2 empty capacity still picks by posterior (0.060291ms)\n\u2714 template: orchestrator.route-weights/v2 partial capacity still picks by posterior (0.056709ms)\n\u2714 template: orchestrator.route-weights/v2 published shed capacity overrides ranking ok hints (0.058875ms)\n\u2714 template: orchestrator.route-weights/v2 published exhausted capacity overrides ranking ok hints (0.04225ms)\n\u2714 template: orchestrator.route-weights/v2 published unknown capacity overrides ranking ok hints (0.037708ms)\n\u2714 source: explicit false preserves insufficient-evidence reason and configured default (0.06125ms)\n\u2714 source: intake evidence string \"false\" (0.061959ms)\n\u2714 source: intake evidence missing (0.031084ms)\n\u2714 source: intake evidence boolean false (0.026875ms)\n\u2714 source: intake evidence null (0.0275ms)\n\u2714 source: intake evidence number zero (0.033041ms)\n\u2714 source: intake evidence number one (0.036166ms)\n\u2714 source: intake evidence string \"true\" (0.02875ms)\n\u2714 source: intake evidence boolean true (0.031708ms)\n\u2714 template: explicit false preserves insufficient-evidence reason and configured default (0.037667ms)\n\u2714 template: intake evidence string \"false\" (0.028667ms)\n\u2714 template: intake evidence missing (0.042542ms)\n\u2714 template: intake evidence boolean false (0.023667ms)\n\u2714 template: intake evidence null (0.018833ms)\n\u2714 template: intake evidence number zero (0.024042ms)\n\u2714 template: intake evidence number one (0.019875ms)\n\u2714 template: intake evidence string \"true\" (0.019833ms)\n\u2714 template: intake evidence boolean true (0.030167ms)\n\u2714 ok pools -> highest posterior wins (0.082708ms)\n\u2714 top pool shed -> next agent (0.045458ms)\n\u2714 export stale -> static default (0.094375ms)\n\u2714 no runner -> skipped using the shipped registry (1.715208ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: empty input preserves the chooser default (1.988417ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: ok top pool selects and summarizes the eligible default (1.128792ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: shed top pool selects and summarizes the eligible default (1.101208ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.705167ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: explicit input bypasses the chooser (0.339542ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: require failure warns and retains static default (0.400875ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: registry failure warns and retains static default (0.304625ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: fetch failure warns and retains static default (0.860291ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: null-export failure warns and retains static default (0.617ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: chooser failure warns and retains static default (0.773875ms)\n\u2714 .github/workflows/agents-63-issue-intake.yml: agent:auto remains a routing label (0.928125ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: empty input preserves the chooser default (0.620209ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: ok top pool selects and summarizes the eligible default (0.515292ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: shed top pool selects and summarizes the eligible default (0.427125ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: exhausted top pool selects and summarizes the eligible default (0.406625ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: explicit input bypasses the chooser (0.183875ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: require failure warns and retains static default (0.109625ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: registry failure warns and retains static default (0.092333ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: fetch failure warns and retains static default (0.40375ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: null-export failure warns and retains static default (0.421042ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: chooser failure warns and retains static default (0.423083ms)\n\u2714 templates/consumer-repo/.github/workflows/agents-issue-intake.yml: agent:auto remains a routing label (0.640917ms)\n\u2714 root preflight still requires exactly one agent label (1.991375ms)\n\u2714 root bridge dispatch retains normalized bridge input precedence (0.194209ms)\n\u2714 preflight-disabled muse cannot win intake using the shipped registry (0.522459ms)\n\u2714 preflight-disabled gemini cannot win intake using the shipped registry (0.348333ms)\n\u2139 tests 74\n\u2139 suites 0\n\u2139 pass 74\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 81.091291\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "pr",
+        "checks",
+        "4505",
+        "--repo",
+        "stranske/Workflows"
+      ],
+      "exit_code": 1,
+      "stdout": "Keepalive next task (Codex) / Codex (keepalive)\tfail\t13s\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128286070600\t\nApply verified source issue closure rule\tpass\t10s\thttps://github.com/stranske/Workflows/actions/runs/42333716508/job/128286505780\t\nEvaluate keepalive loop\tpass\t19s\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128285786451\t\nFinish keepalive round\tpass\t22s\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128286167198\t\nGate / gate\tpass\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604366\tAll Gate checks succeeded.\nHealth 45 Agents Guard / guard\tpass\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716474\t[guard-pr:4505] Health 45 Agents Guard passed. [guard-policy-sha256:23cbdc1a22724540970e16fe39fd3c510fe3593ee9c4a0123a51b479d729541b]\nJavaScript Tests\tpass\t29s\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684942\t\nLint, Format & YAML Validation\tpass\t43s\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684931\t\nParse and lint workflows\tpass\t15s\thttps://github.com/stranske/Workflows/actions/runs/42328604179/job/128269630727\t\nPrepare acceptance commands or required merge CI gate\tpass\t15s\thttps://github.com/stranske/Workflows/actions/runs/42333716508/job/128286433745\t\nProduce read-only shadow evidence\tpass\t25s\thttps://github.com/stranske/Workflows/actions/runs/42328604343/job/128269631540\t\nPython Tests\tpass\t3s\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128270052803\t\nResolve Context\tpass\t5s\thttps://github.com/stranske/Workflows/actions/runs/42333716548/job/128285784462\t\nResolve PR\tpass\t10s\thttps://github.com/stranske/Workflows/actions/runs/42333716805/job/128285783929\t\nRun isolated acceptance gates\tpass\t2s\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128285923950\t\nUpsert PR body sections\tpass\t20s\thttps://github.com/stranske/Workflows/actions/runs/42328604286/job/128269631547\t\nValidate sync manifest completeness\tpass\t15s\thttps://github.com/stranske/Workflows/actions/runs/42328604162/job/128269630886\t\nVerify secrets and mark agent running\tpass\t18s\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128285984049\t\nYAML syntax + script imports\tpass\t15s\thttps://github.com/stranske/Workflows/actions/runs/42328604148/job/128269630823\t\ncheck\tpass\t10s\thttps://github.com/stranske/Workflows/actions/runs/42333716508/job/128285784578\t\nclassify changed paths\tpass\t8s\thttps://github.com/stranske/Workflows/actions/runs/42328604160/job/128269630742\t\nclassify changed paths\tpass\t8s\thttps://github.com/stranske/Workflows/actions/runs/42328604170/job/128269630993\t\nclassify changed paths\tpass\t10s\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269631328\t\nclassify changed paths\tpass\t9s\thttps://github.com/stranske/Workflows/actions/runs/42328604268/job/128269631289\t\ndetect changed files\tpass\t12s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269661520\t\ndetect workflow edits\tpass\t4s\thttps://github.com/stranske/Workflows/actions/runs/42328604339/job/128269631295\t\ndocs guard\tpass\t15s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773371\t\nenforce\tpass\t5m18s\thttps://github.com/stranske/Workflows/actions/runs/42328604170/job/128269670601\t\ngate\tpass\t5s\thttps://github.com/stranske/Workflows/actions/runs/42333716682/job/128285783384\t\ngenerated delivery seal\tpass\t8s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269661527\t\ngithub scripts tests\tpass\t35s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773407\t\nguard\tpass\t27s\thttps://github.com/stranske/Workflows/actions/runs/42328604325/job/128269631647\t\nbranch protection sweep\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604339/job/128269661552\t\nsummary\tpass\t31s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128273413040\t\npython ci / python 3.13\tpass\t9m10s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269835217\t\npython ci / python 3.14\tpass\t12m21s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269835088\t\npython ci / lint-ruff\tpass\t13s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269800848\t\npython ci / select reusable CI scope\tpass\t6s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269800759\t\npython ci / typecheck-mypy\tpass\t16s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269800770\t\npython ci / lint-format\tpass\t42s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269800840\t\nKeepalive next task (Gemini)\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128286071355\t\npython ci / Validate inputs\tpass\t5s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773530\t\nledger validation\tpass\t48s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773478\t\ntest-quality\tpass\t1m1s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773369\t\nstranske-pdf-extract package tests\tpass\t14s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773528\t\nKeepalive next task (Claude)\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128286071306\t\nResume keepalive after Gate\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604286/job/128269632810\t\nissue consistency\tpass\t11s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269749242\t\nprivilege environment gate\tpass\t2s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269749355\t\nGate tracker replay receipt\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269632466\t\nDetect keepalive round comments\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604286/job/128269633476\t\nstranske-pdf-extract package tests\tpass\t13s\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684907\t\nslow compatibility (3.14)\tpass\t1m17s\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684928\t\nslow compatibility (3.13)\tpass\t53s\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684876\t\nApply admitted correction\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716469/job/128285785815\t\nDispatch keepalive orchestrator\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604286/job/128269633735\t\nSemgrep\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604268/job/128269678415\t\nguard\tpass\t16s\thttps://github.com/stranske/Workflows/actions/runs/42333716474/job/128285784409\t\nvalidate\tpass\t20s\thttps://github.com/stranske/Workflows/actions/runs/42328604304/job/128269631213\t\nCodeQL\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604160/job/128269673435\t\nKeepalive next task (Muse)\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128286071546\t\npython ci / logs summary\tpass\t10s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128273181598\t\nKeepalive next task (Cursor)\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128286071629\t\nReview agent progress alignment\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716896/job/128285925507\t\nCodeRabbit\tskipping\t0\thttps://coderabbit.ai?utm_source=cr_app&utm_medium=github\t\nauto-pilot\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716682/job/128285896387\t\nautofix\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716548/job/128285894969\t\nresolve Gate PR context\tpass\t5s\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269632107\t\nverifier / Run post-merge verifier\tpass\t2m5s\thttps://github.com/stranske/Workflows/actions/runs/42333716508/job/128285896728\t\nRecord autofix dispatch completion\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716548/job/128285896070\t\nHandle bot comments\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716805/job/128285917794\t\nCleanup\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716805/job/128285917729\t\ncanonical Python suite\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269686792\t\ncollect-correction\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716469/job/128285816515\t\ncomment_event_context\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604286/job/128269633002\t\ncontract\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716523/job/128285785422\t\ncreate-issue\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716494/job/128285786033\t\ncreate-new-pr\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716469/job/128285785153\t\ndocker smoke\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604366/job/128269774809\t\nformat-pause-wakeup\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716682/job/128285896335\t\ngate_event_context\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604286/job/128269633169\t\ngate_no_pr_summary\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604286/job/128269632818\t\nreclaim stale belt claims\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604339/job/128269661627\t\nunauthorized-promotion-marker\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716523/job/128285785725\t\nverifier / Publish input-repair provenance\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42333716508/job/128285897999\t\nverifier settlement failed-upload trace\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604172/job/128269632902\t\nworkflow lint (maint-36)\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604339/job/128269661710\t\nworkflow liveness (zero-job approval holds)\tskipping\t0\thttps://github.com/stranske/Workflows/actions/runs/42328604339/job/128269661435\t\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "api",
+        "repos/stranske/Workflows/check-runs/128345864413",
+        "--jq",
+        "{id,html_url,output}"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"html_url\":\"https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413\",\"id\":128345864413,\"output\":{\"annotations_count\":1,\"annotations_url\":\"https://api.github.com/repos/stranske/Workflows/check-runs/128345864413/annotations\",\"summary\":null,\"text\":null,\"title\":null}}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "gh",
+        "run",
+        "view",
+        "42353296252",
+        "--repo",
+        "stranske/Workflows",
+        "--job",
+        "128345864413",
+        "--log"
+      ],
+      "exit_code": 0,
+      "stdout": "Validate Codex issue labels\tUNKNOWN STEP\t    core.warning(`Intake agent chooser failed; using static default codex: ${error.message}`);\nValidate Codex issue labels\tUNKNOWN STEP\t    `Overriding bridge agent '${normalizedDefault}' with '${agentKey}' from labels.`,\nValidate Codex issue labels\tUNKNOWN STEP\t2026-11-07T07:55:59.5554356Z   INPUT_ISSUE: 4523\nValidate Codex issue labels\tUNKNOWN STEP\t2026-11-07T07:55:59.5555106Z   DEFAULT_AGENT: \nValidate Codex issue labels\tUNKNOWN STEP\t2026-11-07T07:55:59.7123093Z Overriding bridge agent 'cursor' with 'claude' from labels.",
+      "stderr": ""
+    }
+  ],
+  "saved_observations_byte_identical": true,
+  "candidate_check_run": {
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413",
+    "id": 128345864413,
+    "output": {
+      "annotations_count": 1,
+      "annotations_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128345864413/annotations",
+      "summary": null,
+      "text": null,
+      "title": null
+    }
+  },
+  "workflow_inspection": {
+    ".github/workflows/agents-63-issue-intake.yml": {
+      "sha256": "ae206f8a7bef889ac8c884ba550f1d7f24b0c5e0fba1483f3675abfae5233142",
+      "lines": [
+        {
+          "line": 613,
+          "text": "await core.summary.write();"
+        },
+        {
+          "line": 1427,
+          "text": "intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);"
+        },
+        {
+          "line": 1433,
+          "text": "process.env.DEFAULT_AGENT = intakeChoice.agent;"
+        },
+        {
+          "line": 1435,
+          "text": "const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';"
+        },
+        {
+          "line": 1436,
+          "text": "await core.summary"
+        },
+        {
+          "line": 1437,
+          "text": ".addHeading('Intake Agent Selection', 3)"
+        },
+        {
+          "line": 1441,
+          "text": "{ data: 'Posterior', header: true },"
+        },
+        {
+          "line": 1442,
+          "text": "{ data: 'Pool State', header: true },"
+        }
+      ]
+    },
+    "templates/consumer-repo/.github/workflows/agents-issue-intake.yml": {
+      "sha256": "590f69b2092cbf45fbdf4954660c750e0a8fb384b2c76b722a165b9dc7ee6d8f",
+      "lines": [
+        {
+          "line": 161,
+          "text": "intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);"
+        },
+        {
+          "line": 167,
+          "text": "process.env.DEFAULT_AGENT = intakeChoice.agent;"
+        },
+        {
+          "line": 169,
+          "text": "const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';"
+        },
+        {
+          "line": 170,
+          "text": "await core.summary"
+        },
+        {
+          "line": 171,
+          "text": ".addHeading('Intake Agent Selection', 3)"
+        },
+        {
+          "line": 175,
+          "text": "{ data: 'Posterior', header: true },"
+        },
+        {
+          "line": 176,
+          "text": "{ data: 'Pool State', header: true },"
+        }
+      ]
+    }
+  },
+  "browser_result": "native pipe closed before response; no production summary observed",
+  "verdict": {
+    "T3": "UNVERIFIED",
+    "A3": "UNVERIFIED",
+    "A4": "FAIL"
+  }
+}

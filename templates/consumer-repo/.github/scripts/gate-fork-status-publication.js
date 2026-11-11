@@ -111,6 +111,9 @@ async function resolvePullRequest({ github, retry, owner, repo, run }) {
 
   const candidates = await paginate(retry, github.rest.pulls.list, { owner, repo, state: 'open' });
   const matches = candidates.filter(pr => pr.head?.sha === run.head_sha);
+  if (matches.length === 0) {
+    return null;
+  }
   if (matches.length !== 1) {
     throw new Error(`Expected one open PR at Gate head ${run.head_sha}; found ${matches.length}`);
   }
@@ -184,7 +187,15 @@ async function publishGateForkStatus({ github, context, core }) {
   const workflow = (await retry.withRetry(client =>
     client.rest.actions.getWorkflow({ owner, repo, workflow_id: run.workflow_id })
   )).data;
+  if (run.head_repository?.id === repository.id) {
+    core.info('Gate run is not from a fork; the Gate summary remains its status writer.');
+    return { state: 'skipped', description: 'Same-repository PR' };
+  }
   let pr = await resolvePullRequest({ github, retry, owner, repo, run });
+  if (!pr) {
+    core.info(`No open PR found matching Gate head ${run.head_sha}; skipping status publication.`);
+    return { state: 'skipped', description: 'No open PR at Gate head' };
+  }
   if (pr.head?.repo?.id === repository.id) {
     core.info(`PR #${pr.number} is not from a fork; the Gate summary remains its status writer.`);
     return { state: 'skipped', description: 'Same-repository PR' };

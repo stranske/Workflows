@@ -223,9 +223,8 @@ test('getAgentPreflightConfigs honors enabled flag and readiness fallback', () =
 test('loadAgentRegistry exposes live and disabled planned-agent capacity blocks', () => {
   const registry = loadAgentRegistry({ registryPath: REGISTRY_PATH });
   assert.equal(registry.agents.gemini.enabled, true);
-  assert.equal(registry.agents.aider.enabled, false);
+  assert.equal(registry.agents.aider, undefined); // removed from the fleet 2026-11-11
   assert.deepEqual(registry.agents.gemini.capacity, { window: 'daily', limit: 1 });
-  assert.deepEqual(registry.agents.aider.capacity, { window: 'daily', limit: 1 });
 });
 
 test('resolveExecutionProfile returns registry-backed codex model contract', () => {
@@ -234,7 +233,7 @@ test('resolveExecutionProfile returns registry-backed codex model contract', () 
   assert.equal(profile.agent, 'codex');
   assert.equal(profile.model, 'gpt-6.1-sol');
   assert.equal(profile.reasoning_effort, 'high');
-  assert.equal(profile.fallback_model, 'gpt-5.5');
+  assert.equal(profile.fallback_model, 'gpt-5.6-terra');
   assert.equal(profile.runner, 'reusable-codex-run');
 });
 

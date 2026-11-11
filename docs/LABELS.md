@@ -13,7 +13,6 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:cursor` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Cursor runner
 | `agent:muse` | Issue or PR labeled | Routes consumer Gate-followup keepalive and autofix to the Muse runner (subscription login key)
 | `agent:gemini` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Gemini runner
-| `agent:aider` | Issue or PR labeled | Reserved and disabled; no runner dispatches until its implementation lands
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; may sit alongside one concrete `agent:<name>` label, which keepalive routing overrides
 | `agent:retry` | PR labeled | Consolidated consumers require a manual Gate-followups dispatch; the root/non-consolidated keepalive workflow forces a retry and clears recovery labels
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
@@ -28,6 +27,7 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agents:auto-pilot-pause` | Issue labeled | Pauses auto-pilot dispatch
 | `agents:paused` | PR labeled | Pauses keepalive loop on PR
 | `agents:keepalive` | PR labeled | Enables keepalive loop on PR
+| `agents:local-loop` | PR labeled (local automation) | The local Orchestrator keepalive loop owns the PR; hosted keepalive stays off it
 | `agents:max-runs:<K>` | PR labeled | Caps keepalive run count; `agents:max-runs:0` is an explicit hold
 | `needs-human` | Issue or PR labeled | Blocks automation until a human clears the blocker
 | `security:bypass-guard` | Issue or PR labeled | Bypasses prompt-injection guard after explicit approval
@@ -53,6 +53,8 @@ implemented; use `agents:max-runs:<K>` to cap concurrent keepalive runs instead;
 the PR's `max_iterations` setting to limit the total round budget.
 `agent:codex-invite` is also retired; use the generic `agent:<name>-invite`
 mechanism when an invite-mode bridge is explicitly needed.
+`agent:aider` is retired (2026-11-11): the Aider agent was removed from the fleet and no runner
+or registry entry exists for it.
 
 ---
 
@@ -236,17 +238,6 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 - Repository has a valid `GEMINI_API_KEY` secret (per `.github/agents/registry.yml`)
 
 **Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-gemini-run.yml` after registry-backed routing and secret preflight succeed.
-
----
-
-### `agent:aider`
-
-**Applies to:** Issues and Pull Requests
-
-`agent:aider` is reserved and disabled for a future cheap, low-complexity Aider lane. Until its
-`reusable-aider-run.yml` runner and enabled registry entry ship, applying this label will not
-dispatch a runner. See
-`docs/guides/ADD_NEW_AGENT.md` and the rollout plan for sequencing.
 
 ---
 
@@ -606,6 +597,29 @@ These labels trigger the post-merge verifier workflow on a merged PR.
 ---
 
 ## Keepalive Control Labels
+
+### `agents:local-loop`
+
+**Applies to:** Pull Requests
+
+**Set by:** local automation, never by a workflow in this repository. The local opener (`opener-core`) adds it
+when the Orchestrator router starts the work on the owner's machine (`router.choose_mode` returns mode `local`).
+
+**Effect:**
+1. The Orchestrator's local keepalive loop (`src/local_loop.py` in stranske/Orchestrator, run on every
+   controller pass) owns the PR. It re-runs the agent on CI results with the failing lines, gives it the source
+   issue's tasks, runs the issue's acceptance commands on a green head, and rotates agents after two
+   unproductive rounds.
+2. One owner per PR: a PR with this label never carries `agents:keepalive`, so hosted keepalive
+   (`agents-81-gate-followups.yml`) does not dispatch on it, and the local label sweep does not add hosted labels.
+3. The loop ends either when the PR is done (closer-core merges the green PR, after a judge if the PR edits CI
+   workflows) or by handing the PR to hosted keepalive. It hands off when its round cap is reached, no untried
+   agent is left, or no local slot frees in time: it adds `agents:keepalive` and `autofix`, then removes
+   `agents:local-loop`.
+
+**To hand off by hand:** add `agents:keepalive` and `autofix`, then remove `agents:local-loop`.
+
+---
 
 ### `agents:paused`
 

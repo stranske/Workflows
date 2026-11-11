@@ -7,6 +7,8 @@ const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
 const { readScopedCanaryReceipt } = require('../maint68_scoped_receipt');
 const ROOT = path.resolve(__dirname, '../../..');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -78,6 +80,46 @@ test('actual compiled scoped plan and native attempt/job/archive identify a comp
 test('retained no-authorization plus skipped native consumer jobs is confirmed not started', async () => {
   const result = await fixture({ started: false }).read(); assert.equal(result.state, 'not_started');
   assert.equal(result.plan_scope, 'source-delta');
+});
+
+function cachedFixture(t) {
+  const f = fixture();
+  f.run.updated_at = '2026-10-27T22:02:00Z';
+  f.args.cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'native-scoped-receipt-'));
+  t.after(() => fs.rmSync(f.args.cacheDir, { recursive: true, force: true }));
+  return f;
+}
+test('terminal native receipt persists between readers without artifact/job/source rereads', async t => {
+  const f = cachedFixture(t), expected = await f.read();
+  assert.equal(expected.state, 'completed');
+  assert.ok(f.state.calls.length > 0);
+  f.state.calls.length = 0;
+  assert.deepEqual(await readScopedCanaryReceipt({ ...f.args }), expected);
+  assert.equal(f.state.calls.length, 0);
+});
+for (const [name, change] of [
+  ['rerun', f => { f.run.run_attempt++; }],
+  ['updated run', f => { f.run.updated_at = '2026-10-28T22:02:00Z'; }],
+  ['changed head', f => { f.run.head_sha = 'e'.repeat(40); }],
+  ['active writer', f => { f.run.status = 'in_progress'; }],
+  ['different candidates', f => { f.args.candidates = ['owner/a']; }],
+  ['different repository', f => { f.args.context.repo = { owner: 'other', repo: 'Workflows' }; }],
+]) test(`receipt cache cannot reuse ${name}`, async t => {
+  const f = cachedFixture(t); await f.read();
+  f.state.calls.length = 0; change(f); await f.read();
+  assert.ok(f.state.calls.length > 0);
+});
+test('corrupt cache is reread natively and unknown results are never persisted', async t => {
+  const f = cachedFixture(t); await f.read();
+  const files = fs.readdirSync(f.args.cacheDir);
+  fs.writeFileSync(path.join(f.args.cacheDir, files[0]), '{"key":"forged"}');
+  f.state.calls.length = 0;
+  assert.equal((await f.read()).state, 'completed');
+  assert.ok(f.state.calls.length > 0);
+  fs.unlinkSync(path.join(f.args.cacheDir, files[0]));
+  f.artifact.expired = true;
+  assert.equal((await f.read()).state, 'unknown');
+  assert.deepEqual(fs.readdirSync(f.args.cacheDir), []);
 });
 test('a skipped rerun cannot erase possible effects from an earlier native attempt', async () => {
   const f = fixture({ started: false }); f.run.run_attempt = 2;

@@ -1,0 +1,82 @@
+{
+  "checked_at": "2026-11-09T01:49:57Z",
+  "checks": [
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "origin/main"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "cmp",
+        "docs/evidence/issue-4369/runtime-4550/4558-seat-round4-source.txt",
+        "docs/evidence/issue-4369/runtime-4550/4558-seat-round4-consumer.txt"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "suite_logs": [
+    {
+      "receipt": "4557-exact-main/node-full.json",
+      "exit_code": 0,
+      "checkout_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "sha256": "08b20d314f3e69489d5bc9e7c3cad198ace79fd2f925f8ca76fea14e481dcba3",
+      "hash_matches": true
+    },
+    {
+      "receipt": "4557-exact-main/python-full.json",
+      "exit_code": 0,
+      "checkout_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+      "sha256": "a0f8a82d67e4a6fb5f4777966fc3724e9aff54abdfd72368f97bcccdcb3e6d59",
+      "hash_matches": true
+    }
+  ],
+  "manual_dispatches": 0,
+  "pin_edits": false,
+  "fresh_payload_readback": {
+    "source_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "consumer_revision": "1ff9e11cd51a456333c626cb354543b63202bef6",
+    "consumer_endpoint": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/contents/tools/subscription_llm.py?ref=1ff9e11cd51a456333c626cb354543b63202bef6",
+    "blob": "71a4c84cf9ba590d1686f3a5bca80d1cf318a8f2",
+    "bytes": 7087,
+    "sha256": "ed2d6203936ac71164f6c8d014af587ff429392702c8c6bfba4c59b9e21d34ca",
+    "equal_to_both_retained_payloads": true
+  },
+  "receipt_validation": {
+    "exit_code": 0,
+    "comment_page_sizes": [
+      49,
+      0
+    ],
+    "unique_comment_ids": 49,
+    "consumer_threads_complete": true,
+    "consumer_threads": 0,
+    "producer_runs": 0,
+    "merger_runs": 2
+  }
+}

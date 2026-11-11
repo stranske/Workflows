@@ -137,3 +137,56 @@ test('ordinary generated-PR final merge boundary retains its direct exact-head c
   assert.match(finalGuard, /ref: pr.head.sha/); assert.match(finalGuard, /enforceGeneratedDeliveryGate: true/);
   assert.doesNotMatch(finalGuard, /qualifyNoChange/);
 });
+
+test('campaign no-change evidence carries to a newer head only when no plan-managed path changed', async t => {
+  // 2026-11-11: Orchestrator main moved past its pinned no-change head (8596b89 -> c9f120c, 4 unmanaged files)
+  // and two campaign passes failed target_missing while four sync PRs sat CLEAN.
+  const api = harness(t);
+  const old = 'e'.repeat(40);
+  api.campaign.results[0] = { ...api.campaign.results[0], head_sha: old };
+  const compares = [];
+  let files = [{ filename: 'src/app.py' }, { filename: 'ARCHITECTURE.md' }];
+  api.github.rest.repos.compareCommitsWithBasehead = async args => {
+    compares.push(args);
+    return { data: { status: 'ahead', merge_base_commit: { sha: old }, files } };
+  };
+  const canary1 = async () => (await api.pass('campaign', true)).results.find(row => row.repo === 'canary1');
+
+  // No managed-path file: the exact-head rule stands and nothing is compared.
+  let row = await canary1();
+  assert.equal(row.status, 'target_missing');
+  assert.equal(row.reason, 'campaign_no_change_head_changed');
+  assert.equal(row.carry_over_refusal, 'plan_paths_unavailable');
+  assert.equal(compares.length, 0);
+
+  const managedFile = path.join(process.cwd(), 'managed.json');
+  const managed = { schema: 'workflows.consumer-sync-plan-managed-paths/v1', plan_id: plan, source_commit: source,
+    paths: ['.github/workflows/pr-00-gate.yml', '.gitignore'], directories: ['.github/actions/setup-api-client'] };
+  fs.writeFileSync(managedFile, JSON.stringify(managed));
+  process.env.CAMPAIGN_PLAN_MANAGED_PATHS_FILE = managedFile;
+
+  // Unmanaged changes only: verified at the live head, carried from the pinned one, live gate still applied.
+  row = await canary1();
+  assert.equal(row.status, 'campaign_no_change_verified');
+  assert.equal(row.no_change_carried_from, old);
+  assert.equal(row.observed_head_sha, head('canary1'));
+  assert.equal(row.check_provenance.kind, 'exact-merged-pr-tree');
+  assert.equal(compares.at(-1).basehead, `${old}...${head('canary1')}`);
+
+  // Any plan-managed change refuses: exact file, file under a managed directory, rename away from a managed file.
+  for (const changed of [{ filename: '.github/workflows/pr-00-gate.yml' },
+    { filename: '.github/actions/setup-api-client/action.yml' },
+    { filename: 'moved.txt', previous_filename: '.gitignore' }]) {
+    files = [{ filename: 'src/app.py' }, changed];
+    row = await canary1();
+    assert.equal(row.status, 'target_missing', changed.filename);
+    assert.match(row.carry_over_refusal, /^managed_path_changed:/);
+  }
+
+  // A managed-path file for another plan is ignored.
+  files = [{ filename: 'src/app.py' }];
+  fs.writeFileSync(managedFile, JSON.stringify({ ...managed, plan_id: `sha256:${'f'.repeat(64)}` }));
+  row = await canary1();
+  assert.equal(row.carry_over_refusal, 'plan_paths_unavailable');
+  assert.equal(api.state.writes.length, 0);
+});

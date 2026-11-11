@@ -13,9 +13,17 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import venv
 from pathlib import Path
 
-COMMAND_PREFIX = re.compile(r"^(?:pytest|python -m pytest|npm test|npm run|ruff|mypy|make)(?:\s|$)")
+# `node --test` is how Workflows' own JS suites are named (10 of 25 gate commands in the source
+# issues of keepalive PRs merged 10-28..11-11), and `python3 -m pytest` 8 more; both were
+# silently dropped, so those rounds printed "0/0" and checked nothing. A bare node id is still
+# not a gate (#4260): an issue must name the runnable command.
+PYTEST_PREFIXES = ("pytest", "python -m pytest", "python3 -m pytest")
+COMMAND_PREFIX = re.compile(
+    r"^(?:pytest|python3? -m pytest|node --test|npm test|npm run|ruff|mypy|make)(?:\s|$)"
+)
 TIMEOUT_SECONDS = 300
 OUTPUT_BYTES = 2048
 TOTAL_OUTPUT_BYTES = 8192
@@ -129,21 +137,55 @@ def run(commands: list[Command], cwd: str | Path) -> list[Result]:
     return results
 
 
+def make_gate_venv() -> tuple[Path, str]:
+    """A fresh virtualenv outside the PR checkout: (its python, the pip command that installs into it).
+
+    The runner's system interpreter is not a usable test environment: on the hosted
+    Ubuntu image a stale pytest11 entry point made every installed-pytest gate die
+    before collection ("Error while loading plugin pytest11 ... platformdirs.pytest_plugin",
+    exit 3) on all three PRs whose gates ran 10-28..11-07. CI installs into its own
+    interpreter, so the gate does the same. A Debian python without ensurepip still gets a
+    venv: it is created without pip and filled by the launching interpreter's pip (--python).
+    """
+    root = Path(tempfile.mkdtemp(prefix="acceptance-gate-venv-"))
+    python = root / ("Scripts" if os.name == "nt" else "bin") / "python"
+    try:
+        venv.EnvBuilder(with_pip=True, clear=True).create(root)
+        pip = f"{shlex.quote(str(python))} -m pip"
+    except (OSError, subprocess.SubprocessError):
+        venv.EnvBuilder(with_pip=False, clear=True).create(root)
+        pip = f"{shlex.quote(sys.executable)} -m pip --python {shlex.quote(str(python))}"
+    if not python.is_file():
+        raise OSError(f"virtualenv has no interpreter at {python}")
+    return python, pip
+
+
+def _activate(python: Path) -> None:
+    """Gate commands resolve `pytest`/`python`/`ruff` from the gate venv (run() keeps PATH)."""
+    os.environ["VIRTUAL_ENV"] = str(python.parent.parent)
+    os.environ["PATH"] = os.pathsep.join([str(python.parent), os.environ.get("PATH", "")])
+
+
 def prepare(commands: list[Command], cwd: Path) -> list[Result]:
-    """Prepare Python gates from project metadata or CI-style requirements."""
+    """Prepare Python gates from project metadata or CI-style requirements, in a gate venv."""
     setup = []
-    if any(
-        command.command.startswith(("pytest", "python -m pytest", "ruff", "mypy"))
-        for command in commands
-    ):
-        python = shlex.quote(sys.executable)
+    if any(command.command.startswith((*PYTEST_PREFIXES, "ruff", "mypy")) for command in commands):
+        try:
+            gate_python, pip = make_gate_venv()
+        except (OSError, subprocess.SubprocessError) as error:
+            reason = f"Gate environment setup failed: could not create a virtualenv: {error}"
+            return [
+                Result(command.criterion, command.command, 127, reason[:OUTPUT_BYTES])
+                for command in commands
+            ]
+        _activate(gate_python)
         tools = "pytest ruff mypy"
         config_files = [
             cwd / name for name in ("pyproject.toml", "pytest.ini", "setup.cfg", "tox.ini")
         ]
         if any(path.is_file() and "--cov" in path.read_text() for path in config_files):
             tools += " pytest-cov"
-        setup.append(f"{python} -m pip install {tools}")
+        setup.append(f"{pip} install {tools}")
         project = cwd / "pyproject.toml"
         try:
             metadata = tomllib.loads(project.read_text()) if project.is_file() else {}
@@ -155,7 +197,7 @@ def prepare(commands: list[Command], cwd: Path) -> list[Result]:
             selected = [name for name in ("dev", "test") if name in extras]
             target = ".[" + ",".join(selected) + "]" if selected else "."
             print(f"Gate install source: editable project {target}", flush=True)
-            setup.append(f"{python} -m pip install -e {shlex.quote(target)}")
+            setup.append(f"{pip} install -e {shlex.quote(target)}")
         requirements = sorted(
             {
                 path
@@ -169,8 +211,9 @@ def prepare(commands: list[Command], cwd: Path) -> list[Result]:
         for path in requirements:
             name = str(path.relative_to(cwd))
             print(f"Gate install source: requirements {name}", flush=True)
-            setup.append(f"{python} -m pip install -r {shlex.quote(name)}")
+            setup.append(f"{pip} install -r {shlex.quote(name)}")
         print(f"Gate install source: tools {tools}", flush=True)
+        print(f"Gate environment: virtualenv {gate_python.parent.parent}", flush=True)
     if any(command.command.startswith("npm ") for command in commands):
         setup.append("npm ci" if (cwd / "package-lock.json").is_file() else "npm install")
     for step in setup:

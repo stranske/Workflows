@@ -1,0 +1,33 @@
+{
+  "revision": "9e63b01867bc8d1bf360f51bf600da7eec018632",
+  "command": [
+    "timeout",
+    "-k",
+    "5s",
+    "60s",
+    "node",
+    "--test",
+    "--test-isolation=none",
+    ".github/scripts/__tests__/maint71-delivery-receipts.test.js",
+    ".github/scripts/__tests__/maint71_merge_sync_prs.test.js",
+    ".github/scripts/__tests__/maint71_finding_verification.test.js"
+  ],
+  "node_executable": "/opt/hostedtoolcache/node/24.22.2/x64/bin/node",
+  "node_version": "v24.22.2",
+  "started_at_utc": "2026-11-08T14:31:17.435495+00:00",
+  "duration_seconds": 0.4928859070000158,
+  "exit_code": 0,
+  "log": "historical-finding-gates.log",
+  "log_sha256": "4a43c343bec4ec3df479b3a60690a405aafb2e96f214eaf9ebcefdc42ba99b1b",
+  "working_tree_test_sha256": "794555e89e74b895e0f4d9948d60c742ce3dce894215c76ff018df8e4a86bbb9",
+  "final_delivery_acceptance": false,
+  "publication": {
+    "git_add_exit_code": 128,
+    "commit_created": false,
+    "error": ".git/index.lock: Read-only file system",
+    "pr_body_update": "rejected",
+    "needs_human_label": "rejected",
+    "blocker_comment": "rejected",
+    "automatic_approval_review_reason": "MCP tool call requires approval, but approval policy is never"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "check_date": "2026-11-08",
+  "observed_at_utc": "2026-11-08 22:11:42 UTC",
+  "purpose": "Read-only follow-up after the existing acceptance stop; no deadline reset.",
+  "first_unresolved_step": "Upstream verification disposition remains non-PASS in retained 4557-source-verification.json; no new provider attempt was made.",
+  "publication": {
+    "main_sha": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+    "main_parent_shas": [
+      "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+    ],
+    "selected_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "pr4551": {
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "head_sha": "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+      "merge_commit_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+    },
+    "source_issue4550": {
+      "state": "closed",
+      "url": "https://github.com/stranske/Workflows/issues/4550"
+    }
+  },
+  "origin_observation": {
+    "inventory": "4558-round3-origin-inventory.json",
+    "result": "4558-round3-origin-observation.json",
+    "projection": "Native run id, path, event, created_at, workflow_id, head_sha, status and conclusion; unrelated metadata omitted.",
+    "pages_returned": [
+      100,
+      9
+    ],
+    "total_count": 109,
+    "start": "2026-11-08T21:45:56Z",
+    "end": "2026-11-08T22:10:00Z",
+    "producer_count": 0,
+    "chain_acceptance": false
+  },
+  "transport_limits": [
+    {
+      "transport": "GitHub connector",
+      "endpoint": "/repos/stranske/Workflows/actions/workflows/218845705/runs",
+      "result": "INVALID_ARGUMENT: endpoint rejected by connector allowlist"
+    },
+    {
+      "transport": "gh api",
+      "endpoint": "repos/stranske/Workflows/actions/workflows/218845705/runs",
+      "result": "error connecting to api.github.com",
+      "execution_bound": "timeout -k 2s 20s"
+    }
+  ],
+  "changes": {
+    "code": "../observe-maint68.js",
+    "tests": "tests/scripts/test_issue_4369_origin_observation.js",
+    "purpose": "Replay workflow-specific unfiltered run inventories, bind all pages and rows to one producer workflow identity, and report inventory scope. Dispatch remains UNKNOWN and chain_acceptance remains false.",
+    "baseline_tests": 11,
+    "final_tests": 20
+  },
+  "acceptance_tasks_completed_this_round": [],
+  "manual_maint68_or_maint71_dispatches": 0,
+  "verification_run42522535899": {
+    "status": "completed",
+    "conclusion": "success",
+    "head_sha": "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+    "interpretation": "Actions job conclusion only; does not clear retained judge verdicts."
+  },
+  "pr4558": {
+    "state": "open",
+    "draft": false,
+    "head_sha": "56acd961cb982d0ac7a81b69036626275dc7c979"
+  }
+}

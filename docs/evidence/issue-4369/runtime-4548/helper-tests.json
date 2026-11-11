@@ -1,0 +1,24 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/scripts/test_setup_validation_env.py",
+    "-m",
+    "not slow"
+  ],
+  "revision": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec",
+  "started_at": "2026-11-08T08:26:57.964071+00:00",
+  "python": "/tmp/workflows-4369-venv/bin/python3\n3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "node": "v24.22.2",
+  "working_tree_changes": [
+    "docs/CONTRIBUTING.md"
+  ],
+  "timeout_seconds": 30,
+  "exit_code": 0,
+  "timed_out": false,
+  "duration_seconds": 2.921,
+  "finished_at": "2026-11-08T08:27:00.948712+00:00",
+  "log_sha256": "16b3b5475bf1ca9682b1a1628f28d4a9cbae84b2a547a4ef4a54a056c10e8a54"
+}

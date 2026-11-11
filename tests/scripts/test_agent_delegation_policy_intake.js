@@ -17,6 +17,24 @@ const {
   fetchRouteWeights,
   chooseAgentForIntake,
 } = require('../../.github/scripts/agent_delegation_policy.js');
+const {
+  formatRouteWeightsStatus: realFormatRouteWeightsStatus,
+} = require('../../.github/scripts/agent_delegation_policy.js');
+
+// A loadRouteWeightsWithStatus() result shape; executeStep overrides document/status per case.
+const STUB_LOAD = {
+  document: null,
+  status: 'fresh',
+  detail: '',
+  url: 'https://example.test/rw.json',
+  httpStatus: 200,
+  generatedAt: '2026-11-11T13:00:00Z',
+  ageMs: 5 * 3600000,
+  maxAgeMs: 14 * 24 * 3600000,
+  schema: 'orchestrator.route-weights/v1',
+  sourceVersion: 72,
+};
+const STUB_FRESH_LINE = realFormatRouteWeightsStatus(STUB_LOAD);
 
 const now = '2026-10-16T12:00:00Z';
 
@@ -322,16 +340,18 @@ test('export stale -> static default', async () => {
 });
 
 test('no runner -> skipped using the shipped registry', () => {
-  const registryAgents = loadAgentRegistry({
+  const shipped = loadAgentRegistry({
     registryPath: path.resolve(__dirname, '../../.github/agents/registry.yml'),
   }).agents;
-  assert.equal(registryAgents.aider.runner_workflow, '');
-  assert.ok(registryAgents.claude.runner_workflow);
+  assert.ok(shipped.claude.runner_workflow);
+  // The shipped registry has no runner-less agent since aider's removal (2026-11-11), so the
+  // runner-less case is a shipped entry with its runner cleared.
+  const registryAgents = { ...shipped, norunner: { ...shipped.claude, runner_workflow: '' } };
   const routeWeights = {
     schema: 'orchestrator.route-weights/v2',
     generated_at: now,
     capacity: {
-      aider: { state: 'ok' },
+      norunner: { state: 'ok' },
       unregistered: { state: 'ok' },
       claude: { state: 'ok' },
     },
@@ -339,7 +359,7 @@ test('no runner -> skipped using the shipped registry', () => {
       implement: {
         evidence_ok: true,
         ranking: [
-          { agent: 'aider', posterior: 0.95, n_obs: 25 },
+          { agent: 'norunner', posterior: 0.95, n_obs: 25 },
           { agent: 'unregistered', posterior: 0.9, n_obs: 25 },
           { agent: 'claude', posterior: 0.78, n_obs: 25 },
         ],
@@ -380,9 +400,10 @@ async function executeStep(workflow, { input = '', labels, failure, routeWeights
   const [file, id] = workflow;
   const policy = file.startsWith('templates/')
     ? require('../../templates/consumer-repo/.github/scripts/agent_delegation_policy.js')
-    : { chooseAgentForIntake };
+    : { chooseAgentForIntake, formatRouteWeightsStatus: realFormatRouteWeightsStatus };
   const outputs = {};
   const warnings = [];
+  const infos = [];
   const failures = [];
   const summaryTables = [];
   let summaryWrites = 0;
@@ -395,7 +416,7 @@ async function executeStep(workflow, { input = '', labels, failure, routeWeights
   const core = {
     summary,
     warning: message => warnings.push(message),
-    info() {},
+    info: message => infos.push(message),
     setOutput: (key, value) => { outputs[key] = value; },
     setFailed: message => failures.push(message),
   };
@@ -418,18 +439,32 @@ async function executeStep(workflow, { input = '', labels, failure, routeWeights
       };
     }
     if (name.endsWith('agent_delegation_policy.js')) return {
-      async fetchRouteWeights() {
+      async loadRouteWeightsWithStatus() {
         fetches += 1;
         if (failure === 'fetch') throw new Error('export unavailable');
-        if (failure === 'null-export') return null;
-        if (routeWeights) return routeWeights;
+        if (failure === 'null-export') {
+          return {
+            ...STUB_LOAD,
+            status: 'stale',
+            detail: 'older than the reader max age',
+            generatedAt: '2026-10-24T12:52:52Z',
+            ageMs: 437.1 * 3600000,
+            sourceVersion: 69,
+          };
+        }
         return {
-          schema: 'orchestrator.route-weights/v2',
-          generated_at: new Date().toISOString(),
-          task_types: { implement: { evidence_ok: true, ranking: [
-            { agent: 'claude', posterior: 0.9, n_obs: 30 },
-          ] } },
+          ...STUB_LOAD,
+          document: routeWeights || {
+            schema: 'orchestrator.route-weights/v2',
+            generated_at: new Date().toISOString(),
+            task_types: { implement: { evidence_ok: true, ranking: [
+              { agent: 'claude', posterior: 0.9, n_obs: 30 },
+            ] } },
+          },
         };
+      },
+      formatRouteWeightsStatus(result) {
+        return policy.formatRouteWeightsStatus(result);
       },
       chooseAgentForIntake(...args) {
         if (failure === 'chooser') throw new Error('chooser error');
@@ -442,7 +477,7 @@ async function executeStep(workflow, { input = '', labels, failure, routeWeights
   await new AsyncFunction('require', 'process', 'context', 'core', 'github', 'console', stepScript(file, id))(
     stubRequire, { env: { DEFAULT_AGENT: input, INPUT_ISSUE: '' } }, context, core, {}, { log() {} },
   );
-  return { outputs, warnings, failures, fetches, summaryTables, summaryWrites };
+  return { outputs, warnings, infos, failures, fetches, summaryTables, summaryWrites };
 }
 
 for (const workflow of workflows) {
@@ -454,7 +489,8 @@ for (const workflow of workflows) {
     assert.deepEqual(result.failures, []);
     assert.deepEqual(result.warnings, []);
     assert.equal(result.summaryWrites, 1);
-    assert.deepEqual(result.summaryTables[0][1], ['claude', '0.9', 'ok', 'claude']);
+    assert.deepEqual(result.summaryTables[0][1], ['claude', '0.9', 'ok', 'claude', STUB_FRESH_LINE]);
+    assert.deepEqual(result.infos.filter(line => line.startsWith('route-weights:')), [STUB_FRESH_LINE]);
   });
 
   for (const state of ['ok', 'shed', 'exhausted']) {
@@ -479,7 +515,7 @@ for (const workflow of workflows) {
       assert.deepEqual(result.failures, []);
       assert.deepEqual(result.warnings, []);
       assert.equal(result.summaryWrites, 1);
-      assert.deepEqual(result.summaryTables[0][1], [selected, posterior, 'ok', selected]);
+      assert.deepEqual(result.summaryTables[0][1], [selected, posterior, 'ok', selected, STUB_FRESH_LINE]);
     });
   }
 
@@ -488,6 +524,17 @@ for (const workflow of workflows) {
     assert.equal(result.outputs[output], 'claude');
     assert.equal(result.fetches, 0);
     assert.deepEqual(result.warnings, []);
+    assert.match(result.summaryTables[0][1][4], /^route-weights: not consulted/);
+  });
+
+  test(`${file}: a stale export names its status and age in the fallback warning`, async () => {
+    const result = await executeStep(workflow, { failure: 'null-export' });
+    assert.equal(result.outputs[output], 'codex');
+    assert.equal(result.warnings.length, 1);
+    assert.match(
+      result.warnings[0],
+      /using static default codex: route-weights: stale \(older than the reader max age, age 437\.1h > max 336\.0h, generated_at=2026-10-24T12:52:52Z/,
+    );
   });
 
   for (const failure of ['require', 'registry', 'fetch', 'null-export', 'chooser']) {

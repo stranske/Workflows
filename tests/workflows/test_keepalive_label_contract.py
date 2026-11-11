@@ -8,8 +8,11 @@ DOCS = (
     Path("docs/keepalive/GoalsAndPlumbing.md"),
 )
 RETIRED_HEADING = "### Retired label names"
-RETIRED_LABELS = {"agents:max-parallel:<K>", "agent:codex-invite"}
-DISABLED_LABELS = {"agent:aider"}
+RETIRED_LABELS = {"agents:max-parallel:<K>", "agent:codex-invite", "agent:aider"}
+DISABLED_LABELS: set[str] = set()
+# Labels whose executable surface is local automation outside this repository, named here so the exemption is
+# deliberate. Each must say in docs/LABELS.md which local system owns it.
+LOCAL_AUTOMATION_LABELS = {"agents:local-loop": "stranske/Orchestrator"}
 AUTOMATION_ROOTS = (Path(".github/workflows"), Path(".github/scripts"))
 AUTOMATION_SUFFIXES = {".js", ".py", ".sh", ".yml", ".yaml"}
 SWEEP_PATHS = (
@@ -53,7 +56,9 @@ def _source_token(label: str) -> str:
 def test_documented_keepalive_labels_have_an_executable_or_retired_surface() -> None:
     """A documented control must execute somewhere or be explicitly retired."""
     surface = _automation_surface()
-    documentation_only = _documentation_only_labels() | DISABLED_LABELS
+    documentation_only = (
+        _documentation_only_labels() | DISABLED_LABELS | set(LOCAL_AUTOMATION_LABELS)
+    )
     missing = sorted(
         label
         for label in _documented_labels() - documentation_only
@@ -73,11 +78,15 @@ def test_retired_section_does_not_exempt_active_replacement_labels() -> None:
     assert "agent:<name>-invite" not in _documentation_only_labels()
 
 
-def test_disabled_labels_are_explicitly_documented_as_non_executable() -> None:
-    """A reserved label needs an explicit no-dispatch contract until implemented."""
+def test_retired_aider_label_has_no_runner_or_registry_entry() -> None:
+    """agent:aider is retired (2026-11-11): documented as retired and absent from every registry."""
     labels_doc = Path("docs/LABELS.md").read_text()
-    assert "`agent:aider` is reserved and disabled" in labels_doc
-    assert re.search(r"will not\s+dispatch a runner", labels_doc)
+    assert "`agent:aider` is retired" in labels_doc
+    for registry in (
+        Path(".github/agents/registry.yml"),
+        Path("templates/consumer-repo/.github/agents/registry.yml"),
+    ):
+        assert "\n  aider:\n" not in registry.read_text()
 
 
 def test_keepalive_sweeps_normalize_the_opt_in_label_before_filtering() -> None:
@@ -89,7 +98,7 @@ def test_keepalive_sweeps_normalize_the_opt_in_label_before_filtering() -> None:
     required_snippets = (
         "labelNames.includes('agents:keepalive')",
         "const routingLabels = labelNames.filter",
-        "'agent:aider', 'agent:needs-attention', 'agent:rate-limited', 'agent:retry'",
+        "'agent:needs-attention', 'agent:rate-limited', 'agent:retry'",
         "(label.name || '').toLowerCase() === 'agent:needs-attention'",
     )
     for snippet in required_snippets:
@@ -102,3 +111,13 @@ def test_run_cap_docs_state_the_executable_bounds() -> None:
     labels_doc = Path("docs/LABELS.md").read_text(encoding="utf-8")
     assert "Supported nonzero values are `K = 1–5`" in labels_doc
     assert "Values above 5 are clamped to an effective cap of 5" in labels_doc
+
+
+def test_local_automation_labels_name_their_owner() -> None:
+    """The local-automation exemption is not silent: each label's section names the system that executes it."""
+    doc = Path("docs/LABELS.md").read_text()
+    for label, owner in LOCAL_AUTOMATION_LABELS.items():
+        heading = f"### `{label}`"
+        assert heading in doc, f"{label} has no section in docs/LABELS.md"
+        section = doc.split(heading, maxsplit=1)[1].split("\n---", maxsplit=1)[0]
+        assert owner in section, f"{label}'s section does not name its owner {owner}"

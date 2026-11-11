@@ -1,0 +1,72 @@
+{
+  "checked_at": "2026-11-09T06:55:09.826006+00:00",
+  "merge_commit": "3e7f75d3750e54a1453cf9ea0ce4ed048bf24288",
+  "isolated_checkout": "git archive 3e7f75d3750e54a1453cf9ea0ce4ed048bf24288 | tar -x -C /private/tmp/issue-4515-merge",
+  "runtime": "v24.3.0",
+  "baseline": [
+    {
+      "command": "node --test tests/scripts/test_agent_delegation_policy_intake.js",
+      "exit_code": 0,
+      "transcript": "merge-direct-green.txt",
+      "tests": 74,
+      "pass": 74,
+      "fail": 0
+    },
+    {
+      "command": "node --test .github/scripts/__tests__/agent-delegation-policy-intake.test.js",
+      "exit_code": 0,
+      "transcript": "merge-discovery-green.txt",
+      "tests": 74,
+      "pass": 74,
+      "fail": 0
+    }
+  ],
+  "mutation": {
+    "command": "node --test tests/scripts/test_agent_delegation_policy_intake.js",
+    "change": "In both isolated policy copies, replace const poolState = getAgentPoolState(routeWeights, candidate, row); with const poolState = 'ok';",
+    "exit_code": 1,
+    "tests": 74,
+    "pass": 55,
+    "fail": 19,
+    "transcript": "deliberate-break.txt"
+  },
+  "restored": {
+    "command": "node --test tests/scripts/test_agent_delegation_policy_intake.js",
+    "exit_code": 0,
+    "tests": 74,
+    "pass": 74,
+    "fail": 0,
+    "transcript": "restored-green.txt",
+    "files": {
+      ".github/scripts/agent_delegation_policy.js": {
+        "sha256": "6a914624c3c4f868a36df465227519be7efa488602f3c2b8a1f2171409fc4b80",
+        "restored_matches_merge": true
+      },
+      "templates/consumer-repo/.github/scripts/agent_delegation_policy.js": {
+        "sha256": "6a914624c3c4f868a36df465227519be7efa488602f3c2b8a1f2171409fc4b80",
+        "restored_matches_merge": true
+      }
+    }
+  },
+  "restored_discovery": {
+    "command": "node --test .github/scripts/__tests__/agent-delegation-policy-intake.test.js",
+    "exit_code": 0,
+    "tests": 74,
+    "pass": 74,
+    "fail": 0,
+    "transcript": "restored-discovery-green.txt"
+  },
+  "ci": {
+    "command": "gh pr checks 4505 --repo stranske/Workflows",
+    "exit_code": 1,
+    "reason": "Post-merge Keepalive next task (Codex) failed; successful suite-bearing CI is recorded separately, not an all-checks-pass claim.",
+    "successful_run": "https://github.com/stranske/Workflows/actions/runs/42328604172",
+    "suite_job": "https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684942",
+    "head_sha": "ae822033ad6e23baa44070b0ab91fe81da593158",
+    "event": "pull_request",
+    "conclusion": "success",
+    "logs_endpoint": "repos/stranske/Workflows/actions/jobs/128269684942/logs"
+  },
+  "history_evidence": "Per-repository *-histories.json files retain PR creation times, timeline endpoint/page counts and all labeled/unlabeled event IDs, URLs and timestamps; routing-observations.json retains coverage and exclusions.",
+  "scope": "No production scripts, workflow YAML, registry or templates changed. No other local test suites executed."
+}

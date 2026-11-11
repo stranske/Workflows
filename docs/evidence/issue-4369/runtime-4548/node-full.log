@@ -1,0 +1,371 @@
+✔ .github/scripts/__tests__/agent-delegation-policy-intake.test.js (198.953653ms)
+✔ .github/scripts/__tests__/agent-delegation-policy.test.js (142.028966ms)
+✔ .github/scripts/__tests__/agent-event-eligibility.test.js (107.105091ms)
+✔ .github/scripts/__tests__/agent-install-failure.test.js (104.93029ms)
+✔ .github/scripts/__tests__/agent-registry.test.js (178.334857ms)
+✔ .github/scripts/__tests__/agent-stall-rotation.test.js (81.759226ms)
+✔ .github/scripts/__tests__/agent_delegation_policy.test.js (667.456499ms)
+✔ .github/scripts/__tests__/agents-belt-scan.test.js (104.970024ms)
+✔ .github/scripts/__tests__/agents-dispatch-summary.test.js (90.623871ms)
+✔ .github/scripts/__tests__/agents-guard.test.js (115.27198ms)
+✔ .github/scripts/__tests__/agents-orchestrator-resolve.test.js (111.879269ms)
+✔ .github/scripts/__tests__/agents-pr-meta-contract-status.test.js (257.705821ms)
+✔ .github/scripts/__tests__/agents-pr-meta-keepalive.test.js (142.840883ms)
+✔ .github/scripts/__tests__/agents-pr-meta-orchestrator.test.js (294.60788ms)
+✔ .github/scripts/__tests__/agents-pr-meta-status-idempotence.test.js (161.881215ms)
+✔ .github/scripts/__tests__/agents-pr-meta-update-body.test.js (3533.039164ms)
+✖ .github/scripts/__tests__/agents-verifier-context.test.js (8351.406816ms)
+✔ .github/scripts/__tests__/agents-verifier-historical-baseline.test.js (337.195704ms)
+✔ .github/scripts/__tests__/api-helpers.test.js (4284.467359ms)
+✔ .github/scripts/__tests__/api-rate-diagnostic.test.js (212.153924ms)
+✔ .github/scripts/__tests__/artifact-cache.test.js (110.842799ms)
+✔ .github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js (673.150651ms)
+✔ .github/scripts/__tests__/auto-pilot-transitions.test.js (1604.575692ms)
+✔ .github/scripts/__tests__/autopilot-metrics.test.js (134.819662ms)
+✔ .github/scripts/__tests__/bot-comment-auth-coverage.test.js (257.024809ms)
+✔ .github/scripts/__tests__/bot-comment-dismiss.test.js (280.082845ms)
+✔ .github/scripts/__tests__/bot-comment-handler.test.js (283.693049ms)
+✔ .github/scripts/__tests__/campaign-no-change-qualification.test.js (610.74216ms)
+✔ .github/scripts/__tests__/capability-bundle-contract.test.js (161.157173ms)
+✔ .github/scripts/__tests__/checkout_source.test.js (155.341694ms)
+✔ .github/scripts/__tests__/comment-dedupe.test.js (101.322917ms)
+✔ .github/scripts/__tests__/conflict-detector.test.js (107.676122ms)
+✔ .github/scripts/__tests__/connector-exclusion-smoke.test.js (131.358525ms)
+✔ .github/scripts/__tests__/consumer-sync-drift-issue-body.test.js (97.255281ms)
+✔ .github/scripts/__tests__/corrective-verification-instruction.test.js (483.409536ms)
+✔ .github/scripts/__tests__/coverage-monitor-summary.test.js (324.391638ms)
+✔ .github/scripts/__tests__/coverage-normalize.test.js (147.993724ms)
+✔ .github/scripts/__tests__/create-signed-sync-commit.test.js (202.505041ms)
+✔ .github/scripts/__tests__/dependency-repair-contract.test.js (94.836625ms)
+✔ .github/scripts/__tests__/dependency-sync-run-window.test.js (877.959926ms)
+✔ .github/scripts/__tests__/detect-changes.test.js (153.238821ms)
+✔ .github/scripts/__tests__/error-classifier.test.js (156.833042ms)
+✔ .github/scripts/__tests__/error-diagnostics.test.js (128.219232ms)
+✔ .github/scripts/__tests__/failure-comment-formatter.test.js (116.423102ms)
+✔ .github/scripts/__tests__/gate-docs-only.test.js (143.251576ms)
+✖ .github/scripts/__tests__/generated-delivery-seal-action.test.js (214.185037ms)
+✔ .github/scripts/__tests__/github-api-cache-client.test.js (121.480363ms)
+✔ .github/scripts/__tests__/github-api-cache.test.js (97.449552ms)
+✔ .github/scripts/__tests__/github-api-retry.test.js (1405.103719ms)
+✔ .github/scripts/__tests__/github-api-with-retry.test.js (1538.904747ms)
+✔ .github/scripts/__tests__/github-rate-limited-wrapper.test.js (270.756605ms)
+✔ .github/scripts/__tests__/guarded-merge-tasks.test.js (295.84802ms)
+✔ .github/scripts/__tests__/handoff_head_reconciliation.test.js (80.188844ms)
+✔ .github/scripts/__tests__/issue_context_utils.test.js (1075.862709ms)
+✔ .github/scripts/__tests__/issue_pr_locator.test.js (93.660024ms)
+✔ .github/scripts/__tests__/issue_scope_parser.test.js (168.818376ms)
+✔ .github/scripts/__tests__/issue_template_sections.test.js (89.805482ms)
+✔ .github/scripts/__tests__/keepalive-attempt-presence.test.js (453.162688ms)
+✔ .github/scripts/__tests__/keepalive-authority-state.test.js (1157.698793ms)
+✔ .github/scripts/__tests__/keepalive-challenge-due.test.js (190.9494ms)
+✔ .github/scripts/__tests__/keepalive-contract.test.js (194.156662ms)
+✔ .github/scripts/__tests__/keepalive-gate.test.js (247.438428ms)
+✔ .github/scripts/__tests__/keepalive-guard-utils.test.js (166.714692ms)
+✔ .github/scripts/__tests__/keepalive-independent-verifier.test.js (258.619688ms)
+✔ .github/scripts/__tests__/keepalive-instruction-segment.test.js (101.935083ms)
+✔ .github/scripts/__tests__/keepalive-instruction-template.test.js (206.231678ms)
+
+Interrupted while running:
+
+⚠ .github/scripts/__tests__/keepalive-loop.test.js (.github/scripts/__tests__/keepalive-loop.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-model-profile-contract.test.js (.github/scripts/__tests__/keepalive-model-profile-contract.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js (.github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-post-work.test.js (.github/scripts/__tests__/keepalive-post-work.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-presence-delta.test.js (.github/scripts/__tests__/keepalive-presence-delta.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-prompt-composer.test.js (.github/scripts/__tests__/keepalive-prompt-composer.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-prompt-routing.test.js (.github/scripts/__tests__/keepalive-prompt-routing.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-reporter-applicability.test.js (.github/scripts/__tests__/keepalive-reporter-applicability.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-review-guard.test.js (.github/scripts/__tests__/keepalive-review-guard.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-runner-dispatch.test.js (.github/scripts/__tests__/keepalive-runner-dispatch.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-runner-prompt.test.js (.github/scripts/__tests__/keepalive-runner-prompt.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-runner-scope.test.js (.github/scripts/__tests__/keepalive-runner-scope.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-runner-token.test.js (.github/scripts/__tests__/keepalive-runner-token.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-state.test.js (.github/scripts/__tests__/keepalive-state.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-worker-evidence.test.js (.github/scripts/__tests__/keepalive-worker-evidence.test.js:1:1)
+⚠ .github/scripts/__tests__/keepalive-worker-gate.test.js (.github/scripts/__tests__/keepalive-worker-gate.test.js:1:1)
+⚠ .github/scripts/__tests__/langsmith-fleet-artifacts.test.js (.github/scripts/__tests__/langsmith-fleet-artifacts.test.js:1:1)
+⚠ .github/scripts/__tests__/maint-post-ci.test.js (.github/scripts/__tests__/maint-post-ci.test.js:1:1)
+⚠ .github/scripts/__tests__/maint68-scoped-receipt.test.js (.github/scripts/__tests__/maint68-scoped-receipt.test.js:1:1)
+⚠ .github/scripts/__tests__/maint71_consumer_declared_contexts.test.js (.github/scripts/__tests__/maint71_consumer_declared_contexts.test.js:1:1)
+⚠ .github/scripts/__tests__/maint71_devtool_final_binding.test.js (.github/scripts/__tests__/maint71_devtool_final_binding.test.js:1:1)
+⚠ .github/scripts/__tests__/maint71_finding_verification.test.js (.github/scripts/__tests__/maint71_finding_verification.test.js:1:1)
+⚠ .github/scripts/__tests__/maint71_integration_delivery.test.js (.github/scripts/__tests__/maint71_integration_delivery.test.js:1:1)
+⚠ .github/scripts/__tests__/maint71_merge_sync_prs.test.js (.github/scripts/__tests__/maint71_merge_sync_prs.test.js:1:1)
+⚠ .github/scripts/__tests__/maint71_promote_dispatch.test.js (.github/scripts/__tests__/maint71_promote_dispatch.test.js:1:1)
+⚠ .github/scripts/__tests__/maint82_continuation_dispatch.test.js (.github/scripts/__tests__/maint82_continuation_dispatch.test.js:1:1)
+⚠ .github/scripts/__tests__/merge-manager.test.js (.github/scripts/__tests__/merge-manager.test.js:1:1)
+⚠ .github/scripts/__tests__/no-change-qualification.test.js (.github/scripts/__tests__/no-change-qualification.test.js:1:1)
+⚠ .github/scripts/__tests__/path-classifier-replay.test.js (.github/scripts/__tests__/path-classifier-replay.test.js:1:1)
+⚠ .github/scripts/__tests__/path-classifier.test.js (.github/scripts/__tests__/path-classifier.test.js:1:1)
+⚠ .github/scripts/__tests__/post-completion-comment.test.js (.github/scripts/__tests__/post-completion-comment.test.js:1:1)
+⚠ .github/scripts/__tests__/pr-context-graphql.test.js (.github/scripts/__tests__/pr-context-graphql.test.js:1:1)
+⚠ .github/scripts/__tests__/pr-source-context-coverage.test.js (.github/scripts/__tests__/pr-source-context-coverage.test.js:1:1)
+⚠ .github/scripts/__tests__/pr-source-context-report.test.js (.github/scripts/__tests__/pr-source-context-report.test.js:1:1)
+⚠ .github/scripts/__tests__/prompt-injection-guard.test.js (.github/scripts/__tests__/prompt-injection-guard.test.js:1:1)
+⚠ .github/scripts/__tests__/prompt_integrity_guard.test.js (.github/scripts/__tests__/prompt_integrity_guard.test.js:1:1)
+⚠ .github/scripts/__tests__/runtime-ac-merge-guard.test.js (.github/scripts/__tests__/runtime-ac-merge-guard.test.js:1:1)
+⚠ .github/scripts/__tests__/scoped-canary-refresh.test.js (.github/scripts/__tests__/scoped-canary-refresh.test.js:1:1)
+⚠ .github/scripts/__tests__/source-context.test.js (.github/scripts/__tests__/source-context.test.js:1:1)
+⚠ .github/scripts/__tests__/sync-run-contract.test.js (.github/scripts/__tests__/sync-run-contract.test.js:1:1)
+⚠ .github/scripts/__tests__/sync-tracker-state.test.js (.github/scripts/__tests__/sync-tracker-state.test.js:1:1)
+⚠ .github/scripts/__tests__/sync_cleanup_policy.test.js (.github/scripts/__tests__/sync_cleanup_policy.test.js:1:1)
+⚠ .github/scripts/__tests__/sync_dependency_campaign.test.js (.github/scripts/__tests__/sync_dependency_campaign.test.js:1:1)
+⚠ .github/scripts/__tests__/sync_pr_lease_contract.test.js (.github/scripts/__tests__/sync_pr_lease_contract.test.js:1:1)
+⚠ .github/scripts/__tests__/sync_pr_merge_contract.test.js (.github/scripts/__tests__/sync_pr_merge_contract.test.js:1:1)
+⚠ .github/scripts/__tests__/sync_recovery_followups.test.js (.github/scripts/__tests__/sync_recovery_followups.test.js:1:1)
+⚠ .github/scripts/__tests__/terminal-disposition-coverage.test.js (.github/scripts/__tests__/terminal-disposition-coverage.test.js:1:1)
+⚠ .github/scripts/__tests__/terminal-disposition.test.js (.github/scripts/__tests__/terminal-disposition.test.js:1:1)
+⚠ .github/scripts/__tests__/test-directory-entrypoint.test.js (.github/scripts/__tests__/test-directory-entrypoint.test.js:1:1)
+⚠ .github/scripts/__tests__/timeout-config.test.js (.github/scripts/__tests__/timeout-config.test.js:1:1)
+⚠ .github/scripts/__tests__/token-load-balancer-resolution.test.js (.github/scripts/__tests__/token-load-balancer-resolution.test.js:1:1)
+⚠ .github/scripts/__tests__/token-load-balancer.test.js (.github/scripts/__tests__/token-load-balancer.test.js:1:1)
+⚠ .github/scripts/__tests__/vendored-glob-security.test.js (.github/scripts/__tests__/vendored-glob-security.test.js:1:1)
+⚠ .github/scripts/__tests__/verification-events.test.js (.github/scripts/__tests__/verification-events.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-acceptance-prompt.test.js (.github/scripts/__tests__/verifier-acceptance-prompt.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-ci-query.test.js (.github/scripts/__tests__/verifier-ci-query.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-closure.test.js (.github/scripts/__tests__/verifier-closure.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-comparison-baseline.test.js (.github/scripts/__tests__/verifier-comparison-baseline.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-artifacts.test.js (.github/scripts/__tests__/verifier-correction-artifacts.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-autopilot.test.js (.github/scripts/__tests__/verifier-correction-autopilot.test.js:1:1)
+⚠ .github/scripts/__tests__/verifier-correction-coding.test.js (.github/scripts/__tests__/verifier-correction-coding.test.js:1:1)
+✖ .github/scripts/__tests__/keepalive-loop.test.js (588221.678427ms)
+✔ .github/scripts/__tests__/keepalive-model-profile-contract.test.js (146.589787ms)
+✔ .github/scripts/__tests__/keepalive-orchestrator-gate-runner.test.js (185.962608ms)
+✔ .github/scripts/__tests__/keepalive-post-work.test.js (151.925382ms)
+✔ .github/scripts/__tests__/keepalive-presence-delta.test.js (4317.505314ms)
+✔ .github/scripts/__tests__/keepalive-prompt-composer.test.js (148.720782ms)
+✔ .github/scripts/__tests__/keepalive-prompt-routing.test.js (162.705031ms)
+✔ .github/scripts/__tests__/keepalive-reporter-applicability.test.js (456.275037ms)
+✔ .github/scripts/__tests__/keepalive-review-guard.test.js (158.961902ms)
+✔ .github/scripts/__tests__/keepalive-runner-dispatch.test.js (197.346825ms)
+✔ .github/scripts/__tests__/keepalive-runner-prompt.test.js (201.782021ms)
+✔ .github/scripts/__tests__/keepalive-runner-scope.test.js (168.976209ms)
+✔ .github/scripts/__tests__/keepalive-runner-token.test.js (109.7141ms)
+✔ .github/scripts/__tests__/keepalive-state.test.js (135.00065ms)
+✔ .github/scripts/__tests__/keepalive-worker-evidence.test.js (200.517456ms)
+✔ .github/scripts/__tests__/keepalive-worker-gate.test.js (157.65915ms)
+✔ .github/scripts/__tests__/langsmith-fleet-artifacts.test.js (188.93461ms)
+✔ .github/scripts/__tests__/maint-post-ci.test.js (228.456885ms)
+node:child_process:982
+    throw err;
+    ^
+
+<ref *1> Error: spawnSync python3 EPERM
+    at Object.spawnSync (node:internal/child_process:1191:20)
+    at spawnSync (node:child_process:929:24)
+    at execFileSync (node:child_process:972:15)
+    at Object.<anonymous> (/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/maint68-scoped-receipt.test.js:14:28)
+    at Module._compile (node:internal/modules/cjs/loader:1929:14)
+    at Object..js (node:internal/modules/cjs/loader:2060:10)
+    at Module.load (node:internal/modules/cjs/loader:1651:32)
+    at Module._load (node:internal/modules/cjs/loader:1443:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5) {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'spawnSync python3',
+  path: 'python3',
+  spawnargs: [
+    '-c',
+    '\n' +
+      'import json,tempfile\n' +
+      'from pathlib import Path\n' +
+      'from scripts.sync_manifest_compiler import compile_manifest\n' +
+      'from scripts.scope_consumer_sync_plan import select_plan\n' +
+      'with tempfile.TemporaryDirectory() as directory:\n' +
+      " root=Path(directory);(root/'.github').mkdir();(root/'scripts').mkdir()\n" +
+      " (root/'scripts/copied.js').write_text('copied\\n');(root/'scripts/other.js').write_text('other\\n')\n" +
+      " (root/'.github/sync-manifest.yml').write_text('version: 1\\nscripts:\\n  - source: scripts/copied.js\\n    description: café\\n  - source: scripts/other.js\\n    description: unrelated\\n')\n" +
+      " full=compile_manifest(root/'.github/sync-manifest.yml',repo_root=root).to_plan()\n" +
+      " plan,scope=select_plan(full,mode='source-delta',changed_paths=['scripts/copied.js'],base_sha='b'*40,source_commit='a'*40)\n" +
+      " phase={'schema':'workflows.consumer-sync-phase-selection/v1','version':1,'phase':'canary','plan_id':plan['plan_id'],'selected_repos':['owner/a','owner/b']}\n" +
+      " print(json.dumps({name:json.dumps(value,sort_keys=True,indent=2,ensure_ascii=True)+'\\n' for name,value in [('manifest.json',plan),('manifest.full.json',full),('sync-plan-scope.json',scope),('sync-phase-selection.json',phase)]}))\n"
+  ],
+  error: [Circular *1],
+  status: 0,
+  signal: null,
+  output: [
+    null,
+    '{"manifest.json": "{\\n  \\"entries\\": [\\n    {\\n      \\"content_sha256\\": \\"sha256:c859968d74aafda9272be2d13a897eb016930e2c6e9c0054c385d51ec2679d22\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"caf\\\\u00e9\\",\\n      \\"effect_fingerprint\\": \\"sha256:11c01cf57027d0bf320c983e168e0c5d1fe4e2511416dda66dfe78a54c634f3f\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/copied.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/copied.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/copied.js\\",\\n      \\"template_sync\\": null\\n    }\\n  ],\\n  \\"manifest_sha256\\": \\"sha256:03acce46d263f73ac82b01e986062d339966a301cb0cb496d553f9c2c7dddf00\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"removals\\": [],\\n  \\"schema\\": \\"workflows.consumer-sync-plan/v1\\",\\n  \\"version\\": 1\\n}\\n", "manifest.full.json": "{\\n  \\"entries\\": [\\n    {\\n      \\"content_sha256\\": \\"sha256:c859968d74aafda9272be2d13a897eb016930e2c6e9c0054c385d51ec2679d22\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"caf\\\\u00e9\\",\\n      \\"effect_fingerprint\\": \\"sha256:11c01cf57027d0bf320c983e168e0c5d1fe4e2511416dda66dfe78a54c634f3f\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/copied.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/copied.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/copied.js\\",\\n      \\"template_sync\\": null\\n    },\\n    {\\n      \\"content_sha256\\": \\"sha256:7e4fa2eb8c7ac089739d5defc4489fad68a100d92082ca35c6b40a4524821f87\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"unrelated\\",\\n      \\"effect_fingerprint\\": \\"sha256:d35d87fa677fde8b50c1f15f74274b13d81e3c1f1fcfe826f582581dfb3babe4\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/other.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/other.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/other.js\\",\\n      \\"template_sync\\": null\\n    }\\n  ],\\n  \\"manifest_sha256\\": \\"sha256:03acce46d263f73ac82b01e986062d339966a301cb0cb496d553f9c2c7dddf00\\",\\n  \\"plan_id\\": \\"sha256:a4e7b4947c40e96e7902d9ce3b83e9c489035eeb07a9b7a3b4eb0d7a5a3281f9\\",\\n  \\"removals\\": [],\\n  \\"schema\\": \\"workflows.consumer-sync-plan/v1\\",\\n  \\"version\\": 1\\n}\\n", "sync-plan-scope.json": "{\\n  \\"base_sha\\": \\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\",\\n  \\"changed_paths\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"dependency_targets\\": [],\\n  \\"full_plan_id\\": \\"sha256:a4e7b4947c40e96e7902d9ce3b83e9c489035eeb07a9b7a3b4eb0d7a5a3281f9\\",\\n  \\"ignored_changed_paths\\": [],\\n  \\"matched_changed_paths\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"mode\\": \\"source-delta\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"schema\\": \\"workflows.consumer-sync-plan-scope/v1\\",\\n  \\"selected_entry_count\\": 1,\\n  \\"selected_removal_count\\": 0,\\n  \\"selected_targets\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"source_commit\\": \\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\"\\n}\\n", "sync-phase-selection.json": "{\\n  \\"phase\\": \\"canary\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"schema\\": \\"workflows.consumer-sync-phase-selection/v1\\",\\n  \\"selected_repos\\": [\\n    \\"owner/a\\",\\n    \\"owner/b\\"\\n  ],\\n  \\"version\\": 1\\n}\\n"}\n',
+    ''
+  ],
+  pid: 1218,
+  stdout: '{"manifest.json": "{\\n  \\"entries\\": [\\n    {\\n      \\"content_sha256\\": \\"sha256:c859968d74aafda9272be2d13a897eb016930e2c6e9c0054c385d51ec2679d22\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"caf\\\\u00e9\\",\\n      \\"effect_fingerprint\\": \\"sha256:11c01cf57027d0bf320c983e168e0c5d1fe4e2511416dda66dfe78a54c634f3f\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/copied.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/copied.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/copied.js\\",\\n      \\"template_sync\\": null\\n    }\\n  ],\\n  \\"manifest_sha256\\": \\"sha256:03acce46d263f73ac82b01e986062d339966a301cb0cb496d553f9c2c7dddf00\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"removals\\": [],\\n  \\"schema\\": \\"workflows.consumer-sync-plan/v1\\",\\n  \\"version\\": 1\\n}\\n", "manifest.full.json": "{\\n  \\"entries\\": [\\n    {\\n      \\"content_sha256\\": \\"sha256:c859968d74aafda9272be2d13a897eb016930e2c6e9c0054c385d51ec2679d22\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"caf\\\\u00e9\\",\\n      \\"effect_fingerprint\\": \\"sha256:11c01cf57027d0bf320c983e168e0c5d1fe4e2511416dda66dfe78a54c634f3f\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/copied.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/copied.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/copied.js\\",\\n      \\"template_sync\\": null\\n    },\\n    {\\n      \\"content_sha256\\": \\"sha256:7e4fa2eb8c7ac089739d5defc4489fad68a100d92082ca35c6b40a4524821f87\\",\\n      \\"delivery\\": \\"copy\\",\\n      \\"description\\": \\"unrelated\\",\\n      \\"effect_fingerprint\\": \\"sha256:d35d87fa677fde8b50c1f15f74274b13d81e3c1f1fcfe826f582581dfb3babe4\\",\\n      \\"include_repos\\": [],\\n      \\"is_directory\\": false,\\n      \\"overwrite_repos\\": [],\\n      \\"requires\\": [],\\n      \\"resolved_source\\": \\"scripts/other.js\\",\\n      \\"section\\": \\"scripts\\",\\n      \\"skip_reasons\\": {},\\n      \\"skip_repos\\": [],\\n      \\"source\\": \\"scripts/other.js\\",\\n      \\"source_tree\\": \\"root\\",\\n      \\"sync_mode\\": null,\\n      \\"target\\": \\"scripts/other.js\\",\\n      \\"template_sync\\": null\\n    }\\n  ],\\n  \\"manifest_sha256\\": \\"sha256:03acce46d263f73ac82b01e986062d339966a301cb0cb496d553f9c2c7dddf00\\",\\n  \\"plan_id\\": \\"sha256:a4e7b4947c40e96e7902d9ce3b83e9c489035eeb07a9b7a3b4eb0d7a5a3281f9\\",\\n  \\"removals\\": [],\\n  \\"schema\\": \\"workflows.consumer-sync-plan/v1\\",\\n  \\"version\\": 1\\n}\\n", "sync-plan-scope.json": "{\\n  \\"base_sha\\": \\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\",\\n  \\"changed_paths\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"dependency_targets\\": [],\\n  \\"full_plan_id\\": \\"sha256:a4e7b4947c40e96e7902d9ce3b83e9c489035eeb07a9b7a3b4eb0d7a5a3281f9\\",\\n  \\"ignored_changed_paths\\": [],\\n  \\"matched_changed_paths\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"mode\\": \\"source-delta\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"schema\\": \\"workflows.consumer-sync-plan-scope/v1\\",\\n  \\"selected_entry_count\\": 1,\\n  \\"selected_removal_count\\": 0,\\n  \\"selected_targets\\": [\\n    \\"scripts/copied.js\\"\\n  ],\\n  \\"source_commit\\": \\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\"\\n}\\n", "sync-phase-selection.json": "{\\n  \\"phase\\": \\"canary\\",\\n  \\"plan_id\\": \\"sha256:ce02c6070e0653d8ef7b9f0b722402e3fd0f0035bce90d40ada94c58107f95e9\\",\\n  \\"schema\\": \\"workflows.consumer-sync-phase-selection/v1\\",\\n  \\"selected_repos\\": [\\n    \\"owner/a\\",\\n    \\"owner/b\\"\\n  ],\\n  \\"version\\": 1\\n}\\n"}\n',
+  stderr: ''
+}
+
+Node.js v24.22.2
+✖ .github/scripts/__tests__/maint68-scoped-receipt.test.js (291.715403ms)
+✔ .github/scripts/__tests__/maint71_consumer_declared_contexts.test.js (338.058315ms)
+✔ .github/scripts/__tests__/maint71_devtool_final_binding.test.js (112.184616ms)
+✔ .github/scripts/__tests__/maint71_finding_verification.test.js (303.639601ms)
+✔ .github/scripts/__tests__/maint71_integration_delivery.test.js (152.934708ms)
+✔ .github/scripts/__tests__/maint71_merge_sync_prs.test.js (1639.204782ms)
+✔ .github/scripts/__tests__/maint71_promote_dispatch.test.js (1127.827717ms)
+✔ .github/scripts/__tests__/maint82_continuation_dispatch.test.js (143.929893ms)
+✔ .github/scripts/__tests__/merge-manager.test.js (177.134272ms)
+✔ .github/scripts/__tests__/no-change-qualification.test.js (138.475521ms)
+✔ .github/scripts/__tests__/path-classifier-replay.test.js (85.081405ms)
+✔ .github/scripts/__tests__/path-classifier.test.js (142.46821ms)
+✔ .github/scripts/__tests__/post-completion-comment.test.js (113.429627ms)
+✔ .github/scripts/__tests__/pr-context-graphql.test.js (175.668056ms)
+✔ .github/scripts/__tests__/pr-source-context-coverage.test.js (104.691306ms)
+✔ .github/scripts/__tests__/pr-source-context-report.test.js (124.152502ms)
+✔ .github/scripts/__tests__/prompt-injection-guard.test.js (300.609224ms)
+✔ .github/scripts/__tests__/prompt_integrity_guard.test.js (100.876066ms)
+✔ .github/scripts/__tests__/runtime-ac-merge-guard.test.js (97.256071ms)
+✔ .github/scripts/__tests__/scoped-canary-refresh.test.js (252.43715ms)
+✔ .github/scripts/__tests__/source-context.test.js (213.891334ms)
+✔ .github/scripts/__tests__/sync-run-contract.test.js (76.123636ms)
+✔ .github/scripts/__tests__/sync-tracker-state.test.js (117.060114ms)
+✔ .github/scripts/__tests__/sync_cleanup_policy.test.js (140.546843ms)
+✔ .github/scripts/__tests__/sync_dependency_campaign.test.js (453.652075ms)
+✔ .github/scripts/__tests__/sync_pr_lease_contract.test.js (125.272243ms)
+✔ .github/scripts/__tests__/sync_pr_merge_contract.test.js (687.060079ms)
+✔ .github/scripts/__tests__/sync_recovery_followups.test.js (109.442521ms)
+✔ .github/scripts/__tests__/terminal-disposition-coverage.test.js (130.01533ms)
+✔ .github/scripts/__tests__/terminal-disposition.test.js (112.239359ms)
+✔ .github/scripts/__tests__/test-directory-entrypoint.test.js (448.116719ms)
+✔ .github/scripts/__tests__/timeout-config.test.js (85.31559ms)
+✖ .github/scripts/__tests__/token-load-balancer-resolution.test.js (143.091774ms)
+✔ .github/scripts/__tests__/token-load-balancer.test.js (104.804815ms)
+✖ .github/scripts/__tests__/vendored-glob-security.test.js (267.957096ms)
+✔ .github/scripts/__tests__/verification-events.test.js (205.451521ms)
+✔ .github/scripts/__tests__/verifier-acceptance-prompt.test.js (69.387338ms)
+✔ .github/scripts/__tests__/verifier-ci-query.test.js (129.816511ms)
+✔ .github/scripts/__tests__/verifier-closure.test.js (133.821943ms)
+✖ .github/scripts/__tests__/verifier-comparison-baseline.test.js (359.920019ms)
+✖ .github/scripts/__tests__/verifier-correction-artifacts.test.js (579520.868076ms)
+✔ .github/scripts/__tests__/verifier-correction-autopilot.test.js (310.405104ms)
+✖ .github/scripts/__tests__/verifier-correction-coding.test.js (578872.156126ms)
+✖ .github/scripts/__tests__/verifier-correction-collector.test.js
+✖ .github/scripts/__tests__/verifier-correction-consumer.test.js
+✖ .github/scripts/__tests__/verifier-correction-decision.test.js
+✖ .github/scripts/__tests__/verifier-correction-effects.test.js
+✖ .github/scripts/__tests__/verifier-correction-host.test.js
+✖ .github/scripts/__tests__/verifier-correction-inert-deployment.test.js
+✖ .github/scripts/__tests__/verifier-correction-keepalive.test.js
+✖ .github/scripts/__tests__/verifier-correction-profile.test.js
+✖ .github/scripts/__tests__/verifier-correction-runtime.test.js
+✖ .github/scripts/__tests__/verifier-correction-seed.test.js
+✖ .github/scripts/__tests__/verifier-correction-wiring.test.js
+✖ .github/scripts/__tests__/verifier-issue-formatter.test.js
+✖ .github/scripts/__tests__/verifier-plan-fingerprint.test.js
+✖ .github/scripts/__tests__/verifier-request-correlation.test.js
+✖ .github/scripts/__tests__/verifier-selected-artifact-metadata.test.js
+✖ .github/scripts/__tests__/weekly-metrics-artifacts.test.js
+✖ .github/scripts/__tests__/weekly-metrics-download-manifest.test.js
+ℹ tests 144
+ℹ suites 0
+ℹ pass 118
+ℹ fail 6
+ℹ cancelled 20
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 599958.293789
+
+✖ failing tests:
+
+test at .github/scripts/__tests__/agents-verifier-context.test.js:1:1
+✖ .github/scripts/__tests__/agents-verifier-context.test.js (8351.406816ms)
+  'test failed'
+
+test at .github/scripts/__tests__/generated-delivery-seal-action.test.js:1:1
+✖ .github/scripts/__tests__/generated-delivery-seal-action.test.js (214.185037ms)
+  'test failed'
+
+test at .github/scripts/__tests__/keepalive-loop.test.js:1:1
+✖ .github/scripts/__tests__/keepalive-loop.test.js (588221.678427ms)
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/maint68-scoped-receipt.test.js:1:1
+✖ .github/scripts/__tests__/maint68-scoped-receipt.test.js (291.715403ms)
+  'test failed'
+
+test at .github/scripts/__tests__/token-load-balancer-resolution.test.js:1:1
+✖ .github/scripts/__tests__/token-load-balancer-resolution.test.js (143.091774ms)
+  'test failed'
+
+test at .github/scripts/__tests__/vendored-glob-security.test.js:1:1
+✖ .github/scripts/__tests__/vendored-glob-security.test.js (267.957096ms)
+  'test failed'
+
+test at .github/scripts/__tests__/verifier-comparison-baseline.test.js:1:1
+✖ .github/scripts/__tests__/verifier-comparison-baseline.test.js (359.920019ms)
+  'test failed'
+
+test at .github/scripts/__tests__/verifier-correction-artifacts.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-artifacts.test.js (579520.868076ms)
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-coding.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-coding.test.js (578872.156126ms)
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-collector.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-collector.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-consumer.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-consumer.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-decision.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-decision.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-effects.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-effects.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-host.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-host.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-inert-deployment.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-inert-deployment.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-keepalive.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-keepalive.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-profile.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-profile.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-runtime.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-runtime.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-seed.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-seed.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-correction-wiring.test.js:1:1
+✖ .github/scripts/__tests__/verifier-correction-wiring.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-issue-formatter.test.js:1:1
+✖ .github/scripts/__tests__/verifier-issue-formatter.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-plan-fingerprint.test.js:1:1
+✖ .github/scripts/__tests__/verifier-plan-fingerprint.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-request-correlation.test.js:1:1
+✖ .github/scripts/__tests__/verifier-request-correlation.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/verifier-selected-artifact-metadata.test.js:1:1
+✖ .github/scripts/__tests__/verifier-selected-artifact-metadata.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/weekly-metrics-artifacts.test.js:1:1
+✖ .github/scripts/__tests__/weekly-metrics-artifacts.test.js
+  'Promise resolution is still pending but the event loop has already resolved'
+
+test at .github/scripts/__tests__/weekly-metrics-download-manifest.test.js:1:1
+✖ .github/scripts/__tests__/weekly-metrics-download-manifest.test.js
+  'Promise resolution is still pending but the event loop has already resolved'

@@ -1,0 +1,23 @@
+[
+  {
+    "run_id": 42521606142,
+    "artifact_id": 13633428761,
+    "archive_sha256": "ed1d03d9a852b26ee00f1dd34ca2a65da15516abcf2647b63fcb4d0f3ca71466",
+    "retained_projection": "4557-maint71-target.json",
+    "members": [
+      "sync-pr-merge-report.json",
+      "sync-canary-evidence.json",
+      "sync-campaign-commit-authorization.json"
+    ],
+    "selection": "Only exact Portable-Alpha-Extension-Model result, handoff, and canary rows; no fleet totals."
+  },
+  {
+    "run_id": 42499084007,
+    "artifact_id": 13624827017,
+    "archive_sha256": "0d1413b766b2b233517191e301ecc92944fa4637fd090b09fbdc91befaf35b4f",
+    "retained_projection": "4557-maint68-target.json",
+    "members": [
+      "stranske-Portable-Alpha-Extension-Model.json"
+    ]
+  }
+]

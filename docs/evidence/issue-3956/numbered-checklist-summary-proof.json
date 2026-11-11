@@ -1,0 +1,109 @@
+{
+  "revision": "3ab79ec1275d150bd32a2a414cd99d9a28981ce0",
+  "runtime": "v24.22.2",
+  "test_file": ".github/scripts/__tests__/agents-pr-meta-update-body.test.js",
+  "test_sha256": "05e6d51fef76575be14a373c34decc374455959e7d5d7e94b201165cf65e8bfb",
+  "source_sha256": {
+    ".github/scripts/agents_pr_meta_update_body.js": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+    "templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f"
+  },
+  "note": "Local test overlay on the named base; checkout production never mutated. Each temporary module uses unchanged helpers through symlinks. RED and GREEN select only the named test.",
+  "discarded_attempts": [
+    {
+      "mutation": "bypass task whitespace normalization",
+      "before": "? ensureChecklist(tasksNormalized)",
+      "mutant": "? tasksNormalized",
+      "result": "SURVIVED on source copy: coalesceWrappedChecklist already normalizes bullet whitespace. Not counted as an assertion-failing RED receipt."
+    }
+  ],
+  "proofs": [
+    {
+      "test": "buildStatusBlock preserves numbered completion through normalization and repeated refresh",
+      "file": ".github/scripts/agents_pr_meta_update_body.js",
+      "mutation": "drop numbered parsing",
+      "before": "(?:[-*+]|\\d+[.)])\\s+\\[(x| )\\]",
+      "mutant": "(?:[-*+])\\s+\\[(x| )\\]",
+      "source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "mutant_source_sha256": "8205fea231ead4cb21ac4e5b0b789c96d487abc55ba98ba25703e7f4c68e1b79",
+      "restored_source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "command": [
+        "node",
+        "--test",
+        "--test-isolation=none",
+        "--test-name-pattern=buildStatusBlock preserves numbered completion through normalization and repeated refresh",
+        ".github/scripts/__tests__/agents-pr-meta-update-body.test.js"
+      ],
+      "temporary_cwd": "/tmp/issue-3956-summary-efdzkk0g",
+      "red_exit": 1,
+      "red_output": "\u2716 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.815664ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 1\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 38.093145\n\n\u2716 failing tests:\n\ntest at .github/scripts/__tests__/agents-pr-meta-update-body.test.js:1781:1\n\u2716 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.815664ms)\n  AssertionError [ERR_ASSERTION]: source: renumbered tasks retain only actual completion\n      at TestContext.<anonymous> (/tmp/issue-3956-summary-efdzkk0g/.github/scripts/__tests__/agents-pr-meta-update-body.test.js:1812:14)\n      at Test.runInAsyncScope (node:async_hooks:227:14)\n      at Test.run (node:internal/test_runner/test:1402:25)\n      at Test.start (node:internal/test_runner/test:1262:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {\n    generatedMessage: false,\n    code: 'ERR_ASSERTION',\n    actual: false,\n    expected: true,\n    operator: '==',\n    diff: 'simple'\n  }\n",
+      "green_exit": 0,
+      "green_output": "\u2714 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.393662ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 33.835701\n"
+    },
+    {
+      "test": "buildStatusBlock preserves numbered completion through normalization and repeated refresh",
+      "file": ".github/scripts/agents_pr_meta_update_body.js",
+      "mutation": "drop numbered merging",
+      "before": "([-*+]|\\d+[.)]) \\[( )\\]",
+      "mutant": "([-*+]) \\[( )\\]",
+      "source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "mutant_source_sha256": "dfed9e4bc625badef5ce3a3919a633ddb3de0edf0ca61bc182c124b6ecb5ad47",
+      "restored_source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "command": [
+        "node",
+        "--test",
+        "--test-isolation=none",
+        "--test-name-pattern=buildStatusBlock preserves numbered completion through normalization and repeated refresh",
+        ".github/scripts/__tests__/agents-pr-meta-update-body.test.js"
+      ],
+      "temporary_cwd": "/tmp/issue-3956-summary-efdzkk0g",
+      "red_exit": 1,
+      "red_output": "\u2716 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.464106ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 1\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 37.864228\n\n\u2716 failing tests:\n\ntest at .github/scripts/__tests__/agents-pr-meta-update-body.test.js:1781:1\n\u2716 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.464106ms)\n  AssertionError [ERR_ASSERTION]: source: renumbered tasks retain only actual completion\n      at TestContext.<anonymous> (/tmp/issue-3956-summary-efdzkk0g/.github/scripts/__tests__/agents-pr-meta-update-body.test.js:1812:14)\n      at Test.runInAsyncScope (node:async_hooks:227:14)\n      at Test.run (node:internal/test_runner/test:1402:25)\n      at Test.start (node:internal/test_runner/test:1262:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {\n    generatedMessage: false,\n    code: 'ERR_ASSERTION',\n    actual: false,\n    expected: true,\n    operator: '==',\n    diff: 'simple'\n  }\n",
+      "green_exit": 0,
+      "green_output": "\u2714 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.555741ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 40.625369\n"
+    },
+    {
+      "test": "buildStatusBlock preserves numbered completion through normalization and repeated refresh",
+      "file": "templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js",
+      "mutation": "drop numbered parsing",
+      "before": "(?:[-*+]|\\d+[.)])\\s+\\[(x| )\\]",
+      "mutant": "(?:[-*+])\\s+\\[(x| )\\]",
+      "source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "mutant_source_sha256": "8205fea231ead4cb21ac4e5b0b789c96d487abc55ba98ba25703e7f4c68e1b79",
+      "restored_source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "command": [
+        "node",
+        "--test",
+        "--test-isolation=none",
+        "--test-name-pattern=buildStatusBlock preserves numbered completion through normalization and repeated refresh",
+        ".github/scripts/__tests__/agents-pr-meta-update-body.test.js"
+      ],
+      "temporary_cwd": "/tmp/issue-3956-summary-efdzkk0g",
+      "red_exit": 1,
+      "red_output": "\u2716 buildStatusBlock preserves numbered completion through normalization and repeated refresh (4.424751ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 1\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 38.634294\n\n\u2716 failing tests:\n\ntest at .github/scripts/__tests__/agents-pr-meta-update-body.test.js:1781:1\n\u2716 buildStatusBlock preserves numbered completion through normalization and repeated refresh (4.424751ms)\n  AssertionError [ERR_ASSERTION]: template: renumbered tasks retain only actual completion\n      at TestContext.<anonymous> (/tmp/issue-3956-summary-efdzkk0g/.github/scripts/__tests__/agents-pr-meta-update-body.test.js:1812:14)\n      at Test.runInAsyncScope (node:async_hooks:227:14)\n      at Test.run (node:internal/test_runner/test:1402:25)\n      at Test.start (node:internal/test_runner/test:1262:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {\n    generatedMessage: false,\n    code: 'ERR_ASSERTION',\n    actual: false,\n    expected: true,\n    operator: '==',\n    diff: 'simple'\n  }\n",
+      "green_exit": 0,
+      "green_output": "\u2714 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.675517ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 33.626232\n"
+    },
+    {
+      "test": "buildStatusBlock preserves numbered completion through normalization and repeated refresh",
+      "file": "templates/consumer-repo/.github/scripts/agents_pr_meta_update_body.js",
+      "mutation": "drop numbered merging",
+      "before": "([-*+]|\\d+[.)]) \\[( )\\]",
+      "mutant": "([-*+]) \\[( )\\]",
+      "source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "mutant_source_sha256": "dfed9e4bc625badef5ce3a3919a633ddb3de0edf0ca61bc182c124b6ecb5ad47",
+      "restored_source_sha256": "3a549a854dbd2ee280c1a9d037d05e09b67e3dc35ed8571837468f442a57a15f",
+      "command": [
+        "node",
+        "--test",
+        "--test-isolation=none",
+        "--test-name-pattern=buildStatusBlock preserves numbered completion through normalization and repeated refresh",
+        ".github/scripts/__tests__/agents-pr-meta-update-body.test.js"
+      ],
+      "temporary_cwd": "/tmp/issue-3956-summary-efdzkk0g",
+      "red_exit": 1,
+      "red_output": "\u2716 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.757098ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 0\n\u2139 fail 1\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 37.01016\n\n\u2716 failing tests:\n\ntest at .github/scripts/__tests__/agents-pr-meta-update-body.test.js:1781:1\n\u2716 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.757098ms)\n  AssertionError [ERR_ASSERTION]: template: renumbered tasks retain only actual completion\n      at TestContext.<anonymous> (/tmp/issue-3956-summary-efdzkk0g/.github/scripts/__tests__/agents-pr-meta-update-body.test.js:1812:14)\n      at Test.runInAsyncScope (node:async_hooks:227:14)\n      at Test.run (node:internal/test_runner/test:1402:25)\n      at Test.start (node:internal/test_runner/test:1262:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {\n    generatedMessage: false,\n    code: 'ERR_ASSERTION',\n    actual: false,\n    expected: true,\n    operator: '==',\n    diff: 'simple'\n  }\n",
+      "green_exit": 0,
+      "green_output": "\u2714 buildStatusBlock preserves numbered completion through normalization and repeated refresh (3.526027ms)\n\u2139 tests 1\n\u2139 suites 0\n\u2139 pass 1\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 37.425142\n"
+    }
+  ]
+}

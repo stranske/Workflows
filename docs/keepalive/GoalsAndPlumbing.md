@@ -76,6 +76,44 @@ a matching completion. A failed productivity measurement still prevents recordin
 The workflow names, reusable runner inputs, state fingerprint and authority
 signing protocol remain unchanged.
 
+The consumer autofix `metrics` job also acknowledges the reservation created by
+`prepare`. Its completion step runs after metrics/artifact reporting, including
+when artifact upload fails, and requires a dispatched, non-skipped worker and a
+successful head-movement measurement. It records the actual workflow attempt;
+the keepalive finish job cannot substitute for this independent autofix result.
+
+The shared `.github/scripts/autofix_metrics.js` helper provides explicit
+`head_observed` evidence and rejects fallback-only completion measurements before
+the runner receipt is written. Its consumer copy is sync-managed. The consumer
+`agents-81-gate-followups.yml` `metrics` job checks the helper out, and Collect
+metrics calls `observeAutofixHead`, whose returned `head_observed`,
+`head_sha_after`, `fix_applied` and `gate_result_after` fields are merged into
+`metrics_json`. A failed or malformed PR lookup leaves `head_sha_after` empty and
+`head_observed` false. A valid PR head remains observed if subsequent Gate
+telemetry or label cleanup fails. Record autofix completion runs only when
+`steps.collect.outputs.head_observed == 'true'`, and reads its validated
+head/productivity/exit values from the helper's CLI.
+
+The `runner_lib record-completion` CLI also checks the existing `METRICS_JSON`
+environment variable before accessing receipt storage: it requires boolean
+`head_observed: true` bound to the reserved `head_sha_before`, a valid measured
+head, and consistent fix/result values. The command-line head, productivity,
+and exit status must match that measurement. Missing or inconsistent evidence,
+malformed JSON and fallback-only metrics fail without writing a receipt or
+spending an unproductive retry. Callers without `METRICS_JSON` retain their
+existing completion contract.
+
+For a historical successful autofix on an already merged PR, run
+`python -m scripts.reconcile_runner_completion --repo OWNER/REPO --run-id ID --report`.
+The read-only report validates the native workflow/attempt, terminal worker,
+digest-bound metrics archive and original reservation. `--apply` appends an
+immutable receipt with the original worker completion time and a separately
+identified observer. It never impersonates the source workflow, overwrites a
+newer reservation, or releases an open PR's writer. Retries reuse the receipt.
+This historical acknowledgment proves terminal execution, not that an old head
+survived a later rebase or supplied the delivered changes. Missing or ambiguous
+evidence fails closed and remains available for evidence-based reconciliation.
+
 ## 1. Activation Guardrails
 
 Keepalive **must not** dispatch an agent unless *all* conditions hold:

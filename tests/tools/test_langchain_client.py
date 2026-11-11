@@ -8,6 +8,7 @@ import os
 import sys
 import types
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from tools import langchain_client, llm_registry
@@ -1331,6 +1332,114 @@ def test_stale_consumer_slot_for_retired_github_models_never_builds_a_client(
     assert llm_registry.load_slot_config() == []
     assert langchain_client.build_chat_client() is None
     assert langchain_client.build_chat_clients() == []
+
+
+@pytest.mark.parametrize("retired_position", [0, 1, 2])
+@pytest.mark.parametrize(
+    "stale_selection",
+    [
+        {"profile": "verifier-balanced"},
+        {"model": "openai/gpt-5"},
+        {"profile": "verifier-balanced", "model": "openai/gpt-5"},
+    ],
+    ids=["profile", "legacy-pin", "profile-and-pin"],
+)
+@pytest.mark.parametrize(
+    "available_providers", [(), ("openai",), ("anthropic",), ("openai", "anthropic")]
+)
+def test_mixed_consumer_slots_skip_retired_client_and_preserve_available_judges(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    retired_position: int,
+    stale_selection: dict[str, str],
+    available_providers: tuple[str, ...],
+) -> None:
+    """Retirement never consumes a paired judge's place or revives a legacy client."""
+    _clear_client_environment(monkeypatch)
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    github_builder = Mock()
+    monkeypatch.setattr(langchain_client, "_build_github_client", github_builder)
+    monkeypatch.setenv("GITHUB_TOKEN", "gh-test-value")
+    if "openai" in available_providers:
+        monkeypatch.setenv("OPENAI_API_KEY", "openai-test-value")
+    if "anthropic" in available_providers:
+        monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "anthropic-test-value")
+
+    slots = [
+        {"name": "slot1", "provider": "openai", "profile": "verifier-balanced"},
+        {"name": "slot2", "provider": "anthropic", "profile": "verifier-balanced"},
+    ]
+    slots.insert(
+        retired_position,
+        {"name": "slot3", "provider": "github-models", **stale_selection},
+    )
+    slots_path = tmp_path / "llm_slots.json"
+    slots_path.write_text(json.dumps({"slots": slots}), encoding="utf-8")
+    monkeypatch.setenv(langchain_client.ENV_SLOT_CONFIG, str(slots_path))
+
+    assert [slot.provider for slot in llm_registry.load_slot_config()] == ["openai", "anthropic"]
+    single = langchain_client.build_chat_client()
+    if available_providers:
+        assert single is not None
+        assert single.provider == available_providers[0]
+        assert single.model == _reviewed_model(single.provider)
+    else:
+        assert single is None
+    paired = langchain_client.build_chat_clients()
+    assert [client.provider for client in paired] == list(available_providers)
+    assert [client.model for client in paired] == [
+        _reviewed_model(provider) for provider in available_providers
+    ]
+    github_builder.assert_not_called()
+
+
+@pytest.mark.parametrize("failed_providers", [("openai",), ("anthropic",), ("openai", "anthropic")])
+@pytest.mark.parametrize("legacy_pin", [False, True], ids=["profile", "legacy-pin"])
+def test_failed_production_clients_never_fall_back_to_retired_consumer_slot(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failed_providers: tuple[str, ...],
+    legacy_pin: bool,
+) -> None:
+    """Even failed production constructors cannot revive a credentialed retired slot."""
+    _clear_client_environment(monkeypatch)
+    _install_fake_langchain_openai(monkeypatch)
+    _install_fake_langchain_anthropic(monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-test-value")
+    monkeypatch.setenv(langchain_client.ENV_ANTHROPIC_KEY, "anthropic-test-value")
+    monkeypatch.setenv("GITHUB_TOKEN", "github-test-value")
+    github_builder = Mock()
+    monkeypatch.setattr(langchain_client, "_build_github_client", github_builder)
+    for provider in failed_providers:
+        monkeypatch.setattr(
+            langchain_client,
+            f"_build_{provider}_client",
+            Mock(side_effect=RuntimeError("provider unavailable")),
+        )
+    stale_selection = {"model": "openai/gpt-5"} if legacy_pin else {"profile": "verifier-balanced"}
+    slots_path = tmp_path / "llm_slots.json"
+    slots_path.write_text(
+        json.dumps(
+            {
+                "slots": [
+                    {"name": "slot1", "provider": "openai", "profile": "verifier-balanced"},
+                    {"name": "slot2", "provider": "anthropic", "profile": "verifier-balanced"},
+                    {"name": "slot3", "provider": "github-models", **stale_selection},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(langchain_client.ENV_SLOT_CONFIG, str(slots_path))
+    surviving = [
+        provider for provider in ("openai", "anthropic") if provider not in failed_providers
+    ]
+
+    single = langchain_client.build_chat_client()
+    assert (single.provider if single else None) == (surviving[0] if surviving else None)
+    assert [client.provider for client in langchain_client.build_chat_clients()] == surviving
+    github_builder.assert_not_called()
 
 
 def _blocked_override_registry(tmp_path: Path) -> Path:

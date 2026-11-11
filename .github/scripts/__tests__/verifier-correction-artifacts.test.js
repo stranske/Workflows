@@ -4,8 +4,19 @@ const fs=require('fs'),os=require('os'),path=require('path'),{execFileSync}=requ
 const {createArtifactTransport,artifactName}=require('../verifier_correction_artifacts');
 const sha=value=>createHash('sha256').update(value).digest('hex');
 function zip(member,bytes) {
- return execFileSync('python3',['-c','import io,sys,json,zipfile,base64; x=json.load(sys.stdin); b=io.BytesIO(); z=zipfile.ZipFile(b,"w"); z.writestr(x["name"],base64.b64decode(x["body"])); z.close(); sys.stdout.buffer.write(b.getvalue())'],{input:JSON.stringify({name:member,body:bytes.toString('base64')})});
+ // Restricted runners can deny writes to the stdin socket and leave Python
+ // waiting for JSON forever. This small fixture travels as data in argv.
+ return execFileSync('python3',['-c','import io,sys,json,zipfile,base64; x=json.loads(sys.argv[1]); b=io.BytesIO(); z=zipfile.ZipFile(b,"w"); z.writestr(x["name"],base64.b64decode(x["body"])); z.close(); sys.stdout.buffer.write(b.getvalue())',JSON.stringify({name:member,body:bytes.toString('base64')})],{
+  stdio:['ignore','pipe','pipe'],timeout:15000,killSignal:'SIGKILL',
+ });
 }
+test('archive fixture preserves quoted names and empty or binary payloads through argv',()=>{
+ const {readRetainedArchive}=require('../verifier_pending_execution');
+ for(const bytes of [Buffer.alloc(0),Buffer.from(Array.from({length:256},(_,i)=>i))]) {
+  const member='quoted-"-café.json',files=readRetainedArchive(zip(member,bytes));
+  assert.equal(files.size,1);assert.ok(files.get(member).equals(bytes));
+ }
+});
 async function fixture(t,kind='ledger') {
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'correction-proof-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const run={id:700,run_attempt:2,path:['started','redispatch','formatredispatch','createdpr'].includes(kind)?'.github/workflows/agents-auto-pilot.yml':'.github/workflows/agents-verify-to-new-pr.yml',event:'workflow_dispatch',status:'in_progress',head_sha:'f'.repeat(40),head_branch:'main',repository:{id:1,full_name:'stranske/Example'},head_repository:{id:1,full_name:'stranske/Example'},created_at:'2026-10-26T00:00:00Z'};

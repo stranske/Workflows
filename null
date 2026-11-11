@@ -1,0 +1,13 @@
+export default async function workflow(host) {
+  const result = await host.agent({
+    label: "verify-and-commit",
+    input: `You are in the Workflows repo checkout on the PR branch. The parent session's bash sandbox fails with "bwrap: loopback: Failed RTM_NEWADDR", so you must execute these steps with your own tools:
+1. Run: node --test .github/scripts/__tests__/maint71_devtool_final_binding.test.js .github/scripts/__tests__/maint71_merge_sync_prs.test.js  — report exact pass/fail counts and any failing test names with error text.
+2. Run: black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .  — report result (no Python files were changed, but the gate is required). If black is unavailable, say so exactly.
+3. Run git status --porcelain and git diff --stat. The expected changed files are exactly: .github/scripts/maint71_merge_sync_prs.js, .github/scripts/__tests__/maint71_devtool_final_binding.test.js, docs/ops/issue-4427-wasm-pytest-handoff.md. If there are unexpected changes, DO NOT commit; report them.
+4. ONLY if the node tests pass (0 failures): stage exactly those three files by name and commit with message "fix(maint71): paginate dev-tool candidate accounting" (no amend, no push, no new branch). Report the new commit hash (git log -1 --oneline).
+5. If tests fail, do NOT commit; report the failures verbatim so the parent can fix them.
+Return all command outputs concisely.`
+  });
+  return { result };
+}

@@ -70,7 +70,16 @@ on:
       codex_fallback_models:
         description: 'Space-separated fallback Codex model IDs for the selected profile.'
         required: false
-        default: 'gpt-5.5'
+        default: 'gpt-5.6-terra'
+        type: string
+      work_kind:
+        description: >-
+          Kind of work for the shared model table (.github/agents/model-table.json).
+          Empty infers it from execution_profile, then mode (autofix -> routine), then
+          implement. When the table resolves, its model, reasoning level and fallback
+          replace codex_model / codex_reasoning_effort / codex_fallback_models.
+        required: false
+        default: ''
         type: string
       execution_profile:
         description: 'Registry execution profile ID used by caller.'
@@ -258,6 +267,12 @@ on:
       llm-quality-warnings:
         description: 'JSON array of quality warnings from BS detector'
         value: ${{ jobs.codex.outputs.llm-quality-warnings }}
+  pull_request:
+    paths:
+      - '.github/workflows/reusable-codex-run.yml'
+      - 'tools/subscription_llm.py'
+      - 'templates/consumer-repo/tools/subscription_llm.py'
+      - 'tests/workflows/test_subscription_llm_pinned_cli_canary.py'
 
 permissions:
   contents: write
@@ -275,7 +290,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     timeout-minutes: ${{ inputs.max_runtime_minutes }}
-    if: ${{ !inputs.skip }}
+    if: ${{ !inputs.skip && inputs.prompt_file != '' }}
     outputs:
       final-message: ${{ steps.run_codex.outputs.final-message }}
       final-message-summary: ${{ steps.run_codex.outputs.final-message-summary }}
@@ -292,8 +307,8 @@ jobs:
         ${{ steps.capability_evidence.outputs.capability-evidence-status }}
       terminal-disposition: ${{ steps.capability_evidence.outputs.terminal-disposition }}
       worker-profile-id: ${{ inputs.execution_profile }}
-      worker-requested-model: ${{ inputs.codex_model }}
-      worker-reasoning-effort: ${{ inputs.codex_reasoning_effort }}
+      worker-requested-model: ${{ steps.codex_model.outputs.model || inputs.codex_model }}
+      worker-reasoning-effort: ${{ steps.codex_model.outputs.reasoning_effort || inputs.codex_reasoning_effort }}
       worker-selected-model: ${{ steps.run_codex.outputs.model }}
       worker-model-selection-reason: ${{ steps.run_codex.outputs.model-selection-reason }}
       error-category: ${{ steps.classify_failure.outputs.error_category }}
@@ -882,6 +897,10 @@ jobs:
           DEFAULT_CODEX_MODEL: gpt-6.1-sol
           FALLBACK_CODEX_MODELS: ${{ inputs.codex_fallback_models }}
           REQUESTED_MODEL: ${{ inputs.codex_model }}
+          REQUESTED_EFFORT: ${{ inputs.codex_reasoning_effort }}
+          EXECUTION_PROFILE: ${{ inputs.execution_profile }}
+          WORK_KIND: ${{ inputs.work_kind }}
+          RUN_MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
           model="$(
@@ -889,6 +908,34 @@ jobs:
               sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
           )"
           reason="input"
+          effort="${REQUESTED_EFFORT:-high}"
+
+          # Shared model table (stranske/Workflows@workflows_ref) is the run-time authority, so a
+          # consumer whose registry.yml copy is stale still runs the current pin. A missing table
+          # keeps the caller's inputs (never blocks the run).
+          resolver=".workflows-lib/scripts/agent_model_table.py"
+          table=".workflows-lib/.github/agents/model-table.json"
+          resolved="${RUNNER_TEMP:-/tmp}/model-table-codex.txt"
+          if [ -f "$resolver" ] && [ -f "$table" ] && python3 "$resolver" resolve \
+              --agent codex --surface hosted --work-kind "${WORK_KIND:-}" \
+              --execution-profile "${EXECUTION_PROFILE:-}" --mode "${RUN_MODE:-}" \
+              --table "$table" > "$resolved"; then
+            table_model="$(sed -n 's/^model=//p' "$resolved")"
+            table_effort="$(sed -n 's/^reasoning_effort=//p' "$resolved")"
+            table_fallback="$(sed -n 's/^fallback_model=//p' "$resolved")"
+            kind="$(sed -n 's/^work_kind=//p' "$resolved")"
+            kind_source="$(sed -n 's/^work_kind_source=//p' "$resolved")"
+            if [ -n "$model" ] && { [ "$model" != "$table_model" ] || [ "$effort" != "$table_effort" ]; }; then
+              echo "::notice::Caller asked for ${model}/${effort}; shared model table pins ${table_model}/${table_effort} for work kind ${kind}."
+            fi
+            model="$table_model"
+            effort="$table_effort"
+            FALLBACK_CODEX_MODELS="$table_fallback"
+            reason="model-table:${kind}"
+            echo "Pinned model: ${model} (work kind ${kind} via ${kind_source}; effort ${effort}; fallback ${table_fallback:-none})"
+          else
+            echo "::warning::Shared model table unavailable at this workflows_ref; using caller inputs."
+          fi
 
           if [ -z "$model" ] || [ "$model" = "undefined" ] || [ "$model" = "null" ]; then
             model="$DEFAULT_CODEX_MODEL"
@@ -916,6 +963,8 @@ jobs:
 
           {
             echo "model=$model"
+            echo "reasoning_effort=$effort"
+            echo "fallback_models=${FALLBACK_CODEX_MODELS:-}"
             echo "selection_reason=$reason"
             echo "candidates=$candidates"
           } >> "$GITHUB_OUTPUT"
@@ -924,6 +973,7 @@ jobs:
             echo "## Codex run model"
             echo ""
             echo "- Model: \`$model\`"
+            echo "- Reasoning effort: \`$effort\`"
             echo "- Selection reason: \`$reason\`"
             echo "- Candidate order: \`$candidates\`"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -938,7 +988,7 @@ jobs:
           PR_NUM: ${{ inputs.pr_number }}
           SANDBOX: ${{ inputs.sandbox }}
           EXTRA_ARGS_RAW: ${{ inputs.codex_args }}
-          REASONING_EFFORT: ${{ inputs.codex_reasoning_effort }}
+          REASONING_EFFORT: ${{ steps.codex_model.outputs.reasoning_effort || inputs.codex_reasoning_effort }}
           MAX_RUNTIME_MIN: ${{ inputs.max_runtime_minutes }}
           TARGET_BRANCH: ${{ inputs.pr_ref || github.ref_name }}
         run: |
@@ -1295,9 +1345,9 @@ jobs:
         if: always()
         env:
           EXECUTION_PROFILE: ${{ inputs.execution_profile }}
-          WORKER_REQUESTED_MODEL: ${{ inputs.codex_model }}
-          WORKER_REASONING_EFFORT: ${{ inputs.codex_reasoning_effort }}
-          WORKER_FALLBACK_MODELS: ${{ inputs.codex_fallback_models }}
+          WORKER_REQUESTED_MODEL: ${{ steps.codex_model.outputs.model || inputs.codex_model }}
+          WORKER_REASONING_EFFORT: ${{ steps.codex_model.outputs.reasoning_effort || inputs.codex_reasoning_effort }}
+          WORKER_FALLBACK_MODELS: ${{ steps.codex_model.outputs.fallback_models || inputs.codex_fallback_models }}
           WORKER_SELECTED_MODEL: ${{ steps.run_codex.outputs.model }}
           WORKER_MODEL_SELECTION_REASON: ${{ steps.run_codex.outputs.model-selection-reason }}
           RUNNER_WORKFLOW: reusable-codex-run
@@ -2189,3 +2239,68 @@ jobs:
             } catch (error) {
               console.log(`Could not add label: ${error.message}`);
             }
+
+  codex-pinned-canary:
+    name: Pinned Codex CLI Canary
+    runs-on: ubuntu-latest
+    if: ${{ inputs.prompt_file == '' && github.repository == 'stranske/Workflows' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.workflows_ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+
+      - name: Expose cached Codex CLI
+        run: echo "${{ runner.temp }}/agent-cli/codex/bin" >> "$GITHUB_PATH"
+
+      - name: Cache pinned Codex CLI
+        id: pinned_codex_cli_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/agent-cli/codex
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-codex-cli-0.160.0
+
+      - name: Install Codex CLI
+        if: steps.pinned_codex_cli_cache.outputs.cache-hit != 'true'
+        env:
+          NPM_CONFIG_PREFIX: ${{ runner.temp }}/agent-cli/codex
+          CODEX_CLI_VERSION: '0.160.0'
+        run: | # zizmor: ignore[adhoc-packages]
+          set -euo pipefail
+          echo "Installing Codex CLI..."
+          npm install -g "@openai/codex@${CODEX_CLI_VERSION}"
+          echo "Installed Codex CLI version: $(codex --version)"
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.14'
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip pytest pyyaml
+
+      - name: Run pinned Codex CLI canary
+        env:
+          WORKFLOWS_PINNED_CODEX_BIN: ${{ runner.temp }}/agent-cli/codex/bin/codex
+        run: |
+          set -euo pipefail
+          junit_xml="${RUNNER_TEMP:-/tmp}/pinned-codex-canary-junit.xml"
+          python -m pytest tests/workflows/test_subscription_llm_pinned_cli_canary.py -vv --junitxml="$junit_xml"
+          python - "$junit_xml" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse(sys.argv[1]).getroot()
+          suites = [root] if root.tag == "testsuite" else list(root.findall("testsuite"))
+          tests = sum(int(s.attrib.get("tests", 0)) for s in suites)
+          skipped = sum(int(s.attrib.get("skipped", 0)) for s in suites)
+          if tests == 0 or skipped > 0:
+              raise SystemExit(f"Expected 0 skipped tests across >0 cases, got tests={tests}, skipped={skipped}")
+          PY

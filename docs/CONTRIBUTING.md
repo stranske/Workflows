@@ -7,7 +7,7 @@ Thank you for your interest in contributing!
 ### Prerequisites
 
 - Node.js 20+
-- Python 3.12+
+- Python 3.13+ (see `project.requires-python` in `pyproject.toml`)
 - Git
 
 ### Local Setup
@@ -20,10 +20,14 @@ Thank you for your interest in contributing!
 
 2. Set up Python environment:
    ```bash
-   python3 -m venv .venv
+   python3 scripts/setup_validation_env.py .venv
    source .venv/bin/activate
-   pip install pre-commit black ruff mypy pytest
    ```
+
+   The helper installs runtime dependencies and development extras directly from
+   `pyproject.toml`, then verifies `defusedxml`, `mypy`, and `pytest` imports before
+   test collection. On a runner with preinstalled packages, add
+   `--system-site-packages` to reuse them while resolving the declared requirements.
 
 3. Install pre-commit hooks:
    ```bash

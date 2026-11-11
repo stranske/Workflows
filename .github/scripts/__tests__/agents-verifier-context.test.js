@@ -2125,7 +2125,8 @@ test('explicit artifact scope requires complete reference sources even with comp
             assert.equal(evidence.artifacts.status, complete ? 'present' : 'unavailable', defect);
             assert.equal(evidence.artifacts.complete, complete, defect);
             assert.deepEqual(discovered, complete ? [] : [sha], defect);
-            assert.deepEqual(inspected, [123], defect);
+            // A local SHA listing cannot override an explicit identity failure.
+            assert.deepEqual(inspected, ['invalid-provenance', 'failed-provenance'].includes(defect) ? [] : [123], defect);
           }
         }
       });
@@ -6079,6 +6080,71 @@ test('uninspected coverage after text bounds is unavailable, never format-valida
    assert.ok(result.failures.includes('unsupported_payload'));
    if(names==='.coverage\n.coverage\n')assert.ok(result.failures.includes('duplicate_member'));
   }
+ }
+});
+
+test('a hung unzip child is killed on its time bound and fails closed instead of blocking the test file',()=> {
+ // Gate on PR #4639 hung 9-21 minutes behind an orphaned real `unzip`: an
+ // execFileSync child with no bound freezes this file's event loop, so no
+ // test timer can fire. Info-ZIP unzip catches SIGTERM (it exits 80 through
+ // its own handler), so Node's default kill on a timeout OR a maxBuffer
+ // overflow only works if that handler completes. The PATH shim stands in for
+ // a hung unzip that ignores SIGTERM, on the production default execFile:
+ // listing (-Z1) and member reads (-p) stall, and `flood` overflows maxBuffer.
+ const realUnzip=execFileSync('sh',['-c','command -v unzip'],{encoding:'utf8'}).trim();
+ const bin=fs.mkdtempSync(path.join(os.tmpdir(),'hung-unzip-'));
+ fs.writeFileSync(path.join(bin,'unzip'),[
+  '#!/bin/sh',
+  'case "$HUNG_UNZIP_MODE:$1" in',
+  ' list:-Z1|read:-p) trap "" TERM; exec sleep 30;;',
+  ` flood:-p) trap "" TERM; exec python3 -I -c 'import sys,time;sys.stdout.write("x"*1048576);sys.stdout.flush();time.sleep(30)';;`,
+  'esac',
+  `exec '${realUnzip}' "$@"`,''].join('\n'),{mode:0o755});
+ const archive=execFileSync('python3',['-I','-c',
+  "import io,zipfile,sys\nb=io.BytesIO()\nwith zipfile.ZipFile(b,'w',compression=zipfile.ZIP_STORED) as z:\n z.writestr('results.log',b'retained results')\n z.writestr('.coverage',sys.stdin.buffer.read())\nsys.stdout.buffer.write(b.getvalue())"],{input:nativeCoverageSqliteBytes()});
+ const coverageOnly=execFileSync('python3',['-I','-c',
+  "import io,zipfile,sys\nb=io.BytesIO()\nwith zipfile.ZipFile(b,'w',compression=zipfile.ZIP_STORED) as z:z.writestr('.coverage',sys.stdin.buffer.read())\nsys.stdout.buffer.write(b.getvalue())"],{input:nativeCoverageSqliteBytes()});
+ const original={PATH:process.env.PATH,HUNG_UNZIP_MODE:process.env.HUNG_UNZIP_MODE};
+ process.env.PATH=`${bin}${path.delimiter}${original.PATH}`;
+ try {
+  for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+   for(const unzipTimeoutMs of [0,-1,0.5,Number.NaN,'1000']) {
+    assert.throws(()=>extract({archiveBuffer:archive,maxEntries:4,maxChars:500,unzipTimeoutMs}),RangeError);
+   }
+   process.env.HUNG_UNZIP_MODE='read';
+   let started=Date.now();
+   const result=extract({archiveBuffer:archive,maxEntries:4,maxChars:500,unzipTimeoutMs:1000});
+   assert.ok(Date.now()-started<10000,`hung member reads held the extractor ${Date.now()-started}ms`);
+   const log=result.members.find(member=>member.name==='results.log');
+   assert.equal(log.status,'unavailable');
+   assert.equal(log.reason,'extraction_byte_or_read');
+   assert.ok(result.failures.includes('extraction_byte_or_read'));
+   assert.ok(!result.failures.includes('unrenderable_coverage_sqlite'));
+   assert.doesNotMatch(result.text,/retained results/);
+   // Incidental coverage read on its own: a timeout is a read failure, never
+   // a byte bound and never a validated SQLite member.
+   started=Date.now();
+   const coverage=extract({archiveBuffer:coverageOnly,maxEntries:4,maxChars:500,unzipTimeoutMs:1000});
+   assert.ok(Date.now()-started<10000,`a hung coverage read held the extractor ${Date.now()-started}ms`);
+   assert.ok(coverage.failures.includes('extraction_byte_or_read'));
+   assert.ok(!coverage.failures.includes('extraction_byte'));
+   assert.ok(!coverage.failures.includes('unrenderable_coverage_sqlite'));
+   // maxBuffer overflow: the kill must not depend on unzip honouring SIGTERM.
+   process.env.HUNG_UNZIP_MODE='flood';
+   started=Date.now();
+   const flooded=extract({archiveBuffer:archive,maxEntries:4,maxChars:500,unzipTimeoutMs:20000});
+   assert.ok(Date.now()-started<10000,`a maxBuffer kill held the extractor ${Date.now()-started}ms`);
+   const floodedLog=flooded.members.find(member=>member.name==='results.log');
+   assert.equal(floodedLog.status,'unavailable');
+   assert.equal(floodedLog.reason,'extraction_byte');
+   process.env.HUNG_UNZIP_MODE='list';
+   started=Date.now();
+   assert.throws(()=>extract({archiveBuffer:archive,maxEntries:4,maxChars:500,unzipTimeoutMs:1000}),error=>error.code==='ETIMEDOUT');
+   assert.ok(Date.now()-started<10000,`a hung listing held the extractor ${Date.now()-started}ms`);
+  }
+ } finally {
+  for(const [key,value] of Object.entries(original)) if(value===undefined) delete process.env[key]; else process.env[key]=value;
+  fs.rmSync(bin,{recursive:true,force:true});
  }
 });
 

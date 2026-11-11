@@ -1,0 +1,340 @@
+{
+  "pr": {
+    "number": 677,
+    "state": "open",
+    "merged": false,
+    "draft": false,
+    "user": {
+      "login": "stranske"
+    },
+    "head": {
+      "ref": "sync/workflows-delivery",
+      "sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+      "repo": {
+        "id": 1169688587,
+        "full_name": "stranske/Ready",
+        "default_branch": "main"
+      }
+    },
+    "base": {
+      "ref": "main",
+      "sha": "eb9a9b213a13b5e1e026e7f527bbde7b25dbc32c",
+      "repo": {
+        "id": 1169688587,
+        "full_name": "stranske/Ready",
+        "default_branch": "main"
+      }
+    },
+    "body": "<!-- workflows-consumer-sync:v1 {\"schema\":\"workflows-consumer-sync-pr/v1\",\"consumer_repo\":\"stranske/Ready\",\"source_repository\":\"stranske/Workflows\",\"source_sha\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"template_hash\":\"000b98a46343\",\"plan_id\":\"sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\",\"plan_scope\":\"full\",\"scope_base_sha\":\"\",\"source_commit\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"sync_phase\":\"promote\",\"sync_branch\":\"sync/workflows-delivery\",\"manifest\":\".github/sync-manifest.yml\",\"lifecycle_state\":\"staging\",\"run_id\":\"42761261918\",\"run_attempt\":\"1\",\"changes_count\":5} -->\n<!-- sync-pr-delivery-record:v1 {\"schema\":\"sync-pr-delivery-record/v1\",\"durable_issue_url\":\"https://github.com/stranske/Workflows/issues/1836\",\"plan_id\":\"sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\",\"generation\":\"000b98a46343\",\"repository\":\"stranske/Ready\",\"desired_tree_hash\":\"edb85fd45741530a4a6816a9ccba7670d77d7cb7\",\"source_commit\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"head_observed_sha\":\"cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128\",\"head_observed_at\":\"2026-11-10T05:19:13Z\",\"lease_expires_at\":\"2026-11-13T05:19:14Z\",\"predecessor_prs\":[],\"successor_prs\":[],\"delivery_state\":\"sealed\",\"review_started_at\":\"2026-11-10T05:23:35.708Z\",\"sealed_at\":\"2026-11-10T05:23:35.708Z\",\"sealed_head_sha\":\"cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128\",\"review_evidence\":{\"delivery_digest\":\"sha256:a38840a241171fb3706e54fa14ab484e2b0bc4d5f4817c1f2039cfaa59ebf4e7\",\"policy_schema\":\"workflows.consumer-sync-review-policy/v1\",\"request_comment_id\":null,\"reason\":\"integration_checks_required\",\"degraded\":false,\"responded_reviewers\":[],\"unavailable_reviewers\":[]},\"terminal_disposition\":\"\"} -->"
+  },
+  "runs": {
+    "total_count": 10,
+    "workflow_runs": [
+      {
+        "id": 42761855064,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5185,
+        "status": "completed",
+        "conclusion": "success",
+        "updated_at": "2026-11-10T05:23:58Z",
+        "created_at": "2026-11-10T05:23:41Z",
+        "run_started_at": "2026-11-10T05:23:41Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761855064",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761397184,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5184,
+        "status": "completed",
+        "conclusion": "success",
+        "updated_at": "2026-11-10T05:22:01Z",
+        "created_at": "2026-11-10T05:19:21Z",
+        "run_started_at": "2026-11-10T05:19:21Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761397184",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761395498,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5182,
+        "status": "completed",
+        "conclusion": "cancelled",
+        "updated_at": "2026-11-10T05:19:23Z",
+        "created_at": "2026-11-10T05:19:20Z",
+        "run_started_at": "2026-11-10T05:19:20Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761395498",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761394123,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5179,
+        "status": "completed",
+        "conclusion": "cancelled",
+        "updated_at": "2026-11-10T05:19:21Z",
+        "created_at": "2026-11-10T05:19:20Z",
+        "run_started_at": "2026-11-10T05:19:20Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761394123",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761394449,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5180,
+        "status": "completed",
+        "conclusion": "cancelled",
+        "updated_at": "2026-11-10T05:19:21Z",
+        "created_at": "2026-11-10T05:19:20Z",
+        "run_started_at": "2026-11-10T05:19:20Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761394449",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761394324,
+        "event": "pull_request",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5178,
+        "status": "completed",
+        "conclusion": "cancelled",
+        "updated_at": "2026-11-10T05:19:21Z",
+        "created_at": "2026-11-10T05:19:20Z",
+        "run_started_at": "2026-11-10T05:19:20Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761394324",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761395758,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5183,
+        "status": "completed",
+        "conclusion": "cancelled",
+        "updated_at": "2026-11-10T05:19:23Z",
+        "created_at": "2026-11-10T05:19:20Z",
+        "run_started_at": "2026-11-10T05:19:20Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761395758",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761394488,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5181,
+        "status": "completed",
+        "conclusion": "cancelled",
+        "updated_at": "2026-11-10T05:19:22Z",
+        "created_at": "2026-11-10T05:19:20Z",
+        "run_started_at": "2026-11-10T05:19:20Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761394488",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761393810,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5176,
+        "status": "completed",
+        "conclusion": "cancelled",
+        "updated_at": "2026-11-10T05:19:21Z",
+        "created_at": "2026-11-10T05:19:19Z",
+        "run_started_at": "2026-11-10T05:19:19Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761393810",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      },
+      {
+        "id": 42761394023,
+        "event": "pull_request_target",
+        "name": "Health 45 Agents Guard",
+        "path": ".github/workflows/agents-guard.yml",
+        "head_sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+        "head_branch": "sync/workflows-delivery",
+        "run_attempt": 1,
+        "run_number": 5177,
+        "status": "completed",
+        "conclusion": "success",
+        "updated_at": "2026-11-10T05:20:42Z",
+        "created_at": "2026-11-10T05:19:19Z",
+        "run_started_at": "2026-11-10T05:19:19Z",
+        "html_url": "https://github.com/stranske/Ready/actions/runs/42761394023",
+        "repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "head_repository": {
+          "id": 1169688587,
+          "full_name": "stranske/Ready"
+        },
+        "pull_requests": [
+          {
+            "number": 677
+          }
+        ]
+      }
+    ]
+  },
+  "jobs": {
+    "total_count": 0,
+    "jobs": []
+  },
+  "commit": {
+    "sha": "cd7a1d7b8a4ec59a97d795f9c8732be0bbb55128",
+    "commit": {
+      "message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 000b98a46343\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\nPlan scope: full\nScope base SHA: full\nSource commit: 94fd0470b88d608a7fca67517abf67dd8fbbcb04\nCanary evidence JSON (base64): eyJzY2hlbWEiOiJ3b3JrZmxvd3MuY29uc3VtZXItc3luYy1jYW5hcnktZXZpZGVuY2UvdjEiLCJ2ZXJzaW9uIjoxLCJyZXN1bHRzIjpbeyJyZXBvIjoic3RyYW5za2UvVHJhdmVsLVBsYW4tUGVybWlzc2lvbiIsInBsYW5faWQiOiJzaGEyNTY6MDAwYjk4YTQ2MzQzNmJiZDExN2YzYTEwN2FlMTA2ZGNjZjFkZDRiMTYwNTU0NDM1ZTA2YTk3MTU2NjgzNjdlMyIsInBsYW5fc2NvcGUiOiJmdWxsIiwic2NvcGVfYmFzZV9zaGEiOiIiLCJzb3VyY2VfY29tbWl0IjoiOTRmZDA0NzBiODhkNjA4YTdmY2E2NzUxN2FiZjY3ZGQ4ZmJiY2IwNCIsInByIjoxNzM5LCJoZWFkX3NoYSI6ImFiZmU1MGUyMTRmNjA1Zjc3Yzg3ODIxODIzMTQwNzNmZGM5MzgwNWIiLCJldmlkZW5jZV9zb3VyY2UiOiJvcGVuLWNhbmRpZGF0ZSIsInJlcXVpcmVkX2NoZWNrX3N0YXRlIjoic3VjY2VzcyIsImFjdGl2ZV9yZXZpZXdfdGhyZWFkX2NvdW50IjowLCJyZXZpZXdfZGlzcG9zaXRpb24iOnsiYmluZGluZyI6eyJyZXBvc2l0b3J5Ijoic3RyYW5za2UvVHJhdmVsLVBsYW4tUGVybWlzc2lvbiIsInByIjoxNzM5LCJoZWFkX3NoYSI6ImFiZmU1MGUyMTRmNjA1Zjc3Yzg3ODIxODIzMTQwNzNmZGM5MzgwNWIiLCJzb3VyY2VfY29tbWl0IjoiOTRmZDA0NzBiODhkNjA4YTdmY2E2NzUxN2FiZjY3ZGQ4ZmJiY2IwNCIsInBsYW5faWQiOiJzaGEyNTY6MDAwYjk4YTQ2MzQzNmJiZDExN2YzYTEwN2FlMTA2ZGNjZjFkZDRiMTYwNTU0NDM1ZTA2YTk3MTU2NjgzNjdlMyIsImRlbGl2ZXJ5X2dlbmVyYXRpb24iOiIwMDBiOThhNDYzNDMifSwiZXZpZGVuY2VDb21wbGV0ZSI6dHJ1ZSwiZXZpZGVuY2VGb3JtYXQiOiJjb21wYWN0L3YxIiwicmV2aWV3VGhyZWFkcyI6W10sImNvbW1lbnRzIjpbXSwiaGFuZG9mZnMiOltdfSwiZGVsaXZlcnlfZ2VuZXJhdGlvbiI6IjAwMGI5OGE0NjM0MyJ9LHsicmVwbyI6InN0cmFuc2tlL3RyaXAtcGxhbm5lciIsInBsYW5faWQiOiJzaGEyNTY6MDAwYjk4YTQ2MzQzNmJiZDExN2YzYTEwN2FlMTA2ZGNjZjFkZDRiMTYwNTU0NDM1ZTA2YTk3MTU2NjgzNjdlMyIsInBsYW5fc2NvcGUiOiJmdWxsIiwic2NvcGVfYmFzZV9zaGEiOiIiLCJzb3VyY2VfY29tbWl0IjoiOTRmZDA0NzBiODhkNjA4YTdmY2E2NzUxN2FiZjY3ZGQ4ZmJiY2IwNCIsInByIjoyMDI0LCJoZWFkX3NoYSI6ImVhZjY4ODZiNjYxYmEzMDc1OTkzOTFkMjU1OGNmNTk2ODE2OWI0ODQiLCJldmlkZW5jZV9zb3VyY2UiOiJvcGVuLWNhbmRpZGF0ZSIsInJlcXVpcmVkX2NoZWNrX3N0YXRlIjoic3VjY2VzcyIsImFjdGl2ZV9yZXZpZXdfdGhyZWFkX2NvdW50IjowLCJyZXZpZXdfZGlzcG9zaXRpb24iOnsiYmluZGluZyI6eyJyZXBvc2l0b3J5Ijoic3RyYW5za2UvdHJpcC1wbGFubmVyIiwicHIiOjIwMjQsImhlYWRfc2hhIjoiZWFmNjg4NmI2NjFiYTMwNzU5OTM5MWQyNTU4Y2Y1OTY4MTY5YjQ4NCIsInNvdXJjZV9jb21taXQiOiI5NGZkMDQ3MGI4OGQ2MDhhN2ZjYTY3NTE3YWJmNjdkZDhmYmJjYjA0IiwicGxhbl9pZCI6InNoYTI1NjowMDBiOThhNDYzNDM2YmJkMTE3ZjNhMTA3YWUxMDZkY2NmMWRkNGIxNjA1NTQ0MzVlMDZhOTcxNTY2ODM2N2UzIiwiZGVsaXZlcnlfZ2VuZXJhdGlvbiI6IjAwMGI5OGE0NjM0MyJ9LCJldmlkZW5jZUNvbXBsZXRlIjp0cnVlLCJldmlkZW5jZUZvcm1hdCI6ImNvbXBhY3QvdjEiLCJyZXZpZXdUaHJlYWRzIjpbXSwiY29tbWVudHMiOltdLCJoYW5kb2ZmcyI6W119LCJkZWxpdmVyeV9nZW5lcmF0aW9uIjoiMDAwYjk4YTQ2MzQzIn0seyJyZXBvIjoic3RyYW5za2UvUG9ydGFibGUtQWxwaGEtRXh0ZW5zaW9uLU1vZGVsIiwicGxhbl9pZCI6InNoYTI1NjowMDBiOThhNDYzNDM2YmJkMTE3ZjNhMTA3YWUxMDZkY2NmMWRkNGIxNjA1NTQ0MzVlMDZhOTcxNTY2ODM2N2UzIiwicGxhbl9zY29wZSI6ImZ1bGwiLCJzY29wZV9iYXNlX3NoYSI6IiIsInNvdXJjZV9jb21taXQiOiI5NGZkMDQ3MGI4OGQ2MDhhN2ZjYTY3NTE3YWJmNjdkZDhmYmJjYjA0IiwicHIiOjI0OTMsImhlYWRfc2hhIjoiYjA3ZjdmYWRlMDVlNDY3YzAwNGQwODk0OGNjYWI2MjRhYTUwNzkyMyIsImV2aWRlbmNlX3NvdXJjZSI6Im9wZW4tY2FuZGlkYXRlIiwicmVxdWlyZWRfY2hlY2tfc3RhdGUiOiJzdWNjZXNzIiwiYWN0aXZlX3Jldmlld190aHJlYWRfY291bnQiOjAsInJldmlld19kaXNwb3NpdGlvbiI6eyJiaW5kaW5nIjp7InJlcG9zaXRvcnkiOiJzdHJhbnNrZS9Qb3J0YWJsZS1BbHBoYS1FeHRlbnNpb24tTW9kZWwiLCJwciI6MjQ5MywiaGVhZF9zaGEiOiJiMDdmN2ZhZGUwNWU0NjdjMDA0ZDA4OTQ4Y2NhYjYyNGFhNTA3OTIzIiwic291cmNlX2NvbW1pdCI6Ijk0ZmQwNDcwYjg4ZDYwOGE3ZmNhNjc1MTdhYmY2N2RkOGZiYmNiMDQiLCJwbGFuX2lkIjoic2hhMjU2OjAwMGI5OGE0NjM0MzZiYmQxMTdmM2ExMDdhZTEwNmRjY2YxZGQ0YjE2MDU1NDQzNWUwNmE5NzE1NjY4MzY3ZTMiLCJkZWxpdmVyeV9nZW5lcmF0aW9uIjoiMDAwYjk4YTQ2MzQzIn0sImV2aWRlbmNlQ29tcGxldGUiOnRydWUsImV2aWRlbmNlRm9ybWF0IjoiY29tcGFjdC92MSIsInJldmlld1RocmVhZHMiOltdLCJjb21tZW50cyI6W10sImhhbmRvZmZzIjpbXX0sImRlbGl2ZXJ5X2dlbmVyYXRpb24iOiIwMDBiOThhNDYzNDMifV19",
+      "verification": {
+        "verified": true,
+        "reason": "valid"
+      }
+    }
+  },
+  "comments": []
+}

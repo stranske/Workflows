@@ -1,5 +1,6 @@
 """Opaque launch correlation never changes event identity or verdict authority."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -66,14 +67,16 @@ def test_workflow_and_template_forward_basis_to_authenticated_manifest_and_marke
     assert "withRetry(() => github.rest.issues.createComment" in duplicate["with"]["script"]
     assert "correlation_run_id !== String(context.runId)" in duplicate["with"]["script"]
     for name in ["verification_event.js", "agents_verifier_context.js"]:
-        assert (ROOT / ".github/scripts" / name).read_bytes() == (
-            ROOT / "templates/consumer-repo/.github/scripts" / name
-        ).read_bytes()
+        source_bytes = (ROOT / ".github/scripts" / name).read_bytes()
+        template_bytes = (ROOT / "templates/consumer-repo/.github/scripts" / name).read_bytes()
+        digests_match = (
+            hashlib.sha256(source_bytes).hexdigest() == hashlib.sha256(template_bytes).hexdigest()
+        )
+        assert digests_match, "managed source and template SHA-256 digests differ"
+        assert source_bytes == template_bytes
 
 
 def test_shared_fixture_preserves_unicode_canonical_bytes_and_execution_strings():
-    import hashlib
-
     fixture = json.loads(
         (ROOT / "tests/fixtures/verification_event/request_correlation.json").read_text()
     )

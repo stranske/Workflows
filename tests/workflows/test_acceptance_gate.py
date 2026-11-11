@@ -11,6 +11,18 @@ from scripts.runner_lib import acceptance_gate
 from scripts.runner_lib.acceptance_gate import Command, extract_commands, run
 
 
+@pytest.fixture
+def gate_venv_is_test_python(monkeypatch):
+    """Tests that stub run() need no real virtualenv; keep PATH changes test-local."""
+    monkeypatch.setattr(
+        acceptance_gate,
+        "make_gate_venv",
+        lambda: (Path(sys.executable), f"{sys.executable} -m pip"),
+    )
+    monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+
+
 def test_extract_commands_inline_fenced_and_non_commands():
     markdown = """
 ## Tasks
@@ -234,7 +246,9 @@ def test_workflow_isolates_pr_commands_from_privileged_mark_running():
     assert "overwrite" not in upload["with"]
 
 
-def test_failed_preparation_keeps_aggregate_output_bounded(tmp_path, monkeypatch):
+def test_failed_preparation_keeps_aggregate_output_bounded(
+    tmp_path, monkeypatch, gate_venv_is_test_python
+):
     monkeypatch.setattr(
         acceptance_gate,
         "run",
@@ -249,7 +263,9 @@ def test_failed_preparation_keeps_aggregate_output_bounded(tmp_path, monkeypatch
     )
 
 
-def test_lock_only_preparation_installs_and_runs_gate(tmp_path, monkeypatch, capsys):
+def test_lock_only_preparation_installs_and_runs_gate(
+    tmp_path, monkeypatch, capsys, gate_venv_is_test_python
+):
     import zipfile
 
     wheel = tmp_path / "gate_fixture-1.0-py3-none-any.whl"
@@ -294,7 +310,9 @@ def test_lock_only_preparation_installs_and_runs_gate(tmp_path, monkeypatch, cap
     assert "Gate install source: requirements requirements.lock" in capsys.readouterr().out
 
 
-def test_prepare_uses_declared_extras_lock_and_cov_like_ci(tmp_path, monkeypatch, capsys):
+def test_prepare_uses_declared_extras_lock_and_cov_like_ci(
+    tmp_path, monkeypatch, capsys, gate_venv_is_test_python
+):
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname="fixture"\nversion="1"\n'
         "[project.optional-dependencies]\ndev=[]\ntest=[]\n"
@@ -315,7 +333,9 @@ def test_prepare_uses_declared_extras_lock_and_cov_like_ci(tmp_path, monkeypatch
     assert "editable project .[dev,test]" in capsys.readouterr().out
 
 
-def test_prepare_warns_on_malformed_pyproject_and_keeps_requirements(tmp_path, monkeypatch, capsys):
+def test_prepare_warns_on_malformed_pyproject_and_keeps_requirements(
+    tmp_path, monkeypatch, capsys, gate_venv_is_test_python
+):
     (tmp_path / "pyproject.toml").write_text("[project\n")
     (tmp_path / "requirements.lock").write_text("fixture\n")
     calls = []
@@ -330,3 +350,68 @@ def test_prepare_warns_on_malformed_pyproject_and_keeps_requirements(tmp_path, m
     assert output.startswith("Gate install source warning: invalid pyproject.toml:")
     assert "Gate install source: requirements requirements.lock" in output
     assert any("-r requirements.lock" in call for call in calls)
+
+
+def test_python_gates_install_and_run_in_an_isolated_gate_venv(tmp_path, monkeypatch):
+    # The hosted runner's system python crashed every pytest gate at plugin load (exit 3),
+    # so installs and gate commands must use a fresh virtualenv, never the launching python.
+    monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    installs = []
+    real_run = acceptance_gate.run
+
+    def no_network(commands, cwd):
+        installs.extend(command.command for command in commands)
+        return [acceptance_gate.Result(-1, commands[0].command, 0, "")]
+
+    monkeypatch.setattr(acceptance_gate, "run", no_network)
+    assert acceptance_gate.prepare([Command(0, "pytest tests")], tmp_path) == []
+    venv_root = Path(os.environ["VIRTUAL_ENV"])
+    assert venv_root.name.startswith("acceptance-gate-venv-")
+    assert not str(venv_root).startswith(str(tmp_path))  # never inside the PR checkout
+    # Either the venv's own pip or the launcher's pip pointed at it (--python): both install there.
+    assert installs and all(
+        call.startswith(str(venv_root)) or f"--python {venv_root}" in call for call in installs
+    ), installs
+    probe = real_run([Command(0, "python -c 'import sys; print(sys.prefix)'")], tmp_path)[0]
+    assert probe.exit_code == 0, probe.output
+    assert Path(probe.output.strip()).resolve() == venv_root.resolve()
+    assert Path(sys.prefix).resolve() != venv_root.resolve()
+
+
+def test_unbuildable_gate_venv_fails_every_gate_with_the_reason(tmp_path, monkeypatch):
+    monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
+
+    def broken():
+        raise OSError("ensurepip is not available")
+
+    monkeypatch.setattr(acceptance_gate, "make_gate_venv", broken)
+    results = acceptance_gate.prepare([Command(0, "pytest a"), Command(1, "ruff check")], tmp_path)
+    assert [result.exit_code for result in results] == [127, 127]
+    assert all("could not create a virtualenv: ensurepip" in result.output for result in results)
+
+
+def test_node_test_and_python3_pytest_are_gates_but_node_ids_are_not():
+    markdown = """
+## Acceptance Criteria
+- [ ] `node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js` passes.
+- [ ] `python3 -m pytest tests/workflows/test_acceptance_gate.py -q` passes.
+- [ ] `tests/workflows/test_acceptance_gate.py::test_run` is named but is not runnable.
+- [ ] `node scripts/build.js` is a script, not a test runner.
+"""
+    assert extract_commands(markdown) == [
+        Command(0, "node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js"),
+        Command(1, "python3 -m pytest tests/workflows/test_acceptance_gate.py -q"),
+    ]
+
+
+def test_python3_pytest_gate_gets_the_gate_venv(tmp_path, monkeypatch, gate_venv_is_test_python):
+    calls = []
+
+    def capture(commands, cwd):
+        calls.extend(command.command for command in commands)
+        return [acceptance_gate.Result(-1, commands[0].command, 0, "")]
+
+    monkeypatch.setattr(acceptance_gate, "run", capture)
+    assert acceptance_gate.prepare([Command(0, "python3 -m pytest tests")], tmp_path) == []
+    assert any(call.endswith("install pytest ruff mypy") for call in calls), calls

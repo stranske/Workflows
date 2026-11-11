@@ -129,23 +129,53 @@ function isRouteWeightsFresh(document, now) {
 }
 
 /**
- * Fetch and validate the Orchestrator route-weights export. Never throws.
+ * Fetch and validate the Orchestrator route-weights export, reporting WHY it was
+ * or was not usable. Never throws.
+ *
+ * `status` is one of:
+ *   - `fresh`        document usable (the only status with a non-null `document`)
+ *   - `unavailable`  no fetch implementation / URL, fetch error, timeout, or non-200
+ *   - `malformed`    response body was not JSON
+ *   - `schema`       JSON with an unsupported `schema`
+ *   - `stale`        `generated_at` older than ROUTE_WEIGHTS_MAX_AGE_MS
+ *   - `future`       `generated_at` ahead of the reader clock beyond the skew allowance
+ *   - `undated`      `generated_at` missing or unparseable
+ *
+ * The separate statuses exist so a fallback names its cause: a single `null` for all of
+ * them made "the writer stopped publishing" (Oct 24 - Nov 10 2026) indistinguishable from
+ * "the URL is unreachable" in every intake log.
  *
  * @param {Object} [options]
  * @param {string} [options.url]
  * @param {typeof fetch} [options.fetchImpl]
  * @param {Date|number|string} [options.now]
- * @returns {Promise<Object|null>}
+ * @returns {Promise<{document: Object|null, status: string, detail: string, url: string,
+ *   httpStatus: number|null, generatedAt: string|null, ageMs: number|null, maxAgeMs: number,
+ *   schema: string|null, sourceVersion: (number|string|null)}>}
  */
-async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, now } = {}) {
+async function loadRouteWeightsWithStatus({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, now } = {}) {
+  const result = {
+    document: null,
+    status: 'unavailable',
+    detail: '',
+    url: url || '',
+    httpStatus: null,
+    generatedAt: null,
+    ageMs: null,
+    maxAgeMs: ROUTE_WEIGHTS_MAX_AGE_MS,
+    schema: null,
+    sourceVersion: null,
+  };
   const fetchFn = fetchImpl || (typeof fetch === 'function' ? fetch : null);
   if (!fetchFn || !url) {
-    return null;
+    result.detail = !url ? 'no export URL configured' : 'no fetch implementation';
+    return result;
   }
 
   const referenceTime = now instanceof Date ? now.getTime() : new Date(now || Date.now()).getTime();
   if (!Number.isFinite(referenceTime)) {
-    return null;
+    result.detail = 'reader clock unreadable';
+    return result;
   }
 
   let timeoutId;
@@ -153,11 +183,15 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
   try {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     let timedOut = false;
+    let fetchError = null;
 
     const fetchPromise = Promise.resolve()
       .then(() => fetchFn(url, controller ? { signal: controller.signal } : undefined))
       // Prevent unhandled rejection if the timeout “wins” the race.
-      .catch(() => null);
+      .catch((error) => {
+        fetchError = error;
+        return null;
+      });
 
     const timeoutPromise = new Promise((resolve) => {
       timeoutId = setTimeout(() => {
@@ -174,33 +208,118 @@ async function loadRouteWeights({ url = DEFAULT_ROUTE_WEIGHTS_URL, fetchImpl, no
     });
 
     const response = await Promise.race([fetchPromise, timeoutPromise]);
-    if (timedOut || !response || response.status !== 200) {
-      return null;
+    if (timedOut) {
+      result.detail = `fetch timed out after ${ROUTE_WEIGHTS_FETCH_TIMEOUT_MS}ms`;
+      return result;
+    }
+    if (!response) {
+      const message = fetchError && fetchError.message ? `: ${fetchError.message}` : '';
+      result.detail = `fetch failed${message}`;
+      return result;
+    }
+    result.httpStatus = Number.isFinite(response.status) ? response.status : null;
+    if (response.status !== 200) {
+      result.detail = `HTTP ${response.status}`;
+      return result;
     }
 
     let document;
     try {
       document = await response.json();
     } catch {
-      return null;
+      result.status = 'malformed';
+      result.detail = 'response body is not JSON';
+      return result;
     }
 
+    result.schema = document && typeof document.schema === 'string' ? document.schema : null;
     if (!document || !ROUTE_WEIGHTS_SCHEMAS.has(document.schema)) {
-      return null;
+      result.status = 'schema';
+      result.detail = `unsupported schema ${JSON.stringify(result.schema)}`;
+      return result;
     }
+    result.sourceVersion = document.source_version ?? null;
+    result.generatedAt = typeof document.generated_at === 'string' ? document.generated_at : null;
 
+    const generatedAt = Date.parse(document.generated_at || '');
+    if (!Number.isFinite(generatedAt)) {
+      result.status = 'undated';
+      result.detail = 'generated_at missing or unparseable';
+      return result;
+    }
+    result.ageMs = referenceTime - generatedAt;
+    if (generatedAt - referenceTime > ROUTE_WEIGHTS_MAX_CLOCK_SKEW_MS) {
+      result.status = 'future';
+      result.detail = 'generated_at is ahead of the reader clock';
+      return result;
+    }
     if (!isRouteWeightsFresh(document, referenceTime)) {
-      return null;
+      result.status = 'stale';
+      result.detail = 'older than the reader max age';
+      return result;
     }
 
-    return document;
-  } catch {
-    return null;
+    result.status = 'fresh';
+    result.document = document;
+    return result;
+  } catch (error) {
+    result.detail = `unexpected error${error && error.message ? `: ${error.message}` : ''}`;
+    return result;
   } finally {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
   }
+}
+
+function formatHours(ms) {
+  return `${(ms / 3600000).toFixed(1)}h`;
+}
+
+/**
+ * One log line for a loadRouteWeightsWithStatus() result. Every status renders, including
+ * `fresh`, so a healthy reader is visible in the run log rather than only in its silence.
+ *
+ * @param {Object} result
+ * @returns {string}
+ */
+function formatRouteWeightsStatus(result) {
+  if (!result || typeof result !== 'object') {
+    return 'route-weights: unavailable (no load result)';
+  }
+  const status = result.status || 'unavailable';
+  const parts = [];
+  if (Number.isFinite(result.ageMs)) {
+    const relation = status === 'stale' ? '>' : 'of';
+    parts.push(`age ${formatHours(result.ageMs)} ${relation} max ${formatHours(result.maxAgeMs)}`);
+  }
+  if (result.generatedAt) {
+    parts.push(`generated_at=${result.generatedAt}`);
+  }
+  if (result.sourceVersion !== null && result.sourceVersion !== undefined) {
+    parts.push(`source_version=${result.sourceVersion}`);
+  }
+  if (status !== 'fresh' && result.detail) {
+    parts.unshift(result.detail);
+  }
+  if (status !== 'fresh' && result.url) {
+    parts.push(`url=${result.url}`);
+  }
+  return `route-weights: ${status}${parts.length ? ` (${parts.join(', ')})` : ''}`;
+}
+
+/**
+ * Fetch and validate the Orchestrator route-weights export. Never throws.
+ *
+ * @param {Object} [options]
+ * @param {string} [options.url]
+ * @param {typeof fetch} [options.fetchImpl]
+ * @param {Date|number|string} [options.now]
+ * @returns {Promise<Object|null>}
+ */
+async function loadRouteWeights(options = {}) {
+  const result = await loadRouteWeightsWithStatus(options);
+  return result.document;
 }
 
 /**
@@ -263,7 +382,7 @@ function explorationSeedFromState(state = {}) {
 
 /**
  * @param {Object} options
- * @returns {{ agent: string|null, delegationSource: 'route_weights'|'route_weights_exploration'|'static', staticReason?: string, policy_version?: string }}
+ * @returns {{ agent: string|null, delegationSource: 'route_weights'|'route_weights_exploration'|'route_weights_comparative'|'static', staticReason?: string, policy_version?: string }}
  */
 function selectAgentFromRouteWeights({
   routeWeights,
@@ -309,7 +428,35 @@ function selectAgentFromRouteWeights({
   }
 
   const ranking = Array.isArray(taskEntry.ranking) ? taskEntry.ranking : [];
-  for (const row of ranking) {
+  
+  // Check if comparative routing is enabled
+  const comparativeEnabled = routeWeights?.comparative?.route_enabled === true;
+  
+  // Select agent using either comparative or posterior order
+  let sortedRanking;
+  if (comparativeEnabled && ranking.length > 0) {
+    // Sort by comparative_rank ascending, nulls last, original order as stable tiebreak
+    sortedRanking = [...ranking].sort((a, b) => {
+      const aRank = a.comparative_rank ?? null;
+      const bRank = b.comparative_rank ?? null;
+      
+      // Both null -> maintain original order (stable sort)
+      if (aRank === null && bRank === null) return 0;
+      // a is null -> a goes after b
+      if (aRank === null) return 1;
+      // b is null -> b goes after a
+      if (bRank === null) return -1;
+      // Both numeric -> sort ascending
+      return aRank - bRank;
+    });
+  } else {
+    // Use original posterior order
+    sortedRanking = ranking;
+  }
+  
+  // Find first eligible agent from the sorted ranking
+  let comparativeAgent = null;
+  for (const row of sortedRanking) {
     const candidate = String(row?.agent || '').toLowerCase();
     if (!candidate || candidate === normalizedCurrentAgent || reserveSet.has(candidate)) {
       continue;
@@ -320,7 +467,35 @@ function selectAgentFromRouteWeights({
     if (!hasKeepaliveRunner(agents[candidate])) {
       continue;
     }
-    return { agent: candidate, delegationSource: 'route_weights' };
+    comparativeAgent = candidate;
+    break;
+  }
+  
+  // Determine delegation source
+  // If comparative is enabled but selected the same agent as posterior order, use 'route_weights'
+  if (comparativeAgent) {
+    // Check if posterior order would have selected the same agent
+    let posteriorAgent = null;
+    for (const row of ranking) {
+      const candidate = String(row?.agent || '').toLowerCase();
+      if (!candidate || candidate === normalizedCurrentAgent || reserveSet.has(candidate)) {
+        continue;
+      }
+      if (!availableAgents.includes(candidate)) {
+        continue;
+      }
+      if (!hasKeepaliveRunner(agents[candidate])) {
+        continue;
+      }
+      posteriorAgent = candidate;
+      break;
+    }
+    
+    const delegationSource = (comparativeEnabled && comparativeAgent !== posteriorAgent)
+      ? 'route_weights_comparative'
+      : 'route_weights';
+    
+    return { agent: comparativeAgent, delegationSource };
   }
 
   return {
@@ -1125,6 +1300,8 @@ module.exports = {
   ROUTE_WEIGHT_TASK_TYPES,
   resolveRoundKind,
   loadRouteWeights,
+  loadRouteWeightsWithStatus,
+  formatRouteWeightsStatus,
   fetchRouteWeights,
   chooseAgentForIntake,
   explorationDraw,

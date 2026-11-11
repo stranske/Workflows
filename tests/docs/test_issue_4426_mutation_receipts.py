@@ -2,8 +2,8 @@
 
 Each receipt names one production symbol, one pytest node, a red failure, and
 the restored-source pass. Immutable recorded source snapshots contain the
-restored bytes; current production may evolve independently. Prior #4000 and #4405 transcripts are recorded as unavailable
-and are not treated as these runs.
+restored bytes; current production may evolve independently. Prior #4000 and
+#4405 transcripts are recorded as unavailable and are not treated as these runs.
 """
 
 from __future__ import annotations

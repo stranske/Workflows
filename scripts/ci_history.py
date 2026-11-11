@@ -164,12 +164,6 @@ def main() -> int:
         }
         if github_meta:
             failure_record["github"] = github_meta
-        failure_record["regression_evidence"] = {
-            "observed_failure": True,
-            "file_not_found": str(exc),
-            "shallow_history_suspected": True,
-            "regression_identified": "shallow-history-fetch",
-        }
         history_path.parent.mkdir(parents=True, exist_ok=True)
         with history_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(failure_record, sort_keys=True) + "\n")

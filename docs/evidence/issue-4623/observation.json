@@ -1,0 +1,1058 @@
+{
+  "schema": "workflows.issue-4623-observation/v1",
+  "observed_at": "2026-11-10T14:34:09Z",
+  "collection": {
+    "transport": "GitHub connector; gh commands failed to connect to api.github.com",
+    "consumer_comments": "github_fetch_pr_comments (all issue, review and inline comments)",
+    "issue_comments_url": "https://api.github.com/repos/stranske/Workflows/issues/4366/comments?per_page=100",
+    "first_inventory_url": "https://api.github.com/repos/stranske/Workflows/actions/runs?created=2026-11-08T04%3A08%3A45Z..2026-11-08T04%3A09%3A17Z&per_page=100",
+    "run_log_url": "https://github.com/stranske/Workflows/actions/runs/42445636759/job/128623866686",
+    "latest_run_inventory": "Latest workflow_dispatch page plus both schedule pages and repository_dispatch page for 2026-11-10; no later maint-71 run found"
+  },
+  "source_pr": {
+    "number": 4463,
+    "merged": true,
+    "merged_at": "2026-11-06T12:44:41Z",
+    "merge_commit_sha": "7ab99d09429a3b35aa55f7744f8c75b467f42536"
+  },
+  "consumer": {
+    "repository": "stranske/Portable-Alpha-Extension-Model",
+    "number": 2454,
+    "comment_counts": { "issue_comments": 3, "review_comments": 19, "reviews": 12 },
+    "head_sha": "9c85282d05359ddc468d0881ec6b09269ac592a2",
+    "regenerated_at": "2026-11-08T04:08:45Z",
+    "merged_at": "2026-11-08T04:40:31Z",
+    "source_commit": "c2ac6f38d6f2ce73f000158fa6f729bfece82092",
+    "commit_message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 4017589cec3c\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da\nPlan scope: full\nScope base SHA: full\nSource commit: c2ac6f38d6f2ce73f000158fa6f729bfece82092"
+  },
+  "ancestry": {
+    "status": "ahead",
+    "behind_by": 0,
+    "merge_base_sha": "7ab99d09429a3b35aa55f7744f8c75b467f42536"
+  },
+  "first_inventory": {
+    "total_count": 16,
+    "workflow_runs": [
+      {
+        "id": 42445636759,
+        "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+        "event": "workflow_dispatch",
+        "created_at": "2026-11-08T04:09:17Z",
+        "run_started_at": "2026-11-08T04:09:17Z",
+        "updated_at": "2026-11-08T04:10:26Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445636759",
+        "head_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01"
+      },
+      {
+        "id": 42445628401,
+        "path": ".github/workflows/agents-guard-fork-status.yml",
+        "event": "workflow_run",
+        "created_at": "2026-11-08T04:09:09Z",
+        "run_started_at": "2026-11-08T04:09:09Z",
+        "updated_at": "2026-11-08T04:09:31Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445628401",
+        "head_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01"
+      },
+      {
+        "id": 42445625652,
+        "path": ".github/workflows/pr-00-gate-fork-status.yml",
+        "event": "workflow_run",
+        "created_at": "2026-11-08T04:09:07Z",
+        "run_started_at": "2026-11-08T04:09:07Z",
+        "updated_at": "2026-11-08T04:09:15Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445625652",
+        "head_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01"
+      },
+      {
+        "id": 42445605689,
+        "path": ".github/workflows/pr-00-gate-fork-status.yml",
+        "event": "workflow_run",
+        "created_at": "2026-11-08T04:08:49Z",
+        "run_started_at": "2026-11-08T04:08:49Z",
+        "updated_at": "2026-11-08T04:08:59Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445605689",
+        "head_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01"
+      },
+      {
+        "id": 42445603180,
+        "path": ".github/workflows/health-40-sweep.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:08:54Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603180",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603154,
+        "path": ".github/workflows/pr-11-ci-smoke.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:09:02Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603154",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603159,
+        "path": ".github/workflows/health-69-consumer-sync-shadow-evidence.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:09:09Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603159",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603113,
+        "path": ".github/workflows/maint-52-validate-workflows.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:09:06Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603113",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603129,
+        "path": ".github/workflows/agents-guard.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:09:07Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603129",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603127,
+        "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:09:03Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603127",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603118,
+        "path": ".github/workflows/agents-pr-meta-v4.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:09:03Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603118",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603135,
+        "path": ".github/workflows/health-50-security-scan.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:10:11Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603135",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603153,
+        "path": ".github/workflows/selftest-ci.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:10:20Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603153",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603157,
+        "path": ".github/workflows/health-52-semgrep.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:11:28Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603157",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603166,
+        "path": ".github/workflows/health-44-gate-branch-protection.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:14:17Z",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603166",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      },
+      {
+        "id": 42445603184,
+        "path": ".github/workflows/pr-00-gate.yml",
+        "event": "pull_request",
+        "created_at": "2026-11-08T04:08:46Z",
+        "run_started_at": "2026-11-08T04:08:46Z",
+        "updated_at": "2026-11-08T04:18:26Z",
+        "status": "completed",
+        "conclusion": "cancelled",
+        "html_url": "https://github.com/stranske/Workflows/actions/runs/42445603184",
+        "head_sha": "e8b6341adf4117d2e6ef37c6a065a7dbee6f64cd"
+      }
+    ]
+  },
+  "first_run": {
+    "id": 42445636759,
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "event": "workflow_dispatch",
+    "created_at": "2026-11-08T04:09:17Z",
+    "run_started_at": "2026-11-08T04:09:17Z",
+    "updated_at": "2026-11-08T04:10:26Z",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42445636759",
+    "head_sha": "7e377b7ad8cc06e506393218bc7459ba47757f01"
+  },
+  "latest_runs": [
+    {
+      "id": 42789507724,
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "event": "workflow_dispatch",
+      "created_at": "2026-11-10T09:17:48Z",
+      "run_started_at": "2026-11-10T09:17:48Z",
+      "updated_at": "2026-11-10T09:18:13Z",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42789507724",
+      "head_sha": "9dcc645ba2b51f6db655486cec7e06e1f7d5e5b4"
+    },
+    {
+      "id": 42789412923,
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "event": "workflow_dispatch",
+      "created_at": "2026-11-10T09:17:07Z",
+      "run_started_at": "2026-11-10T09:17:07Z",
+      "updated_at": "2026-11-10T09:17:31Z",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42789412923",
+      "head_sha": "9dcc645ba2b51f6db655486cec7e06e1f7d5e5b4"
+    },
+    {
+      "id": 42764824293,
+      "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+      "event": "workflow_dispatch",
+      "created_at": "2026-11-10T05:52:27Z",
+      "run_started_at": "2026-11-10T05:52:27Z",
+      "updated_at": "2026-11-10T05:53:45Z",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/stranske/Workflows/actions/runs/42764824293",
+      "head_sha": "ee964d5139fed02fcba57844ce93fc84a29dbc3e"
+    }
+  ],
+  "delivery_report": {
+    "owner": "stranske",
+    "repo": "Portable-Alpha-Extension-Model",
+    "pr": 2454,
+    "branch": "sync/workflows-candidate",
+    "head_sha": "9c85282d05359ddc468d0881ec6b09269ac592a2",
+    "delivery_generation": "4017589cec3c",
+    "plan_id": "sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da",
+    "plan_scope": "full",
+    "scope_base_sha": "",
+    "source_commit": "c2ac6f38d6f2ce73f000158fa6f729bfece82092",
+    "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+    "campaign_no_change_evidence_json": "",
+    "delivery_lane": "sync",
+    "continuation_lane": "",
+    "delivery_disposition": "awaiting-sealed-gate",
+    "blocker_owner": "ci",
+    "next_command": "rerun-after-generated-delivery-seal-gate",
+    "review_finding_disposition": {
+      "schema": "sync-finding-evaluation/v1",
+      "binding": {
+        "repository": "stranske/Portable-Alpha-Extension-Model",
+        "pr": 2454,
+        "head_sha": "9c85282d05359ddc468d0881ec6b09269ac592a2",
+        "source_commit": "c2ac6f38d6f2ce73f000158fa6f729bfece82092",
+        "plan_id": "sha256:4017589cec3ca50a3f528f382fe788b40f49cfcd2641214da354672b71ff27da",
+        "delivery_generation": "4017589cec3c"
+      },
+      "raw_active_count": 0,
+      "blocked": false,
+      "errors": [],
+      "findings": [],
+      "aggregates": {
+        "blocking": 0,
+        "nonblocking": 0,
+        "unknown": 0,
+        "by_disposition": {
+          "shared-source": 0,
+          "sync-caused": 0,
+          "unrelated": 0,
+          "unknown": 0
+        }
+      },
+      "disposition_thread_ids": {
+        "shared-source": [],
+        "sync-caused": [],
+        "unrelated": [],
+        "unknown": []
+      },
+      "blocking_thread_ids": [],
+      "nonblocking_thread_ids": [],
+      "unknown_thread_ids": [],
+      "unrelated_handoffs": []
+    },
+    "review_state": "clear",
+    "review_resolution_thread_ids": [],
+    "review_resolution_would_resolve_thread_ids": [],
+    "review_resolution_errors": [],
+    "consumer_declared_contexts": {
+      "state": "none",
+      "passed": [],
+      "failed": [],
+      "pending": [],
+      "never_started": [],
+      "also_required": []
+    },
+    "seal_pending": true,
+    "check_status": "seal_pending",
+    "raw_check_status": "checks_failed",
+    "status": "delivery_sealed_checks_pending",
+    "gate_request": {
+      "mode": "rerun",
+      "status": 201,
+      "run_id": 42445611585
+    },
+    "review_mode": "integration-only"
+  },
+  "consumer_comments": [
+    {
+      "id": 6553699556,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#issuecomment-6553699556",
+      "path": null,
+      "body": "<!-- codex-pull-request-review-summary -->\n<!-- codex-review-state:v1 {\"code_review\":{\"commit_sha\":\"298d7c46e14fd92d6e6e34b694e5097b94527b18\",\"has_any_findings\":true,\"has_unresolved_findings\":true,\"status\":\"completed\"},\"security_review\":{\"commit_sha\":null,\"has_any_findings\":null,\"has_unresolved_findings\":null,\"status\":null}} -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ✅ **Completed** <relative-time datetime=\"2026-11-01T05:05:36.453881Z\">2026-11-01T05:05:36.453881Z</relative-time> | `298d7c4` | PR opened |\n\n\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.\n\n</details>",
+      "created_at": "2026-11-01T05:03:25Z",
+      "updated_at": "2026-11-01T05:05:37Z"
+    },
+    {
+      "id": 6553699747,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#issuecomment-6553699747",
+      "path": null,
+      "body": "<!-- coderabbit-ai-generated:v1 -->\n\n<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: skip review by coderabbit.ai -->\n\n> [!IMPORTANT]\n> ## Review skipped\n> \n> Auto reviews are limited based on label configuration.\n> \n> <details>\n> <summary><strong>:no_entry_sign: Review skipped — only excluded labels are configured.: 7</strong></summary>\n> <dl>\n> <dd>\n> <br>\n> \n> * sync\n> * workflow:source-sync\n> * workflow:source-maintenance\n> * consumer-sync\n> * integration-sync\n> * workflows-sync\n> * template-sync\n> \n> </dd>\n> </dl>\n> </details>\n> \n> Please check the settings in the CodeRabbit UI or the `.coderabbit.yaml` file in this repository. To trigger a single review, invoke the `@coderabbitai review` command.\n> \n> <details>\n> <summary><strong><picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://storage.googleapis.com/coderabbit_public_assets/review-comment-icons-v1/cog-dark.svg\"><img src=\"https://storage.googleapis.com/coderabbit_public_assets/review-comment-icons-v1/cog.svg\" width=\"16\" height=\"16\" align=\"absmiddle\" alt=\"\"></picture> Run configuration</strong></summary>\n> <dl>\n> <dd>\n> <br>\n> \n> - **Source mode**: Auto\n> - **Repository**: [stranske/Portable-Alpha-Extension-Model](<https://github.com/stranske/Portable-Alpha-Extension-Model>)\n> - **Branch**: [sync/workflows-candidate](<https://github.com/stranske/Portable-Alpha-Extension-Model/tree/sync%2Fworkflows-candidate>)\n> - **File**: [.coderabbit.yaml](<https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/.coderabbit.yaml>)\n> - **Commit**: [9c85282](<https://github.com/stranske/Portable-Alpha-Extension-Model/commit/9c85282d05359ddc468d0881ec6b09269ac592a2>)\n> - **Layers**: Repository YAML\n> - **Review profile**: ASSERTIVE\n> - **Plan**: Essentials\n> - **Run ID**: `7652a43c-31c7-4fbf-aa8d-83e4b6075d6a`\n> \n> </dd>\n> </dl>\n> </details>\n> \n> You can disable this status message by setting the `reviews.review_status` to `false` in the CodeRabbit configuration file.\n> \n> Use the checkbox below for a quick retry:\n> - [ ] <!-- {\"checkboxId\":\"e9bb8d72-00e8-4f67-9cb2-caf3b22574fe\"} --> Trigger review\n\n<!-- end of auto-generated comment: skip review by coderabbit.ai -->\n\n<!-- autopilot:start -->\n- [ ] <!-- {\"checkboxId\":\"2708ad07-9f24-4260-9c11-7dc76a49f2e3\"} --> <strong title=\"Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\">Autofix</strong> · Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\n<!-- autopilot:end -->",
+      "created_at": "2026-11-01T05:03:26Z",
+      "updated_at": "2026-11-08T04:10:35Z"
+    },
+    {
+      "id": 4434482074,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434482074",
+      "path": "scripts/langchain/_llm_client.py",
+      "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Preserve LangChain compatibility for subscription clients**\n\nWhen `WORKFLOWS_ANALYSIS_CLI` is enabled and subscription authentication is available, this shared factory returns a `SubscriptionClient`, which is neither a LangChain `Runnable` nor callable. Existing consumers such as `classify_capabilities` in `scripts/langchain/capability_check.py` and the issue optimizer compose the returned client with `ChatPromptTemplate` using `template | client`, so they raise `TypeError` before invoking the CLI. Scope this transport override to the auxiliary-analysis callers, or provide a Runnable-compatible adapter that also converts prompt values to the string expected by `SubscriptionClient.invoke`.\n\nUseful? React with 👍 / 👎.\n\n<!-- codex-code-review-finding:v1 -->",
+      "created_at": "2026-11-01T05:05:34Z",
+      "updated_at": "2026-11-01T05:05:34Z"
+    },
+    {
+      "id": 5726571792,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5726571792",
+      "path": null,
+      "body": "<!-- codex-review-receipt:v1 -->\n\n\n### 💡 Codex Review\n\nHere are some automated review suggestions for this pull request.\n\n**Reviewed commit:** `298d7c46e1`\n    \n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+      "created_at": "2026-11-01T05:05:34Z",
+      "updated_at": null
+    },
+    {
+      "id": 4434491631,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491631",
+      "path": ".github/scripts/auto_pilot_transitions.js",
+      "body": "[P2] This marker is not bound to a particular closure or PR and is never cleared when an issue is reopened. If an issue is reopened after a handoff and later closed by a different PR, the old label makes this branch choose `done`, skipping verification of the new PR. Record and validate the source PR/closure identity, or clear the handoff marker on reopening before allowing another closure.",
+      "created_at": "2026-11-01T05:10:45Z",
+      "updated_at": "2026-11-01T05:10:47Z"
+    },
+    {
+      "id": 4434491646,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "body": "[P1] Adding the PR label does not guarantee that the verifier was triggered: an already-labeled PR produces no new `labeled` event, and events written with the fallback `GITHUB_TOKEN` do not start other workflows. Both cases still write this marker, so the next run reports verification as triggered even though no verifier ran. Dispatch the verifier with a triggering credential (or verify an existing run) before recording the handoff.",
+      "created_at": "2026-11-01T05:10:45Z",
+      "updated_at": "2026-11-01T05:10:47Z"
+    },
+    {
+      "id": 4434491654,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491654",
+      "path": "scripts/langchain/_llm_client.py",
+      "body": "[P1] With `WORKFLOWS_ANALYSIS_CLI` enabled, this shared factory returns a client that is not a LangChain runnable, so callers such as `task_decomposer.py` and `capability_check.py` fail at `template | client` before invoking the CLI. The substitution also ignores requested provider/model overrides. Scope subscription routing to the auxiliary analyses, or supply a runnable adapter that converts prompt values to text and preserves caller selection contracts.",
+      "created_at": "2026-11-01T05:10:46Z",
+      "updated_at": "2026-11-01T05:10:47Z"
+    },
+    {
+      "id": 4434491667,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491667",
+      "path": "tools/llm_registry.py",
+      "body": "[P2] Filtering retired slots before `apply_slot_env_overrides()` shifts numbered overrides: if retired GitHub Models is first, `LANGCHAIN_SLOT1_MODEL` is applied to the next provider instead. Overrides can also reintroduce the retired selection, for example with `LANGCHAIN_SLOT1_PROVIDER=github-models` and `LANGCHAIN_SLOT1_MODEL=openai/gpt-5`. Preserve original slot positions and profile identities through override processing, then reject retired effective selections.",
+      "created_at": "2026-11-01T05:10:46Z",
+      "updated_at": "2026-11-01T05:10:47Z"
+    },
+    {
+      "id": 4434491675,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491675",
+      "path": ".github/scripts/auto_pilot_transitions.js",
+      "body": "[P2] Closed issues with the legacy `verify:evaluate` label now enter `verify` instead of `done`, but a successful handoff has no automatic continuation. The redispatch allowlist excludes `verify`, and the event gate rejects `verify:pr-handoff` label events, leaving `agents:auto-pilot` in place without a completion report. Schedule a continuation after the handoff or complete the done disposition in the same run.",
+      "created_at": "2026-11-01T05:10:46Z",
+      "updated_at": "2026-11-01T05:10:47Z"
+    },
+    {
+      "id": 4434491683,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491683",
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "body": "[P2] The search does not test for a match until after it has fetched every page, so a repository with at least 1,000 closed PRs makes ten sequential API requests even when the target is on page one. A rate-limit or API error on any later page also fails an otherwise successful lookup. Check each batch for the merged PR and stop as soon as it is found; retain the bound only for unsuccessful searches.",
+      "created_at": "2026-11-01T05:10:46Z",
+      "updated_at": "2026-11-01T05:10:47Z"
+    },
+    {
+      "id": 4434491693,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491693",
+      "path": "config/model_registry.json",
+      "body": "This retirement describes Muse as the replacement backup, but this consumer's create-only `config/llm_slots.json` has no `capacity_backup` block. `pr_verifier.capacity_backup()` therefore returns `None` even with `MUSE_API_KEY` set, leaving no configured replacement for a quota-exhausted judge. Configure and validate the consumer backup before relying on it, or explicitly document that this consumer has no backup.",
+      "created_at": "2026-11-01T05:10:47Z",
+      "updated_at": "2026-11-01T05:10:47Z"
+    },
+    {
+      "id": 4434491702,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+      "path": "tools/subscription_llm.py",
+      "body": "[P2] Claude's credential check ignores `CLAUDE_CONFIG_DIR`, even though that variable is passed to the child CLI. When subscription credentials exist only in the configured directory, `available()` rejects the client before Claude can read them. Resolve the credentials file relative to the configured directory when present.",
+      "created_at": "2026-11-01T05:10:47Z",
+      "updated_at": "2026-11-01T05:10:47Z"
+    },
+    {
+      "id": 5726582645,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5726582645",
+      "path": null,
+      "body": "<!-- ccr-overview-v2 -->\n\n### 🟡 Changes recommended\n\nActive findings identify a broken LangChain client integration, unreliable verification handoffs, and misapplied model overrides.\n\n<details open>\n<summary><strong>8 open issues</strong></summary>\n\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-light.png\" alt=\"High severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Stale handoff marker can skip verification for a later closure](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491631) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-light.png\" alt=\"High severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Handoff marker can be written without triggering verification](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-light.png\" alt=\"High severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Analysis CLI client is not a runnable and ignores provider overrides](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491654) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/high-v2-light.png\" alt=\"High severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Retired-slot filtering shifts numbered environment overrides](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491667) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Legacy evaluation label leaves auto-pilot stuck after handoff](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491675) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Search all PR pages before checking for a match](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491683) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Consumer config lacks the advertised capacity backup](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491693) · New\n- <picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-dark.svg\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.svg\"><img src=\"https://github.githubassets.com/static/images/icons/copilot-code-review/medium-v2-light.png\" alt=\"Medium severity\" width=\"62\" height=\"18\" align=\"texttop\"></picture> [Claude credential check ignores CLAUDE_CONFIG_DIR](https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702) · New\n</details>\n\n<details>\n<summary><strong>What changed in this PR</strong></summary>\n\nSyncs shared automation from `stranske/Workflows`, updating verification handoffs, subscription-based LLM analysis, and model-selection policy.\n\n**Changes:**\n- Adds explicit PR-bound verification handoff tracking and bounded merged-PR lookup.\n- Introduces opt-in subscription CLI analysis and retires GitHub Models from default fallback selection.\n- Reports how many task checkboxes were completed through LLM analysis.\n\n| File | Description |\r\n| ---- | ----------- |\r\n| `tools/​subscription_llm.py` | Adds subscription CLI transport, credential checks, and capability restrictions. |\r\n| `tools/​llm_registry.py` | Filters retired selections and updates default slots. |\r\n| `tools/​llm_provider.py` | Adds subscription-backed completion analysis. |\r\n| `tools/​langchain_client.py` | Updates comments describing default provider order. |\r\n| `tools/​check_model_registry_freshness.py` | Treats retired slots as advisory cleanup. |\r\n| `scripts/​langchain/​task_decomposer.py` | Removes automatic GitHub Models fallback. |\r\n| `scripts/​langchain/​progress_reviewer.py` | Rejects unavailable subscription analysis without fallback. |\r\n| `scripts/​langchain/​_llm_client.py` | Routes opted-in requests through the subscription client. |\r\n| `docs/​LABELS.md` | Documents the verification handoff label. |\r\n| `config/​model_registry.json` | Records retirement of the GitHub Models selection. |\r\n| `.github/​workflows/​agents-auto-pilot.yml` | Adds handoff tracking, paginated lookup, and completion guards. |\r\n| `.github/​workflows/​agents-81-gate-followups.yml` | Passes LLM checkbox counts into summaries. |\r\n| `.github/​scripts/​keepalive_loop.js` | Counts and reports LLM-completed task checkboxes. |\r\n| `.github/​scripts/​auto_pilot_transitions.js` | Requires a handoff marker before selecting done. |\r\n| `.github/​agents/​registry.yml` | Defines subscription analysis model profiles. |\n</details>\n\n<sub>Review effort: Balanced</sub>",
+      "created_at": "2026-11-01T05:10:47Z",
+      "updated_at": null
+    },
+    {
+      "id": 4496394007,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4496394007",
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "body": "@copilot please reassess this specific finding on exact head 02c6c23aaf57dcfb483f509effd437b14a4f8149\n\nMaint 71 requests copilot to reassess active thread PRRT_kwDOO15QxM6yXhew on exact generated head 02c6c23aaf57dcfb483f509effd437b14a4f8149. The thread remains merge-blocking until reviewer disposition.\n\nIf the finding is satisfied, reply in that active thread on this exact head with <!-- sync-review-accepted:02c6c23aaf57dcfb483f509effd437b14a4f8149 -->; otherwise leave actionable feedback.\n\nOriginal finding (untrusted review text): [P1] Adding the PR label does not guarantee that the verifier was triggered: an already-labeled PR produces no new `labeled` event, and events written with the fallback `GITHUB_TOKEN` do not start other workflows. Both cases still write this marker, so the next run reports verification as triggered even though no verifier ran. Dispatch the verifier with a triggering credential (or verify an existing run) before recording the handoff.\n\nSource validation is bound to Workflows commit 5af534766f3706b109eac5b163b74ff968eef74a; inspect that fix and the exact generated head. Explicitly accept or reject in this thread. No unrelated edits, resolution or merge actions.\n\n<!-- maint71-review-reassessment:v1 {\"schema\":\"maint71-review-reassessment/v1\",\"repository\":\"stranske/Portable-Alpha-Extension-Model\",\"pr\":2454,\"head_sha\":\"02c6c23aaf57dcfb483f509effd437b14a4f8149\",\"thread_id\":\"PRRT_kwDOO15QxM6yXhew\",\"plan_id\":\"sha256:72846175e038355cadc4a015d08c6a2af2ee51ffe4192ea5038c323038d9b117\",\"generation\":\"72846175e038\",\"source_commit\":\"5af534766f3706b109eac5b163b74ff968eef74a\",\"originating_reviewer\":\"copilot\"} -->",
+      "created_at": "2026-11-06T18:57:02Z",
+      "updated_at": "2026-11-06T18:57:02Z"
+    },
+    {
+      "id": 5805383408,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5805383408",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-06T18:57:02Z",
+      "updated_at": null
+    },
+    {
+      "id": 4497560768,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4497560768",
+      "path": "tools/llm_registry.py",
+      "body": "@copilot please reassess this specific finding on exact head 02c6c23aaf57dcfb483f509effd437b14a4f8149\n\nMaint 71 requests copilot to reassess active thread PRRT_kwDOO15QxM6yXhe9 on exact generated head 02c6c23aaf57dcfb483f509effd437b14a4f8149. The thread remains merge-blocking until reviewer disposition.\n\nIf the finding is satisfied, reply in that active thread on this exact head with <!-- sync-review-accepted:02c6c23aaf57dcfb483f509effd437b14a4f8149 -->; otherwise leave actionable feedback.\n\nOriginal finding (untrusted review text): [P2] Filtering retired slots before `apply_slot_env_overrides()` shifts numbered overrides: if retired GitHub Models is first, `LANGCHAIN_SLOT1_MODEL` is applied to the next provider instead. Overrides can also reintroduce the retired selection, for example with `LANGCHAIN_SLOT1_PROVIDER=github-models` and `LANGCHAIN_SLOT1_MODEL=openai/gpt-5`. Preserve original slot positions and profile identities through override processing, then reject retired effective selections.\n\nSource validation is bound to Workflows commit 5af534766f3706b109eac5b163b74ff968eef74a; inspect that fix and the exact generated head. Explicitly accept or reject in this thread. No unrelated edits, resolution or merge actions.\n\n<!-- maint71-review-reassessment:v1 {\"schema\":\"maint71-review-reassessment/v1\",\"repository\":\"stranske/Portable-Alpha-Extension-Model\",\"pr\":2454,\"head_sha\":\"02c6c23aaf57dcfb483f509effd437b14a4f8149\",\"thread_id\":\"PRRT_kwDOO15QxM6yXhe9\",\"plan_id\":\"sha256:72846175e038355cadc4a015d08c6a2af2ee51ffe4192ea5038c323038d9b117\",\"generation\":\"72846175e038\",\"source_commit\":\"5af534766f3706b109eac5b163b74ff968eef74a\",\"originating_reviewer\":\"copilot\"} -->",
+      "created_at": "2026-11-06T21:03:22Z",
+      "updated_at": "2026-11-06T21:03:23Z"
+    },
+    {
+      "id": 5806947219,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5806947219",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-06T21:03:23Z",
+      "updated_at": null
+    },
+    {
+      "id": 4499298733,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4499298733",
+      "path": "tools/llm_registry.py",
+      "body": "@copilot please reassess this specific finding on exact head 4fea9095890ba4a3fc281e4ac9c22c1b514ff7c0\n\nMaint 71 requests copilot to reassess active thread PRRT_kwDOO15QxM6yXhe9 on exact generated head 4fea9095890ba4a3fc281e4ac9c22c1b514ff7c0. The thread remains merge-blocking until reviewer disposition.\n\nIf the finding is satisfied, reply in that active thread on this exact head with <!-- sync-review-accepted:4fea9095890ba4a3fc281e4ac9c22c1b514ff7c0 -->; otherwise leave actionable feedback.\n\nOriginal finding (untrusted review text): [P2] Filtering retired slots before `apply_slot_env_overrides()` shifts numbered overrides: if retired GitHub Models is first, `LANGCHAIN_SLOT1_MODEL` is applied to the next provider instead. Overrides can also reintroduce the retired selection, for example with `LANGCHAIN_SLOT1_PROVIDER=github-models` and `LANGCHAIN_SLOT1_MODEL=openai/gpt-5`. Preserve original slot positions and profile identities through override processing, then reject retired effective selections.\n\nSource validation is bound to Workflows commit 5beaa4a70344dfefe653816220656e884f2d514c; inspect that fix and the exact generated head. Explicitly accept or reject in this thread. No unrelated edits, resolution or merge actions.\n\n<!-- maint71-review-reassessment:v1 {\"schema\":\"maint71-review-reassessment/v1\",\"repository\":\"stranske/Portable-Alpha-Extension-Model\",\"pr\":2454,\"head_sha\":\"4fea9095890ba4a3fc281e4ac9c22c1b514ff7c0\",\"thread_id\":\"PRRT_kwDOO15QxM6yXhe9\",\"plan_id\":\"sha256:ab1631469ba80fb1ac93301211e49bcad7b13a8fff7e1860a04c3bc6a00f1e33\",\"generation\":\"ab1631469ba8\",\"source_commit\":\"5beaa4a70344dfefe653816220656e884f2d514c\",\"originating_reviewer\":\"copilot\"} -->",
+      "created_at": "2026-11-07T01:14:41Z",
+      "updated_at": "2026-11-07T01:14:41Z"
+    },
+    {
+      "id": 5809119729,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5809119729",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-07T01:14:41Z",
+      "updated_at": null
+    },
+    {
+      "id": 6700768896,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#issuecomment-6700768896",
+      "path": null,
+      "body": "Workflow state fingerprint for Keepalive Loop Reporter. Do not edit.\n\n<!-- fingerprint:Keepalive Loop Reporter:v1 {\"hash\":\"3ab792b6acf811331a55a00bcebf7edc159a805b07c16fd36abac8103ce4af5f\",\"ts\":\"2026-11-07T02:08:57Z\"} -->",
+      "created_at": "2026-11-07T02:05:34Z",
+      "updated_at": "2026-11-07T02:08:58Z"
+    },
+    {
+      "id": 4505042727,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4505042727",
+      "path": "scripts/langchain/_llm_client.py",
+      "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 29-54 provide the callable SubscriptionClientAdapter, convert PromptValue.to_string(), and retain direct invoke. Lines 101-109 preserve explicit provider/model selection in ordinary build_chat_client; subscription routing is auxiliary-only at lines 112-124.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/scripts/langchain/_llm_client.py . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+      "created_at": "2026-11-08T04:38:54Z",
+      "updated_at": "2026-11-08T04:38:54Z"
+    },
+    {
+      "id": 5816629178,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5816629178",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-08T04:38:54Z",
+      "updated_at": null
+    },
+    {
+      "id": 4505042799,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4505042799",
+      "path": ".github/scripts/auto_pilot_transitions.js",
+      "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 102-105 always route closed issues through verification instead of trusting an old label. Lines 206-208 continue verify to done only after PR/head-bound handoff; agents-auto-pilot.yml lines 4055-4058 check successful handoff before redispatch and Report - Done revalidates evidence.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/.github/scripts/auto_pilot_transitions.js . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+      "created_at": "2026-11-08T04:38:56Z",
+      "updated_at": "2026-11-08T04:38:56Z"
+    },
+    {
+      "id": 5816629243,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5816629243",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-08T04:38:56Z",
+      "updated_at": null
+    },
+    {
+      "id": 4505042859,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4505042859",
+      "path": "scripts/langchain/_llm_client.py",
+      "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 29-54 provide the callable SubscriptionClientAdapter, convert PromptValue.to_string(), and retain direct invoke. Lines 101-109 preserve explicit provider/model selection in ordinary build_chat_client; subscription routing is auxiliary-only at lines 112-124.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/scripts/langchain/_llm_client.py . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+      "created_at": "2026-11-08T04:38:57Z",
+      "updated_at": "2026-11-08T04:38:58Z"
+    },
+    {
+      "id": 5816629302,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5816629302",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-08T04:38:58Z",
+      "updated_at": null
+    },
+    {
+      "id": 4505042935,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4505042935",
+      "path": ".github/scripts/auto_pilot_transitions.js",
+      "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 102-105 always route closed issues through verification instead of trusting an old label. Lines 206-208 continue verify to done only after PR/head-bound handoff; agents-auto-pilot.yml lines 4055-4058 check successful handoff before redispatch and Report - Done revalidates evidence.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/.github/scripts/auto_pilot_transitions.js . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+      "created_at": "2026-11-08T04:38:59Z",
+      "updated_at": "2026-11-08T04:38:59Z"
+    },
+    {
+      "id": 5816629373,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5816629373",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-08T04:38:59Z",
+      "updated_at": null
+    },
+    {
+      "id": 4505042988,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4505042988",
+      "path": ".github/workflows/agents-auto-pilot.yml",
+      "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. The current lookup tests each batch immediately and breaks on a match at lines 2368-2371 and 4225-4228, so it does not fetch all ten pages after finding the target.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/.github/workflows/agents-auto-pilot.yml . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+      "created_at": "2026-11-08T04:39:01Z",
+      "updated_at": "2026-11-08T04:39:01Z"
+    },
+    {
+      "id": 5816629426,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5816629426",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-08T04:39:01Z",
+      "updated_at": null
+    },
+    {
+      "id": 4505043035,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4505043035",
+      "path": "config/model_registry.json",
+      "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Line 720 explicitly states retirement does not configure a replacement, consumers without capacity_backup have no backup even with a provider key, and a backup must be explicitly configured and validated. This satisfies the finding alternative to document the absent backup; no claim of configured Muse remains.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/config/model_registry.json . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+      "created_at": "2026-11-08T04:39:03Z",
+      "updated_at": "2026-11-08T04:39:03Z"
+    },
+    {
+      "id": 5816629482,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5816629482",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-08T04:39:03Z",
+      "updated_at": null
+    },
+    {
+      "id": 4505043101,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4505043101",
+      "path": "tools/subscription_llm.py",
+      "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 51-56 resolve the credentials directory from CLAUDE_CONFIG_DIR, then check .credentials.json there; lines 80-83 preserve that variable in the child environment.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/tools/subscription_llm.py . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+      "created_at": "2026-11-08T04:39:05Z",
+      "updated_at": "2026-11-08T04:39:05Z"
+    },
+    {
+      "id": 5816629548,
+      "url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#pullrequestreview-5816629548",
+      "path": null,
+      "body": "",
+      "created_at": "2026-11-08T04:39:05Z",
+      "updated_at": null
+    }
+  ],
+  "source_issue": {
+    "number": 4366,
+    "updated_at": "2026-11-10T13:36:42Z",
+    "comments": 60,
+    "comment_rows": [
+      {
+        "id": 6568616198,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6568616198",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `3e13566a73e9` (round 20261102T035116Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933, https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491958",
+        "created_at": "2026-11-02T03:51:37Z",
+        "updated_at": "2026-11-02T03:51:37Z"
+      },
+      {
+        "id": 6568617126,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6568617126",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/trip-planner#1957 head `e1075176de36` (round 20261102T035116Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489070",
+        "created_at": "2026-11-02T03:51:42Z",
+        "updated_at": "2026-11-02T03:51:42Z"
+      },
+      {
+        "id": 6573395254,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6573395254",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Workflows#4372 head `e3625b216f29` (round 20261102T091428Z). Threads/checks: https://github.com/stranske/Workflows/pull/4372#discussion_r4440404456",
+        "created_at": "2026-11-02T09:15:12Z",
+        "updated_at": "2026-11-02T09:15:12Z"
+      },
+      {
+        "id": 6583450999,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6583450999",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `128edded1e54` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646, https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491683",
+        "created_at": "2026-11-02T17:14:55Z",
+        "updated_at": "2026-11-02T17:14:55Z"
+      },
+      {
+        "id": 6583452948,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6583452948",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `e1d8a8ed8a87` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933, https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491958",
+        "created_at": "2026-11-02T17:15:01Z",
+        "updated_at": "2026-11-02T17:15:01Z"
+      },
+      {
+        "id": 6587416289,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6587416289",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/trip-planner#1957 head `0a5873df007f` (round 20261102T201439Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489070",
+        "created_at": "2026-11-02T20:15:03Z",
+        "updated_at": "2026-11-02T20:15:03Z"
+      },
+      {
+        "id": 6588613764,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6588613764",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `c485222f949a` (round 20261102T211340Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933, https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491958",
+        "created_at": "2026-11-02T21:13:57Z",
+        "updated_at": "2026-11-02T21:13:57Z"
+      },
+      {
+        "id": 6597299576,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6597299576",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `021a094497a1` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646, https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491683",
+        "created_at": "2026-11-03T06:46:27Z",
+        "updated_at": "2026-11-03T06:46:27Z"
+      },
+      {
+        "id": 6597302703,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6597302703",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/trip-planner#1957 head `66242eb3268c` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489070",
+        "created_at": "2026-11-03T06:46:40Z",
+        "updated_at": "2026-11-03T06:46:40Z"
+      },
+      {
+        "id": 6604756077,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6604756077",
+        "body": "🤖 **Auto-pilot step 1**: Starting issue formatting...\n\nRunning formatter inline (not via label trigger).\n",
+        "created_at": "2026-11-03T13:12:46Z",
+        "updated_at": "2026-11-03T13:12:46Z"
+      },
+      {
+        "id": 6623203994,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6623203994",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `f36c82cd6a83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646, https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491683",
+        "created_at": "2026-11-04T05:15:33Z",
+        "updated_at": "2026-11-04T05:15:33Z"
+      },
+      {
+        "id": 6623205243,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6623205243",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `7e233b3c1e83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933, https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491958",
+        "created_at": "2026-11-04T05:15:38Z",
+        "updated_at": "2026-11-04T05:15:38Z"
+      },
+      {
+        "id": 6623207328,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6623207328",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/trip-planner#1957 head `ecff077a0504` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489070",
+        "created_at": "2026-11-04T05:15:47Z",
+        "updated_at": "2026-11-04T05:15:47Z"
+      },
+      {
+        "id": 6623827913,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6623827913",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `c1add4c24991` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646, https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491683",
+        "created_at": "2026-11-04T06:00:24Z",
+        "updated_at": "2026-11-04T06:00:24Z"
+      },
+      {
+        "id": 6623829496,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6623829496",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `58e7e3bdfe8b` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933, https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491958",
+        "created_at": "2026-11-04T06:00:31Z",
+        "updated_at": "2026-11-04T06:00:31Z"
+      },
+      {
+        "id": 6631878360,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6631878360",
+        "body": "🤖 **Auto-pilot step 1**: Starting issue formatting...\n\nRunning formatter inline (not via label trigger).\n",
+        "created_at": "2026-11-04T13:28:06Z",
+        "updated_at": "2026-11-04T13:28:06Z"
+      },
+      {
+        "id": 6631911622,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6631911622",
+        "body": "🤖 **Auto-pilot step 1**: Analyzing issue for improvements...\n\nRunning optimizer inline (not via label trigger).\n",
+        "created_at": "2026-11-04T13:29:37Z",
+        "updated_at": "2026-11-04T13:29:37Z"
+      },
+      {
+        "id": 6631928967,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6631928967",
+        "body": "## Issue Optimization Suggestions\n\nReview the suggestions below. If you want the agent to apply them, add the\n`agents:apply-suggestions` label to this issue.\n\n### Task splitting\n- Fix `.github/workflows/agents-auto-pilot.yml` to dispatch the verifier with a triggering credential or verify an existing run before recording the handoff, and check each merged-PR search batch immediately, stopping on a match while retaining the bound for unsuccessful searches. (This task bundles two unrelated defects: P1 (handoff marker written without a verifier run) and P2 (merged-PR search fetches every page before matching). They involve different code paths and need different tests. The P1 clause also offers two alternative fixes (\"or\"), which leaves a design decision open. The sync-core process says one finding per issue, yet this issue carries two.). Suggested split: Fix the verifier handoff in agents-auto-pilot.yml so the handoff marker is written only after a verifier run is dispatched with a triggering credential or confirmed to exist., Fix the merged-PR search in agents-auto-pilot.yml to test each page of results for the target PR immediately and stop as soon as a match is found., Retain the existing page bound in the merged-PR search so that unsuccessful lookups still stop after the maximum number of pages., Add a regression test that fails when the handoff marker is recorded without a dispatched or existing verifier run., Add a regression test that fails when the merged-PR search requests more than one page after a page-one match..\n- Add or extend regression tests beside `.github/workflows/agents-auto-pilot.yml` that fail on the reported behavior and pass after the fix. (This task covers two distinct behaviors (P1 and P2) and needs one test for each. \"Beside\" is ambiguous because the gates run `.github/scripts/__tests__/*.test.js` and `tests/`, and neither sits next to the workflow file. The task also does not say how a test exercises inline workflow YAML or script logic.). Suggested split: Write a test under tests/ that parses agents-auto-pilot.yml and asserts the handoff marker step is gated on a confirmed verifier dispatch or existing run., Write a test that simulates a page-one match in the merged-PR search and asserts that no further pages are requested., Write a test that simulates an unsuccessful merged-PR search and asserts that the request count never exceeds the retained page bound..\n\n### Blocked tasks\n- Fix `.github/workflows/agents-auto-pilot.yml` to dispatch the verifier with a triggering credential or verify an existing run before recording the handoff, and check each merged-PR search batch immediately... (The agent cannot modify `.github/workflows/*.yml` (protected). Choosing or provisioning a \"triggering credential\" (PAT or GitHub App token) also touches secrets or repository settings, and choosing between dispatching and verifying an existing run is a design decision the agent should not make. | Have a human maintainer apply the workflow YAML change. The agent can prepare a proposed patch or snippet in the issue or PR description, or the issue can be reassigned with explicit permission to edit the protected path. The maintainer should state up front whether to dispatch with a triggering credential or verify an existing run, and which secret name to use.)\n- Add or extend regression tests ... that fail on the reported behavior and pass after the fix. (The agent can write the tests, but it cannot make them pass without the protected workflow edit. It also cannot do the deliberate-break step (reintroducing the bug in the YAML) to prove the test fails. | Have the agent write the tests in tests/ or .github/scripts/__tests__/ now, and have the maintainer land the workflow fix and run the break-and-revert check. Alternatively, extract the search logic into an unprotected script that the agent can edit and test.)\n\n### Objective acceptance criteria\n- Reintroducing the reported behavior makes the named regression test fail; reverting the deliberate break restores a passing test. (No regression test is named, and the break step requires editing the protected workflow file. It is a process step, not a checkable end state. | Name the test files and cases, for example `tests/test_agents_auto_pilot_handoff.py::test_marker_requires_verifier_run` and `...::test_search_stops_on_first_page_match`. Require that each fails against the pre-fix workflow and passes against the fixed workflow.)\n- The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue. (This depends on an external scheduled run, a different repository, and reviewer behavior. The agent cannot trigger, retry, or observe it, and it may not resolve within the PR lifecycle. | Move it to a post-merge manual verification checklist. Keep the in-PR criteria testable: the merged-PR search makes exactly 1 API request on a page-one match, at most N requests on an unsuccessful search, and the handoff marker is not written when no verifier run exists.)\n- Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/`; both must pass. (This is objective, but it is generic. It does not show that the new tests are part of the run or that they cover P1 and P2. | Add that the new P1 and P2 tests must be collected by these commands and appear in the passing output.)\n\n### Missing sections\n- None\n\n### Formatting issues\n- All required sections (Why, Scope, Non-Goals, Tasks, Acceptance Criteria, Implementation Notes) are present, so none should be added. The 'Original Issue' `<details>` block repeats the same content in a different layout and should not be duplicated further.\n- The Why section puts the P1 and P2 findings in dense paragraphs. Separate bullets or a short list with one finding each would be easier to read.\n- The first task is a long compound sentence with several 'and' and 'or' clauses, which makes it hard to check off. It should be one atomic task per finding.\n- Task 2 does not give a concrete test location. The phrase 'beside the workflow' does not match the gate paths (`.github/scripts/__tests__/` and `tests/`).\n- The regeneration and confirmation step in the original issue's tasks was moved into acceptance criteria. That is reasonable, but the Implementation Notes should say it is a post-merge maintainer action and not an agent task.\n- Acceptance criteria use a mix of automated gates and live external observations. Separating 'Automated' from 'Post-merge manual verification' would make them clearer.\n\n### Notes\n- The issue is well structured and has clear evidence, scope, and non-goals. It has two blockers for agent execution. First, the only fix location is the protected `.github/workflows/agents-auto-pilot.yml`. Second, the P1 fix leaves a design choice open: dispatch with a triggering credential, or verify an existing run. It also combines two independent findings, which should be split into separate tasks or issues, each with its own named test. The live acceptance criterion depends on an external run the agent cannot control and should become a post-merge manual check. Recommended path: a maintainer decides the P1 approach and applies the workflow edit, while the agent writes the named regression tests in an unprotected location.\n\n<!-- suggestions-json: {\"task_splitting\": [{\"task\": \"Fix `.github/workflows/agents-auto-pilot.yml` to dispatch the verifier with a triggering credential or verify an existing run before recording the handoff, and check each merged-PR search batch immediately, stopping on a match while retaining the bound for unsuccessful searches.\", \"reason\": \"This task bundles two unrelated defects: P1 (handoff marker written without a verifier run) and P2 (merged-PR search fetches every page before matching). They involve different code paths and need different tests. The P1 clause also offers two alternative fixes (\\\"or\\\"), which leaves a design decision open. The sync-core process says one finding per issue, yet this issue carries two.\", \"split_suggestions\": [\"Fix the verifier handoff in agents-auto-pilot.yml so the handoff marker is written only after a verifier run is dispatched with a triggering credential or confirmed to exist.\", \"Fix the merged-PR search in agents-auto-pilot.yml to test each page of results for the target PR immediately and stop as soon as a match is found.\", \"Retain the existing page bound in the merged-PR search so that unsuccessful lookups still stop after the maximum number of pages.\", \"Add a regression test that fails when the handoff marker is recorded without a dispatched or existing verifier run.\", \"Add a regression test that fails when the merged-PR search requests more than one page after a page-one match.\"]}, {\"task\": \"Add or extend regression tests beside `.github/workflows/agents-auto-pilot.yml` that fail on the reported behavior and pass after the fix.\", \"reason\": \"This task covers two distinct behaviors (P1 and P2) and needs one test for each. \\\"Beside\\\" is ambiguous because the gates run `.github/scripts/__tests__/*.test.js` and `tests/`, and neither sits next to the workflow file. The task also does not say how a test exercises inline workflow YAML or script logic.\", \"split_suggestions\": [\"Write a test under tests/ that parses agents-auto-pilot.yml and asserts the handoff marker step is gated on a confirmed verifier dispatch or existing run.\", \"Write a test that simulates a page-one match in the merged-PR search and asserts that no further pages are requested.\", \"Write a test that simulates an unsuccessful merged-PR search and asserts that the request count never exceeds the retained page bound.\"]}], \"blocked_tasks\": [{\"task\": \"Fix `.github/workflows/agents-auto-pilot.yml` to dispatch the verifier with a triggering credential or verify an existing run before recording the handoff, and check each merged-PR search batch immediately...\", \"reason\": \"The agent cannot modify `.github/workflows/*.yml` (protected). Choosing or provisioning a \\\"triggering credential\\\" (PAT or GitHub App token) also touches secrets or repository settings, and choosing between dispatching and verifying an existing run is a design decision the agent should not make.\", \"suggested_action\": \"Have a human maintainer apply the workflow YAML change. The agent can prepare a proposed patch or snippet in the issue or PR description, or the issue can be reassigned with explicit permission to edit the protected path. The maintainer should state up front whether to dispatch with a triggering credential or verify an existing run, and which secret name to use.\"}, {\"task\": \"Add or extend regression tests ... that fail on the reported behavior and pass after the fix.\", \"reason\": \"The agent can write the tests, but it cannot make them pass without the protected workflow edit. It also cannot do the deliberate-break step (reintroducing the bug in the YAML) to prove the test fails.\", \"suggested_action\": \"Have the agent write the tests in tests/ or .github/scripts/__tests__/ now, and have the maintainer land the workflow fix and run the break-and-revert check. Alternatively, extract the search logic into an unprotected script that the agent can edit and test.\"}], \"objective_criteria\": [{\"criterion\": \"Reintroducing the reported behavior makes the named regression test fail; reverting the deliberate break restores a passing test.\", \"issue\": \"No regression test is named, and the break step requires editing the protected workflow file. It is a process step, not a checkable end state.\", \"suggestion\": \"Name the test files and cases, for example `tests/test_agents_auto_pilot_handoff.py::test_marker_requires_verifier_run` and `...::test_search_stops_on_first_page_match`. Require that each fails against the pre-fix workflow and passes against the fixed workflow.\"}, {\"criterion\": \"The next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue.\", \"issue\": \"This depends on an external scheduled run, a different repository, and reviewer behavior. The agent cannot trigger, retry, or observe it, and it may not resolve within the PR lifecycle.\", \"suggestion\": \"Move it to a post-merge manual verification checklist. Keep the in-PR criteria testable: the merged-PR search makes exactly 1 API request on a page-one match, at most N requests on an unsuccessful search, and the handoff marker is not written when no verifier run exists.\"}, {\"criterion\": \"Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/`; both must pass.\", \"issue\": \"This is objective, but it is generic. It does not show that the new tests are part of the run or that they cover P1 and P2.\", \"suggestion\": \"Add that the new P1 and P2 tests must be collected by these commands and appear in the passing output.\"}], \"missing_sections\": [], \"formatting_issues\": [\"All required sections (Why, Scope, Non-Goals, Tasks, Acceptance Criteria, Implementation Notes) are present, so none should be added. The 'Original Issue' `<details>` block repeats the same content in a different layout and should not be duplicated further.\", \"The Why section puts the P1 and P2 findings in dense paragraphs. Separate bullets or a short list with one finding each would be easier to read.\", \"The first task is a long compound sentence with several 'and' and 'or' clauses, which makes it hard to check off. It should be one atomic task per finding.\", \"Task 2 does not give a concrete test location. The phrase 'beside the workflow' does not match the gate paths (`.github/scripts/__tests__/` and `tests/`).\", \"The regeneration and confirmation step in the original issue's tasks was moved into acceptance criteria. That is reasonable, but the Implementation Notes should say it is a post-merge maintainer action and not an agent task.\", \"Acceptance criteria use a mix of automated gates and live external observations. Separating 'Automated' from 'Post-merge manual verification' would make them clearer.\"], \"overall_notes\": \"The issue is well structured and has clear evidence, scope, and non-goals. It has two blockers for agent execution. First, the only fix location is the protected `.github/workflows/agents-auto-pilot.yml`. Second, the P1 fix leaves a design choice open: dispatch with a triggering credential, or verify an existing run. It also combines two independent findings, which should be split into separate tasks or issues, each with its own named test. The live acceptance criterion depends on an external run the agent cannot control and should become a post-merge manual check. Recommended path: a maintainer decides the P1 approach and applies the workflow edit, while the agent writes the named regression tests in an unprotected location.\"} -->",
+        "created_at": "2026-11-04T13:30:25Z",
+        "updated_at": "2026-11-04T13:30:25Z"
+      },
+      {
+        "id": 6631959347,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6631959347",
+        "body": "🤖 **Auto-pilot step 1**: Applying optimization suggestions...\n\nRunning apply inline (not via label trigger).\n",
+        "created_at": "2026-11-04T13:31:48Z",
+        "updated_at": "2026-11-04T13:31:48Z"
+      },
+      {
+        "id": 6631960565,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6631960565",
+        "body": "⚠️ **Workflow failed**\n\nThe agents-issue-optimizer workflow encountered an error.\n\n**Details**: [View workflow run](https://github.com/stranske/Workflows/actions/runs/41838718576)\n",
+        "created_at": "2026-11-04T13:31:52Z",
+        "updated_at": "2026-11-04T13:31:52Z"
+      },
+      {
+        "id": 6632000522,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632000522",
+        "body": "🤖 **Auto-pilot step 1**: Issue prepared! Assigning to agent...\n\nAdding `agent:codex` label. The capability check will run automatically.\n\n⏳ Agent will create a PR shortly.",
+        "created_at": "2026-11-04T13:33:45Z",
+        "updated_at": "2026-11-04T13:33:45Z"
+      },
+      {
+        "id": 6632013062,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632013062",
+        "body": "### ⚠️ Capability Check: Some tasks may need human assistance\n\n**Recommendation:** REVIEW_NEEDED\n\n**✅ Actionable Tasks (3):**\n- stop as soon as a match is found. (verify: confirm completion in repo)\n- Write a test under tests/ that parses agents-auto-pilot.yml (verify: tests pass)\n- asserts that no further pages are requested. (verify: confirm completion in repo)\n\n**⚠️ Partial Tasks (11):**\n- Fix `.github/workflows/agents-auto-pilot.yml` to dispatch the verifier with a triggering credential or verify an existing run before recording the handoff, and check each merged-PR search batch immediately, stopping on a match while retaining the bound for unsuccessful searches.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Fix the verifier handoff in agents-auto-pilot.yml so the handoff marker is written only after a verifier run is dispatched with a triggering credential or confirmed to exist. (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Fix the merged-PR search in agents-auto-pilot.yml to test each page of results for the target PR immediately (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Retain the existing page bound in the merged-PR search so that unsuccessful lookups still stop after the maximum number of pages. (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Add a regression test that fails when the handoff marker is recorded without a dispatched or existing verifier run. (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Add a regression test that fails when the merged-PR search requests more than one page after a page-one match. (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Add or extend regression tests beside `.github/workflows/agents-auto-pilot.yml` that fail on the reported behavior and pass after the fix.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- asserts the handoff marker step is gated on a confirmed verifier dispatch or existing run. (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Write a test that simulates a page-one match in the merged-PR search (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Write a test that simulates an unsuccessful merged-PR search (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- asserts that the request count never exceeds the retained page bound. (verify: confirm completion in repo)\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n\n**👤 Human Actions Needed:**\n- Split task into smaller steps: Fix `.github/workflows/agents-auto-pilot.yml` to dispatch the verifier with a triggering credential or verify an existing run before recording the handoff, and check each merged-PR search batch immediately, stopping on a match while retaining the bound for unsuccessful searches.\n- Split task into smaller steps: Fix the verifier handoff in agents-auto-pilot.yml so the handoff marker is written only after a verifier run is dispatched with a triggering credential or confirmed to exist. (verify: confirm completion in repo)\n- Split task into smaller steps: Fix the merged-PR search in agents-auto-pilot.yml to test each page of results for the target PR immediately (verify: confirm completion in repo)\n- Split task into smaller steps: Retain the existing page bound in the merged-PR search so that unsuccessful lookups still stop after the maximum number of pages. (verify: confirm completion in repo)\n- Split task into smaller steps: Add a regression test that fails when the handoff marker is recorded without a dispatched or existing verifier run. (verify: confirm completion in repo)\n- Split task into smaller steps: Add a regression test that fails when the merged-PR search requests more than one page after a page-one match. (verify: confirm completion in repo)\n- Split task into smaller steps: Add or extend regression tests beside `.github/workflows/agents-auto-pilot.yml` that fail on the reported behavior and pass after the fix.\n- Split task into smaller steps: asserts the handoff marker step is gated on a confirmed verifier dispatch or existing run. (verify: confirm completion in repo)\n- Split task into smaller steps: Write a test that simulates a page-one match in the merged-PR search (verify: confirm completion in repo)\n- Split task into smaller steps: Write a test that simulates an unsuccessful merged-PR search (verify: confirm completion in repo)\n- Split task into smaller steps: asserts that the request count never exceeds the retained page bound. (verify: confirm completion in repo)\n- LLM provider unavailable\n\n---\n*Auto-generated by capability check*",
+        "created_at": "2026-11-04T13:34:20Z",
+        "updated_at": "2026-11-04T14:38:27Z"
+      },
+      {
+        "id": 6632044708,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632044708",
+        "body": "🤖 **Auto-pilot step 1**: Waiting for agent to create branch...\n\nThe agent has been assigned but hasn't created the branch yet.\nBranch expected: `codex/issue-4366`\n\n📊 Branch check attempt: 1/5\n\n⏳ Auto-pilot will check again on next trigger (no backoff on the first check).",
+        "created_at": "2026-11-04T13:35:47Z",
+        "updated_at": "2026-11-04T13:35:47Z"
+      },
+      {
+        "id": 6632098930,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632098930",
+        "body": "🤖 **Auto-pilot**: Backoff delay (2m)\n\nBranch not created yet. Attempt 2/5.\nWaiting before retry...",
+        "created_at": "2026-11-04T13:38:18Z",
+        "updated_at": "2026-11-04T13:38:18Z"
+      },
+      {
+        "id": 6632142187,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632142187",
+        "body": "🤖 **Auto-pilot step 1**: Waiting for agent to create branch...\n\nThe agent has been assigned but hasn't created the branch yet.\nBranch expected: `codex/issue-4366`\n\n📊 Branch check attempt: 2/5\n\n⏳ Auto-pilot will check again on next trigger.",
+        "created_at": "2026-11-04T13:40:19Z",
+        "updated_at": "2026-11-04T13:40:19Z"
+      },
+      {
+        "id": 6632191180,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632191180",
+        "body": "🤖 **Auto-pilot**: Backoff delay (4m)\n\nBranch not created yet. Attempt 3/5. Re-dispatched belt dispatcher.\nWaiting before retry...",
+        "created_at": "2026-11-04T13:42:36Z",
+        "updated_at": "2026-11-04T13:42:36Z"
+      },
+      {
+        "id": 6632200840,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632200840",
+        "body": "Belt dispatcher queued this issue and created branch `codex/issue-4366`. Health 40 will reclaim this claim after 24 hours if no linked open or merged PR exists.",
+        "created_at": "2026-11-04T13:43:03Z",
+        "updated_at": "2026-11-04T13:43:03Z"
+      },
+      {
+        "id": 6632278182,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632278182",
+        "body": "🤖 **Auto-pilot step 1**: Waiting for agent to create branch...\n\nThe agent has been assigned but hasn't created the branch yet.\nBranch expected: `codex/issue-4366`\n\n📊 Branch check attempt: 3/5\n\n⏳ Auto-pilot will check again on next trigger.",
+        "created_at": "2026-11-04T13:46:37Z",
+        "updated_at": "2026-11-04T13:46:37Z"
+      },
+      {
+        "id": 6632328961,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632328961",
+        "body": "🤖 **Auto-pilot step 1**: Branch ready, waiting for commits\n\nBranch `codex/issue-4366` exists but has no commits yet.\n✅ Dispatched the belt worker to generate changes.\n\n📊 Stall count: 1/5 (pauses after 5)\n\n⏳ Auto-pilot will check again on next trigger.",
+        "created_at": "2026-11-04T13:48:58Z",
+        "updated_at": "2026-11-04T13:48:58Z"
+      },
+      {
+        "id": 6632349808,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632349808",
+        "body": "Opened PR #4449 via belt worker.",
+        "created_at": "2026-11-04T13:49:55Z",
+        "updated_at": "2026-11-04T13:49:55Z"
+      },
+      {
+        "id": 6632377681,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632377681",
+        "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4449 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 1/5\n\n⏳ Auto-pilot will check again on next trigger.",
+        "created_at": "2026-11-04T13:51:09Z",
+        "updated_at": "2026-11-04T13:51:09Z"
+      },
+      {
+        "id": 6632453023,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632453023",
+        "body": "🤖 **Auto-pilot**: Backoff delay (2m)\n\nMonitoring PR status. Attempt 2/5.\nWaiting before retry...",
+        "created_at": "2026-11-04T13:54:27Z",
+        "updated_at": "2026-11-04T13:54:27Z"
+      },
+      {
+        "id": 6632497148,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632497148",
+        "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4449 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 2/5\n\n⏳ Auto-pilot will check again on next trigger.",
+        "created_at": "2026-11-04T13:56:28Z",
+        "updated_at": "2026-11-04T13:56:28Z"
+      },
+      {
+        "id": 6632570972,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632570972",
+        "body": "🤖 **Auto-pilot**: Backoff delay (4m)\n\nMonitoring PR status. Attempt 3/5.\nWaiting before retry...",
+        "created_at": "2026-11-04T13:59:51Z",
+        "updated_at": "2026-11-04T13:59:51Z"
+      },
+      {
+        "id": 6632663484,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632663484",
+        "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4449 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 3/5\n\n⏳ Auto-pilot will check again on next trigger.",
+        "created_at": "2026-11-04T14:03:53Z",
+        "updated_at": "2026-11-04T14:03:53Z"
+      },
+      {
+        "id": 6632738724,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632738724",
+        "body": "🤖 **Auto-pilot**: Backoff delay (8m)\n\nMonitoring PR status. Attempt 4/5.\nWaiting before retry...",
+        "created_at": "2026-11-04T14:07:13Z",
+        "updated_at": "2026-11-04T14:07:13Z"
+      },
+      {
+        "id": 6632929631,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6632929631",
+        "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4449 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 4/5\n\n⏳ Auto-pilot will check again on next trigger.",
+        "created_at": "2026-11-04T14:15:14Z",
+        "updated_at": "2026-11-04T14:15:14Z"
+      },
+      {
+        "id": 6633007815,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6633007815",
+        "body": "🤖 **Auto-pilot**: Backoff delay (16m)\n\nMonitoring PR status. Attempt 5/5.\nWaiting before retry...",
+        "created_at": "2026-11-04T14:18:37Z",
+        "updated_at": "2026-11-04T14:18:37Z"
+      },
+      {
+        "id": 6633379341,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6633379341",
+        "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4449 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 5/5\n\n⏳ Auto-pilot will check again on next trigger.",
+        "created_at": "2026-11-04T14:34:38Z",
+        "updated_at": "2026-11-04T14:34:38Z"
+      },
+      {
+        "id": 6633457056,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6633457056",
+        "body": "🤖 **Auto-pilot step 1**: handing off to agent delegation after stall\n\nPR monitoring stalled after 5 attempts. Added `agent:auto` so the keepalive delegation policy can rotate to an alternative agent (eligible: codex, claude, cursor, muse, gemini).\n\n`needs-human` is withheld until delegation has also been exhausted.",
+        "created_at": "2026-11-04T14:37:54Z",
+        "updated_at": "2026-11-04T14:37:54Z"
+      },
+      {
+        "id": 6640474233,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6640474233",
+        "body": "<!-- closer-core/v1 action=restart target=stranske/Workflows#4366 pr=4449 round=20261104T194512Z -->\ncloser-core closed stalled PR #4449 and returns this issue to the opener for one fresh attempt from main. Why: A fresh attempt should preserve the useful regressions and implement the missing workflow behavior; the inspected evidence establishes an incomplete approach rather than an unavoidable coding-agent blocker.",
+        "created_at": "2026-11-04T19:48:38Z",
+        "updated_at": "2026-11-04T19:48:38Z"
+      },
+      {
+        "id": 6648484104,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6648484104",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `3512f549a602` (round 20261105T030005Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+        "created_at": "2026-11-05T03:00:27Z",
+        "updated_at": "2026-11-05T03:00:27Z"
+      },
+      {
+        "id": 6648719323,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6648719323",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `86de5e1c244b` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933",
+        "created_at": "2026-11-05T03:17:01Z",
+        "updated_at": "2026-11-05T03:17:01Z"
+      },
+      {
+        "id": 6649126801,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6649126801",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `75aaabae989a` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+        "created_at": "2026-11-05T03:46:39Z",
+        "updated_at": "2026-11-05T03:46:39Z"
+      },
+      {
+        "id": 6649127855,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6649127855",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `082d0e77cbf0` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933",
+        "created_at": "2026-11-05T03:46:44Z",
+        "updated_at": "2026-11-05T03:46:44Z"
+      },
+      {
+        "id": 6649911101,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6649911101",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `39a3dc939133` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+        "created_at": "2026-11-05T04:45:05Z",
+        "updated_at": "2026-11-05T04:45:05Z"
+      },
+      {
+        "id": 6649912011,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6649912011",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `15c797646f4e` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933",
+        "created_at": "2026-11-05T04:45:09Z",
+        "updated_at": "2026-11-05T04:45:09Z"
+      },
+      {
+        "id": 6650754869,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6650754869",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `99d10a9838ce` (round 20261105T054444Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+        "created_at": "2026-11-05T05:45:01Z",
+        "updated_at": "2026-11-05T05:45:01Z"
+      },
+      {
+        "id": 6650987626,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6650987626",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `82c9762a4e61` (round 20261105T060113Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933",
+        "created_at": "2026-11-05T06:01:29Z",
+        "updated_at": "2026-11-05T06:01:29Z"
+      },
+      {
+        "id": 6663095547,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6663095547",
+        "body": "<!-- opener-core/v1 action=start target=stranske/Workflows#4366 agent=cursor mode=remote round=20261105T161436Z -->\nopener-core started cursor (remote) on this issue.",
+        "created_at": "2026-11-05T16:19:18Z",
+        "updated_at": "2026-11-05T16:19:18Z"
+      },
+      {
+        "id": 6665973037,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6665973037",
+        "body": "<!-- opener-core/v1 action=start target=stranske/Workflows#4366 agent=vibe mode=local round=20261105T183109Z -->\nopener-core started vibe (local) on this issue (second attempt: the first agent opened no PR within 2 h).",
+        "created_at": "2026-11-05T18:31:17Z",
+        "updated_at": "2026-11-05T18:31:17Z"
+      },
+      {
+        "id": 6684243191,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6684243191",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `d6f4831035dd` (round 20261106T115526Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+        "created_at": "2026-11-06T11:55:54Z",
+        "updated_at": "2026-11-06T11:55:54Z"
+      },
+      {
+        "id": 6684244026,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6684244026",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `00370b9694db` (round 20261106T115526Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933",
+        "created_at": "2026-11-06T11:55:57Z",
+        "updated_at": "2026-11-06T11:55:57Z"
+      },
+      {
+        "id": 6685388702,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6685388702",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `f6d9e779ca2b` (round 20261106T125940Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+        "created_at": "2026-11-06T13:00:05Z",
+        "updated_at": "2026-11-06T13:00:05Z"
+      },
+      {
+        "id": 6685389472,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6685389472",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Travel-Plan-Permission#1716 head `3b51e44083d4` (round 20261106T125940Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491933",
+        "created_at": "2026-11-06T13:00:07Z",
+        "updated_at": "2026-11-06T13:00:07Z"
+      },
+      {
+        "id": 6691794239,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6691794239",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `02c6c23aaf57` (round 20261106T180135Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491646",
+        "created_at": "2026-11-06T18:01:48Z",
+        "updated_at": "2026-11-06T18:01:48Z"
+      },
+      {
+        "id": 6701221366,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6701221366",
+        "body": "<!-- sync-core/v1 handoff fp=ee730fe21eda -->\nStill present on stranske/Trend_Model_Project#6197 head `47f15c7a415e` (round 20261107T024625Z). Threads/checks: https://github.com/stranske/Trend_Model_Project/pull/6197#discussion_r4499599333",
+        "created_at": "2026-11-07T02:46:52Z",
+        "updated_at": "2026-11-07T02:46:52Z"
+      },
+      {
+        "id": 6768688966,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6768688966",
+        "body": "<!-- closer-core/v1 action=followup target=stranske/Workflows#4366 disposition=followup round=20261110T133117Z followup=#4623 -->\ncloser-core closes stranske/Workflows#4366: unmet criteria moved to #4623",
+        "created_at": "2026-11-10T13:33:08Z",
+        "updated_at": "2026-11-10T13:33:08Z"
+      },
+      {
+        "id": 6768737344,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6768737344",
+        "body": "🤖 **Auto-pilot**: Issue closed.\nTriggering verification on PR #4463...\n\nVerifier dispatch or existing PR/head run confirmed; recording handoff labels.",
+        "created_at": "2026-11-10T13:35:22Z",
+        "updated_at": "2026-11-10T13:35:22Z"
+      },
+      {
+        "id": 6768766587,
+        "html_url": "https://github.com/stranske/Workflows/issues/4366#issuecomment-6768766587",
+        "body": "## ✅ Auto-Pilot Complete\n\nThis issue has been fully processed:\n- ✅ Issue formatted and optimized\n- ✅ Agent assigned and PR created\n- ✅ PR merged\n- ✅ verification triggered on a merged source PR (PR-bound handoff recorded)\n\nThank you for using auto-pilot! 🚀",
+        "created_at": "2026-11-10T13:36:42Z",
+        "updated_at": "2026-11-10T13:36:42Z"
+      }
+    ]
+  }
+}

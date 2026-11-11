@@ -421,7 +421,7 @@ def test_reusable_codex_run_prefers_latest_sol_high_with_non_codex_fallback() ->
     assert inputs["codex_cli_version"]["default"] == "0.160.0"
     assert resolve_step.get("id") == "codex_model"
     assert resolve_step["env"]["DEFAULT_CODEX_MODEL"] == "gpt-6.1-sol"
-    assert inputs["codex_fallback_models"]["default"] == "gpt-5.5"
+    assert inputs["codex_fallback_models"]["default"] == "gpt-5.6-terra"
     assert resolve_step["env"]["FALLBACK_CODEX_MODELS"] == "${{ inputs.codex_fallback_models }}"
     assert "fallback-unsupported-chatgpt-codex-model" in resolve_step["run"]
     assert "*-codex*" in resolve_step["run"]

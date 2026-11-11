@@ -1,0 +1,74 @@
+{
+  "check_date": "2026-11-09T03:25:25Z",
+  "selected_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "main": "dc88475b617e52bb06f86ab4d79b01d21462ee67",
+  "issue4550": {
+    "url": "https://github.com/stranske/Workflows/issues/4550",
+    "title": "Resolve identified full-suite blockers and prove final subscription payload delivery",
+    "issue_number": 4550,
+    "body": "<!-- closer-core/v1 followup-of=stranske/Workflows#4548@4549 -->\n<!-- closer-core/v1 chain-depth=2 route=followup -->\n## Why\nThe remaining work spans an assertion defect, two unresolved runtime stalls, complete-suite execution, and live consumer delivery; it exceeds a single focused repair of the validation helper.\nSource issue #4548; merged PR #4549 delivered: PR 4549 delivered dependency-based validation environment provisioning, contributor instructions, setup regressions, and replayable downstream observations. It established focused credential-test success and documented pre-existing full-gate blockers without falsely claiming successful consumer delivery.\n\n## Scope\n- Resolve the contract mismatch between scripts/langchain/issue_pr_context.py::_truncate_section and tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading; preserve meaningful small-budget coverage.\n- Diagnose .github/scripts/__tests__/keepalive-loop.test.js::replayCompletion and its exit-zero quota productivity test; bound spawned Python execution and resolve the demonstrated stall without excluding tests.\n- Diagnose tests/scripts/test_llm_client_shared.py::test_subscription_pipe_renders_each_execution_mode[codex-ainvoke] and scripts/langchain/_llm_client.py; correct the proven runtime or fixture cause without disabling the test.\n- On an identified main descendant containing b21fae85fe4f79e72c4133c29a3814b9d5950c3a, run node --test .github/scripts/__tests__/*.test.js and python3 -m pytest -q tests/ in the supported environment; append complete logs, revision, interpreter, timings and exit codes to docs/evidence/issue-4369/2026-11-08-validation.md.\n- Read (never dispatch) the next scheduled or automation-started .github/workflows/maint-68-sync-consumer-repos.yml run and the immediately following .github/workflows/maint-71-merge-sync-prs.yml run to obtain exact source/consumer SHA receipts for the final templates/consumer-repo/tools/subscription_llm.py payload in stranske/Portable-Alpha-Extension-Model; record discussion 4434491702 disposition and a fresh all-pages issue-4369 comment observation in docs/evidence/issue-4369/.\n\n## Non-Goals\n- Do not redo work that PR #4549 already delivered.\n\n> **Owner instruction (2026-11-08):** do not run `gh workflow run`, `workflow_dispatch` or `repository_dispatch` against Maint 68, Maint 71 or Maint 82. On 2026-11-08 13:34Z a single-consumer `force=true` Maint 68 dispatch from this work created a one-repo candidate plan that stalled the template-sync candidate lane. Delivery receipts come only from runs the scheduler or the sync automation start; if no such run happens before this PR is otherwise done, record the receipt task as not yet observable.\n\n\n## Tasks\n- [ ] Resolve the contract mismatch between scripts/langchain/issue_pr_context.py::_truncate_section and tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading; preserve meaningful small-budget coverage.\n- [ ] Diagnose .github/scripts/__tests__/keepalive-loop.test.js::replayCompletion and its exit-zero quota productivity test; bound spawned Python execution and resolve the demonstrated stall without excluding tests.\n- [ ] Diagnose tests/scripts/test_llm_client_shared.py::test_subscription_pipe_renders_each_execution_mode[codex-ainvoke] and scripts/langchain/_llm_client.py; correct the proven runtime or fixture cause without disabling the test.\n- [ ] On an identified main descendant containing b21fae85fe4f79e72c4133c29a3814b9d5950c3a, run node --test .github/scripts/__tests__/*.test.js and python3 -m pytest -q tests/ in the supported environment; append complete logs, revision, interpreter, timings and exit codes to docs/evidence/issue-4369/2026-11-08-validation.md.\n- [ ] Read (never dispatch) the next scheduled or automation-started .github/workflows/maint-68-sync-consumer-repos.yml run and the immediately following .github/workflows/maint-71-merge-sync-prs.yml run to obtain exact source/consumer SHA receipts for the final templates/consumer-repo/tools/subscription_llm.py payload in stranske/Portable-Alpha-Extension-Model; record discussion 4434491702 disposition and a fresh all-pages issue-4369 comment observation in docs/evidence/issue-4369/.\n\n## Acceptance Criteria\n- [ ] python3 -m pytest -q tests/scripts/test_issue_pr_context.py::test_truncation_helpers_handle_a_budget_smaller_than_the_heading exits zero.\n- [ ] The named Node productivity test and Python codex-ainvoke test terminate successfully under explicit diagnostic bounds.\n- [ ] node --test .github/scripts/__tests__/*.test.js and python3 -m pytest -q tests/ both exit zero on the recorded revision, with complete raw logs.\n- [ ] Receipts bind Maint 68's frozen source to final merged payload bytes in an exact consumer revision, followed by Maint 71's applicable finding disposition excluding discussion 4434491702.\n- [ ] A complete issue-comment observation records no scoped recurrence through an explicit UTC time.\n\n## Implementation Notes\nVerifier report (excerpt):\n\n```\nne.log\", \"docs/evidence/issue-4369/runtime-4548/node-named-current.json\", \"docs/evidence/issue-4369/runtime-4548/node-named-current.log\", \"docs/evidence/issue-4369/runtime-4548/python-current-diagnostic.json\", \"docs/evidence/issue-4369/runtime-4548/python-current-diagnostic.log\", \"docs/evidence/issue-4369/runtime-4548/python-failure-baseline.json\", \"docs/evidence/issue-4369/runtime-4548/python-failure-baseline.log\", \"docs/evidence/issue-4369/runtime-4548/python-failure-current.json\", \"docs/evidence/issue-4369/runtime-4548/python-failure-current.log\", \"docs/evidence/issue-4369/runtime-4548/python-full.json\", \"docs/evidence/issue-4369/runtime-4548/python-full.log\", \"docs/evidence/issue-4369/runtime-4548/python-stall-baseline.json\", \"docs/evidence/issue-4369/runtime-4548/python-stall-baseline.log\", \"docs/evidence/issue-4369/runtime-4548/python-stall-current.json\", \"docs/evidence/issue-4369/runtime-4548/python-stall-current.log\", \"docs/evidence/issue-4369/runtime-4548/setup.log\", \"docs/evidence/issue-4369/runtime-4548/workspace.json\", \"scripts/setup_validation_env.py\", \"tests/scripts/test_issue_4369_downstream_evidence.py\", \"tests/scripts/test_setup_validation_env.py\"]; no model review: Input unavailable: Required capture integrity unavailable: changed_code:full_patch_binary_unavailable; changed_code:docs/evidence/issue-4369/runtime-4548/collection.log.gz:unavailable; 1 changed file(s) are omitted from the prompt entirely.\n\n### Provider Summary\n| Provider | Model | Verdict | Confidence | Summary |\n| --- | --- | --- | --- | --- |\n| openai | gpt-6.1-sol | UNVERIFIABLE_INPUT | N/A | Input unavailable: Required capture integrity unavailable: changed_code:full_patch_binary_unavailable; changed_code:docs/evidence/issue-4369/runtime-4548/collection.log.gz:unavailable; 1 changed fi... |\n| anthropic | claude-sonnet-5-5 | UNVERIFIABLE_INPUT | N/A | Input unavailable: Required capture integrity unavailable: changed_code:full_patch_binary_unavailable; changed_code:docs/evidence/issue-4369/runtime-4548/collection.log.gz:unavailable; 1 changed fi... |\n\n<details>\n<summary>📋 Full Provider Details (click to expand)</summary>\n\n#### openai\n- **Model:** gpt-6.1-sol\n- **Verdict:** UNVERIFIABLE_INPUT\n- **Confidence:** N/A\n- **Summary:** Input unavailable: Required capture integrity unavailable: changed_code:full_patch_binary_unavailable; changed_code:docs/evidence/issue-4369/runtime-4548/collection.log.gz:unavailable; 1 changed file(s) are omitted from the prompt entirely.\n\n#### anthropic\n- **Model:** claude-sonnet-5-5\n- **Verdict:** UNVERIFIABLE_INPUT\n- **Confidence:** N/A\n- **Summary:** Input unavailable: Required capture integrity unavailable: changed_code:full_patch_binary_unavailable; changed_code:docs/evidence/issue-4369/runtime-4548/collection.log.gz:unavailable; 1 changed file(s) are omitted from the prompt entirely.\n\n</details>\n\n### Agreement\n- Verdict: UNVERIFIABLE_INPUT (all providers)\n\n### Disagreement\nNo major disagreements detected.\n\n### Unique Insights\n- openai: Input unavailable: Required capture integrity unavailable: changed_code:full_patch_binary_unavailable; changed_code:docs/evidence/issue-4369/runtime-4548/collection.log.gz:unavailable; 1 changed file(s) are omitted from the prompt entirely.\n- anthropic: Input unavailable: Required capture integrity unavailable: changed_code:full_patch_binary_unavailable; changed_code:docs/evidence/issue-4369/runtime-4548/collection.log.gz:unavailable; 1 changed file(s) are omitted from the prompt entirely.\n```\n",
+    "state": "closed",
+    "user": {
+      "login": "stranske",
+      "name": "stranske",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+      "id": 23046322
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "agent:codex",
+        "color": "ededed",
+        "description": "Agent-created issues from Codex"
+      },
+      {
+        "name": "from:codex",
+        "color": "ededed",
+        "description": "Created from Codex agent"
+      },
+      {
+        "name": "agents:optimize",
+        "color": "0e8a16",
+        "description": "Request AI-powered issue analysis and optimization suggestions"
+      },
+      {
+        "name": "follow-up",
+        "color": "ededed",
+        "description": null
+      }
+    ],
+    "milestone": null,
+    "state_reason": "completed",
+    "comments": 5,
+    "created_at": "2026-11-08T10:35:07Z",
+    "updated_at": "2026-11-08T21:02:26Z",
+    "closed_at": "2026-11-08T20:54:58Z",
+    "display_url": "https://github.com/stranske/Workflows/issues/4550",
+    "display_title": "Resolve identified full-suite blockers and prove final subscription payload delivery"
+  },
+  "pr4551": {
+    "number": 4551,
+    "state": "closed",
+    "merged": true,
+    "merge_commit_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "head_sha": "154858c48424d7aa30c9edaf22ee3edb90066c5d"
+  },
+  "pr4558": {
+    "number": 4558,
+    "state": "open",
+    "draft": false,
+    "head_sha": "60e0985b655311222259bee533fd936eb362f8ed"
+  },
+  "upstream_verifier": {
+    "id": 42522535899,
+    "status": "completed",
+    "conclusion": "success",
+    "run_attempt": 1
+  },
+  "checkbox_reconciliation": {
+    "changed": 5,
+    "succeeded": false,
+    "reason": "MCP tool call requires approval, but approval policy is never"
+  }
+}

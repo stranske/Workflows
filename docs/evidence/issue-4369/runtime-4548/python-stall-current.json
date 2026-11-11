@@ -1,0 +1,25 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-vv",
+    "tests/scripts/test_llm_client_shared.py::test_subscription_pipe_renders_each_execution_mode[codex-ainvoke]",
+    "-m",
+    "not slow"
+  ],
+  "revision": "4f36c2332c9c07cbd0ebcffedcb39ee0a2a19aec",
+  "started_at": "2026-11-08T08:32:14.600372+00:00",
+  "python": "/tmp/workflows-4369-venv/bin/python3\n3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "node": "v24.22.2",
+  "working_tree_changes": [
+    "docs/CONTRIBUTING.md",
+    "docs/evidence/issue-4369/2026-11-08-validation.md"
+  ],
+  "timeout_seconds": 45,
+  "exit_code": 124,
+  "timed_out": true,
+  "duration_seconds": 45.016,
+  "finished_at": "2026-11-08T08:32:59.663594+00:00",
+  "log_sha256": "af9c485b3c8b750f2973a4b54b82bfd7a79a75f699616f9112cff8102fd17929"
+}

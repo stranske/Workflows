@@ -1,0 +1,67 @@
+{
+  "revision": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+  "interpreter": "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+  "version": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "working_tree_test_sha256": "d3142913699310283d33bf6323146647cff081216693a997c84d18e729bad5ed",
+  "results": [
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "-k",
+        "rejects_a_disposition",
+        "-m",
+        "not slow"
+      ],
+      "started_at_utc": "2026-11-08T14:00:47.577978+00:00",
+      "duration_seconds": 1.9854911749999928,
+      "exit_code": 1,
+      "log": "delivery-lifecycle-binding-red.log",
+      "sha256": "4f625d93e0cbff1744675456e6437d49a077b39b6bc66fc2ee78e9343defd599"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "-m",
+        "not slow"
+      ],
+      "started_at_utc": "2026-11-08T14:00:49.563820+00:00",
+      "duration_seconds": 2.067586695999978,
+      "exit_code": 0,
+      "log": "delivery-lifecycle-tests.log",
+      "sha256": "760571c6810753c39463327683842bd4f627479249861cfcc0984b012fbf58fb"
+    }
+  ],
+  "black_check": {
+    "command": "black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+    "environment": {
+      "BLACK_NUM_WORKERS": "1",
+      "PYTHONPATH": "/tmp/issue-4550-delivery-black-runtime"
+    },
+    "runtime_hook": "Prior documented Black event-loop heartbeat workaround; formatter logic and file selection unchanged.",
+    "runtime_hook_sha256": "49c1ccbeaed37cb8c32c7ffd2ef92085e9fb5d698d245753191ccc44647d96b0",
+    "exit_code": 0,
+    "log": "delivery-lifecycle-black.log",
+    "sha256": "62ead75dbb3336329b737f5f55c2ab8b7182946a4decd2ed5d0a48cf72403f3f"
+  },
+  "publication": {
+    "local_staging_exit_code": 128,
+    "local_error": "Unable to create .git/index.lock: Read-only file system",
+    "connector_rejection": "MCP tool call requires approval, but approval policy is never",
+    "rejected_operations": [
+      "github_create_tree",
+      "github_add_issue_labels (needs-human on 4551)",
+      "github_add_comment_to_issue (blocker on 4551)"
+    ],
+    "commit_created": false,
+    "branch_updated": false
+  }
+}

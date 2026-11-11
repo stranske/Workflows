@@ -1,0 +1,10 @@
+# Named regression on current Orchestrator main (issue #4555, closer repair r1)
+repository:  stranske/Orchestrator (fresh blob-filtered clone in /tmp/issue-4555-r1.v8jT/orch, git status --short empty)
+exact head:  b26e6421232cd64893d8d7f4b7e4f75193c56f42 (origin/main at 2026-11-09T03:21Z)
+interpreter: /opt/anaconda3/bin/python3 (Python 3.12.2); no virtual environment exists in the canonical Orchestrator clone
+stop rule:   one attempt, timeout 300 s
+command:     timeout 300 /opt/anaconda3/bin/python3 -m pytest tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers -q -p no:cacheprovider
+output:
+.                                                                        [100%]
+1 passed in 0.34s
+exit=0

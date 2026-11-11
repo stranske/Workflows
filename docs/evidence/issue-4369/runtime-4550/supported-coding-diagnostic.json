@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "--test",
+    ".github/scripts/__tests__/verifier-correction-coding.test.js"
+  ],
+  "interpreter": "/opt/homebrew/bin/node",
+  "seconds": 8.103781459154561,
+  "exit_code": 0,
+  "utc": "2026-11-08T13:36:32.698419+00:00"
+}

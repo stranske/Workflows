@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildMergeReport } = require('../sync_pr_merge_contract');
 const { normalizeDeliveryHandoff, planMaint71Continuations } = require('../sync_dependency_campaign');
-const { dispatchCanaryPromotion, dispatchCanaryRefresh, dispatchDeliveryRefresh, refreshStableCanaries } = require('../maint71_merge_sync_prs');
+const { deleteSyncBranch, dispatchCanaryPromotion, dispatchCanaryRefresh, dispatchDeliveryRefresh, refreshStableCanaries } = require('../maint71_merge_sync_prs');
 
 const now = '2026-10-27T12:00:00Z';
 function result() {
@@ -25,14 +25,14 @@ for (const enabled of [false, true]) {
     assert.ok(start >= 0 && end > 0, 'exercise the actual production post-merge block');
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
     const execute = new AsyncFunction('cleanupBranches', 'withRetry', 'owner', 'repo',
-      'pr', 'results', 'deliveryContext', 'rethrowPrimaryRateLimit', 'console', tail.slice(0, end));
+      'pr', 'results', 'deliveryContext', 'rethrowPrimaryRateLimit', 'console', 'deleteSyncBranch', tail.slice(0, end));
     let deletes = 0;
     const client = { rest: { git: { deleteRef: async ({ ref }) => {
       deletes++; assert.equal(ref, 'heads/sync/workflows-delivery');
     } } } };
     const rows = [];
     await execute(enabled, fn => fn(client), 'stranske', 'Ready',
-      { head: { ref: 'sync/workflows-delivery' } }, rows, {}, e => { throw e; }, { log() {} });
+      { head: { ref: 'sync/workflows-delivery' } }, rows, {}, e => { throw e; }, { log() {} }, deleteSyncBranch);
     assert.equal(deletes, enabled ? 1 : 0);
     assert.equal(rows.length, enabled ? 1 : 0);
   });
@@ -169,13 +169,13 @@ for (const enabled of [false, true]) {
     assert.ok(start >= 0 && end > start);
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
     const execute = new AsyncFunction('cleanupBranches', 'withRetry', 'owner', 'repo',
-      'stalePR', 'rethrowPrimaryRateLimit', 'console', source.slice(start, end));
+      'stalePR', 'rethrowPrimaryRateLimit', 'console', 'deleteSyncBranch', source.slice(start, end));
     let deletes = 0;
     const client = { rest: { git: { deleteRef: async ({ ref }) => {
       deletes++; assert.equal(ref, 'heads/sync/workflows-older');
     } } } };
     await execute(enabled, fn => fn(client), 'stranske', 'Ready',
-      { head: { ref: 'sync/workflows-older' } }, e => { throw e; }, { log() {} });
+      { head: { ref: 'sync/workflows-older' } }, e => { throw e; }, { log() {} }, deleteSyncBranch);
     assert.equal(deletes, enabled ? 1 : 0);
   });
 }
@@ -202,13 +202,13 @@ for (const cleanup of [false, true]) for (const skip of [false, true]) {
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
     const execute = new AsyncFunction('cleanupBranches', 'skipObsoleteBranchCleanup', 'withRetry',
       'collectDeletableSyncBranches', 'owner', 'repo', 'prs', 'closedPRs', 'dryRun', 'results',
-      'rethrowPrimaryRateLimit', 'console', source.slice(start, end));
+      'rethrowPrimaryRateLimit', 'console', 'deleteSyncBranch', source.slice(start, end));
     let lists = 0, deletes = 0;
     const client = { paginate: async () => { lists++; return [{ name: 'sync/workflows-old' }]; },
       rest: { repos: { listBranches() {} }, git: { deleteRef: async () => { deletes++; } } } };
     const { collectDeletableSyncBranches } = require('../sync_pr_merge_contract');
     await execute(cleanup, skip, fn => fn(client), collectDeletableSyncBranches, 'stranske', 'Ready',
-      [], [{ head: { ref: 'sync/workflows-old' } }], false, [], e => { throw e; }, { log() {} });
+      [], [{ head: { ref: 'sync/workflows-old' } }], false, [], e => { throw e; }, { log() {} }, deleteSyncBranch);
     assert.equal(lists, cleanup && !skip ? 1 : 0);
     assert.equal(deletes, cleanup && !skip ? 1 : 0);
   });

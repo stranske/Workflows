@@ -1,0 +1,15 @@
+# Orchestrator configured local suite, bounded attempt (issue #4555)
+repository:  stranske/Orchestrator (fresh blob-filtered clone, clean tree)
+exact head:  27266f8165064f88256ee2a97f99762db51f129a (merge commit of Orchestrator #1247)
+interpreter: /opt/anaconda3/bin/python3 (Python 3.12.2, pytest 9.1.1, pytest-xdist 3.8.0)
+             No virtual environment exists in the canonical Orchestrator clone; CI uses 3.14 + requirements.lock.
+command:     VERIFY_PYTEST_WORKERS=8 timeout 1500 /opt/anaconda3/bin/python3 src/verify.py
+             (CLAUDE.md: "Verify with python3 src/verify.py"; CI sets VERIFY_PYTEST_WORKERS=4 per shard)
+stop rule:   one attempt, hard 1500 s timeout; exit 124 = unclaimed, not success
+started:     2026-11-09T01:55:48Z
+ended:       2026-11-09T02:20:48Z
+exit status: 124 (timeout fired)
+terminal output: verify.py wrote 0 bytes to stdout+stderr; the only line is the wrapper's exit echo:
+exit=124
+summary:     none. verify.py captures pytest output and prints only at the end, so a killed run
+             emits no counts. No local-suite pass is claimed.

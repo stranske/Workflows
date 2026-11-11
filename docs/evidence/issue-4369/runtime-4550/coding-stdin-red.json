@@ -1,0 +1,16 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-isolation=none",
+    "--test-name-pattern=file-backed Python stdin preserves",
+    "/home/runner/work/Workflows/Workflows/.github/scripts/__tests__/verifier-correction-coding.test.js"
+  ],
+  "started_at_utc": "2026-11-08T17:57:05.250960+00:00",
+  "wall_seconds": 5.005,
+  "exit_code": 124,
+  "timeout_seconds": 5,
+  "timed_out": true,
+  "negative_control": "Bypass the file-backed test transport; original source restored in finally",
+  "restored_file_sha256": "193baf1a3cdc6944b2ee90f7285d5bd6c4a04df11e531ad1a01f46bc61b3a62e"
+}

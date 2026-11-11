@@ -1,0 +1,88 @@
+Keepalive next task (Codex) / Codex (keepalive)	fail	13s	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128286070600	
+Apply verified source issue closure rule	pass	10s	https://github.com/stranske/Workflows/actions/runs/42333716508/job/128286505780	
+Evaluate keepalive loop	pass	19s	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128285786451	
+Finish keepalive round	pass	22s	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128286167198	
+Gate / gate	pass	0	https://github.com/stranske/Workflows/actions/runs/42328604366	All Gate checks succeeded.
+Health 45 Agents Guard / guard	pass	0	https://github.com/stranske/Workflows/actions/runs/42333716474	[guard-pr:4505] Health 45 Agents Guard passed. [guard-policy-sha256:23cbdc1a22724540970e16fe39fd3c510fe3593ee9c4a0123a51b479d729541b]
+JavaScript Tests	pass	29s	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684942	
+Lint, Format & YAML Validation	pass	43s	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684931	
+Parse and lint workflows	pass	15s	https://github.com/stranske/Workflows/actions/runs/42328604179/job/128269630727	
+Prepare acceptance commands or required merge CI gate	pass	15s	https://github.com/stranske/Workflows/actions/runs/42333716508/job/128286433745	
+Produce read-only shadow evidence	pass	25s	https://github.com/stranske/Workflows/actions/runs/42328604343/job/128269631540	
+Python Tests	pass	3s	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128270052803	
+Resolve Context	pass	5s	https://github.com/stranske/Workflows/actions/runs/42333716548/job/128285784462	
+Resolve PR	pass	10s	https://github.com/stranske/Workflows/actions/runs/42333716805/job/128285783929	
+Run isolated acceptance gates	pass	2s	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128285923950	
+Upsert PR body sections	pass	20s	https://github.com/stranske/Workflows/actions/runs/42328604286/job/128269631547	
+Validate sync manifest completeness	pass	15s	https://github.com/stranske/Workflows/actions/runs/42328604162/job/128269630886	
+Verify secrets and mark agent running	pass	18s	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128285984049	
+YAML syntax + script imports	pass	15s	https://github.com/stranske/Workflows/actions/runs/42328604148/job/128269630823	
+check	pass	10s	https://github.com/stranske/Workflows/actions/runs/42333716508/job/128285784578	
+classify changed paths	pass	8s	https://github.com/stranske/Workflows/actions/runs/42328604160/job/128269630742	
+classify changed paths	pass	8s	https://github.com/stranske/Workflows/actions/runs/42328604170/job/128269630993	
+classify changed paths	pass	10s	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269631328	
+classify changed paths	pass	9s	https://github.com/stranske/Workflows/actions/runs/42328604268/job/128269631289	
+detect changed files	pass	12s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269661520	
+detect workflow edits	pass	4s	https://github.com/stranske/Workflows/actions/runs/42328604339/job/128269631295	
+docs guard	pass	15s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773371	
+enforce	pass	5m18s	https://github.com/stranske/Workflows/actions/runs/42328604170/job/128269670601	
+gate	pass	5s	https://github.com/stranske/Workflows/actions/runs/42333716682/job/128285783384	
+generated delivery seal	pass	8s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269661527	
+github scripts tests	pass	35s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773407	
+guard	pass	27s	https://github.com/stranske/Workflows/actions/runs/42328604325/job/128269631647	
+branch protection sweep	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604339/job/128269661552	
+summary	pass	31s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128273413040	
+python ci / python 3.13	pass	9m10s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269835217	
+python ci / python 3.14	pass	12m21s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269835088	
+python ci / lint-ruff	pass	13s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269800848	
+python ci / select reusable CI scope	pass	6s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269800759	
+python ci / typecheck-mypy	pass	16s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269800770	
+python ci / lint-format	pass	42s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269800840	
+Keepalive next task (Gemini)	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128286071355	
+python ci / Validate inputs	pass	5s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773530	
+ledger validation	pass	48s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773478	
+test-quality	pass	1m1s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773369	
+stranske-pdf-extract package tests	pass	14s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269773528	
+Keepalive next task (Claude)	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128286071306	
+Resume keepalive after Gate	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604286/job/128269632810	
+issue consistency	pass	11s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269749242	
+privilege environment gate	pass	2s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269749355	
+Gate tracker replay receipt	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269632466	
+Detect keepalive round comments	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604286/job/128269633476	
+stranske-pdf-extract package tests	pass	13s	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684907	
+slow compatibility (3.14)	pass	1m17s	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684928	
+slow compatibility (3.13)	pass	53s	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269684876	
+Apply admitted correction	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716469/job/128285785815	
+Dispatch keepalive orchestrator	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604286/job/128269633735	
+Semgrep	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604268/job/128269678415	
+guard	pass	16s	https://github.com/stranske/Workflows/actions/runs/42333716474/job/128285784409	
+validate	pass	20s	https://github.com/stranske/Workflows/actions/runs/42328604304/job/128269631213	
+CodeQL	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604160/job/128269673435	
+Keepalive next task (Muse)	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128286071546	
+python ci / logs summary	pass	10s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128273181598	
+Keepalive next task (Cursor)	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128286071629	
+Review agent progress alignment	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716896/job/128285925507	
+CodeRabbit	skipping	0	https://coderabbit.ai?utm_source=cr_app&utm_medium=github	
+auto-pilot	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716682/job/128285896387	
+autofix	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716548/job/128285894969	
+resolve Gate PR context	pass	5s	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269632107	
+verifier / Run post-merge verifier	pass	2m5s	https://github.com/stranske/Workflows/actions/runs/42333716508/job/128285896728	
+Record autofix dispatch completion	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716548/job/128285896070	
+Handle bot comments	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716805/job/128285917794	
+Cleanup	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716805/job/128285917729	
+canonical Python suite	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269686792	
+collect-correction	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716469/job/128285816515	
+comment_event_context	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604286/job/128269633002	
+contract	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716523/job/128285785422	
+create-issue	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716494/job/128285786033	
+create-new-pr	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716469/job/128285785153	
+docker smoke	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604366/job/128269774809	
+format-pause-wakeup	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716682/job/128285896335	
+gate_event_context	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604286/job/128269633169	
+gate_no_pr_summary	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604286/job/128269632818	
+reclaim stale belt claims	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604339/job/128269661627	
+unauthorized-promotion-marker	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716523/job/128285785725	
+verifier / Publish input-repair provenance	skipping	0	https://github.com/stranske/Workflows/actions/runs/42333716508/job/128285897999	
+verifier settlement failed-upload trace	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604172/job/128269632902	
+workflow lint (maint-36)	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604339/job/128269661710	
+workflow liveness (zero-job approval holds)	skipping	0	https://github.com/stranske/Workflows/actions/runs/42328604339/job/128269661435	

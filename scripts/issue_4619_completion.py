@@ -1,0 +1,584 @@
+#!/usr/bin/env python3
+"""Reconcile issue #4619 completion only after both live-verification gates pass.
+
+The check consumes ``gh issue view 4619 --json state,body,comments`` together
+with the retained post-change Gate-run evidence (run 42820421600) and the
+evaluated Health 85 report (``docs/evidence/issue-4619/ci-budget-report.json``).
+Completion is reconciled only when the named Python jobs finished within 600
+seconds and published Health 85 daily observations corroborate the retained
+series of seven consecutive measurements at or below 600 seconds (10 minutes).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import re
+import sys
+from collections.abc import Mapping
+from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
+from typing import Any
+
+from scripts.check_gate_python_job_timings import (
+    job_duration_seconds,
+    pytest_step_duration_seconds,
+)
+from scripts.ci_time_budget import SOURCE_REPO, timestamp
+from scripts.gate_run_view_evidence import DEFAULT_MAX_SECONDS, NAMED_JOBS
+from scripts.health85_budget_observations import build_observations
+from scripts.issue_4284_completion import (
+    followup_issue,
+    issue_text,
+    matching_observation_dates,
+    sustained_series_supported,
+)
+
+ISSUE_NUMBER = 4619
+DEFAULT_PRE_CHANGE_RUN_ID = 41771220527
+DEFAULT_POST_CHANGE_RUN_ID = 42820421600
+SCHEMA = "issue-4619-completion-reconciliation/v1"
+ISSUE_VIEW_COMMAND = "gh issue view 4619 --repo stranske/Workflows --json state,body,comments"
+_CHECKED_HEALTH85_RE = re.compile(
+    r"(?m)^- \[x\] (?:Live-verification gate: )?Health 85 reports",
+    re.IGNORECASE,
+)
+
+
+def _find_embedded_job(evidence: Mapping[str, Any], job_name: str) -> dict[str, Any] | None:
+    view = evidence.get("gh_run_view")
+    if not isinstance(view, Mapping):
+        return None
+    jobs = view.get("jobs")
+    if not isinstance(jobs, list):
+        return None
+    for job in jobs:
+        if isinstance(job, dict) and job.get("name") == job_name:
+            return job
+    return None
+
+
+def compare_before_after_gate_runs(
+    before_evidence: Mapping[str, Any],
+    after_evidence: Mapping[str, Any],
+    *,
+    job_name: str = "python ci / python 3.13",
+    expected_before_run_id: int = DEFAULT_PRE_CHANGE_RUN_ID,
+    expected_after_run_id: int = DEFAULT_POST_CHANGE_RUN_ID,
+) -> dict[str, Any]:
+    """Compare before/after Gate run job and Pytest step timings for the target job."""
+    failures: list[str] = []
+    if before_evidence.get("run_id") != expected_before_run_id:
+        failures.append(
+            f"before run_id is {before_evidence.get('run_id')!r}, expected {expected_before_run_id}"
+        )
+    if after_evidence.get("run_id") != expected_after_run_id:
+        failures.append(
+            f"after run_id is {after_evidence.get('run_id')!r}, expected {expected_after_run_id}"
+        )
+    before_job = _find_embedded_job(before_evidence, job_name)
+    after_job = _find_embedded_job(after_evidence, job_name)
+    if before_job is None:
+        failures.append(f"before run missing embedded job {job_name!r}")
+    if after_job is None:
+        failures.append(f"after run missing embedded job {job_name!r}")
+
+    before_job_sec = job_duration_seconds(before_job) if before_job else None
+    after_job_sec = job_duration_seconds(after_job) if after_job else None
+    before_pytest_sec = pytest_step_duration_seconds(before_job) if before_job else None
+    after_pytest_sec = pytest_step_duration_seconds(after_job) if after_job else None
+
+    if before_job_sec is None or after_job_sec is None:
+        failures.append(f"missing job duration for {job_name!r}")
+    elif after_job_sec >= before_job_sec:
+        failures.append(
+            f"{job_name} job duration did not decrease: {before_job_sec:.1f}s -> {after_job_sec:.1f}s"
+        )
+    if before_pytest_sec is None or after_pytest_sec is None:
+        failures.append(f"missing Pytest step duration for {job_name!r}")
+    elif after_pytest_sec >= before_pytest_sec:
+        failures.append(
+            f"{job_name} Pytest step duration did not decrease: "
+            f"{before_pytest_sec:.1f}s -> {after_pytest_sec:.1f}s"
+        )
+
+    after_ok, after_failures = gate_run_supported(
+        after_evidence, expected_run_id=expected_after_run_id
+    )
+    if not after_ok:
+        failures.extend(after_failures)
+
+    job_reduction_sec = (
+        round(before_job_sec - after_job_sec, 1)
+        if before_job_sec is not None and after_job_sec is not None
+        else None
+    )
+    pytest_reduction_sec = (
+        round(before_pytest_sec - after_pytest_sec, 1)
+        if before_pytest_sec is not None and after_pytest_sec is not None
+        else None
+    )
+    return {
+        "job_name": job_name,
+        "before_run_id": before_evidence.get("run_id"),
+        "after_run_id": after_evidence.get("run_id"),
+        "before_job_seconds": before_job_sec,
+        "after_job_seconds": after_job_sec,
+        "job_reduction_seconds": job_reduction_sec,
+        "before_pytest_seconds": before_pytest_sec,
+        "after_pytest_seconds": after_pytest_sec,
+        "pytest_reduction_seconds": pytest_reduction_sec,
+        "measured_reduction": not failures,
+        "failures": failures,
+    }
+
+
+def verify_published_ci_budget_alignment(
+    published_budget: Mapping[str, Any],
+    retained_report: Mapping[str, Any],
+    *,
+    repo: str = "stranske/Workflows",
+) -> tuple[bool, list[str]]:
+    """Verify that the retained Health 85 report matches the published ci-budget.json entry."""
+    failures: list[str] = []
+    entry = published_budget.get(repo)
+    if not isinstance(entry, Mapping):
+        return False, [f"published ci-budget.json missing {repo!r} object"]
+    published_series = entry.get("p50_series")
+    if not isinstance(published_series, Mapping):
+        return False, [f"published ci-budget.json for {repo!r} missing p50_series"]
+    retained_series = retained_report.get("p50_series_minutes")
+    if not isinstance(retained_series, Mapping):
+        return False, ["retained report missing p50_series_minutes"]
+    for day, value in published_series.items():
+        if day not in retained_series:
+            failures.append(f"published date {day} missing from retained report")
+            continue
+        if retained_series[day] != value:
+            failures.append(
+                f"date {day} p50 mismatch: published={value!r}, retained={retained_series[day]!r}"
+            )
+    daily_obs = entry.get("daily_observations")
+    retained_obs = retained_report.get("observations")
+    if isinstance(daily_obs, Mapping) and isinstance(retained_obs, list):
+        by_day = {
+            row["date"]: row
+            for row in retained_obs
+            if isinstance(row, Mapping) and isinstance(row.get("date"), str)
+        }
+        for day, native_row in daily_obs.items():
+            if not isinstance(native_row, Mapping) or day not in by_day:
+                continue
+            retained_row = by_day[day]
+            if retained_row.get("run_id") != native_row.get("run_id"):
+                failures.append(
+                    f"date {day} run_id mismatch: published={native_row.get('run_id')!r}, "
+                    f"retained={retained_row.get('run_id')!r}"
+                )
+            if retained_row.get("p50_minutes") != native_row.get("p50_minutes"):
+                failures.append(
+                    f"date {day} native p50 mismatch: published={native_row.get('p50_minutes')!r}, "
+                    f"retained={retained_row.get('p50_minutes')!r}"
+                )
+    return not failures, failures
+
+
+def evaluate_native_daily_observations(
+    report: Mapping[str, Any],
+    now: datetime,
+    *,
+    repo: str = SOURCE_REPO,
+    previous_day: bool = False,
+) -> dict[str, Any]:
+    """Evaluate retained source-bound daily_observations from ci-budget.json over 7 days."""
+    row = report.get(repo, {})
+    retained = row.get("daily_observations", {}) if isinstance(row, Mapping) else {}
+    if not isinstance(retained, Mapping):
+        retained = {}
+    end = now.date() - timedelta(days=int(previous_day))
+    days = [(end - timedelta(days=n)).isoformat() for n in reversed(range(7))]
+    rows: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for day in days:
+        item = retained.get(day)
+        if not isinstance(item, Mapping):
+            missing.append(day)
+            continue
+        value = item.get("p50_minutes")
+        if value is not None and (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+        ):
+            raise ValueError(f"invalid native p50 on {day}")
+        measured_raw = item.get("measured_at")
+        window_raw = item.get("window_start")
+        if not isinstance(measured_raw, str) or not isinstance(window_raw, str):
+            raise ValueError(f"invalid native observation timestamps on {day}")
+        measured = timestamp(measured_raw)
+        if (
+            measured.date().isoformat() != day
+            or measured > now
+            or measured - timestamp(window_raw) != timedelta(days=7)
+            or type(item.get("run_id")) is not int
+            or item["run_id"] <= 0
+        ):
+            raise ValueError(f"invalid native observation identity on {day}")
+        rows.append({**item, "date": day})
+    budget = (
+        build_observations(rows, repo=repo)
+        if rows
+        else {
+            "observations": [],
+            "qualifying_seven_day_series": False,
+            "failures": ["no source-bound native observations retained"],
+        }
+    )
+    for item in budget["observations"]:
+        original = retained[item["date"]]
+        for key in ("run_attempt", "measured_at", "window_start"):
+            item[key] = original.get(key)
+    if missing:
+        budget["qualifying_seven_day_series"] = False
+        budget["failures"].append("missing native dates: " + ", ".join(missing))
+    return budget
+
+
+def sustained_checkbox_checked(issue: Mapping[str, Any]) -> bool:
+    """True when the issue body already checks the Health 85 acceptance gate."""
+    return _CHECKED_HEALTH85_RE.search(str(issue.get("body") or "")) is not None
+
+
+def verify_native_daily_observations_match(
+    published_budget: Mapping[str, Any],
+    report: Mapping[str, Any],
+) -> tuple[bool, list[str]]:
+    """Verify that native daily observations in published_budget match retained report exactly.
+
+    Requires every retained acceptance date, value, and run identity to match.
+    Does not permit partial overlap to authorize completion.
+    """
+    failures: list[str] = []
+    repo_key = SOURCE_REPO
+
+    # Get retained observations from report
+    retained_obs = report.get("observations")
+    if not isinstance(retained_obs, list):
+        return False, ["retained report missing observations list"]
+
+    # Get native daily observations from published budget
+    pub_repo = published_budget.get(repo_key)
+    if not isinstance(pub_repo, Mapping):
+        return False, [f"published budget missing {repo_key!r} entry"]
+
+    pub_daily = pub_repo.get("daily_observations")
+    if not isinstance(pub_daily, Mapping):
+        # If there are no retained observations, we don't need native daily observations
+        if not retained_obs:
+            return True, []
+        return False, [f"published budget {repo_key!r} missing daily_observations"]
+
+    # Build lookup from retained observations
+    retained_by_date: dict[str, dict[str, Any]] = {}
+    for obs in retained_obs:
+        if isinstance(obs, Mapping):
+            date_str = obs.get("date")
+            if isinstance(date_str, str):
+                retained_by_date[date_str] = obs
+
+    # If there are no retained observations, we're done
+    if not retained_by_date:
+        return True, []
+
+    # Check that all retained dates have matching native observations
+    for date_str, retained_row in retained_by_date.items():
+        pub_obs = pub_daily.get(date_str)
+        if not isinstance(pub_obs, Mapping):
+            failures.append(f"native daily_observations missing date {date_str!r}")
+            continue
+
+        # Check run_id
+        retained_run_id = retained_row.get("run_id")
+        pub_run_id = pub_obs.get("run_id")
+        if retained_run_id != pub_run_id:
+            failures.append(
+                f"date {date_str!r} run_id mismatch: retained={retained_run_id!r}, "
+                f"published={pub_run_id!r}"
+            )
+
+        # Check p50_minutes
+        retained_p50 = retained_row.get("p50_minutes")
+        pub_p50 = pub_obs.get("p50_minutes")
+        if retained_p50 != pub_p50:
+            failures.append(
+                f"date {date_str!r} p50_minutes mismatch: retained={retained_p50!r}, "
+                f"published={pub_p50!r}"
+            )
+
+    return not failures, failures
+
+
+def gate_run_supported(
+    evidence: Mapping[str, Any],
+    *,
+    expected_run_id: int = DEFAULT_POST_CHANGE_RUN_ID,
+) -> tuple[bool, list[str]]:
+    """Require the post-change Gate run and both named Python jobs within 600 seconds."""
+    failures: list[str] = []
+    if evidence.get("run_id") != expected_run_id:
+        failures.append(f"run_id is {evidence.get('run_id')!r}, expected {expected_run_id}")
+    jobs = evidence.get("jobs")
+    by_name: dict[str, Mapping[str, Any]] = {}
+    if isinstance(jobs, list):
+        for row in jobs:
+            if isinstance(row, Mapping) and isinstance(row.get("name"), str):
+                by_name[row["name"]] = row
+    for name in NAMED_JOBS:
+        row = by_name.get(name)
+        if row is None:
+            failures.append(f"missing job {name}")
+            continue
+        seconds = row.get("seconds")
+        if isinstance(seconds, bool) or not isinstance(seconds, (int, float)):
+            failures.append(f"{name} has no duration")
+        elif not math.isfinite(seconds) or seconds < 0:
+            failures.append(f"{name} has invalid duration {seconds!r}")
+        elif float(seconds) > DEFAULT_MAX_SECONDS:
+            failures.append(f"{name} took {float(seconds):.0f}s (limit {DEFAULT_MAX_SECONDS:.0f}s)")
+        if row.get("status") != "completed" or row.get("conclusion") != "success":
+            failures.append(f"{name} is not completed/success")
+        url = row.get("url")
+        if not isinstance(url, str) or not url.startswith("https://"):
+            failures.append(f"{name} has no job URL")
+    if evidence.get("passed") is not True:
+        if not failures:
+            failures.append("gate evidence passed flag is false")
+        for item in evidence.get("failures") or []:
+            text = str(item)
+            if text not in failures:
+                failures.append(text)
+    return not failures, failures
+
+
+def _flag(value: object) -> str:
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    return str(value)
+
+
+def reconciliation_comment(decision: Mapping[str, Any]) -> str:
+    """Render the issue comment that records the reconciliation decision."""
+    followup = decision.get("followup_issue")
+    followup_text = f"#{followup}" if followup else "none"
+    run_id = decision.get("gate_run_id", DEFAULT_POST_CHANGE_RUN_ID)
+    lines = [
+        f"## Completion reconciliation checked {decision['checked_on']}",
+        "",
+        f"`{ISSUE_VIEW_COMMAND}`",
+        "",
+        f"- state: `{decision['state']}`",
+        f"- follow-up issue: {followup_text}",
+        f"- Gate run {run_id} jobs within 600s: {_flag(decision['gate_run_supported'])}",
+        "- qualifying seven-day Health 85 series: "
+        f"{_flag(decision['sustained_series_supported'])}",
+        "- ci-budget-report.json observations match #4619: "
+        f"{_flag(decision['observations_match_issue'])}",
+        f"- completion reconciled: {_flag(decision['completion_reconciled'])}",
+        "",
+    ]
+    if decision["completion_reconciled"]:
+        lines.append(
+            "Both acceptance gates have supporting evidence. "
+            "Completion may be reconciled from this record."
+        )
+    else:
+        lines.append(
+            "Completion stays unreconciled until both the named Gate jobs "
+            "and a matching seven-day Health 85 series at or below 600 seconds are supported. "
+            "The sustained-performance criterion stays incomplete. "
+            "Issue state and acceptance checkboxes were left unchanged."
+        )
+    failures = decision.get("failures") or []
+    if failures:
+        lines.extend(["", "Failures:"])
+        lines.extend(f"- {failure}" for failure in failures)
+    lines.append("")
+    return chr(10).join(lines)
+
+
+def reconcile_completion(
+    issue: Mapping[str, Any],
+    gate_evidence: Mapping[str, Any],
+    report: Mapping[str, Any],
+    *,
+    checked_on: str = "2026-11-10",
+    expected_run_id: int = DEFAULT_POST_CHANGE_RUN_ID,
+    published_budget: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Decide whether #4619 completion is supported. This function does not edit GitHub."""
+    state = issue.get("state")
+    if not isinstance(state, str) or not state:
+        raise ValueError("issue view state must be a non-empty string")
+    comments = issue.get("comments")
+    comment_count = len(comments) if isinstance(comments, list) else 0
+    gate_ok, gate_failures = gate_run_supported(gate_evidence, expected_run_id=expected_run_id)
+    series_ok, series_failures = sustained_series_supported(report)
+    matched_dates, match_failures = matching_observation_dates(report, issue)
+    match_ok = not match_failures
+    pub_ok, pub_failures = (
+        verify_published_ci_budget_alignment(published_budget, report)
+        if published_budget is not None
+        else (False, ["missing published Health 85 evidence (--published-budget)"])
+    )
+
+    if published_budget is not None:
+        as_of = datetime.combine(date.fromisoformat(checked_on), time.max, tzinfo=UTC)
+        native_series_result = evaluate_native_daily_observations(
+            published_budget,
+            as_of,
+            repo=SOURCE_REPO,
+            previous_day=False,
+        )
+        native_series_ok = native_series_result.get("qualifying_seven_day_series", False)
+        native_series_failures = native_series_result.get("failures", [])
+
+        # Verify that native evidence matches retained report
+        native_ok, native_failures = verify_native_daily_observations_match(
+            published_budget, report
+        )
+    else:
+        native_ok, native_failures = True, []
+        native_series_ok, native_series_failures = True, []
+
+    both = gate_ok and series_ok and match_ok and pub_ok and native_ok and native_series_ok
+    failures = [
+        *gate_failures,
+        *series_failures,
+        *match_failures,
+        *pub_failures,
+        *native_failures,
+        *native_series_failures,
+    ]
+    if sustained_checkbox_checked(issue) and not both:
+        failures.append("issue body checks the Health 85 gate without qualifying evidence")
+    decision = {
+        "schema": SCHEMA,
+        "issue": ISSUE_NUMBER,
+        "command": ISSUE_VIEW_COMMAND,
+        "checked_on": checked_on,
+        "state": state,
+        "comment_count": comment_count,
+        "followup_issue": followup_issue(issue),
+        "gate_run_id": expected_run_id,
+        "gate_run_supported": gate_ok,
+        "sustained_series_supported": series_ok,
+        "observations_match_issue": match_ok,
+        "both_gates_supported": both,
+        "completion_reconciled": both,
+        "action": "mark_complete" if both else "leave_incomplete",
+        "issue_mutation": "none",
+        "sustained_performance_criterion": (
+            "complete"
+            if series_ok and match_ok and pub_ok and native_ok and native_series_ok
+            else "incomplete"
+        ),
+        "matched_dates": matched_dates,
+        "failures": failures,
+    }
+    if published_budget is not None:
+        decision["published_budget_aligned"] = pub_ok
+        decision["native_observations_match"] = native_ok
+        decision["native_series_qualifying"] = native_series_ok
+    decision["comment"] = reconciliation_comment(decision)
+    return decision
+
+
+def decision_json(decision: Mapping[str, Any]) -> str:
+    return json.dumps(decision, indent=2) + chr(10)
+
+
+def _load_object(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"{path}: {exc}", file=sys.stderr)
+        return None
+    if not isinstance(payload, dict):
+        print(f"{path} must contain a JSON object", file=sys.stderr)
+        return None
+    return payload
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--issue-view", type=Path, required=True)
+    parser.add_argument("--gate-evidence", type=Path, required=True)
+    parser.add_argument("--budget", type=Path, required=True)
+    parser.add_argument("--published-budget", type=Path, default=None)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--checked-on", default="2026-11-10")
+    args = parser.parse_args(argv)
+    issue = _load_object(args.issue_view)
+    evidence = _load_object(args.gate_evidence)
+    report = _load_object(args.budget)
+    published = _load_object(args.published_budget) if args.published_budget is not None else None
+    if (
+        issue is None
+        or evidence is None
+        or report is None
+        or (args.published_budget is not None and published is None)
+    ):
+        return 1
+    try:
+        decision = reconcile_completion(
+            issue,
+            evidence,
+            report,
+            checked_on=args.checked_on,
+            published_budget=published,
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(decision_json(decision), encoding="utf-8")
+    print(
+        f"action={decision['action']} "
+        f"completion_reconciled={decision['completion_reconciled']} "
+        f"state={decision['state']} "
+        f"followup_issue={decision['followup_issue']}"
+    )
+    for failure in decision["failures"]:
+        print(f"  - {failure}")
+    return 0
+
+
+__all__ = [
+    "DEFAULT_POST_CHANGE_RUN_ID",
+    "DEFAULT_PRE_CHANGE_RUN_ID",
+    "ISSUE_NUMBER",
+    "ISSUE_VIEW_COMMAND",
+    "SCHEMA",
+    "compare_before_after_gate_runs",
+    "decision_json",
+    "evaluate_native_daily_observations",
+    "followup_issue",
+    "gate_run_supported",
+    "issue_text",
+    "main",
+    "matching_observation_dates",
+    "reconcile_completion",
+    "reconciliation_comment",
+    "sustained_checkbox_checked",
+    "sustained_series_supported",
+    "verify_native_daily_observations_match",
+    "verify_published_ci_budget_alignment",
+]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

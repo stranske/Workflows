@@ -1,0 +1,162 @@
+{
+  "started_at": "2026-11-09T04:02:49.512954Z",
+  "timeout_seconds_per_read": 30,
+  "checks": [
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/stranske/Workflows/actions/workflows/218845705/runs?per_page=100&page=1&created=2026-11-09T03:30:44Z..2026-11-09T04:02:49.512954Z"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.3989681669991114,
+      "stdout": "Retained in named readback JSON.",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/stranske/Workflows/actions/workflows/221137962/runs?per_page=100&page=1&created=2026-11-09T03:30:44Z..2026-11-09T04:02:49.512954Z"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.5125697080002283,
+      "stdout": "Retained in named readback JSON.",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/stranske/Workflows/issues/4369/comments?per_page=100&page=1"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.5234173749995534,
+      "stdout": "Retained in named readback JSON.",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "repos/stranske/Workflows/issues/4369/comments?per_page=100&page=2"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.33327408300101524,
+      "stdout": "Retained in named readback JSON.",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "gh",
+        "api",
+        "graphql",
+        "-f",
+        "query=query { repository(owner:\"stranske\", name:\"Portable-Alpha-Extension-Model\") { pullRequest(number:2486) { headRefOid mergeCommit { oid } reviewThreads(first:100) { pageInfo { hasNextPage endCursor } nodes { id isResolved isOutdated comments(first:100) { nodes { databaseId body commit { oid } } pageInfo { hasNextPage } } } } } } }"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.3850529170013033,
+      "stdout": "Retained in named readback JSON.",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "b21fae85fe4f79e72c4133c29a3814b9d5950c3a",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.040863834001356736,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01470162499754224,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+        "origin/main"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.01424662499994156,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "cmp",
+        "docs/evidence/issue-4369/runtime-4550/4558-source-subscription_llm.py.txt",
+        "docs/evidence/issue-4369/runtime-4550/4558-consumer-subscription_llm.py.txt"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.004592417000822024,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 2.2649577500014857,
+      "stdout": "........................................................................ [ 58%]\n....................................................                     [100%]\n124 passed in 0.63s\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "gh",
+        "run",
+        "view",
+        "42557039655",
+        "--json",
+        "headSha,status,conclusion,jobs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.2556942080009321,
+      "stdout": "Retained in named readback JSON.",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "gh",
+        "run",
+        "view",
+        "42558056987",
+        "--json",
+        "headSha,status,conclusion,jobs"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.154989624999871,
+      "stdout": "Retained in named readback JSON.",
+      "stderr": ""
+    }
+  ],
+  "node_log_sha256": "08b20d314f3e69489d5bc9e7c3cad198ace79fd2f925f8ca76fea14e481dcba3",
+  "python_log_sha256": "a0f8a82d67e4a6fb5f4777966fc3724e9aff54abdfd72368f97bcccdcb3e6d59",
+  "completed_at": "2026-11-09T04:02:56.438119Z",
+  "node_receipt_match": true,
+  "python_receipt_match": true
+}

@@ -1,0 +1,998 @@
+{
+  "request": {
+    "entries": [
+      {
+        "content_sha256": "sha256:8224e39b36e31692e179124b5e39988b5f9da15c0ec14a64a3a1967dcd6da91f",
+        "delivery": "copy",
+        "description": "Gate followups hub - keepalive and autofix with attempt-bound completion acknowledgments; forwards evaluated PR base to Codex; budgets count Gate failures with failed jobs",
+        "effect_fingerprint": "sha256:f2787f86e4d7ac6acc96a1da166b930c4bfc6bee4104001638b94b72f4b091d9",
+        "include_repos": [],
+        "is_directory": false,
+        "overwrite_repos": [],
+        "requires": [],
+        "resolved_source": "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml",
+        "section": "workflows",
+        "skip_reasons": {},
+        "skip_repos": [],
+        "source": ".github/workflows/agents-81-gate-followups.yml",
+        "source_tree": "template",
+        "sync_mode": null,
+        "target": ".github/workflows/agents-81-gate-followups.yml",
+        "template_sync": null
+      },
+      {
+        "content_sha256": "sha256:f160f7c399cf7ed469e9c948a43f54af582c2229307b4803c084d79cc96ba35b",
+        "delivery": "copy",
+        "description": "Shared runner prompt assembly, output parsing, dispatch debounce, and immutable completion receipts",
+        "effect_fingerprint": "sha256:f2d6069054a979680339b3c16ff7c54a2a9688cddc3d2dd2aa184b2a4cdb78d4",
+        "include_repos": [],
+        "is_directory": true,
+        "overwrite_repos": [],
+        "requires": [],
+        "resolved_source": "scripts/runner_lib",
+        "section": "scripts",
+        "skip_reasons": {},
+        "skip_repos": [],
+        "source": "scripts/runner_lib",
+        "source_tree": "root",
+        "sync_mode": null,
+        "target": "scripts/runner_lib",
+        "template_sync": null
+      },
+      {
+        "content_sha256": "sha256:126973e1ec1409220141b748df2ab37378dcd7fc3e3a357f2a926659b3d08d7d",
+        "delivery": "copy",
+        "description": "Manages CI history data - required by reusable CI workflow",
+        "effect_fingerprint": "sha256:2e555bd887466b75f20661c850184b181ffd74e2e5b6ff11d49809a5401c13a6",
+        "include_repos": [],
+        "is_directory": false,
+        "overwrite_repos": [],
+        "requires": [],
+        "resolved_source": "scripts/ci_history.py",
+        "section": "scripts",
+        "skip_reasons": {},
+        "skip_repos": [],
+        "source": "scripts/ci_history.py",
+        "source_tree": "root",
+        "sync_mode": null,
+        "target": "scripts/ci_history.py",
+        "template_sync": null
+      }
+    ],
+    "manifest_sha256": "sha256:e88c832e7362638f451a9ce9d3557a6c0353724ed325e5aabdacb93be1aa2e0e",
+    "plan_id": "sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9",
+    "removals": [],
+    "schema": "workflows.consumer-sync-plan/v1",
+    "version": 1
+  },
+  "scope": {
+    "source": "55f67f4120592494e32e77e19142d4242db0f496",
+    "base": "e8f9b47a39fbdedd8093446070fcc1fa30930c09",
+    "plan_id": "sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9",
+    "canaries": [
+      "stranske/Travel-Plan-Permission",
+      "stranske/trip-planner",
+      "stranske/Portable-Alpha-Extension-Model"
+    ]
+  },
+  "unknowns": [
+    {
+      "id": 42327929739,
+      "run_attempt": 1,
+      "head_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+      "updated_at": "2026-11-07T02:12:03Z",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+      "head_branch": "main",
+      "event": "workflow_dispatch",
+      "display_title": "Maint 68 canary auto  source=37e230009cdba04743376410c9f72356b85fb64f candidates=* dry=false  guard=delivery-v1",
+      "run_started_at": "2026-11-07T02:10:59Z",
+      "created_at": "2026-11-07T02:10:59Z",
+      "repository": {
+        "full_name": "stranske/Workflows",
+        "id": 1117447156
+      },
+      "head_repository": {
+        "id": 1117447156
+      },
+      "refresh_unknown": true
+    },
+    {
+      "id": 42327671789,
+      "run_attempt": 1,
+      "head_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+      "updated_at": "2026-11-07T02:09:27Z",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+      "head_branch": "main",
+      "event": "workflow_dispatch",
+      "display_title": "Maint 68 canary auto  source=37e230009cdba04743376410c9f72356b85fb64f candidates=* dry=false  guard=delivery-v1",
+      "run_started_at": "2026-11-07T02:07:59Z",
+      "created_at": "2026-11-07T02:07:59Z",
+      "repository": {
+        "full_name": "stranske/Workflows",
+        "id": 1117447156
+      },
+      "head_repository": {
+        "id": 1117447156
+      },
+      "refresh_unknown": true
+    },
+    {
+      "id": 42327410128,
+      "run_attempt": 1,
+      "head_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+      "updated_at": "2026-11-07T02:05:07Z",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+      "head_branch": "main",
+      "event": "workflow_dispatch",
+      "display_title": "Maint 68 canary auto  source=37e230009cdba04743376410c9f72356b85fb64f candidates=* dry=false  guard=delivery-v1",
+      "run_started_at": "2026-11-07T02:05:00Z",
+      "created_at": "2026-11-07T02:05:00Z",
+      "repository": {
+        "full_name": "stranske/Workflows",
+        "id": 1117447156
+      },
+      "head_repository": {
+        "id": 1117447156
+      },
+      "refresh_unknown": true
+    },
+    {
+      "id": 42325021230,
+      "run_attempt": 1,
+      "head_sha": "75d4c8360c7a31db51366ca08d736cf4be1bc894",
+      "updated_at": "2026-11-07T01:37:28Z",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+      "head_branch": "main",
+      "event": "workflow_dispatch",
+      "display_title": "Maint 68 canary auto  source=75d4c8360c7a31db51366ca08d736cf4be1bc894 candidates=* dry=false  guard=delivery-v1",
+      "run_started_at": "2026-11-07T01:37:04Z",
+      "created_at": "2026-11-07T01:37:04Z",
+      "repository": {
+        "full_name": "stranske/Workflows",
+        "id": 1117447156
+      },
+      "head_repository": {
+        "id": 1117447156
+      },
+      "refresh_unknown": true
+    },
+    {
+      "id": 42220291945,
+      "run_attempt": 1,
+      "head_sha": "7ab99d09429a3b35aa55f7744f8c75b467f42536",
+      "updated_at": "2026-11-06T12:48:57Z",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+      "head_branch": "main",
+      "event": "workflow_dispatch",
+      "display_title": "Maint 68 canary full  source=7ab99d09429a3b35aa55f7744f8c75b467f42536 candidates=stranske/Portable-Alpha-Extension-Model,stranske/Travel-Plan-Permission,stranske/trip-planner dry=false  guard=delivery-v1",
+      "run_started_at": "2026-11-06T12:46:55Z",
+      "created_at": "2026-11-06T12:46:55Z",
+      "repository": {
+        "full_name": "stranske/Workflows",
+        "id": 1117447156
+      },
+      "head_repository": {
+        "id": 1117447156
+      },
+      "refresh_unknown": true
+    },
+    {
+      "id": 42220141062,
+      "run_attempt": 1,
+      "head_sha": "7ab99d09429a3b35aa55f7744f8c75b467f42536",
+      "updated_at": "2026-11-06T12:46:50Z",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+      "head_branch": "main",
+      "event": "workflow_dispatch",
+      "display_title": "Maint 68 canary full  source=7ab99d09429a3b35aa55f7744f8c75b467f42536 candidates=stranske/Portable-Alpha-Extension-Model,stranske/Travel-Plan-Permission,stranske/trip-planner dry=false  guard=delivery-v1",
+      "run_started_at": "2026-11-06T12:45:43Z",
+      "created_at": "2026-11-06T12:45:43Z",
+      "repository": {
+        "full_name": "stranske/Workflows",
+        "id": 1117447156
+      },
+      "head_repository": {
+        "id": 1117447156
+      },
+      "refresh_unknown": true
+    },
+    {
+      "id": 42219983939,
+      "run_attempt": 1,
+      "head_sha": "13f3943cbab14058f5c3456efe5e160382b44808",
+      "updated_at": "2026-11-06T12:44:50Z",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+      "head_branch": "main",
+      "event": "workflow_dispatch",
+      "display_title": "Maint 68 canary full  source=13f3943cbab14058f5c3456efe5e160382b44808 candidates=stranske/Portable-Alpha-Extension-Model,stranske/Travel-Plan-Permission,stranske/trip-planner dry=false  guard=delivery-v1",
+      "run_started_at": "2026-11-06T12:44:32Z",
+      "created_at": "2026-11-06T12:44:32Z",
+      "repository": {
+        "full_name": "stranske/Workflows",
+        "id": 1117447156
+      },
+      "head_repository": {
+        "id": 1117447156
+      },
+      "refresh_unknown": true
+    },
+    {
+      "id": 40251631761,
+      "run_attempt": 1,
+      "head_sha": "67829b6145644352661b56f5251344cf952d0a64",
+      "updated_at": "2026-10-26T00:59:43Z",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+      "head_branch": "main",
+      "event": "workflow_dispatch",
+      "display_title": "Maint 68 canary full  source=3e9d5af0cda577011fa4d0292c669f4460ee04ea candidates=stranske/Travel-Plan-Permission,stranske/trip-planner,stranske/Portable-Alpha-Extension-Model dry=false  guard=delivery-v1",
+      "run_started_at": "2026-10-26T00:54:56Z",
+      "created_at": "2026-10-26T00:54:56Z",
+      "repository": {
+        "full_name": "stranske/Workflows",
+        "id": 1117447156
+      },
+      "head_repository": {
+        "id": 1117447156
+      },
+      "refresh_unknown": true
+    }
+  ],
+  "baselines": [
+    {
+      "repository": "stranske/Travel-Plan-Permission",
+      "repo": {
+        "full_name": "stranske/Travel-Plan-Permission",
+        "default_branch": "main"
+      },
+      "pr": {
+        "number": 1738,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-11-10T02:15:06Z",
+        "merge_commit_sha": "5f2bd1e34a22ddece8e4014445ba17f74f8c4518",
+        "draft": false,
+        "user": {
+          "login": "stranske"
+        },
+        "head": {
+          "sha": "c01b25fc7ec3c5d586d93e37b065a0634345556a",
+          "ref": "sync/workflows-candidate",
+          "repo": {
+            "full_name": "stranske/Travel-Plan-Permission"
+          }
+        },
+        "base": {
+          "repo": {
+            "full_name": "stranske/Travel-Plan-Permission"
+          }
+        },
+        "body": "<!-- workflows-consumer-sync:v1 {\"schema\":\"workflows-consumer-sync-pr/v1\",\"consumer_repo\":\"stranske/Travel-Plan-Permission\",\"source_repository\":\"stranske/Workflows\",\"source_sha\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"template_hash\":\"f5044fd74472\",\"plan_id\":\"sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\",\"plan_scope\":\"source-delta\",\"scope_base_sha\":\"e8f9b47a39fbdedd8093446070fcc1fa30930c09\",\"source_commit\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"sync_phase\":\"canary\",\"sync_branch\":\"sync/workflows-candidate\",\"manifest\":\".github/sync-manifest.yml\",\"lifecycle_state\":\"staging\",\"run_id\":\"42736614253\",\"run_attempt\":\"1\",\"changes_count\":3} -->\n<!-- sync-pr-delivery-record:v1 {\"schema\":\"sync-pr-delivery-record/v1\",\"durable_issue_url\":\"https://github.com/stranske/Workflows/issues/1836\",\"plan_id\":\"sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\",\"generation\":\"f5044fd74472\",\"repository\":\"stranske/Travel-Plan-Permission\",\"desired_tree_hash\":\"f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b\",\"source_commit\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"head_observed_sha\":\"c01b25fc7ec3c5d586d93e37b065a0634345556a\",\"head_observed_at\":\"2026-11-10T01:34:34Z\",\"lease_expires_at\":\"2026-11-13T01:34:35Z\",\"predecessor_prs\":[],\"successor_prs\":[],\"delivery_state\":\"sealed\",\"review_started_at\":\"2026-11-10T01:36:58.982Z\",\"sealed_at\":\"2026-11-10T01:36:58.982Z\",\"sealed_head_sha\":\"c01b25fc7ec3c5d586d93e37b065a0634345556a\",\"review_evidence\":{\"delivery_digest\":\"sha256:23b9709a235ee56991d27c0d4406f11256c669b43ac9e2c533694f97557cc617\",\"policy_schema\":\"workflows.consumer-sync-review-policy/v1\",\"request_comment_id\":null,\"reason\":\"integration_checks_required\",\"degraded\":false,\"responded_reviewers\":[],\"unavailable_reviewers\":[]},\"terminal_disposition\":\"\"} -->"
+      },
+      "open": [
+        {
+          "number": 1739,
+          "state": "open",
+          "merged_at": null,
+          "merge_commit_sha": "3eae4d017abfaa96eb10d84eff765b971327c6e9",
+          "draft": false,
+          "user": {
+            "login": "stranske"
+          },
+          "head": {
+            "sha": "abfe50e214f605f77c8782182314073fdc93805b",
+            "ref": "sync/workflows-candidate",
+            "repo": {
+              "full_name": "stranske/Travel-Plan-Permission"
+            }
+          },
+          "base": {
+            "repo": {
+              "full_name": "stranske/Travel-Plan-Permission"
+            }
+          },
+          "body": "<!-- workflows-consumer-sync:v1 {\"schema\":\"workflows-consumer-sync-pr/v1\",\"consumer_repo\":\"stranske/Travel-Plan-Permission\",\"source_repository\":\"stranske/Workflows\",\"source_sha\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"template_hash\":\"000b98a46343\",\"plan_id\":\"sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\",\"plan_scope\":\"full\",\"scope_base_sha\":\"\",\"source_commit\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"sync_phase\":\"canary\",\"sync_branch\":\"sync/workflows-candidate\",\"manifest\":\".github/sync-manifest.yml\",\"lifecycle_state\":\"staging\",\"run_id\":\"42759470268\",\"run_attempt\":\"1\",\"changes_count\":5} -->\n<!-- sync-pr-delivery-record:v1 {\"schema\":\"sync-pr-delivery-record/v1\",\"durable_issue_url\":\"https://github.com/stranske/Workflows/issues/1836\",\"plan_id\":\"sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\",\"generation\":\"000b98a46343\",\"repository\":\"stranske/Travel-Plan-Permission\",\"desired_tree_hash\":\"49b00600560abb3d1b4567819e65d90b735975f2\",\"source_commit\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"head_observed_sha\":\"abfe50e214f605f77c8782182314073fdc93805b\",\"head_observed_at\":\"2026-11-10T05:03:01Z\",\"lease_expires_at\":\"2026-11-13T05:03:02Z\",\"predecessor_prs\":[],\"successor_prs\":[],\"delivery_state\":\"sealed\",\"review_started_at\":\"2026-11-10T05:04:28.708Z\",\"sealed_at\":\"2026-11-10T05:04:28.708Z\",\"sealed_head_sha\":\"abfe50e214f605f77c8782182314073fdc93805b\",\"review_evidence\":{\"delivery_digest\":\"sha256:930a769adc3d337b0f46debb10c9f0ed01cc91574dcde98cd1ef72fa096ee61f\",\"policy_schema\":\"workflows.consumer-sync-review-policy/v1\",\"request_comment_id\":null,\"reason\":\"integration_checks_required\",\"degraded\":false,\"responded_reviewers\":[],\"unavailable_reviewers\":[]},\"terminal_disposition\":\"\"} -->"
+        }
+      ],
+      "open_heads": {
+        "abfe50e214f605f77c8782182314073fdc93805b": {
+          "sha": "abfe50e214f605f77c8782182314073fdc93805b",
+          "commit": {
+            "message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 000b98a46343\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\nPlan scope: full\nScope base SHA: full\nSource commit: 94fd0470b88d608a7fca67517abf67dd8fbbcb04",
+            "verification": {
+              "verified": true,
+              "reason": "valid",
+              "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8qWCCRC1aQ7uu5UhlAAAzSYQAHuPzkVNc4BXfIrumVUKY90z\nZsK0efGZIpB/v6SGt8Diq40GvJWONdhdU9LrDHjSqSz78e/Tcjduwh/dTkFwzbZU\nwWcgxKI8KqvVDvSqgCKddCPr4p6M2C5Ac6Y/P6un75Wv+KHUzC7rnZ+FqOqZUEJm\nb99U28cfVdgf1HMLEnE00bAy60OFzbojmE7aUQ3v0bpWQxWqvOv0yowS0EzbISH4\nNNhE8XfDL1GRIQJGGaUuz2EJj+tRj1nGws8/5loNOfuyu7YzBzZHFJSfKOgjVsRa\nb6Jswwi8te1keDSnxNVV0qyJg4l1hk+OCAf4tgnV26cX1FQLCIH7flQyscKM1gJq\ncJ/EMUnLG3K/px2NXXnS6z9i/pSzUyeHrKWAH4oLKtgeClTX9vQg6Q6CDkhI2cdC\nnQ0Z4NEGcXZdRAtAXjmR5jQQsNtSZsYtXwlgw+UGPx8j39kCm6l+L24h2gYYhWyh\nVuzJ7ucJtPf7W1qfJsFBN10dTmyeAgeH9suPT5Daa3EXYSD2Gx7n4K9s/KhxqgM6\nH7fYLKH672QimHvfqXdKWppeHcKbgf/MZ28+Yslw4KRq3VeVQFtiVWGhlMV0y2kc\nFFCo0+s4MLYE9AYpjZBI2xUHykwwoGAUoJG9CSiZY3O/dbY67JLQk3BMEYYZf322\nz2hZdv3bdmS/AgaSJ2VY\n=Hcx2\n-----END PGP SIGNATURE-----\n",
+              "payload": "tree 49b00600560abb3d1b4567819e65d90b735975f2\nparent 5f2bd1e34a22ddece8e4014445ba17f74f8c4518\nauthor agents-workflows-bot[bot] <251285186+agents-workflows-bot[bot]@users.noreply.github.com> 1794286978 +0000\ncommitter GitHub <noreply@github.com> 1794286978 +0000\n\nchore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 000b98a46343\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\nPlan scope: full\nScope base SHA: full\nSource commit: 94fd0470b88d608a7fca67517abf67dd8fbbcb04\n\n",
+              "verified_at": "2026-11-10T05:02:58Z"
+            },
+            "tree": {
+              "sha": "49b00600560abb3d1b4567819e65d90b735975f2",
+              "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/git/trees/49b00600560abb3d1b4567819e65d90b735975f2"
+            }
+          }
+        }
+      },
+      "head": {
+        "sha": "c01b25fc7ec3c5d586d93e37b065a0634345556a",
+        "commit": {
+          "message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: f5044fd74472\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\nPlan scope: source-delta\nScope base SHA: e8f9b47a39fbdedd8093446070fcc1fa30930c09\nSource commit: 55f67f4120592494e32e77e19142d4242db0f496",
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8nSmCRC1aQ7uu5UhlAAAR3wQAEcHuoleFUXC3r+BxhYpSV0g\nmRh8f/iCJOGZTyhBpVrIXbPTbXfH9ghmTPxpoJy/rliktXbr50Y4twnB+O8WXGmz\naVrdY+aFBLlSZhQhUH6S/JZ3fyTMaS0jj/EN4nA52CSsVEuvo+gPZ3Zr9F52TTWg\nr3RGI8wCi9gaJsPvL7buk6jZYNIW2tqk5w3n23qr631nsAxedHTe7Wpmqggiy4XY\n7GQBr2EDeA9wFzDELnAkUImix0lb7oszwnGi4pUHdjODZ4zAiu1bYhyXCynaOqRS\nJcn78ff5E6m9sPHP3Qb/xshwsYz5Lk7lsYRtJ2Y3etXkmQZoFT0zlF3ewujFAKmA\n1JOhBVkWKTKADHdzifliJL52WRBtbYg2B+sRiIOFTLDyl8+DXnxqYSft6LUt/31T\n4UDPlKluB+0LYk8qjZjYJN3emukW0UMVExHYklRPseuNrU0gUxnSDvhquE3+NOxP\nQJcm5pe5HlEufhWjBtWbOesEo62UzWJjG+QtAYyQE8f6YrForN3MGOdWmbkR/A36\nOHg4bQWMtTDeg7hpJcqNYc+wwxMbcG8EMizPaR3JMfuP4zHRhxTwnkG3K9FlfkYD\neNtXF+c80q8b36O31qI5IuOOJ/RadYoRUWHWnKU/PqZefhiXRGvCuA2YHJPN6GtD\nhHyarixnsyfsCIPpLyJD\n=jP1v\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b\nparent 3585eca276d8bed93f46d594e0815c45e30635b3\nauthor agents-workflows-bot[bot] <251285186+agents-workflows-bot[bot]@users.noreply.github.com> 1794274470 +0000\ncommitter GitHub <noreply@github.com> 1794274470 +0000\n\nchore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: f5044fd74472\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\nPlan scope: source-delta\nScope base SHA: e8f9b47a39fbdedd8093446070fcc1fa30930c09\nSource commit: 55f67f4120592494e32e77e19142d4242db0f496\n\n",
+            "verified_at": "2026-11-10T01:34:31Z"
+          },
+          "tree": {
+            "sha": "f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b",
+            "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/git/trees/f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b"
+          }
+        }
+      },
+      "tip": {
+        "sha": "5f2bd1e34a22ddece8e4014445ba17f74f8c4518",
+        "commit": {
+          "message": "chore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: f5044fd74472",
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8n4pCRC1aQ7uu5UhlAAAfMYQACAvtRpHYI8TkVdnjt8pgofb\nyWi3Cnx7/ag+vG/YBnUn/SqWeW4p0lzIDIxZeAm5y2WmmvIaIAt+RA4tBFTrZ43P\nUgv3wXm88NPDp2e5o9u8+WkYiNAFUWR60jzpyWBd1Fsg3lGQxwQdTY2bCbwf5ZU8\nK4RecU5XAUXteywxksqLeHmR+YR4SY4VbbWk6w2NzTaQxP9X9zWpndvQODm3AsgY\nWcjFfoZ0FladOiKibMjHRfaa5QAz1rIhu/Uy8xHfw2/Eo+NlZVsk7pZLs94Fie06\nzsOYY2L7JNa8zVYeocB+vQ2xglLgjWJrmOWzUtd3AqBMS2HaLVX+f0FFMfExbVri\nCbqQqxV/97VFuSwqeHnjTJImzsEilVs0/F2sXkyQOdWXI07FonqnS9A8EmVsWuIA\nQhHUvSG6wiMIO5wuh9guNtgAmVSLpqUZD16oZvW/HlWRzOusjC56Fb0dsqF6Kaz6\nHX9Yu1+RzoGbgeuVk5AnRnMFHBGhcVpP0LPmaLvE75dTHhpZyqfvltB0Omh/tghR\nB5ncDlvQroWhY3yv7ZqS+3/bYY85FGR6Mpbnj8db1XNq4mdU4GTA3C/mNsDC8Zor\n4912kuMUC3TsZdoNgZgzWj35LnB7ZqiHZZOCGut+PnKAFwKuD5oJWjA6llcMmqkC\nEMR2UCJ01T7lOgOe28H8\n=KGGL\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b\nparent 3585eca276d8bed93f46d594e0815c45e30635b3\nparent c01b25fc7ec3c5d586d93e37b065a0634345556a\nauthor stranske <stranske@gmail.com> 1794276905 -0600\ncommitter GitHub <noreply@github.com> 1794276905 -0600\n\nchore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: f5044fd74472",
+            "verified_at": "2026-11-10T02:15:06Z"
+          },
+          "tree": {
+            "sha": "f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b",
+            "url": "https://api.github.com/repos/stranske/Travel-Plan-Permission/git/trees/f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b"
+          }
+        }
+      },
+      "trees": [
+        {
+          "sha": "f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b",
+          "truncated": false,
+          "tree": [
+            {
+              "path": ".github/workflows/agents-81-gate-followups.yml",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "e9aa9cb336407def1ac067ed66d0149d5c213267"
+            },
+            {
+              "path": "scripts/ci_history.py",
+              "mode": "100755",
+              "type": "blob",
+              "sha": "d5d54060a1fc77e204b9d2bec76ce531e9461dcf"
+            },
+            {
+              "path": "scripts/runner_lib/__init__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "92ed67109ea78f3c90647c290ed63b933c13085c"
+            },
+            {
+              "path": "scripts/runner_lib/__main__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "c0723755fab3ebdb32c95c14373c03dc450e09aa"
+            },
+            {
+              "path": "scripts/runner_lib/acceptance_gate.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "653e204899461b2c9f747dba948886b82fa094c5"
+            },
+            {
+              "path": "scripts/runner_lib/core.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "b2db89e988c44ddbd0a6e817c6c0d8dae9afe53c"
+            }
+          ]
+        },
+        {
+          "sha": "f6b95e364dfe07bbc1862ed45dc14a060fdeaa2b",
+          "truncated": false,
+          "tree": [
+            {
+              "path": ".github/workflows/agents-81-gate-followups.yml",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "e9aa9cb336407def1ac067ed66d0149d5c213267"
+            },
+            {
+              "path": "scripts/ci_history.py",
+              "mode": "100755",
+              "type": "blob",
+              "sha": "d5d54060a1fc77e204b9d2bec76ce531e9461dcf"
+            },
+            {
+              "path": "scripts/runner_lib/__init__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "92ed67109ea78f3c90647c290ed63b933c13085c"
+            },
+            {
+              "path": "scripts/runner_lib/__main__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "c0723755fab3ebdb32c95c14373c03dc450e09aa"
+            },
+            {
+              "path": "scripts/runner_lib/acceptance_gate.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "653e204899461b2c9f747dba948886b82fa094c5"
+            },
+            {
+              "path": "scripts/runner_lib/core.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "b2db89e988c44ddbd0a6e817c6c0d8dae9afe53c"
+            }
+          ]
+        }
+      ],
+      "comparison": {
+        "merge_base_commit": {
+          "sha": "5f2bd1e34a22ddece8e4014445ba17f74f8c4518"
+        }
+      },
+      "ref": {
+        "object": {
+          "sha": "abfe50e214f605f77c8782182314073fdc93805b"
+        }
+      }
+    },
+    {
+      "repository": "stranske/trip-planner",
+      "repo": {
+        "full_name": "stranske/trip-planner",
+        "default_branch": "main"
+      },
+      "pr": {
+        "number": 2023,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-11-10T02:15:19Z",
+        "merge_commit_sha": "030e0c7c65ccc7621f6c1c70d53a43d6785387c7",
+        "draft": false,
+        "user": {
+          "login": "stranske"
+        },
+        "head": {
+          "sha": "e1e6f1d820bb87b7c64ed4a1fe9e443eebe95b54",
+          "ref": "sync/workflows-candidate",
+          "repo": {
+            "full_name": "stranske/trip-planner"
+          }
+        },
+        "base": {
+          "repo": {
+            "full_name": "stranske/trip-planner"
+          }
+        },
+        "body": "<!-- workflows-consumer-sync:v1 {\"schema\":\"workflows-consumer-sync-pr/v1\",\"consumer_repo\":\"stranske/trip-planner\",\"source_repository\":\"stranske/Workflows\",\"source_sha\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"template_hash\":\"f5044fd74472\",\"plan_id\":\"sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\",\"plan_scope\":\"source-delta\",\"scope_base_sha\":\"e8f9b47a39fbdedd8093446070fcc1fa30930c09\",\"source_commit\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"sync_phase\":\"canary\",\"sync_branch\":\"sync/workflows-candidate\",\"manifest\":\".github/sync-manifest.yml\",\"lifecycle_state\":\"staging\",\"run_id\":\"42736614253\",\"run_attempt\":\"1\",\"changes_count\":3} -->\n<!-- sync-pr-delivery-record:v1 {\"schema\":\"sync-pr-delivery-record/v1\",\"durable_issue_url\":\"https://github.com/stranske/Workflows/issues/1836\",\"plan_id\":\"sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\",\"generation\":\"f5044fd74472\",\"repository\":\"stranske/trip-planner\",\"desired_tree_hash\":\"d762e64b6ccbe00d2e43698c6549a94b27fa172b\",\"source_commit\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"head_observed_sha\":\"e1e6f1d820bb87b7c64ed4a1fe9e443eebe95b54\",\"head_observed_at\":\"2026-11-10T01:34:38Z\",\"lease_expires_at\":\"2026-11-13T01:34:40Z\",\"predecessor_prs\":[],\"successor_prs\":[],\"delivery_state\":\"sealed\",\"review_started_at\":\"2026-11-10T01:37:13.470Z\",\"sealed_at\":\"2026-11-10T01:37:13.470Z\",\"sealed_head_sha\":\"e1e6f1d820bb87b7c64ed4a1fe9e443eebe95b54\",\"review_evidence\":{\"delivery_digest\":\"sha256:d1b8b7a059c7ae1566030da2ddad13730d2b75ddb206afde472347a05eed2996\",\"policy_schema\":\"workflows.consumer-sync-review-policy/v1\",\"request_comment_id\":null,\"reason\":\"integration_checks_required\",\"degraded\":false,\"responded_reviewers\":[],\"unavailable_reviewers\":[]},\"terminal_disposition\":\"\"} -->"
+      },
+      "open": [
+        {
+          "number": 2024,
+          "state": "open",
+          "merged_at": null,
+          "merge_commit_sha": "c8bc0c96a86d91b199869efaa00d792911218152",
+          "draft": false,
+          "user": {
+            "login": "stranske"
+          },
+          "head": {
+            "sha": "eaf6886b661ba307599391d2558cf5968169b484",
+            "ref": "sync/workflows-candidate",
+            "repo": {
+              "full_name": "stranske/trip-planner"
+            }
+          },
+          "base": {
+            "repo": {
+              "full_name": "stranske/trip-planner"
+            }
+          },
+          "body": "<!-- workflows-consumer-sync:v1 {\"schema\":\"workflows-consumer-sync-pr/v1\",\"consumer_repo\":\"stranske/trip-planner\",\"source_repository\":\"stranske/Workflows\",\"source_sha\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"template_hash\":\"000b98a46343\",\"plan_id\":\"sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\",\"plan_scope\":\"full\",\"scope_base_sha\":\"\",\"source_commit\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"sync_phase\":\"canary\",\"sync_branch\":\"sync/workflows-candidate\",\"manifest\":\".github/sync-manifest.yml\",\"lifecycle_state\":\"staging\",\"run_id\":\"42759470268\",\"run_attempt\":\"1\",\"changes_count\":5} -->\n<!-- sync-pr-delivery-record:v1 {\"schema\":\"sync-pr-delivery-record/v1\",\"durable_issue_url\":\"https://github.com/stranske/Workflows/issues/1836\",\"plan_id\":\"sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\",\"generation\":\"000b98a46343\",\"repository\":\"stranske/trip-planner\",\"desired_tree_hash\":\"8f471bd765b109ca0792f82a186f94cf88317092\",\"source_commit\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"head_observed_sha\":\"eaf6886b661ba307599391d2558cf5968169b484\",\"head_observed_at\":\"2026-11-10T05:02:59Z\",\"lease_expires_at\":\"2026-11-13T05:03:01Z\",\"predecessor_prs\":[],\"successor_prs\":[],\"delivery_state\":\"sealed\",\"review_started_at\":\"2026-11-10T05:04:41.833Z\",\"sealed_at\":\"2026-11-10T05:04:41.833Z\",\"sealed_head_sha\":\"eaf6886b661ba307599391d2558cf5968169b484\",\"review_evidence\":{\"delivery_digest\":\"sha256:0a47eadca5fce470daf7ecd4da8f17fa44a0becde2520ab7c2fa6bedeaf2fce1\",\"policy_schema\":\"workflows.consumer-sync-review-policy/v1\",\"request_comment_id\":null,\"reason\":\"integration_checks_required\",\"degraded\":false,\"responded_reviewers\":[],\"unavailable_reviewers\":[]},\"terminal_disposition\":\"\"} -->"
+        }
+      ],
+      "open_heads": {
+        "eaf6886b661ba307599391d2558cf5968169b484": {
+          "sha": "eaf6886b661ba307599391d2558cf5968169b484",
+          "commit": {
+            "message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 000b98a46343\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\nPlan scope: full\nScope base SHA: full\nSource commit: 94fd0470b88d608a7fca67517abf67dd8fbbcb04",
+            "verification": {
+              "verified": true,
+              "reason": "valid",
+              "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8qWACRC1aQ7uu5UhlAAAlywQAJfhtt6RMT0FjoEOzzAuGFqa\njpS21ZlALHR4meXtuumeuW89dB6XqpZd7RCuvbOJXKnhLzFGFtY/hqxgHzlw3jkZ\nVvhbMd1mgUEg6Za9PxutHZFYqkaRrhtWyDlmHrzBFuTgZM5VINi8dUtCtLBGuCAh\nIj2Dlhwi68Z1MAmVA4u4bcxYB8xsxDtF4eJRRkjWBB2pafS3PolzH3AtgYhY+u4L\nh4iy67ByCO0IHgkbhymbFiwnLMCKj4ruS/+vkTofeibWuLk732LdNFe66DaKaPvV\n+G3e9eKU3CYHNpqBdVmh83w20Jp3yGCn8opO6R7Nd5WjhdoZ4aVusBZ2wGzz/zO+\nDxDyd+Ex0+edGfdprAfJ+nO2SXwtTLu5wJPDOtOYJ04VemkAN3OaWLeMgn35K0Dt\nIwQ4yyVhTSwEjvbCUEzllSH+4qFgLueIwr3sR0KAIDxXQCRhtSmpSidKO2c3UOQy\n4PeTm6JJrwDboNgeEOdji9GOY6DkWvh88u/AlIsJyTudZbaT52L77ebn/7lWygRx\nq1dgvOe0UNYzIpua7qAqYgVsc2qec9wup9EnswZvIKRYEu0qYqjzTnbmngR1Ob84\nbu/dUJmcR42AcuukaWm5bWWabX7kaynKAh1oSeA2kRdGlXXaWlcCNkb7cL1bWrSs\nvCcfsA/8ovGVrCpVyq9E\n=FBFw\n-----END PGP SIGNATURE-----\n",
+              "payload": "tree 8f471bd765b109ca0792f82a186f94cf88317092\nparent 030e0c7c65ccc7621f6c1c70d53a43d6785387c7\nauthor agents-workflows-bot[bot] <251285186+agents-workflows-bot[bot]@users.noreply.github.com> 1794286976 +0000\ncommitter GitHub <noreply@github.com> 1794286976 +0000\n\nchore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 000b98a46343\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\nPlan scope: full\nScope base SHA: full\nSource commit: 94fd0470b88d608a7fca67517abf67dd8fbbcb04\n\n",
+              "verified_at": "2026-11-10T05:02:56Z"
+            },
+            "tree": {
+              "sha": "8f471bd765b109ca0792f82a186f94cf88317092",
+              "url": "https://api.github.com/repos/stranske/trip-planner/git/trees/8f471bd765b109ca0792f82a186f94cf88317092"
+            }
+          }
+        }
+      },
+      "head": {
+        "sha": "e1e6f1d820bb87b7c64ed4a1fe9e443eebe95b54",
+        "commit": {
+          "message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: f5044fd74472\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\nPlan scope: source-delta\nScope base SHA: e8f9b47a39fbdedd8093446070fcc1fa30930c09\nSource commit: 55f67f4120592494e32e77e19142d4242db0f496",
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8nSqCRC1aQ7uu5UhlAAA1MQQAIH2w5DgbH4HuW2jboB4VDYj\nx7s5xb/E/uvVubsF74i7t5Ss+LiFR+hpkwVcdLsNR6zeH+vrKyODPILT4sS19kiT\nB6ywD7/U+N8QSn/I8lfWu4fLQbfy0a8dZ5xydCyjpEliDZFR0zvQwKuEs3Dvxs6n\n2zbolKaZpsofiTM3MGr0jZKXw5kgzgh3iPmS4R5YdE5o4vQNtEO+jj5C890byVLD\nV6XQSlSfMzNsKTjyiQ6KAI4cYlDVTGaG5YYRa0gZnPlnDpXsRyUBhhJ/PJ022sv0\n2JEjTFqGbC2bdHIiZcl2tK0bo0xjkWhy7CwSdC8vJPDnQsKYN4Y73dCVuCZHeduI\nuLTOfCh1/k+sn43g9Jl6mLHDH41amnjBPOolNlaTAY+ejbxK/4LhLPyM24eYm4sb\nE2bTANZ+8dkdshzi6gMmG1e6tWMGZF+fm6t8nzg9Y1XGEd+b7uJdBhl0dcxMDeyL\naHTit5coYNeF+IN2XiZeVrst3kNXOTqiLSLHJ7D8AHAg2zvv9rAJOJHUzhaH91c0\nNLDTL1QyEzjvkzSEuOnPD9wr8qulLaFdRwGqAyWspsKw8EFxyQOoS9krEh++Bho+\ni14znd4lxt72aWAH5r5GvThxSEkyYlif7dIPlW73eJz276LKrxQwgXHu8q1Y5cNF\nKmYWBN1ER45bQq8pi6nA\n=P5eN\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree d762e64b6ccbe00d2e43698c6549a94b27fa172b\nparent a3bed45cc44e05ad766e308a46ae108e4e6bfb07\nauthor agents-workflows-bot[bot] <251285186+agents-workflows-bot[bot]@users.noreply.github.com> 1794274474 +0000\ncommitter GitHub <noreply@github.com> 1794274474 +0000\n\nchore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: f5044fd74472\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\nPlan scope: source-delta\nScope base SHA: e8f9b47a39fbdedd8093446070fcc1fa30930c09\nSource commit: 55f67f4120592494e32e77e19142d4242db0f496\n\n",
+            "verified_at": "2026-11-10T01:34:34Z"
+          },
+          "tree": {
+            "sha": "d762e64b6ccbe00d2e43698c6549a94b27fa172b",
+            "url": "https://api.github.com/repos/stranske/trip-planner/git/trees/d762e64b6ccbe00d2e43698c6549a94b27fa172b"
+          }
+        }
+      },
+      "tip": {
+        "sha": "030e0c7c65ccc7621f6c1c70d53a43d6785387c7",
+        "commit": {
+          "message": "chore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: f5044fd74472",
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8n43CRC1aQ7uu5UhlAAAkVQQABQA+uTzVYa/oqo1isVqp5D0\noRgyCNBXaC8tuBCGDQnQqO6KjdHQAcUJYa6s1bKCuYy7NhQ6oumczQBlQbgQJ8Tc\n9VXbO4LgcsQAmFyBIJcPyiuUVZ9MoQMbQ8AIngPuiZReTfeD1rlZYJOlDeaJMKM6\npkanyU8elsb+5DRplQo6Ho3K+cdxY0rPXQY5Zr+2BXyHTCev2HrL0B6uhrT6nEwR\n9qFMRM+gS5ar6VbHFZFJxy3ghD+rPfEoLeyf9hukdgs3JzkKOm17g6CYXIWlsKbo\nNb4jiXVPw0Bpl9I4iWYvAS3BAeIYWscXwyGDYvCdVn9xt2nayVuPvUxhoshY6qXL\nj1WJGt42+Ro4ZmXBIq1AF0zWFBCW9H0LHOGyCnRWLwxKtKF57pfEpNWw9V78/Mjf\n9hJakNRz7PYMfD7Jge0K7U6oJtsx1/prH345ouFui6NBu5gHS2h86+59UGu17m5u\nT7yzjQzHAHFEPvMGkrItcnke4V6cAJfzEc/ozhkdOSMAuDszALH5TELrCNE9BrRN\nr5OeDlDJltii6YqjKbh8+5sX8bmhr5VY+lyjI5JKvXv/zmGHyQLKUoNcOxqLgJiE\n6bol4UH9HnF//nDuGK9V0ADQWA53QUQZ3wOUaTf+3WbhS3Ig8QWu0cjaNPjCL6LI\nHjQS03yTgPAcOpspDy4j\n=qLrQ\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree d762e64b6ccbe00d2e43698c6549a94b27fa172b\nparent a3bed45cc44e05ad766e308a46ae108e4e6bfb07\nparent e1e6f1d820bb87b7c64ed4a1fe9e443eebe95b54\nauthor stranske <stranske@gmail.com> 1794276919 -0600\ncommitter GitHub <noreply@github.com> 1794276919 -0600\n\nchore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: f5044fd74472",
+            "verified_at": "2026-11-10T02:15:19Z"
+          },
+          "tree": {
+            "sha": "d762e64b6ccbe00d2e43698c6549a94b27fa172b",
+            "url": "https://api.github.com/repos/stranske/trip-planner/git/trees/d762e64b6ccbe00d2e43698c6549a94b27fa172b"
+          }
+        }
+      },
+      "trees": [
+        {
+          "sha": "d762e64b6ccbe00d2e43698c6549a94b27fa172b",
+          "truncated": false,
+          "tree": [
+            {
+              "path": ".github/workflows/agents-81-gate-followups.yml",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "e9aa9cb336407def1ac067ed66d0149d5c213267"
+            },
+            {
+              "path": "scripts/ci_history.py",
+              "mode": "100755",
+              "type": "blob",
+              "sha": "d5d54060a1fc77e204b9d2bec76ce531e9461dcf"
+            },
+            {
+              "path": "scripts/runner_lib/__init__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "92ed67109ea78f3c90647c290ed63b933c13085c"
+            },
+            {
+              "path": "scripts/runner_lib/__main__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "c0723755fab3ebdb32c95c14373c03dc450e09aa"
+            },
+            {
+              "path": "scripts/runner_lib/acceptance_gate.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "653e204899461b2c9f747dba948886b82fa094c5"
+            },
+            {
+              "path": "scripts/runner_lib/core.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "b2db89e988c44ddbd0a6e817c6c0d8dae9afe53c"
+            }
+          ]
+        },
+        {
+          "sha": "d762e64b6ccbe00d2e43698c6549a94b27fa172b",
+          "truncated": false,
+          "tree": [
+            {
+              "path": ".github/workflows/agents-81-gate-followups.yml",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "e9aa9cb336407def1ac067ed66d0149d5c213267"
+            },
+            {
+              "path": "scripts/ci_history.py",
+              "mode": "100755",
+              "type": "blob",
+              "sha": "d5d54060a1fc77e204b9d2bec76ce531e9461dcf"
+            },
+            {
+              "path": "scripts/runner_lib/__init__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "92ed67109ea78f3c90647c290ed63b933c13085c"
+            },
+            {
+              "path": "scripts/runner_lib/__main__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "c0723755fab3ebdb32c95c14373c03dc450e09aa"
+            },
+            {
+              "path": "scripts/runner_lib/acceptance_gate.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "653e204899461b2c9f747dba948886b82fa094c5"
+            },
+            {
+              "path": "scripts/runner_lib/core.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "b2db89e988c44ddbd0a6e817c6c0d8dae9afe53c"
+            }
+          ]
+        }
+      ],
+      "comparison": {
+        "merge_base_commit": {
+          "sha": "030e0c7c65ccc7621f6c1c70d53a43d6785387c7"
+        }
+      },
+      "ref": {
+        "object": {
+          "sha": "eaf6886b661ba307599391d2558cf5968169b484"
+        }
+      }
+    },
+    {
+      "repository": "stranske/Portable-Alpha-Extension-Model",
+      "repo": {
+        "full_name": "stranske/Portable-Alpha-Extension-Model",
+        "default_branch": "main"
+      },
+      "pr": {
+        "number": 2490,
+        "state": "closed",
+        "merged": true,
+        "merged_at": "2026-11-10T02:15:35Z",
+        "merge_commit_sha": "764662d047db90c2f6ca3b55c208f51dc791bfa6",
+        "draft": false,
+        "user": {
+          "login": "stranske"
+        },
+        "head": {
+          "sha": "20dbc52942e9a2c544c6df75f425a252face27f3",
+          "ref": "sync/workflows-candidate",
+          "repo": {
+            "full_name": "stranske/Portable-Alpha-Extension-Model"
+          }
+        },
+        "base": {
+          "repo": {
+            "full_name": "stranske/Portable-Alpha-Extension-Model"
+          }
+        },
+        "body": "<!-- workflows-consumer-sync:v1 {\"schema\":\"workflows-consumer-sync-pr/v1\",\"consumer_repo\":\"stranske/Portable-Alpha-Extension-Model\",\"source_repository\":\"stranske/Workflows\",\"source_sha\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"template_hash\":\"f5044fd74472\",\"plan_id\":\"sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\",\"plan_scope\":\"source-delta\",\"scope_base_sha\":\"e8f9b47a39fbdedd8093446070fcc1fa30930c09\",\"source_commit\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"sync_phase\":\"canary\",\"sync_branch\":\"sync/workflows-candidate\",\"manifest\":\".github/sync-manifest.yml\",\"lifecycle_state\":\"staging\",\"run_id\":\"42736614253\",\"run_attempt\":\"1\",\"changes_count\":3} -->\n<!-- sync-pr-delivery-record:v1 {\"schema\":\"sync-pr-delivery-record/v1\",\"durable_issue_url\":\"https://github.com/stranske/Workflows/issues/1836\",\"plan_id\":\"sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\",\"generation\":\"f5044fd74472\",\"repository\":\"stranske/Portable-Alpha-Extension-Model\",\"desired_tree_hash\":\"aa40fe3c831d6681818c3522b351960c9fd9c196\",\"source_commit\":\"55f67f4120592494e32e77e19142d4242db0f496\",\"head_observed_sha\":\"20dbc52942e9a2c544c6df75f425a252face27f3\",\"head_observed_at\":\"2026-11-10T01:34:45Z\",\"lease_expires_at\":\"2026-11-13T01:34:46Z\",\"predecessor_prs\":[],\"successor_prs\":[],\"delivery_state\":\"sealed\",\"review_started_at\":\"2026-11-10T01:37:22.707Z\",\"sealed_at\":\"2026-11-10T01:37:22.707Z\",\"sealed_head_sha\":\"20dbc52942e9a2c544c6df75f425a252face27f3\",\"review_evidence\":{\"delivery_digest\":\"sha256:1370d67020c77580a125490dcf63a6386a94c877df7132b17f4fb9ae9e7b7368\",\"policy_schema\":\"workflows.consumer-sync-review-policy/v1\",\"request_comment_id\":null,\"reason\":\"integration_checks_required\",\"degraded\":false,\"responded_reviewers\":[],\"unavailable_reviewers\":[]},\"terminal_disposition\":\"\"} -->"
+      },
+      "open": [
+        {
+          "number": 2493,
+          "state": "open",
+          "merged_at": null,
+          "merge_commit_sha": "0ed725d6cd5218a44f8758643013eb187d63e7f4",
+          "draft": false,
+          "user": {
+            "login": "stranske"
+          },
+          "head": {
+            "sha": "b07f7fade05e467c004d08948ccab624aa507923",
+            "ref": "sync/workflows-candidate",
+            "repo": {
+              "full_name": "stranske/Portable-Alpha-Extension-Model"
+            }
+          },
+          "base": {
+            "repo": {
+              "full_name": "stranske/Portable-Alpha-Extension-Model"
+            }
+          },
+          "body": "<!-- workflows-consumer-sync:v1 {\"schema\":\"workflows-consumer-sync-pr/v1\",\"consumer_repo\":\"stranske/Portable-Alpha-Extension-Model\",\"source_repository\":\"stranske/Workflows\",\"source_sha\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"template_hash\":\"000b98a46343\",\"plan_id\":\"sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\",\"plan_scope\":\"full\",\"scope_base_sha\":\"\",\"source_commit\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"sync_phase\":\"canary\",\"sync_branch\":\"sync/workflows-candidate\",\"manifest\":\".github/sync-manifest.yml\",\"lifecycle_state\":\"staging\",\"run_id\":\"42759470268\",\"run_attempt\":\"1\",\"changes_count\":5} -->\n<!-- sync-pr-delivery-record:v1 {\"schema\":\"sync-pr-delivery-record/v1\",\"durable_issue_url\":\"https://github.com/stranske/Workflows/issues/1836\",\"plan_id\":\"sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\",\"generation\":\"000b98a46343\",\"repository\":\"stranske/Portable-Alpha-Extension-Model\",\"desired_tree_hash\":\"6ae64ba829454e1c980353d8bfc770c472841ff1\",\"source_commit\":\"94fd0470b88d608a7fca67517abf67dd8fbbcb04\",\"head_observed_sha\":\"b07f7fade05e467c004d08948ccab624aa507923\",\"head_observed_at\":\"2026-11-10T05:03:08Z\",\"lease_expires_at\":\"2026-11-13T05:03:09Z\",\"predecessor_prs\":[],\"successor_prs\":[],\"delivery_state\":\"sealed\",\"review_started_at\":\"2026-11-10T05:04:54.721Z\",\"sealed_at\":\"2026-11-10T05:04:54.721Z\",\"sealed_head_sha\":\"b07f7fade05e467c004d08948ccab624aa507923\",\"review_evidence\":{\"delivery_digest\":\"sha256:c6d3e9103741186fa731a3656fa227cad9ac5130dfa328125f7b01c80ae84336\",\"policy_schema\":\"workflows.consumer-sync-review-policy/v1\",\"request_comment_id\":null,\"reason\":\"integration_checks_required\",\"degraded\":false,\"responded_reviewers\":[],\"unavailable_reviewers\":[]},\"terminal_disposition\":\"\"} -->"
+        }
+      ],
+      "open_heads": {
+        "b07f7fade05e467c004d08948ccab624aa507923": {
+          "sha": "b07f7fade05e467c004d08948ccab624aa507923",
+          "commit": {
+            "message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 000b98a46343\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\nPlan scope: full\nScope base SHA: full\nSource commit: 94fd0470b88d608a7fca67517abf67dd8fbbcb04",
+            "verification": {
+              "verified": true,
+              "reason": "valid",
+              "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8qWJCRC1aQ7uu5UhlAAA8vgQAGifeD/eGnPhRUEZVH4ZTAbw\nWOoxFr+2K7+qFBxK02NYrGrHNgaZkZKP129nTG+cNlUZsbrLhRaFJROZ1XuGPUJB\nXjZwGau+i/z8FeWlJn6R72hnlBGKgd+iLrtan7zRohyBuvY3eKdey5oq/DPkWAtP\nGnKfAmAtqJQ4wiYSLk1Rio8aWqOOEjCGofS9NDEeRfQchY5xiKcsmyUBD6+pOrVz\no0UkG+WssTfnRty2WmMtnHDeijkCxSKBxO9c4yI/JDvRbCGj9HZNeSBTOWRWLAV6\nnD3/XLuuET3kJRmoAHi1FNJ1hmJgMWAHjExqRR8BvSJ3FFHyzd84/O/XfQ6yT+l6\nI7qMIoSIwki+q8x0VdsfXA8YvED+fI773U2jYY+bQTXN1NKwNbqpxzVTkelvRyWa\nfPEjW0lu+6T13QxUTQVDMbDu6qL+SrbJB31+UFNJbZ1Osuh0pe3+fQCKsDee22PR\nahMIN3wbZhHEJSLPhpSRzxbiJ613oyDFacLoNK7HSUVRQqVKWks6ofyBJVDi0LrA\nnC8S1tSVTE44i/zxJWyhzcokGvVMTWy4rkmC3JgatFJfBSAXjL2PeawMp8r3oxT8\nINamTjLIrseq6Ox/HJagIiqyhMK2w427BNIELaqK8Uskljb2K709HA4zG2V0/d5P\nKp2UkUJjJ9hFseBDm571\n=mEok\n-----END PGP SIGNATURE-----\n",
+              "payload": "tree 6ae64ba829454e1c980353d8bfc770c472841ff1\nparent 764662d047db90c2f6ca3b55c208f51dc791bfa6\nauthor agents-workflows-bot[bot] <251285186+agents-workflows-bot[bot]@users.noreply.github.com> 1794286985 +0000\ncommitter GitHub <noreply@github.com> 1794286985 +0000\n\nchore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 000b98a46343\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:000b98a463436bbd117f3a107ae106dccf1dd4b160554435e06a9715668367e3\nPlan scope: full\nScope base SHA: full\nSource commit: 94fd0470b88d608a7fca67517abf67dd8fbbcb04\n\n",
+              "verified_at": "2026-11-10T05:03:05Z"
+            },
+            "tree": {
+              "sha": "6ae64ba829454e1c980353d8bfc770c472841ff1",
+              "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/git/trees/6ae64ba829454e1c980353d8bfc770c472841ff1"
+            }
+          }
+        }
+      },
+      "head": {
+        "sha": "20dbc52942e9a2c544c6df75f425a252face27f3",
+        "commit": {
+          "message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: f5044fd74472\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\nPlan scope: source-delta\nScope base SHA: e8f9b47a39fbdedd8093446070fcc1fa30930c09\nSource commit: 55f67f4120592494e32e77e19142d4242db0f496",
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8nSyCRC1aQ7uu5UhlAAAAr0QADL6Qt4GGJVnJRTHKk/M+KzB\nja3zGULPOr8SnE94XTzrFALimVBxx5gbePHVJwB07jbmkbEAxxI8smjGJh+OsNwA\n1Xt7glw0Ry9THhXiMZ5buO5OYcAFve/2gz+G4uSm3SbB5EI3l8AapKY8kBjbFU1u\noJ/KP8sNl4bhY3dmIEa/SS4jYoSZaWDmKItfcHHDWC9R2bE9575jepvqfCTurZ8z\n7vOWnq66pVXZ91nWhjQ3qxPqiq40+WIA8XSd9l1V7HtCU4FeI8q5acGLstMU1Nnc\n1+oOdo+McllvJA0UfWr3g1mTnbCcmH1HDaOhaCatpnNK6JsqPQfVf9k7TXUZOqBE\n8/XDveMiC15TcDBtXlwlbZOF5IOVTXCrRwh4Tj7Us/UyAMVXBqVX4R8tddibCw+C\n3hBIixjqFJZbgSgIKC+BI7q/agUyE38WJX3kUUGjghGSJ0yzxrTm+XE8Vs+4Ue1i\nfthjGbdUZtXJ3Pqme2ynAgyByieq7edAiniraIl919Z/0tdkYBRuqUzdjOxMiEYB\nlCUvFYCl2EH0IEu6i6ypTZGuPy6PMV/iFER6GlHyGhT+EfEgX5fhKcN0c8Ppufqr\nQ3Q4Rzq3Uh4BVVwB06pTlR9J3sNhpYZmToGhiZKv4vIPqkDfs+wWJIhl1oOGLN+8\nYFNub4aefF8Qgh2nIOg6\n=ANE+\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree aa40fe3c831d6681818c3522b351960c9fd9c196\nparent 9c4a2c30bb8858db41f35eab37f766ff75fcc168\nauthor agents-workflows-bot[bot] <251285186+agents-workflows-bot[bot]@users.noreply.github.com> 1794274481 +0000\ncommitter GitHub <noreply@github.com> 1794274481 +0000\n\nchore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: f5044fd74472\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9\nPlan scope: source-delta\nScope base SHA: e8f9b47a39fbdedd8093446070fcc1fa30930c09\nSource commit: 55f67f4120592494e32e77e19142d4242db0f496\n\n",
+            "verified_at": "2026-11-10T01:34:42Z"
+          },
+          "tree": {
+            "sha": "aa40fe3c831d6681818c3522b351960c9fd9c196",
+            "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/git/trees/aa40fe3c831d6681818c3522b351960c9fd9c196"
+          }
+        }
+      },
+      "tip": {
+        "sha": "764662d047db90c2f6ca3b55c208f51dc791bfa6",
+        "commit": {
+          "message": "chore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: f5044fd74472",
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq8n5GCRC1aQ7uu5UhlAAAaNsQAKgMfXiG89PLuhWs1SbG3nKP\np/qZ0jVtKDIa/qGyq10JzmV/nzVzAm4d0JNa22Q4g2tXPa2J51tpM+yKGtPGMvxf\ndDoBiHd8o136uZgMRVTHe1tj5ltpr8k0qGyapL/GL7DMK7TkZQIiZzGNL11YIXuK\n+zLzqzI7wCnHUEvM/gCGMAYCsn9BV1AtawztuY7HN0qUvt2VKPs+Knz4SU1o2uVb\nQicmsSJjQzKufpl8o5f9zQUIL4e65MibCB1Sz57NrGzrnCPUxyNMTQ1eD04lfLuf\n3C9otjC9FSZcsX4Jt/Z2Z3aOomYEAg/47Eka1V8dC9XYDxqLmQ+7MQJsO5ZFw/km\nQr0kXsgml9SxiOjyF2HV080p/+WoHe40q9z7OCgih1CsafTlcTvnVD+aOyHLumal\nyzF9Vkb2gB1HoS2GOyVhKSwtGFK2sL85CbldKjbO4UP9En754m+HR6ClZEQ4Z6tF\nz5CoeMo4ya9oYS7wvisp9VX83+Vz+WPoyNqrPkCmFKmCy+UV770XECellsA6a7/R\nOfyY0uwlVC8nxVxTTAWh63FvS8utRzAakP+FCM5Vx4y4bzN8zBK7CBfHtVPIcCC1\noJbmcWkHGiEvL8U9HypXvg8XRyV3P5VhaADAcIGTpQ8TOxLyKmDL1fCfqZbfQsX6\n24WUxa8QyQY/JzE/anHJ\n=SEQL\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree aa40fe3c831d6681818c3522b351960c9fd9c196\nparent 9c4a2c30bb8858db41f35eab37f766ff75fcc168\nauthor stranske <stranske@gmail.com> 1794276934 -0600\ncommitter GitHub <noreply@github.com> 1794276934 -0600\n\nchore: sync workflow templates\n\nAutomated merge of sync PR\n\nSync hash: campaign\nDelivery generation: f5044fd74472",
+            "verified_at": "2026-11-10T02:15:34Z"
+          },
+          "tree": {
+            "sha": "aa40fe3c831d6681818c3522b351960c9fd9c196",
+            "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/git/trees/aa40fe3c831d6681818c3522b351960c9fd9c196"
+          }
+        }
+      },
+      "trees": [
+        {
+          "sha": "aa40fe3c831d6681818c3522b351960c9fd9c196",
+          "truncated": false,
+          "tree": [
+            {
+              "path": ".github/workflows/agents-81-gate-followups.yml",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "e9aa9cb336407def1ac067ed66d0149d5c213267"
+            },
+            {
+              "path": "scripts/ci_history.py",
+              "mode": "100755",
+              "type": "blob",
+              "sha": "d5d54060a1fc77e204b9d2bec76ce531e9461dcf"
+            },
+            {
+              "path": "scripts/runner_lib/__init__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "92ed67109ea78f3c90647c290ed63b933c13085c"
+            },
+            {
+              "path": "scripts/runner_lib/__main__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "c0723755fab3ebdb32c95c14373c03dc450e09aa"
+            },
+            {
+              "path": "scripts/runner_lib/acceptance_gate.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "653e204899461b2c9f747dba948886b82fa094c5"
+            },
+            {
+              "path": "scripts/runner_lib/core.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "b2db89e988c44ddbd0a6e817c6c0d8dae9afe53c"
+            }
+          ]
+        },
+        {
+          "sha": "aa40fe3c831d6681818c3522b351960c9fd9c196",
+          "truncated": false,
+          "tree": [
+            {
+              "path": ".github/workflows/agents-81-gate-followups.yml",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "e9aa9cb336407def1ac067ed66d0149d5c213267"
+            },
+            {
+              "path": "scripts/ci_history.py",
+              "mode": "100755",
+              "type": "blob",
+              "sha": "d5d54060a1fc77e204b9d2bec76ce531e9461dcf"
+            },
+            {
+              "path": "scripts/runner_lib/__init__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "92ed67109ea78f3c90647c290ed63b933c13085c"
+            },
+            {
+              "path": "scripts/runner_lib/__main__.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "c0723755fab3ebdb32c95c14373c03dc450e09aa"
+            },
+            {
+              "path": "scripts/runner_lib/acceptance_gate.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "653e204899461b2c9f747dba948886b82fa094c5"
+            },
+            {
+              "path": "scripts/runner_lib/core.py",
+              "mode": "100644",
+              "type": "blob",
+              "sha": "b2db89e988c44ddbd0a6e817c6c0d8dae9afe53c"
+            }
+          ]
+        }
+      ],
+      "comparison": {
+        "merge_base_commit": {
+          "sha": "764662d047db90c2f6ca3b55c208f51dc791bfa6"
+        }
+      },
+      "ref": {
+        "object": {
+          "sha": "b07f7fade05e467c004d08948ccab624aa507923"
+        }
+      }
+    }
+  ],
+  "producer": {
+    "id": 42736614253,
+    "run_attempt": 1,
+    "head_sha": "63b723d27039df3912a0cd7c8feb2ad223a2fc22",
+    "updated_at": "2026-11-10T01:35:56Z",
+    "status": "completed",
+    "conclusion": "success",
+    "path": ".github/workflows/maint-68-sync-consumer-repos.yml",
+    "head_branch": "main",
+    "event": "workflow_dispatch",
+    "display_title": "Maint 68 canary source-delta  source=55f67f4120592494e32e77e19142d4242db0f496 candidates=stranske/Travel-Plan-Permission,stranske/trip-planner,stranske/Portable-Alpha-Extension-Model dry=false  guard=delivery-v1",
+    "run_started_at": "2026-11-10T01:33:26Z",
+    "created_at": "2026-11-10T01:33:26Z",
+    "repository": {
+      "full_name": "stranske/Workflows",
+      "id": 1117447156
+    },
+    "head_repository": {
+      "id": 1117447156
+    },
+    "refresh_receipt": {
+      "state": "completed"
+    },
+    "refresh_plan": {
+      "plan_id": "sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9",
+      "plan_scope": "source-delta",
+      "source_commit": "55f67f4120592494e32e77e19142d4242db0f496",
+      "scope_base_sha": "e8f9b47a39fbdedd8093446070fcc1fa30930c09",
+      "plan": {
+        "entries": [
+          {
+            "content_sha256": "sha256:8224e39b36e31692e179124b5e39988b5f9da15c0ec14a64a3a1967dcd6da91f",
+            "delivery": "copy",
+            "description": "Gate followups hub - keepalive and autofix with attempt-bound completion acknowledgments; forwards evaluated PR base to Codex; budgets count Gate failures with failed jobs",
+            "effect_fingerprint": "sha256:f2787f86e4d7ac6acc96a1da166b930c4bfc6bee4104001638b94b72f4b091d9",
+            "include_repos": [],
+            "is_directory": false,
+            "overwrite_repos": [],
+            "requires": [],
+            "resolved_source": "templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml",
+            "section": "workflows",
+            "skip_reasons": {},
+            "skip_repos": [],
+            "source": ".github/workflows/agents-81-gate-followups.yml",
+            "source_tree": "template",
+            "sync_mode": null,
+            "target": ".github/workflows/agents-81-gate-followups.yml",
+            "template_sync": null
+          },
+          {
+            "content_sha256": "sha256:f160f7c399cf7ed469e9c948a43f54af582c2229307b4803c084d79cc96ba35b",
+            "delivery": "copy",
+            "description": "Shared runner prompt assembly, output parsing, dispatch debounce, and immutable completion receipts",
+            "effect_fingerprint": "sha256:f2d6069054a979680339b3c16ff7c54a2a9688cddc3d2dd2aa184b2a4cdb78d4",
+            "include_repos": [],
+            "is_directory": true,
+            "overwrite_repos": [],
+            "requires": [],
+            "resolved_source": "scripts/runner_lib",
+            "section": "scripts",
+            "skip_reasons": {},
+            "skip_repos": [],
+            "source": "scripts/runner_lib",
+            "source_tree": "root",
+            "sync_mode": null,
+            "target": "scripts/runner_lib",
+            "template_sync": null
+          },
+          {
+            "content_sha256": "sha256:126973e1ec1409220141b748df2ab37378dcd7fc3e3a357f2a926659b3d08d7d",
+            "delivery": "copy",
+            "description": "Manages CI history data - required by reusable CI workflow",
+            "effect_fingerprint": "sha256:2e555bd887466b75f20661c850184b181ffd74e2e5b6ff11d49809a5401c13a6",
+            "include_repos": [],
+            "is_directory": false,
+            "overwrite_repos": [],
+            "requires": [],
+            "resolved_source": "scripts/ci_history.py",
+            "section": "scripts",
+            "skip_reasons": {},
+            "skip_repos": [],
+            "source": "scripts/ci_history.py",
+            "source_tree": "root",
+            "sync_mode": null,
+            "target": "scripts/ci_history.py",
+            "template_sync": null
+          }
+        ],
+        "manifest_sha256": "sha256:e88c832e7362638f451a9ce9d3557a6c0353724ed325e5aabdacb93be1aa2e0e",
+        "plan_id": "sha256:f5044fd74472daf50b398e7f9a148c2934381e50c6fd64a5c1e3bc9890801fe9",
+        "removals": [],
+        "schema": "workflows.consumer-sync-plan/v1",
+        "version": 1
+      }
+    }
+  },
+  "payload": {
+    "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "files": {
+      "stranske/Travel-Plan-Permission": {
+        ".github/workflows/agents-81-gate-followups.yml": {},
+        "scripts/ci_history.py": {},
+        "scripts/runner_lib/__init__.py": {},
+        "scripts/runner_lib/__main__.py": {},
+        "scripts/runner_lib/acceptance_gate.py": {},
+        "scripts/runner_lib/core.py": {}
+      },
+      "stranske/trip-planner": {
+        ".github/workflows/agents-81-gate-followups.yml": {},
+        "scripts/ci_history.py": {},
+        "scripts/runner_lib/__init__.py": {},
+        "scripts/runner_lib/__main__.py": {},
+        "scripts/runner_lib/acceptance_gate.py": {},
+        "scripts/runner_lib/core.py": {}
+      },
+      "stranske/Portable-Alpha-Extension-Model": {
+        ".github/workflows/agents-81-gate-followups.yml": {},
+        "scripts/ci_history.py": {},
+        "scripts/runner_lib/__init__.py": {},
+        "scripts/runner_lib/__main__.py": {},
+        "scripts/runner_lib/acceptance_gate.py": {},
+        "scripts/runner_lib/core.py": {}
+      }
+    }
+  }
+}

@@ -1729,7 +1729,12 @@ function deliveryRefreshDecision({ report = {}, expectedCanaries = [] } = {}) {
     && String(result.status || '') === 'stable_base_refresh_required'
     && String(result.next_command || '') === 'rerun-maint-68-phase-promote-with-same-evidence'
   ));
-  if (requests.length === 0) errors.push('delivery report has no stable base refresh request');
+  // An empty request list is not missing canary evidence. Validating null
+  // evidence here made completed campaign merges look like canary holds.
+  if (requests.length === 0) {
+    errors.push('delivery report has no stable base refresh request');
+    return { eligible: false, errors, plan_id: '', evidence: null, repositories: [] };
+  }
   const firstEvidence = requests[0]?.promotion_evidence || null;
   const validation = validateCanaryEvidence(
     Array.isArray(firstEvidence) ? firstEvidence : firstEvidence?.results,
@@ -1770,10 +1775,12 @@ function devToolBaseRefreshDecision({ report = {} } = {}) {
     errors.push('merge report is not an active merge attempt');
   }
   const requests = (Array.isArray(report?.results) ? report.results : []).filter(
-    (result) => String(result.status || '') === 'dev_tool_base_refresh_required',
+    (result) => String(result.status || '') === 'dev_tool_base_refresh_required'
+      && `${result.owner || ''}/${result.repo || ''}`.toLowerCase() !== 'stranske/collab-admin',
   );
   if (requests.length === 0) errors.push('report has no dev-tool base refresh request');
   const repositories = new Set();
+  const sources = new Map();
   for (const request of requests) {
     const repository = `${request.owner || ''}/${request.repo || ''}`;
     if (
@@ -1782,16 +1789,21 @@ function devToolBaseRefreshDecision({ report = {} } = {}) {
       || request.blocker_owner !== 'maint-52'
       || request.next_command !== 'dispatch-maint-52-scoped'
       || !/^stranske\/[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(repository)
+      || !/^[0-9a-f]{40}$/.test(String(request.source_commit || ''))
     ) {
       errors.push(`${repository}: invalid dev-tool producer handoff`);
       continue;
     }
     repositories.add(repository);
+    if (!sources.has(request.source_commit)) sources.set(request.source_commit, new Set());
+    sources.get(request.source_commit).add(repository);
   }
   return {
     eligible: requests.length > 0 && errors.length === 0,
     errors,
     repositories: [...repositories].sort(),
+    source_requests: [...sources].sort(([left], [right]) => left.localeCompare(right))
+      .map(([source_commit, repos]) => ({ source_commit, repositories: [...repos].sort() })),
   };
 }
 
@@ -2073,11 +2085,92 @@ function buildMarkdownSummary(report) {
     const restage = result.gate_request?.forced_restage;
     if (restage) lines.push('', `seal: ${result.owner ? `${result.owner}/` : ''}${result.repo}#${result.pr_number || result.pr} rerun refused; forced restage ${restage.state} run=${restage.run_id || 'unknown'}${restage.reason ? ` (${restage.reason})` : ''}`);
   }
+  
+  // Historical observations are separate from actions performed by this run.
+  for (const row of report.dev_tool_candidates || []) {
+    const dispositions = row.candidates.map(candidate => `#${candidate.pr} ${candidate.status}`).join(', ');
+    const noneOpen = row.status === 'complete' && !row.candidates.some(candidate => candidate.status === 'open');
+    lines.push('', `${row.repository} dev-tool: ${noneOpen ? 'none open; ' : ''}` +
+      `${dispositions || (row.status === 'complete' ? 'no candidates' : 'inventory unavailable')}` +
+      `${row.status === 'complete' ? '' : `; accounting ${row.status}`}`);
+  }
+
+  // Retain dispositions for candidates acted on during this run.
+  const devToolByRepo = new Map();
+  for (const result of report.results || []) {
+    if ((result.delivery_lane || generatedDeliveryLane(result.branch)) === 'dev-tool-sync' && result.pr) {
+      const repoKey = `${result.owner}/${result.repo}`;
+      if (!devToolByRepo.has(repoKey)) {
+        devToolByRepo.set(repoKey, []);
+      }
+      devToolByRepo.get(repoKey).push({
+        pr: result.pr,
+        status: result.status,
+        dry_run: result.dry_run,
+      });
+    }
+  }
+  for (const [repo, candidates] of devToolByRepo) {
+    if (candidates.length > 0) {
+      const dispositions = candidates.map(c => {
+        const statusLabel = c.status === 'merged' ? 'merged' :
+                          c.status === 'stale_closed' ? (c.dry_run ? 'would close unmerged' : 'closed unmerged') :
+                          c.status;
+        return `#${c.pr} ${statusLabel}`;
+      }).join(', ');
+      lines.push('', `${repo} dev-tool: ${dispositions}`);
+    }
+  }
+  
   lines.push('', 'Artifact: `sync-pr-merge-report`');
   return `${lines.join('\n')}\n`;
 }
 
+// Campaign no-change evidence pins each repository's default-branch head, and a busy consumer's main moves
+// faster than evidence reaches the merge (2026-11-11: Orchestrator main moved 41x/24h, median gap 8 min; two
+// campaign passes failed target_missing on the same stale pin while four sync PRs sat CLEAN). Maint 68's
+// no-change verdict reads the consumer only at the plan's managed paths (entry targets, removals, the full-plan
+// .gitignore block), so the verdict carries from the evidence head to a newer head when the newer head strictly
+// descends from it and no commit in between touches a managed path. Anything unknown refuses (old behaviour).
+const NO_CHANGE_CARRY_MAX_FILES = 300; // GitHub's compare API lists at most 300 files
+
+function noChangeCarriesToHead({ comparison, managed, fromSha = '', toSha = '' } = {}) {
+  const from = String(fromSha || '').toLowerCase();
+  const to = String(toSha || '').toLowerCase();
+  if (!managed || !Array.isArray(managed.paths) || !Array.isArray(managed.directories)) {
+    return { ok: false, reason: 'plan_paths_unavailable' };
+  }
+  if (!/^[0-9a-f]{40}$/.test(from) || !/^[0-9a-f]{40}$/.test(to)) {
+    return { ok: false, reason: 'head_invalid' };
+  }
+  if (!comparison || comparison.status !== 'ahead') {
+    return { ok: false, reason: `history_${comparison?.status || 'unknown'}` };
+  }
+  if (String(comparison.merge_base_commit?.sha || '').toLowerCase() !== from) {
+    return { ok: false, reason: 'merge_base_mismatch' };
+  }
+  const files = comparison.files;
+  if (!Array.isArray(files) || files.length >= NO_CHANGE_CARRY_MAX_FILES) {
+    return { ok: false, reason: 'diff_unbounded' };
+  }
+  const directories = managed.directories
+    .map((dir) => String(dir || '').replace(/\/+$/, ''))
+    .filter(Boolean);
+  const exact = new Set([...managed.paths.map(String), ...directories]);
+  const prefixes = directories.map((dir) => `${dir}/`);
+  for (const file of files) {
+    for (const name of [file?.filename, file?.previous_filename].filter(Boolean).map(String)) {
+      if (exact.has(name) || prefixes.some((prefix) => name.startsWith(prefix))) {
+        return { ok: false, reason: `managed_path_changed:${name}` };
+      }
+    }
+  }
+  return { ok: true, reason: 'no_managed_path_changed', files_checked: files.length };
+}
+
 module.exports = {
+  NO_CHANGE_CARRY_MAX_FILES,
+  noChangeCarriesToHead,
   FINDING_DISPOSITION_SCHEMA,
   SYNC_FINDING_DISPOSITION_ACTORS,
   syncFindingFingerprint,

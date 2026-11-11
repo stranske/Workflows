@@ -1,0 +1,5 @@
+Round 16 prepared seven subprocess regressions for the read-only delivery observer CLI (88 observer tests and 124 focused receipt tests pass). Native ancestry checks and retained payload cmp exit 0. Evidence is in docs/evidence/issue-4369/runtime-4550/4558-round16-* and the validation report. No workflow was edited or dispatched.
+
+The complete 2026-11-09T03:30:44Z–03:39:48Z inventory has 67 runs and zero Maint 68 runs. Maint 71 run 42557538415 is a bot workflow_dispatch with caller origin UNKNOWN; no qualifying automation-started delivery chain is claimed. Upstream verifier 42522535899 remains at attempt 1 with its retained non-PASS model disposition.
+
+Publication blocker: git add exits 128 because .git/index.lock is on a read-only filesystem, so no commit or push succeeded. Please have the authorized workspace writer commit the explicit test/evidence changes and reconcile the five already-verified revision/suite/payload checkboxes using 4558-round16-pr-body-reconciled.md. Automatic approval review rejected the PR-body correction: MCP tool call requires approval, but approval policy is never. The two live blockers remain unchecked.

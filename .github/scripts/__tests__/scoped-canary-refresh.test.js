@@ -140,7 +140,7 @@ test('actual workflow guard passes the actual compiled plan identity before admi
   const fn = new (Object.getPrototypeOf(async function () {}).constructor)('require', 'process', 'core', 'github', 'context', guardScript());
   const load = name => name === 'fs' ? { readFileSync: () => JSON.stringify(compiled) }
     : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async args => { factoryCalls.push(args); return { withRetry: wrapped }; } }
-    : name.includes('maint71_merge_sync_prs') ? { reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics, readCanaryRefreshState: async args => { seen.push(args); return { eligible: true }; } }
+    : name.includes('maint71_merge_sync_prs') ? { ...require('../maint71_merge_sync_prs'), readCanaryRefreshState: async args => { seen.push(args); return { eligible: true }; } }
       : { canaries: candidates.map(repo => ({ repo })) };
   const env = { PLAN_ID: id, PLAN_SCOPE: 'source-delta', SCOPE_BASE_SHA: base, SOURCE_COMMIT: source };
   const core = { notice() {}, setOutput: (key, value) => { outputs[key] = value; }, summary: { addRaw() { return this; }, async write() {} } };
@@ -809,7 +809,7 @@ test('a guarded success that skipped mutation does not consume the recovery key'
   f.github.paginate = async (_fn, params) => [{
     name: 'Prepare sync from manifest',
     steps: [{ name: 'Authorize canary payload mutation',
-      conclusion: params.run_id === 21 ? 'success' : 'skipped' }],
+      conclusion: params.run_id === 30 ? 'skipped' : 'success' }],
   }];
   // The live campaign payload is unchanged, so a no-mutation success shares
   // the source key. It must not count as the receipt for its own drift.
@@ -833,6 +833,8 @@ test('a guarded success that skipped mutation does not consume the recovery key'
   const held = await f.call();
   assert.equal(held.dispatched, false);
   assert.equal(held.state, 'cancelled');
+  // Run 31 authorized. A never-authorized cancellation is not a hold. Run 30's
+  // skipped authorization must not retire this newer cancellation.
   assert.equal(f.writes.length, 1, 'a skipped authorization cannot retire a newer cancellation');
 });
 for (const historicalSource of ['campaign', 'newer main']) {

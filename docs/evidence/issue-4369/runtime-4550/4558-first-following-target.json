@@ -1,0 +1,85 @@
+{
+  "run_id": 42499282783,
+  "results": [
+    {
+      "owner": "stranske",
+      "repo": "Portable-Alpha-Extension-Model",
+      "pr": 2486,
+      "branch": "sync/workflows-candidate",
+      "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+      "delivery_generation": "a478e45c16b6",
+      "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+      "plan_scope": "full",
+      "scope_base_sha": "",
+      "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+      "canary_baseline_evidence_json": "{\"schema\":\"workflows.consumer-sync-canary-evidence/v1\",\"version\":1,\"results\":[]}",
+      "campaign_no_change_evidence_json": "",
+      "delivery_lane": "sync",
+      "continuation_lane": "",
+      "delivery_disposition": "awaiting-sealed-gate",
+      "blocker_owner": "ci",
+      "next_command": "rerun-after-generated-delivery-seal-gate",
+      "review_finding_disposition": {
+        "schema": "sync-finding-evaluation/v1",
+        "binding": {
+          "repository": "stranske/Portable-Alpha-Extension-Model",
+          "pr": 2486,
+          "head_sha": "a7f1b40ebd8fa08703e824dc7e5002a9c735d0c9",
+          "source_commit": "bbfc6ae604c8e8c4021138c5efe964a368482957",
+          "plan_id": "sha256:a478e45c16b6b6fd4cf6cc96762f220bce2b364bb100989024ac43c17ca307e4",
+          "delivery_generation": "a478e45c16b6"
+        },
+        "raw_active_count": 0,
+        "blocked": false,
+        "errors": [],
+        "findings": [],
+        "aggregates": {
+          "blocking": 0,
+          "nonblocking": 0,
+          "unknown": 0,
+          "by_disposition": {
+            "shared-source": 0,
+            "sync-caused": 0,
+            "unrelated": 0,
+            "unknown": 0
+          }
+        },
+        "disposition_thread_ids": {
+          "shared-source": [],
+          "sync-caused": [],
+          "unrelated": [],
+          "unknown": []
+        },
+        "blocking_thread_ids": [],
+        "nonblocking_thread_ids": [],
+        "unknown_thread_ids": [],
+        "unrelated_handoffs": []
+      },
+      "review_state": "clear",
+      "review_resolution_thread_ids": [],
+      "review_resolution_would_resolve_thread_ids": [],
+      "review_resolution_errors": [],
+      "consumer_declared_contexts": {
+        "state": "none",
+        "passed": [],
+        "failed": [],
+        "pending": [],
+        "never_started": [],
+        "also_required": []
+      },
+      "conversation_resolution": {
+        "ok": true,
+        "unresolved_count": 0,
+        "unresolved_outdated_count": 0,
+        "unresolved_thread_ids": []
+      },
+      "seal_pending": true,
+      "check_status": "seal_pending",
+      "raw_check_status": "checks_failed",
+      "status": "dry_run_seal",
+      "review_mode": "integration-only"
+    }
+  ],
+  "source_log": "4558-maint71-42499282783.log",
+  "source_log_sha256": "33ccf4bf623f725ca076cd358ac4c3e4b3780b36354e36e475a93bfcd4f8318d"
+}

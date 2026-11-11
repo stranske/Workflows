@@ -1692,6 +1692,18 @@ jobs:
           fi
           git merge-base --is-ancestor 021ec67ef580c83a88402a1574e27ea34db14dde origin/main
 
+      # Bound this historical proof to its fixed source, rather than deepening
+      # every consumer or fetching an ever-growing main history.
+      - name: Fetch required consumer regeneration ancestry
+        if: ${{ hashFiles('tests/scripts/test_consumer_regeneration_linkage.py') != '' }}
+        timeout-minutes: 2
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --shallow-since=2026-10-14T00:00:00Z origin 306fc9e79d891030395211fdae8ae1387f2b37c3
+          git merge-base --is-ancestor 8ec052a1fdc32319165011a7e465d6710c7ef4b5 306fc9e79d891030395211fdae8ae1387f2b37c3
+          echo 'WORKFLOWS_REQUIRE_3900_ANCESTRY=1' >> "$GITHUB_ENV"
+
       # Install block inlined directly (reusable workflows can't use ./ local composites in consumer context)
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -2114,6 +2126,15 @@ jobs:
               context["coverage_version"] = coverage.__version__
           print("PYTHON_EXECUTION_CONTEXT=" + json.dumps(context, sort_keys=True))
           PYCTX
+
+      - name: Validate required consumer regeneration ancestry
+        if: ${{ env.WORKFLOWS_REQUIRE_3900_ANCESTRY == '1' }}
+        timeout-minutes: 2
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
+        run: >-
+          python -m pytest tests/scripts/test_consumer_regeneration_linkage.py::test_source_commit_contains_merged_3900
+          -q -s -p no:cacheprovider --override-ini=addopts=
 
       - name: Restore CI artifact cache
         id: ci-artifact-cache

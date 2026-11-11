@@ -1,0 +1,38 @@
+{
+  "run_id": 42522535899,
+  "artifact_id": 13634339782,
+  "archive_sha256": "c17d78fef574dba2954ed00424c6231d917ff7fd73c487be9acad082639427cb",
+  "results": [
+    {
+      "provider_used": "openai",
+      "model": "gpt-6.1-sol",
+      "verdict": "UNVERIFIABLE_INPUT",
+      "used_llm": true,
+      "error": "Failed to parse JSON response: ValidationError"
+    },
+    {
+      "provider_used": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "verdict": "CONCERNS",
+      "used_llm": true,
+      "error": null
+    }
+  ],
+  "verification_event": {
+    "schema": "verification-event/v1",
+    "repo": "stranske/workflows",
+    "pr": "4551",
+    "head_sha": "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+    "evaluated_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "request_sha256": "5ddac4473ed4b01c17d2e730d6dd5b8bb9eb40842c8e5f8000a74a4095fd24a9",
+    "material_sha256": "fd176807e0378c38cd65fcf5d905c8b0b149c0fa9991f303e3c122d41533ebc4",
+    "event_id": "01679f99791d30bb16d2312618b7f0044e03d78d1a9dd3ab8fce9d2f59908a82"
+  },
+  "assessment_identity": {
+    "mode": "compare",
+    "provider": "",
+    "model": "",
+    "model2": "",
+    "canonical": true
+  }
+}

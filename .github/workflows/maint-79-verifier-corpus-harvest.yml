@@ -33,7 +33,7 @@ concurrency:
 jobs:
   harvest:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v7
         with:
@@ -114,15 +114,14 @@ jobs:
           fi
 
           # Do not arm auto-merge until required checks have actually reported
-          # and passed on the unchanged head. A timeout leaves the PR for the
-          # next maintenance run rather than merging on an incomplete signal.
-          if ! required_checks="$(timeout 1200 gh pr checks "$PR_NUMBER" --required --watch --interval 30 2>&1)"; then
+          # and passed on the unchanged head. Gate's `summary` check-run can
+          # appear 20+ minutes after the push, so "not reported yet" is waited
+          # for (up to 40 min), not read as a failure (stranske/Workflows#4133).
+          # A timeout leaves the PR for the next maintenance run rather than
+          # merging on an incomplete signal.
+          if ! required_checks="$(bash .github/scripts/wait_for_required_checks.sh "$PR_NUMBER" 2400 1200 30)"; then
             printf '%s\n' "$required_checks"
             echo "::notice::Required checks are incomplete or failing; auto-merge remains disabled."
-            exit 0
-          fi
-          if [ -z "$required_checks" ]; then
-            echo "::warning::No required checks reported; auto-merge remains disabled."
             exit 0
           fi
 

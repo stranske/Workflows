@@ -1,0 +1,42 @@
+{
+  "timeout_seconds_per_command": 120,
+  "checks": [
+    {
+      "argv": [
+        "node",
+        "tests/scripts/test_issue_4369_origin_observation.js"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.24002587500217487,
+      "stdout": "\u2714 collector retains complete unfiltered pages for repository and workflow inventories (34.288875ms)\n\u2714 collector validates the query before making any request (0.303125ms)\n\u2714 collector preserves explicit UTC offset bounds in the transport query and receipt (0.521417ms)\n\u2714 collector rejects changing totals, truncated pages and mismatched workflow rows (0.423584ms)\n\u2714 collector refuses capped and malformed totals after one request (0.275417ms)\n\u2714 collector propagates request failures without returning a partial observation (0.349292ms)\n\u2714 native collector uses bounded GET argv with closed stdin and no shell (0.953833ms)\n\u2714 native collector refuses malformed JSON and propagates transport failure (0.2645ms)\n\u2714 refuse non-UTC, normalized or imprecise start: \"2026-11-08\" (0.206584ms)\n\u2714 refuse non-UTC, normalized or imprecise end: \"2026-11-08\" (0.152166ms)\n\u2714 refuse non-UTC, normalized or imprecise created_at: \"2026-11-08\" (0.098ms)\n\u2714 refuse non-UTC, normalized or imprecise start: \"2026-11-08T21:35:00\" (0.074958ms)\n\u2714 refuse non-UTC, normalized or imprecise end: \"2026-11-08T21:35:00\" (0.070584ms)\n\u2714 refuse non-UTC, normalized or imprecise created_at: \"2026-11-08T21:35:00\" (0.078125ms)\n\u2714 refuse non-UTC, normalized or imprecise start: \"2026-11-08T22:35:00+01:00\" (0.06525ms)\n\u2714 refuse non-UTC, normalized or imprecise end: \"2026-11-08T22:35:00+01:00\" (0.074333ms)\n\u2714 refuse non-UTC, normalized or imprecise created_at: \"2026-11-08T22:35:00+01:00\" (0.063958ms)\n\u2714 refuse non-UTC, normalized or imprecise start: \"2026-11-08T21:35:00.000001Z\" (0.076708ms)\n\u2714 refuse non-UTC, normalized or imprecise end: \"2026-11-08T21:35:00.000001Z\" (0.0695ms)\n\u2714 refuse non-UTC, normalized or imprecise created_at: \"2026-11-08T21:35:00.000001Z\" (0.063375ms)\n\u2714 refuse non-UTC, normalized or imprecise start: \"2026-11-08T24:00:00Z\" (0.075375ms)\n\u2714 refuse non-UTC, normalized or imprecise end: \"2026-11-08T24:00:00Z\" (0.061667ms)\n\u2714 refuse non-UTC, normalized or imprecise created_at: \"2026-11-08T24:00:00Z\" (0.067916ms)\n\u2714 refuse non-UTC, normalized or imprecise start: \"2026-02-30T21:35:00Z\" (0.064208ms)\n\u2714 refuse non-UTC, normalized or imprecise end: \"2026-02-30T21:35:00Z\" (0.061833ms)\n\u2714 refuse non-UTC, normalized or imprecise created_at: \"2026-02-30T21:35:00Z\" (0.0575ms)\n\u2714 refuse non-UTC, normalized or imprecise start: 2026 (0.063666ms)\n\u2714 refuse non-UTC, normalized or imprecise end: 2026 (0.06125ms)\n\u2714 refuse non-UTC, normalized or imprecise created_at: 2026 (0.07625ms)\n\u2714 refuse non-UTC, normalized or imprecise start: null (0.055417ms)\n\u2714 refuse non-UTC, normalized or imprecise end: null (0.064042ms)\n\u2714 refuse non-UTC, normalized or imprecise created_at: null (0.071125ms)\n\u2714 UTC timestamps accept explicit zero offsets, milliseconds and leap days (0.168583ms)\n\u2714 continuous observation compares equivalent UTC boundary representations (0.346792ms)\n\u2714 continuous observations deduplicate an unchanged run at the inclusive boundary (0.097708ms)\n\u2714 continuous empty observations preserve merger identity and do not establish a chain (0.135334ms)\n\u2714 continuous observations retain distinct chronological leads without inferring causality (0.24725ms)\n\u2714 continuous observation refuses gap (0.219875ms)\n\u2714 continuous observation refuses overlap (0.154084ms)\n\u2714 continuous observation refuses reversed windows (0.09875ms)\n\u2714 continuous observation refuses changed workflow (0.093167ms)\n\u2714 continuous observation refuses changed inventory scope (0.098958ms)\n\u2714 continuous observation refuses incomplete continuation (0.070583ms)\n\u2714 continuous observation refuses missing boundary run in continuation (0.105584ms)\n\u2714 continuous observation refuses missing boundary run in preceding window (0.087542ms)\n\u2714 continuous observation refuses conflicting boundary event (0.08525ms)\n\u2714 continuous observation refuses conflicting boundary workflow (0.086167ms)\n\u2714 continuous observation refuses conflicting boundary identity (0.082792ms)\n\u2714 continuous observation requires at least one complete inventory (0.076458ms)\n\u2714 merger observations validate empty, exact-boundary and multi-page inventories (0.802084ms)\n\u2714 refuse unsupported workflow path (0.08425ms)\n\u2714 refuse non-string workflow path (0.05525ms)\n\u2714 refuse producer path on merger rows (0.077542ms)\n\u2714 refuse producer workflow identity on merger rows (0.084458ms)\n\u2714 refuse producer inventory endpoint (0.066042ms)\n\u2714 refuse filtered merger inventory (0.0765ms)\n\u2714 refuse incomplete merger pagination (0.173209ms)\n\u2714 refuse duplicate merger run (0.068167ms)\n\u2714 refuse merger run outside bounds (0.0675ms)\n\u2714 repository inventories select exact merger paths without treating chronology as causality (0.109625ms)\n\u2714 retained round-9 inventory observes a merger dispatch without a producer or causal proof (1.866625ms)\n\u2714 workflow-specific inventory supports empty and paginated producer observations (0.30425ms)\n\u2714 refuse missing workflow identity (0.095083ms)\n\u2714 refuse invalid workflow identity (0.069292ms)\n\u2714 refuse changed page endpoint (0.193209ms)\n\u2714 refuse wrong row workflow identity (0.066ms)\n\u2714 refuse missing row workflow identity (0.073667ms)\n\u2714 refuse wrong workflow path (0.062875ms)\n\u2714 refuse event-filtered producer inventory (0.064791ms)\n\u2714 refuse incomplete producer pagination (0.176042ms)\n\u2714 empty inventory and exact page boundary require terminal empty pages (0.385083ms)\n\u2714 bot actor and auto title do not authenticate a dispatch or a complete chain (0.041417ms)\n\u2714 scheduled producer is an automation lead, not a delivery-chain acceptance (0.041625ms)\n\u2714 refuse filtered endpoint (0.065125ms)\n\u2714 refuse wrong repository (0.053208ms)\n\u2714 refuse missing page (0.041208ms)\n\u2714 refuse changing total (0.168916ms)\n\u2714 refuse duplicate run (0.056167ms)\n\u2714 refuse outside bounds (0.054917ms)\n\u2714 refuse missing run (0.052917ms)\n\u2714 refuse search cap (0.046125ms)\n\u2139 tests 81\n\u2139 suites 0\n\u2139 pass 81\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 54.453834\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "/opt/anaconda3/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+        "tests/scripts/test_issue_4369_downstream_evidence.py",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.9749945000003208,
+      "stdout": "........................................................................ [ 58%]\n....................................................                     [100%]\n124 passed in 0.60s\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.016868750000867294,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

@@ -836,6 +836,12 @@ jobs:
       needs.prepare.outputs.dispatch_should_run == 'true' &&
       needs.prepare.outputs.agent_type == 'cursor'
     name: Run Cursor autofix
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+      models: read
     uses: stranske/Workflows/.github/workflows/reusable-cursor-run.yml@main
     with:
       prompt_file: .github/codex/prompts/autofix_from_ci_failure.md

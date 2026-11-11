@@ -1,0 +1,33 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_capacity_is_read_fresh_and_zero_defers __________________
+
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-1/test_capacity_is_read_fresh_an0')
+
+    def test_capacity_is_read_fresh_and_zero_defers(tmp_path):
+        calls = []
+        cb = callbacks(
+            act=lambda t, c: calls.append(t) or {"status": "completed", "target_complete": True}
+        )
+        receipt = run(
+            tmp_path / "state.json",
+            ["a"],
+            cb,
+            capacity={"io": 0, "low": 0, "exception": 0},
+            seconds=0.06,
+        )
+        assert not calls
+>       assert receipt["targets"]["a"]["status"] == "deferred"
+               ^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'a'
+
+/tmp/issue-4555-orchestrator/tests/test_closer_pipeline.py:1569: KeyError
+=============================== warnings summary ===============================
+../../../../../opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/_internal/_beta_decorator.py:92: 13 warnings
+  /opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/site-packages/langsmith/_internal/_beta_decorator.py:92: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    if asyncio.iscoroutinefunction(func):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../../../../tmp/issue-4555-orchestrator/tests/test_closer_pipeline.py::test_capacity_is_read_fresh_and_zero_defers - KeyError: 'a'
+1 failed, 13 warnings in 0.88s

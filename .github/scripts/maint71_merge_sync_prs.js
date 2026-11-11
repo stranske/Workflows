@@ -20,13 +20,46 @@ const CANARY_SEALED_REFRESH_WAIT_MS = 60 * 60 * 1000;
 // until this attempt number; the next one must come from a new head event.
 const CANCELLED_GATE_MAX_ATTEMPT = 3;
 const deliveryPayload = require('./consumer_delivery_digest');
+const { reconcileLegacyCanaryHistory, coveredByCurrentBaseline,
+  currentBaselineOwnerConflict } = require('./canary_history_reconciliation');
 const { SEAL_PRECONDITION_REASONS } = require('./sync_pr_lease_contract');
 const { parseBooleanInput } = require('./sync_pr_merge_contract');
 const ACTIVE_SYNC_STATES = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 
+async function recoverCancelledAgentsGuard(args) {
+  return require('./maint71_agents_guard_recovery').recoverCancelledAgentsGuard({
+    ...args, verifyPlan: verifiedCanaryRefreshPlan });
+}
+
+async function runAgentsGuardRecoveryTargets({ withRetry, context, targets, dryRunMode = false }) {
+  if (!Array.isArray(targets) || !targets.length || targets.length > 10
+    || targets.some(row => !/^stranske\/[\w.-]+$/.test(row?.repository || '')
+      || row.repository.toLowerCase() === 'stranske/collab-admin'
+      || !Number.isSafeInteger(row.pr) || row.pr < 1 || !/^[a-f0-9]{40}$/.test(row.head_sha || ''))
+    || new Set(targets.map(row => `${row.repository}#${row.pr}`)).size !== targets.length) {
+    throw new Error('guard_recovery_exact_targets_required');
+  }
+  const results = [];
+  for (const target of targets) {
+    const [owner, repo] = target.repository.split('/');
+    const { data: pr } = await withRetry(client => client.rest.pulls.get({ owner, repo, pull_number: target.pr }));
+    if (pr.head?.sha !== target.head_sha) {
+      results.push({ ...target, mode: 'refused', reason: 'guard_requested_head_changed', blocking: 1, drainable: 1 });
+      continue;
+    }
+    results.push({ ...target, ...await recoverCancelledAgentsGuard({ owner, repo, pr,
+      withRetry, context, dryRunMode }) });
+  }
+  return { schema: 'workflows.agents-guard-recovery/v1', source_run_id: context?.runId,
+    source_commit: context?.sha, results, requests: results.filter(row => row.mode === 'requested').length,
+    blocking: results.filter(row => row.blocking).length };
+}
+
 // Share the fleet's existing exhausted-primary-limit policy with Gate readers.
 function isPrimaryRateLimitExhausted(error) {
   const retryHelpers = require('./github-api-with-retry');
+  const message = String(error?.message || error?.response?.data?.message || '');
+  if (/secondary rate limit|abuse/i.test(message)) return false;
   return typeof retryHelpers.isRateLimitError === 'function'
     && typeof retryHelpers.isSecondaryRateLimitError === 'function'
     && retryHelpers.isRateLimitError(error)
@@ -35,6 +68,28 @@ function isPrimaryRateLimitExhausted(error) {
 
 function rethrowPrimaryRateLimit(error) {
   if (isPrimaryRateLimitExhausted(error)) throw error;
+}
+
+// GitHub may auto-delete a merged head before this cleanup runs. A failed
+// delete is success only when a fresh ref read says absent AND repo access
+// still works; a repository-level 404 must never masquerade as a missing ref.
+async function deleteSyncBranch({ owner, repo, branch, withRetry }) {
+  try {
+    await withRetry(client => client.rest.git.deleteRef({ owner, repo, ref: `heads/${branch}` }));
+    return { already_absent: false };
+  } catch (error) {
+    rethrowPrimaryRateLimit(error);
+    if (![404, 422].includes(Number(error.status || error.response?.status))) throw error;
+    try {
+      await withRetry(client => client.rest.git.getRef({ owner, repo, ref: `heads/${branch}` }));
+    } catch (readError) {
+      rethrowPrimaryRateLimit(readError);
+      if (Number(readError.status || readError.response?.status) !== 404) throw readError;
+      await withRetry(client => client.rest.repos.get({ owner, repo }));
+      return { already_absent: true };
+    }
+    throw error;
+  }
 }
 
 function canaryHasBlockingReviewDebt(canary) {
@@ -237,9 +292,14 @@ function syncJobStarted(job) {
 // starts is infrastructure (rate limit, runner, or transport). A Sync job that
 // actually ran is a consumer failure and keeps the six-hour debounce.
 function canaryRefreshFailureClass(run) {
-  if (!run || run.status !== 'completed' || run.conclusion !== 'failure') return null;
+  if (!run || run.status !== 'completed' || !['failure', 'cancelled'].includes(run.conclusion)) return null;
   const jobs = Array.isArray(run.refresh_jobs) ? run.refresh_jobs : Array.isArray(run.jobs) ? run.jobs : null;
   if (!jobs) return null;
+  // A cancelled run that never started a Sync job attempted nothing: the stable
+  // writer queue replaced it, or it was stopped before the matrix. Holding the
+  // next refresh for it latched the canaries for six hours (2026-11-07 01:39Z,
+  // "refresh: skipped (cancelled)" while confirmed_not_started was 2).
+  if (run.conclusion === 'cancelled') return jobs.some(syncJobStarted) ? 'consumer' : 'not_started';
   const prepareFailed = jobs.some(job => job?.name === 'Prepare sync from manifest' && job.conclusion === 'failure'
     && job.status !== 'queued' && job.status !== 'in_progress' && job.status !== 'waiting');
   const syncStarted = jobs.some(syncJobStarted);
@@ -251,8 +311,11 @@ function canaryRefreshFailureClass(run) {
 function canaryRefreshFailureRows(runs) {
   const rows = [];
   for (const run of runs) {
-    const classification = canaryRefreshFailureClass(run);
-    if (classification !== 'infrastructure' && classification !== 'consumer') continue;
+    // Job evidence may be unreadable while a receipt already proves the run never started.
+    const classification = canaryRefreshFailureClass(run)
+      || (run?.status === 'completed' && run.conclusion === 'cancelled' && run.refresh_not_started
+        ? 'not_started' : null);
+    if (!['infrastructure', 'consumer', 'not_started'].includes(classification)) continue;
     const row = { classification };
     if (Number.isSafeInteger(run.id) && run.id > 0) row.run_id = run.id;
     const attempt = Number(run.run_attempt);
@@ -267,17 +330,19 @@ function canaryRefreshDiagnostics(state) {
   const unknown = runs.filter(run => run.refresh_unknown);
   const failureClassification = canaryRefreshFailureRows(runs);
   return { schema: 'workflows.canary-refresh-diagnostics/v1',
-    state: ['unknown', 'success', 'unseen', 'writer-active', ...ACTIVE_SYNC_STATES,
+    state: ['unknown', 'success', 'unseen', 'writer-active', 'current-delivery-owned', ...ACTIVE_SYNC_STATES,
       'failure', 'cancelled', 'timed_out', 'action_required', 'completed', 'sealed-cycle'].includes(state.state)
       ? state.state : 'unknown', eligible: state.eligible === true,
     inventory: { observed: runs.length, native_receipts: runs.filter(run => run.refresh_receipt).length,
       unknown: unknown.length, potential_overwrites: runs.filter(run => run.refresh_potential_overwrite).length,
       confirmed_not_started: runs.filter(run => run.refresh_not_started).length,
       infrastructure_failures: failureClassification.filter(row => row.classification === 'infrastructure').length,
-      consumer_failures: failureClassification.filter(row => row.classification === 'consumer').length },
+      consumer_failures: failureClassification.filter(row => row.classification === 'consumer').length,
+      cancelled_before_sync: failureClassification.filter(row => row.classification === 'not_started').length },
     failure_classification: failureClassification.slice(0, 8),
     omitted_failure_classifications: Math.max(0, failureClassification.length - 8),
     blocking_receipt: unknown.find(run => run.id === state.run_id)?.refresh_receipt || null,
+    ...(state.history_reconciliation ? { history_reconciliation: state.history_reconciliation } : {}),
     refusals: unknown.slice(0, 8).map(run => run.refresh_receipt || refreshReceiptDiagnostic(run)),
     omitted_refusals: Math.max(0, unknown.length - 8) };
 }
@@ -288,7 +353,7 @@ async function reportCanaryRefreshDiagnostics({ core, state }) {
   const diagnostic = canaryRefreshDiagnostics(state);
   const scoped = state.refresh_plan?.plan_scope === 'source-delta';
   const classified = diagnostic.inventory.infrastructure_failures > 0
-    || diagnostic.inventory.consumer_failures > 0;
+    || diagnostic.inventory.consumer_failures > 0 || diagnostic.inventory.cancelled_before_sync > 0;
   if (!scoped && !classified) return;
   const encoded = JSON.stringify(diagnostic);
   core.notice(`canary-refresh-diagnostics: ${encoded}`);
@@ -336,18 +401,27 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   // A later same-payload success means the producer ran past an older failure
   // or cancellation. That stale non-success must not hold a new recovery key
   // for the rest of the debounce window. A non-success newer than every
-  // matching success still holds, including an unkeyed failure for a new head.
+  // matching success still holds, including an unkeyed failure for a new head,
+  // except a completed delivery-v1 run that never authorized payload mutation
+  // unless job evidence classifies it for the infrastructure debounce policy.
   const observedAt = (run) => Date.parse(run.updated_at || run.created_at);
   const newestSuccessAt = matching.reduce((latest, run) => {
-    if (run.refresh_not_started || run.status !== 'completed' || run.conclusion !== 'success') return latest;
+    if (run.refresh_not_started || run.refresh_unknown || run.status !== 'completed'
+      || run.conclusion !== 'success') return latest;
     const at = observedAt(run);
     return Number.isFinite(at) && at > latest ? at : latest;
   }, 0);
   const recentCandidates = matching.filter((run) => {
     const at = observedAt(run);
-    return run.status === 'completed' && run.conclusion !== 'success'
+    if (!(run.status === 'completed' && run.conclusion !== 'success'
+      && canaryRefreshFailureClass(run) !== 'not_started'
       && Number.isFinite(at) && at > newestSuccessAt
-      && now - at < CANARY_REFRESH_DEBOUNCE_MS;
+      && now - at < CANARY_REFRESH_DEBOUNCE_MS)) return false;
+    if (!run.refresh_not_started) return true;
+    // Never-authorized runs only occupy the window when job evidence classifies
+    // them for the one-miss infrastructure / consumer debounce policy.
+    const classification = canaryRefreshFailureClass(run);
+    return classification === 'infrastructure' || classification === 'consumer';
   });
   // `matching` is one (plan, source, candidates) key. A single infrastructure
   // failure in that key does not debounce the next attempt. A second consecutive
@@ -357,14 +431,21 @@ function canaryRefreshDecision({ runs, sha, candidates, defaultBranch = 'main', 
   const exemptInfrastructure = infrastructureFailures.length === 1;
   const recent = recentCandidates.find(run => !exemptInfrastructure
     || canaryRefreshFailureClass(run) !== 'infrastructure');
-  const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown);
-  const prior = active || writer || unknown || successful || recent;
+  const unknown = refreshPlan?.plan_scope === 'source-delta' && runs.find(run => run.refresh_unknown
+    && !coveredByCurrentBaseline(run, refreshPlan, deliveryDigest));
+  const ownerConflict = currentBaselineOwnerConflict(runs, refreshPlan, deliveryDigest);
+  const prior = active || writer || ownerConflict || unknown || successful || recent;
   return { sha, delivery_digest: deliveryDigest, unchanged_since: successful?.source_commit, drift_key: driftKey, runs, candidates: candidateSet(candidates), eligible: !prior,
-    producer_succeeded: Boolean(successful) && !unknown,
+    producer_succeeded: Boolean(successful) && !unknown && !ownerConflict,
     ...(refreshPlan ? { refresh_plan: refreshPlan } : {}),
-    state: active ? active.status : writer ? 'writer-active' : unknown ? 'unknown' : successful ? 'success'
+    state: active ? active.status : writer ? 'writer-active'
+      : ownerConflict?.reason === 'current_ownership_unreadable' ? 'unknown' : ownerConflict ? 'current-delivery-owned'
+      : unknown ? 'unknown' : successful ? 'success'
       : recent ? recent.conclusion || 'completed' : 'unseen',
     run_id: prior?.id,
+    ...(ownerConflict ? { current_owner: ownerConflict,
+      next_action: ownerConflict.reason === 'current_ownership_unreadable'
+        ? 'reread-current-delivery-ownership' : 'follow-current-delivery-without-replacing-its-source' } : {}),
     debounce_ms: CANARY_REFRESH_DEBOUNCE_MS };
 }
 
@@ -387,7 +468,7 @@ async function listCanaryRefreshAttemptJobs(client, params) {
 
 async function attachCanaryRefreshFailureEvidence({ runs, withRetry, location, now }) {
   for (const run of runs) {
-    if (run.status !== 'completed' || run.conclusion !== 'failure') continue;
+    if (run.status !== 'completed' || !['failure', 'cancelled'].includes(run.conclusion)) continue;
     if (Array.isArray(run.refresh_jobs) || Array.isArray(run.jobs)) continue;
     const at = Date.parse(run.updated_at || run.created_at);
     if (!Number.isFinite(at) || now - at >= CANARY_REFRESH_DEBOUNCE_MS) continue;
@@ -527,15 +608,22 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     // explicit authorization step is the receipt, not the run conclusion.
     // A skipped authorization must not consume the recovery key: the next
     // Maint 68 guard would otherwise see a success and refuse the mutation
-    // the canaries are still waiting on.
-    if (run.status === 'completed' && run.conclusion === 'success'
-      && String(run.display_title).endsWith(' guard=delivery-v1')) {
+    // the canaries are still waiting on. A rate-limit failure or a cancel
+    // before that step did not write, so it must not occupy the retry window.
+    // Older non-successes are already outside the window and do not need
+    // another job read.
+    const guarded = String(run.display_title).endsWith(' guard=delivery-v1');
+    const recentNonSuccess = run.status === 'completed' && run.conclusion !== 'success'
+      && Number.isFinite(Date.parse(run.updated_at || run.created_at))
+      && now - Date.parse(run.updated_at || run.created_at) < CANARY_REFRESH_DEBOUNCE_MS;
+    if (run.status === 'completed' && guarded && (run.conclusion === 'success' || recentNonSuccess)) {
       const jobs = await withRetry(client => client.paginate(client.rest.actions.listJobsForWorkflowRun,
         { ...location, run_id: run.id, per_page: 100 }));
-      if (!jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
-        && step.conclusion === 'success'))) {
+      const authorized = jobs.some(job => job.steps?.some(step => step.name === 'Authorize canary payload mutation'
+        && step.conclusion === 'success'));
+      if (!authorized) {
         run.refresh_not_started = true;
-        continue;
+        if (run.conclusion === 'success') continue;
       }
     }
     run.source_commit = match[1];
@@ -561,6 +649,9 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
     }
   }
   await attachCanaryRefreshFailureEvidence({ runs: observed, withRetry, location, now });
+  const historyReconciliation = refreshPlan.plan_scope === 'source-delta' && payload
+    ? await reconcileLegacyCanaryHistory({ withRetry, context, runs: observed, candidates,
+      refreshPlan, payload, verifyPlan: verifiedCanaryRefreshPlan, ignoreRunId, ignoreRunAttempt }) : null;
   const state = canaryRefreshDecision({ runs: observed, sha: source.sha, candidates,
     defaultBranch: branch, driftKey, deliveryDigest: payload?.digest, refreshPlan, now });
   if (refreshPlan.plan_scope === 'source-delta' && !payload) {
@@ -568,6 +659,7 @@ async function readCanaryRefreshState({ withRetry, context, expectedCanaries, dr
       queue_reason: 'compiled scoped payload unavailable' });
   }
   state.default_branch = branch;
+  if (historyReconciliation) state.history_reconciliation = historyReconciliation;
   if (state.eligible && payload) await deferSealedCanaryRefresh({ state, payload, withRetry, now });
   return state;
 }
@@ -696,6 +788,77 @@ async function dispatchCanaryRefresh({ withRetry, context, core, expectedCanarie
   return { ...state, dispatched: true };
 }
 
+// A forced base rebuild may bypass the content-digest debounce, never the
+// release identity. An unbound caller inherits the signed existing same-plan
+// source. Re-dispatch before mutation so every downstream job uses that source,
+// rather than merely rewriting the PR body's provenance after rendering.
+async function preserveFrozenCanaryRefresh({ withRetry, context, core, expectedCanaries,
+  requestedRepos = '', planId, planScope, scopeBaseSha = '', sourceCommit,
+  expectedPlanId = '', explicitSourceCommit = '', force = false, cleanupBranches = true, refreshKey = '' }) {
+  if (expectedPlanId) {
+    if (expectedPlanId !== planId) throw new Error('canary_refresh_explicit_plan_changed');
+    const explicit = String(explicitSourceCommit || '').trim().toLowerCase();
+    if (!/^[a-f0-9]{40}$/.test(explicit) || explicit !== sourceCommit) {
+      throw new Error('canary_refresh_explicit_source_missing; drainable=retry-original-source-and-plan');
+    }
+    return { redirected: false, source_commit: sourceCommit };
+  }
+  // Source-delta requests already carry the exact native source/range and use
+  // the compiled scoped receipt contract. The unbound full-plan force path is
+  // the path that could silently substitute a newer main for the same payload.
+  if (planScope === 'source-delta') return { redirected: false, source_commit: sourceCommit };
+  const selected = !requestedRepos || ['all', '*'].includes(requestedRepos)
+    ? expectedCanaries : requestedRepos.split(',').map(value => value.trim());
+  const candidates = candidateSet(selected);
+  if (!candidates.length || candidates.some(repo => !expectedCanaries.includes(repo))) {
+    throw new Error('canary_refresh_targets_unknown; drainable=select-configured-canaries');
+  }
+  const bindings = [];
+  const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
+  const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
+  for (const repository of candidates) {
+    const [owner, repo] = repository.split('/');
+    const prs = await withRetry(client => client.paginate(client.rest.pulls.list, {
+      owner, repo, state: 'open', head: `${owner}:sync/workflows-candidate`, per_page: 100,
+    }));
+    if (!Array.isArray(prs)) throw new Error('canary_refresh_inventory_unknown; drainable=retry-pr-inventory');
+    const matches = prs.filter(pr => pr.state === 'open' && pr.head?.ref === 'sync/workflows-candidate');
+    if (matches.length > 1) throw new Error('canary_refresh_subject_ambiguous; drainable=reconcile-native-candidate');
+    if (!matches.length) continue;
+    const { data: pr } = await withRetry(client => client.rest.pulls.get({ owner, repo, pull_number: matches[0].number }));
+    const record = parseDeliveryRecord(pr.body || '');
+    if (record?.plan_id !== planId) continue;
+    if (pr.state !== 'open' || pr.head?.sha !== matches[0].head.sha
+      || pr.head.repo?.full_name !== repository || pr.base?.repo?.full_name !== repository
+      || !isTrustedGeneratedDeliveryPr(pr, ['stranske', 'stranske-automation-bot', 'github-actions[bot]'])) {
+      throw new Error('canary_refresh_native_subject_changed; drainable=retry-exact-head-read');
+    }
+    const markers = [...String(pr.body).matchAll(/<!-- workflows-consumer-sync:v1 ([\s\S]*?) -->/g)];
+    if (markers.length !== 1) throw new Error('canary_refresh_metadata_unknown; drainable=reconcile-native-binding');
+    const metadata = JSON.parse(markers[0][1]);
+    const binding = await verifiedCanaryRefreshPlan({ owner, repo, pr, record, metadata, withRetry });
+    if (binding.plan_scope !== planScope || binding.scope_base_sha !== scopeBaseSha) {
+      throw new Error('canary_refresh_scope_changed; drainable=retry-original-exact-plan');
+    }
+    bindings.push(binding);
+  }
+  const sources = [...new Set(bindings.map(binding => binding.source_commit))];
+  if (sources.length > 1) throw new Error('canary_refresh_mixed_frozen_sources; drainable=reconcile-explicit-immutable-handoff');
+  if (!sources.length || sources[0] === sourceCommit) return { redirected: false, source_commit: sourceCommit };
+  const inputs = { phase: 'canary', delivery_scope: planScope, scope_head_sha: sources[0],
+    expected_plan_id: planId, repos: candidates.join(','), dry_run: 'false',
+    force: String(force), cleanup_branches: String(cleanupBranches),
+    ...(scopeBaseSha ? { scope_base_sha: scopeBaseSha } : {}),
+    ...(refreshKey ? { refresh_key: refreshKey } : {}) };
+  await withRetry(client => client.rest.actions.createWorkflowDispatch({
+    owner: context.repo.owner, repo: context.repo.repo, workflow_id: 'maint-68-sync-consumer-repos.yml',
+    ref: context.payload.repository?.default_branch || 'main', inputs,
+  }), { maxRetries: 0 });
+  core.notice(`refresh: blocking=unbound-source-change drainable=exact-plan-replay-requested `
+    + `source_commit=${sources[0]} tooling_revision=${context.sha || 'unknown'} plan_id=${planId}`);
+  return { redirected: true, source_commit: sources[0], inputs };
+}
+
 async function dispatchCandidateRefreshFromReport({ report, withRetry, context, core, expectedCanaries,
   trustedActors = [] }) {
   const rows = (Array.isArray(report?.results) ? report.results : []).filter(row =>
@@ -705,12 +868,56 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
       && row.next_command === 'refresh-candidate-from-exact-plan'));
   if (!rows.length) return { eligible: false, state: 'no-refresh-request', dispatched: false };
   const allowed = new Set(expectedCanaries), requests = [], freshCanaries = [];
+  // A canary with no candidate PR (a subset or source-delta plan never opened one) has no native
+  // subject to derive a plan from. Its drain is the row's own next_command: a full, unfiltered canary
+  // run from the default branch, behind the same refresh guard. Throwing here instead latched the
+  // candidate lane (2026-11-08 13:36Z, canary_refresh_report_subject_unknown on two rows like this).
+  const missing = rows.filter(row => row.status === 'stable_base_refresh_required'
+    && row.reason === 'candidate_pr_and_no_change_evidence_missing'
+    && row.pr === undefined && row.head_sha === undefined && allowed.has(`${row.owner}/${row.repo}`));
+  const subjects = rows.filter(row => !missing.includes(row));
+  // Preflight all remaining subjects before any native read or recovery dispatch.
+  // Report identities are diagnostic only; native PR/head checks still authorize
+  // candidate-specific recovery.
+  const unknownSubjects = [];
+  for (const row of subjects) {
+    const repository = `${row.owner}/${row.repo}`, reasons = [];
+    if (!allowed.has(repository)) reasons.push('repository_not_configured');
+    if (!Number.isSafeInteger(row.pr) || row.pr < 1) reasons.push('pr_missing_or_invalid');
+    if (!/^[a-f0-9]{40}$/.test(row.head_sha || '')) reasons.push('head_missing_or_invalid');
+    if (reasons.length) unknownSubjects.push({
+      repository: allowed.has(repository) ? repository : null, reasons,
+    });
+  }
+  if (unknownSubjects.length) {
+    const diagnostic = { schema: 'workflows.canary-refresh-subject-refusal/v1',
+      code: 'canary_refresh_report_subject_unknown', blocking: unknownSubjects.length,
+      drainable: 0, next_action: 'owner-recovery-required',
+      subjects: unknownSubjects.slice(0, 8), omitted_subjects: Math.max(0, unknownSubjects.length - 8) };
+    const encoded = JSON.stringify(diagnostic);
+    core.notice(`canary-refresh-subject-refusal: ${encoded}`);
+    await core.summary.addRaw(`\nCanary refresh subject refusal\n\n\`\`\`json\n${encoded}\n\`\`\`\n`).write();
+    const error = new Error(diagnostic.code);
+    error.diagnostic = diagnostic;
+    throw error;
+  }
+  if (!subjects.length) {
+    const names = missing.map(row => `${row.owner}/${row.repo}`).join(', ');
+    core.notice(`candidate refresh: no candidate PR for ${names}; requesting a full canary run`);
+    const refresh = await dispatchCanaryRefresh({ withRetry, context, core, expectedCanaries,
+      cleanupBranches: report.inputs?.cleanup_branches });
+    if (refresh.dispatched) {
+      const prior = report.canary_refresh || {};
+      report.canary_refresh = { ...prior,
+        refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
+        drainable: (prior.drainable || 0) + missing.length };
+    }
+    return { ...refresh, missing_candidates: missing.length };
+  }
   const { parseDeliveryRecord } = require('./sync_pr_lease_contract');
   const { isTrustedGeneratedDeliveryPr } = require('./sync_pr_merge_contract');
-  for (const row of rows) {
+  for (const row of subjects) {
     const repository = `${row.owner}/${row.repo}`;
-    if (!allowed.has(repository) || !Number.isSafeInteger(row.pr) || row.pr < 1
-      || !/^[a-f0-9]{40}$/.test(row.head_sha || '')) throw new Error('canary_refresh_report_subject_unknown');
     const { data: pr } = await withRetry(client => client.rest.pulls.get({
       owner: row.owner, repo: row.repo, pull_number: row.pr }));
     if (pr.number !== row.pr || pr.state !== 'open' || pr.draft === true
@@ -758,7 +965,7 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
     const prior = report.canary_refresh || {};
     report.canary_refresh = { ...prior,
       refresh_dispatched: (prior.refresh_dispatched || 0) + 1,
-      drainable: (prior.drainable || 0) + rows.length,
+      drainable: (prior.drainable || 0) + subjects.length + missing.length,
       held_plans: [...new Set([...(prior.held_plans || []), request.plan_id])] };
     // The workflow may have uploaded the report before this recovery step.
     // Keep dispatch evidence visible in this step's logs and summary as well.
@@ -773,6 +980,11 @@ async function dispatchCandidateRefreshFromReport({ report, withRetry, context, 
 
 // Age is a recovery trigger for blocked canaries, never a hold on green ones.
 // Only a successful producer observation resets the clock; comments do not.
+function canaryObservationIsStale(canary, now) {
+  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
+  return Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000;
+}
+
 function canaryNeedsRefresh(canary, now = Date.now()) {
   if (canary.mergeable_state === 'behind') return 'behind';
   if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) {
@@ -784,8 +996,7 @@ function canaryNeedsRefresh(canary, now = Date.now()) {
   // mergeability still goes through that path's existing fail-closed gates.
   if (['ready', 'success'].includes(canary.check_status) && canary.mergeable !== false
     && !['dirty', 'blocked', 'unknown', 'draft'].includes(canary.mergeable_state)) return null;
-  const observed = Date.parse(canary.head_observed_at || canary.updated_at || canary.created_at || '');
-  if (Number(now) - observed > STALE_CANARY_HOURS * 60 * 60 * 1000) return 'stale';
+  if (canaryObservationIsStale(canary, now)) return 'stale';
   return null;
 }
 
@@ -986,19 +1197,30 @@ async function routeCanaryReviewUpstream({ canary, manifestEntries, withRetry, c
     const origin = thread.comments?.nodes?.[0]?.url;
     if (!origin || !thread.id) throw new Error('canary_review_thread_link_missing');
     const location = { owner: context.repo.owner, repo: context.repo.repo };
-    const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
-      ...location, sha: context.payload.repository?.default_branch || 'main',
-      path: source.sourcePath, per_page: 1,
-    }));
-    if (!commits[0]?.sha) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
-    const commit = commits[0].sha;
-    const prs = await withRetry((client) => client.paginate(
-      client.rest.repos.listPullRequestsAssociatedWithCommit,
-      { ...location, commit_sha: commit, per_page: 100 },
-    ));
-    const latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
-      `${location.owner}/${location.repo}`)
-      .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+    let commit;
+    let latest;
+    // Direct source commits have no PR association. Walk this path's history
+    // until its latest merged PR is found, retaining the newest commit only
+    // as a fallback when the entire path history has no merged source PR.
+    for (let page = 1; ; page++) {
+      const { data: commits } = await withRetry((client) => client.rest.repos.listCommits({
+        ...location, sha: context.payload.repository?.default_branch || 'main',
+        path: source.sourcePath, per_page: 100, page,
+      }));
+      commit ||= commits[0]?.sha;
+      for (const entry of commits) {
+        const prs = await withRetry((client) => client.paginate(
+          client.rest.repos.listPullRequestsAssociatedWithCommit,
+          { ...location, commit_sha: entry.sha, per_page: 100 },
+        ));
+        latest = prs.filter((pr) => pr.merged_at && pr.base?.repo?.full_name ===
+          `${location.owner}/${location.repo}`)
+          .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))[0];
+        if (latest) break;
+      }
+      if (latest || commits.length < 100) break;
+    }
+    if (!commit) throw new Error(`canary_upstream_source_missing:${source.sourcePath}`);
     const marker = `<!-- maint71-canary-upstream:${canary.owner}/${canary.repo}:${thread.id} -->`;
     const comments = await withRetry((client) => client.paginate(
       latest ? client.rest.issues.listComments : client.rest.repos.listCommentsForCommit,
@@ -1029,13 +1251,16 @@ async function refreshStableCanaries({
   const counts = { red: 0, drainable: 0, review_blocked: 0, stale: 0, refresh_dispatched: 0 };
   // Preserve every held plan's reasons, but refresh the full candidate set once.
   const plans = new Map();
+  const unreadableTipPlans = new Set();
   const errors = [];
   for (const canary of canaries) {
     try {
       await readCanaryDefaultTip({ canary, withRetry, consumerTipCache });
     } catch (error) {
       errors.push(`canary_refresh_tip_unreadable:${canary.owner}/${canary.repo}:${error.message}`);
-      continue;
+      // Keep known blockers visible even when branch drift cannot be read.
+      // A sibling must not dispatch this plan using an incomplete live-tip read.
+      unreadableTipPlans.add(canary.plan_id);
     }
     if (canary.check_status === 'checks_failed' && !canary.expected_preseal_gate_hold) counts.red++;
     if (canary.expected_preseal_gate_hold && !canaryHasBlockingReviewDebt(canary)) counts.drainable++;
@@ -1048,8 +1273,9 @@ async function refreshStableCanaries({
     await core.summary.addRaw(`${sealLine}\n`).write();
     if (canaryHasBlockingReviewDebt(canary)) counts.review_blocked++;
     const reason = canaryNeedsRefresh(canary, now);
-    if (reason && canaryNeedsRefresh({ ...canary, mergeable_state: '', mergeable: false,
-      check_status: '', active_review_thread_count: 0 }, now) === 'stale') counts.stale++;
+    // Age accounting is independent of review classification. Reclassifying a
+    // synthetic zero-thread row would invalidate its bound review snapshot.
+    if (reason && !canary.expected_preseal_gate_hold && canaryObservationIsStale(canary, now)) counts.stale++;
     canary.refresh_reason = reason;
     if (!reason) continue;
     if (!canary.plan_id) {
@@ -1076,7 +1302,8 @@ async function refreshStableCanaries({
     if (enabled && plans.size) {
       // Keep the existing producer-writer guard. A running promotion or
       // refresh owns these stable heads; leave the request visible for retry.
-      for (const [plan, rows] of plans) {
+      refreshPlans: for (const [plan, rows] of plans) {
+        if (unreadableTipPlans.has(plan)) continue;
         const recovery = rows.find(row => row.mergeable_state === 'behind') || rows[0];
         const request = campaignBoundRefreshPlan(recovery);
         if (rows.some(row => row.plan_scope === 'source-delta' || row.refresh_plan?.plan_scope === 'source-delta')
@@ -1090,29 +1317,33 @@ async function refreshStableCanaries({
         }
         const inputs = request ? { planId: request.plan_id, planScope: request.plan_scope,
           scopeBaseSha: request.scope_base_sha, sourceSha: request.source_commit, plan: request.plan } : {};
-        const fullAligned = (state) => request?.plan_scope === 'full'
-          && state?.sha === request.source_commit && sameRefreshPlan(state.refresh_plan, request);
-        const reusable = request?.plan_scope === 'full'
-          ? (fullAligned(recovery.refresh_state) ? recovery.refresh_state
-            : fullAligned(refreshState) ? refreshState : null)
-          : (recovery.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
-            ? null : refreshState));
-        const baseState = reusable || await readCanaryRefreshState({
-          withRetry, context, expectedCanaries, now, ...inputs });
-        const recoveryKey = canaryRecoveryKey(recovery, baseState);
-        const state = baseState.drift_key === recoveryKey ? baseState
-          : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
-            ...inputs, driftKey: recoveryKey });
-        const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
-          expectedCanaries, refreshState: state, now, cleanupBranches });
-        if (!refresh.dispatched) continue;
-        counts.refresh_dispatched++;
-        core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
-          rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
-          '; completion awaits a successful Maint 68 run');
-        // Stable candidate branches have one writer even before REST exposes
-        // this newly requested run. Other held plans remain for a later pass.
-        break;
+        // A consumed recovery belongs to one payload/head (or live tip/head).
+        // Check siblings too, preserving behind priority and one producer write.
+        for (const candidate of [recovery, ...rows.filter(row => row !== recovery)]) {
+          const fullAligned = (state) => request?.plan_scope === 'full'
+            && state?.sha === request.source_commit && sameRefreshPlan(state.refresh_plan, request);
+          const reusable = request?.plan_scope === 'full'
+            ? (fullAligned(candidate.refresh_state) ? candidate.refresh_state
+              : fullAligned(refreshState) ? refreshState : null)
+            : (candidate.refresh_state || (request && !sameRefreshPlan(refreshState?.refresh_plan, request)
+              ? null : refreshState));
+          const baseState = reusable || await readCanaryRefreshState({
+            withRetry, context, expectedCanaries, now, ...inputs });
+          const recoveryKey = canaryRecoveryKey(candidate, baseState);
+          const state = baseState.drift_key === recoveryKey ? baseState
+            : await readCanaryRefreshState({ withRetry, context, expectedCanaries, now,
+              ...inputs, driftKey: recoveryKey });
+          const refresh = await dispatchCanaryRefresh({ withRetry, context, core,
+            expectedCanaries, refreshState: state, now, cleanupBranches });
+          if (!refresh.dispatched) continue;
+          counts.refresh_dispatched++;
+          core.notice(`dispatch-maint-68-phase-canary-no-filter: ${plan}; reasons=` +
+            rows.map((row) => `${row.owner}/${row.repo}:${row.refresh_reason}`).join(', ') +
+            '; completion awaits a successful Maint 68 run');
+          // Stable candidate branches have one writer even before REST exposes
+          // this newly requested run. Other held plans remain for a later pass.
+          break refreshPlans;
+        }
       }
     }
   } catch (error) {
@@ -1195,6 +1426,48 @@ function hasCompleteReviewThreadEvidence(connection) {
       typeof thread?.isResolved === 'boolean' && typeof thread?.isOutdated === 'boolean'
     )
   );
+}
+
+// Outdated describes the diff position, not GitHub's conversation-resolution
+// requirement. Keep causal finding classification separate from merge policy.
+async function repositoryConversationGate({ connection, owner, repo, branch, read }) {
+  const blocked = (reason, extra = {}) => ({ ok: false, reason,
+    delivery_disposition: 'repository-conversation-policy-blocked', blocker_owner: 'maint-71',
+    next_command: reason === 'repository_conversation_policy_unknown'
+      ? 'retry-repository-conversation-policy-read'
+      : 'record-evidence-backed-thread-dispositions-and-resolve', ...extra });
+  if (!hasCompleteReviewThreadEvidence(connection)) {
+    return blocked('repository_conversation_policy_unknown');
+  }
+  const unresolved = connection.nodes.filter(thread => !thread.isResolved);
+  const counts = { unresolved_count: unresolved.length,
+    unresolved_outdated_count: unresolved.filter(thread => thread.isOutdated).length,
+    unresolved_thread_ids: unresolved.map(thread => thread.id) };
+  if (!unresolved.length) return { ok: true, ...counts };
+  try {
+    // This endpoint includes applicable active repository and organization
+    // rules. Complete pagination is required before concluding absence.
+    const rules = await read(client => client.paginate(client.rest.repos.getBranchRules,
+      { owner, repo, branch, per_page: 100 }));
+    if (!Array.isArray(rules)) throw new Error('branch_rules_incomplete');
+    let required = rules.some(rule => rule?.type === 'pull_request'
+      && rule.parameters?.required_review_thread_resolution === true);
+    if (!required) {
+      try {
+        const { data: protection } = await read(client => client.rest.repos.getBranchProtection(
+          { owner, repo, branch }));
+        if (!protection || typeof protection !== 'object') throw new Error('branch_protection_incomplete');
+        required = protection.required_conversation_resolution?.enabled === true;
+      } catch (error) {
+        if ((error?.status || error?.response?.status) !== 404) throw error;
+      }
+    }
+    return required ? blocked('merge_blocked_repository_policy', { ...counts, required: true })
+      : { ok: true, ...counts, required: false };
+  } catch (error) {
+    return blocked('repository_conversation_policy_unknown', { ...counts,
+      error: String(error?.message || error) });
+  }
 }
 
 // The only input transport is authenticated PR conversation plus fresh local
@@ -1283,8 +1556,8 @@ async function confirmExactHeadSyncFindingGate(args) {
 
 function syncMergeFailureDisposition(error, findingDisposition) {
   const message = String(error?.message || error || 'Merge failed');
-  if (findingDisposition?.blocked === false && findingDisposition.raw_active_count > 0
-    && /conversations? must be resolved|unresolved (?:review )?(?:threads?|conversations?)/i.test(message)) {
+  if (findingDisposition?.blocked === false
+    && /(?:all )?(?:comments?|conversations?) must be resolved|unresolved (?:review )?(?:threads?|conversations?)/i.test(message)) {
     return { status: 'merge_blocked_repository_policy',
       delivery_disposition: 'repository-conversation-policy-blocked', blocker_owner: 'consumer',
       review_state: 'blocked',
@@ -1370,11 +1643,18 @@ function normalizeReviewPolicy(policy = {}) {
   };
 }
 
-// Recover the PR-event checks; dispatch alone skips Gate's PR-only jobs.
-async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
+function gateOwnedPythonContexts(names) {
+  return Array.isArray(names) ? names.filter(name => typeof name === 'string'
+    && /^python ci(?: shard \d+\/\d+)? \/ python \d+\.\d+$/.test(name)) : [];
+}
+
+// PR-only checks retain their PR event. A successful event that skipped its
+// required Python matrix needs the supported exact-head dispatch instead.
+async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt, missingDeclaredContexts = [] }) {
   const identity = `seal: ${owner}/${repo}#${pr.number}`;
   const query = { owner, repo, workflow_id: 'pr-00-gate.yml',
     head_sha: pr.head?.sha, per_page: 100 };
+  const missingPython = gateOwnedPythonContexts(missingDeclaredContexts).length > 0;
   let refusal = {};
   const receipt = result => ({ ...result, ...refusal });
   try {
@@ -1388,7 +1668,13 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     if (!Array.isArray(data?.workflow_runs)) throw new Error('Gate history unreadable');
     const exact = data.workflow_runs.filter(run => run.id && run.event === 'pull_request'
       && run.head_sha === pr.head.sha).sort((a, b) => Number(b.id) - Number(a.id));
-    const latest = exact[0];
+    let latest = exact[0];
+    if (missingPython && latest?.status === 'completed' && latest.conclusion === 'success') {
+      const active = exact.find(run => run.status !== 'completed');
+      if (active) return { mode: 'existing', run_id: active.id };
+      console.log(`${identity} required Python matrix never started; use exact-head dispatch`);
+      latest = null;
+    }
     if (latest) {
       // A queued/in-progress attempt or a completed post-seal evaluation must
       // settle through the ordinary checks path, not create a rerun loop.
@@ -1437,14 +1723,14 @@ async function evaluateSealedGate({ owner, repo, pr, withRetry, sealedAt }) {
     // No PR-event run exists, or GitHub refused to retry it. A dispatch provides
     // canary evidence only: it skips PR-only jobs and cannot waive merge checks.
     // Debounce using the same seal boundary, including queued runs.
-    if (sealedAt) {
+    if (sealedAt || missingPython) {
       const { data: fallback } = await withRetry(client => client.rest.actions.listWorkflowRuns({
         ...query, event: 'workflow_dispatch',
       }));
       const existing = fallback?.workflow_runs?.find(run => run.id
         && run.event === 'workflow_dispatch' && run.head_sha === pr.head.sha
         && run.head_branch === pr.head.ref
-        && (run.status !== 'completed' || gateEvaluatesSeal(run, sealedAt)));
+        && (run.status !== 'completed' || !sealedAt || gateEvaluatesSeal(run, sealedAt)));
       if (existing) {
         if (refusal.blocked) console.log(`${identity} gate rerun refused; dispatched run=${existing.id} (existing)`);
         return receipt({ mode: 'existing', run_id: existing.id });
@@ -2529,6 +2815,68 @@ function selectReconciliationTargets({
   );
 }
 
+// Reporting only: keep historical dev-tool observations out of merge selection,
+// cleanup and this run's merged/stale counters. Bounded paginated search also
+// finds closed generated heads that the stable-branch recovery inventory omits.
+// Pagination matters: a single updated-desc page silently drops older delivered
+// or superseded candidates (e.g. a merged delivery and the PR it obsoleted) once
+// a consumer accumulates more than one page of dev-tool PRs, which would make a
+// deployed report omit exactly the history it exists to name.
+const DEV_TOOL_ACCOUNTING_MAX_PAGES = 3;
+async function readDevToolCandidateAccounting({ owner, repo, withRetry, trustedActors = [] }) {
+  const repository = `${owner}/${repo}`;
+  const nodes = [];
+  let accountingError;
+  let truncated = false;
+  const hasCompleteIdentity = pr => pr && Number.isInteger(pr.number)
+    && ['OPEN', 'CLOSED', 'MERGED'].includes(pr.state)
+    && pr.repository?.nameWithOwner && pr.headRepository?.nameWithOwner && pr.author?.login
+    && typeof pr.headRefName === 'string' && /^[a-f0-9]{40}$/.test(pr.headRefOid);
+  try {
+    let after = null;
+    for (let page = 0; page < DEV_TOOL_ACCOUNTING_MAX_PAGES; page += 1) {
+      const data = await withRetry((client) => client.graphql(`
+        query($searchQuery:String!,$after:String){search(query:$searchQuery,type:ISSUE,first:100,after:$after){
+          pageInfo{hasNextPage endCursor} nodes{... on PullRequest{
+            number state headRefName headRefOid author{login}
+            repository{nameWithOwner} headRepository{nameWithOwner}
+          }}
+        }}`, { searchQuery: `repo:${repository} is:pr head:deps/sync-dev-versions- sort:updated-desc`, after }),
+      { rateResource: 'graphql' });
+      const search = data?.search;
+      if (!Array.isArray(search?.nodes) || typeof search?.pageInfo?.hasNextPage !== 'boolean') {
+        throw new Error('dev-tool candidate inventory incomplete');
+      }
+      if (search.nodes.some(pr => !hasCompleteIdentity(pr))) {
+        accountingError = 'dev-tool candidate identity incomplete';
+      }
+      nodes.push(...search.nodes.filter(hasCompleteIdentity));
+      if (!search.pageInfo.hasNextPage) break;
+      const cursor = search.pageInfo.endCursor;
+      if (typeof cursor !== 'string' || !cursor || cursor === after
+        || page === DEV_TOOL_ACCOUNTING_MAX_PAGES - 1) {
+        truncated = true;
+        break;
+      }
+      after = cursor;
+    }
+  } catch (error) {
+    accountingError = String(error.message || error);
+  }
+  const seen = new Set();
+  const candidates = nodes.filter(pr => pr
+    && pr.repository?.nameWithOwner === repository
+    && pr.headRepository?.nameWithOwner === repository
+    && pr.headRefName?.startsWith('deps/sync-dev-versions-')
+    && trustedActors.includes(pr.author?.login)
+    && ['OPEN', 'CLOSED', 'MERGED'].includes(pr.state))
+    .filter(pr => !seen.has(pr.number) && seen.add(pr.number))
+    .map(pr => ({ pr: pr.number, head_sha: pr.headRefOid, branch: pr.headRefName,
+      status: pr.state === 'MERGED' ? 'merged' : pr.state === 'CLOSED' ? 'closed unmerged' : 'open' }));
+  return { repository, status: accountingError ? 'unknown' : truncated ? 'truncated' : 'complete',
+    candidates, ...(accountingError ? { error: accountingError } : {}) };
+}
+
 async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed = false }) {
   const {
     SYNC_CANDIDATE_BRANCH,
@@ -2538,10 +2886,25 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
   // head can turn target_missing into a false terminal state or expose its live
   // branch to cleanup. Open inventories are normally one page, but correctness
   // cannot depend on that being true.
-  const open = await withRetry((client) => client.paginate(
-    client.rest.pulls.list,
-    { owner, repo, state: 'open', per_page: 100 },
-  ));
+  let open;
+  try {
+    open = await withRetry((client) => client.paginate(
+      client.rest.pulls.list,
+      { owner, repo, state: 'open', per_page: 100 },
+    ));
+  } catch (error) {
+    if (!isPrimaryRateLimitExhausted(error)) throw error;
+    try {
+      return await listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed });
+    } catch (fallbackError) {
+      try {
+        error.graphqlFallbackError = String(fallbackError.message || fallbackError);
+      } catch (_ignored) {
+        console.error(`GraphQL fallback unavailable: ${fallbackError.message || fallbackError}`);
+      }
+      throw error;
+    }
+  }
   if (!includeClosed) return { open, closed: [] };
 
   // Merged recovery needs only the reusable candidate and delivery heads. Query
@@ -2559,6 +2922,68 @@ async function listMaint71PullRequests({ owner, repo, withRetry, includeClosed =
       per_page: 1,
     }));
     if (response?.data?.[0]) closed.push(response.data[0]);
+  }
+  return { open, closed };
+}
+
+// REST and GraphQL have separate resource budgets. Token rotation alone cannot
+// recover an exhausted user REST allowance. Keep this adapter's REST-shaped
+// output so the exact-plan, review and merge guards below remain unchanged.
+async function listMaint71PullRequestsGraphql({ owner, repo, withRetry, includeClosed }) {
+  const query = `query($owner:String!,$repo:String!,$states:[PullRequestState!]!,$head:String,$after:String){
+    repository(owner:$owner,name:$repo){pullRequests(first:100,states:$states,headRefName:$head,
+      after:$after,orderBy:{field:UPDATED_AT,direction:DESC}){pageInfo{hasNextPage endCursor} nodes{
+        id number title body url state isDraft createdAt updatedAt closedAt mergedAt
+        headRefName headRefOid baseRefName baseRefOid author{login} headRepositoryOwner{login}
+        repository{nameWithOwner name owner{login}}
+        headRepository{nameWithOwner name owner{login}}
+        labels(first:100){pageInfo{hasNextPage} nodes{name}}
+    }}}}`;
+  async function collect(states, head = null, latestOnly = false) {
+    const rows = [];
+    let after = null;
+    do {
+      const data = await withRetry((client) => client.graphql(query, {
+        owner, repo, states, head, after,
+      }), { rateResource: 'graphql' });
+      const page = data?.repository?.pullRequests;
+      if (!page || !Array.isArray(page.nodes) || !page.pageInfo) {
+        throw new Error('GraphQL PR inventory incomplete');
+      }
+      for (const pr of page.nodes) {
+        if (!pr || !pr.author?.login || pr.labels?.pageInfo?.hasNextPage) {
+          throw new Error('GraphQL PR identity or label inventory incomplete');
+        }
+        const headOwner = pr.headRepositoryOwner?.login || pr.headRepository?.owner?.login;
+        if (latestOnly && !headOwner) throw new Error('GraphQL closed PR head owner unavailable');
+        if (latestOnly && headOwner.toLowerCase() !== owner.toLowerCase()) continue;
+        const repository = (r) => r ? {
+          full_name: r.nameWithOwner, name: r.name, owner: { login: r.owner.login },
+        } : null;
+        rows.push({
+          number: pr.number, node_id: pr.id, title: pr.title, body: pr.body,
+          html_url: pr.url, state: pr.state === 'OPEN' ? 'open' : 'closed',
+          draft: pr.isDraft, created_at: pr.createdAt, updated_at: pr.updatedAt,
+          closed_at: pr.closedAt, merged_at: pr.mergedAt, user: { login: pr.author.login },
+          head: { ref: pr.headRefName, sha: pr.headRefOid, repo: repository(pr.headRepository) },
+          base: { ref: pr.baseRefName, sha: pr.baseRefOid, repo: repository(pr.repository) },
+          labels: pr.labels.nodes,
+        });
+        if (latestOnly) return rows;
+      }
+      if (page.pageInfo.hasNextPage && (!page.pageInfo.endCursor || page.pageInfo.endCursor === after)) {
+        throw new Error('GraphQL PR inventory cursor did not advance');
+      }
+      after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+    } while (after);
+    return rows;
+  }
+  const open = await collect(['OPEN']);
+  const closed = [];
+  if (includeClosed) {
+    for (const branch of ['sync/workflows-candidate', 'sync/workflows-delivery']) {
+      closed.push(...await collect(['CLOSED', 'MERGED'], branch, true));
+    }
   }
   return { open, closed };
 }
@@ -3740,6 +4165,23 @@ async function run({ github, context, core }) {
   const rawCampaignNoChangeEvidence = String(
     process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON || '',
   ).trim();
+  // Managed paths of the exact campaign plan, compiled at its source commit by the workflow step
+  // "Compile campaign plan managed paths". Absent, unreadable or for another plan: null, and a moved
+  // no-change head keeps failing target_missing as before.
+  const campaignPlanManagedPaths = (() => {
+    const file = String(process.env.CAMPAIGN_PLAN_MANAGED_PATHS_FILE || '').trim();
+    if (requestedSyncHash !== 'campaign' || !file) return null;
+    try {
+      const parsed = JSON.parse(require('fs').readFileSync(file, 'utf8'));
+      if (parsed?.schema !== 'workflows.consumer-sync-plan-managed-paths/v1'
+        || parsed?.plan_id !== expectedPlanId
+        || String(parsed?.source_commit || '').toLowerCase() !== expectedSourceCommit) return null;
+      return parsed;
+    } catch (error) {
+      console.log(`Campaign plan managed paths unreadable: ${error.message}`);
+      return null;
+    }
+  })();
   const campaignNoChangeEvidenceByRepo = parseNoChangeEvidenceDocument(
     requestedSyncHash === 'campaign' ? rawCampaignNoChangeEvidence : '',
     {
@@ -3793,6 +4235,7 @@ async function run({ github, context, core }) {
   
   const results = [];
   const canaryEvidence = [];
+  const devToolCandidates = [];
   const stableCanaries = [];
   
   let canaryRefreshRunsCache = null;
@@ -3868,7 +4311,7 @@ async function run({ github, context, core }) {
       const threads = (reviewThreads.nodes || []).filter(
         (thread) => !thread.isResolved && !thread.isOutdated,
       );
-      return { count: threads.length, threads };
+      return { count: threads.length, threads, connection: reviewThreads };
     } catch (error) {
       core.warning(`Unable to read active review threads for ${owner}/${repo}#${number}: ${error}`);
       return { count: -1, threads: [] };
@@ -4245,6 +4688,12 @@ async function run({ github, context, core }) {
         freshHeadSha: freshPr.headRefOid,
       };
     }
+    if (!expectMerged) {
+      const conversationGate = await repositoryConversationGate({ connection: reviewThreads,
+        owner, repo, branch: pr.base.ref, read: withRetry });
+      if (!conversationGate.ok) return { ok: false, reason: 'merge_blocked_repository_policy',
+        conversationGate, activeReviewThreads, freshHeadSha: freshPr.headRefOid };
+    }
     // A rerun can turn Gate red without changing the head after the earlier
     // delivery classification. Recheck required contexts at the final merge
     // boundary rather than treating exact-head review evidence as sufficient.
@@ -4293,6 +4742,12 @@ async function run({ github, context, core }) {
     });
   
     console.log(`\n=== ${owner}/${repo} ===`);
+
+    if (!requestedSyncHash || requestedSyncHash === 'dev-tool') {
+      devToolCandidates.push(await readDevToolCandidateAccounting({
+        owner, repo, withRetry, trustedActors: trustedSyncActors,
+      }));
+    }
   
     try {
       const pullRequests = await listMaint71PullRequests({
@@ -4339,13 +4794,9 @@ async function run({ github, context, core }) {
             }
   
             try {
-              await withRetry((client) => client.rest.git.deleteRef({
-                owner,
-                repo,
-                ref: `heads/${branch}`,
-              }));
+              const cleanup = await deleteSyncBranch({ owner, repo, branch, withRetry });
               console.log(`✓ Deleted leftover branch ${branch}`);
-              results.push({ owner, repo, branch, status: 'branch_deleted' });
+              results.push({ owner, repo, branch, status: 'branch_deleted', ...cleanup });
             } catch (branchErr) {
               rethrowPrimaryRateLimit(branchErr);
               console.log(
@@ -4392,16 +4843,44 @@ async function run({ github, context, core }) {
           ref: `heads/${repositoryState.default_branch}`,
         }));
         const liveHeadSha = String(defaultRef?.object?.sha || '').trim().toLowerCase();
+        let noChangeCarriedFrom = '';
         if (liveHeadSha !== campaignNoChangeEvidence.head_sha) {
-          results.push({
-            owner,
-            repo,
-            status: 'target_missing',
-            expected_head_sha: campaignNoChangeEvidence.head_sha,
-            observed_head_sha: liveHeadSha,
-            reason: 'campaign_no_change_head_changed',
-          });
-          continue;
+          let carry = { ok: false, reason: 'plan_paths_unavailable' };
+          if (campaignPlanManagedPaths) {
+            try {
+              const { data: comparison } = await withRetry((client) => client.rest.repos
+                .compareCommitsWithBasehead({
+                  owner,
+                  repo,
+                  basehead: `${campaignNoChangeEvidence.head_sha}...${liveHeadSha}`,
+                  per_page: 100,
+                }));
+              carry = require('./sync_pr_merge_contract.js').noChangeCarriesToHead({
+                comparison,
+                managed: campaignPlanManagedPaths,
+                fromSha: campaignNoChangeEvidence.head_sha,
+                toSha: liveHeadSha,
+              });
+            } catch (compareErr) {
+              rethrowPrimaryRateLimit(compareErr);
+              carry = { ok: false, reason: `compare_failed:${compareErr.status || compareErr.message}` };
+            }
+          }
+          if (!carry.ok) {
+            results.push({
+              owner,
+              repo,
+              status: 'target_missing',
+              expected_head_sha: campaignNoChangeEvidence.head_sha,
+              observed_head_sha: liveHeadSha,
+              reason: 'campaign_no_change_head_changed',
+              carry_over_refusal: carry.reason,
+            });
+            continue;
+          }
+          noChangeCarriedFrom = campaignNoChangeEvidence.head_sha;
+          console.log(`✓ Campaign no-change evidence carried from ${noChangeCarriedFrom} to ${liveHeadSha} `
+            + `(${carry.files_checked} changed files, none plan-managed)`);
         }
         let noChangeCheckProvenance;
         if (campaignNoChangeRequiresLiveGate(campaignNoChangeEvidence)) {
@@ -4435,6 +4914,7 @@ async function run({ github, context, core }) {
           repo,
           status: 'campaign_no_change_verified',
           ...(noChangeCheckProvenance ? { check_provenance: noChangeCheckProvenance } : {}),
+          ...(noChangeCarriedFrom ? { no_change_carried_from: noChangeCarriedFrom } : {}),
           observed_head_sha: liveHeadSha,
           plan_id: campaignNoChangeEvidence.plan_id,
           source_commit: campaignNoChangeEvidence.source_commit,
@@ -4731,11 +5211,7 @@ async function run({ github, context, core }) {
               // Delete branch only when this shipment permits cleanup.
               if (cleanupBranches) {
                 try {
-                  await withRetry((client) => client.rest.git.deleteRef({
-                    owner,
-                    repo,
-                    ref: `heads/${stalePR.head.ref}`
-                  }));
+                  await deleteSyncBranch({ owner, repo, branch: stalePR.head.ref, withRetry });
                   console.log('✓ Branch deleted');
                 } catch (delErr) {
                   rethrowPrimaryRateLimit(delErr);
@@ -5052,6 +5528,7 @@ async function run({ github, context, core }) {
       const failedChecks = classification.failed;
       const pendingChecks = classification.pending;
       let deliveryRecord = parseDeliveryRecord(pr.body || '');
+      let currentGateRequest;
       const reviewResolution = await resolveProvenReviewDebt({
         owner,
         repo,
@@ -5118,11 +5595,43 @@ async function run({ github, context, core }) {
           ...(classification.declared_contexts || {}),
         },
       };
+      if (!recoveredMergedCandidate && !findingDisposition.blocked) {
+        const conversationGate = await repositoryConversationGate({
+          connection: reviewThreadDetails.connection, owner, repo, branch: pr.base.ref, read: withRetry });
+        deliveryContext.conversation_resolution = conversationGate;
+        if (!conversationGate.ok) {
+          console.log(`Conversation preflight: blocking=${conversationGate.reason} `
+            + `drainable=${conversationGate.next_command} unresolved=${conversationGate.unresolved_count ?? 'unknown'} `
+            + `outdated=${conversationGate.unresolved_outdated_count ?? 'unknown'}`);
+          results.push({ ...deliveryContext, ...conversationGate, review_state: 'blocked',
+            status: 'merge_blocked_repository_policy' });
+          continue;
+        }
+      }
   
       console.log(
         `Checks (${checkGateMode}): ${gatingChecks.length} gating, ` +
           `${failedChecks.length} failed, ${pendingChecks.length} pending`,
       );
+
+      if (autoMerge && !dryRun && !recoveredMergedCandidate
+        && deliveryRecord?.delivery_state === 'sealed'
+        && require('./maint71_agents_guard_recovery').agentsGuardNeedsInspection(classification, allChecks)) {
+        const recovery = await recoverCancelledAgentsGuard({ owner, repo, pr, withRetry, context });
+        deliveryContext.agents_guard_request = recovery;
+        const explicitGuardHold = require('./maint71_agents_guard_recovery').agentsGuardNeedsRecovery(classification);
+        const repairHint = require('./maint71_agents_guard_recovery').agentsGuardRefusalHandoff(
+          classification, recovery, findingDisposition.blocked);
+        if (['requested', 'wait'].includes(recovery.mode) || (recovery.mode === 'unknown' && explicitGuardHold) || repairHint) {
+          results.push({ ...deliveryContext, status: repairHint ? classification.status : 'checks_pending',
+            delivery_disposition: repairHint ? deliveryContext.delivery_disposition : 'awaiting-sealed-gate',
+            blocker_owner: repairHint ? 'maint-71' : 'ci',
+            next_command: repairHint || recovery.next_command,
+            raw_check_status: classification.status,
+            failed_checks: failedChecks, pending_checks: pendingChecks });
+          continue;
+        }
+      }
   
       const stableDelivery = isStableSyncBranchName(pr.head.ref);
       let canary;
@@ -5546,8 +6055,10 @@ async function run({ github, context, core }) {
         // All restage/readiness/reviewer decisions precede recovery. This
         // applies equally to candidate and promoted delivery branches.
         const gateRequest = autoMerge && !dryRun
-          ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at, context })
+          ? await requestSealedGate({ owner, repo, pr, withRetry, sealedAt: deliveryRecord.sealed_at,
+            missingDeclaredContexts: classification.declared_contexts?.never_started, context })
           : undefined;
+        currentGateRequest = gateRequest;
         if (expectedPresealGateHold || gateRequest?.blocked || (gateRequest && gateRequest.mode !== 'existing')) {
           if (canary) canary.seal_state = gateRequest?.blocked ? 'blocked(rerun-refused)' : 'sealed';
           results.push({ ...deliveryContext, status: 'delivery_sealed_checks_pending',
@@ -5578,9 +6089,19 @@ async function run({ github, context, core }) {
   
       if (classification.status === 'checks_pending') {
         console.log('Waiting for checks to complete');
+        const missingDeclaredContexts = gateOwnedPythonContexts(
+          classification.declared_contexts?.never_started,
+        );
+        const missingGate = missingDeclaredContexts.length
+          ? currentGateRequest || (autoMerge && !dryRun && deliveryRecord
+            ? await requestSealedGate({ owner, repo, pr, withRetry,
+              sealedAt: deliveryRecord.sealed_at || undefined, missingDeclaredContexts, context }) : undefined)
+          : undefined;
         results.push({
           ...deliveryContext,
           status: 'checks_pending',
+          ...(missingGate ? { gate_request: missingGate,
+            next_command: 'rerun-after-missing-declared-python-gate' } : {}),
           pending_checks: pendingChecks.map((check) => ({
             name: check.name,
             conclusion: check.conclusion,
@@ -5771,6 +6292,10 @@ async function run({ github, context, core }) {
             status: 'review_window_pending',
             review_window_eligible_at: finalGate.reviewWindow?.eligible_at || '',
           });
+        } else if (finalGate.reason === 'merge_blocked_repository_policy') {
+          results.push({ ...deliveryContext, ...finalGate.conversationGate,
+            conversation_resolution: finalGate.conversationGate,
+            review_state: 'blocked', status: 'merge_blocked_repository_policy' });
         } else if (finalGate.reason === 'review_blocked') {
           const reviewBlock = classifyReviewBlockedDisposition({
             activeReviewThreadCount: finalGate.activeReviewThreads,
@@ -6003,15 +6528,12 @@ async function run({ github, context, core }) {
         // Delete the branch only when this shipment explicitly permits cleanup.
         if (cleanupBranches) {
           try {
-            await withRetry((client) => client.rest.git.deleteRef({
-              owner,
-              repo,
-              ref: `heads/${pr.head.ref}`
-            }));
+            const cleanup = await deleteSyncBranch({ owner, repo, branch: pr.head.ref, withRetry });
             console.log('✓ Branch deleted');
             results.push({
               ...deliveryContext,
               status: 'branch_deleted',
+              ...cleanup,
             });
           } catch (e) {
             rethrowPrimaryRateLimit(e);
@@ -6038,8 +6560,10 @@ async function run({ github, context, core }) {
         });
       }
     } catch (e) {
-      console.log(`✗ Error processing ${repo}: ${e.message}`);
-      results.push({ owner, repo, status: 'error', error: e.message });
+      const message = e.graphqlFallbackError
+        ? `${e.message}; GraphQL fallback unavailable: ${e.graphqlFallbackError}` : e.message;
+      console.log(`✗ Error processing ${repo}: ${message}`);
+      results.push({ owner, repo, status: 'error', error: message });
 
       // A primary rate-limit error that reaches this outer catch is always
       // terminal: withRetry already tried token rotation and found no
@@ -6106,7 +6630,8 @@ async function run({ github, context, core }) {
     },
   });
   const reportPath = process.env.SYNC_PR_MERGE_REPORT_JSON || 'artifacts/sync-pr-merge-report.json';
-  report.canary_refresh = canaryRefresh;
+  report.dev_tool_candidates = devToolCandidates;
+  report.canary_refresh = require('./sync_refresh_diagnostics').compactCanaryRefresh(canaryRefresh);
   const canaryEvidencePath = 'artifacts/sync-canary-evidence.json';
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.mkdirSync(path.dirname(canaryEvidencePath), { recursive: true });
@@ -6128,7 +6653,9 @@ async function run({ github, context, core }) {
       `Canary evidence is incomplete or unsafe: ${evidenceValidation.errors.join(', ')}`,
     );
   }
-  await core.summary.addRaw(buildMarkdownSummary(report)).write();
+  const markdownSummary = buildMarkdownSummary(report);
+  console.log(markdownSummary);
+  await core.summary.addRaw(markdownSummary).write();
   if (!dryRun && !evidenceOnly && report.handoff_records.length > 0) {
     // Fleet-wide refresh: a targeted Maint 71 repos filter must not cause
     // Maint 82 to stale unscanned repos. Dispatch is best-effort so a
@@ -6207,6 +6734,13 @@ async function run({ github, context, core }) {
 }
 
 module.exports = {
+  readDevToolCandidateAccounting,
+  runAgentsGuardRecoveryTargets,
+  recoverCancelledAgentsGuard,
+  reconcileLegacyCanaryHistory,
+  deleteSyncBranch,
+  preserveFrozenCanaryRefresh,
+  repositoryConversationGate,
   syncMergeFailureDisposition,
   confirmExactHeadSyncFindingGate,
   collectSyncFindingEvidence,

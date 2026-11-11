@@ -1,0 +1,51 @@
+[
+  {
+    "date": "2026-11-04",
+    "p50_minutes": 11.85,
+    "run_id": 41822549611,
+    "run_conclusion": "success",
+    "note": "Health 85 log: stranske/Workflows: p50=11.85 target=10.0"
+  },
+  {
+    "date": "2026-11-05",
+    "p50_minutes": null,
+    "run_id": 42020576555,
+    "run_conclusion": "failure",
+    "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-05 11:46:09 UTC. p50 is null."
+  },
+  {
+    "date": "2026-11-06",
+    "p50_minutes": null,
+    "run_id": 42211705537,
+    "run_conclusion": "failure",
+    "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-06 11:58:23 UTC. p50 is null."
+  },
+  {
+    "date": "2026-11-07",
+    "p50_minutes": null,
+    "run_id": 42369018128,
+    "run_conclusion": "failure",
+    "note": "Health 85 run failed. Published ci-time-budget report error is GitHub API error 403 rate limit exceeded at 2026-11-07 11:49:06 UTC. p50 is null."
+  },
+  {
+    "date": "2026-11-08",
+    "p50_minutes": null,
+    "run_id": 42476617447,
+    "run_conclusion": "cancelled",
+    "note": "Health 85 run cancelled before publishing a daily measurement. p50 is null."
+  },
+  {
+    "date": "2026-11-09",
+    "p50_minutes": null,
+    "run_id": 42610608867,
+    "run_conclusion": "cancelled",
+    "note": "Health 85 run cancelled before publishing a daily measurement. p50 is null."
+  },
+  {
+    "date": "2026-11-10",
+    "p50_minutes": 11.133333333333333,
+    "run_id": 42838942059,
+    "run_conclusion": "success",
+    "note": "Health 85 published report (run 42838942059 at 2026-11-10T14:55:15+00:00): trailing-7-day Gate p50=11.133333333333333 min (668.0s); target=10.0 min; distance=0.113; share=3.42%; drainable_in=7."
+  }
+]

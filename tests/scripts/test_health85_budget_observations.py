@@ -15,8 +15,10 @@ from scripts.health85_budget_observations import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-OBSERVATIONS_PATH = ROOT / "docs" / "evidence" / "issue-4284" / "health85-daily-observations.json"
-REPORT_PATH = ROOT / "docs" / "reports" / "ci-budget.json"
+OBSERVATIONS_PATH = (
+    ROOT / "tests" / "fixtures" / "health85-20261106" / "health85-daily-observations.json"
+)
+REPORT_PATH = ROOT / "tests" / "fixtures" / "health85-20261106" / "ci-budget.json"
 REPORT_BLOB_SHA = "b917229e8f0cd9228754c6e30c4c0ef993dc0b99"
 
 
@@ -140,3 +142,119 @@ def test_retained_health85_series_matches_observed_runs_and_does_not_qualify() -
     assert all(
         row["p50_seconds"] is None or row["p50_seconds"] > 600 for row in retained["observations"]
     )
+
+
+def test_health85_validation_and_cli_branches(tmp_path: Path) -> None:
+    from scripts.health85_budget_observations import main
+
+    with pytest.raises(ValueError, match="Health 85 workflow id must be an int"):
+        find_health85(
+            [
+                {
+                    "id": "not-int",
+                    "name": "Health 85 CI Time Budget",
+                    "path": HEALTH85_PATH,
+                }
+            ]
+        )
+
+    with pytest.raises(ValueError, match="max_seconds must be positive"):
+        build_observations([{"date": "2026-11-01", "p50_minutes": 9.0, "run_id": 1}], max_seconds=0)
+    with pytest.raises(ValueError, match="observations must be non-empty"):
+        build_observations([])
+    with pytest.raises(ValueError, match="invalid observation date"):
+        build_observations([{"date": "not-a-date", "p50_minutes": 9.0, "run_id": 1}])
+    with pytest.raises(ValueError, match="p50_minutes must be a number or null"):
+        build_observations([{"date": "2026-11-01", "p50_minutes": True, "run_id": 1}])
+    with pytest.raises(ValueError, match="run_id must be an int"):
+        build_observations([{"date": "2026-11-01", "p50_minutes": 9.0, "run_id": "bad"}])
+
+    unsorted = build_observations(
+        [
+            {"date": "2026-11-03", "p50_minutes": 9.0, "run_id": 3},
+            {"date": "2026-11-01", "p50_minutes": 9.0, "run_id": 1},
+        ]
+    )
+    assert unsorted["qualifying_seven_day_series"] is False
+    assert "observation dates are not sorted" in unsorted["failures"]
+    assert "observation dates are not consecutive calendar days" in unsorted["failures"]
+    assert "expected 7 daily observations, found 2" in unsorted["failures"]
+
+    wf_file = tmp_path / "workflows.json"
+    wf_file.write_text(json.dumps(_workflows()), encoding="utf-8")
+    out_file = tmp_path / "out.json"
+    code = main(
+        [
+            "--workflows",
+            str(wf_file),
+            "--observations",
+            str(OBSERVATIONS_PATH),
+            "--output",
+            str(out_file),
+            "--report-blob-sha",
+            REPORT_BLOB_SHA,
+        ]
+    )
+    assert code == 2
+    assert out_file.read_text(encoding="utf-8") == REPORT_PATH.read_text(encoding="utf-8")
+
+    qualifying_obs = tmp_path / "qualifying.json"
+    qualifying_obs.write_text(
+        json.dumps(
+            [
+                {"date": f"2026-11-{d:02d}", "p50_minutes": 9.0, "run_id": 100 + d}
+                for d in range(1, 8)
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        main(
+            [
+                "--workflows",
+                str(wf_file),
+                "--observations",
+                str(qualifying_obs),
+                "--output",
+                str(out_file),
+                "--report-blob-sha",
+                REPORT_BLOB_SHA,
+                "--issue",
+                "4619",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(out_file.read_text(encoding="utf-8"))
+    assert result["issue"] == 4619
+    assert result["schema"] == "issue-4619-health85-observations/v1"
+
+    bad_file = tmp_path / "bad.json"
+    bad_file.write_text("{}\n", encoding="utf-8")
+    assert (
+        main(
+            [
+                "--workflows",
+                str(bad_file),
+                "--observations",
+                str(OBSERVATIONS_PATH),
+                "--output",
+                str(out_file),
+                "--report-blob-sha",
+                REPORT_BLOB_SHA,
+            ]
+        )
+        == 1
+    )
+
+
+def test_build_report_honors_explicit_schema() -> None:
+    report = build_report(
+        _workflows(),
+        [{"date": "2026-11-01", "p50_minutes": 9.0, "run_id": 1}],
+        report_branch="ci-time-budget",
+        report_blob_sha=REPORT_BLOB_SHA,
+        issue=4619,
+        schema="custom-health85/v1",
+    )
+    assert report["schema"] == "custom-health85/v1"

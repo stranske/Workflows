@@ -27,8 +27,10 @@ def test_maint68_and_maint71_serialize_stable_pr_writers_across_final_read_patch
     # Maint 71 keeps every writer run in the shared group; only the request-only
     # reassessment event (no body/head write) is routed to its own group so the next
     # Maint 82 dispatch cannot silently replace a queued request (2026-11-06).
+    # Guard recovery remains a writer even when a reusable caller inherits that event.
     assert maint71_group == (
-        "${{ github.event.action == 'maint71-review-reassessment' && "
+        "${{ inputs.agents_guard_recovery_json == '' && "
+        "github.event.action == 'maint71-review-reassessment' && "
         "format('maint71-review-reassessment-dispatch-{0}', github.repository) || "
         "format('consumer-sync-stable-pr-writers-{0}', github.repository) }}"
     )
@@ -166,7 +168,8 @@ def test_maint71_has_proof_bound_review_resolution_and_exact_evidence_promotion(
     assert "const withReviewReadRetry" in executor
     assert "const withRetry = (fn, options = {}) => retryHelpers.withRetry" in executor
     assert "sha: pr.head.sha" in executor
-    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 5
+    # The bounded Guard-only recovery job also needs the cross-repository owner token.
+    assert workflow.count("github-token: ${{ secrets.OWNER_PR_PAT }}") == 6
 
 
 def test_maint71_reviewer_reassessment_is_trusted_request_only_dispatch():

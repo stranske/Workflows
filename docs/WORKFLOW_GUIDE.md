@@ -235,6 +235,11 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 ## Verifier Workflow
 
+The [exact #4509 retained-capture investigation](analysis/verifier-4509-capture-recovery.md)
+records authenticated archive/member hashes, the reproduced extraction boundary,
+provider-free recovery refusal and actual zero-provider coverage. It retains a
+non-PASS disposition; successful transport or local tests do not establish recovery.
+
 Repeat evaluations use the same collector and evaluator as initial verification.
 See the [verification-event identity and evidence contract](keepalive/VERIFICATION_EVENTS.md)
 for repaired delivery binding, necessary-evidence selectors, deduplication and
@@ -254,6 +259,21 @@ The standard comparison capacity backup uses the same effective slot-config path
 as primary clients, including `LANGCHAIN_SLOT_CONFIG`. An explicit empty or
 unavailable configuration, or one that omits or disables `capacity_backup`,
 prevents backup execution; it never falls back to the bundled backup settings.
+The backup pool is `capacity_backup` plus each entry of `capacity_backup_chain`
+(2026-11-11: Muse Spark, Gemini 4 Carbon on the verifier-only
+`VERIFIER_GEMINI_API_KEY`, and the Cursor CLI in ask mode on `CURSOR_API_KEY`).
+Each run draws a random order, seeded from the PR head so a rerun reproduces it.
+A backup with no key on the runner, or Cursor without its CLI, is skipped. The
+first usable verdict stands in for the exhausted judge; `capacity_backup_for`
+names the exhausted judge and any backup that failed first.
+
+`capacity_backup_experiment` (rate 0.2) samples standard compare runs in which
+both production judges answered. One backup, drawn at random, reviews as an
+uncounted third judge. Its record is `third_reviewer` in `comparison.json`, with
+a collapsed note in the PR comment. The gate's verdict is always the production
+pair's. `tools/verifier_third_reviewer_readout.py` collects the records across
+repositories and prints per-backup agreement and how often the third verdict
+would have changed the conclusion.
 
 Semantic evaluation responses keep `summary` as the canonical scalar string API.
 The parser also accepts only one observed provider transport alternate: a non-empty
@@ -504,8 +524,21 @@ bytes are never claimed as reviewed. Malformed inventories, missing core sources
 and incomplete required channels still block. Only typed transport or size-limit
 omissions can be optional; provenance failures and ambiguous archive/read errors
 stay blocking. A validated incidental run from another revision is disclosed as
-excluded, never downloaded or credited; explicitly designated evidence retains
-the exact-revision provenance guard. In evaluate mode, a generic evidence duty
+excluded, never downloaded or credited. Same-repository designated evidence retains
+the exact-revision provenance guard and authenticated historical exceptions.
+Explicit cross-repository run URLs retain their repository for the authenticated
+run GET, artifact listing and download. Completed downstream runs retain their own
+repository ID, full head, attempt, conclusion and referenced reusable-workflow SHAs
+as `downstream-evidence`, even when their head differs from the evaluated PR.
+This role never establishes current-head source proof. Missing/mismatched identities,
+permission failures and artifact digest mismatches keep collection unavailable;
+a numeric ID's absence under the PR repository cannot establish consumer absence.
+Conflicting repository citations or local-only material selectors fail closed.
+When no labelled evidence set exists, non-negated absolute consumer citations in
+ordinary narrative retain this downstream role through fallback discovery too.
+They still require the same authenticated run and artifact identities; negative
+citations remain excluded, and a labelled evidence union still takes priority.
+In evaluate mode, a generic evidence duty
 requires enough available material to reason: one complete present body, comments,
 or artifacts channel can satisfy that availability screen. It does not require every
 historical artifact to be retrievable. Explicit comment/artifact duties and

@@ -1,5 +1,10 @@
 # Agents Guidance — Keepalive Changes
 
+Autofix completion acknowledges measured PR heads only. A failed PR lookup or
+missing head leaves `head_sha_after` empty, and the completion step retains the
+reservation. A successful unchanged head is measured no-progress; a later Gate
+status lookup failure does not invalidate that head observation.
+
 Automation agents touching **any** keepalive code path must consult the following documents before making changes. Keepalive is **multi-agent** by design—Codex, Claude, Cursor and Muse share the same orchestration surfaces (see [Adding a New Coding Agent](../guides/ADD_NEW_AGENT.md) for the full list of per-agent wiring)—so every change must read from `.github/agents/registry.yml` (or `agent_registry.js`) instead of hard-coding provider-specific behavior.
 
 ## Required Reading
@@ -77,6 +82,21 @@ errors, and clears the provider backoff marker.
 | Triggers verification post-merge | Dispatches the registry-backed agent with explicit task context |
 
 ### Critical Integration Points
+
+Closed issues always enter `verify`, including issues with retained
+`verify:evaluate` or `verify:pr-handoff` labels after reopening. Historical labels
+and closure records cannot select `done`. Verification must confirm an explicit
+evaluate dispatch or applicable verifier run for the merged source PR and head.
+Only a successful verify step with `verify_handoff=found` permits the workflow to
+dispatch its next run with `force_step=done`. The done reporter revalidates the
+PR/head evidence before publishing completion and removing `agents:auto-pilot`.
+
+Continuation uses `workflow_dispatch`, which the event gate accepts; it does not
+depend on a `verify:pr-handoff` label event. The executable source and consumer
+regressions are included in `.github/scripts/__tests__/auto-pilot-handoff-lifecycle.test.js`.
+After source changes reach main, Maint 68 regenerates the consumer candidate;
+the subsequent Maint 71 report must establish the original finding's disposition.
+Local source tests do not establish deployment or live acceptance.
 
 1. **PR body is the contract**: Auto-pilot writes structured tasks into the PR body. Keepalive reads these tasks via the task appendix. If the PR body format changes, both must be updated together.
 
@@ -162,6 +182,38 @@ validate them with its disposable Git regression tests. A checkpoint with only
 excluded artifacts creates no commit; unpushed existing commits retain their
 existing push path.
 
+### Cursor target PR lifecycle
+
+Cursor's agent step clears `GH_TOKEN`, `GITHUB_TOKEN` and `WORKFLOWS_TOKEN`;
+the keepalive prompt restricts agents to committing on the checked-out PR branch.
+The workflow re-reads the target PR after Cursor exits and permits its existing
+push step only for an open PR. A merged or closed target produces
+`skipped: target PR merged/closed mid-run`, skips all workflow pushes, and posts
+one source-issue comment per run with the new unpushed commit SHAs and run URL.
+The source issue is resolved by `source_context.js`; ambiguous or missing sources
+leave the evidence in the run summary with a warning, and a failed source-issue
+comment only warns. `pr_number` is required and must be a positive integer; the
+run fails before Cursor executes otherwise. Before Cursor starts, the persisted
+credentials of both checkouts are removed (authenticated pre-run fetches still
+work, and pushes use their explicit-token URLs). The state lookup retries
+transient errors three times; an exhausted lookup fails the step and withholds
+push permission. Every blocked delivery uploads
+`cursor-blocked-delivery-<run_id>-<attempt>` with a bundle of unpushed commits,
+staged and unstaged patches, an untracked-file archive and a receipt; the source
+issue comment names that artifact. The workflow requires `issues: write` for the
+source-issue comment. Token clearing is not a credential sandbox, and the
+post-run read does not prevent a later concurrent merge.
+Issue #4562's production acceptance still requires a mid-run merge observation
+and 14 days without new orphan slug-branch PRs after deployment.
+
+Run `python scripts/check_cursor_pr_outcome.py --fix-pr stranske/Workflows#4564`
+to collect the read-only PR search. JSON includes blocking and drainable counts;
+exit 0 (`clear_search`) means a full clear 14-day window, 1 means a matching PR,
+and 2 means pending or unavailable evidence. Missing, blank or malformed branch
+or author evidence is unavailable, never a clear search. Pending evidence drains
+through a later read; matching PRs require follow-up investigation. The acceptance box
+still needs a separately observed mid-run merge; a clear search cannot check it.
+
 ### Hosted agent startup recovery
 
 The pinned Cursor archive is installed in `runner.temp/agent-cli/cursor` and
@@ -200,7 +252,11 @@ disables shell/unified_exec and related tools, runs ephemeral with an empty cwd,
 and never relies on sandbox read-only alone to protect `CODEX_HOME/auth.json`.
 Claude analysis uses `--tools ""`. Its availability check looks for `.credentials.json`
 under `CLAUDE_CONFIG_DIR` when set, otherwise under `~/.claude`, matching the
-configuration directory passed to the child CLI. API-provider, GitHub, and tracing keys are
+configuration directory passed to the child CLI. Existing OAuth authentication
+is checked first; without it, an unresolvable credentials directory reports
+unavailable. Relative paths and `~` in `CLAUDE_CONFIG_DIR` are expanded to an
+absolute path before launching the child
+from its temporary working directory. API-provider, GitHub, and tracing keys are
 excluded from the child environment. Missing CLI, account auth, timeout, or
 invalid CLI output never falls back to an API. Optional Cursor/Gemini/Muse
 analysis skips with `llm-analysis-run=false` without an already

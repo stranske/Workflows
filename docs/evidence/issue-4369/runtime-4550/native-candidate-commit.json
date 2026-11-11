@@ -1,0 +1,13 @@
+{
+  "observed_at_utc": "2026-11-08T14:21:00Z",
+  "url": "https://api.github.com/repos/stranske/Portable-Alpha-Extension-Model/commits/653f443b52ec179c6680ee369be06ed3e3ce2617",
+  "sha": "653f443b52ec179c6680ee369be06ed3e3ce2617",
+  "html_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/commit/653f443b52ec179c6680ee369be06ed3e3ce2617",
+  "commit": {
+    "message": "chore: sync workflow templates from Workflows repo\n\nAutomated sync from stranske/Workflows\nTemplate hash: 0347f9f5fd1c\n\nChanges synced from sync-manifest.yml\nConsumer-sync plan ID: sha256:0347f9f5fd1c4bf3ca86d5562c6368d82b76b39e822493e0fae872409a9ca6e2\nPlan scope: source-delta\nScope base SHA: 7e377b7ad8cc06e506393218bc7459ba47757f01\nSource commit: 9acdde6d5f0731bf968a6766d83f2b47db8375a3",
+    "verification": {
+      "verified": true,
+      "reason": "valid"
+    }
+  }
+}

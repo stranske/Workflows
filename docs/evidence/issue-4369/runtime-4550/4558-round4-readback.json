@@ -1,0 +1,123 @@
+{
+  "checked_date": "2026-11-08",
+  "incoming_head": "dc692bda768960d2ae8693586799a72bcdf336bf",
+  "selected_acceptance_revision": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+  "observed_main": "34e923fe7c4dd99d24de003464f9b1adfe20bb6d",
+  "main_parent_shas": [
+    "0a06f1976db1dd7eb12853f493a3371ee4736bcf"
+  ],
+  "fixture_pr": {
+    "number": 4551,
+    "state": "closed",
+    "merged": true,
+    "merge_commit_sha": "0a06f1976db1dd7eb12853f493a3371ee4736bcf",
+    "head_sha": "154858c48424d7aa30c9edaf22ee3edb90066c5d",
+    "url": "https://github.com/stranske/Workflows/pull/4551"
+  },
+  "current_pr": {
+    "number": 4558,
+    "state": "open",
+    "draft": false,
+    "head_sha": "dc692bda768960d2ae8693586799a72bcdf336bf",
+    "url": "https://github.com/stranske/Workflows/pull/4558"
+  },
+  "upstream_verification": {
+    "run_id": 42522535899,
+    "status": "completed",
+    "conclusion": "success",
+    "assessment_receipt": "4557-source-verification.json",
+    "interpretation": "Actions conclusion only; retained OpenAI UNVERIFIABLE_INPUT and Anthropic CONCERNS remain non-PASS."
+  },
+  "next_chain_inventory": {
+    "receipt": "4558-round4-origin-inventory.json",
+    "result": "4558-round4-origin-observation.json",
+    "start": "2026-11-08T22:10:00Z",
+    "end": "2026-11-08T23:20:00Z",
+    "total_count": 242,
+    "pages_returned": [
+      100,
+      100,
+      42
+    ],
+    "producer_count": 0,
+    "merge_run_count": 0,
+    "chain_acceptance": false
+  },
+  "change": {
+    "path": "tests/scripts/test_issue_4369_delivery_lifecycle.py",
+    "baseline_tests": 26,
+    "final_tests": 50,
+    "purpose": "Cross-check retained published main and merged PR 4551 identities, required ancestry, native tree equality, exact-suite checkout identities and raw log hashes; reject substituted evidence."
+  },
+  "validation": [
+    {
+      "command": "timeout -k 2s 120s python3 -m pytest -q tests/scripts/test_issue_4369_delivery_lifecycle.py -m 'not slow'",
+      "exit_code": 0,
+      "result": "50 passed in 1.02s"
+    },
+    {
+      "command": "timeout -k 2s 120s black --line-length 100 tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "exit_code": 0,
+      "result": "1 file left unchanged"
+    },
+    {
+      "command": "timeout -k 2s 120s python3 -m ruff check tests/scripts/test_issue_4369_delivery_lifecycle.py",
+      "exit_code": 0,
+      "result": "All checks passed!"
+    },
+    {
+      "command": "timeout -k 2s 180s black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+      "exit_code": 1,
+      "result": "Sandbox forkserver PermissionError"
+    },
+    {
+      "command": "BLACK_NUM_WORKERS=1 timeout -k 2s 180s black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+      "exit_code": 124,
+      "result": "Single-worker scheduling stall; 977 files reported unchanged before termination"
+    },
+    {
+      "command": "BLACK_NUM_WORKERS=1 PYTHONPATH=/tmp/issue-4558-round4-black-runtime timeout -k 2s 180s black --check --line-length 100 --exclude '(\\.workflows-lib|node_modules)' .",
+      "exit_code": 0,
+      "result": "977 files would be left unchanged",
+      "log": "4558-round4-black.log",
+      "runtime_hook": "Temporary sitecustomize.py wraps Black's existing loop factory with a recurring 50ms callback. Formatting, selection and safe checks are unchanged."
+    },
+    {
+      "command": "node docs/evidence/issue-4369/observe-maint68.js docs/evidence/issue-4369/runtime-4550/4558-round4-origin-inventory.json",
+      "exit_code": 0,
+      "result": "Complete pagination; zero producers; chain_acceptance=false"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "No whitespace errors"
+    }
+  ],
+  "acceptance_tasks_completed_this_round": [
+    "T1"
+  ],
+  "manual_maint68_or_maint71_dispatches": 0,
+  "original_acceptance_deadline": "2026-11-08T21:46:00Z",
+  "original_deadline_reset": false,
+  "local_ancestry_receipt": "4558-round4-ancestry.json",
+  "checklist_interpretation": "T1's additional delivery gate requirement applies if salvaged fixes are absent from main. They are already on main; the separate upstream verification task remains non-PASS.",
+  "publication": {
+    "local_staging_exit": 128,
+    "local_staging_error": "Unable to create .git/index.lock: Read-only file system",
+    "commit_created": false,
+    "remote_source_blob_write": {
+      "succeeded": false,
+      "error": "MCP tool call requires approval, but approval policy is never",
+      "disposition": "Automatic approval review rejected the write; no further remote mutations attempted."
+    },
+    "remote_task_checkbox_updated": false,
+    "required_next_action": "An authorized repository writer must commit the scoped Python test and evidence changes."
+  },
+  "final_pr_observation": {
+    "checked_at": "2026-11-08T23:30:04Z",
+    "number": 4558,
+    "state": "open",
+    "draft": false,
+    "head_sha": "dc692bda768960d2ae8693586799a72bcdf336bf"
+  }
+}

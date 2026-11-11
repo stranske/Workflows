@@ -4558,12 +4558,12 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   const unrecognizedEnvShapedValue = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: NEVER_PERSIST_THIS_FORMAT for runner launch.',
   });
-  const aiderRegistryCredential = buildAuthorityChallengeEvidence({
-    agentSummary: 'Missing Aider auth: set AIDER_API_KEY',
-    agentType: 'aider',
+  const museRegistryCredential = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing Muse auth: set META_API_KEY',
+    agentType: 'muse',
   });
   const wrongRoutedAgentCredential = buildAuthorityChallengeEvidence({
-    agentSummary: 'Missing Aider auth: set AIDER_API_KEY',
+    agentSummary: 'Missing Muse auth: set META_API_KEY',
     agentType: 'codex',
   });
   const pluralNamedCredentials = buildAuthorityChallengeEvidence({
@@ -4770,10 +4770,10 @@ test('authority evidence persists only an allowlisted safe projection', () => {
     `${unrecognizedEnvShapedValue.detail} ${unrecognizedEnvShapedValue.humanAction}`,
     /NEVER_PERSIST_THIS_FORMAT/,
   );
-  assert.equal(aiderRegistryCredential.actionable, true);
-  assert.match(aiderRegistryCredential.humanAction, /AIDER_API_KEY/);
+  assert.equal(museRegistryCredential.actionable, true);
+  assert.match(museRegistryCredential.humanAction, /META_API_KEY/);
   assert.equal(wrongRoutedAgentCredential.actionable, false);
-  assert.doesNotMatch(wrongRoutedAgentCredential.detail, /AIDER_API_KEY/);
+  assert.doesNotMatch(wrongRoutedAgentCredential.detail, /META_API_KEY/);
   assert.equal(pluralNamedCredentials.actionable, true);
   assert.match(pluralNamedCredentials.detail, /OPENAI_API_KEY/);
   assert.match(pluralNamedCredentials.humanAction, /OPENAI_API_KEY/);
@@ -7528,7 +7528,7 @@ function replayCompletion({
   const result = spawnSync(python, ['-c', `
 import contextlib, io, json, sys
 from scripts.runner_lib import core
-payload = json.load(sys.stdin)
+payload = json.loads(sys.argv[1])
 provider = payload['provider']
 reservation = dict(provider=provider, pr_number=3989, head_sha='sha-3989',
                    key=core._runner_key(3989, 'sha-3989', provider), status='pending',
@@ -7560,10 +7560,15 @@ with contextlib.redirect_stdout(io.StringIO()):
                '--completion-reason', payload['reason']])
 record = core.PrCommentRunnerStorage(api).read_record(3989, provider)
 print(json.dumps(dict(comments=api.comments, record=record)))
-`], {
-    input: JSON.stringify({ output, exitCode, provider, progressed,
-      reason: reason || classifyCompletion(output, exitCode) }), encoding: 'utf8',
+`, JSON.stringify({ output, exitCode, provider, progressed,
+    reason: reason || classifyCompletion(output, exitCode) })], {
+    // Node writes piped stdin through a socket; restricted runners can deny
+    // that send and leave Python waiting for EOF. Pass this small fixture as
+    // data in argv, with no shell or writable stdin involved.
+    stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8',
+    timeout: 15000, killSignal: 'SIGKILL',
   });
+  assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout);
 }

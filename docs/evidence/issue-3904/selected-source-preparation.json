@@ -1,0 +1,50 @@
+{
+  "status": "PREPARED_ONLY",
+  "runtime_evidence": "UNKNOWN",
+  "python": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "command": [
+    "python",
+    "scripts/measure_verifier_runtime.py",
+    "prepare",
+    "--baseline",
+    "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769",
+    "--candidate",
+    "c3403284867e5091594cebed68cddafd3da78517",
+    "--output",
+    "/tmp/issue-4462-selected-source-pair"
+  ],
+  "exit_code": 0,
+  "manifest": {
+    "arms": {
+      "baseline": {
+        "commit": "00f43f81e51c4f8b9a057ac51f7e3c2d870d7769",
+        "tree": "12b50c312b5ac601286ba99b04bbd70b85f9a2d5",
+        "sha256": {
+          "tests/scripts/test_pr_verifier_delivery_destinations.py": "2b0614095ffcb5da62e1fc60f643dbb342fa1e3914eac789a2c1ec21c41a87ca",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+          "tests/scripts/test_pr_verifier_body_overall_integration.py": "6bea779eba3e8405cb52ee88f235b3aec6e36f438de9aa2a0eb0a8eaaddd73dc",
+          "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+          "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+          "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+        }
+      },
+      "candidate": {
+        "commit": "c3403284867e5091594cebed68cddafd3da78517",
+        "tree": "a08ac7bfe0ae675ba1acdac45e63e03cd34fa8d6",
+        "sha256": {
+          "tests/scripts/test_pr_verifier_delivery_destinations.py": "5c00c35afe442cc2ad6b252ce0a1f2cddd4918dd4b10c72770acb93e5da177fc",
+          "tests/scripts/test_pr_verifier_prompt_coverage.py": "b1693cb1b90661f82768061009e49c7945ea6ea6d152093dd45eb2e3dc2f7c94",
+          "tests/scripts/test_pr_verifier_body_overall_integration.py": "821bb6606f9273d1fa1050ab26c38ff3e898b62014c99b9a5022f327dd59d0c1",
+          "scripts/langchain/pr_verifier.py": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+          "pyproject.toml": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+          "requirements.lock": "7dc94d12a98ca6929e8ff3aa31cbb082a633b6bddbebb6fa0070eb545705913b"
+        }
+      }
+    },
+    "harness_sha256": "ee60f0d13784fea2a065424a2a191f5fca06e4bc5bdff41f63bfa5197880e388",
+    "workflow_sha": "5dd01ec8bbdd9a5dfdc9b4603a69ba3066039e44",
+    "workflow_sha256": "36cedce9c383b2ea1dbdeff741197f0186f1d42499a12fa29f01cdf652a06623",
+    "dependency_lock": "candidate/requirements.lock",
+    "cache_policy": "No actions/cache or artifact restore; fresh arm directories, pytest cache provider disabled, bytecode writes disabled. OS page cache is uncontrolled; arm order is recorded in result.json (baseline first on Python 3.12, candidate first otherwise), not within-version replicated."
+  }
+}

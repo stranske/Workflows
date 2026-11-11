@@ -452,6 +452,8 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       CLAUDE_API_STRANSKE: ${{ secrets.CLAUDE_API_STRANSKE }}
       MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
+      VERIFIER_GEMINI_API_KEY: ${{ secrets.VERIFIER_GEMINI_API_KEY }}
+      CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
       workflows_app_id: ${{ secrets.WORKFLOWS_APP_ID }}
       workflows_app_private_key: ${{ secrets.WORKFLOWS_APP_PRIVATE_KEY }}

@@ -1,0 +1,625 @@
+{
+  "schema": "issue-4557/verifier-42522535899-concern-reconciliation/v1",
+  "run_id": 42522535899,
+  "run_attempt": 1,
+  "actions_conclusion": "success",
+  "note": "Actions success is not a verifier PASS. Neither provider returned PASS.",
+  "source_artifact": "comparison-results-42522535899/comparison.json",
+  "source_sha256": "51fd82c5a52b8eaf30691b555d2894ba9674d9a6d60c183d15b4b03283d84ec2",
+  "followup_ledger": {
+    "verdict": "concerns",
+    "disposition": "needs-human",
+    "file": "runtime-4550/4557-verifier-followup-ledger.ndjson"
+  },
+  "providers": [
+    {
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "verdict": "UNVERIFIABLE_INPUT",
+      "error": "Failed to parse JSON response: ValidationError",
+      "raw_verdict": "CONCERNS",
+      "raw_concerns": [
+        {
+          "criterion": "Both complete suites exit zero on the recorded supported revision, with complete raw logs and execution metadata.",
+          "mapped_class": "C1_full_suite"
+        },
+        {
+          "criterion": "Receipts bind an eligible Maint 68 frozen source to final merged consumer payload bytes and the subsequent applicable Maint 71 finding disposition.",
+          "mapped_class": "C2_merged_payload_receipt"
+        }
+      ]
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "verdict": "CONCERNS",
+      "concern_count": 89
+    }
+  ],
+  "classes": {
+    "C1_full_suite": {
+      "ids": [
+        0,
+        6,
+        12,
+        16,
+        18,
+        26,
+        36,
+        43,
+        55,
+        56,
+        61,
+        66,
+        69,
+        74,
+        76,
+        79,
+        82
+      ],
+      "status": "resolved_by_independent_evidence",
+      "evidence": "Hosted supported-runner run 42523162606 at immutable published main 0a06f1976db1dd7eb12853f493a3371ee4736bcf: runtime-4550/4557-exact-main/node-full.json (node --test .github/scripts/__tests__/*.test.js, exit 0, log sha256 08b20d31...) and python-full.json (python3 -m pytest -q tests/, exit 0, log sha256 a0f8a82d...). Retained by merged PR 4558."
+    },
+    "C2_merged_payload_receipt": {
+      "ids": [
+        1,
+        4,
+        10,
+        15,
+        19,
+        24,
+        28,
+        31,
+        40,
+        42,
+        44,
+        45,
+        47,
+        50,
+        52,
+        54,
+        57,
+        60,
+        62,
+        70,
+        73,
+        83
+      ],
+      "status": "payload_resolved_by_independent_evidence; terminal_automation_origin_unresolved",
+      "evidence": "PR 2486 delivered the payload as 1ff9e11cd51a456333c626cb354543b63202bef6. Schedule-started producer 42564882056 created causal sync successor PR 2488, merged by Maint 71 run 42585644980 as e4ccdaf177e3271173ae534a710ebc23f29341e8 at 2026-11-09T08:25:48Z. chain-receipt.json binds producer plan/source/candidate to the terminal merged handoff and independent PR JSON. 4581-byte-comparison.json records cmp exit 0 for candidate and actual merge payload against the retained source. Run 42585644980 has event workflow_dispatch with an unknown dispatcher, so the schedule-started origin of the terminal merge is not established. PR 2488 does not first introduce the payload. The providers original verdicts and remaining unresolved classes are preserved."
+    },
+    "C3_closing_keyword_and_checkboxes": {
+      "ids": [
+        2,
+        23,
+        48,
+        53,
+        63,
+        84
+      ],
+      "status": "unresolved_historical_preserved",
+      "evidence": "Issue 4550 closed 2026-11-08T20:54:58Z, 2s after PR 4551 merged (0a06f197), while criteria 3/4 were unmet at that time. Criteria 3/4 were later satisfied by independent evidence (C1, C2 payload). The premature closure itself is not reversible by code; recorded, not waived."
+    },
+    "C4_forbidden_dispatch_attempts": {
+      "ids": [
+        3,
+        11,
+        29,
+        32,
+        38,
+        77,
+        85
+      ],
+      "status": "unresolved_historical_preserved",
+      "evidence": "Attempts at 11:44Z/13:32Z failed (exit 1, no run id). Maint 68 run 42485644055 (13:34Z, force=true, single consumer) did run and produced PR 2486; that is why PR 2486 is not claimed as automation-started. No dispatch by this repair."
+    },
+    "C5_evidence_integrity": {
+      "ids": [
+        5,
+        8,
+        9,
+        14,
+        20,
+        35,
+        39,
+        58,
+        64,
+        68,
+        72,
+        86
+      ],
+      "status": "unresolved_preserved_superseded_for_acceptance",
+      "evidence": "Historical #4551 records reference absent logs and dirty-worktree revisions; not repaired. Acceptance no longer relies on them: C1 receipts bind exit 0 to one immutable revision with recomputed log hashes."
+    },
+    "C6_codex_ainvoke_test_side_fix": {
+      "ids": [
+        80,
+        87
+      ],
+      "status": "unresolved_substantive_preserved",
+      "evidence": "scripts/langchain/_llm_client.py last changed in dbc2f4d59 (#4487), before #4551; the fix is test-side only. Bounded termination is shown by the hosted full suite exit 0 (C1); the root cause in _llm_client.py remains undiagnosed."
+    },
+    "C7_maint71_subject_refusal": {
+      "ids": [
+        41,
+        46
+      ],
+      "status": "addressed_by_changed_code; root_cause_of_unknown_subject_unproven",
+      "evidence": "PR 4551 (0a06f197) changed .github/scripts/maint71_merge_sync_prs.js (+27) to validate candidate subjects before native reads and emit bounded diagnostics, with .github/scripts/__tests__/maint71-delivery-receipts.test.js (+397). The 42485792262 'Refresh stale candidate bases' failure is the pre-fix refusal; why the subject was unknown is not established by retained evidence. Merger 42565425171 log contains 0 occurrences of canary_refresh_report_subject_unknown and all 12 Maint 71 runs 42565425171..42579302699 concluded success."
+    },
+    "C8_noise_environment_informational": {
+      "ids": [
+        7,
+        13,
+        17,
+        21,
+        22,
+        25,
+        27,
+        30,
+        33,
+        34,
+        37,
+        49,
+        51,
+        59,
+        65,
+        67,
+        71,
+        75,
+        78,
+        81,
+        88
+      ],
+      "status": "non_substantive_or_resolved",
+      "evidence": "Clutter, sandbox PermissionError/read-only index notes, stale snapshots, or supportive observations. 67 (repo-wide black) resolved by runtime-4550/4558-black-supported.log '978 files would be left unchanged'. 7/13 (restricted-runner stall) resolved by C1 hosted exit 0."
+    }
+  },
+  "concerns": [
+    {
+      "index": 0,
+      "text": "Acceptance criterion 3 is not met by the assigned files. No complete, passing `node --test .github/scripts/__tests__/*.test.js` plus `python3 -m pytest -q tests/` run with raw logs is recorded. The PR body and the validation doc say the full suite was not run and moved to #4557. The focused 614-pass and 251-pass runs are partial evidence only.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 1,
+      "text": "Acceptance criterion 4 is not met. The validation doc's own wording is that Maint 68 42485644055 → Maint 71 42485792262 / 42485974523 → consumer PR 2486 had `merged=0`. Consumer main still holds the older payload bytes (`final_delivery_acceptance: false`). No receipt binds the frozen source to merged payload bytes in a consumer revision, and no Maint 71 finding disposition follows a merged delivery. That work is deferred to #4557.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 2,
+      "text": "The PR body still carries `Closes #4550` and checked task boxes, while the prose says #4550 stays open. Task 4 (full-suite run) and task 5 (receipts from the next scheduled runs) are checked, although criteria 3 and 4 are unchecked. Closing keywords could close the issue before the deferred work is done.",
+      "class": "C3_closing_keyword_and_checkboxes"
+    },
+    {
+      "index": 3,
+      "text": "The `dispatch` block records an attempted `gh workflow run maint-68-sync-consumer-repos.yml ... -f force=true ...`. Issue #4550 carries an explicit owner instruction not to dispatch Maint 68, Maint 71 or Maint 82, because an earlier single-consumer `force=true` dispatch stalled the template-sync candidate lane. The attempt failed with exit 1 and a network error, and `run_id` is null, so no run was created. Even so, the retained evidence documents a command that was deliberately issued against the instruction, and it would have caused the same stall if it had succeeded. The receipt task required read-only observation of scheduler-started runs, so this block is not valid receipt evidence.",
+      "class": "C4_forbidden_dispatch_attempts"
+    },
+    {
+      "index": 4,
+      "text": "Criterion 4 (Maint 68 frozen source bound to merged payload bytes in an exact consumer revision, then the Maint 71 disposition) is not met by this file. It records `final_delivery_acceptance: false`, no Maint 68 or Maint 71 runs in the inventory window, and `following_maint71_dispatched: false`. The file states this honestly, and the PR scope explicitly defers it to #4557, so this is a disclosed gap, not a misrepresentation. It is external evidence still required.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 5,
+      "text": "The record was captured at revision 482ba34d with `uncommitted_changes: true`, so it is not bound to the final merged tree. The file name `artifact-stall-followup.json` and schema `issue-4550/artifact-stall-followup/v1` do not match its content, which is a downstream and nonrecurrence observation plus a dispatch attempt. This hurts discoverability and traceability.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 6,
+      "text": "These five files are diagnostic and negative-result evidence. They do not satisfy the unchecked criterion that `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` both exit zero with complete raw logs. In `artifact-stall-validation.json` the full Node suite run ended with exit 124 after 75s, and the Python `tests/ -m 'not slow' -x` run ended with exit 124 after 60s. `artifact-stall-python-diagnostic.log` is a truncated progress trace stopping at about 2%, with no trailing newline. The PR body labels these criteria unmet and moves them to #4557, so this is an acknowledged gap rather than a hidden one.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 7,
+      "text": "`coding-stall-before.log` and `coding-stall-after.log` both show `verifier-correction-coding.test.js` cancelled with 'Promise resolution is still pending but the event loop has already resolved'. This happened at ~25s before and ~55s after, so the log alone shows the stall was not resolved at that point. Any resolution has to come from the sibling test changes and the later `coding-stall-validation.json` or `coding-stdin-*` evidence, which was not supplied here. Resolution is therefore unverifiable from these files.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 8,
+      "text": "`artifact-stall-validation.json` references `artifact-stall-node-suite.log` with a sha256, but that log appears in neither the assigned nor the sibling changed-file list. The record points to a raw log that is not retained in the PR. The record also states `uncommitted_changes: true` at revision 482ba34d, so the recorded revision does not exactly describe the tested tree.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 9,
+      "text": "`coding-stall-evidence-tests.log` shows only '25 passed in 0.85s' with no command line or file list. It cannot be tied to a specific test target without the sibling evidence.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 10,
+      "text": "This file does not satisfy acceptance criterion 4 (receipts binding Maint 68's frozen source to the merged consumer payload, followed by a Maint 71 disposition). It records `final_delivery_acceptance: false` with three explicit pending reasons: the Maint 68 dispatch failed before returning a run ID, the consumer payload is older than the frozen source, and the latest Maint 71 run processed only trip-planner. The PR reduced scope and moved this criterion to #4557, so this is an external-evidence gap and not a defect in the file.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 11,
+      "text": "The file embeds a `dispatch` record: a Maint 68 canary dispatch with `exit_code: 1` and a network error, `observed_at_utc` 2026-11-08T13:32:32Z. This could be read as conflicting with the owner's never-dispatch instruction. The instruction is dated 13:34Z, after the observation, and the dispatch never reached GitHub, so it is not a demonstrated violation. It is not a valid receipt either.",
+      "class": "C4_forbidden_dispatch_attempts"
+    },
+    {
+      "index": 12,
+      "text": "coding-stall-validation.json still embeds records of failed or timed-out runs: the full node suite (exit 124 after 75s), the full python suite (exit 124 after 60s), and the whole-file coding runs coded `coding-stall-before.log` and `coding-stall-after.log` (both exit 124). The PR says full-suite failure evidence moved to #4557. These entries are historical diagnostics from an uncommitted-changes revision (1dc5d0af) and reference logs outside this chunk. They do not conflict with the passing evidence, and they must not be read as supporting the unchecked full-suite acceptance criterion.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 13,
+      "text": "The before/after pair in coding-stall-regression.json comes from a sandbox where `spawnSync python3` fails with EPERM and is killed at the bound. It proves the stdin-over-pipe fixture path was the stall and that the file-backed path removes it, but it does not exercise a supported runner. Supported-runner proof belongs to #4557.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 14,
+      "text": "The sha256 values in coding-stall-validation.json could not be checked against the logs because most of the referenced logs are in sibling chunks.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 15,
+      "text": "This file does not satisfy the acceptance criterion that receipts bind Maint 68's frozen source to merged payload bytes in an exact consumer revision. It records the opposite: `final_delivery_acceptance` is false, consumer PR 2486 is open and unmerged, and the following Maint 71 result is `dry_run_seal`, not a merge. The consumer main blob (sha256 9895fc8c…) still differs from the template and candidate blob (sha256 ed2d6203…). The record is honest about this, and the PR body defers the criterion to #4557, but it remains unmet.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 16,
+      "text": "This file offers no evidence for the full-suite criterion (`node --test` plus `pytest tests/` both exiting zero with raw logs). That criterion is outside this file and is deferred to #4557.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 17,
+      "text": "The artifact is about 11k lines. It embeds full GitHub API user and app metadata for each comment, plus the complete 515-run workflow inventory. That makes it noisy and hard to audit, although the evidence is complete.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 18,
+      "text": "Acceptance criterion 3 (full `node --test` and `python3 -m pytest -q tests/` exit zero with complete raw logs) is not met by these files. coding-stdin-validation.json sets `full_suite_acceptance: false`, and the PR body defers the full-suite run to #4557.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 19,
+      "text": "Acceptance criterion 4 (receipts binding Maint 68's frozen source to the final merged payload bytes in an exact consumer revision, then Maint 71's finding disposition) is not met. consumer-payload.txt is only a copy of the payload text. It is not a delivery receipt, and `final_delivery_acceptance` is false. The PR's own validation notes say the consumer PR was `merged=0`.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 20,
+      "text": "coding-stdin-validation.json lists SHA-256 hashes for receipt files that are absent from this changeset, and `prepared_comment` names a file that is also absent: coding-stdin-node-full.{json,log}, coding-stdin-python-full.{json,log} and coding-stdin-blocker-comment.md. The PR says the failed full-suite logs were removed and moved to #4557. The manifest therefore points at artifacts a reader of this tree cannot verify.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 21,
+      "text": "coding-stdin-validation.json records a blocked publication: `git add` exit 128 because `.git/index.lock` is on a read-only file system, no commit, and a rejected blocker comment and needs-human label. This is operational context rather than a code defect, but the retained evidence was captured in a degraded environment against an uncommitted revision (`uncommitted_changes: true`, revision 45781009).",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 22,
+      "text": "coding-stdin-red.log is an empty file. The red run is a 5s timeout (exit 124) from a deliberate negative control, so it shows only that the bypassed transport hangs. It does not show an assertion failure. This is acceptable as a bound-demonstration, but weak as a regression transcript.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 23,
+      "text": "The PR body says `Closes #4550` while also stating it does not complete #4550. The closing keyword conflicts with the reduced scope, since criteria 3 and 4 remain open.",
+      "class": "C3_closing_keyword_and_checkboxes"
+    },
+    {
+      "index": 24,
+      "text": "Final-delivery acceptance is not met, and the file says so itself. consumer_pr (#2486) is open with merged=false, and final_delivery_acceptance is false. The criterion binding Maint 68's frozen source to merged payload bytes in an exact consumer revision, followed by Maint 71's disposition, therefore remains open. The PR body moves it to #4557, which is external evidence required.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 25,
+      "text": "The transport block records workflow_dispatch_connector_available=false and a failed gh CLI probe (exit 1, cannot connect). This is consistent with the owner's no-dispatch instruction, but the final Maint 71 outcome after the 13:45:12Z failure cannot be refreshed from this file.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 26,
+      "text": "These six files are retained test and format logs. They do not support the two acceptance criteria the PR leaves unchecked: the full-suite run on a recorded revision, and the final merged consumer-payload receipts. The PR body says both moved to #4557, so this is an externally tracked gap, not a defect in these files.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 27,
+      "text": "delivery-lifecycle-validation.json has a `publication` block recording a failed local git staging step and rejected connector operations, with `commit_created: false`. This is a log of a blocked attempt, not of the merged result. It does not contradict the merged state but could confuse a reader, and the sibling validation narrative should frame it as historical.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 28,
+      "text": "The file records its own receipt criterion as unmet: `final_delivery_acceptance` is false and `pending_reasons` says there was no Maint 68 run ID, no Maint 68/71 lifecycle in the interval, and consumer default-branch bytes that differ from the frozen payload. The consumer file at 0543dc97 still uses `Path(os.environ.get(\"CLAUDE_CONFIG_DIR\", ...))`, while the frozen source resolves and expands the path. So this file cannot satisfy the criterion that receipts bind Maint 68's frozen source to merged consumer payload bytes. The PR description acknowledges this and moves the work to #4557.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 29,
+      "text": "The `dispatch` block records an attempted Maint 68 `workflow_dispatch` with `force=true` against the single consumer (inputs: repos, phase=canary, delivery_scope=source-delta, force=true). The issue's owner instruction (2026-11-08) forbids dispatching Maint 68, Maint 71 or Maint 82; the issue text dates that instruction from the 13:34Z stall. The attempt failed with a network error (exit 1, `maint71_dispatched: false`) and `observed_at_utc` is 12:05Z, which is earlier than that instruction. It is therefore not a demonstrated violation. Retaining a dispatch-attempt record in evidence for a 'read, never dispatch' task is still confusing and should be labelled superseded or non-compliant with the later instruction.",
+      "class": "C4_forbidden_dispatch_attempts"
+    },
+    {
+      "index": 30,
+      "text": "The criterion for a fresh all-pages comment observation to an explicit UTC time is supported here. The file shows 49 comments (`all_pages_connector.returned` 49, with ids), `observed_through_utc` 2026-11-08T12:03:28Z, and `per_page` 100. The last 'Still present' recurrence comment is dated 2026-11-05T05:01:44Z, and later comments are only opener/closer/auto-pilot notices. Nothing in the file records disposition of discussion 4434491702 beyond the thread data (resolved and outdated, with a worker disposition comment dated 2026-11-08T04:39Z).",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 31,
+      "text": "This file does not satisfy the receipt-binding criterion, and it says so itself. It sets final_delivery_acceptance=false and lists three pending reasons: the Maint 68 dispatch failed before a run ID, no Maint 68/71 lifecycle exists in the queried interval, and the consumer bytes differ from the final source payload. The criterion is carried by sibling files (the maint68-42485644055 and maint71-* receipts) and by the follow-up #4557. External evidence required.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 32,
+      "text": "The file records an attempted `gh workflow run` of Maint 68 (exit_code 1, network error). Its observed_at_utc of 11:44Z predates the 13:34Z owner instruction against dispatching, so it is not a violation. It is still a dispatch attempt, and it is correctly marked as failed with no Maint 71 follow-on.",
+      "class": "C4_forbidden_dispatch_attempts"
+    },
+    {
+      "index": 33,
+      "text": "This is a point-in-time observation from 11:44Z. Later sibling evidence (the 42485644055 and 42485792262 receipts) supersedes its delivery conclusions. It should be read only as the earlier finite nonrecurrence and pending-state snapshot.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 34,
+      "text": "The `publication` block in historical-finding-gates.json records sandbox failures (a read-only `.git/index.lock`, rejected MCP calls). This is process noise that does not belong in a retained evidence record, though it does not affect the gate result.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 35,
+      "text": "The record is bound to revision 9e63b01 plus an uncommitted working-tree test hash (`working_tree_test_sha256`), not to the final merged commit. It is a point-in-time run, so it cannot be treated as proof for the final merged tree.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 36,
+      "text": "The record sets `final_delivery_acceptance` to false, and the supplied files do not provide a full-suite run or a merged consumer-payload receipt. Those criteria are explicitly deferred to #4557, so these files only partly support the acceptance criteria.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 37,
+      "text": "The file is a raw, complete log of Maint 68 run 42485644055. It records the immutable source-side chain: plan scope source-delta, base 7e377b7a, source commit 9acdde6d, plan ID sha256:0347f9f5…, and a one-entry plan for tools/subscription_llm.py. It also records candidate commit 653f443b (verified, signed) and consumer PR 2486 on sync/workflows-candidate, with consumer base 0543dc97. This supports the source half of the receipt criterion. It does not show the payload merged into an exact consumer revision, and it contains no Maint 71 disposition, so the criterion 'Receipts bind Maint 68's frozen source to final merged payload bytes in an exact consumer revision, followed by Maint 71's applicable finding disposition' is not satisfied by this file. The PR body states the same limit (merged=0, payload not delivered) and moved the work to #4557.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 38,
+      "text": "The log shows FORCE=true, REQUESTED_REPOS=stranske/Portable-Alpha-Extension-Model, CLEANUP_BRANCHES=false and EXPLICIT_SOURCE_COMMIT set, with 'refresh: forced (digest guard bypassed)' at about 13:35Z. That matches the single-consumer force=true Maint 68 dispatch the issue says created the stalled one-repo candidate plan on 2026-11-08 13:34Z. The task requires receipts from the next scheduler- or automation-started run, never a manual dispatch. This run therefore appears to be the prohibited dispatch, not a valid 'next scheduled or automation-started run' receipt. The PR's 'causal candidate receipts' label should be read as partial, non-qualifying evidence for that task. Nothing else in the supplied file shows a scheduler-started run.",
+      "class": "C4_forbidden_dispatch_attempts"
+    },
+    {
+      "index": 39,
+      "text": "The raw log has no integrity or provenance record. It carries no hash and no run-attempt or trigger-actor field in this file. The 'UNKNOWN STEP' and tab-delimited step prefixes show it came from `gh run view --log`. Any binding to the sibling JSON, Maint 71 logs or consumer-payload.txt would have to be checked in those sibling files, which were not supplied.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 40,
+      "text": "These three files are Maint 71 run 42485792262 receipts. They show consumer PR 2486 in `delivery_sealed_checks_pending` with `merged: 0`, so they do not bind Maint 68's frozen source to merged payload bytes in a consumer revision. The unchecked acceptance criterion (final merged-payload receipts and Maint 71 finding disposition) is therefore not met by this chunk. The PR body openly defers that criterion to #4557, so this is a documented scope reduction and not a defect in these files.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 41,
+      "text": "The run's job conclusion is `failure`, caused by the 'Refresh stale candidate bases' step. The evidence records this accurately and the PR does not claim a successful delivery. The files do not explain the failure, so any root-cause analysis would have to come from the sibling log or test files.",
+      "class": "C7_maint71_subject_refusal"
+    },
+    {
+      "index": 42,
+      "text": "Acceptance criterion 4 (receipts binding Maint 68's frozen source to the final merged payload bytes in an exact consumer revision) is not met by these files. The Maint 71 run 42485974523 report shows `summary.merged = 0` and `ready = 0`. The Portable-Alpha candidate PR 2486 is only at `campaign_prepared`/`merge-current-delivery`, with head 653f443b… and plan 0347f9f5…. The run's job conclusion is `failure`, with step 18 'Refresh stale candidate bases' failing. These are candidate receipts, not merged-payload receipts. The PR body acknowledges this and moves the work to #4557, but the PR still ticks the task 'Read … Maint 68 … Maint 71 … receipts …' as [x] while the matching acceptance box is unchecked, and its body still says 'Closes #4550'. The remaining deliverable is external evidence.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 43,
+      "text": "These files cannot show that the full node and pytest suites pass (criterion 3), and they are not meant to. Both belong to #4557 and need sibling evidence.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 44,
+      "text": "The `maint71-42485974523.json` file is a single-line minified run/job metadata blob. It is readable, but it carries no independent proof of the consumer revision or payload bytes. Binding those bytes depends on sibling artifacts such as `consumer-payload.txt` and the Maint 68 receipts.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 45,
+      "text": "This log does not satisfy the acceptance criterion requiring receipts bound to final merged payload bytes. The consumer PR 2486 was not merged, and the log shows 'Merged: 0'. The PR body states this openly and moves the criterion to #4557, so it is a known, tracked gap rather than a defect in this file.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 46,
+      "text": "The log does not contain the subject-refusal diagnostic. It records the pre-fix failure ('Error: canary_refresh_report_subject_unknown' thrown from dispatchCandidateRefreshFromReport) that the sibling code changes address. Whether the fix works must be judged from the sibling test and code files.",
+      "class": "C7_maint71_subject_refusal"
+    },
+    {
+      "index": 47,
+      "text": "Acceptance criterion 4 (receipts binding Maint 68's frozen source to final merged payload bytes in an exact consumer revision, then Maint 71's finding disposition) is not met by this file. The recorded consumer PR 2486 has `merged: false`, `merged_at: null` and state `open`. The payload only exists on the unmerged candidate head 653f443b. Consumer main 0543dc97 still carries the older payload without the CLAUDE_CONFIG_DIR fix. The file says so itself with `final_delivery_acceptance: false`. It is honest, but it is a completeness gap. The PR body defers the gap to #4557 and says the PR does not complete #4550.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 48,
+      "text": "The PR body ticks the final task (read the next Maint 68 and Maint 71 runs and record receipts) as complete. This file shows delivery was not observed, and its blockers record `cli: error connecting to api.github.com` and an MCP approval refusal. The checked task and unchecked criterion 4 are therefore somewhat inconsistent. The wording should say 'not yet observable' for the delivery receipt, as the issue's owner instruction allows.",
+      "class": "C3_closing_keyword_and_checkboxes"
+    },
+    {
+      "index": 49,
+      "text": "The snapshot is time-bound and already stale at merge. It records the source PR #4551 as open and unmerged, with an old PR body containing an unchecked fifth task, and the 14:12Z collection time predates the merge. This is acceptable for a labelled observation. It should not be read as final disposition evidence.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 50,
+      "text": "These files do not satisfy acceptance criteria 3 and 4 (full-suite pass, and a receipt binding the final merged payload bytes). The candidate commit 653f443 is an unmerged sync candidate (merged=0), and the replay JSON sets final_delivery_acceptance=false. The PR body defers both criteria to #4557, so this is a declared scope reduction. A final reviewer should confirm that #4550 stays open and that nothing here is read as delivery proof.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 51,
+      "text": "The replay JSON records a failed publication attempt (git add exit 128, read-only .git/index.lock, no commit). This is only a sandbox note. The artifact still exists in the merged tree, so it has no functional impact.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 52,
+      "text": "Acceptance criterion 4 (receipts binding Maint 68's frozen source to final merged payload bytes in an exact consumer revision) is not met. This file records the consumer PR (Portable-Alpha-Extension-Model#2486) as `state: open`, `merged: false`, with `final_delivery_acceptance: false`. Consumer `main` still has blob `c889fd80…` while the source and candidate payload blob is `71a4c84c…`. The file also lists the blockers itself: the consumer PR is unmerged, two canaries have no native subjects, and no API access was available. The PR body defers this to #4557, so the criterion remains open rather than satisfied.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 53,
+      "text": "The file's `reconciliation` block shows 7 of 10 checklist items complete and `checkboxes_changed: false`, with the PR-body update rejected by the tool. The final PR body nonetheless ticks the full-suite and consumer-delivery tasks. The full-suite and delivery work is not actually done, so this checkbox state is inconsistent with the evidence. This is a PR-body issue, not a defect in this file.",
+      "class": "C3_closing_keyword_and_checkboxes"
+    },
+    {
+      "index": 54,
+      "text": "This file does not satisfy the receipt-binding criterion, and it says so itself: `final_delivery_acceptance` is false. Consumer PR 2486 is unmerged (`merged: false`, `merged_at: null`), and consumer main still holds the pre-fix `_has_subscription_auth`. That delivery proof is unmet in this PR and the reduced PR body defers it to #4557. The final reconciliation should confirm that #4550 stays open for it.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 55,
+      "text": "The file also does not support the full-suite acceptance criterion. Its limitations list says no complete unfiltered Python suite success is established. This is acknowledged and deferred, not hidden.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 56,
+      "text": "Acceptance criterion 3 (full `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` exiting zero, with complete raw logs) has no evidence in the assigned files. They hold only targeted runs: three Maint 71 Node test files, one named keepalive productivity test, and a non-slow subset of two Python test files. The PR body admits the full suite was never run and moved to #4557, yet Task 4 is still ticked [x] in the PR's checklist.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 57,
+      "text": "Acceptance criterion 4 (receipts binding the frozen Maint 68 source to merged payload bytes in an exact consumer revision) is not met by these files. Per the PR body the consumer payload is not merged (`merged=0`). The `payload-path-binding-tests.json` file correctly sets `final_delivery_acceptance: false`, so the evidence is honestly labelled partial. Task 5 is still ticked [x] although the receipt requirement is unmet.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 58,
+      "text": "`node-targeted.json` was captured with `uncommitted_changes: true` at revision db04a2ad, with only a patch hash and no committed revision. `native-tuple-tests.json` and `payload-path-binding-tests.json` are tied to different revisions (69c8345d and abc79b8d). None of these runs is bound to the merged commit, so reproducibility is weaker than the criteria's 'recorded revision' wording implies.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 59,
+      "text": "`native-tuple-tests.json` and `payload-path-binding-tests.json` embed publication-failure narrative (`git add` exit 128, rejected labels and comments) that is unrelated to the criteria. This is minor clutter. `payload-path-binding-black.log` is a retained PermissionError traceback, offset by the passing supported-environment log.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 60,
+      "text": "External evidence required: the file shows consumer PR 2486 still open and unmerged, with consumer main still holding the old payload (blob c889fd80…). The merged-payload part of the criterion on binding Maint 68's frozen source to merged consumer bytes is therefore not met here. The PR itself says this and moves it to #4557. The 'full suite exits zero' criterion also cannot be judged from this file.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 61,
+      "text": "Acceptance criterion 3 (full `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` exit zero with complete raw logs) is not supported by any assigned file. The Python logs cover only `tests/scripts/test_issue_pr_context.py` and `tests/scripts/test_llm_client_shared.py` (196 passed), plus coverage and two named-test runs. The PR body says the full suite moved to #4557 and the criterion is left unchecked.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 62,
+      "text": "Acceptance criterion 4 (receipts binding Maint 68's frozen source to final merged payload bytes in a consumer revision, then Maint 71's finding disposition) is not satisfied by the assigned files. `schedule-inventory.json` is only a window of scheduled runs from 08:58Z to 11:10Z on 2026-11-08, and none of the entries in it are Maint 68 or Maint 71 runs. The PR body itself says the payload is not delivered (consumer PR 2486, merged=0), so the criterion is unmet.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 63,
+      "text": "The PR body contains `Closes #4550` while also stating that it does not complete #4550. This is a metadata inconsistency that could auto-close an issue with two unmet acceptance criteria. The issue is reported to remain open.",
+      "class": "C3_closing_keyword_and_checkboxes"
+    },
+    {
+      "index": 64,
+      "text": "The passing-test evidence JSONs record revision `db04a2ad…` with `uncommitted_changes: true` and a `tested_patch_sha256`. They do not bind to a committed merged revision. The runs are therefore reproducible only through the patch hash, and they are not on the PR's final reduced branch (154858c48 per the body).",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 65,
+      "text": "The `scope-binding-black*.log` files are failed or aborted `black` runs. Their tracebacks show a `PermissionError` when the multiprocessing forkserver binds its socket in a sandbox, followed by 'Aborted!' and a 'files would be left unchanged' line. They do not show a clean formatting check and add little evidence value.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 66,
+      "text": "These five files are evidence only. They do not satisfy the two acceptance criteria the PR leaves open: the full-suite run (`node --test` and `pytest tests/`) on a recorded revision, and the final merged-payload receipts. The PR body states these moved to #4557 and that #4550 stays open, and `scope-binding-tests.json` records `final_delivery_acceptance: false`. A final cross-chunk review should treat both criteria as unmet by this PR.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 67,
+      "text": "The full-repository `black --check` did not complete in `scope-binding-tests.json`: one run failed on a forkserver PermissionError and several retries timed out with exit 124. Only the changed-file check exited 0. This is an environment limitation that is honestly recorded, but formatting was not proven repository-wide.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 68,
+      "text": "The recorded SHA-256 values in `evidence_sha256` and `log_sha256` cannot be recomputed from the supplied diff, and the log/test hashes are not cross-checked here.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 69,
+      "text": "These evidence files do not satisfy the full-suite acceptance criterion (`node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` both exit zero). `subject-refusal-validation.json` records the Python diagnostic as exit 124 (timeout) with `complete_suite_acceptance: false`, and `subject-refusal-python-diagnostic.log` is a truncated progress dump at about 2%. This is honestly labelled partial, and the PR body moves the criterion to #4557, but it remains unmet.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 70,
+      "text": "Nothing in these files shows the final merged consumer payload receipt (Maint 68 → Maint 71 → exact consumer revision). The PR body says consumer PR 2486 had `merged=0`, so that criterion is also unmet here and deferred to #4557.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 71,
+      "text": "`subject-refusal-validation.json` has a stale `publication` block: git add failed with a read-only `.git/index.lock`, no commit was created, the label and blocker comment were rejected, and it references `subject-refusal-blocker-comment.md`. That file is not among the changed files and was reportedly removed in the reduction, so the reference dangles. The block is working-session residue and does not describe the final delivered state.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 72,
+      "text": "The subject-refusal evidence records revision 07650cdf… and working-tree hashes for the changed sources, while the other supported-* files record different revisions (`1dc5d0af…`, 'working_tree_changes: true'). The listed hashes cannot be tied to a single merged commit from these files alone.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 73,
+      "text": "This file does not satisfy the receipt criterion that Maint 68's frozen source be bound to final merged payload bytes in an exact consumer revision. It records consumer PR 2486 as open and unmerged (`merged: false`, `merged_at: null`, `mergeable_state: blocked`). Consumer main's `tools/subscription_llm.py` (blob c889fd80…) differs from the source (blob 71a4c84c…), and `final_delivery_acceptance` is false. The record is honest, but the criterion stays unmet here; the PR body defers it to #4557, and #4550 stays open.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 74,
+      "text": "The full-suite acceptance criterion (node and pytest, both exit zero, with raw logs) is outside what this file can show. The PR body also defers it to #4557. Sibling evidence files would be needed to assess it.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 75,
+      "text": "The file is a verbatim GitHub API dump of about 4,000 lines. It includes bot comments unrelated to the scoped recurrence and full repository metadata, so the evidence is hard to audit. It also has no derived summary of which comments count as scoped, beyond `last_scoped_comment_id` and `last_scoped_created_at`.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 76,
+      "text": "Two original #4550 acceptance criteria are not met by these files. The first is the full-suite run: `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` both exiting zero on a recorded revision, with complete raw logs. The second is receipts binding Maint 68's source to final merged payload bytes in a consumer revision. `supported-node-failures-diagnostic.*` is a diagnostic rerun of 9 files only (354 tests passing, exit 0), not a full-suite acceptance. The lifecycle test asserts `merged is False`, `summary.merged == 0` and `final_delivery_acceptance is False`, so the payload is explicitly not delivered. The PR body states this and defers both to #4557, which is honest, but the criteria stay unmet and the PR text still says 'Closes #4550'. External evidence is required for them.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 77,
+      "text": "`workspace.json` records `maint68_dispatch_exit: 1` with `maint68_dispatch_error: 'error connecting to api.github.com'`. This indicates an attempted `gh workflow run` of Maint 68, which the owner instruction in #4550 forbids. It failed to connect, so nothing was dispatched, but the retained evidence shows the prohibited action was tried. The file also records `uncommitted_test_changes: true`, a `.git/index.lock` read-only error and failed remote comment/label actions. The revision `db04a2ad…` is therefore not a clean recorded state for the evidence.",
+      "class": "C4_forbidden_dispatch_attempts"
+    },
+    {
+      "index": 78,
+      "text": "The environments are inconsistent. `workspace.json` names a hostedtoolcache Python 3.14.10 and Node v24.22.2, while the node diagnostic ran on `/opt/homebrew/bin/node`. The log also contains `.coverage bad CRC` and zipinfo noise, which looks like expected negative-test output but is retained unexplained. This weakens the 'supported environment' claim.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 79,
+      "text": "Acceptance criteria 3 and 4 are not met by this PR, and the PR body says so. Criterion 3 is the full `node --test` and `python3 -m pytest tests/` run with complete raw logs. Criterion 4 is the Maint 68 → final merged consumer payload → Maint 71 receipt chain. The retained downstream tests assert `final_delivery_acceptance is False`, a failed dispatch and no following Maint 71 run, which confirms delivery is not demonstrated. The deferral to #4557 is documented, but the PR still carries `Closes #4550`, and issue #4550 as supplied is closed. The unmet criteria therefore risk being treated as done.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 80,
+      "text": "The `codex-ainvoke` fix in `test_llm_client_shared.py` works around a restricted-runner symptom (a denied asyncio socketpair wakeup) with a self-rescheduling heartbeat timer and a 10s `wait_for` bound. It does not diagnose or change `scripts/langchain/_llm_client.py`. This gives bounded termination, which criterion 2 asks for, but the root cause is not proven in the supplied files. `asyncio.Runner` also requires Python 3.11+. The 3.13 and 3.14 CI matrices cover that, so this is minor.",
+      "class": "C6_codex_ainvoke_test_side_fix"
+    },
+    {
+      "index": 81,
+      "text": "The tests in `test_issue_4369_downstream_evidence.py` read fixtures under `docs/evidence/issue-4369/runtime-4550/` (`downstream-refresh.json`, `downstream-followup.json`). Those files are sibling-chunk files that I could not inspect. The tests are structurally sound, but I could not confirm the fixtures match what they assert.",
+      "class": "C8_noise_environment_informational"
+    },
+    {
+      "index": 82,
+      "text": "Acceptance criterion 3 is not implemented by any chunk. No complete passing `node --test .github/scripts/__tests__/*.test.js` plus `python3 -m pytest -q tests/` run with raw logs on a recorded revision exists. Retained logs are targeted passes or timeouts (exit 124). The work is deferred to #4557.",
+      "class": "C1_full_suite"
+    },
+    {
+      "index": 83,
+      "text": "Acceptance criterion 4 is not implemented by any chunk. All receipts show consumer PR 2486 unmerged (merged=0) and consumer main on the older payload blob. final_delivery_acceptance is false everywhere, and no Maint 71 finding disposition follows a merged delivery. Deferred to #4557.",
+      "class": "C2_merged_payload_receipt"
+    },
+    {
+      "index": 84,
+      "text": "The PR body still contains 'Closes #4550' while stating that #4550 stays open. Tasks 4 and 5 are ticked [x] although criteria 3 and 4 are unchecked. The closing keyword and checkboxes overstate completion and could auto-close the issue with two criteria unmet.",
+      "class": "C3_closing_keyword_and_checkboxes"
+    },
+    {
+      "index": 85,
+      "text": "The owner forbids dispatching Maint 68, Maint 71 and Maint 82. Retained evidence contains force=true Maint 68 dispatch attempts (artifact-stall-followup.json, coding-stall-followup.json, downstream-followup.json, downstream-refresh.json, workspace.json). The failed attempts are not valid receipt evidence. The Maint 68 run 42485644055 log (FORCE=true, a single requested repo, digest guard bypassed) appears to be the forced single-consumer dispatch the issue says stalled the lane. It is not a scheduler- or automation-started receipt, so it cannot satisfy task 5 or criterion 4 as 'next scheduled' evidence. These should be labelled non-qualifying or superseded.",
+      "class": "C4_forbidden_dispatch_attempts"
+    },
+    {
+      "index": 86,
+      "text": "Evidence integrity gaps. Some validation JSONs reference raw logs or files that are absent from the PR: artifact-stall-node-suite.log, coding-stdin-node-full/python-full, coding-stdin-blocker-comment.md, and subject-refusal-blocker-comment.md. Several records are bound to different uncommitted working-tree revisions rather than the final tree. Several JSONs embed blocked-publication narrative.",
+      "class": "C5_evidence_integrity"
+    },
+    {
+      "index": 87,
+      "text": "Chunk 35 notes that the codex-ainvoke fix is test-side only. scripts/langchain/_llm_client.py is unchanged, so the root cause is not independently proven. This is acceptable for bounded termination but is a diagnostic limitation.",
+      "class": "C6_codex_ainvoke_test_side_fix"
+    },
+    {
+      "index": 88,
+      "text": "Some retrieval for this verification was incomplete: PR comments and several selftest artifacts (coverage.xml/json) were unavailable or truncated, and selftest-ci was still in progress, so CI completeness could not be confirmed.",
+      "class": "C8_noise_environment_informational"
+    }
+  ]
+}

@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import math
 import os
+import re
+import tempfile
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -36,6 +39,68 @@ class GitHub:
 
     def __init__(self, token: str):
         self.token = token
+        self.cache_dir = Path(os.environ.get("CI_TIME_BUDGET_CACHE", ".cache/ci-time-budget"))
+
+    def run_jobs(self, repo: str, run: dict) -> list[dict]:
+        """Completed jobs are immutable for an exact run attempt/update revision."""
+        if is_owner_excluded(repo):
+            raise ValueError("Repository is excluded")
+        path = f"/repos/{repo}/actions/runs/{run['id']}/jobs"
+        identity = {key: run.get(key) for key in ("id", "run_attempt", "head_sha", "updated_at")}
+        identity["repo"] = repo
+        reusable = (
+            run.get("status") == "completed"
+            and type(identity["id"]) is int
+            and identity["id"] > 0
+            and type(identity["run_attempt"]) is int
+            and identity["run_attempt"] > 0
+            and re.fullmatch(r"[0-9a-f]{40}", str(identity["head_sha"]))
+            and isinstance(identity["updated_at"], str)
+            and identity["updated_at"]
+        )
+        if not reusable:
+            return self.pages(path, "jobs", filter="latest")
+        key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+        cache = self.cache_dir / (key + ".json")
+        try:
+            with cache.open() as stream:
+                raw = stream.read(16 * 1024 * 1024 + 1)
+            saved = json.loads(raw)
+            jobs = saved["jobs"]
+            checksum = hashlib.sha256(json.dumps(jobs, sort_keys=True).encode()).hexdigest()
+            if (
+                len(raw) <= 16 * 1024 * 1024
+                and saved.get("schema") == "ci-budget-jobs/v1"
+                and saved.get("identity") == identity
+                and saved.get("sha256") == checksum
+                and isinstance(jobs, list)
+                and jobs
+                and all(
+                    job.get("run_id") == run["id"] and job.get("status") == "completed"
+                    for job in jobs
+                )
+            ):
+                return jobs
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            pass  # a missing/partial cache is not a measurement
+        jobs = self.pages(path, "jobs", filter="latest")
+        if jobs and all(
+            job.get("run_id") == run["id"] and job.get("status") == "completed" for job in jobs
+        ):
+            saved = {
+                "schema": "ci-budget-jobs/v1",
+                "identity": identity,
+                "jobs": jobs,
+                "sha256": hashlib.sha256(json.dumps(jobs, sort_keys=True).encode()).hexdigest(),
+            }
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(mode="w", dir=self.cache_dir, delete=False) as stream:
+                temporary = Path(stream.name)
+                json.dump(saved, stream, sort_keys=True)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, cache)
+        return jobs
 
     def request(self, method: str, path: str, payload: dict | None = None) -> Any:
         return api_client._request_json(
@@ -128,9 +193,13 @@ def measure(repo: str, *, api: GitHub, now: datetime) -> dict:
         if run["conclusion"] not in {"success", "failure", "timed_out"}:
             continue
         durations: list[float] = []
-        for job in api.pages(
-            f"/repos/{repo}/actions/runs/{run['id']}/jobs", "jobs", filter="latest"
-        ):
+        read_jobs = getattr(api, "run_jobs", None)
+        jobs = (
+            read_jobs(repo, run)
+            if callable(read_jobs)
+            else api.pages(f"/repos/{repo}/actions/runs/{run['id']}/jobs", "jobs", filter="latest")
+        )
+        for job in jobs:
             if job["conclusion"] not in {"success", "failure", "timed_out"}:
                 continue
             if not job.get("started_at") or not job.get("completed_at"):
@@ -155,7 +224,9 @@ def measure(repo: str, *, api: GitHub, now: datetime) -> dict:
     }
 
 
-def observation(previous: dict, measured: dict | None, now: datetime) -> dict:
+def observation(
+    previous: dict, measured: dict | None, now: datetime, *, repo: str = SOURCE_REPO
+) -> dict:
     today = now.date()
     history = dict(previous.get("p50_series", {}))
     history[today.isoformat()] = measured["p50"] if measured else None
@@ -170,6 +241,25 @@ def observation(previous: dict, measured: dict | None, now: datetime) -> dict:
         if p50 is None or p50 > TARGET_MINUTES:
             break
         healthy += 1
+    # Numeric history alone cannot identify the native observation that produced it.
+    # Preserve actual dates only; a canceled/missed daily run contributes no date.
+    observations = dict(previous.get("daily_observations", {}))
+    run_id = os.environ.get("GITHUB_RUN_ID", "")
+    if run_id.isdigit() and repo == os.environ.get("GITHUB_REPOSITORY") == SOURCE_REPO:
+        observations[today.isoformat()] = {
+            "date": today.isoformat(),
+            "p50_minutes": measured["p50"] if measured else None,
+            "run_id": int(run_id),
+            "run_attempt": int(os.environ.get("GITHUB_RUN_ATTEMPT", "1")),
+            "measured_at": now.isoformat(),
+            "window_start": (now - timedelta(days=7)).isoformat(),
+            "source_run_url": f"https://github.com/{SOURCE_REPO}/actions/runs/{run_id}",
+        }
+    observations = {
+        day: value
+        for day, value in sorted(observations.items())
+        if today - timedelta(days=29) <= date.fromisoformat(day) <= today
+    }
     distance = max(0, measured["p50"] / TARGET_MINUTES - 1) if measured else None
     row = {
         **previous,
@@ -183,6 +273,7 @@ def observation(previous: dict, measured: dict | None, now: datetime) -> dict:
         "share": share(distance) if distance is not None else None,
         "drainable_in": RECOVERY_DAYS - healthy,
         "p50_series": history,
+        "daily_observations": observations,
         "measured_at": now.isoformat(),
         "status": "measured" if measured else "unknown",
     }
@@ -372,9 +463,9 @@ def run(api: GitHub, repos: list[str], now: datetime) -> int:
             continue
         try:
             measured = measure(repo, api=api, now=now)
-            report[repo] = observation(previous.get(repo, {}), measured, now)
+            report[repo] = observation(previous.get(repo, {}), measured, now, repo=repo)
         except (RuntimeError, ValueError, KeyError) as exc:
-            report[repo] = observation(previous.get(repo, {}), None, now)
+            report[repo] = observation(previous.get(repo, {}), None, now, repo=repo)
             report[repo]["error"] = str(exc)
             errors.append(f"{repo}: measurement unavailable")
     # Persist first detection before filing. A crash or denied issue write cannot

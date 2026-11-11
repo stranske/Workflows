@@ -1,0 +1,10 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.10, pytest-9.2.0, pluggy-1.7.0 -- /tmp/workflows-4369-venv/bin/python3
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True, suppress_health_check=(HealthCheck.too_slow,)
+rootdir: /tmp/issue4369-before
+configfile: pyproject.toml
+plugins: cov-7.1.0, platformdirs-4.14.5, langsmith-0.14.17, xdist-3.8.0, anyio-4.16.0, hypothesis-6.170.15
+collecting ... collected 1 item
+
+tests/scripts/test_llm_client_shared.py::test_subscription_pipe_renders_each_execution_mode[codex-ainvoke] 

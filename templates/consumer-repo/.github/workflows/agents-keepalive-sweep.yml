@@ -127,7 +127,7 @@ jobs:
               const labelNames = (pr.labels || []).map((label) => (label.name || '').toLowerCase());
               const routingLabels = labelNames.filter((name) =>
                 name.startsWith('agent:') &&
-                !['agent:aider', 'agent:needs-attention', 'agent:rate-limited', 'agent:retry'].includes(name),
+                !['agent:needs-attention', 'agent:rate-limited', 'agent:retry'].includes(name),
               );
               return !pr.draft &&
                 routingLabels.length > 0 &&
@@ -324,7 +324,7 @@ jobs:
               const labelNames = (pr.labels || []).map((label) => (label.name || '').toLowerCase());
               const routingLabels = labelNames.filter((name) =>
                 name.startsWith('agent:') &&
-                !['agent:aider', 'agent:needs-attention', 'agent:rate-limited', 'agent:retry'].includes(name),
+                !['agent:needs-attention', 'agent:rate-limited', 'agent:retry'].includes(name),
               );
               return !pr.draft &&
                 routingLabels.length > 0 &&

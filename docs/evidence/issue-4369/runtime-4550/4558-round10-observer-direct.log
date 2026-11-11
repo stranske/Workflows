@@ -1,0 +1,40 @@
+✔ merger observations validate empty, exact-boundary and multi-page inventories (2.667019ms)
+✔ refuse unsupported workflow path (0.293212ms)
+✔ refuse non-string workflow path (0.157182ms)
+✔ refuse producer path on merger rows (0.193094ms)
+✔ refuse producer workflow identity on merger rows (0.260714ms)
+✔ refuse producer inventory endpoint (0.758978ms)
+✔ refuse filtered merger inventory (0.164142ms)
+✔ refuse incomplete merger pagination (3.405768ms)
+✔ refuse duplicate merger run (0.212553ms)
+✔ refuse merger run outside bounds (0.316246ms)
+✔ repository inventories select exact merger paths without treating chronology as causality (0.754732ms)
+✔ retained round-9 inventory observes a merger dispatch without a producer or causal proof (0.820138ms)
+✔ workflow-specific inventory supports empty and paginated producer observations (0.317648ms)
+✔ refuse missing workflow identity (0.177902ms)
+✔ refuse invalid workflow identity (0.127588ms)
+✔ refuse changed page endpoint (0.168518ms)
+✔ refuse wrong row workflow identity (0.136411ms)
+✔ refuse missing row workflow identity (0.090694ms)
+✔ refuse wrong workflow path (0.099246ms)
+✔ refuse event-filtered producer inventory (0.099557ms)
+✔ refuse incomplete producer pagination (0.139976ms)
+✔ empty inventory and exact page boundary require terminal empty pages (0.517463ms)
+✔ bot actor and auto title do not authenticate a dispatch or a complete chain (0.098095ms)
+✔ scheduled producer is an automation lead, not a delivery-chain acceptance (0.090553ms)
+✔ refuse filtered endpoint (0.116151ms)
+✔ refuse wrong repository (0.090994ms)
+✔ refuse missing page (0.082441ms)
+✔ refuse changing total (0.137933ms)
+✔ refuse duplicate run (0.109802ms)
+✔ refuse outside bounds (0.088941ms)
+✔ refuse missing run (0.083603ms)
+✔ refuse search cap (0.069463ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.741446

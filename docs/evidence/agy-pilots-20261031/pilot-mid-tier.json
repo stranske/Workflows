@@ -1,0 +1,996 @@
+{
+  "schema": "workflows-agy-pilot/v1",
+  "evidence_class": "exploratory-cli-seeded-defects",
+  "modules": [
+    {
+      "name": "disable_legacy_workflows",
+      "mutants": [
+        {
+          "line": 19,
+          "from": "-",
+          "to": "+"
+        },
+        {
+          "line": 74,
+          "from": "<",
+          "to": "<="
+        }
+      ]
+    },
+    {
+      "name": "discover_model_catalog",
+      "mutants": [
+        {
+          "line": 104,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 124,
+          "from": "==",
+          "to": "!="
+        },
+        {
+          "line": 188,
+          "from": "+",
+          "to": "-"
+        }
+      ]
+    },
+    {
+      "name": "ensure_workflow_timeout_variables",
+      "mutants": [
+        {
+          "line": 112,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 118,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 253,
+          "from": "and",
+          "to": "or"
+        }
+      ]
+    },
+    {
+      "name": "integration_repo",
+      "mutants": [
+        {
+          "line": 35,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 50,
+          "from": "True",
+          "to": "False"
+        },
+        {
+          "line": 77,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "refresh_model_eval_candidates",
+      "mutants": [
+        {
+          "line": 63,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 96,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 177,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "resolve_mypy_pin",
+      "mutants": [
+        {
+          "line": 77,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 92,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "verifier_artifact_capture",
+      "mutants": [
+        {
+          "line": 92,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 110,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 111,
+          "from": "or",
+          "to": "and"
+        }
+      ]
+    },
+    {
+      "name": "verifier_proof_resource_plan",
+      "mutants": [
+        {
+          "line": 117,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 130,
+          "from": "+",
+          "to": "-"
+        },
+        {
+          "line": 210,
+          "from": "+",
+          "to": "-"
+        }
+      ]
+    },
+    {
+      "name": "verifier_semantic_execution",
+      "mutants": [
+        {
+          "line": 58,
+          "from": "==",
+          "to": "!="
+        },
+        {
+          "line": 234,
+          "from": "True",
+          "to": "False"
+        },
+        {
+          "line": 264,
+          "from": "False",
+          "to": "True"
+        }
+      ]
+    },
+    {
+      "name": "coverage_trend",
+      "mutants": [
+        {
+          "line": 123,
+          "from": "+",
+          "to": "-"
+        },
+        {
+          "line": 308,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 349,
+          "from": "True",
+          "to": "False"
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "backend": "agy",
+      "kind": "audit",
+      "mode": "single",
+      "calls": 10,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 107742,
+      "tokens_out": 127210,
+      "tokens_per_item": 23495,
+      "latency_s": 775.3,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        }
+      ],
+      "totals": {
+        "recall": 1.0,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "audit",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 52174,
+      "tokens_out": 99737,
+      "tokens_per_item": 15191,
+      "latency_s": 580.6,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        }
+      ],
+      "totals": {
+        "recall": 0.964,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "testgen",
+      "mode": "single",
+      "calls": 10,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 100237,
+      "tokens_out": 435372,
+      "tokens_per_item": 53561,
+      "latency_s": 2497.8,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        }
+      ],
+      "totals": {
+        "kill_rate": 0.571,
+        "clean_pass_rate": 0.6
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "testgen",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 6,
+      "errors": [
+        "agy status ERROR"
+      ],
+      "tokens_in": 253645,
+      "tokens_out": 212092,
+      "tokens_per_item": 46574,
+      "latency_s": 1136.4,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "mutants": 2,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": false,
+          "mutants": 2,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "coverage_trend",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        }
+      ],
+      "totals": {
+        "kill_rate": 0.107,
+        "clean_pass_rate": 0.1
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "audit",
+      "mode": "single",
+      "calls": 10,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 62110,
+      "tokens_out": 4086,
+      "tokens_per_item": 6620,
+      "latency_s": 68.9,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        }
+      ],
+      "totals": {
+        "recall": 0.929,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "audit",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 41977,
+      "tokens_out": 3629,
+      "tokens_per_item": 4561,
+      "latency_s": 36.6,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 3,
+          "useful": 2,
+          "resolving": 3
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 3,
+          "useful": 2,
+          "resolving": 3
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 4,
+          "useful": 3,
+          "resolving": 4
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        }
+      ],
+      "totals": {
+        "recall": 0.893,
+        "precision": 0.893,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "testgen",
+      "mode": "single",
+      "calls": 10,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 57357,
+      "tokens_out": 111855,
+      "tokens_per_item": 16921,
+      "latency_s": 639.2,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 0.893,
+        "clean_pass_rate": 0.9
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "testgen",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 37155,
+      "tokens_out": 124717,
+      "tokens_per_item": 16187,
+      "latency_s": 714.3,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 1.0,
+        "clean_pass_rate": 1.0
+      }
+    }
+  ]
+}

@@ -582,7 +582,7 @@ function sealedGateHarness(t) {
       reads.push(params);
       if (state.lookupError) throw Object.assign(new Error('history denied'), { status: 403 });
       return { data: { workflow_runs: params.event === 'pull_request' ? state.runs
-        : dispatches.length ? [{ ...run, event: 'workflow_dispatch', status: 'queued', created_at: new Date().toISOString() }] : [] } };
+        : state.dispatchRuns || (dispatches.length ? [{ ...run, event: 'workflow_dispatch', status: 'queued', created_at: new Date().toISOString() }] : []) } };
     },
     listJobsForWorkflowRun() {},
     reRunWorkflow: async params => {
@@ -674,6 +674,50 @@ test('missing PR Gate uses dispatch fallback; unreadable history fails closed', 
   assert.equal(api.dispatches.length, 1);
 });
 
+for (const sealed of [false, true]) {
+  test(`missing declared Python contexts drain a successful skipped Gate (sealed=${sealed})`, async t => {
+    // Real Orchestrator1289: ordinary Gate42588005969 succeeded with its Python
+    // parent skipped; exact-head dispatch42589659513 supplied all twelve contexts.
+    const api = sealedGateHarness(t);
+    api.args.repo = 'Orchestrator';
+    api.args.pr.number = 1289;
+    api.args.pr.head.ref = sealed ? 'sync/workflows-delivery' : 'deps/sync-dev-versions-57431b7fe7a2';
+    api.args.pr.head.sha = '6efd1db39f9ba919d0f0ff6f63e2c0056ca64172';
+    Object.assign(api.run, { head_sha: api.args.pr.head.sha, head_branch: api.args.pr.head.ref,
+      conclusion: 'success', run_started_at: '2026-10-17T11:00:01Z' });
+    if (!sealed) api.args.sealedAt = undefined;
+    api.args.missingDeclaredContexts = Array.from({ length: 6 }, (_, i) =>
+      ['3.13', '3.14'].map(version => `python ci shard ${i + 1}/6 / python ${version}`)).flat();
+    const result = await requestSealedGate(api.args);
+    assert.equal(result.mode, 'dispatch');
+    assert.equal(api.reruns.length, 0, 'rerunning the same PR event repeats its skipped matrix');
+    assert.deepEqual(api.dispatches, [{ owner: 'stranske', repo: 'Orchestrator',
+      workflow_id: 'pr-00-gate.yml', ref: api.args.pr.head.ref, inputs: { pr_number: '1289' } }]);
+    for (const status of ['queued', 'in_progress', 'completed']) {
+      api.state.dispatchRuns = [{ ...api.run, id: 42589659513, event: 'workflow_dispatch', status,
+        conclusion: status === 'completed' ? 'success' : null, created_at: new Date().toISOString() }];
+      assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 42589659513 });
+    }
+    assert.equal(api.dispatches.length, 1, 'same-head native dispatch is reused even without a seal');
+  });
+}
+
+test('missing declared Python contexts never duplicate an active PR Gate', async t => {
+  const api = sealedGateHarness(t);
+  api.state.runs[0].status = 'in_progress';
+  api.args.missingDeclaredContexts = ['python ci / python 3.14'];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+  assert.equal(api.dispatches.length, 0);
+});
+
+test('missing declared Python recovery leaves other required contexts alone', async t => {
+  const api = sealedGateHarness(t);
+  Object.assign(api.state.runs[0], { conclusion: 'success', run_started_at: '2026-10-17T11:00:01Z' });
+  api.args.missingDeclaredContexts = ['CodeQL', 'python ci / lint-ruff'];
+  assert.deepEqual(await requestSealedGate(api.args), { mode: 'existing', run_id: 4105 });
+  assert.equal(api.dispatches.length, 0);
+});
+
 function refreshCanary(overrides = {}) {
   return { owner: 'stranske', repo: 'Ready', pr: 12, plan_id: 'plan-4026',
     source_commit: 'a'.repeat(40), base_sha: 'b'.repeat(40), default_branch_tip_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40),
@@ -682,8 +726,36 @@ function refreshCanary(overrides = {}) {
     ...overrides };
 }
 
+test('a canary with no candidate PR requests a full canary run instead of failing the lane', async () => {
+  // 2026-11-08 13:36Z: a single-consumer source-delta plan opened a candidate only in one canary; the
+  // other canaries' rows carried no PR, and the refresh request threw canary_refresh_report_subject_unknown.
+  const { dispatchCandidateRefreshFromReport } = require('../maint71_merge_sync_prs');
+  const api = refreshHarness();
+  const missing = (repo) => ({ owner: 'stranske', repo, branch: 'sync/workflows-candidate',
+    status: 'stable_base_refresh_required', next_command: 'dispatch-maint-68-phase-canary-no-filter',
+    reason: 'candidate_pr_and_no_change_evidence_missing' });
+  const call = (report) => dispatchCandidateRefreshFromReport({ report, withRetry: api.withRetry,
+    context: api.context, core: api.core, expectedCanaries: api.expectedCanaries, trustedActors: ['stranske'] });
+  const report = { inputs: { sync_hash: 'candidate', cleanup_branches: true },
+    results: [missing('Ready'), missing('Template')] };
+  const result = await call(report);
+  assert.equal(result.missing_candidates, 2);
+  assert.equal(api.dispatches.length, 1);
+  const { inputs } = api.dispatches[0];
+  assert.equal(inputs.phase, 'canary');
+  assert.equal(inputs.delivery_scope, 'full');
+  assert.deepEqual(inputs.repos.split(',').sort(), ['stranske/Ready', 'stranske/Template']);
+  assert.equal(report.canary_refresh.drainable, 2);
+  assert.ok(api.notices.some(n => n.includes('no candidate PR for stranske/Ready, stranske/Template')));
+  // Any other row without a native subject still fails closed.
+  const foreign = { ...report, results: [{ ...missing('Ready'), owner: 'someone' }] };
+  await assert.rejects(call(foreign), /canary_refresh_report_subject_unknown/);
+  const otherReason = { ...report, results: [{ ...missing('Ready'), reason: 'something_else' }] };
+  await assert.rejects(call(otherReason), /canary_refresh_report_subject_unknown/);
+});
+
 function refreshHarness(overrides = {}) {
-  const dispatches = [], comments = [], summaries = [], failures = [], reads = [];
+  const dispatches = [], comments = [], summaries = [], failures = [], reads = [], notices = [];
   const manifestEntries = require('../sync_pr_merge_contract').parseManifestSyncedSourceEntries(`
 scripts:
   - source: .github/scripts/shared.js
@@ -708,22 +780,25 @@ workflows:
       getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
         canaries: ['stranske/Ready', 'stranske/Template'].map((repo) => ({ repo })),
       })).toString('base64') } }),
-      listCommits: async (params) => { reads.push(params); return { data: [{ sha: 'a'.repeat(40) }] }; },
+      listCommits: async (params) => {
+        reads.push(params);
+        return { data: overrides.commitPages?.[(params.page || 1) - 1] ?? [{ sha: 'a'.repeat(40) }] };
+      },
       listPullRequestsAssociatedWithCommit: () => {},
       listCommentsForCommit: () => {},
       createCommitComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }),
     },
     issues: { listComments: () => {}, createComment: async (params) => comments.push({ ...params, user: { login: 'maint71-bot' } }) },
-  }, paginate: async (method) => {
+  }, paginate: async (method, params) => {
     if (method === github.rest.repos.listPullRequestsAssociatedWithCommit) {
-      return overrides.prs ?? [{ number: 4020, merged_at: '2026-10-16T10:00:00Z',
+      return overrides.prsByCommit?.[params.commit_sha] ?? overrides.prs ?? [{ number: 4020, merged_at: '2026-10-16T10:00:00Z',
         base: { repo: { full_name: 'stranske/Workflows' } } }];
     }
     return [...comments, ...(overrides.existing || [])];
   } };
-  const core = { notice() {}, setFailed: (message) => failures.push(message),
+  const core = { notice: (message) => notices.push(message), setFailed: (message) => failures.push(message),
     summary: { addRaw(text) { summaries.push(text); return this; }, async write() {} } };
-  return { dispatches, comments, summaries, failures, reads, manifestEntries, core,
+  return { dispatches, comments, summaries, failures, reads, notices, manifestEntries, core,
     withRetry: async (fn) => fn(github), enabled: true, now: refreshNow,
     expectedCanaries: ['stranske/Ready', 'stranske/Template'],
     context: { repo: { owner: 'stranske', repo: 'Workflows' },
@@ -767,6 +842,100 @@ test('all current green canaries and an empty run emit zero counts without dispa
       'canaries: red=0 review_blocked=0 stale=0 refresh_dispatched=0 held_plan=none drainable=0\n'));
   }
 });
+
+for (const outcome of ['dispatched', 'active writer', 'failed dispatch']) {
+  test(`mixed canary counts reach logs and job summary after ${outcome}`, async (t) => {
+    const logs = [];
+    t.mock.method(console, 'log', (message) => logs.push(message));
+    let dispatchAttempts = 0;
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: outcome === 'active writer' ? [
+        { status: 'in_progress', display_title: 'Maint 68 promote auto plan source' },
+      ] : [] } }),
+      createWorkflowDispatch: async () => {
+        dispatchAttempts++;
+        if (outcome === 'failed dispatch') throw new Error('dispatch denied');
+      },
+    } });
+    const result = await refreshStableCanaries({ ...api, canaries: [
+      refreshCanary({ check_status: 'checks_failed', head_observed_at: '2026-10-17T05:00:00Z' }),
+      refreshCanary({ repo: 'Template', pr: 13, active_review_thread_count: 1,
+        head_observed_at: '2026-10-17T04:00:00Z' }),
+    ] });
+
+    // Both old heads count as stale even though their refresh reasons differ.
+    // A request that failed or was held by another writer is not a dispatch.
+    const expected = 'canaries: red=1 review_blocked=1 stale=2 '
+      + `refresh_dispatched=${Number(outcome === 'dispatched')} held_plan=plan-4026 drainable=0`;
+    assert.deepEqual(logs.filter(line => line.startsWith('canaries:')), [expected]);
+    assert.deepEqual(api.summaries.filter(line => line.startsWith('canaries:')), [`${expected}\n`]);
+    assert.deepEqual([result.red, result.review_blocked, result.stale], [1, 1, 2]);
+    assert.equal(result.refresh_dispatched, Number(outcome === 'dispatched'));
+    assert.equal(dispatchAttempts, Number(outcome !== 'active writer'));
+    assert.deepEqual(api.failures, outcome === 'failed dispatch'
+      ? ['canary_refresh_failed:dispatch denied'] : []);
+  });
+}
+
+for (const [state, change] of [
+  ['behind', { mergeable_state: 'behind' }],
+  ['checks_failed', { check_status: 'checks_failed' }],
+  ['review_blocked', { active_review_thread_count: 1 }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
+]) {
+  test(`one ${state} canary among green siblings dispatches once and waits for its writer`, async () => {
+    for (const blockedFirst of [true, false]) {
+      const runs = [];
+      const api = refreshHarness({ actions: {
+        listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+      } });
+      const green = refreshCanary();
+      const blocked = refreshCanary({ ...change, repo: 'Template', pr: 13,
+        threads: state === 'review_blocked' ? [{
+          id: 'PRRT_single', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+          comments: { nodes: [{ url: 'https://github.com/stranske/Template/pull/13#discussion_r4026' }] },
+        }] : [],
+      });
+      const canaries = blockedFirst ? [blocked, green] : [green, blocked];
+      const result = await refreshStableCanaries({ ...api, canaries });
+
+      assert.equal(result.refresh_dispatched, 1, `missing refresh dispatch: ${state}`);
+      assert.equal(api.dispatches.length, 1, state);
+      assert.equal(blocked.refresh_reason, state);
+      assert.equal(green.refresh_reason, null, 'a green sibling must retain its merge path');
+      assert.deepEqual(result.held_plans, [blocked.plan_id]);
+      assert.equal(api.dispatches[0].inputs.phase, 'canary');
+      assert.equal(api.dispatches[0].inputs.repos, api.expectedCanaries.join(','),
+        'recovery must refresh the configured canaries without narrowing to the blocked repo');
+      assert.ok(api.notices.includes(`dispatch-maint-68-phase-canary-no-filter: ${blocked.plan_id}; `
+        + `reasons=stranske/Template:${state}; completion awaits a successful Maint 68 run`));
+      const counts = `canaries: red=${Number(state === 'checks_failed')} `
+        + `review_blocked=${Number(state === 'review_blocked')} stale=${Number(state === 'stale')}`;
+      assert.ok(api.summaries.includes(`${counts} refresh_dispatched=1 held_plan=${blocked.plan_id} drainable=0\n`));
+
+      // A later Maint 71 invocation must observe the queued producer and avoid
+      // another write wave, even though the consumer remains blocked.
+      runs.push({ id: 4028, status: 'queued', conclusion: null, head_branch: 'main',
+        head_sha: 'a'.repeat(40), created_at: new Date(refreshNow).toISOString(),
+        display_title: 'Maint 68 canary full source=' + 'a'.repeat(40)
+          + ` candidates=${api.expectedCanaries.join(',')} dry=false`,
+      });
+      const retry = await refreshStableCanaries({ ...api, canaries });
+      assert.equal(retry.refresh_dispatched, 0, `duplicate refresh dispatch: ${state}`);
+      assert.equal(api.dispatches.length, 1, state);
+      assert.ok(api.summaries.includes(`${counts} refresh_dispatched=0 held_plan=${blocked.plan_id} drainable=0\n`));
+      assert.equal(api.comments.length, Number(state === 'review_blocked'),
+        'a queued refresh must preserve upstream routing without duplicate comments');
+      if (state === 'review_blocked') {
+        assert.equal(api.reads[0].path, '.github/scripts/shared.js');
+        assert.equal(api.comments[0].issue_number, 4020);
+        assert.match(api.comments[0].body, /https:\/\/github.com\/stranske\/Template\/pull\/13#discussion_r4026/);
+      }
+      assert.equal(blocked.head_sha, 'c'.repeat(40), 'Maint 71 must preserve the producer head');
+      assert.deepEqual(api.failures, []);
+    }
+  });
+}
 
 test('staleness uses producer head age, with a strict six-hour boundary', () => {
   assert.equal(STALE_CANARY_HOURS, 6);
@@ -1006,6 +1175,34 @@ test('overlapping blockers are counted independently and dry-run cannot mutate',
   assert.equal(api.comments.length, 0);
 });
 
+for (const disposition of ['shared-source', 'unrelated']) {
+  test(`stale canary accounting preserves the ${disposition} review snapshot`, async () => {
+    const api = refreshHarness();
+    const packet = findingPacket(disposition);
+    const { binding } = packet;
+    const canary = refreshCanary({ pr: binding.pr, plan_id: binding.plan_id,
+      source_commit: binding.source_commit, head_sha: binding.head_sha,
+      delivery_generation: binding.delivery_generation, review_disposition: packet,
+      active_review_thread_count: packet.activeReviewThreadCount,
+      threads: packet.reviewThreads, mergeable_state: 'dirty',
+      head_observed_at: '2026-10-17T05:00:00Z' });
+    const snapshot = structuredClone(canary);
+    const reason = disposition === 'shared-source' ? 'review_blocked' : 'stale';
+    assert.equal(canaryNeedsRefresh(canary, refreshNow), reason);
+    const result = await refreshStableCanaries({ ...api, enabled: false, canaries: [canary] });
+    assert.equal(result.stale, 1, 'producer age must be counted with a bound review snapshot');
+    assert.equal(result.review_blocked, disposition === 'shared-source' ? 1 : 0);
+    assert.equal(result.canaries[0].refresh_reason, reason);
+    assert.ok(api.summaries.includes(`canaries: red=0 review_blocked=${result.review_blocked} `
+      + `stale=1 refresh_dispatched=0 held_plan=${binding.plan_id} drainable=0\n`));
+    assert.deepEqual(canary.review_disposition, snapshot.review_disposition);
+    assert.equal(canary.active_review_thread_count, snapshot.active_review_thread_count);
+    assert.equal(api.dispatches.length, 0);
+    assert.equal(api.comments.length, 0);
+    assert.deepEqual(api.failures, []);
+  });
+}
+
 test('active Maint 68 writer defers refresh; a failed dispatch emits zero and fails visibly', async () => {
   for (const active of [true, false]) {
     const api = refreshHarness({ actions: active ? {
@@ -1058,14 +1255,58 @@ test('an existing upstream comment is reused and direct commits use commit comme
   }
 });
 
-async function assertExecutorCanaryRefresh(t, state) {
+test('review routing finds the latest source PR behind direct commits across history pages', async () => {
+  const previous = 'b'.repeat(40);
+  const older = 'c'.repeat(40);
+  const directCommits = Array.from({ length: 100 }, (_, index) => ({
+    sha: (index + 1).toString(16).padStart(40, '0'),
+  }));
+  const merged = (number, date, repository = 'stranske/Workflows') => ({
+    number, merged_at: date, base: { repo: { full_name: repository } },
+  });
+  const api = refreshHarness({
+    commitPages: [directCommits, [{ sha: previous }, { sha: older }]],
+    prs: [],
+    prsByCommit: {
+      [previous]: [
+        merged(4021, null),
+        merged(4022, '2026-10-17T10:00:00Z', 'stranske/Other'),
+        merged(4019, '2026-10-15T10:00:00Z'),
+        merged(4020, '2026-10-16T10:00:00Z'),
+      ],
+      [older]: [merged(4018, '2026-10-14T10:00:00Z')],
+    },
+  });
+  const canary = refreshCanary({ active_review_thread_count: 1, threads: [{
+    id: 'PRRT_history', path: 'scripts/shared.js', isResolved: false, isOutdated: false,
+    comments: { nodes: [{ url: 'https://github.com/stranske/Ready/pull/12#discussion_history' }] },
+  }] });
+
+  const result = await refreshStableCanaries({ ...api, canaries: [canary] });
+  assert.deepEqual(result.errors, []);
+  assert.equal(api.comments.length, 1);
+  assert.equal(api.comments[0].issue_number, 4020,
+    'a direct source commit must not hide the latest merged Workflows PR');
+  assert.equal(api.comments[0].commit_sha, undefined);
+  assert.match(api.comments[0].body, /discussion_history/);
+  assert.deepEqual(api.reads.map(({ path, sha, page }) => ({ path, sha, page })), [
+    { path: '.github/scripts/shared.js', sha: 'main', page: 1 },
+    { path: '.github/scripts/shared.js', sha: 'main', page: 2 },
+  ]);
+
+  await refreshStableCanaries({ ...api, canaries: [canary] });
+  assert.equal(api.comments.length, 1, 'the PR comment must still be deduplicated on retry');
+});
+
+async function assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus, overlappingBlockers = false, guardRecovery = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `maint71-${state}-canary-`));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const repository = require('../../../config/consumer_sync_canaries.json').canaries[0].repo;
   const [owner, repo] = repository.split('/');
   const head = 'd'.repeat(40), source = 'c'.repeat(40), plan = `sha256:${'a'.repeat(64)}`;
   t.mock.timers.enable({ apis: ['Date'], now: refreshNow });
-  const ageMinutes = ['stale', 'aged_green'].includes(state) ? (STALE_CANARY_HOURS + 1) * 60 : 20;
+  const ageMinutes = overlappingBlockers || ['stale', 'aged_green'].includes(state)
+    ? (STALE_CANARY_HOURS + 1) * 60 : 20;
   const observed = new Date(refreshNow - ageMinutes * 60 * 1000).toISOString();
   const reviewStarted = state === 'seal_review_wait' ? new Date(refreshNow - 60000).toISOString() : observed;
   const { formatDeliveryRecord } = require('../sync_pr_lease_contract');
@@ -1140,7 +1381,8 @@ async function assertExecutorCanaryRefresh(t, state) {
       }] : [] } }),
       getBranchProtection: async () => ({ data: { required_status_checks: {
         contexts: presealDual ? ['Gate / gate', 'gate-summary', ...(sealRecovery ? ['generated delivery seal', 'classify changed paths'] : []),
-          ...(realFailure ? ['production tests'] : [])] : ['Gate / gate'],
+          ...(realFailure ? ['production tests'] : [])] : ['Gate / gate',
+          ...(guardRecovery && guardRecovery !== 'unqualified' ? ['Health 45 Agents Guard / guard'] : [])],
       } } }),
       getCommit: async ({ ref }) => ({ data: { sha: ref === 'main' && !producerSucceeded ? 'a'.repeat(40) : source, commit: { committer: { date: observed } } } }),
       getContent: async ({ path: filePath }) => {
@@ -1191,6 +1433,9 @@ async function assertExecutorCanaryRefresh(t, state) {
       },
       createWorkflowDispatch: async (params) => {
         dispatches.push(params);
+        if (params.workflow_id === 'maint-68-sync-consumer-repos.yml' && refreshDispatchStatus) {
+          throw Object.assign(new Error('candidate refresh unavailable'), { status: refreshDispatchStatus });
+        }
         if (params.workflow_id === 'pr-00-gate.yml' && dispatchError) {
           throw Object.assign(new Error('consumer Gate unavailable'), { status: dispatchError });
         }
@@ -1214,6 +1459,8 @@ async function assertExecutorCanaryRefresh(t, state) {
         details_url: `https://github.com/${owner}/${repo}/actions/runs/4027/job/2` },
     ];
     if (method === github.rest.checks.listForRef) return (preseal || state === 'no_change_merged') ? [] : [
+      ...(guardRecovery === 'unqualified' ? [{ name: 'guard', status: 'completed', conclusion: 'success',
+        app: { slug: 'github-actions' }, details_url: `https://github.com/${owner}/${repo}/actions/runs/123/job/1` }] : []),
       { name: 'Gate / gate', status: 'completed',
         conclusion: ['checks_failed', 'producer_success_red'].includes(state) ? 'failure' : 'success' },
     ];
@@ -1239,7 +1486,7 @@ async function assertExecutorCanaryRefresh(t, state) {
     createdAt: observed, updatedAt: observed,
     comments: { pageInfo: { hasNextPage: false }, nodes: [] },
     reviews: { pageInfo: { hasNextPage: false }, nodes: [] },
-    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: ['review_blocked', 'seal_review_threads'].includes(state) ? [
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: overlappingBlockers || ['review_blocked', 'seal_review_threads'].includes(state) ? [
       { id: 'PRRT_executor', path: 'consumer-owned.js', isResolved: false, isOutdated: false,
         comments: { pageInfo: { hasNextPage: false }, nodes: [] } },
     ] : [] },
@@ -1258,6 +1505,14 @@ async function assertExecutorCanaryRefresh(t, state) {
         status: 'completed', conclusion: 'success' }] : [] } });
   }
   const retryHelpers = require('../github-api-with-retry');
+  const guardRequests = [];
+  if (guardRecovery) t.mock.method(require('../maint71_agents_guard_recovery'), 'recoverCancelledAgentsGuard', async args => {
+    guardRequests.push(args);
+    return { mode: guardRecovery === 'refused' ? 'refused' : 'requested', run_id: 999, blocking: 1, drainable: 1,
+      reason: guardRecovery === 'refused' ? 'guard_repeated_cancellation' : 'requested',
+      next_command: guardRecovery === 'refused' ? 'repair-workflow-admission-then-trigger-a-new-original-pr-event'
+        : 'reread-original-agents-guard-run-and-qualified-status' };
+  });
   t.mock.method(retryHelpers, 'createTokenAwareRetry', async () => null);
   t.mock.method(retryHelpers, 'withRetry', async (fn) => fn(github));
   const logs = [];
@@ -1300,9 +1555,44 @@ async function assertExecutorCanaryRefresh(t, state) {
     assert.equal(dispatches[0].inputs.refresh_key, require('crypto').createHash('sha256')
       .update(`${repository}:${'e'.repeat(40)}:${head}`).digest('hex'));
   }
-  assert.deepEqual(failures, [], JSON.stringify(report.results));
+  assert.deepEqual(failures, refreshDispatchStatus
+    ? ['canary_refresh_failed:candidate refresh unavailable'] : [], JSON.stringify(report.results));
   const row = report.results.find((row) => row.owner === owner && row.repo === repo
-    && (!['aged_green', 'seal_drained'].includes(state) || row.status === 'merged'));
+    && (!['aged_green', 'seal_drained'].includes(state) || guardRecovery || row.status === 'merged'));
+  if (guardRecovery) {
+    assert.equal(guardRequests.length, 1, JSON.stringify(report.results));
+    assert.equal(row.status, 'checks_pending');
+    assert.equal(row.agents_guard_request.mode, guardRecovery === 'refused' ? 'refused' : 'requested');
+    if (guardRecovery === 'refused') assert.equal(row.next_command, 'repair-workflow-admission-then-trigger-a-new-original-pr-event');
+    assert.equal(merges.length, 0); assert.equal(dispatches.length, 0); assert.equal(updates.length, 0);
+    return;
+  }
+  if (['behind', 'checks_failed', 'review_blocked', 'stale'].includes(state)) {
+    const red = Number(state === 'checks_failed');
+    const reviewBlocked = Number(overlappingBlockers || state === 'review_blocked');
+    const stale = Number(overlappingBlockers || state === 'stale');
+    const dispatched = Number(!refreshDispatchStatus);
+    const expected = `canaries: red=${red} review_blocked=${reviewBlocked} `
+      + `stale=${stale} refresh_dispatched=${dispatched} held_plan=${plan} drainable=0`;
+    assert.deepEqual(logs.filter(line => line.startsWith('canaries:')), [expected]);
+    assert.deepEqual(summaries.filter(line => line.startsWith('canaries:')), [`${expected}\n`]);
+    assert.deepEqual([report.canary_refresh.red, report.canary_refresh.review_blocked,
+      report.canary_refresh.stale, report.canary_refresh.refresh_dispatched],
+    [red, reviewBlocked, stale, dispatched]);
+    assert.deepEqual(report.canary_refresh.held_plans, [plan]);
+    assert.deepEqual(report.canary_refresh.errors, failures);
+  }
+  if (refreshDispatchStatus) {
+    assert.equal(dispatches.length, 1, 'a refused refresh must not trigger a second writer');
+    assert.equal(dispatches[0].workflow_id, 'maint-68-sync-consumer-repos.yml');
+    assert.equal(row.status, state === 'checks_failed' ? 'checks_failed' : 'stable_base_refresh_required');
+    if (state !== 'checks_failed') {
+      assert.equal(row.next_command, 'dispatch-maint-68-phase-canary-no-filter');
+    }
+    assert.equal(candidate.head.sha, head);
+    assert.equal(merges.length, 0, 'dispatch refusal must preserve the consumer merge hold');
+    return;
+  }
   if (state.startsWith('no_change')) {
     assert.equal(row.status, 'evidence_recovered');
     if (state === 'no_change_merged') {
@@ -1436,9 +1726,10 @@ async function assertExecutorCanaryRefresh(t, state) {
   }
   if (state === 'checks_failed') {
     assert.equal(row.status, 'checks_failed');
-    assert.equal(row.delivery_disposition, 'repo-local-failure');
+    assert.equal(row.delivery_disposition, overlappingBlockers ? 'review-blocked' : 'repo-local-failure');
     assert.equal(updates.length, 0);
     assert.equal(dispatches.length, 1);
+    assert.equal(merges.length, 0, 'a refresh must not bypass overlapping consumer blockers');
     return;
   }
   assert.equal(row.status, 'stable_base_refresh_required', JSON.stringify(report.results));
@@ -1456,9 +1747,25 @@ async function assertExecutorCanaryRefresh(t, state) {
     `stale=${Number(state === 'stale')} refresh_dispatched=1 held_plan=${plan} drainable=0\n`));
 }
 
+test('actual executor routes missing qualified Guard to recovery without merge or source refresh', t =>
+  assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: true }));
+test('actual executor inspects unqualified raw Guard success with Gate-only protection', t =>
+  assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: 'unqualified' }));
+test('actual executor preserves actionable repeated-cancellation refusal in its handoff', t =>
+  assertExecutorCanaryRefresh(t, 'aged_green', { guardRecovery: 'refused' }));
+
 for (const state of ['behind', 'checks_failed', 'review_blocked', 'stale']) {
   test(`executor refreshes a ${state} stable canary before early exits and preserves the head`,
     async (t) => assertExecutorCanaryRefresh(t, state));
+  test(`executor retains ${state} canary counts in logs, summary and report after refresh refusal`,
+    async (t) => assertExecutorCanaryRefresh(t, state, { refreshDispatchStatus: 403 }));
+}
+
+for (const refreshDispatchStatus of [undefined, 403]) {
+  test(`executor reports overlapping red, review and stale blockers after refresh ${refreshDispatchStatus ? 'refusal' : 'dispatch'}`,
+    async (t) => assertExecutorCanaryRefresh(t, 'checks_failed', {
+      overlappingBlockers: true, refreshDispatchStatus,
+    }));
 }
 
 for (const state of ['seal_never_staging', 'seal_never_real_failure', 'seal_never_rerun_refused', 'seal_already_rerun_refused', 'seal_mismatch', 'seal_real_failure', 'seal_already_current', 'seal_already_delivery', 'seal_already_behind', 'seal_already_green', 'seal_already_422', 'seal_already_404', 'seal_review_settled', 'seal_review_wait', 'seal_review_threads', 'seal_drained']) {
@@ -2485,6 +2792,45 @@ for (const [reason, change] of [
   });
 }
 
+for (const [reason, change] of [
+  ['behind', { mergeable_state: 'behind' }],
+  ['checks_failed', { check_status: 'checks_failed' }],
+  ['review_blocked', { active_review_thread_count: 1 }],
+  ['stale', { mergeable_state: 'dirty', head_observed_at: '2026-10-17T05:00:00Z' }],
+]) {
+  test(`consumed sibling recovery does not hide a new ${reason} canary in the same plan`, async () => {
+    let runs = [producerRun()];
+    const api = refreshHarness({ actions: {
+      listWorkflowRuns: async () => ({ data: { workflow_runs: runs } }),
+    } });
+    const consumed = refreshCanary(change);
+    const sibling = refreshCanary({ ...change, repo: 'Template', pr: 13, head_sha: 'd'.repeat(40) });
+    const refresh = (canaries) => refreshStableCanaries({ ...api, canaries });
+    assert.equal((await refresh([consumed])).refresh_dispatched, 1);
+    runs.unshift(producerRun({ id: 4069,
+      display_title: `${producerRun().display_title} drift=${api.dispatches[0].inputs.refresh_key}` }));
+    assert.equal((await refresh([consumed])).refresh_dispatched, 0);
+
+    const result = await refresh([consumed, sibling]);
+    assert.equal(result.refresh_dispatched, 1, `missing sibling refresh dispatch: ${reason}`);
+    assert.equal(api.dispatches.length, 2, 'one additional dispatch for the plan');
+    const key = api.dispatches[1].inputs.refresh_key;
+    assert.notEqual(key, api.dispatches[0].inputs.refresh_key);
+    assert.deepEqual(result.held_plans, [consumed.plan_id]);
+    assert.match(api.notices.at(-1), new RegExp(`stranske/Template:${reason}`));
+
+    runs.unshift(producerRun({ id: 4070, status: 'queued', conclusion: null,
+      display_title: `${producerRun().display_title} drift=${key}` }));
+    assert.equal((await refresh([consumed, sibling])).refresh_dispatched, 0,
+      'an active writer still holds both recovery keys');
+    runs[0] = { ...runs[0], status: 'completed', conclusion: 'success' };
+    assert.equal((await refresh([consumed, sibling])).refresh_dispatched, 0,
+      'both successful recovery keys remain consumed');
+    assert.equal(api.dispatches.length, 2);
+    assert.deepEqual(api.failures, []);
+  });
+}
+
 test('new main SHA dispatches exactly once across held plans and subsequent observations', async () => {
   let runs = [producerRun({ head_sha: 'b'.repeat(40),
     display_title: producerRun().display_title.replace('a'.repeat(40), 'b'.repeat(40)) })];
@@ -2524,6 +2870,214 @@ test('refresh identity includes the sorted candidate set, scope, source, branch 
   assert.equal(decide([failure]).eligible, true);
   failure.created_at = new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS + 1).toISOString();
   assert.equal(decide([failure]).eligible, false);
+});
+
+test('later same-payload success closes an older cancelled refresh window', () => {
+  const drift = 'ab'.repeat(32);
+  const candidates = ['stranske/Ready', 'stranske/Template'];
+  const sha = 'a'.repeat(40);
+  const now = Date.parse('2026-11-06T12:54:41Z');
+  const cancelled = producerRun({ id: 42220291945, conclusion: 'cancelled',
+    created_at: '2026-11-06T12:46:55Z', run_started_at: '2026-11-06T12:46:55Z',
+    updated_at: '2026-11-06T12:47:30Z' });
+  const success = producerRun({ id: 42220562715, created_at: '2026-11-06T12:49:03Z',
+    run_started_at: '2026-11-06T12:49:03Z' });
+  const held = canaryRefreshDecision({ runs: [cancelled], sha, candidates, driftKey: drift, now });
+  assert.equal(held.eligible, false);
+  assert.equal(held.state, 'cancelled');
+  const released = canaryRefreshDecision({ runs: [success, cancelled], sha, candidates, driftKey: drift, now });
+  assert.equal(released.eligible, true, 'older cancellation must not skip a recovery after delivery');
+  assert.equal(released.state, 'unseen');
+  assert.equal(released.producer_succeeded, false, 'unkeyed success does not consume the new recovery key');
+  const plain = canaryRefreshDecision({ runs: [success, cancelled], sha, candidates, now });
+  assert.equal(plain.eligible, false);
+  assert.equal(plain.state, 'success');
+  const newerCancel = producerRun({ id: 99, conclusion: 'cancelled',
+    created_at: '2026-11-06T12:53:00Z', run_started_at: '2026-11-06T12:53:00Z' });
+  const stillHeld = canaryRefreshDecision({ runs: [newerCancel, success], sha, candidates, driftKey: drift, now });
+  assert.equal(stillHeld.eligible, false);
+  assert.equal(stillHeld.state, 'cancelled');
+  const preAuthFailure = producerRun({ id: 42239701776, conclusion: 'failure', refresh_not_started: true,
+    created_at: '2026-11-06T15:05:00Z', run_started_at: '2026-11-06T15:05:00Z',
+    updated_at: '2026-11-06T15:05:20Z' });
+  const afterRateLimit = Date.parse('2026-11-06T15:06:00Z');
+  const releasedFailure = canaryRefreshDecision({
+    runs: [preAuthFailure, success, cancelled], sha, candidates, driftKey: drift, now: afterRateLimit,
+  });
+  assert.equal(releasedFailure.eligible, true);
+  assert.equal(releasedFailure.state, 'unseen');
+  const wroteThenFailed = { ...preAuthFailure, refresh_not_started: false };
+  const heldFailure = canaryRefreshDecision({
+    runs: [wroteThenFailed, success], sha, candidates, driftKey: drift, now: afterRateLimit,
+  });
+  assert.equal(heldFailure.eligible, false);
+  assert.equal(heldFailure.state, 'failure');
+});
+
+test('reader admits a new drift key after delivery when a skipped guard success follows an older cancel', async () => {
+  const sha = 'a'.repeat(40);
+  const deliveredDrift = 'cd'.repeat(32);
+  const recoveryDrift = 'ab'.repeat(32);
+  const now = Date.parse('2026-11-06T14:25:41Z');
+  const title = (extra = '') => 'Maint 68 canary full ' +
+    `source=${sha} candidates=stranske/Ready,stranske/Template dry=false${extra} guard=delivery-v1`;
+  const cancelled = producerRun({ id: 42220291945, conclusion: 'cancelled', display_title: title(),
+    created_at: '2026-11-06T12:46:55Z', run_started_at: '2026-11-06T12:46:55Z',
+    updated_at: '2026-11-06T12:47:30Z' });
+  const delivered = producerRun({ id: 42220562715, display_title: title(),
+    created_at: '2026-11-06T12:49:03Z', run_started_at: '2026-11-06T12:49:03Z',
+    updated_at: '2026-11-06T12:52:36Z' });
+  const skipped = producerRun({ id: 42233656300, display_title: title(` drift=${deliveredDrift}`),
+    created_at: '2026-11-06T14:24:38Z', run_started_at: '2026-11-06T14:24:38Z',
+    updated_at: '2026-11-06T14:25:41Z' });
+  const authorize = { 42220562715: 'success', 42233656300: 'skipped', 99: 'success' };
+  const read = (driftKey, extra = []) => readCanaryRefreshState({
+    ...refreshHarness(), driftKey, now, sourceSha: sha,
+    withRetry: async fn => fn({ rest: {
+      repos: {
+        getCommit: async () => ({ data: { sha } }),
+        getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
+          canaries: ['stranske/Ready', 'stranske/Template'].map(repo => ({ repo })),
+        })).toString('base64') } }),
+      },
+      pulls: { list: async () => ({ data: [] }) },
+      actions: { listWorkflowRuns: async ({ status, page }) => ({ data: {
+        workflow_runs: status ? [] : page === 1 ? [skipped, delivered, cancelled, ...extra] : [],
+      } }) },
+    }, paginate: async (_method, params) => [{ steps: [{
+      name: 'Authorize canary payload mutation', conclusion: authorize[params.run_id] || 'skipped',
+    }] }] }),
+  });
+  const released = await read(recoveryDrift);
+  assert.equal(released.state, 'unseen');
+  assert.equal(released.eligible, true, 'older cancellation must not skip after an authorized delivery');
+  assert.equal(released.producer_succeeded, false);
+  const sameSkippedKey = await read(deliveredDrift);
+  assert.equal(sameSkippedKey.eligible, true, 'a guard success that never authorized is not a delivery receipt');
+  assert.equal(sameSkippedKey.producer_succeeded, false);
+  const newerCancel = producerRun({ id: 99, conclusion: 'cancelled', display_title: title(),
+    created_at: '2026-11-06T14:26:00Z', run_started_at: '2026-11-06T14:26:00Z',
+    updated_at: '2026-11-06T14:26:10Z' });
+  const held = await read(recoveryDrift, [newerCancel]);
+  assert.equal(held.eligible, false);
+  assert.equal(held.state, 'cancelled');
+});
+
+test('pre-authorization rate-limit failure and empty-job cancel do not hold the refresh window', async () => {
+  const sha = 'a'.repeat(40);
+  const recoveryDrift = 'ab'.repeat(32);
+  const now = Date.parse('2026-11-06T15:10:00Z');
+  const title = (extra = '') => 'Maint 68 canary full ' +
+    `source=${sha} candidates=stranske/Ready,stranske/Template dry=false${extra} guard=delivery-v1`;
+  const cancelled = producerRun({ id: 42220291945, conclusion: 'cancelled', display_title: title(),
+    created_at: '2026-11-06T12:46:55Z', run_started_at: '2026-11-06T12:46:55Z',
+    updated_at: '2026-11-06T12:48:57Z' });
+  const delivered = producerRun({ id: 42220562715, display_title: title(),
+    created_at: '2026-11-06T12:49:03Z', run_started_at: '2026-11-06T12:49:03Z',
+    updated_at: '2026-11-06T12:52:36Z' });
+  const rateLimited = producerRun({ id: 42239701776, conclusion: 'failure', display_title: title(),
+    created_at: '2026-11-06T15:05:00Z', run_started_at: '2026-11-06T15:05:00Z',
+    updated_at: '2026-11-06T15:05:20Z' });
+  const jobsFor = {
+    42220291945: [],
+    42220562715: [{ steps: [{ name: 'Authorize canary payload mutation', conclusion: 'success' }] }],
+    42239701776: [{ name: 'Prepare sync from manifest', steps: [
+      { name: 'Check content refresh guard', conclusion: 'failure' },
+      { name: 'Authorize canary payload mutation', conclusion: 'skipped' },
+    ] }],
+  };
+  const read = (extra = []) => readCanaryRefreshState({
+    ...refreshHarness(), driftKey: recoveryDrift, now, sourceSha: sha,
+    withRetry: async fn => fn({ rest: {
+      repos: {
+        getCommit: async () => ({ data: { sha } }),
+        getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
+          canaries: ['stranske/Ready', 'stranske/Template'].map(repo => ({ repo })),
+        })).toString('base64') } }),
+      },
+      pulls: { list: async () => ({ data: [] }) },
+      actions: { listWorkflowRuns: async ({ status, page }) => ({ data: {
+        workflow_runs: status ? [] : page === 1 ? [rateLimited, delivered, cancelled, ...extra] : [],
+      } }) },
+    }, paginate: async (_method, params) => jobsFor[params.run_id] || [] }),
+  });
+  const released = await read();
+  assert.equal(released.state, 'unseen');
+  assert.equal(released.eligible, true);
+  assert.equal(released.producer_succeeded, false);
+  assert.equal(released.runs.find(run => run.id === 42239701776).refresh_not_started, true);
+  assert.equal(released.runs.find(run => run.id === 42220291945).refresh_not_started, true);
+  const wroteThenFailed = producerRun({ id: 42239701777, conclusion: 'failure', display_title: title(),
+    created_at: '2026-11-06T15:06:00Z', run_started_at: '2026-11-06T15:06:00Z',
+    updated_at: '2026-11-06T15:07:00Z' });
+  jobsFor[42239701777] = [{ steps: [{ name: 'Authorize canary payload mutation', conclusion: 'success' }] }];
+  const held = await read([wroteThenFailed]);
+  assert.equal(held.eligible, false);
+  assert.equal(held.state, 'failure');
+  assert.equal(held.runs.find(run => run.id === 42239701777).refresh_not_started, undefined);
+});
+
+test('same-payload pre-authorization failure on an older source does not skip a new recovery key', async (t) => {
+  const current = '5af534766f3706b109eac5b163b74ff968eef74a';
+  const prior = 'd52cf721226d692364b97db529fafda6a869390b';
+  const shared = `sha256:${'c'.repeat(64)}`;
+  const skippedDrift = '2577a2a331a45e76f72b481a0327a12c3944a5eb644a22ef9ec5481dc0f22921';
+  const recoveryDrift = 'ab'.repeat(32);
+  const candidates = 'stranske/Portable-Alpha-Extension-Model,stranske/Travel-Plan-Permission,stranske/trip-planner';
+  const now = Date.parse('2026-11-06T16:26:22Z');
+  const title = (source, extra = '') => 'Maint 68 canary full  ' +
+    `source=${source} candidates=${candidates} dry=false${extra}  guard=delivery-v1`;
+  t.mock.method(deliveryPayload, 'readDeliveryPayload', async (_sha, repos) => ({
+    digest: shared,
+    files: Object.fromEntries(repos.map(repo => [repo, { 'scripts/shared.js': { content: 'same' } }])),
+  }));
+  const rateLimited = producerRun({ id: 42239701776, conclusion: 'failure', head_sha: prior,
+    display_title: title(prior), created_at: '2026-11-06T15:05:00Z',
+    run_started_at: '2026-11-06T15:05:00Z', updated_at: '2026-11-06T15:05:43Z' });
+  const delivered = producerRun({ id: 42250192284, head_sha: current, display_title: title(current),
+    created_at: '2026-11-06T16:12:30Z', run_started_at: '2026-11-06T16:12:30Z',
+    updated_at: '2026-11-06T16:14:49Z' });
+  const skipped = producerRun({ id: 42252216165, head_sha: current,
+    display_title: title(current, ` drift=${skippedDrift}`),
+    created_at: '2026-11-06T16:25:18Z', run_started_at: '2026-11-06T16:25:18Z',
+    updated_at: '2026-11-06T16:27:07Z' });
+  const jobsFor = {
+    42239701776: [{ name: 'Prepare sync from manifest', steps: [
+      { name: 'Check content refresh guard', conclusion: 'failure' },
+      { name: 'Authorize canary payload mutation', conclusion: 'skipped' },
+    ] }],
+    42250192284: [{ steps: [{ name: 'Authorize canary payload mutation', conclusion: 'success' }] }],
+    42252216165: [{ name: 'Prepare sync from manifest', steps: [
+      { name: 'Check content refresh guard', conclusion: 'success' },
+      { name: 'Authorize canary payload mutation', conclusion: 'skipped' },
+    ] }],
+  };
+  const read = (driftKey) => readCanaryRefreshState({
+    ...refreshHarness(), expectedCanaries: candidates.split(','), driftKey, now, sourceSha: current,
+    withRetry: async fn => fn({ rest: {
+      repos: {
+        getCommit: async () => ({ data: { sha: current } }),
+        getContent: async () => ({ data: { content: Buffer.from(JSON.stringify({
+          canaries: candidates.split(',').map(repo => ({ repo })),
+        })).toString('base64') } }),
+      },
+      pulls: { list: async () => ({ data: [] }) },
+      actions: { listWorkflowRuns: async ({ status, page }) => ({ data: {
+        workflow_runs: status ? [] : page === 1 ? [skipped, delivered, rateLimited] : [],
+      } }) },
+    }, paginate: async (_method, params) => jobsFor[params.run_id] || [] }),
+  });
+  const released = await read(recoveryDrift);
+  assert.equal(released.runs.find(run => run.id === 42239701776).refresh_not_started, true);
+  assert.equal(released.runs.find(run => run.id === 42239701776).delivery_digest, shared);
+  assert.equal(released.runs.find(run => run.id === 42250192284).delivery_digest, shared);
+  assert.equal(released.state, 'unseen');
+  assert.equal(released.eligible, true, 'older pre-authorization failure must not print skipped (failure)');
+  assert.equal(released.producer_succeeded, false);
+  const sameSkippedKey = await read(skippedDrift);
+  assert.equal(sameSkippedKey.eligible, true, 'a guard success that never authorized is not a delivery receipt');
+  assert.equal(sameSkippedKey.producer_succeeded, false);
+  assert.notEqual(sameSkippedKey.state, 'failure');
 });
 
 function refreshFailureJobs(jobs) {
@@ -2581,6 +3135,57 @@ test('a consumer-failed canary refresh still debounces for six hours', () => {
   assert.equal(decide([atBoundary]).eligible, true);
   const insideWindow = { ...consumer, created_at: new Date(refreshNow - CANARY_REFRESH_DEBOUNCE_MS + 1).toISOString() };
   assert.equal(decide([insideWindow]).eligible, false);
+});
+
+test('a cancelled refresh that never started a Sync job does not debounce the next attempt', () => {
+  // 2026-11-07 01:39Z: the stable writer queue replaced a Maint 68 refresh before it ran; the guard
+  // then printed "refresh: skipped (cancelled)" and the canaries needed force=true to move.
+  const decide = (runs) => canaryRefreshDecision({ runs, sha: 'a'.repeat(40),
+    candidates: ['stranske/Ready', 'stranske/Template'], now: refreshNow });
+  const replaced = producerRun({ id: 31, conclusion: 'cancelled', jobs: [
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'cancelled' },
+    { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+  ] });
+  const state = decide([replaced]);
+  assert.equal(state.eligible, true);
+  assert.equal(state.state, 'unseen');
+  const diagnostic = canaryRefreshDiagnostics(state);
+  assert.equal(diagnostic.inventory.cancelled_before_sync, 1);
+  assert.deepEqual(diagnostic.failure_classification, [{ classification: 'not_started', run_id: 31 }]);
+  assert.equal(decide([{ ...producerRun({ id: 32, conclusion: 'cancelled' }), refresh_not_started: true }]).eligible, true,
+    'a run with a not-started receipt is not an attempt either');
+  const startedThenCancelled = producerRun({ id: 33, conclusion: 'cancelled', jobs: [
+    { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'success' },
+    { name: 'Sync stranske/Ready', status: 'completed', conclusion: 'cancelled', runner_id: 7 },
+  ] });
+  assert.equal(decide([startedThenCancelled]).eligible, false, 'a Sync job that ran keeps the six-hour hold');
+  const unreadable = producerRun({ id: 34, conclusion: 'cancelled' });
+  assert.equal(decide([unreadable]).eligible, false, 'without job evidence a cancelled run still holds');
+  const receiptOnly = decide([{ ...producerRun({ id: 35, conclusion: 'cancelled' }), refresh_not_started: true }]);
+  assert.equal(canaryRefreshDiagnostics(receiptOnly).inventory.cancelled_before_sync, 1,
+    'a receipt-backed cancelled run is counted even without job evidence');
+});
+
+test('the guard reads cancelled-run jobs through listJobsForWorkflowRunAttempt', async () => {
+  const cancelled = producerRun({ id: 36, conclusion: 'cancelled', run_attempt: 3 });
+  const calls = [];
+  const api = refreshHarness({ actions: {
+    listWorkflowRuns: async ({ status }) => ({ data: { workflow_runs: status ? [] : [cancelled] } }),
+    listJobsForWorkflowRunAttempt: async params => {
+      calls.push(params);
+      return { data: { total_count: 2, jobs: [
+        { name: 'Prepare sync from manifest', status: 'completed', conclusion: 'cancelled' },
+        { name: 'Sync ${{ matrix.repo }}', status: 'completed', conclusion: 'skipped' },
+      ] } };
+    },
+  } });
+  const state = await readCanaryRefreshState(api);
+  // Asserted outside the mock: the attachment step swallows API errors.
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].run_id, cancelled.id);
+  assert.equal(calls[0].attempt_number, 3);
+  assert.equal(state.eligible, true);
+  assert.equal(canaryRefreshDiagnostics(state).inventory.cancelled_before_sync, 1);
 });
 
 test('a second consecutive infrastructure failure debounces for the same plan, source and candidates', () => {
@@ -2760,7 +3365,8 @@ test('Maint 68 guard allows the next refresh after one same-digest infrastructur
   };
   const invoke = async () => execute(
     name => name === 'fs' ? { readFileSync: () => JSON.stringify({ plan_id: '', entries: [], removals: [] }) }
-      : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics }
+      : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics,
+        preserveFrozenCanaryRefresh: async () => ({ redirected: false }) }
       : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: api.withRetry }) }
       : { canaries: api.expectedCanaries.map(repo => ({ repo })) },
     await api.withRetry(client => client),
@@ -3041,6 +3647,40 @@ for (const failure of ['unreadable', 'invalid']) {
     assert.equal(result.errors.length, 2);
     assert.ok(result.errors.every((error) => error.startsWith('canary_refresh_tip_unreadable:')));
     assert.equal(api.failures.length, 2);
+  });
+}
+
+for (const [state, change, expectedCounts] of [
+  ['behind', {}, [0, 0, 0]],
+  ['checks_failed', { check_status: 'checks_failed' }, [1, 0, 0]],
+  ['review_blocked', { active_review_thread_count: 1 }, [0, 1, 0]],
+  ['stale', { head_observed_at: '2026-10-17T05:00:00Z' }, [0, 0, 1]],
+  ['overlapping blockers', { check_status: 'checks_failed', active_review_thread_count: 1,
+    head_observed_at: '2026-10-17T05:00:00Z' }, [1, 1, 1]],
+]) {
+  test(`unreadable behind-canary tip preserves ${state} summary and holds its plan`, async () => {
+    for (const blockedFirst of [true, false]) {
+      const api = refreshHarness({ repos: { getBranch: async ({ repo }) => {
+        if (repo === 'Ready') throw new Error('branch unavailable');
+        return { data: { commit: { sha: 'b'.repeat(40) } } };
+      } } });
+      const blocked = refreshCanary({ ...change, mergeable_state: 'behind' });
+      // A sibling needing refresh must not bypass this plan's unreadable tip.
+      const sibling = refreshCanary({ repo: 'Template', mergeable_state: 'behind' });
+      const result = await refreshStableCanaries({ ...api,
+        canaries: blockedFirst ? [blocked, sibling] : [sibling, blocked] });
+      const [red, reviewBlocked, stale] = expectedCounts;
+      assert.deepEqual([result.red, result.review_blocked, result.stale], expectedCounts);
+      assert.equal(blocked.refresh_reason, 'behind');
+      assert.deepEqual(result.held_plans, [blocked.plan_id]);
+      assert.equal(result.refresh_dispatched, 0);
+      assert.equal(api.dispatches.length, 0, 'unreadable plan must retain the refresh safety hold');
+      assert.deepEqual(result.errors, ['canary_refresh_tip_unreadable:stranske/Ready:branch unavailable']);
+      assert.deepEqual(api.failures, result.errors);
+      assert.ok(api.summaries.includes(`canaries: red=${red} review_blocked=${reviewBlocked} `
+        + `stale=${stale} refresh_dispatched=0 held_plan=${blocked.plan_id} drainable=0\n`));
+      assert.ok(api.summaries.some(line => line.startsWith('seal: stranske/Ready#')));
+    }
   });
 }
 
@@ -3377,7 +4017,8 @@ for (const writerActive of [false, true]) {
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
     await new AsyncFunction('require', 'github', 'context', 'core', 'process', script)(
       name => name === 'fs' ? { readFileSync: () => JSON.stringify({ plan_id: '', entries: [], removals: [] }) }
-        : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics }
+        : name.includes('maint71_merge_sync_prs') ? { readCanaryRefreshState, reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics,
+          preserveFrozenCanaryRefresh: async () => ({ redirected: false }) }
         : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async () => ({ withRetry: api.withRetry }) }
         : { canaries: api.expectedCanaries.map(repo => ({ repo })) },
       await api.withRetry(client => client), { ...api.context, runId: 1000 },
@@ -3412,7 +4053,7 @@ test('an older run ID rerun on a later page is the newest delivered receipt', as
     deliveryDigest: 'B', now: refreshNow }).eligible, true);
 });
 
-test('Maint 68 force authorizes mutation without consulting an unchanged digest', async () => {
+test('Maint 68 force bypasses digest reads after preserving the frozen binding', async () => {
   const workflow = fs.readFileSync(path.join(__dirname, '../../workflows/maint-68-sync-consumer-repos.yml'), 'utf8');
   const guard = workflow.split('      - name: Check content refresh guard')[1]
     .split('      - name: Authorize canary payload mutation')[0];
@@ -3424,16 +4065,20 @@ test('Maint 68 force authorizes mutation without consulting an unchanged digest'
     summary: { addRaw() { return this; }, async write() {} } };
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
   const execute = new AsyncFunction('core', 'require', 'process', 'github', 'context', script);
-  await execute(core, name => name === 'fs' ? { readFileSync: () => '{}' } : name.includes('maint71_merge_sync_prs')
-    ? { reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics, readCanaryRefreshState: async () => ({ eligible: false, producer_succeeded: true,
+  let bindingReads = 0, digestReads = 0;
+  const requireGuard = name => name === 'fs' ? { readFileSync: () => '{}' } : name.includes('maint71_merge_sync_prs')
+    ? { preserveFrozenCanaryRefresh: async () => { bindingReads++; return { redirected: false }; },
+      reportCanaryRefreshDiagnostics: require('../maint71_merge_sync_prs').reportCanaryRefreshDiagnostics, readCanaryRefreshState: async () => { digestReads++; return ({ eligible: false, producer_succeeded: true,
       delivery_digest: 'unchanged', unchanged_since: 'a'.repeat(40) }) }
+      }
     : name.includes('github-api-with-retry') ? { createTokenAwareRetry: async ({ github }) => ({ withRetry: fn => fn(github) }) }
-    : { canaries: [{ repo: 'stranske/Ready' }] }, { env: { FORCE: 'false' } }, {}, { runId: 1 });
+    : { canaries: [{ repo: 'stranske/Ready' }] };
+  await execute(core, requireGuard, { env: { FORCE: 'false' } }, {}, { runId: 1 });
   assert.equal(outputs.allowed, 'false', 'the same payload blocks an ordinary refresh');
   assert.match(lines.pop(), /digest unchanged unchanged since/);
-  await execute(core, () => {
-    assert.fail('forced repair must bypass digest/history reads, even when payload is unchanged');
-  }, { env: { FORCE: 'true' } });
+  await execute(core, requireGuard, { env: { FORCE: 'true' } }, {}, { runId: 1 });
+  assert.equal(bindingReads, 2);
+  assert.equal(digestReads, 1, 'force bypasses only digest/history reads');
   assert.equal(outputs.allowed, 'true');
   assert.deepEqual(lines, ['refresh: forced (digest guard bypassed)']);
   assert.match(workflow, /needs.prepare.outputs.refresh_allowed != 'false'/);
@@ -4053,4 +4698,31 @@ test('Copilot reassessment posts the in-thread request and a best-effort review 
     assert.equal(second.status, 'review_blocked_reassessment_reused');
     assert.equal(reviewRequests.length, 1, 'a reused request never re-requests review');
   }
+});
+
+test('cleanup absence requires both a missing ref and retained repository access', async () => {
+  const { deleteSyncBranch } = require('../maint71_merge_sync_prs');
+  const missing = Object.assign(new Error('Reference does not exist'), { status: 422 });
+  const absent = Object.assign(new Error('Not Found'), { status: 404 });
+  const calls = [];
+  const client = { rest: {
+    git: {
+      deleteRef: async () => { calls.push('delete'); throw missing; },
+      getRef: async () => { calls.push('ref'); throw absent; },
+    },
+    repos: { get: async () => { calls.push('repo'); return { data: { full_name: 'o/r' } }; } },
+  } };
+  const args = { owner: 'o', repo: 'r', branch: 'sync/workflows-candidate', withRetry: fn => fn(client) };
+  assert.deepEqual(await deleteSyncBranch(args), { already_absent: true });
+  assert.deepEqual(calls, ['delete', 'ref', 'repo']);
+  client.rest.repos.get = async () => { throw absent; };
+  await assert.rejects(deleteSyncBranch(args), error => error === absent);
+  client.rest.git.getRef = async () => ({ data: { object: { sha: 'a'.repeat(40) } } });
+  await assert.rejects(deleteSyncBranch(args), error => error === missing);
+  client.rest.git.getRef = async () => { throw Object.assign(new Error('Forbidden'), { status: 403 }); };
+  await assert.rejects(deleteSyncBranch(args), /Forbidden/);
+  client.rest.git.deleteRef = async () => { throw new Error('timeout: outcome unknown'); };
+  await assert.rejects(deleteSyncBranch(args), /outcome unknown/);
+  client.rest.git.deleteRef = async () => {};
+  assert.deepEqual(await deleteSyncBranch(args), { already_absent: false });
 });

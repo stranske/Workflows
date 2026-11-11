@@ -1,0 +1,2374 @@
+{
+  "schema": "issue-4369/delivery-lifecycle-refresh/v1",
+  "collection_started_at_utc": "2026-11-08T13:58:02Z",
+  "collected_at_utc": "2026-11-08T13:58:53Z",
+  "run_inventory": {
+    "start": "2026-11-08T13:36:40Z",
+    "end": "2026-11-08T13:57:36Z",
+    "per_page": 100,
+    "pages": [
+      {
+        "page": 1,
+        "url": "https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=1&created=2026-11-08T13%3A36%3A40Z..2026-11-08T13%3A57%3A36Z",
+        "total_count": 167,
+        "runs": [
+          {
+            "id": 42487242384,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:55:19Z",
+            "updated_at": "2026-11-08T13:55:25Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487242384"
+          },
+          {
+            "id": 42487242317,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:55:19Z",
+            "updated_at": "2026-11-08T13:55:28Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487242317"
+          },
+          {
+            "id": 42487242366,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:55:19Z",
+            "updated_at": "2026-11-08T13:56:09Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487242366"
+          },
+          {
+            "id": 42487210411,
+            "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:54:55Z",
+            "updated_at": "2026-11-08T13:55:02Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487210411"
+          },
+          {
+            "id": 42487149401,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:54:08Z",
+            "updated_at": "2026-11-08T13:54:18Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487149401"
+          },
+          {
+            "id": 42487137671,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:59Z",
+            "updated_at": "2026-11-08T13:54:11Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487137671"
+          },
+          {
+            "id": 42487127246,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:51Z",
+            "updated_at": "2026-11-08T13:54:03Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487127246"
+          },
+          {
+            "id": 42487121061,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:47Z",
+            "updated_at": "2026-11-08T13:53:56Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487121061"
+          },
+          {
+            "id": 42487104411,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:34Z",
+            "updated_at": "2026-11-08T13:53:45Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487104411"
+          },
+          {
+            "id": 42487097975,
+            "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:29Z",
+            "updated_at": "2026-11-08T13:53:38Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487097975"
+          },
+          {
+            "id": 42487096296,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:28Z",
+            "updated_at": "2026-11-08T13:53:36Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487096296"
+          },
+          {
+            "id": 42487092806,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:25Z",
+            "updated_at": "2026-11-08T13:53:35Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487092806"
+          },
+          {
+            "id": 42487092672,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:25Z",
+            "updated_at": "2026-11-08T13:53:34Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487092672"
+          },
+          {
+            "id": 42487092629,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:25Z",
+            "updated_at": "2026-11-08T13:53:39Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487092629"
+          },
+          {
+            "id": 42487092841,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:25Z",
+            "updated_at": "2026-11-08T13:53:33Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487092841"
+          },
+          {
+            "id": 42487092649,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:25Z",
+            "updated_at": "2026-11-08T13:53:59Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487092649"
+          },
+          {
+            "id": 42487092906,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:25Z",
+            "updated_at": "2026-11-08T13:53:43Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487092906"
+          },
+          {
+            "id": 42487092630,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:25Z",
+            "updated_at": "2026-11-08T13:53:46Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487092630"
+          },
+          {
+            "id": 42487092708,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:53:25Z",
+            "updated_at": "2026-11-08T13:55:45Z",
+            "status": "in_progress",
+            "conclusion": null,
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487092708"
+          },
+          {
+            "id": 42487026799,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:52:34Z",
+            "updated_at": "2026-11-08T13:52:50Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487026799"
+          },
+          {
+            "id": 42487025981,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:52:33Z",
+            "updated_at": "2026-11-08T13:52:41Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42487025981"
+          },
+          {
+            "id": 42486995144,
+            "path": ".github/workflows/agents-auto-label.yml",
+            "event": "issues",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:52:10Z",
+            "updated_at": "2026-11-08T13:52:11Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486995144"
+          },
+          {
+            "id": 42486995135,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:52:10Z",
+            "updated_at": "2026-11-08T13:52:21Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486995135"
+          },
+          {
+            "id": 42486993041,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:52:09Z",
+            "updated_at": "2026-11-08T13:52:17Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486993041"
+          },
+          {
+            "id": 42486990188,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:52:24Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990188"
+          },
+          {
+            "id": 42486990270,
+            "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:52:25Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990270"
+          },
+          {
+            "id": 42486990210,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:52:19Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990210"
+          },
+          {
+            "id": 42486990202,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:52:23Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990202"
+          },
+          {
+            "id": 42486990207,
+            "path": ".github/workflows/agents-guard.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:52:32Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990207"
+          },
+          {
+            "id": 42486990253,
+            "path": ".github/workflows/health-72-template-sync.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:52:35Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990253"
+          },
+          {
+            "id": 42486990257,
+            "path": ".github/workflows/health-40-sweep.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:52:16Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990257"
+          },
+          {
+            "id": 42486990249,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:52:30Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990249"
+          },
+          {
+            "id": 42486990325,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:53:42Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990325"
+          },
+          {
+            "id": 42486990311,
+            "path": ".github/workflows/pr-00-gate.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:54:05Z",
+            "status": "in_progress",
+            "conclusion": null,
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990311"
+          },
+          {
+            "id": 42486990259,
+            "path": ".github/workflows/health-44-gate-branch-protection.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:54:07Z",
+            "status": "in_progress",
+            "conclusion": null,
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990259"
+          },
+          {
+            "id": 42486990231,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "pull_request",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:07Z",
+            "updated_at": "2026-11-08T13:54:47Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486990231"
+          },
+          {
+            "id": 42486987738,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951",
+            "created_at": "2026-11-08T13:52:05Z",
+            "updated_at": "2026-11-08T13:52:06Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486987738"
+          },
+          {
+            "id": 42486957140,
+            "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+            "event": "schedule",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:51:42Z",
+            "updated_at": "2026-11-08T13:52:14Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486957140"
+          },
+          {
+            "id": 42486833507,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "workflow_dispatch",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:50:08Z",
+            "updated_at": "2026-11-08T13:50:32Z",
+            "status": "in_progress",
+            "conclusion": null,
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486833507"
+          },
+          {
+            "id": 42486680939,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:48:12Z",
+            "updated_at": "2026-11-08T13:48:20Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486680939"
+          },
+          {
+            "id": 42486673725,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:48:07Z",
+            "updated_at": "2026-11-08T13:48:14Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486673725"
+          },
+          {
+            "id": 42486662604,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:59Z",
+            "updated_at": "2026-11-08T13:48:14Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486662604"
+          },
+          {
+            "id": 42486662600,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:59Z",
+            "updated_at": "2026-11-08T13:48:01Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486662600"
+          },
+          {
+            "id": 42486655167,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:54Z",
+            "updated_at": "2026-11-08T13:48:04Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486655167"
+          },
+          {
+            "id": 42486640394,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:43Z",
+            "updated_at": "2026-11-08T13:47:54Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486640394"
+          },
+          {
+            "id": 42486634613,
+            "path": ".github/workflows/agents-keepalive-loop-reporter.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:38Z",
+            "updated_at": "2026-11-08T13:47:45Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486634613"
+          },
+          {
+            "id": 42486632536,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:36Z",
+            "updated_at": "2026-11-08T13:47:47Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486632536"
+          },
+          {
+            "id": 42486630076,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:34Z",
+            "updated_at": "2026-11-08T13:47:42Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486630076"
+          },
+          {
+            "id": 42486629937,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:34Z",
+            "updated_at": "2026-11-08T13:47:42Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486629937"
+          },
+          {
+            "id": 42486629851,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:34Z",
+            "updated_at": "2026-11-08T13:47:54Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486629851"
+          },
+          {
+            "id": 42486629902,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:34Z",
+            "updated_at": "2026-11-08T13:47:48Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486629902"
+          },
+          {
+            "id": 42486629881,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:34Z",
+            "updated_at": "2026-11-08T13:47:45Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486629881"
+          },
+          {
+            "id": 42486629898,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:34Z",
+            "updated_at": "2026-11-08T13:47:57Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486629898"
+          },
+          {
+            "id": 42486629896,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:34Z",
+            "updated_at": "2026-11-08T13:48:02Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486629896"
+          },
+          {
+            "id": 42486630005,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:34Z",
+            "updated_at": "2026-11-08T13:53:26Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486630005"
+          },
+          {
+            "id": 42486601333,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:12Z",
+            "updated_at": "2026-11-08T13:47:20Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486601333"
+          },
+          {
+            "id": 42486601854,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:47:12Z",
+            "updated_at": "2026-11-08T13:47:29Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486601854"
+          },
+          {
+            "id": 42486568732,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:46:47Z",
+            "updated_at": "2026-11-08T13:46:56Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486568732"
+          },
+          {
+            "id": 42486565819,
+            "path": ".github/workflows/health-40-sweep.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:46:51Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565819"
+          },
+          {
+            "id": 42486565891,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:46:57Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565891"
+          },
+          {
+            "id": 42486565784,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:47:03Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565784"
+          },
+          {
+            "id": 42486565769,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:47:01Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565769"
+          },
+          {
+            "id": 42486565882,
+            "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:47:06Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565882"
+          },
+          {
+            "id": 42486565850,
+            "path": ".github/workflows/health-72-template-sync.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:47:11Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565850"
+          },
+          {
+            "id": 42486565826,
+            "path": ".github/workflows/agents-guard.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:47:10Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565826"
+          },
+          {
+            "id": 42486565863,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:47:08Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565863"
+          },
+          {
+            "id": 42486565935,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:47:59Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565935"
+          },
+          {
+            "id": 42486565987,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:51:55Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565987"
+          },
+          {
+            "id": 42486566120,
+            "path": ".github/workflows/pr-00-gate.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:53:23Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486566120"
+          },
+          {
+            "id": 42486565848,
+            "path": ".github/workflows/health-44-gate-branch-protection.yml",
+            "event": "pull_request",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:45Z",
+            "updated_at": "2026-11-08T13:53:54Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486565848"
+          },
+          {
+            "id": 42486563609,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "head_sha": "02fbe3f745b7f88827e4f1150439585bea11972b",
+            "created_at": "2026-11-08T13:46:43Z",
+            "updated_at": "2026-11-08T13:46:45Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486563609"
+          },
+          {
+            "id": 42486475606,
+            "path": ".github/workflows/agents-auto-label.yml",
+            "event": "issues",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:45:36Z",
+            "updated_at": "2026-11-08T13:45:37Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486475606"
+          },
+          {
+            "id": 42486475500,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:45:36Z",
+            "updated_at": "2026-11-08T13:45:45Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486475500"
+          },
+          {
+            "id": 42486444919,
+            "path": ".github/workflows/health-68-consumer-sync-drift.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:45:14Z",
+            "updated_at": "2026-11-08T13:45:15Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486444919"
+          },
+          {
+            "id": 42486435614,
+            "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+            "event": "repository_dispatch",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:45:07Z",
+            "updated_at": "2026-11-08T13:45:39Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486435614"
+          },
+          {
+            "id": 42486280045,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:43:07Z",
+            "updated_at": "2026-11-08T13:43:22Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486280045"
+          },
+          {
+            "id": 42486273559,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:43:02Z",
+            "updated_at": "2026-11-08T13:43:12Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486273559"
+          },
+          {
+            "id": 42486262658,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:53Z",
+            "updated_at": "2026-11-08T13:43:05Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486262658"
+          },
+          {
+            "id": 42486253874,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:46Z",
+            "updated_at": "2026-11-08T13:42:56Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486253874"
+          },
+          {
+            "id": 42486237489,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:33Z",
+            "updated_at": "2026-11-08T13:42:42Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486237489"
+          },
+          {
+            "id": 42486231834,
+            "path": ".github/workflows/agents-auto-label.yml",
+            "event": "issues",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:29Z",
+            "updated_at": "2026-11-08T13:42:30Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486231834"
+          },
+          {
+            "id": 42486231802,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:28Z",
+            "updated_at": "2026-11-08T13:42:41Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486231802"
+          },
+          {
+            "id": 42486229078,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:26Z",
+            "updated_at": "2026-11-08T13:42:34Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486229078"
+          },
+          {
+            "id": 42486226273,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:24Z",
+            "updated_at": "2026-11-08T13:42:34Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486226273"
+          },
+          {
+            "id": 42486226089,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:24Z",
+            "updated_at": "2026-11-08T13:42:33Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486226089"
+          },
+          {
+            "id": 42486226162,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:24Z",
+            "updated_at": "2026-11-08T13:42:31Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486226162"
+          },
+          {
+            "id": 42486225850,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:24Z",
+            "updated_at": "2026-11-08T13:42:32Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486225850"
+          },
+          {
+            "id": 42486225906,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:24Z",
+            "updated_at": "2026-11-08T13:42:43Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486225906"
+          },
+          {
+            "id": 42486225978,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:24Z",
+            "updated_at": "2026-11-08T13:42:44Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486225978"
+          },
+          {
+            "id": 42486226112,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:24Z",
+            "updated_at": "2026-11-08T13:42:54Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486226112"
+          },
+          {
+            "id": 42486226015,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:42:24Z",
+            "updated_at": "2026-11-08T13:47:36Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486226015"
+          },
+          {
+            "id": 42486187922,
+            "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+            "event": "schedule",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:41:56Z",
+            "updated_at": "2026-11-08T13:42:33Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486187922"
+          },
+          {
+            "id": 42486182446,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:41:52Z",
+            "updated_at": "2026-11-08T13:42:11Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486182446"
+          },
+          {
+            "id": 42486181649,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:41:51Z",
+            "updated_at": "2026-11-08T13:42:00Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486181649"
+          },
+          {
+            "id": 42486150724,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:41:26Z",
+            "updated_at": "2026-11-08T13:41:36Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486150724"
+          },
+          {
+            "id": 42486148246,
+            "path": ".github/workflows/health-40-sweep.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:41:32Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148246"
+          },
+          {
+            "id": 42486148274,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:41:34Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148274"
+          },
+          {
+            "id": 42486148205,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:41:44Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148205"
+          },
+          {
+            "id": 42486148172,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:41:44Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148172"
+          },
+          {
+            "id": 42486148282,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:41:45Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148282"
+          }
+        ]
+      },
+      {
+        "page": 2,
+        "url": "https://api.github.com/repos/stranske/Workflows/actions/runs?per_page=100&page=2&created=2026-11-08T13%3A36%3A40Z..2026-11-08T13%3A57%3A36Z",
+        "total_count": 167,
+        "runs": [
+          {
+            "id": 42486148316,
+            "path": ".github/workflows/health-72-template-sync.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:41:47Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148316"
+          },
+          {
+            "id": 42486148255,
+            "path": ".github/workflows/agents-guard.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:41:49Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148255"
+          },
+          {
+            "id": 42486148224,
+            "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:41:41Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148224"
+          },
+          {
+            "id": 42486148395,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:42:49Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148395"
+          },
+          {
+            "id": 42486148184,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:45:15Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148184"
+          },
+          {
+            "id": 42486148231,
+            "path": ".github/workflows/pr-00-gate.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:47:32Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148231"
+          },
+          {
+            "id": 42486148460,
+            "path": ".github/workflows/health-44-gate-branch-protection.yml",
+            "event": "pull_request",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:24Z",
+            "updated_at": "2026-11-08T13:48:26Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486148460"
+          },
+          {
+            "id": 42486146274,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "head_sha": "5ce655b88e34b35e2af8809964b5c12fe05e93bd",
+            "created_at": "2026-11-08T13:41:23Z",
+            "updated_at": "2026-11-08T13:41:24Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486146274"
+          },
+          {
+            "id": 42486020888,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:49Z",
+            "updated_at": "2026-11-08T13:39:59Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486020888"
+          },
+          {
+            "id": 42486010721,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:40Z",
+            "updated_at": "2026-11-08T13:39:52Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486010721"
+          },
+          {
+            "id": 42486004419,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "issue_comment",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:35Z",
+            "updated_at": "2026-11-08T13:40:22Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486004419"
+          },
+          {
+            "id": 42486004365,
+            "path": ".github/workflows/agents-moderate-connector.yml",
+            "event": "issue_comment",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:35Z",
+            "updated_at": "2026-11-08T13:39:45Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486004365"
+          },
+          {
+            "id": 42486004388,
+            "path": ".github/workflows/maint-71-auto-fix-integration.yml",
+            "event": "issue_comment",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:35Z",
+            "updated_at": "2026-11-08T13:39:36Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486004388"
+          },
+          {
+            "id": 42486002586,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:33Z",
+            "updated_at": "2026-11-08T13:39:45Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42486002586"
+          },
+          {
+            "id": 42485994715,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:27Z",
+            "updated_at": "2026-11-08T13:39:35Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485994715"
+          },
+          {
+            "id": 42485979772,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:15Z",
+            "updated_at": "2026-11-08T13:39:25Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485979772"
+          },
+          {
+            "id": 42485974523,
+            "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+            "event": "workflow_dispatch",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:11Z",
+            "updated_at": "2026-11-08T13:45:12Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485974523"
+          },
+          {
+            "id": 42485969435,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:07Z",
+            "updated_at": "2026-11-08T13:39:19Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485969435"
+          },
+          {
+            "id": 42485966482,
+            "path": ".github/workflows/autofix.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:05Z",
+            "updated_at": "2026-11-08T13:39:12Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485966482"
+          },
+          {
+            "id": 42485966422,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:05Z",
+            "updated_at": "2026-11-08T13:39:21Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485966422"
+          },
+          {
+            "id": 42485966566,
+            "path": ".github/workflows/agents-bot-comment-handler.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:05Z",
+            "updated_at": "2026-11-08T13:39:18Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485966566"
+          },
+          {
+            "id": 42485966554,
+            "path": ".github/workflows/agents-70-orchestrator.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:05Z",
+            "updated_at": "2026-11-08T13:39:16Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485966554"
+          },
+          {
+            "id": 42485966501,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:05Z",
+            "updated_at": "2026-11-08T13:39:13Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485966501"
+          },
+          {
+            "id": 42485966466,
+            "path": ".github/workflows/maint-46-post-ci.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:05Z",
+            "updated_at": "2026-11-08T13:39:29Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485966466"
+          },
+          {
+            "id": 42485966528,
+            "path": ".github/workflows/agents-autofix-loop.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:05Z",
+            "updated_at": "2026-11-08T13:39:42Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485966528"
+          },
+          {
+            "id": 42485966578,
+            "path": ".github/workflows/agents-keepalive-loop.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:39:05Z",
+            "updated_at": "2026-11-08T13:54:53Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485966578"
+          },
+          {
+            "id": 42485941454,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:38:44Z",
+            "updated_at": "2026-11-08T13:39:01Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485941454"
+          },
+          {
+            "id": 42485936980,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:38:40Z",
+            "updated_at": "2026-11-08T13:38:54Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485936980"
+          },
+          {
+            "id": 42485915401,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:38:23Z",
+            "updated_at": "2026-11-08T13:38:44Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485915401"
+          },
+          {
+            "id": 42485913366,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:38:21Z",
+            "updated_at": "2026-11-08T13:38:41Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485913366"
+          },
+          {
+            "id": 42485910424,
+            "path": ".github/workflows/health-44-gate-branch-protection.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:41:26Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910424"
+          },
+          {
+            "id": 42485910580,
+            "path": ".github/workflows/pr-00-gate.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:42:22Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910580"
+          },
+          {
+            "id": 42485910437,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:41:40Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910437"
+          },
+          {
+            "id": 42485910563,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:38:37Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910563"
+          },
+          {
+            "id": 42485910499,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:38:38Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910499"
+          },
+          {
+            "id": 42485910425,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:38:38Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910425"
+          },
+          {
+            "id": 42485910501,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:38:42Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910501"
+          },
+          {
+            "id": 42485910429,
+            "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:38:41Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910429"
+          },
+          {
+            "id": 42485910468,
+            "path": ".github/workflows/agents-guard.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:38:42Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910468"
+          },
+          {
+            "id": 42485910547,
+            "path": ".github/workflows/health-72-template-sync.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:38:51Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910547"
+          },
+          {
+            "id": 42485910583,
+            "path": ".github/workflows/health-40-sweep.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:38:29Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910583"
+          },
+          {
+            "id": 42485910476,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "pull_request",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:19Z",
+            "updated_at": "2026-11-08T13:39:54Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485910476"
+          },
+          {
+            "id": 42485908203,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "head_sha": "b3d13601b3fa13c04b41e5ba65a0c5a8231ae2c7",
+            "created_at": "2026-11-08T13:38:17Z",
+            "updated_at": "2026-11-08T13:38:19Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485908203"
+          },
+          {
+            "id": 42485895205,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:38:07Z",
+            "updated_at": "2026-11-08T13:38:20Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485895205"
+          },
+          {
+            "id": 42485886037,
+            "path": ".github/workflows/agents-auto-label.yml",
+            "event": "issues",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:38:00Z",
+            "updated_at": "2026-11-08T13:38:01Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485886037"
+          },
+          {
+            "id": 42485886076,
+            "path": ".github/workflows/agents-issue-format-guard.yml",
+            "event": "issues",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:38:00Z",
+            "updated_at": "2026-11-08T13:38:15Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485886076"
+          },
+          {
+            "id": 42485881408,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:37:57Z",
+            "updated_at": "2026-11-08T13:38:08Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485881408"
+          },
+          {
+            "id": 42485862818,
+            "path": ".github/workflows/agents-guard-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:37:41Z",
+            "updated_at": "2026-11-08T13:38:04Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485862818"
+          },
+          {
+            "id": 42485852178,
+            "path": ".github/workflows/health-68-consumer-sync-drift.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:37:32Z",
+            "updated_at": "2026-11-08T13:37:33Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485852178"
+          },
+          {
+            "id": 42485852308,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:37:32Z",
+            "updated_at": "2026-11-08T13:37:45Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485852308"
+          },
+          {
+            "id": 42485845041,
+            "path": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+            "event": "repository_dispatch",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:37:26Z",
+            "updated_at": "2026-11-08T13:38:03Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485845041"
+          },
+          {
+            "id": 42485840200,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:37:22Z",
+            "updated_at": "2026-11-08T13:37:33Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485840200"
+          },
+          {
+            "id": 42485835448,
+            "path": ".github/workflows/pr-00-gate-fork-status.yml",
+            "event": "workflow_run",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:37:19Z",
+            "updated_at": "2026-11-08T13:37:34Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485835448"
+          },
+          {
+            "id": 42485832942,
+            "path": ".github/workflows/health-50-security-scan.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:37:30Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485832942"
+          },
+          {
+            "id": 42485833119,
+            "path": ".github/workflows/selftest-ci.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:38:43Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485833119"
+          },
+          {
+            "id": 42485833074,
+            "path": ".github/workflows/health-52-semgrep.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:38:35Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485833074"
+          },
+          {
+            "id": 42485832969,
+            "path": ".github/workflows/pr-00-gate.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:39:03Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485832969"
+          },
+          {
+            "id": 42485833077,
+            "path": ".github/workflows/health-40-sweep.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:37:25Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485833077"
+          },
+          {
+            "id": 42485833100,
+            "path": ".github/workflows/agents-pr-meta-v4.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:37:37Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485833100"
+          },
+          {
+            "id": 42485832926,
+            "path": ".github/workflows/agents-guard.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:37:39Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485832926"
+          },
+          {
+            "id": 42485832945,
+            "path": ".github/workflows/health-72-template-sync.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:37:41Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485832945"
+          },
+          {
+            "id": 42485833012,
+            "path": ".github/workflows/pr-11-ci-smoke.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:37:34Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485833012"
+          },
+          {
+            "id": 42485832929,
+            "path": ".github/workflows/maint-52-validate-workflows.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:37:35Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485832929"
+          },
+          {
+            "id": 42485832988,
+            "path": ".github/workflows/health-70-validate-sync-manifest.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:37:35Z",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485832988"
+          },
+          {
+            "id": 42485832974,
+            "path": ".github/workflows/health-44-gate-branch-protection.yml",
+            "event": "pull_request",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:17Z",
+            "updated_at": "2026-11-08T13:42:55Z",
+            "status": "completed",
+            "conclusion": "cancelled",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485832974"
+          },
+          {
+            "id": 42485831184,
+            "path": ".github/workflows/pr-46-dependency-repair-contract.yml",
+            "event": "pull_request_target",
+            "head_sha": "b28068cc84089b55e2b521c0b09ac6c744990c8b",
+            "created_at": "2026-11-08T13:37:15Z",
+            "updated_at": "2026-11-08T13:37:17Z",
+            "status": "completed",
+            "conclusion": "skipped",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485831184"
+          },
+          {
+            "id": 42485792262,
+            "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+            "event": "workflow_dispatch",
+            "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+            "created_at": "2026-11-08T13:36:44Z",
+            "updated_at": "2026-11-08T13:37:30Z",
+            "status": "completed",
+            "conclusion": "failure",
+            "html_url": "https://github.com/stranske/Workflows/actions/runs/42485792262"
+          }
+        ]
+      }
+    ]
+  },
+  "comments": {
+    "url": "https://api.github.com/repos/stranske/Workflows/issues/4369/comments?per_page=100&page=1",
+    "per_page": 100,
+    "pages": [
+      [
+        {
+          "id": 6568623594,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6568623594",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `3e13566a73e9` (round 20261102T035200Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967",
+          "created_at": "2026-11-02T03:52:17Z",
+          "updated_at": "2026-11-02T03:52:17Z"
+        },
+        {
+          "id": 6568624416,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6568624416",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `e1075176de36` (round 20261102T035200Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-02T03:52:21Z",
+          "updated_at": "2026-11-02T03:52:21Z"
+        },
+        {
+          "id": 6583452479,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6583452479",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `128edded1e54` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+          "created_at": "2026-11-02T17:14:59Z",
+          "updated_at": "2026-11-02T17:14:59Z"
+        },
+        {
+          "id": 6583454319,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6583454319",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `e1d8a8ed8a87` (round 20261102T171437Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967",
+          "created_at": "2026-11-02T17:15:04Z",
+          "updated_at": "2026-11-02T17:15:04Z"
+        },
+        {
+          "id": 6587416829,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6587416829",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `0a5873df007f` (round 20261102T201439Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-02T20:15:05Z",
+          "updated_at": "2026-11-02T20:15:05Z"
+        },
+        {
+          "id": 6588614972,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6588614972",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `c485222f949a` (round 20261102T211340Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967",
+          "created_at": "2026-11-02T21:14:01Z",
+          "updated_at": "2026-11-02T21:14:01Z"
+        },
+        {
+          "id": 6597301080,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6597301080",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `021a094497a1` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+          "created_at": "2026-11-03T06:46:33Z",
+          "updated_at": "2026-11-03T06:46:33Z"
+        },
+        {
+          "id": 6597303042,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6597303042",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `66242eb3268c` (round 20261103T064607Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-03T06:46:42Z",
+          "updated_at": "2026-11-03T06:46:42Z"
+        },
+        {
+          "id": 6604754804,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6604754804",
+          "body": "🤖 **Auto-pilot step 1**: Starting issue formatting...\n\nRunning formatter inline (not via label trigger).\n",
+          "created_at": "2026-11-03T13:12:42Z",
+          "updated_at": "2026-11-03T13:12:42Z"
+        },
+        {
+          "id": 6623204937,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623204937",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `f36c82cd6a83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+          "created_at": "2026-11-04T05:15:36Z",
+          "updated_at": "2026-11-04T05:15:36Z"
+        },
+        {
+          "id": 6623206100,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623206100",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `7e233b3c1e83` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967",
+          "created_at": "2026-11-04T05:15:42Z",
+          "updated_at": "2026-11-04T05:15:42Z"
+        },
+        {
+          "id": 6623207637,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623207637",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `ecff077a0504` (round 20261104T051508Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-04T05:15:48Z",
+          "updated_at": "2026-11-04T05:15:48Z"
+        },
+        {
+          "id": 6623828876,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623828876",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `c1add4c24991` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+          "created_at": "2026-11-04T06:00:28Z",
+          "updated_at": "2026-11-04T06:00:28Z"
+        },
+        {
+          "id": 6623830468,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6623830468",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `58e7e3bdfe8b` (round 20261104T060008Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967",
+          "created_at": "2026-11-04T06:00:35Z",
+          "updated_at": "2026-11-04T06:00:35Z"
+        },
+        {
+          "id": 6631874862,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631874862",
+          "body": "🤖 **Auto-pilot step 1**: Starting issue formatting...\n\nRunning formatter inline (not via label trigger).\n",
+          "created_at": "2026-11-04T13:27:57Z",
+          "updated_at": "2026-11-04T13:27:57Z"
+        },
+        {
+          "id": 6631909094,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631909094",
+          "body": "🤖 **Auto-pilot step 1**: Analyzing issue for improvements...\n\nRunning optimizer inline (not via label trigger).\n",
+          "created_at": "2026-11-04T13:29:30Z",
+          "updated_at": "2026-11-04T13:29:30Z"
+        },
+        {
+          "id": 6631921882,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631921882",
+          "body": "## Issue Optimization Suggestions\n\nReview the suggestions below. If you want the agent to apply them, add the\n`agents:apply-suggestions` label to this issue.\n\n### Task splitting\n- Add or extend a test beside `tools/subscription_llm.py` that fails for the reported behavior and passes after the fix. (The task bundles writing a regression test with the 'fails before / passes after' verification. It also leaves open whether to add a new test or extend an existing one. Both are achievable, but separating them makes each step verifiable. This is a minor concern, not a hard blocker.). Suggested split: Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory containing only a credentials file and asserts available() returns True, Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR is set to a directory without credentials, Verify the new test fails against the unfixed available() logic and passes after the fix is applied.\n\n### Blocked tasks\n- Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue. (This depends on workflow runs the agent cannot trigger, retry or modify (the workflows are protected, and agents cannot retry CI pipelines). It also depends on the external sync-core system and on a review thread in another repository being resolved. It is a post-merge live verification, not an agent-completable task. | Move this to a separate 'Post-merge verification (human/maintainer)' checklist outside the agent's scope. Keep only the source fix and the test in the agent-owned tasks.)\n- Deliberate-break → revert: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass. (The agent can do this locally, but it is a process step and not a deliverable. It leaves no artifact in the PR and cannot be verified from the final diff. It is also a mutation-testing step that may be awkward to run inside a CI-driven agent loop. | Rephrase it as an objective check. For example, the regression test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation. Optionally have the agent record the before/after pytest output in the PR description.)\n\n### Objective acceptance criteria\n- Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass. (The criterion is objective, but it is ambiguous. The source file is Python, so the JavaScript gate is likely irrelevant. The pytest path `tests/` may also not match 'a test beside tools/subscription_llm.py' as stated in the tasks. | State that `python3 -m pytest -q tests/` must pass, and that the new test lives in a path that this command collects (or specify the exact path, e.g. `tests/tools/test_subscription_llm.py`). Treat the JS gate as 'no regressions' only.)\n- Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass. (It is verifiable only by manual mutation and leaves no artifact. | Replace with: 'A test named e.g. test_available_uses_claude_config_dir exists, sets CLAUDE_CONFIG_DIR to a temp dir containing a credentials file, and asserts available() is True; it fails on the pre-fix commit.')\n- ...the next maint-71 run reports PR #2454 without this review thread, and sync-core stops bumping this issue. (It depends on external systems and timing, so it is not verifiable within the source PR. | Make it a non-blocking follow-up. The in-scope criterion should be: 'available() returns True when credentials exist only under $CLAUDE_CONFIG_DIR, and still falls back to the default ~/.claude location when the variable is unset.')\n\n### Missing sections\n- None\n\n### Formatting issues\n- The body contains both a rewritten top section and an 'Original Issue' block that repeats the Why, Tasks, Acceptance Criteria and Non-Goals content. The duplication adds noise, though it is collapsed in a <details> block and acceptable as provenance.\n- The Scope section is a single sentence and its wording is awkward: 'when present in the source file'. It should say that `CLAUDE_CONFIG_DIR`, when set, determines where the credentials file is looked up, and name the file (e.g. `.credentials.json`).\n- The Tasks section omits the third original task (regenerate the sync candidate and confirm the thread is resolved). It appears only as an acceptance criterion, which is a good change, but the Acceptance Criteria item still mixes agent-verifiable and external checks.\n- The Acceptance Criteria mix a generic, template-style gate (the JS and Python gates) with issue-specific behavior. Only the Python gate is relevant.\n- Task wording uses the 'stranske/Workflows:tools/subscription_llm.py' notation, which is not a valid path inside the repo. The agent should work on `tools/subscription_llm.py`.\n- Missing specifics: the issue does not state the expected fallback behavior when CLAUDE_CONFIG_DIR is unset or empty, or the credentials filename.\n\n### Notes\n- The issue is mostly agent-compatible. It has a clear, narrow code fix (honor CLAUDE_CONFIG_DIR in available()), a clear non-goal (do not edit the consumer PR) and a regression-test requirement. Why, Scope, Non-Goals and Implementation Notes are all present, so none are missing. The main problems are (1) the acceptance criteria include live-system checks on workflow runs the agent cannot trigger or control, (2) the JS gate is irrelevant to a Python fix, and (3) the intended behavior is underspecified (credentials filename, unset or empty variable, tilde expansion). Recommended rewrite of the tasks: (a) Fix available() in tools/subscription_llm.py to look for the credentials file under $CLAUDE_CONFIG_DIR when it is set and non-empty, falling back to the default location otherwise. (b) Add a pytest regression test using monkeypatch and tmp_path that covers the set, unset and empty cases. (c) Run `python3 -m pytest -q tests/` and confirm it passes. Move the maint-68/maint-71 verification to a human-owned follow-up.\n\n<!-- suggestions-json: {\"task_splitting\": [{\"task\": \"Add or extend a test beside `tools/subscription_llm.py` that fails for the reported behavior and passes after the fix.\", \"reason\": \"The task bundles writing a regression test with the 'fails before / passes after' verification. It also leaves open whether to add a new test or extend an existing one. Both are achievable, but separating them makes each step verifiable. This is a minor concern, not a hard blocker.\", \"split_suggestions\": [\"Add a pytest regression test that sets CLAUDE_CONFIG_DIR to a temp directory containing only a credentials file and asserts available() returns True\", \"Add a pytest test that confirms available() returns False when CLAUDE_CONFIG_DIR is set to a directory without credentials\", \"Verify the new test fails against the unfixed available() logic and passes after the fix is applied\"]}], \"blocked_tasks\": [{\"task\": \"Acceptance criterion: After `.github/workflows/maint-68-sync-consumer-repos.yml` regenerates the sync candidate, the next `.github/workflows/maint-71-merge-sync-prs.yml` run reports stranske/Portable-Alpha-Extension-Model#2454 without this review thread, and sync-core stops bumping this issue.\", \"reason\": \"This depends on workflow runs the agent cannot trigger, retry or modify (the workflows are protected, and agents cannot retry CI pipelines). It also depends on the external sync-core system and on a review thread in another repository being resolved. It is a post-merge live verification, not an agent-completable task.\", \"suggested_action\": \"Move this to a separate 'Post-merge verification (human/maintainer)' checklist outside the agent's scope. Keep only the source fix and the test in the agent-owned tasks.\"}, {\"task\": \"Deliberate-break \\u2192 revert: Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass.\", \"reason\": \"The agent can do this locally, but it is a process step and not a deliverable. It leaves no artifact in the PR and cannot be verified from the final diff. It is also a mutation-testing step that may be awkward to run inside a CI-driven agent loop.\", \"suggested_action\": \"Rephrase it as an objective check. For example, the regression test must set CLAUDE_CONFIG_DIR and fail against the pre-fix implementation. Optionally have the agent record the before/after pytest output in the PR description.\"}], \"objective_criteria\": [{\"criterion\": \"Source-fix gates pass: `node --test .github/scripts/__tests__/*.test.js` for JavaScript and `python3 -m pytest -q tests/` for Python; both must pass.\", \"issue\": \"The criterion is objective, but it is ambiguous. The source file is Python, so the JavaScript gate is likely irrelevant. The pytest path `tests/` may also not match 'a test beside tools/subscription_llm.py' as stated in the tasks.\", \"suggestion\": \"State that `python3 -m pytest -q tests/` must pass, and that the new test lives in a path that this command collects (or specify the exact path, e.g. `tests/tools/test_subscription_llm.py`). Treat the JS gate as 'no regressions' only.\"}, {\"criterion\": \"Reintroducing the reported behavior makes the regression test fail; reverting that deliberate break makes it pass.\", \"issue\": \"It is verifiable only by manual mutation and leaves no artifact.\", \"suggestion\": \"Replace with: 'A test named e.g. test_available_uses_claude_config_dir exists, sets CLAUDE_CONFIG_DIR to a temp dir containing a credentials file, and asserts available() is True; it fails on the pre-fix commit.'\"}, {\"criterion\": \"...the next maint-71 run reports PR #2454 without this review thread, and sync-core stops bumping this issue.\", \"issue\": \"It depends on external systems and timing, so it is not verifiable within the source PR.\", \"suggestion\": \"Make it a non-blocking follow-up. The in-scope criterion should be: 'available() returns True when credentials exist only under $CLAUDE_CONFIG_DIR, and still falls back to the default ~/.claude location when the variable is unset.'\"}], \"missing_sections\": [], \"formatting_issues\": [\"The body contains both a rewritten top section and an 'Original Issue' block that repeats the Why, Tasks, Acceptance Criteria and Non-Goals content. The duplication adds noise, though it is collapsed in a <details> block and acceptable as provenance.\", \"The Scope section is a single sentence and its wording is awkward: 'when present in the source file'. It should say that `CLAUDE_CONFIG_DIR`, when set, determines where the credentials file is looked up, and name the file (e.g. `.credentials.json`).\", \"The Tasks section omits the third original task (regenerate the sync candidate and confirm the thread is resolved). It appears only as an acceptance criterion, which is a good change, but the Acceptance Criteria item still mixes agent-verifiable and external checks.\", \"The Acceptance Criteria mix a generic, template-style gate (the JS and Python gates) with issue-specific behavior. Only the Python gate is relevant.\", \"Task wording uses the 'stranske/Workflows:tools/subscription_llm.py' notation, which is not a valid path inside the repo. The agent should work on `tools/subscription_llm.py`.\", \"Missing specifics: the issue does not state the expected fallback behavior when CLAUDE_CONFIG_DIR is unset or empty, or the credentials filename.\"], \"overall_notes\": \"The issue is mostly agent-compatible. It has a clear, narrow code fix (honor CLAUDE_CONFIG_DIR in available()), a clear non-goal (do not edit the consumer PR) and a regression-test requirement. Why, Scope, Non-Goals and Implementation Notes are all present, so none are missing. The main problems are (1) the acceptance criteria include live-system checks on workflow runs the agent cannot trigger or control, (2) the JS gate is irrelevant to a Python fix, and (3) the intended behavior is underspecified (credentials filename, unset or empty variable, tilde expansion). Recommended rewrite of the tasks: (a) Fix available() in tools/subscription_llm.py to look for the credentials file under $CLAUDE_CONFIG_DIR when it is set and non-empty, falling back to the default location otherwise. (b) Add a pytest regression test using monkeypatch and tmp_path that covers the set, unset and empty cases. (c) Run `python3 -m pytest -q tests/` and confirm it passes. Move the maint-68/maint-71 verification to a human-owned follow-up.\"} -->",
+          "created_at": "2026-11-04T13:30:05Z",
+          "updated_at": "2026-11-04T13:30:05Z"
+        },
+        {
+          "id": 6631945201,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631945201",
+          "body": "🤖 **Auto-pilot step 1**: Applying optimization suggestions...\n\nRunning apply inline (not via label trigger).\n",
+          "created_at": "2026-11-04T13:31:09Z",
+          "updated_at": "2026-11-04T13:31:09Z"
+        },
+        {
+          "id": 6631947881,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631947881",
+          "body": "⚠️ **Workflow failed**\n\nThe agents-issue-optimizer workflow encountered an error.\n\n**Details**: [View workflow run](https://github.com/stranske/Workflows/actions/runs/41838664145)\n",
+          "created_at": "2026-11-04T13:31:16Z",
+          "updated_at": "2026-11-04T13:31:16Z"
+        },
+        {
+          "id": 6631981306,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631981306",
+          "body": "🤖 **Auto-pilot step 1**: Issue prepared! Assigning to agent...\n\nAdding `agent:codex` label. The capability check will run automatically.\n\n⏳ Agent will create a PR shortly.",
+          "created_at": "2026-11-04T13:32:50Z",
+          "updated_at": "2026-11-04T13:32:50Z"
+        },
+        {
+          "id": 6631991191,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631991191",
+          "body": "Belt dispatcher queued this issue and created branch `codex/issue-4369`. Health 40 will reclaim this claim after 24 hours if no linked open or merged PR exists.",
+          "created_at": "2026-11-04T13:33:19Z",
+          "updated_at": "2026-11-04T13:33:19Z"
+        },
+        {
+          "id": 6631996865,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6631996865",
+          "body": "### ⚠️ Capability Check: Some tasks may need human assistance\n\n**Recommendation:** REVIEW_NEEDED\n\n**⚠️ Partial Tasks (9):**\n- Inspect Claude's `available()` implementation and child-CLI environment handling in `tools/subscription_llm.py`, identifying the existing credentials filename and default directory.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Add regression tests to the existing test module covering `tools/subscription_llm.py`, with test names containing `claude_config_dir`; isolate environment variables, home-directory credentials, CLI discovery, and other availability prerequisites so the tests exercise credential-path resolution without requiring a real subscription or invoking Claude.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a temporary directory containing only the expected credentials file and assert that Claude's `available()` returns `True`.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a directory without credentials and assert that Claude's `available()` returns `False`, including when credentials exist in the default directory.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Fix Claude's `available()` in `tools/subscription_llm.py` to resolve the credentials file relative to `CLAUDE_CONFIG_DIR` when set, consistently with the directory supplied to the child CLI.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Extend the tests covering `tools/subscription_llm.py` to verify that the existing default-directory behavior remains intact when `CLAUDE_CONFIG_DIR` is absent.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Run `python3 -m pytest -q tests/ -k claude_config_dir` against the pre-fix implementation, against the fix, and after deliberately restoring and then reverting the reported faulty path resolution; record commands, test names, exit codes, and before/after output in the implementation report.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- Run `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the source fix and record their results.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n- After source delivery and regeneration by `.github/workflows/maint-68-sync-consumer-repos.yml`, inspect the next `.github/workflows/maint-71-merge-sync-prs.yml` run and the review thread on stranske/Portable-Alpha-Extension-Model#2454; record the consumer head, workflow run, thread state, and sync-core evidence, or explicitly report which live evidence is still pending.\n  - *Limitation:* Task bundles multiple actions; split into smaller tasks.\n\n**👤 Human Actions Needed:**\n- Split task into smaller steps: Inspect Claude's `available()` implementation and child-CLI environment handling in `tools/subscription_llm.py`, identifying the existing credentials filename and default directory.\n- Split task into smaller steps: Add regression tests to the existing test module covering `tools/subscription_llm.py`, with test names containing `claude_config_dir`; isolate environment variables, home-directory credentials, CLI discovery, and other availability prerequisites so the tests exercise credential-path resolution without requiring a real subscription or invoking Claude.\n- Split task into smaller steps: In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a temporary directory containing only the expected credentials file and assert that Claude's `available()` returns `True`.\n- Split task into smaller steps: In the `claude_config_dir` tests, set `CLAUDE_CONFIG_DIR` to a directory without credentials and assert that Claude's `available()` returns `False`, including when credentials exist in the default directory.\n- Split task into smaller steps: Fix Claude's `available()` in `tools/subscription_llm.py` to resolve the credentials file relative to `CLAUDE_CONFIG_DIR` when set, consistently with the directory supplied to the child CLI.\n- Split task into smaller steps: Extend the tests covering `tools/subscription_llm.py` to verify that the existing default-directory behavior remains intact when `CLAUDE_CONFIG_DIR` is absent.\n- Split task into smaller steps: Run `python3 -m pytest -q tests/ -k claude_config_dir` against the pre-fix implementation, against the fix, and after deliberately restoring and then reverting the reported faulty path resolution; record commands, test names, exit codes, and before/after output in the implementation report.\n- Split task into smaller steps: Run `node --test .github/scripts/__tests__/*.test.js` and `python3 -m pytest -q tests/` on the source fix and record their results.\n- Split task into smaller steps: After source delivery and regeneration by `.github/workflows/maint-68-sync-consumer-repos.yml`, inspect the next `.github/workflows/maint-71-merge-sync-prs.yml` run and the review thread on stranske/Portable-Alpha-Extension-Model#2454; record the consumer head, workflow run, thread state, and sync-core evidence, or explicitly report which live evidence is still pending.\n- LLM provider unavailable\n\n---\n*Auto-generated by capability check*",
+          "created_at": "2026-11-04T13:33:35Z",
+          "updated_at": "2026-11-08T00:52:30Z"
+        },
+        {
+          "id": 6632013165,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632013165",
+          "body": "🤖 **Auto-pilot step 1**: Branch ready, waiting for commits\n\nBranch `codex/issue-4369` exists but has no commits yet.\n✅ Dispatched the belt worker to generate changes.\n\n📊 Stall count: 1/5 (pauses after 5)\n\n⏳ Auto-pilot will check again on next trigger.",
+          "created_at": "2026-11-04T13:34:20Z",
+          "updated_at": "2026-11-04T13:34:20Z"
+        },
+        {
+          "id": 6632034602,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632034602",
+          "body": "Opened PR #4444 via belt worker.",
+          "created_at": "2026-11-04T13:35:19Z",
+          "updated_at": "2026-11-04T13:35:19Z"
+        },
+        {
+          "id": 6632061199,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632061199",
+          "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 1/5\n\n⏳ Auto-pilot will check again on next trigger.",
+          "created_at": "2026-11-04T13:36:33Z",
+          "updated_at": "2026-11-04T13:36:33Z"
+        },
+        {
+          "id": 6632137960,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632137960",
+          "body": "🤖 **Auto-pilot**: Backoff delay (2m)\n\nMonitoring PR status. Attempt 2/5.\nWaiting before retry...",
+          "created_at": "2026-11-04T13:40:07Z",
+          "updated_at": "2026-11-04T13:40:07Z"
+        },
+        {
+          "id": 6632181181,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632181181",
+          "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 2/5\n\n⏳ Auto-pilot will check again on next trigger.",
+          "created_at": "2026-11-04T13:42:08Z",
+          "updated_at": "2026-11-04T13:42:08Z"
+        },
+        {
+          "id": 6632256111,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632256111",
+          "body": "🤖 **Auto-pilot**: Backoff delay (4m)\n\nMonitoring PR status. Attempt 3/5.\nWaiting before retry...",
+          "created_at": "2026-11-04T13:45:37Z",
+          "updated_at": "2026-11-04T13:45:37Z"
+        },
+        {
+          "id": 6632343497,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632343497",
+          "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 3/5\n\n⏳ Auto-pilot will check again on next trigger.",
+          "created_at": "2026-11-04T13:49:38Z",
+          "updated_at": "2026-11-04T13:49:38Z"
+        },
+        {
+          "id": 6632420613,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632420613",
+          "body": "🤖 **Auto-pilot**: Backoff delay (8m)\n\nMonitoring PR status. Attempt 4/5.\nWaiting before retry...",
+          "created_at": "2026-11-04T13:52:59Z",
+          "updated_at": "2026-11-04T13:52:59Z"
+        },
+        {
+          "id": 6632598002,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632598002",
+          "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 4/5\n\n⏳ Auto-pilot will check again on next trigger.",
+          "created_at": "2026-11-04T14:01:00Z",
+          "updated_at": "2026-11-04T14:01:00Z"
+        },
+        {
+          "id": 6632676828,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6632676828",
+          "body": "🤖 **Auto-pilot**: Backoff delay (16m)\n\nMonitoring PR status. Attempt 5/5.\nWaiting before retry...",
+          "created_at": "2026-11-04T14:04:28Z",
+          "updated_at": "2026-11-04T14:04:28Z"
+        },
+        {
+          "id": 6633050549,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6633050549",
+          "body": "🤖 **Auto-pilot step 1**: Monitoring PR status\n\nPR #4444 exists. Keepalive and autofix will handle CI.\n\n📊 Stall count: 5/5\n\n⏳ Auto-pilot will check again on next trigger.",
+          "created_at": "2026-11-04T14:20:29Z",
+          "updated_at": "2026-11-04T14:20:29Z"
+        },
+        {
+          "id": 6633138780,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6633138780",
+          "body": "🤖 **Auto-pilot step 1**: handing off to agent delegation after stall\n\nPR monitoring stalled after 5 attempts. Added `agent:auto` so the keepalive delegation policy can rotate to an alternative agent (eligible: codex, claude, cursor, muse, gemini).\n\n`needs-human` is withheld until delegation has also been exhausted.",
+          "created_at": "2026-11-04T14:24:20Z",
+          "updated_at": "2026-11-04T14:24:20Z"
+        },
+        {
+          "id": 6648485035,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648485035",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `3512f549a602` (round 20261105T030005Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+          "created_at": "2026-11-05T03:00:31Z",
+          "updated_at": "2026-11-05T03:00:31Z"
+        },
+        {
+          "id": 6648719968,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648719968",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `86de5e1c244b` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967",
+          "created_at": "2026-11-05T03:17:04Z",
+          "updated_at": "2026-11-05T03:17:04Z"
+        },
+        {
+          "id": 6648720854,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6648720854",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `97baeaec5950` (round 20261105T031637Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-05T03:17:08Z",
+          "updated_at": "2026-11-05T03:17:08Z"
+        },
+        {
+          "id": 6649127583,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649127583",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `75aaabae989a` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+          "created_at": "2026-11-05T03:46:43Z",
+          "updated_at": "2026-11-05T03:46:43Z"
+        },
+        {
+          "id": 6649128394,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649128394",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `082d0e77cbf0` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967",
+          "created_at": "2026-11-05T03:46:47Z",
+          "updated_at": "2026-11-05T03:46:47Z"
+        },
+        {
+          "id": 6649129537,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649129537",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `be40cedb1f5e` (round 20261105T034614Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-05T03:46:52Z",
+          "updated_at": "2026-11-05T03:46:52Z"
+        },
+        {
+          "id": 6649299127,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649299127",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `cf3a664378b6` (round 20261105T035909Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-05T03:59:38Z",
+          "updated_at": "2026-11-05T03:59:38Z"
+        },
+        {
+          "id": 6649911684,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649911684",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Portable-Alpha-Extension-Model#2454 head `39a3dc939133` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2454#discussion_r4434491702",
+          "created_at": "2026-11-05T04:45:07Z",
+          "updated_at": "2026-11-05T04:45:07Z"
+        },
+        {
+          "id": 6649912647,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649912647",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/Travel-Plan-Permission#1716 head `15c797646f4e` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/Travel-Plan-Permission/pull/1716#discussion_r4434491967",
+          "created_at": "2026-11-05T04:45:11Z",
+          "updated_at": "2026-11-05T04:45:11Z"
+        },
+        {
+          "id": 6649913432,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6649913432",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `eb24149b6f0f` (round 20261105T044440Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-05T04:45:15Z",
+          "updated_at": "2026-11-05T04:45:15Z"
+        },
+        {
+          "id": 6650145104,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6650145104",
+          "body": "<!-- sync-core/v1 handoff fp=572b14c3a075 -->\nStill present on stranske/trip-planner#1957 head `1bddd0cbe9a8` (round 20261105T050113Z). Threads/checks: https://github.com/stranske/trip-planner/pull/1957#discussion_r4434489082",
+          "created_at": "2026-11-05T05:01:44Z",
+          "updated_at": "2026-11-05T05:01:44Z"
+        },
+        {
+          "id": 6715276022,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6715276022",
+          "body": "<!-- opener-core/v1 action=start target=stranske/Workflows#4369 agent=codex mode=remote round=20261108T004659Z -->\nopener-core started codex (remote) on this issue.",
+          "created_at": "2026-11-08T00:51:55Z",
+          "updated_at": "2026-11-08T00:51:55Z"
+        },
+        {
+          "id": 6717526002,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6717526002",
+          "body": "🤖 **Auto-pilot**: Issue closed.\nTriggering verification on PR #4539...\n\nVerifier dispatch or existing PR/head run confirmed; recording handoff labels.",
+          "created_at": "2026-11-08T05:03:35Z",
+          "updated_at": "2026-11-08T05:03:35Z"
+        },
+        {
+          "id": 6717537084,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6717537084",
+          "body": "## ✅ Auto-Pilot Complete\n\nThis issue has been fully processed:\n- ✅ Issue formatted and optimized\n- ✅ Agent assigned and PR created\n- ✅ PR merged\n- ✅ verification triggered on a merged source PR (PR-bound handoff recorded)\n\nThank you for using auto-pilot! 🚀",
+          "created_at": "2026-11-08T05:04:54Z",
+          "updated_at": "2026-11-08T05:04:54Z"
+        },
+        {
+          "id": 6718971808,
+          "html_url": "https://github.com/stranske/Workflows/issues/4369#issuecomment-6718971808",
+          "body": "<!-- closer-core/v1 action=followup target=stranske/Workflows#4369 disposition=followup round=20261108T074414Z followup=#4548 -->\ncloser-core checked the closed issue stranske/Workflows#4369: unmet criteria moved to #4548",
+          "created_at": "2026-11-08T07:54:50Z",
+          "updated_at": "2026-11-08T07:54:50Z"
+        }
+      ]
+    ],
+    "all_pages_connector_ids": [
+      6568623594,
+      6568624416,
+      6583452479,
+      6583454319,
+      6587416829,
+      6588614972,
+      6597301080,
+      6597303042,
+      6604754804,
+      6623204937,
+      6623206100,
+      6623207637,
+      6623828876,
+      6623830468,
+      6631874862,
+      6631909094,
+      6631921882,
+      6631945201,
+      6631947881,
+      6631981306,
+      6631991191,
+      6631996865,
+      6632013165,
+      6632034602,
+      6632061199,
+      6632137960,
+      6632181181,
+      6632256111,
+      6632343497,
+      6632420613,
+      6632598002,
+      6632676828,
+      6633050549,
+      6633138780,
+      6648485035,
+      6648719968,
+      6648720854,
+      6649127583,
+      6649128394,
+      6649129537,
+      6649299127,
+      6649911684,
+      6649912647,
+      6649913432,
+      6650145104,
+      6715276022,
+      6717526002,
+      6717537084,
+      6718971808
+    ]
+  },
+  "historical_thread": {
+    "id": "PRRT_kwDOO15QxM6yXhfS",
+    "is_resolved": true,
+    "is_outdated": true,
+    "path": "tools/subscription_llm.py",
+    "line": null,
+    "diff_side": "RIGHT",
+    "start_line": null,
+    "start_diff_side": null,
+    "original_line": 55,
+    "original_start_line": null,
+    "resolved_by": {
+      "login": "stranske",
+      "name": "stranske",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+      "id": null
+    },
+    "comments": [
+      {
+        "id": "PRRC_kwDOO15QxM8AAAABCFD5Ng",
+        "database_id": 4434491702,
+        "body": "[P2] Claude's credential check ignores `CLAUDE_CONFIG_DIR`, even though that variable is passed to the child CLI. When subscription credentials exist only in the configured directory, `available()` rejects the client before Claude can read them. Resolve the credentials file relative to the configured directory when present.",
+        "created_at": "2026-11-01T05:10:47Z",
+        "updated_at": "2026-11-01T05:10:47Z",
+        "author": {
+          "login": "copilot-pull-request-reviewer",
+          "name": "copilot-pull-request-reviewer",
+          "email": null,
+          "avatar_url": "https://avatars.githubusercontent.com/in/946600?v=4",
+          "id": null
+        },
+        "viewer_did_author": false
+      },
+      {
+        "id": "PRRC_kwDOO15QxM8AAAABDIWAnQ",
+        "database_id": 4505043101,
+        "body": "Worker disposition on exact head 9c85282d05359ddc468d0881ec6b09269ac592a2: addressed in the frozen delivery source. Lines 51-56 resolve the credentials directory from CLAUDE_CONFIG_DIR, then check .credentials.json there; lines 80-83 preserve that variable in the child environment.\n\nInspected current file: https://github.com/stranske/Portable-Alpha-Extension-Model/blob/9c85282d05359ddc468d0881ec6b09269ac592a2/tools/subscription_llm.py . This is my evidence-backed disposition, not an acceptance attributed to the original reviewer. Resolving this obsolete finding; existing GitHub protections and exact-head merge checks remain enforced.",
+        "created_at": "2026-11-08T04:39:05Z",
+        "updated_at": "2026-11-08T04:39:05Z",
+        "author": {
+          "login": "stranske",
+          "name": "stranske",
+          "email": null,
+          "avatar_url": "https://avatars.githubusercontent.com/u/23046322?v=4",
+          "id": null
+        },
+        "viewer_did_author": true
+      }
+    ]
+  },
+  "consumer_pr": {
+    "html_url": "https://github.com/stranske/Portable-Alpha-Extension-Model/pull/2486",
+    "number": 2486,
+    "state": "open",
+    "draft": false,
+    "merged": false,
+    "merged_at": null,
+    "merge_commit_sha": "432dd04036ae12902bf6f6e03b30d23eded323de",
+    "head": {
+      "sha": "653f443b52ec179c6680ee369be06ed3e3ce2617",
+      "ref": "sync/workflows-candidate"
+    },
+    "base": {
+      "sha": "0543dc9732eab0ad12227308749566a937581eea",
+      "ref": "main"
+    },
+    "repository": "stranske/Portable-Alpha-Extension-Model"
+  },
+  "consumer_main": {
+    "sha": "0543dc9732eab0ad12227308749566a937581eea",
+    "repository": "stranske/Portable-Alpha-Extension-Model"
+  },
+  "source_pr": {
+    "html_url": "https://github.com/stranske/Workflows/pull/4551",
+    "number": 4551,
+    "state": "open",
+    "draft": false,
+    "head_sha": "bfc163b5742e1a4b88048ad4128ec08f42461951"
+  },
+  "following_maint71": {
+    "id": 42485792262,
+    "created_at": "2026-11-08T13:36:44Z",
+    "updated_at": "2026-11-08T13:37:30Z",
+    "status": "completed",
+    "conclusion": "failure",
+    "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42485792262"
+  },
+  "retry_maint71": {
+    "id": 42485974523,
+    "created_at": "2026-11-08T13:39:11Z",
+    "updated_at": "2026-11-08T13:45:12Z",
+    "status": "completed",
+    "conclusion": "failure",
+    "head_sha": "e8f9dc2373563dea50a708501a63a9ad58f8db06",
+    "path": ".github/workflows/maint-71-merge-sync-prs.yml",
+    "html_url": "https://github.com/stranske/Workflows/actions/runs/42485974523"
+  },
+  "transport": {
+    "workflow_dispatch_connector_available": false,
+    "cli_probe": {
+      "command": "gh api repos/stranske/Workflows/actions/runs/42485974523 --jq '{id,status,conclusion,updated_at}'",
+      "exit_code": 1,
+      "output": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com\n"
+    }
+  },
+  "final_delivery_acceptance": false
+}

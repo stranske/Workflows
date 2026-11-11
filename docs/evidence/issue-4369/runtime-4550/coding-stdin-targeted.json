@@ -1,0 +1,22 @@
+{
+  "command": [
+    "node",
+    "--test",
+    ".github/scripts/__tests__/verifier-correction-coding.test.js"
+  ],
+  "revision": "45781009d0c43974648f004c6ac53f09120f6024",
+  "uncommitted_changes": true,
+  "source_file": ".github/scripts/__tests__/verifier-correction-coding.test.js",
+  "source_sha256": "193baf1a3cdc6944b2ee90f7285d5bd6c4a04df11e531ad1a01f46bc61b3a62e",
+  "interpreter": "v24.22.2",
+  "started_at_utc": "2026-11-08T17:57:49.538972+00:00",
+  "timeout_seconds": 60,
+  "log": "coding-stdin-targeted.log",
+  "exit_code": 0,
+  "timed_out": false,
+  "finished_at_utc": "2026-11-08T17:57:59.546847+00:00",
+  "wall_seconds": 10.008,
+  "log_sha256": "061da3fc16a85208cb26ad8dc57e0107a501f97c4e22936924ddf92977892e6e",
+  "process_returncode": 0,
+  "timeout_exit_code_convention": "124 denotes an externally bounded timeout; process_returncode records the terminated child"
+}

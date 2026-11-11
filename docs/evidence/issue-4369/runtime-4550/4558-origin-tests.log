@@ -1,0 +1,19 @@
+✔ empty inventory and exact page boundary require terminal empty pages (2.970861ms)
+✔ bot actor and auto title do not authenticate a dispatch or a complete chain (0.235168ms)
+✔ scheduled producer is an automation lead, not a delivery-chain acceptance (0.195635ms)
+✔ refuse filtered endpoint (0.260775ms)
+✔ refuse wrong repository (0.228325ms)
+✔ refuse missing page (0.20444ms)
+✔ refuse changing total (0.378425ms)
+✔ refuse duplicate run (0.227864ms)
+✔ refuse outside bounds (0.334352ms)
+✔ refuse missing run (0.351685ms)
+✔ refuse search cap (0.215963ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13.699289

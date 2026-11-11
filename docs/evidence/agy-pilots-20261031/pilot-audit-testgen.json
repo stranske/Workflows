@@ -1,0 +1,971 @@
+{
+  "schema": "workflows-agy-pilot/v1",
+  "evidence_class": "exploratory-cli-seeded-defects",
+  "modules": [
+    {
+      "name": "disable_legacy_workflows",
+      "mutants": [
+        {
+          "line": 19,
+          "from": "-",
+          "to": "+"
+        },
+        {
+          "line": 74,
+          "from": "<",
+          "to": "<="
+        }
+      ]
+    },
+    {
+      "name": "discover_model_catalog",
+      "mutants": [
+        {
+          "line": 104,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 124,
+          "from": "==",
+          "to": "!="
+        },
+        {
+          "line": 188,
+          "from": "+",
+          "to": "-"
+        }
+      ]
+    },
+    {
+      "name": "ensure_workflow_timeout_variables",
+      "mutants": [
+        {
+          "line": 112,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 118,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 253,
+          "from": "and",
+          "to": "or"
+        }
+      ]
+    },
+    {
+      "name": "integration_repo",
+      "mutants": [
+        {
+          "line": 35,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 50,
+          "from": "True",
+          "to": "False"
+        },
+        {
+          "line": 77,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "refresh_model_eval_candidates",
+      "mutants": [
+        {
+          "line": 63,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 96,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 177,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "resolve_mypy_pin",
+      "mutants": [
+        {
+          "line": 77,
+          "from": "or",
+          "to": "and"
+        },
+        {
+          "line": 92,
+          "from": "==",
+          "to": "!="
+        }
+      ]
+    },
+    {
+      "name": "verifier_artifact_capture",
+      "mutants": [
+        {
+          "line": 92,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 110,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 111,
+          "from": "or",
+          "to": "and"
+        }
+      ]
+    },
+    {
+      "name": "verifier_proof_resource_plan",
+      "mutants": [
+        {
+          "line": 117,
+          "from": "!=",
+          "to": "=="
+        },
+        {
+          "line": 130,
+          "from": "+",
+          "to": "-"
+        },
+        {
+          "line": 210,
+          "from": "+",
+          "to": "-"
+        }
+      ]
+    },
+    {
+      "name": "verifier_semantic_execution",
+      "mutants": [
+        {
+          "line": 58,
+          "from": "==",
+          "to": "!="
+        },
+        {
+          "line": 234,
+          "from": "True",
+          "to": "False"
+        },
+        {
+          "line": 264,
+          "from": "False",
+          "to": "True"
+        }
+      ]
+    },
+    {
+      "name": "coverage_trend",
+      "mutants": [
+        {
+          "line": 123,
+          "from": "+",
+          "to": "-"
+        },
+        {
+          "line": 308,
+          "from": "and",
+          "to": "or"
+        },
+        {
+          "line": 349,
+          "from": "True",
+          "to": "False"
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "backend": "agy",
+      "kind": "audit",
+      "mode": "single",
+      "calls": 10,
+      "items": 10,
+      "empty_or_unusable": 7,
+      "errors": [
+        "agy quota exhausted: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 150h36m18s."
+      ],
+      "tokens_in": null,
+      "tokens_out": null,
+      "tokens_per_item": null,
+      "latency_s": 34.4,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "integration_repo",
+          "usable": false,
+          "seeded": 3,
+          "found": 0,
+          "reported": 0,
+          "useful": 0,
+          "resolving": 0
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "coverage_trend",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        }
+      ],
+      "totals": {
+        "recall": 0.727,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "audit",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 2,
+      "errors": [
+        "agy quota exhausted: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 150h35m36s."
+      ],
+      "tokens_in": null,
+      "tokens_out": null,
+      "tokens_per_item": null,
+      "latency_s": 42.1,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": false,
+          "seeded": 3,
+          "found": 0,
+          "reported": 0,
+          "useful": 0,
+          "resolving": 0
+        },
+        {
+          "module": "coverage_trend",
+          "usable": false,
+          "seeded": 3,
+          "found": 0,
+          "reported": 0,
+          "useful": 0,
+          "resolving": 0
+        }
+      ],
+      "totals": {
+        "recall": 0.786,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "testgen",
+      "mode": "single",
+      "calls": 10,
+      "items": 10,
+      "empty_or_unusable": 10,
+      "errors": [
+        "agy quota exhausted: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 150h35m34s."
+      ],
+      "tokens_in": null,
+      "tokens_out": null,
+      "tokens_per_item": null,
+      "latency_s": 2.1,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": false,
+          "mutants": 2,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "integration_repo",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "coverage_trend",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        }
+      ],
+      "totals": {
+        "kill_rate": 0.0,
+        "clean_pass_rate": 0.0
+      }
+    },
+    {
+      "backend": "agy",
+      "kind": "testgen",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 10,
+      "errors": [
+        "agy quota exhausted: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 150h35m32s."
+      ],
+      "tokens_in": null,
+      "tokens_out": null,
+      "tokens_per_item": null,
+      "latency_s": 2.0,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": false,
+          "mutants": 2,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "integration_repo",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        },
+        {
+          "module": "coverage_trend",
+          "usable": false,
+          "seeded": 0,
+          "mutants": 0
+        }
+      ],
+      "totals": {
+        "kill_rate": 0.0,
+        "clean_pass_rate": 0.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "audit",
+      "mode": "single",
+      "calls": 10,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 62063,
+      "tokens_out": 3821,
+      "tokens_per_item": 6588,
+      "latency_s": 73.2,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        }
+      ],
+      "totals": {
+        "recall": 0.929,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "audit",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 41971,
+      "tokens_out": 3845,
+      "tokens_per_item": 4582,
+      "latency_s": 44.4,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "seeded": 2,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "seeded": 3,
+          "found": 2,
+          "reported": 2,
+          "useful": 2,
+          "resolving": 2
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "seeded": 3,
+          "found": 3,
+          "reported": 3,
+          "useful": 3,
+          "resolving": 3
+        }
+      ],
+      "totals": {
+        "recall": 0.964,
+        "precision": 1.0,
+        "citations_resolving": 1.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "testgen",
+      "mode": "single",
+      "calls": 10,
+      "items": 10,
+      "empty_or_unusable": 0,
+      "errors": [],
+      "tokens_in": 57337,
+      "tokens_out": 144998,
+      "tokens_per_item": 20234,
+      "latency_s": 1161.8,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 1.0,
+        "clean_pass_rate": 1.0
+      }
+    },
+    {
+      "backend": "claude",
+      "kind": "testgen",
+      "mode": "batched",
+      "calls": 3,
+      "items": 10,
+      "empty_or_unusable": 4,
+      "errors": [
+        "Claude CLI process failure: TimeoutExpired"
+      ],
+      "tokens_in": null,
+      "tokens_out": null,
+      "tokens_per_item": null,
+      "latency_s": 1018.0,
+      "scores": [
+        {
+          "module": "disable_legacy_workflows",
+          "usable": true,
+          "mutants": 2,
+          "killed": 2,
+          "clean_pass": true
+        },
+        {
+          "module": "discover_model_catalog",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "ensure_workflow_timeout_variables",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "integration_repo",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "refresh_model_eval_candidates",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "resolve_mypy_pin",
+          "usable": false,
+          "mutants": 2,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_artifact_capture",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_proof_resource_plan",
+          "usable": false,
+          "mutants": 3,
+          "killed": 0,
+          "clean_pass": false
+        },
+        {
+          "module": "verifier_semantic_execution",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        },
+        {
+          "module": "coverage_trend",
+          "usable": true,
+          "mutants": 3,
+          "killed": 3,
+          "clean_pass": true
+        }
+      ],
+      "totals": {
+        "kill_rate": 0.607,
+        "clean_pass_rate": 0.6
+      }
+    }
+  ]
+}

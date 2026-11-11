@@ -1,0 +1,34 @@
+[
+  {
+    "command": [
+      "timeout",
+      "-k",
+      "2s",
+      "5s",
+      "node",
+      "--test",
+      "--test-isolation=none",
+      "--test-name-pattern=reviewed qualification fixture preserves",
+      ".github/scripts/__tests__/verifier-correction-coding.test.js"
+    ],
+    "exit_code": 124,
+    "elapsed_seconds": 5.014718282999979,
+    "log": "coding-stall-regression-before.log"
+  },
+  {
+    "command": [
+      "timeout",
+      "-k",
+      "2s",
+      "20s",
+      "node",
+      "--test",
+      "--test-isolation=none",
+      "--test-name-pattern=reviewed qualification fixture preserves",
+      ".github/scripts/__tests__/verifier-correction-coding.test.js"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.12596968500002959,
+    "log": "coding-stall-regression-after.log"
+  }
+]

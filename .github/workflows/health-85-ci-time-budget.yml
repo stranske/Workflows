@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 # The fleet PAT supplies cross-repository Actions/Issues access and writes only
-# the dedicated report branch in Workflows. The workflow token is read-only.
+# the report branch and qualifying evidence PRs in Workflows. The workflow token is read-only.
 permissions:
   contents: read
 
@@ -30,6 +30,14 @@ jobs:
       - name: Install shared API client dependency
         run: python -m pip install 'requests==2.32.5'
 
+      - name: Restore completed Gate job evidence
+        id: job-evidence
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/ci-time-budget
+          key: ci-budget-jobs-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ci-budget-jobs-v1-
+
       - name: Measure registered consumers plus Workflows and reconcile issues
         env:
           # Never silently fall back to the source-only workflow token.
@@ -37,6 +45,19 @@ jobs:
         run: |
           set -euo pipefail
           python -m scripts.ci_time_budget | tee ci-time-budget.txt
+
+      - name: Reconcile retained Health85 follow-up evidence
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.OWNER_PR_PAT || secrets.SERVICE_BOT_PAT }}
+        run: python -m scripts.health85_followup --apply
+
+      - name: Retain completed Gate job evidence
+        if: always() && hashFiles('.cache/ci-time-budget/*.json') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .cache/ci-time-budget
+          key: ci-budget-jobs-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Publish daily summary
         if: always()
@@ -54,3 +75,4 @@ jobs:
           path: |
             docs/reports/ci-budget.json
             ci-time-budget.txt
+            health85-followup.json

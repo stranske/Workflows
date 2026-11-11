@@ -215,7 +215,7 @@ test('owner-excluded cached and incoming handoffs never reach reconciliation API
     records: [], errors: [], blockedKeys: [],
   });
   assert.deepEqual(await reconcileClosedDeliveryHandoffs([handoff], [], api, retry), {
-    records: [], errors: [], blockedKeys: [],
+    records: [], errors: [], blockedKeys: [], reassessments: [],
   });
   assert.equal(calls, 0);
 });
@@ -2028,4 +2028,128 @@ test('refreshed delivery handoff re-pins the continuation\'s immutable handoff',
   // Deliberate-break witness: with only the stale record, the continuation still pins the old source.
   assert.equal(planMaint71Continuations([stale], { now: '2026-11-06T01:06:00Z' })[0]
     .immutable_handoff.source_commit, 'e'.repeat(40));
+});
+
+test('planMaint71Continuations re-plans a checks_failed handoff whose checks recovered on the same head', async () => {
+  // Live shape of Ready#677 / Trend_Model_Project#6217 on 2026-11-10 (Maint 82 run 42943287705).
+  const failed = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 677,
+    branch: 'sync/workflows-delivery', head_sha: 'a'.repeat(40), delivery_generation: '000b98a46343',
+    lane: 'sync', plan_id: 'sha256:plan', plan_scope: 'full', source_commit: 'b'.repeat(40),
+    disposition: 'repo-local-failure', blocker_owner: 'maint-71', next_command: 'repair-required-checks',
+    check_state: 'checks_failed', review_state: 'clear',
+    continuation: { class: 'actionable', lane: 'delivery', reason: 'checks_failed', resume_after: '',
+      key: '7887e177aafaa4700dcf' },
+    observed_at: '2026-11-10T05:38:48.098Z',
+  };
+  const now = '2026-11-11T02:30:00.000Z';
+  const reconcile = async (records, pr) => {
+    const client = { rest: { pulls: { get: async () => ({ data: pr }) } } };
+    return reconcileClosedDeliveryHandoffs(records, [], client, (operation) => operation(client), now);
+  };
+  const greenPr = { state: 'open', draft: false, mergeable_state: 'clean',
+    head: { sha: failed.head_sha, ref: failed.branch } };
+
+  // Before: an actionable checks_failed handoff plans nothing.
+  assert.deepEqual(planMaint71Continuations([failed], { now }), []);
+
+  // Recovered on the same head: one delivery continuation.
+  const observed = await reconcile([failed], greenPr);
+  assert.deepEqual(observed.errors, []);
+  assert.equal(observed.records.length, 1);
+  const state = mergeDeliveryHandoffs([failed], observed.records, now);
+  const planned = planMaint71Continuations(state, { now });
+  assert.equal(planned.length, 1);
+  assert.equal(planned[0].lane, 'delivery');
+  assert.equal(planned[0].reason, 'checks_recovered');
+  assert.equal(planned[0].repository, 'stranske/Ready');
+  assert.equal(planned[0].head_sha, failed.head_sha);
+  assert.match(planned[0].continuation_key, /^recovered-[0-9a-f]{20}$/);
+
+  // An acknowledged run for that key suppresses a repeat.
+  assert.deepEqual(planMaint71Continuations(state, { now, acknowledgments: [
+    { lane: 'delivery', key: planned[0].continuation_key, run_id: 42 }] }), []);
+
+  // Head changed, or checks still failing: nothing is re-planned.
+  const moved = await reconcile([failed], { ...greenPr, head: { sha: 'c'.repeat(40), ref: failed.branch } });
+  assert.equal(moved.records.length, 0);
+  for (const mergeableState of ['unstable', 'has_hooks']) {
+    // 2026-11-11: required checks green, only cancelled non-required runs left -> GitHub reports `unstable`.
+    const greenEnough = await reconcile([failed], { ...greenPr, mergeable_state: mergeableState });
+    assert.equal(greenEnough.records.length, 1, mergeableState);
+    assert.equal(greenEnough.records[0].continuation.reason, 'checks_recovered');
+  }
+  for (const mergeableState of ['blocked', 'unknown', 'behind', 'dirty']) {
+    const stillRed = await reconcile([failed], { ...greenPr, mergeable_state: mergeableState });
+    assert.equal(stillRed.records.length, 0, mergeableState);
+  }
+
+  // Maint 71 answers the recovery run with checks_failed again on the same head: the mark is carried
+  // over and the head is not re-planned, so the queue cannot loop every ten minutes.
+  const again = { ...failed, continuation: { ...failed.continuation }, observed_at: '2026-11-11T02:40:00.000Z' };
+  const afterRun = mergeDeliveryHandoffs(state, [again], '2026-11-11T02:40:00.000Z');
+  assert.equal(afterRun[0].continuation.class, 'actionable');
+  assert.equal(afterRun[0].checks_recovery_head, failed.head_sha);
+  assert.equal((await reconcile(afterRun, greenPr)).records.length, 0);
+
+  // A new head is a new attempt and drops the mark.
+  const newHead = { ...again, head_sha: 'd'.repeat(40), observed_at: '2026-11-11T02:50:00.000Z' };
+  const afterPush = mergeDeliveryHandoffs(afterRun, [newHead], '2026-11-11T02:50:00.000Z');
+  assert.equal(afterPush[0].checks_recovery_head, undefined);
+});
+
+test('planMaint71Continuations wakes the campaign commit once a plan\'s candidates are prepared and its deliveries are done', () => {
+  // 2026-11-11: all 13 deliveries of plan 1f1233 merged one by one; PAEM#2493, TPP#1739 and trip-planner#2024 sat
+  // campaign_prepared (terminal) and nothing planned the campaign commit.
+  const base = {
+    schema: 'workflows-generated-delivery-handoff/v1', delivery_generation: '1f1233f7dfe1',
+    lane: 'sync', plan_id: 'sha256:plan', plan_scope: 'full', scope_base_sha: '', source_commit: 'a'.repeat(40),
+    review_state: 'clear', check_state: 'ready', observed_at: '2026-11-11T05:53:13.084Z',
+  };
+  const candidate = (repository, pr, head) => ({ ...base, repository, pr, branch: 'sync/workflows-candidate',
+    head_sha: head, disposition: 'current', blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+    continuation: { class: 'terminal', lane: 'candidate', reason: 'campaign_prepared', resume_after: '', key: `k${pr}` } });
+  const delivery = (repository, pr, cls, reason) => ({ ...base, repository, pr, branch: 'sync/workflows-delivery',
+    head_sha: 'd'.repeat(40), disposition: reason === 'merged' ? 'merged' : 'awaiting', blocker_owner: 'ci',
+    next_command: reason === 'merged' ? 'none' : 'rerun-after-generated-delivery-seal-gate',
+    continuation: { class: cls, lane: 'delivery', reason, resume_after: '2026-11-11T05:40:00.000Z', key: `d${pr}` } });
+  const candidates = [candidate('stranske/Portable-Alpha-Extension-Model', 2493, 'b'.repeat(40)),
+    candidate('stranske/Travel-Plan-Permission', 1739, 'c'.repeat(40)), candidate('stranske/trip-planner', 2024, 'e'.repeat(40))];
+  const merged = [delivery('stranske/Ready', 677, 'terminal', 'merged'), delivery('stranske/Counter_Risk', 1244, 'terminal', 'merged')];
+  const now = '2026-11-11T13:20:00.000Z';
+
+  const planned = planMaint71Continuations([...candidates, ...merged], { now });
+  assert.equal(planned.length, 1);
+  assert.equal(planned[0].lane, 'campaign');
+  assert.equal(planned[0].reason, 'candidate_commit_ready');
+  assert.match(planned[0].continuation_key, /^cand-[0-9a-f]{20}$/);
+  assert.deepEqual(planned[0].immutable_handoff, { plan_id: 'sha256:plan', plan_scope: 'full', scope_base_sha: '',
+    source_commit: 'a'.repeat(40) });
+
+  // A cleanup opt-out on any candidate (not only the alphabetically first) carries to the commit.
+  const optOut = planMaint71Continuations([{ ...candidates[0], cleanup_branches: true }, candidates[1],
+    { ...candidates[2], cleanup_branches: false }, ...merged], { now });
+  assert.equal(optOut[0].cleanup_branches, false);
+  // A delivery of the plan still in flight: its own continuation runs; no campaign commit yet.
+  const inFlight = planMaint71Continuations([...candidates, ...merged,
+    delivery('stranske/Pension-Data', 1026, 'transient', 'delivery_sealed_checks_pending')], { now });
+  assert.deepEqual(inFlight.map((row) => row.lane), ['delivery']);
+  // A candidate that is not prepared (fell behind its base): no campaign commit.
+  const behind = { ...candidates[2], next_command: 'rerun-after-maint-68-canary-refresh',
+    continuation: { class: 'actionable', lane: 'candidate', reason: 'stable_base_refresh_required', resume_after: '', key: 'kb' } };
+  assert.deepEqual(planMaint71Continuations([candidates[0], candidates[1], behind, ...merged], { now })
+    .filter((row) => row.reason === 'candidate_commit_ready'), []);
+  // Acknowledged: not repeated while the candidates' heads are unchanged.
+  assert.deepEqual(planMaint71Continuations([...candidates, ...merged], { now, acknowledgments: [
+    { lane: 'campaign', key: planned[0].continuation_key, run_id: 7 }] }), []);
+  // A new candidate head is a new commit attempt.
+  const moved = planMaint71Continuations([candidates[0], candidates[1],
+    { ...candidates[2], head_sha: 'f'.repeat(40) }, ...merged], { now });
+  assert.notEqual(moved[0].continuation_key, planned[0].continuation_key);
+  // The intent stays queued, so its success receipt survives a Maint 82 run with no new Maint 71 runs.
+  const { queuedMaint71Intents, mergeContinuationAcknowledgments } = require('../sync_dependency_campaign.js');
+  const receipt = { lane: 'campaign', key: planned[0].continuation_key, run_id: 7, run_attempt: 1,
+    completed_at: '2026-11-11T13:25:00Z' };
+  assert.deepEqual(mergeContinuationAcknowledgments([receipt], [],
+    queuedMaint71Intents([...candidates, ...merged])), [receipt]);
 });

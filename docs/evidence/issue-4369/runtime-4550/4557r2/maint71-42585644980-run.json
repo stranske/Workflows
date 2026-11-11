@@ -1,0 +1,38 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-11-09T08:23:52Z",
+  "databaseId": 42585644980,
+  "event": "workflow_dispatch",
+  "headSha": "75712a5bdf7c0f5791ec1b633f75b18bd3568562",
+  "updatedAt": "2026-11-09T08:26:21Z",
+  "url": "https://github.com/stranske/Workflows/actions/runs/42585644980",
+  "displayTitle": "Merge Sync PRs [campaign]\n0646425b9b16c40cb1e9",
+  "actor": "stranske-automation-bot",
+  "triggering_actor": "stranske-automation-bot",
+  "run_attempt": 1,
+  "dispatch_lineage": {
+    "observed_at_utc": "2026-11-10T01:53:49Z",
+    "source": "GET /repos/stranske/Workflows/actions/runs/42585644980 and gh run view 42585506842 --log",
+    "dispatcher_run": {
+      "run_id": 42585506842,
+      "workflow": ".github/workflows/maint-82-sync-dependency-campaign.yml",
+      "name": "Sync/Dependency Campaign",
+      "event": "schedule",
+      "step": "Refresh campaign queue",
+      "task": "maint-82-dispatch-generated-continuations",
+      "dispatch_notice_at": "2026-11-09T08:23:53.1664420Z",
+      "notice": "Dispatched due Maint 71 campaign continuation for stranske/Orchestrator#1288 (delivery_sealed_checks_pending)",
+      "run_receipt": "maint82-42585506842-run.json",
+      "log_excerpt": "maint82-42585506842-dispatch-excerpt.log"
+    },
+    "binding": {
+      "continuation_key": "0646425b9b16c40cb1e9",
+      "lane": "campaign",
+      "plan_id": "sha256:4947a11cfee1c5fe8a42d1cedc5915fc27c88a1e4e3fc06d04ad77eb49fcdffb",
+      "source_commit": "c7885e1a7d6add7bb866b2912794e7ba7466adf5",
+      "evidence": "The Maint 82 continuation key equals the terminal run's display_title suffix, and the continuation's immutable_handoff equals the terminal run's IMMUTABLE_HANDOFF_JSON (plan_id, source_commit). Maint 82 dispatched one Maint 71 run in that step; its dispatch notice was logged at 08:23:53.166Z, about 1 second after this run's createdAt (08:23:52Z), i.e. once the dispatches POST had returned. This run's triggering_actor is stranske-automation-bot. The dispatch step selected token SERVICE_BOT_PAT."
+    },
+    "conclusion": "automation: schedule-started Maint 82 run 42585506842 dispatched this run from its durable campaign continuation queue; no human dispatch.",
+    "not_traced": "Which earlier Maint 71 run wrote continuation 0646425b9b16c40cb1e9 (delivery_sealed_checks_pending for Orchestrator#1288) into the campaign queue was not traced; the producer's own dispatch binds Maint 71 run 42565425171, not this run."
+  }
+}

@@ -652,11 +652,39 @@ test('delivery base drift replays only signed exact-plan promotion evidence', ()
   }).eligible, false);
 });
 
+test('completed campaign merge does not invent missing canary evidence', () => {
+  // Run 41132061438 merged plan sha256:1a22f551 after campaign authorization.
+  // Its notice listed missing_canary_evidence only because empty evidence was validated.
+  const expectedCanaries = [
+    'stranske/Travel-Plan-Permission',
+    'stranske/trip-planner',
+    'stranske/Portable-Alpha-Extension-Model',
+  ];
+  const decision = deliveryRefreshDecision({
+    report: {
+      inputs: { sync_hash: 'campaign' },
+      results: [{
+        owner: 'stranske',
+        repo: 'Travel-Plan-Permission',
+        branch: 'sync/workflows-candidate',
+        status: 'merged',
+        plan_id: 'sha256:1a22f551228736c4279b2b5434baffbb0e6d5b697dc43727bf5d7f808209dc0b',
+      }],
+    },
+    expectedCanaries,
+  });
+  assert.equal(decision.eligible, false);
+  assert.deepEqual(decision.errors, ['delivery report has no stable base refresh request']);
+  assert.equal(decision.errors.some((error) => error.includes('missing_canary_evidence')), false);
+  assert.equal(decision.errors.some((error) => error.includes('missing_or_mixed_canary_plan')), false);
+});
+
 test('dev-tool base drift hands off only leased producer refreshes', () => {
   const request = {
     owner: 'stranske', repo: 'Ready', branch: 'deps/sync-dev-versions-1234',
     delivery_lane: 'dev-tool-sync', status: 'dev_tool_base_refresh_required',
     blocker_owner: 'maint-52', next_command: 'dispatch-maint-52-scoped',
+    source_commit: '46d7b8a4166ba3e486b0cb05e7d9295bae2ab609',
   };
   const report = {
     inputs: { sync_hash: 'dev-tool', auto_merge: true, dry_run: false },
@@ -667,7 +695,25 @@ test('dev-tool base drift hands off only leased producer refreshes', () => {
   assert.deepEqual(devToolBaseRefreshDecision({ report }), {
     eligible: true, errors: [],
     repositories: ['stranske/Ready', 'stranske/learning-management-system'],
+    source_requests: [{
+      source_commit: request.source_commit,
+      repositories: ['stranske/Ready', 'stranske/learning-management-system'],
+    }],
   });
+  for (const source_commit of ['', 'main', 'abcd']) {
+    assert.equal(devToolBaseRefreshDecision({
+      report: { ...report, results: [{ ...request, source_commit }] },
+    }).eligible, false, 'a moving or missing source cannot refresh an existing wave');
+  }
+  const mixed = devToolBaseRefreshDecision({
+    report: { ...report, results: [request, {
+      ...request, repo: 'Orchestrator', source_commit: 'a'.repeat(40),
+    }] },
+  });
+  assert.deepEqual(mixed.source_requests, [
+    { source_commit: request.source_commit, repositories: ['stranske/Ready'] },
+    { source_commit: 'a'.repeat(40), repositories: ['stranske/Orchestrator'] },
+  ]);
   assert.equal(devToolBaseRefreshDecision({
     report: { ...report, inputs: { ...report.inputs, sync_hash: '' } },
   }).eligible, true, 'unscoped reconciliation can encounter leased dev-tool PRs');
@@ -4329,4 +4375,121 @@ test('refreshedSourceRepin re-pins only a canary-phase candidate produced by a s
   assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ head_branch: 'master' })] }), null);
   assert.equal(refreshedSourceRepin({ ...base, refreshRuns: [run({ display_title: `Maint 68 canary full source=${refreshed} candidates=stranske/trip-planner dry=false` })] }), null);
   assert.equal(refreshedSourceRepin({ ...base, defaultBranch: 'master', refreshRuns: [run({ head_branch: 'master' })] }).refresh_run_id, 7);
+});
+
+test('Maint71 falls back to paginated GraphQL on exhausted REST without changing PR identity', async () => {
+  const calls = [];
+  const node = (number, state = 'OPEN') => ({
+    id: `PR_${number}`, number, title: 'sync', body: 'bound plan', url: `https://github.com/o/r/pull/${number}`,
+    state, isDraft: false, headRefName: 'sync/workflows-candidate', headRefOid: 'a'.repeat(40),
+    baseRefName: 'main', baseRefOid: 'b'.repeat(40), author: {login:'stranske'},
+    repository: {nameWithOwner:'stranske/Ready',name:'Ready',owner:{login:'stranske'}},
+    headRepository: {nameWithOwner:'stranske/Ready',name:'Ready',owner:{login:'stranske'}},
+    labels: {pageInfo:{hasNextPage:false},nodes:[{name:'sync:delivery-staging'}]},
+  });
+  const client = {
+    rest:{pulls:{list(){}}},
+    paginate: async () => {throw Object.assign(new Error('API rate limit exceeded'), {
+      status:403, response:{headers:{'x-ratelimit-remaining':'0'}}});},
+    graphql: async (_q, vars) => {
+      calls.push(vars);
+      const nodes = vars.states[0] === 'OPEN' ? [node(vars.after ? 2 : 1)] : [node(3,'MERGED')];
+      return {repository:{pullRequests:{nodes,pageInfo:{hasNextPage:vars.states[0]==='OPEN' && !vars.after,endCursor:'page2'}}}};
+    },
+  };
+  const resources = [];
+  const result = await listMaint71PullRequests({owner:'stranske',repo:'Ready',includeClosed:true,
+    withRetry:async (fn, options) => {resources.push(options?.rateResource);return fn(client);}});
+  assert.deepEqual(result.open.map(p=>p.number),[1,2]);
+  assert.equal(result.closed.length,2);
+  assert.equal(result.open[0].head.sha,'a'.repeat(40));
+  assert.equal(result.open[0].user.login,'stranske');
+  assert.equal(result.open[0].labels[0].name,'sync:delivery-staging');
+  assert.equal(result.closed[0].state,'closed');
+  assert.deepEqual(resources.slice(1),['graphql','graphql','graphql','graphql']);
+  assert.deepEqual(calls.slice(2).map(v=>v.head),['sync/workflows-candidate','sync/workflows-delivery']);
+});
+
+test('Maint71 does not disguise REST permission errors as rate-limit fallback', async () => {
+  let graphqlCalled=false;
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw Object.assign(new Error('Forbidden'),{status:403});},
+    graphql:async()=>{graphqlCalled=true;}};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}),/Forbidden/);
+  assert.equal(graphqlCalled,false);
+});
+
+test('Maint71 excludes secondary 429 and preserves primary identity when GraphQL also fails', async () => {
+  let calls=0;
+  const primary=Object.assign(new Error('API rate limit exceeded'),{status:403,response:{headers:{'x-ratelimit-remaining':'0'}}});
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary;},
+    graphql:async()=>{calls++;throw new Error('secondary rate limit');}};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}),
+    error=>error===primary && error.message==='API rate limit exceeded' && error.graphqlFallbackError==='secondary rate limit');
+  assert.equal(calls,1);
+  calls=0;
+  client.paginate=async()=>{throw Object.assign(new Error('secondary rate limit'),{status:429});};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,0);
+  client.paginate=async()=>{throw Object.assign(new Error('API rate limit exceeded'),{status:429,response:{headers:{'x-ratelimit-remaining':'0'}}});};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,1);
+});
+
+test('Maint71 rejects incomplete GraphQL inventories and skips foreign closed heads', async () => {
+  const primary=()=>Object.assign(new Error('API rate limit exceeded'),{status:403,response:{headers:{'x-ratelimit-remaining':'0'}}});
+  const pr={number:1,author:{login:'stranske'},labels:{pageInfo:{hasNextPage:false},nodes:[]},headRepositoryOwner:{login:'stranske'}};
+  for(const broken of [{...pr,author:null},{...pr,labels:{pageInfo:{hasNextPage:true},nodes:[]}}]){
+    let calls=0;
+    const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary();},graphql:async()=>{calls++;return {repository:{pullRequests:{nodes:[broken],pageInfo:{hasNextPage:false}}}};}};
+    await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+    assert.equal(calls,1);
+  }
+  let calls=0;
+  const client={rest:{pulls:{list(){}}},paginate:async()=>{throw primary();},graphql:async(_q,v)=>{
+    calls++;
+    if(v.states[0]==='OPEN')return {repository:{pullRequests:{nodes:[],pageInfo:{hasNextPage:false}}}};
+    const node={...pr,headRepositoryOwner:{login:v.after?'stranske':'fork-owner'}};
+    return {repository:{pullRequests:{nodes:[node],pageInfo:{hasNextPage:!v.after,endCursor:'next'}}}};
+  }};
+  const result=await listMaint71PullRequests({owner:'stranske',repo:'Ready',includeClosed:true,withRetry:fn=>fn(client)});
+  assert.equal(result.closed.length,2);
+  assert.equal(calls,5);
+  calls=0;
+  client.graphql=async()=>{calls++;return {repository:{pullRequests:{nodes:[pr],pageInfo:{hasNextPage:true,endCursor:'same'}}}};};
+  await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
+  assert.equal(calls,2);
+});
+
+test('noChangeCarriesToHead carries a no-change verdict only across commits that touch no plan-managed path', () => {
+  const { noChangeCarriesToHead, NO_CHANGE_CARRY_MAX_FILES } = require('../sync_pr_merge_contract');
+  const from = '8596b89df6b24f799915832aabc1ef444e3340c6';
+  const to = 'c9f120cce4444fd0a71f912b11bbf3e408cd7cf9';
+  const managed = { paths: ['.github/workflows/pr-00-gate.yml', '.gitignore', 'tools/requirements-llm.txt'],
+    directories: ['scripts/runner_lib', '.github/actions/setup-api-client/'] };
+  const compare = (files, extra = {}) => ({ status: 'ahead', merge_base_commit: { sha: from }, files, ...extra });
+  // The live Orchestrator move of 2026-11-11: four unmanaged files.
+  const live = compare(['.verify-floor.json', 'ARCHITECTURE.md', 'src/experiment_producer.py',
+    'tests/test_experiment_producer.py'].map(filename => ({ filename })));
+  assert.deepEqual(noChangeCarriesToHead({ comparison: live, managed, fromSha: from, toSha: to }),
+    { ok: true, reason: 'no_managed_path_changed', files_checked: 4 });
+  const refuse = (comparison, reason, m = managed) =>
+    assert.equal(noChangeCarriesToHead({ comparison, managed: m, fromSha: from, toSha: to }).reason, reason);
+  refuse(compare([{ filename: '.gitignore' }]), 'managed_path_changed:.gitignore');
+  refuse(compare([{ filename: 'scripts/runner_lib/x.py' }]), 'managed_path_changed:scripts/runner_lib/x.py');
+  refuse(compare([{ filename: '.github/actions/setup-api-client/action.yml' }]),
+    'managed_path_changed:.github/actions/setup-api-client/action.yml');
+  refuse(compare([{ filename: 'scripts/runner_lib' }]), 'managed_path_changed:scripts/runner_lib');
+  refuse(compare([{ filename: 'new.txt', previous_filename: 'tools/requirements-llm.txt' }]),
+    'managed_path_changed:tools/requirements-llm.txt');
+  assert.equal(noChangeCarriesToHead({ comparison: compare([{ filename: 'scripts/runner_lib_other.py' }]),
+    managed, fromSha: from, toSha: to }).ok, true);           // a sibling prefix is not inside the directory
+  refuse(compare([], { status: 'diverged' }), 'history_diverged');
+  refuse(compare([], { status: 'behind' }), 'history_behind');
+  refuse(compare([], { merge_base_commit: { sha: 'f'.repeat(40) } }), 'merge_base_mismatch');
+  refuse(compare(Array.from({ length: NO_CHANGE_CARRY_MAX_FILES }, (_, i) => ({ filename: `f${i}` }))),
+    'diff_unbounded');
+  refuse(compare(undefined), 'diff_unbounded');
+  refuse(live, 'plan_paths_unavailable', null);
+  refuse(null, 'history_unknown');
+  assert.equal(noChangeCarriesToHead({ comparison: live, managed, fromSha: 'short', toSha: to }).reason, 'head_invalid');
 });
