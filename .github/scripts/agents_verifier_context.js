@@ -870,7 +870,20 @@ function checkCoverageSqlite(value, tempDir, ordinal, execFile) {
   return String(result)==='ok';
 }
 
-function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, captureDirectory, selectedMembers, execFile = execFileSync }) {
+// A synchronous unzip child that never exits blocks the whole Node event
+// loop: on Gate (PR #4639) an orphaned unzip held a test file open for 9-21
+// minutes with nothing reported. Bound it by the collector's existing 15s
+// native-operation limit, and kill with SIGKILL: Info-ZIP unzip catches
+// SIGTERM (exits 80 through its own handler), so Node's default kill on a
+// timeout or a maxBuffer overflow relies on that handler finishing. A
+// timed-out read fails closed as extraction_byte_or_read (never a byte bound).
+const ARTIFACT_UNZIP_TIMEOUT_MS = 15000;
+function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, captureDirectory, selectedMembers, execFile = execFileSync, unzipTimeoutMs = ARTIFACT_UNZIP_TIMEOUT_MS }) {
+  // Zero would disable the bound; non-integers make execFileSync throw.
+  if (!Number.isInteger(unzipTimeoutMs) || unzipTimeoutMs <= 0) {
+    throw new RangeError('unzipTimeoutMs must be a positive integer');
+  }
+  const unzipBound = { timeout: unzipTimeoutMs, killSignal: 'SIGKILL' };
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-evidence-'));
   const archivePath = path.join(tempDir, 'artifact.zip');
   try {
@@ -879,6 +892,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
     const listing = execFile('unzip', ['-Z1', archivePath], {
       encoding: 'utf8',
       maxBuffer: 1024 * 1024,
+      ...unzipBound,
     });
     const { entries, filteredPayloadEntries, occurrences } = safeArtifactEntries(listing);
     const counts = new Map();
@@ -932,7 +946,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
         coverageReads += 1;
         let fullyExtracted = false;
         try {
-          const value = Buffer.from(execFile('unzip',['-p',archivePath,name],{maxBuffer:remainingBytes}));
+          const value = Buffer.from(execFile('unzip',['-p',archivePath,name],{maxBuffer:remainingBytes,...unzipBound}));
           if (value.length > remainingBytes) throw Object.assign(new Error('coverage extraction byte bound'),{code:'VERIFIER_EXTRACTION_BOUND'});
           remainingBytes -= value.length;
           fullyExtracted = true;
@@ -973,6 +987,7 @@ function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBy
       try {
         const rawValue = Buffer.from(execFile('unzip', ['-p', archivePath, entry], {
           maxBuffer: captureDirectory ? remainingBytes : Math.min(contentBudget * 4 + 1, remainingBytes),
+          ...unzipBound,
         }));
         if (rawValue.length > remainingBytes) throw Object.assign(new Error('decompressed byte bound exceeded'), {code: 'VERIFIER_EXTRACTION_BOUND'});
         remainingBytes -= rawValue.length;
