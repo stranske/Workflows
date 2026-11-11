@@ -1189,6 +1189,149 @@ def test_identity_ref_without_colon_fails() -> None:
     assert any("canonical <type>:<id>" in v.message for v in report.violations)
 
 
+@pytest.mark.parametrize(
+    "ingest,fixture,format_name",
+    [
+        ("document-mirror/v1", "valid_document_mirror.json", "date-time"),
+        ("document-mirror/v1", "valid_document_mirror.json", "uri"),
+        ("mosaic-core/v1", "valid_mosaic_thesis_check.json", "date-time"),
+    ],
+)
+def test_consumer_schema_fails_closed_without_required_format(
+    ingest, fixture, format_name, monkeypatch
+) -> None:
+    document = json.loads((FIXTURES / fixture).read_text())
+    monkeypatch.delitem(vrc.FormatChecker.checkers, format_name)
+    repo = "owner/mirror-consumer"
+    with pytest.raises(RuntimeError, match=f"unavailable: {format_name}"):
+        _validate(
+            document,
+            repo=repo,
+            registry=_registry(_participant(repo, role="consumer", ingests=[ingest])),
+        )
+
+
+@pytest.mark.parametrize("valid_timestamp", [False, True], ids=["invalid", "valid"])
+def test_consumer_mirror_enforces_catalog_timestamp(valid_timestamp) -> None:
+    document = json.loads((FIXTURES / "valid_document_mirror.json").read_text())
+    if not valid_timestamp:
+        document["created_at"] = "not-a-timestamp"
+    repo = "owner/mirror-consumer"
+    report = _validate(
+        document,
+        repo=repo,
+        registry=_registry(_participant(repo, role="consumer", ingests=["document-mirror/v1"])),
+    )
+    expected = (
+        []
+        if valid_timestamp
+        else [("", "ingested-as-document-mirror/v1: 'not-a-timestamp' is not a 'date-time'")]
+    )
+    assert report.conformant is valid_timestamp
+    assert [(v.path, v.message) for v in report.violations] == expected
+
+
+@pytest.mark.parametrize("failure", ["missing", "directory", "invalid-json"])
+def test_main_rejects_unreadable_artifact_manifest(tmp_path, capsys, failure) -> None:
+    manifest = tmp_path / "manifest.json"
+    if failure == "directory":
+        manifest.mkdir()
+    elif failure == "invalid-json":
+        manifest.write_text("{not-json")
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps(_registry()))
+    assert (
+        vrc.main(
+            [
+                str(FIXTURES / "valid_run.json"),
+                "--manifest",
+                str(manifest),
+                "--registry",
+                str(registry),
+                "--repo",
+                "owner/producer",
+                "--schema-dir",
+                str(SCHEMA_DIR),
+            ]
+        )
+        == 2
+    )
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith(f"ERROR: cannot load artifact manifest {manifest}: ")
+
+
+def test_main_persists_valid_run_conformance(tmp_path, capsys) -> None:
+    report = tmp_path / "report.json"
+    output = tmp_path / "github-output"
+    output.write_text("earlier=value\n")
+    repo = "stranske/Pension-Data"
+    assert (
+        vrc.main(
+            [
+                str(FIXTURES / "valid_run.json"),
+                "--manifest",
+                str(FIXTURES / "valid_manifest.json"),
+                "--registry",
+                str(ROOT / "config/backplane_participants.json"),
+                "--repo",
+                repo,
+                "--schema-dir",
+                str(SCHEMA_DIR),
+                "--report-json",
+                str(report),
+                "--github-output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(report.read_text()) == {
+        "repo": repo,
+        "role": "producer",
+        "conformant": True,
+        "skipped": False,
+        "violations": [],
+    }
+    assert output.read_text() == "earlier=value\nconformant=true\n"
+    assert capsys.readouterr().out == f"{repo}: run envelope conforms to run-contract/v1\n"
+
+
+def test_mirror_cli_reports_without_optional_output_files(capsys) -> None:
+    assert (
+        vrc.main(
+            [
+                "--mirror-manifest",
+                str(FIXTURES / "valid_document_mirror.json"),
+                "--schema-dir",
+                str(SCHEMA_DIR),
+            ]
+        )
+        == 0
+    )
+    captured = capsys.readouterr()
+    assert captured.out == "document-mirror/v1: 1 file(s) conform to schema\n"
+    assert captured.err == ""
+
+
+@pytest.mark.parametrize("partial", [False, True], ids=["empty", "missing-registered"])
+def test_self_smoke_rejects_incomplete_schema_inventory(tmp_path, capsys, partial) -> None:
+    schema_dir = tmp_path / "schemas"
+    schema_dir.mkdir()
+    if partial:
+        (schema_dir / "run-contract-v1.schema.json").write_text("{}")
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps(_registry()))
+    assert vrc._self_smoke(schema_dir, registry) == 1
+    if partial:
+        expected = "missing registered schemas: " + ", ".join(
+            sorted(set(vrc.INGEST_SCHEMA_FILES.values()) - {"run-contract-v1.schema.json"})
+        )
+    else:
+        expected = "no *.schema.json files found; self-smoke cannot validate schemas"
+    assert capsys.readouterr().out == f"FAIL schema dir {schema_dir}: {expected}\n"
+
+
 def test_main_reports_unreadable_run_envelope(tmp_path: Path, capsys) -> None:
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps(_registry()), encoding="utf-8")

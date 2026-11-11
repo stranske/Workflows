@@ -453,6 +453,42 @@ def test_parse_timestamp_variants() -> None:
     assert aggregate_agent_metrics._parse_timestamp(1e20) is None
 
 
+def test_verifier_ledger_counts_escalations_without_duplicating_shared_followups() -> None:
+    """Escalations count records; shared PRs and follow-up issues count identities."""
+    summary = aggregate_agent_metrics._summarise_verifier(
+        [],
+        ledger_entries=[
+            {
+                "pr_number": 41,
+                "followup_issue_number": 42,
+                "chain_depth": 1,
+                "needs_human": True,
+                "disposition": "follow-up",
+            },
+            {
+                "pr_number": 41,
+                "followup_issue_number": 42,
+                "chain_depth": 3,
+                "needs_human": False,
+                "disposition": "needs-human",
+            },
+        ],
+    )
+    assert {key: value for key, value in summary.items() if key.startswith("ledger_")} == {
+        "ledger_records": 2,
+        "ledger_dispositions": {"follow-up": 1, "needs-human": 1},
+        "ledger_prs": 1,
+        "ledger_followup_issues": 1,
+        "ledger_needs_human": 2,
+        "ledger_avg_chain_depth": 2.0,
+        "ledger_max_chain_depth": 3,
+        "ledger_policy_records": 0,
+        "ledger_policy_actions": {},
+        "ledger_policy_triggers": {},
+        "ledger_policy_depth_limit_exceeded": 0,
+    }
+
+
 def test_verifier_ledger_counts_needs_human_disposition_without_boolean_flag() -> None:
     """A terminal needs-human disposition must not depend on an optional duplicate flag."""
     summary = aggregate_agent_metrics._summarise_verifier(
