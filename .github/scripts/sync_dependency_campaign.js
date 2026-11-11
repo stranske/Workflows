@@ -574,8 +574,11 @@ function candidateCommitContinuations(handoffs = []) {
       ordered[0].plan_id, ordered[0].source_commit,
       ...ordered.map((record) => `${record.repository}#${record.pr}@${record.head_sha}`),
     ])).digest('hex').slice(0, 20)}`;
+    // Any candidate's branch-cleanup opt-out holds for the whole commit (review on #4645).
+    const cleanupOptOut = ordered.some((record) => record.cleanup_branches === false);
     out.push({
       ...ordered[0],
+      ...(cleanupOptOut ? { cleanup_branches: false } : {}),
       continuation: {
         class: 'transient',
         lane: 'campaign',

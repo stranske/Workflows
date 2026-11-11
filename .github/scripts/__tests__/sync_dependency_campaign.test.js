@@ -2126,6 +2126,10 @@ test('planMaint71Continuations wakes the campaign commit once a plan\'s candidat
   assert.deepEqual(planned[0].immutable_handoff, { plan_id: 'sha256:plan', plan_scope: 'full', scope_base_sha: '',
     source_commit: 'a'.repeat(40) });
 
+  // A cleanup opt-out on any candidate (not only the alphabetically first) carries to the commit.
+  const optOut = planMaint71Continuations([{ ...candidates[0], cleanup_branches: true }, candidates[1],
+    { ...candidates[2], cleanup_branches: false }, ...merged], { now });
+  assert.equal(optOut[0].cleanup_branches, false);
   // A delivery of the plan still in flight: its own continuation runs; no campaign commit yet.
   const inFlight = planMaint71Continuations([...candidates, ...merged,
     delivery('stranske/Pension-Data', 1026, 'transient', 'delivery_sealed_checks_pending')], { now });
