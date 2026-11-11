@@ -4558,12 +4558,12 @@ test('authority evidence persists only an allowlisted safe projection', () => {
   const unrecognizedEnvShapedValue = buildAuthorityChallengeEvidence({
     agentSummary: 'Missing token: NEVER_PERSIST_THIS_FORMAT for runner launch.',
   });
-  const aiderRegistryCredential = buildAuthorityChallengeEvidence({
-    agentSummary: 'Missing Aider auth: set AIDER_API_KEY',
-    agentType: 'aider',
+  const museRegistryCredential = buildAuthorityChallengeEvidence({
+    agentSummary: 'Missing Muse auth: set META_API_KEY',
+    agentType: 'muse',
   });
   const wrongRoutedAgentCredential = buildAuthorityChallengeEvidence({
-    agentSummary: 'Missing Aider auth: set AIDER_API_KEY',
+    agentSummary: 'Missing Muse auth: set META_API_KEY',
     agentType: 'codex',
   });
   const pluralNamedCredentials = buildAuthorityChallengeEvidence({
@@ -4770,10 +4770,10 @@ test('authority evidence persists only an allowlisted safe projection', () => {
     `${unrecognizedEnvShapedValue.detail} ${unrecognizedEnvShapedValue.humanAction}`,
     /NEVER_PERSIST_THIS_FORMAT/,
   );
-  assert.equal(aiderRegistryCredential.actionable, true);
-  assert.match(aiderRegistryCredential.humanAction, /AIDER_API_KEY/);
+  assert.equal(museRegistryCredential.actionable, true);
+  assert.match(museRegistryCredential.humanAction, /META_API_KEY/);
   assert.equal(wrongRoutedAgentCredential.actionable, false);
-  assert.doesNotMatch(wrongRoutedAgentCredential.detail, /AIDER_API_KEY/);
+  assert.doesNotMatch(wrongRoutedAgentCredential.detail, /META_API_KEY/);
   assert.equal(pluralNamedCredentials.actionable, true);
   assert.match(pluralNamedCredentials.detail, /OPENAI_API_KEY/);
   assert.match(pluralNamedCredentials.humanAction, /OPENAI_API_KEY/);

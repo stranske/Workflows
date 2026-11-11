@@ -111,7 +111,7 @@ the next top-level section, a repeated agents mapping, or end of file; a nested
 flags remain malformed. The resolver, evaluator and direct/fork publishers use
 the same parser in source and consumer templates. The shipped Codex, Claude and
 Cursor entries explicitly retain `enabled: true`; nested preflight flags remain
-independent of agent routing. Gemini remains enabled and Aider disabled. Unavailable or malformed
+independent of agent routing. Gemini remains enabled. Unavailable or malformed
 registry evidence cannot retain or publish a successful guard verdict; existing
 head/base/attempt bindings still gate corrective writes.
 

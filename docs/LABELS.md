@@ -13,7 +13,6 @@ This document describes all labels that trigger automated workflows or affect CI
 | `agent:cursor` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Cursor runner
 | `agent:muse` | Issue or PR labeled | Routes consumer Gate-followup keepalive and autofix to the Muse runner (subscription login key)
 | `agent:gemini` | Issue or PR labeled | Routes consumer Gate-followup keepalive to the Gemini runner
-| `agent:aider` | Issue or PR labeled | Reserved and disabled; no runner dispatches until its implementation lands
 | `agent:auto` | Issue or PR labeled | Delegates routing to the auto-delegation policy; may sit alongside one concrete `agent:<name>` label, which keepalive routing overrides
 | `agent:retry` | PR labeled | Consolidated consumers require a manual Gate-followups dispatch; the root/non-consolidated keepalive workflow forces a retry and clears recovery labels
 | `agent:rate-limited` | Auto-applied | Marks a PR as backing off from a rate-limit failure
@@ -54,6 +53,8 @@ implemented; use `agents:max-runs:<K>` to cap concurrent keepalive runs instead;
 the PR's `max_iterations` setting to limit the total round budget.
 `agent:codex-invite` is also retired; use the generic `agent:<name>-invite`
 mechanism when an invite-mode bridge is explicitly needed.
+`agent:aider` is retired (2026-11-11): the Aider agent was removed from the fleet and no runner
+or registry entry exists for it.
 
 ---
 
@@ -237,17 +238,6 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 - Repository has a valid `GEMINI_API_KEY` secret (per `.github/agents/registry.yml`)
 
 **Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-gemini-run.yml` after registry-backed routing and secret preflight succeed.
-
----
-
-### `agent:aider`
-
-**Applies to:** Issues and Pull Requests
-
-`agent:aider` is reserved and disabled for a future cheap, low-complexity Aider lane. Until its
-`reusable-aider-run.yml` runner and enabled registry entry ship, applying this label will not
-dispatch a runner. See
-`docs/guides/ADD_NEW_AGENT.md` and the rollout plan for sequencing.
 
 ---
 

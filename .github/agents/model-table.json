@@ -116,18 +116,6 @@
       },
       "fallback": "mistral-medium-3.5",
       "effort": {"flag": "", "levels": [], "note": "single-model lane; the CLI config names the model"}
-    },
-    "aider": {
-      "surfaces": ["local"],
-      "role": "late",
-      "models": {
-        "cheap": "mistral/codestral-latest",
-        "mid": "mistral/codestral-latest",
-        "full": "mistral/codestral-latest",
-        "frontier": "mistral/codestral-latest"
-      },
-      "fallback": "mistral/codestral-latest",
-      "effort": {"flag": "", "levels": []}
     }
   }
 }
