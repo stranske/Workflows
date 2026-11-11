@@ -198,8 +198,9 @@ python3 -m pytest -q tests/test_dependency_version_alignment.py \
   the generated branch).
 - [x] Merge Trend_Model_Project#6189 (2026-11-08T05:33:47Z, merge commit `9937ec14`,
   delivered head `ad097285`); #6186 closed unmerged (2026-11-05T05:34:58Z).
-- [ ] Obtain a Maint 71 report that names the dev-tool delivery (#6189) and obsolete
-  #6186. Runs 42596605795 and 42762829524 name neither; dispatch refused by the production guard.
+- [x] Obtain a Maint 71 report that names the dev-tool delivery (#6189) and obsolete
+  #6186. Satisfied by native-schedule run 42966520283 (see final section below);
+  runs 42596605795 and 42762829524 named neither and dispatch was refused in this seat.
 - [x] Identify the first sync-core round on Trend_Model_Project after
   2026-11-08T05:33:47Z: `20261108T054334Z` delivered #6189, no handoff or old-finding bump.
 - [x] Re-run the pin grep and the two WASM test files at delivered head `ad097285`
@@ -543,8 +544,10 @@ run report as specified above.
 
 ## Task completion status (issue #4612, current task IDs)
 
-- **T1: pending.** The exact dispatch was refused; existing run logs do not
-  establish the requested newly dispatched report.
+- **T1: done.** Native-schedule run 42966520283 (2026-11-11T05:33:19Z, head
+  `c1f27d82180b10b7213aea099f8feec30c3e15b1` containing #4629 merge `e0cff78a`)
+  was obtained and inspected; see "Production acceptance for #4632" below.
+  Earlier in-seat dispatches were refused by the production guard.
 - **T2: locally verified.** The closed-candidate omission was reproduced before
   the collector repair (recorded above). The current two-file Node command passes
   all 246 tests, including pagination, client-contract and per-candidate
@@ -562,8 +565,10 @@ run report as specified above.
 
 - **A1: locally verified.** Exact two-file Node command: 246 passed, zero failed;
   covers the collector and report changes. Historical rows do not select merges.
-- **A2: pending.** No qualifying deployed Maint 71 report names both candidates.
-  A passing local regression is not production acceptance.
+- **A2: satisfied.** Run 42966520283's full log (re-grepped 2026-11-11) shows
+  `stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged,
+  #6187 closed unmerged, #6186 closed unmerged, ...`; the job summary is rendered
+  from the same formatter line. Sync-core round `20261108T054334Z` retained above.
 - **A3: verified.** This handoff records the local sync-core round id and result,
   distinguishes the hosted campaign run, and explicitly marks production report
   acceptance pending. Status IDs here match the current issue #4612 instructions.
