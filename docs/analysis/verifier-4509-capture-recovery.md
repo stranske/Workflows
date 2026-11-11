@@ -1,5 +1,99 @@
 # Exact #4509 retained-capture investigation
 
+## PR #4650 continuation — 2026-11-11 UTC
+
+Authenticated admission and revalidation succeeded for the original #4509
+capture. The historical receipt still has six required gaps and reports
+`NON_PASS` / `UNVERIFIABLE_INPUT` with `decision_available=false`. A separate
+byte-admission check recovered four truncation gaps and isolated two remaining
+gaps to the same missing historical acquisition record.
+
+In a fresh directory, the original `verification-event-manifest.json` came from
+the retained ZIP. The repository's Octokit client setup used `@octokit/rest@20.0.2`
+and authenticated read access. The local invocation supplied the verified
+[PR #4650 Gate run 43092787380](https://github.com/stranske/Workflows/actions/runs/43092787380)
+as its real Actions sequence identity, attempt 1, with
+`GITHUB_REPOSITORY=stranske/Workflows`. The commands executed locally. The first
+invocation acquired the ZIP and origin, then stopped at
+`KeyError: 'GITHUB_REPOSITORY'` during revalidation. The fresh-directory retry
+supplied the repository identity. No source change was needed.
+
+```sh
+export VERIFICATION_RECOVERY='{"run_id":42330898168,"run_attempt":1,"artifact_id":13556839741}'
+/opt/anaconda3/bin/python3 -m tools.verifier_event_recovery --admit-retained
+/opt/anaconda3/bin/python3 -m tools.verifier_event_recovery --revalidate-retained
+```
+
+Both retry commands exited **0** and emitted identical JSON (stdout SHA-256
+`dcab46827e4bc535a0399a338da3c580244442095ee34ad51fe0f7295f6cedfc`).
+The authenticated ZIP matched the checked-in ZIP digest below and all nine
+members were retained. The event remained
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+The `gpt-6.1-sol` and `claude-sonnet-5-5` rows each retained zero review
+coverage of `scripts/ci_history.py` and `tests/scripts/test_ci_history.py`.
+The commands made zero provider calls.
+
+Authenticated metadata and ZIP downloads for all eight originally listed
+Workflows archives matched their recorded run, head, archive digest, length
+and member order. All recorded member hashes matched. The separate
+`build_capture_obligation_manifest` invocation used 27 verified raw member
+sidecars and the original diff. It returned `sufficient=false` after clearing
+the four source-level truncation gaps in the derived view:
+
+| Original source gap | Artifact ID | Previously unavailable members verified in the downloaded ZIP |
+| --- | ---: | --- |
+| Run 42326161711, selftest-autofix-3.13 | 13556090021 | `coverage.xml`, `coverage.json` |
+| Run 42326161711, selftest-autofix-3.14 | 13555815325 | `coverage.xml`, `coverage.json` |
+| Run 42327185276, selftest-autofix-3.13 | 13555867095 | `coverage.xml`, `coverage.json` |
+| Run 42327185276, selftest-autofix-3.14 | 13555456977 | `coverage.xml`, `coverage.json` |
+
+The member tables below also identify the recoverable character-limit
+omissions from artifacts `13556432562` and `13555184662`. The two remaining
+required gaps, `acceptance_evidence:artifacts:integrity_failure_or_unknown_kind`
+and `acceptance_evidence:artifacts:unavailable`, both point to the original
+provenance and inventory acquisition for run `42327976097`. Its lookup under
+`stranske/Workflows` returned 404 and produced no consumer artifact ID,
+member identity, or digest. The missing acquisition record was never created
+by that run. Fresh authenticated lookup under `stranske/trip-planner`
+returned the completed run at head
+`948406465cf7cd65d1ac92206b4514aaad455443` and a complete four-artifact listing:
+
+| Artifact ID | Current recovered member bytes |
+| ---: | --- |
+| 13556069067 | `index.ndjson` and six files under `runtimes/3.14/` |
+| 13555934284 | `index.ndjson` and six files under `runtimes/3.13/` |
+| 13555933617 | `product-probe.json` |
+| 13555839362 | `langsmith-fleet.ndjson` |
+
+Both runtime folders contain `coverage.json`, `coverage.xml`,
+`pytest-collection.json`, `pytest-junit.xml`, `pytest-resources.json`, and
+`summary.json`. All four archives were unexpired, their downloaded digests
+matched the authenticated API, and all 16 members were read and hashed.
+Those bytes are recoverable. The fresh inventory cannot supply the missing
+contemporaneous acquisition record. No artifact or member was established
+as permanently lost, and the zero-gap or unrecoverable-artifact acceptance
+criterion remains open.
+
+The [Semgrep thread](https://github.com/stranske/Workflows/pull/4650#discussion_r4542394433)
+was resolved using the existing exact-head analysis. The CLI passes its
+working directory and writes a fixed basename. Retained input cannot supply
+either path component.
+
+The acceptance transcript below was captured at
+`1373bd34fc5bc4194cf37453234f5c3b94a6c3de`, the implementation parent of
+the report-only commit introducing this section. The final PR head is the
+commit introducing this section, identifiable with
+`git log -1 --format=%H -- docs/analysis/verifier-4509-capture-recovery.md`
+at the continuation tip. Repeat measurements are recorded in the
+[PR validation note](https://github.com/stranske/Workflows/pull/4650#continuation-validation).
+
+```sh
+PATH=/opt/anaconda3/bin:$PATH node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-cross-repository-evidence.test.js
+# exit 0; tests 332; pass 332; fail 0; duration_ms 5275.845333; wall 5.33 s
+/opt/anaconda3/bin/python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function
+# exit 0; 27 passed, 25 deselected in 2.63s
+```
+
 ## Provider-free admission implementation — #4635
 
 `python3 -m tools.verifier_event_recovery --admit-retained` now acquires
