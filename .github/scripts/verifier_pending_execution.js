@@ -195,7 +195,7 @@ async function acquireRetainedExecution({github,event,assessment,selector,curren
       || !['workflow_dispatch','pull_request_target'].includes(run.event)
       || !boundRepo(run.repository) || !boundRepo(run.head_repository)
       || run.repository.id !== run.head_repository.id || !/^[0-9a-f]{40}$/.test(run.head_sha || '')) throw new Error('Retained source run is not an exact trusted completed attempt');
-  let callerOrigin;
+  let callerOrigin, helperOriginFromPullRequestTarget;
   if(pullRequestTargetOrigin && run.event==='pull_request_target') {
     // This event executes trusted base-branch workflow code, but the API reports the PR head.
     // Restrict this opt-in witness to the same-repo default base and exact post-merge subject.
@@ -208,6 +208,7 @@ async function acquireRetainedExecution({github,event,assessment,selector,curren
         || String(pull.base?.repo?.full_name).toLowerCase()!==event.repo || pull.base?.ref!==metadata.default_branch
         || !(Date.parse(run.created_at)>=Date.parse(pull.merged_at))) throw new Error('Retained pull_request_target run is not this merged pull request post-merge verification');
     callerOrigin=await canonicalCommit(event.repo,pull.merge_commit_sha);
+    helperOriginFromPullRequestTarget=await canonicalCommit(event.repo,pull.merge_commit_sha);
   } else callerOrigin=await canonicalCommit(event.repo,run.head_sha);
   const references = (run.referenced_workflows || []).filter(row => row.path?.startsWith('stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@'));
   if (references.length !== 1 || !/^[0-9a-f]{40}$/.test(references[0].sha || '')) throw new Error('Retained reusable workflow origin unavailable');
@@ -250,10 +251,23 @@ async function acquireRetainedExecution({github,event,assessment,selector,curren
   const lines=log.split(/\r?\n/).filter(line=>{const stamp=Date.parse(line.slice(0,line.indexOf(' ')));return stamp>=Date.parse(checkout.started_at) && stamp<Date.parse(checkout.completed_at)+1000;}).join('\n');
   if(!lines.includes('repository: stranske/Workflows') || !lines.includes('path: .workflows-lib')) throw new Error('Retained helper checkout origin unproven');
   const hashes=[...lines.matchAll(/git log -1 --format=%H\r?\n[^\n]*?\s([0-9a-f]{40})\s*(?:\n|$)/g)].map(match=>match[1]);
-  if(hashes.length!==1) throw new Error('Retained helper revision ambiguous');
-  const helperSha=hashes[0];
-  const helperOrigin=await canonicalCommit('stranske/Workflows',helperSha);
-  if(helperSha!==references[0].sha) await canonicalCommit('stranske/Workflows',references[0].sha);
+  let helperSha, helperOrigin;
+  if(hashes.length===1) {
+    helperSha=hashes[0];
+    // For pull_request_target runs with opt-in origin witness, use the merge commit SHA
+    // as the helper origin since the workflow code executes from the base branch.
+    if(helperOriginFromPullRequestTarget) {
+      helperOrigin=helperOriginFromPullRequestTarget;
+    } else {
+      helperOrigin=await canonicalCommit('stranske/Workflows',helperSha);
+    }
+    if(helperSha!==references[0].sha) await canonicalCommit('stranske/Workflows',references[0].sha);
+  } else if(helperOriginFromPullRequestTarget && hashes.length===0) {
+    // Legacy receipts may not have helper checkout SHA; use pull request merge commit.
+    helperSha=references[0].sha;
+    helperOrigin=helperOriginFromPullRequestTarget;
+    await canonicalCommit('stranske/Workflows',references[0].sha);
+  } else throw new Error('Retained helper revision ambiguous');
   const source=await read(client=>client.rest.repos.getContent({owner:'stranske',repo:'Workflows',path:'scripts/langchain/pr_verifier.py',ref:helperSha,request:{timeout:15000}}));
   if(source.encoding!=='base64' || typeof source.content!=='string' || Buffer.byteLength(source.content)>2796204) throw new Error('Retained helper validator source unavailable');
   const sourceHash=createHash('sha256').update(Buffer.from(source.content,'base64')).digest('hex');

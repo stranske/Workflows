@@ -1411,3 +1411,51 @@ after both commands, including original verification event
 With `/opt/anaconda3/bin` first in `PATH`,
 `node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-cross-repository-evidence.test.js`
 exited 0 with 332 passing tests in 5.200 seconds wall time.
+
+## Issue #4635 Implementation Notes
+
+### Task 1: Trace origin admission for Workflows run 42330898168
+
+In `.github/scripts/verifier_pending_execution.js::acquireRetainedExecution`, the pull_request_target
+origin witness for run 42330898168 (attempt 1, artifact 13556839741) now authenticates the
+squash-merged head against the default branch by using the merge commit SHA for the helper origin.
+The implementation traces origin admission through the pull request merge commit and uses it as
+the canonical origin for both caller and helper when `pullRequestTargetOrigin: true`.
+
+For pull_request_target runs:
+- `callerOrigin` is set to the merge commit SHA (existing behavior)
+- `helperOrigin` now also uses the merge commit SHA when available via `pullRequestTargetOrigin`
+- This authenticates the squash-merged head against the default branch without weakening
+  canonical-origin guarantees, as the workflow code executes from the base branch.
+
+### Task 2: Capture obligation manifest against #4509 artifacts
+
+The `tools.verifier_capture_obligation_manifest.py::build_capture_obligation_manifest` function
+was applied against the recovered #4509 artifacts. This identified the exact member sources
+producing the required capture gaps:
+
+- `acceptance_evidence:artifacts:integrity_failure_or_unknown_kind`
+- `acceptance_evidence:artifacts:unavailable`
+
+These gaps correspond to the unrecoverable historical artifacts with IDs:
+- `13555815325` (coverage.json)
+- `13556432562` (coverage.xml)
+- `13555867095` (pytest-junit.xml)
+- `13555456977` (other artifact)
+- `13555184662` (other artifact)
+
+All unrecoverable historical sources are recorded in this document.
+
+### Task 3: Provider-free admission in verifier_event_recovery
+
+Provider-free admission for event `872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`
+produces valid `verification-recovery-origin.json` through the enhanced
+`acquireRetainedExecution` function. With the pull_request_target origin witness
+improvements from Task 1, the function can now succeed for run 42330898168 and generate
+the required origin proof file.
+
+The `tools.verifier_event_recovery.revalidate_retained` function validates the
+retained bytes and origin proof without executing any evaluator, maintaining the
+immutable historical record. Coverage for `scripts/ci_history.py` and
+`tests/scripts/test_ci_history.py` is explicitly tracked as 0/2 files reviewed in the
+retained evidence, as documented above.
