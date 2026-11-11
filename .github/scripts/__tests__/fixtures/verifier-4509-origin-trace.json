@@ -1,0 +1,197 @@
+{
+  "description": "Selected authenticated GitHub connector GET observations on 2026-11-11 UTC. Offline origin trace only; tests mock transport and do not grant native recovery or publication authority. Checkout log retains only repository/path and exact git-log command/output lines; original capture ZIP is unchanged.",
+  "run": {
+    "id": 42330898168,
+    "run_attempt": 1,
+    "event": "pull_request_target",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-11-07T02:46:48Z",
+    "updated_at": "2026-11-07T02:49:20Z",
+    "path": ".github/workflows/agents-verifier.yml",
+    "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+    "head_branch": "local/ci-history-redef",
+    "referenced_workflows": [
+      {
+        "path": "stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main",
+        "sha": "dfa7743b1c22a648a49e3500c084efaf5a9880c9",
+        "ref": "refs/heads/main"
+      }
+    ],
+    "repository": {
+      "id": 1117447156,
+      "full_name": "stranske/Workflows"
+    },
+    "head_repository": {
+      "id": 1117447156,
+      "full_name": "stranske/Workflows"
+    }
+  },
+  "attempt": {
+    "id": 42330898168,
+    "run_attempt": 1,
+    "event": "pull_request_target",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-11-07T02:46:48Z",
+    "updated_at": "2026-11-07T02:49:20Z",
+    "path": ".github/workflows/agents-verifier.yml",
+    "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+    "head_branch": "local/ci-history-redef",
+    "referenced_workflows": [
+      {
+        "path": "stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main",
+        "sha": "dfa7743b1c22a648a49e3500c084efaf5a9880c9",
+        "ref": "refs/heads/main"
+      }
+    ],
+    "repository": {
+      "id": 1117447156,
+      "full_name": "stranske/Workflows"
+    },
+    "head_repository": {
+      "id": 1117447156,
+      "full_name": "stranske/Workflows"
+    }
+  },
+  "pull": {
+    "number": 4509,
+    "merged": true,
+    "merged_at": "2026-11-07T02:02:27Z",
+    "head": {
+      "sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1"
+    },
+    "merge_commit_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+    "base": {
+      "ref": "main",
+      "repo": {
+        "full_name": "stranske/Workflows"
+      }
+    }
+  },
+  "repository": {
+    "full_name": "stranske/Workflows",
+    "default_branch": "main"
+  },
+  "default_head": {
+    "sha": "40a103f20968e85cba79a12ac5cebf1b7731e1dc"
+  },
+  "comparisons": {
+    "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1": {
+      "status": "diverged",
+      "base_commit": {
+        "sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1"
+      },
+      "merge_base_commit": {
+        "sha": "75d4c8360c7a31db51366ca08d736cf4be1bc894"
+      }
+    },
+    "37e230009cdba04743376410c9f72356b85fb64f": {
+      "status": "ahead",
+      "base_commit": {
+        "sha": "37e230009cdba04743376410c9f72356b85fb64f"
+      },
+      "merge_base_commit": {
+        "sha": "37e230009cdba04743376410c9f72356b85fb64f"
+      }
+    },
+    "dfa7743b1c22a648a49e3500c084efaf5a9880c9": {
+      "status": "ahead",
+      "base_commit": {
+        "sha": "dfa7743b1c22a648a49e3500c084efaf5a9880c9"
+      },
+      "merge_base_commit": {
+        "sha": "dfa7743b1c22a648a49e3500c084efaf5a9880c9"
+      }
+    }
+  },
+  "jobs": {
+    "total_count": 5,
+    "jobs": [
+      {
+        "id": 128276934966,
+        "run_id": 42330898168,
+        "run_attempt": 1,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "name": "check",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": []
+      },
+      {
+        "id": 128276983461,
+        "run_id": 42330898168,
+        "run_attempt": 1,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "name": "verifier / Run post-merge verifier",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Checkout Workflows scripts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-11-07T02:47:17Z",
+            "completed_at": "2026-11-07T02:47:21Z"
+          },
+          {
+            "name": "Record verification event pending",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-11-07T02:47:32Z",
+            "completed_at": "2026-11-07T02:47:33Z"
+          },
+          {
+            "name": "Run multi-provider comparison",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 36,
+            "started_at": "2026-11-07T02:48:24Z",
+            "completed_at": "2026-11-07T02:48:28Z"
+          },
+          {
+            "name": "Upload comparison artifacts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 44,
+            "started_at": "2026-11-07T02:48:31Z",
+            "completed_at": "2026-11-07T02:48:33Z"
+          }
+        ]
+      },
+      {
+        "id": 128276984540,
+        "run_id": 42330898168,
+        "run_attempt": 1,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "name": "verifier / Publish input-repair provenance",
+        "status": "completed",
+        "conclusion": "skipped",
+        "steps": []
+      },
+      {
+        "id": 128277386058,
+        "run_id": 42330898168,
+        "run_attempt": 1,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "name": "Prepare acceptance commands or required merge CI gate",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": []
+      },
+      {
+        "id": 128277499752,
+        "run_id": 42330898168,
+        "run_attempt": 1,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "name": "Apply verified source issue closure rule",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": []
+      }
+    ]
+  },
+  "checkout_log": "2026-11-07T02:47:17.4605432Z   repository: stranske/Workflows\n2026-11-07T02:47:17.4607960Z   path: .workflows-lib\n2026-11-07T02:47:17.5445272Z Syncing repository: stranske/Workflows\n2026-11-07T02:47:21.1540117Z [command]/usr/bin/git log -1 --format=%H\n2026-11-07T02:47:21.1564504Z dfa7743b1c22a648a49e3500c084efaf5a9880c9\n"
+}

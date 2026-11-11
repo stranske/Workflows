@@ -186,6 +186,64 @@ Exit 0; printed `False UNVERIFIABLE_INPUT False` and the unchanged original even
 ID. Byte inventory validation succeeded; required capture integrity did not.
 These functions parse retained evidence and construct no provider clients.
 
+## #4635 origin trace (2026-11-11 UTC)
+
+The first #4635 task is verified: the existing opt-in
+`acquireRetainedExecution(..., pullRequestTargetOrigin: true)` can bind this
+specific squash-merged subject through its canonical merge without relaxing
+the independent helper/reusable ancestry checks. The ordinary recovery caller
+still omits that option and refuses the diverged run head. This investigation
+does not change that production contract or claim native recovery admission.
+
+Fresh authenticated GitHub connector GETs supplied the selected observations in
+[the origin fixture](../../.github/scripts/__tests__/fixtures/verifier-4509-origin-trace.json):
+
+| Native source | Origin binding |
+| --- | --- |
+| [Run and attempt 1](https://api.github.com/repos/stranske/Workflows/actions/runs/42330898168/attempts/1) | Completed `pull_request_target`; created `2026-11-07T02:46:48Z`; same repository/head repository ID `1117447156` and original head `aa7fe9537cb9c448a50b51ff6eb5da162fd819b1` |
+| [PR #4509](https://api.github.com/repos/stranske/Workflows/pulls/4509) | Merged `2026-11-07T02:02:27Z`, before the run; exact original head and evaluated merge `37e230009cdba04743376410c9f72356b85fb64f`; base `stranske/Workflows:main` |
+| Repository metadata and `commits/main` | Default branch `main`, observed head `40a103f20968e85cba79a12ac5cebf1b7731e1dc` |
+| [PR head comparison](https://api.github.com/repos/stranske/Workflows/compare/aa7fe9537cb9c448a50b51ff6eb5da162fd819b1...40a103f20968e85cba79a12ac5cebf1b7731e1dc) | `diverged`; merge base remains `75d4c8360c7a31db51366ca08d736cf4be1bc894` |
+| [Evaluated merge comparison](https://api.github.com/repos/stranske/Workflows/compare/37e230009cdba04743376410c9f72356b85fb64f...40a103f20968e85cba79a12ac5cebf1b7731e1dc) | `ahead`; both base and merge base equal the evaluated merge |
+| [Attempt jobs](https://api.github.com/repos/stranske/Workflows/actions/runs/42330898168/attempts/1/jobs?per_page=100) and authenticated job `128276983461` log | Exactly one verifier candidate among five jobs; successful checkout/pending/comparison/upload steps numbered 7/12/36/44 |
+| Checkout log in `02:47:17Z`–`02:47:21Z` | `stranske/Workflows`, `.workflows-lib`; `git log -1 --format=%H` reports `dfa7743b1c22a648a49e3500c084efaf5a9880c9`, equal to the run's reusable revision |
+| [Helper/reusable comparison](https://api.github.com/repos/stranske/Workflows/compare/dfa7743b1c22a648a49e3500c084efaf5a9880c9...40a103f20968e85cba79a12ac5cebf1b7731e1dc) | `ahead`; both base and merge base equal that executed revision |
+| [Run artifacts](https://api.github.com/repos/stranske/Workflows/actions/runs/42330898168/artifacts?per_page=100) | Artifact `13556839741` remains unexpired; size/digest match the unchanged 18,725-byte retained ZIP |
+
+The regression in
+[`test_verifier_retained_recovery.js`](../../tests/scripts/test_verifier_retained_recovery.js)
+passes that unchanged ZIP and selected native records through the actual
+acquisition function using mocked transport. Its current-run sentinel and
+inert validator-source response are explicitly test inputs. The fixture stores
+only selected checkout lines and job steps; the generated origin file and its
+inventory/log/source hashes are test results, never publication authority.
+
+The default call fails before writing either recovery file. The opt-in call
+writes a test origin that retains the actual diverged `source_run_head_sha`
+and original event while comparing the evaluated merge and executed helper
+against `main`. Thirteen negative mutations reject unmerged/changed subjects,
+foreign/non-default bases, missing or pre-merge timestamps, dispatch events,
+diverged merge/helper/reusable revisions and incorrect merge-base proof. Each
+refusal leaves the output directory empty. Both original provider rows remain
+`used_llm=false`, `UNVERIFIABLE_INPUT`, with neither changed file reviewed.
+
+Validation: `node tests/scripts/test_verifier_retained_recovery.js` passed all
+18 tests; `node --test tests/scripts/test_verifier_retained_recovery.js` exited
+zero. The related input-repair provenance suite passed 49 tests with its one
+existing skip. The requested broader Node acceptance command exited 1 in under
+five seconds in this sandbox: subprocess-backed context tests report
+`spawnSync git/python3 EPERM`; cross-repository evidence passed. The specified
+`/opt/anaconda3/bin/python3` is absent; the installed Python rejects the requested
+`asyncio_default_fixture_loop_scope` option because `pytest-asyncio` is absent.
+These environment failures do not establish acceptance and remain unchecked.
+The equivalent available-interpreter command without that unsupported option,
+`python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`,
+passed all 18 selected tests (25 deselected) in 3.06 seconds.
+
+Remaining work: map the exact required capture gaps, then integrate authenticated
+provider-free admission while retaining immutable history. Enabling a witness
+alone cannot clear those gaps or manufacture provider review coverage.
+
 ## Actual provider coverage and remaining acceptance
 
 | Retained provider | Provider invoked | `scripts/ci_history.py` | `tests/scripts/test_ci_history.py` | Verdict |

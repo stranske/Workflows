@@ -11,10 +11,127 @@ const selector={run_id:10,run_attempt:1,artifact_id:30};
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const {retainedExecutionFixture,step}=require('./fixtures/retained_execution');
 const fixture=change=>retainedExecutionFixture(event,change);
+
+// The native GET observations and original ZIP are retained evidence. Transport,
+// current-run identity and validator content below are mocks, never live authority.
+function exact4509OriginFixture(change = () => {}) {
+ const fixtures = path.join(__dirname, '../../.github/scripts/__tests__/fixtures');
+ const data = JSON.parse(fs.readFileSync(path.join(fixtures, 'verifier-4509-origin-trace.json')));
+ data.artifact = JSON.parse(fs.readFileSync(path.join(fixtures, 'verifier-4509-capture-identity.json'))).capture;
+ const archive = fs.readFileSync(path.join(fixtures, 'verifier-4509-capture.zip'));
+ const {readRetainedArchive} = require('../../.github/scripts/verifier_pending_execution.js');
+ const members = readRetainedArchive(archive);
+ const manifest = JSON.parse(members.get('verification-event-manifest.json'));
+ const source = Buffer.from('// Inert validator source for mocked transport.\n');
+ const comparisons = [];
+ change(data);
+ const {github} = retainedExecutionFixture(manifest.verification_event);
+ Object.assign(github.rest.actions, {
+  getWorkflowRun: async () => ({data:data.run}),
+  getWorkflowRunAttempt: async params => {
+   assert.equal(params.attempt_number, 1);
+   return {data:data.attempt};
+  },
+  listJobsForWorkflowRunAttempt: async () => ({data:data.jobs, headers:{}}),
+  getArtifact: async () => ({data:data.artifact}),
+  downloadJobLogsForWorkflowRun: async params => {
+   assert.equal(params.job_id, 128276983461);
+   return {data:data.checkout_log};
+  },
+  downloadArtifact: async () => ({data:archive}),
+ });
+ github.rest.pulls = {get:async params => {
+  assert.equal(params.pull_number, 4509);
+  return {data:data.pull};
+ }};
+ Object.assign(github.rest.repos, {
+  get: async () => ({data:data.repository}),
+  getCommit: async params => {
+   assert.equal(params.ref, 'main');
+   return {data:data.default_head};
+  },
+  compareCommitsWithBasehead: async params => {
+   const [commit, head] = params.basehead.split('...');
+   assert.equal(head, data.default_head.sha);
+   comparisons.push(commit);
+   assert.ok(data.comparisons[commit], `Unexpected origin comparison: ${commit}`);
+   return {data:data.comparisons[commit]};
+  },
+  getContent: async params => {
+   assert.equal(params.ref, 'dfa7743b1c22a648a49e3500c084efaf5a9880c9');
+   assert.equal(params.path, 'scripts/langchain/pr_verifier.py');
+   return {data:{encoding:'base64', content:source.toString('base64')}};
+  },
+ });
+ return {github, data, archive, members, manifest, comparisons, source,
+  args:{github, event:manifest.verification_event, assessment:manifest.assessment_identity,
+   selector:{run_id:42330898168, run_attempt:1, artifact_id:13556839741}, currentRun:42330898169}};
+}
+
 function inDirectory(fn) {
  const old=process.cwd(),dir=fs.mkdtempSync(path.join(os.tmpdir(),'retained-origin-'));process.chdir(dir);
  return Promise.resolve().then(()=>fn(dir)).finally(()=>{process.chdir(old);fs.rmSync(dir,{recursive:true,force:true});});
 }
+test('exact #4509 origin witness authenticates the squash merge while retaining the diverged run head', async () => inDirectory(async dir => {
+ const w = exact4509OriginFixture();
+ const event = w.manifest.verification_event;
+ assert.equal(event.event_id, '872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c');
+ assert.equal(w.data.comparisons[event.head_sha].status, 'diverged');
+ await assert.rejects(acquireRetainedExecution(w.args), /not canonical merged source/);
+ assert.deepEqual(w.comparisons, [event.head_sha]);
+ assert.deepEqual(fs.readdirSync(dir), []);
+
+ w.comparisons.length = 0;
+ const proof = await acquireRetainedExecution({...w.args, pullRequestTargetOrigin:true});
+ assert.deepEqual(w.comparisons, [event.evaluated_sha, proof.helper_sha]);
+ assert.equal(proof.source_run_head_sha, event.head_sha);
+ assert.deepEqual(proof.canonical_caller, {branch:'main', sha:w.data.default_head.sha});
+ assert.equal(proof.helper_sha, 'dfa7743b1c22a648a49e3500c084efaf5a9880c9');
+ assert.equal(proof.reusable_sha, proof.helper_sha);
+ assert.equal(proof.validator_sha256, sha(w.source));
+ assert.equal(proof.artifact_id, 13556839741);
+ assert.equal(proof.source_run_attempt, '1');
+ assert.equal(proof.archive_sha256, w.data.artifact.digest.slice(7));
+ assert.deepEqual(proof.verification_event, event);
+ assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'verification-recovery-origin.json'))), proof);
+ assert.deepEqual(fs.readFileSync(path.join(dir, 'verification-recovery-source.zip')), w.archive);
+ // Origin authentication cannot supply provider output or clear capture gaps.
+ const comparison = JSON.parse(w.members.get('comparison.json'));
+ for (const result of comparison.results) {
+  assert.equal(result.used_llm, false);
+  assert.equal(result.verdict, 'UNVERIFIABLE_INPUT');
+  assert.equal(result.files_reviewed, null);
+  assert.deepEqual(result.files_not_reviewed, ['scripts/ci_history.py', 'tests/scripts/test_ci_history.py']);
+ }
+}));
+
+test('exact #4509 witness refuses changed subjects, noncanonical code and missing origin bindings', async () => {
+ const changes = [
+  d => {d.pull.merged = false;},
+  d => {d.pull.head.sha = '0'.repeat(40);},
+  d => {d.pull.merge_commit_sha = '0'.repeat(40);},
+  d => {d.pull.base.ref = 'release';},
+  d => {d.pull.base.repo.full_name = 'foreign/Workflows';},
+  d => {delete d.pull.merged_at;},
+  d => {d.attempt.created_at = '2026-11-07T02:02:26Z';},
+  d => {delete d.attempt.created_at;},
+  d => {d.attempt.event = 'workflow_dispatch';},
+  d => {d.comparisons[d.pull.merge_commit_sha].status = 'diverged';},
+  d => {d.comparisons[d.pull.merge_commit_sha].merge_base_commit.sha = '0'.repeat(40);},
+  d => {d.comparisons[d.attempt.referenced_workflows[0].sha].status = 'diverged';},
+  d => {
+   const sha = '0'.repeat(40);
+   d.attempt.referenced_workflows[0].sha = sha;
+   d.comparisons[sha] = {status:'diverged', base_commit:{sha}, merge_base_commit:{sha}};
+  },
+ ];
+ for (const change of changes) await inDirectory(async dir => {
+  const w = exact4509OriginFixture(change);
+  await assert.rejects(acquireRetainedExecution({...w.args, pullRequestTargetOrigin:true}), /post-merge verification|not canonical merged source/);
+  assert.deepEqual(fs.readdirSync(dir), []);
+ });
+});
+
 test('selectors reject authority-bearing digests and ambiguous coercions',()=>{
  assert.deepEqual(parseRecoverySelector(JSON.stringify(selector)),selector);
  for(const value of ['null','{}','[]',' ',JSON.stringify({...selector,sha256:'a'.repeat(64)}),JSON.stringify({...selector,run_id:'10'}),JSON.stringify({...selector,run_attempt:0})]) assert.throws(()=>parseRecoverySelector(value));
