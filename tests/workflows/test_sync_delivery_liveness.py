@@ -294,7 +294,10 @@ def test_maint71_fails_closed_when_successful_merge_leaves_no_summary_artifact()
     # without an authenticated Actions web session.
     assert "'sync-pr-merge-summary.md'" in executor
     assert "fs.writeFileSync(summaryPath, markdownSummary, 'utf8')" in executor
-    assert "artifacts/sync-pr-merge-summary.md" in workflow
+    upload = workflow.split("      - name: Upload sync PR merge report")[1].split(
+        "\n      - name:"
+    )[0]
+    assert "artifacts/sync-pr-merge-summary.md" in upload
 
     verify = workflow.split("      - name: Verify merge summary artifact")[1].split(
         "      - name: Upload sync PR merge report"
