@@ -566,8 +566,8 @@ run report as specified above.
 - **A1 (locally verified).** The exact two-file Node command passed all 250 tests
   on 2026-11-11. It covers the collector and report changes and confirms that
   historical rows do not select merges.
-- **A2: pending rendered summary verification.** The prior full-log read of run
-  42966520283 on 2026-11-11 recorded
+- **A2: pending rendered summary verification.** The fresh full-log read of run
+  42966520283 in keepalive round 6 on 2026-11-11 confirmed
   `stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged,
   #6187 closed unmerged, #6186 closed unmerged, ...`. The source passes the same
   Markdown to the summary writer. The rendered summary could not be read back.
@@ -639,3 +639,60 @@ instead of succeeding with only the log half of the report.
 `tests/workflows/test_sync_delivery_liveness.py::test_maint71_fails_closed_when_successful_merge_leaves_no_summary_artifact`
 pins the executor write, the upload path, the gate condition and the step
 order.
+
+
+## Keepalive round 6 evidence readback for #4632 (2026-11-11)
+
+Outcome: **T2/A1 pending direct job-summary readback; log half verified**.
+Proof command (executed this round):
+
+```bash
+gh pr view 4629 --repo stranske/Workflows --json state,mergeCommit
+# {"mergeCommit":{"oid":"e0cff78a8537be83e296761536fbda3038b4ca2d"},"state":"MERGED"}
+gh run view 42966520283 --repo stranske/Workflows --log | grep -E '6189|6186'
+# merge_sync_prs ... 2026-11-11T05:37:34.0188027Z stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged, #6187 closed unmerged, #6186 closed unmerged, ...
+```
+
+The candidate line above abbreviates later candidates only. The literal grep
+also matches unrelated timestamp digits; those other matches are not evidence.
+Fresh run metadata confirms event `schedule`, conclusion `success`, created
+`2026-11-11T05:33:19Z`, source head
+`c1f27d82180b10b7213aea099f8feec30c3e15b1`. A local
+`git merge-base --is-ancestor` check succeeds for #4629's full merge SHA and
+that source head. Fresh issue metadata confirms #4612 opened
+`2026-11-10T03:08:47Z`, before this run.
+
+Summary retrieval results:
+
+- `gh run download 42966520283 --repo stranske/Workflows --name
+  sync-pr-merge-and-canary-evidence --dir /tmp/4656-artifact` succeeded.
+  Artifact `13831632530` contains `sync-pr-merge-report.json` and
+  `sync-canary-evidence.json`, but no summary Markdown. This run predates
+  the summary persistence repair above.
+- `gh api repos/stranske/Workflows/check-runs/130345550700 --jq '.output'`
+  returned `summary: null`, `text: null`, `title: null`. Check output is not
+  a readback of the Actions job summary.
+- The browser access host is unavailable. Public HTTP reads of the Actions
+  run page and its linked `summary_partial` did not expose either candidate's
+  job-summary text. No authenticated browser summary was obtained.
+
+The complete issue #4612 A1–A4 section was read back: A1 retains its recorded
+local-test evidence (not rerun for this documentation-only change); A2 remains
+pending direct rendered-summary evidence; A3 retains the run provenance and
+local-round record; A4 remains a local observation with the stated hosting
+limitation. Fresh target-receipt readback confirms round `20261108T054334Z`,
+head `ad09728581df4a27d421f272f9e307efaa581e63`, disposition and terminal state
+`delivered`. The earlier five-file/zero-mismatch/no-handoff round evidence is
+retained above; the target receipt alone does not establish those details.
+
+For the current issue #4632: **T1 verified; T2 pending; A1 pending; A2 verified**.
+T2's log inspection and provenance recording are complete, but summary
+inspection is not. Source-code equivalence and report JSON do not satisfy
+that missing observation. No production dispatch, workflow change or pin
+change was made. Blocking/drainable pair: direct summary retrieval is blocked
+by the unavailable browser route; log, metadata, artifact and local-receipt
+readback and this documentation update are drainable. Next evidence needed:
+read the `merge_sync_prs` job summary on the linked native run and confirm both
+repository-qualified dispositions, or inspect a later qualifying native run's
+log and persisted summary after that repair is deployed. No repeated dispatch
+attempt is needed from this seat.
