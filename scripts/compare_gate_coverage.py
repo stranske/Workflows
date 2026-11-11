@@ -13,6 +13,7 @@ import gzip
 import hashlib
 import json
 import subprocess
+import zlib
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -203,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
     except (
         OSError,
         EOFError,
+        zlib.error,
         ValueError,
         KeyError,
         TypeError,

@@ -830,3 +830,25 @@ def test_source_comparison_bounds_plain_and_expanded_coverage(tmp_path, monkeypa
         compare.compare_checkouts(
             tmp_path, "HEAD", "HEAD", coverage, coverage, reconcile.EVIDENCE / "ranking.json"
         )
+
+
+def test_source_comparison_reports_damaged_gzip_deflate(tmp_path, capsys):
+    coverage = tmp_path / "damaged.coverage.json.gz"
+    # Valid gzip header followed by a deflate block with reserved BTYPE=3.
+    coverage.write_bytes(bytes.fromhex("1f8b08000000000002ff07") + b"\x00" * 8)
+    with pytest.raises(SystemExit) as error:
+        compare.main(
+            [
+                str(coverage),
+                str(coverage),
+                "--baseline-checkout",
+                "HEAD",
+                "--final-checkout",
+                "HEAD",
+            ]
+        )
+    assert error.value.code == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "Cannot compare Gate inventories" in output.err
+    assert "Traceback" not in output.err
