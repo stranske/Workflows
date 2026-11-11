@@ -8,6 +8,9 @@ NOW = datetime(2026, 11, 10, 12, tzinfo=UTC)
 
 def native_series(monkeypatch, *, bad_day=None):
     monkeypatch.setenv("GITHUB_REPOSITORY", budget.SOURCE_REPO)
+    # observation() records GITHUB_RUN_ATTEMPT; the fake runs below are attempt 1. Without this a Gate rerun
+    # (attempt >= 2) failed these tests on every PR, and rerunning could never clear it.
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
     row = {}
     for offset in range(7):
         day = NOW - timedelta(days=6 - offset)
