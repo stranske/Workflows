@@ -30,6 +30,7 @@ testcase seconds can overlap across workers.
 | [November 11 scheduler trial](https://github.com/stranske/Workflows/actions/runs/43049167125) | `0a4e9dbaf` | Fail | 13m38s | [5m10s](https://github.com/stranske/Workflows/actions/runs/43049167125/job/130624948089) | 4m28s |
 | [November 11 fixture trial](https://github.com/stranske/Workflows/actions/runs/43057239997) | `8602e65ed` | Fail | 7m25s | [5m49s](https://github.com/stranske/Workflows/actions/runs/43057239997/job/130650270755) | 5m14s |
 | [November 11 completed implementation](https://github.com/stranske/Workflows/actions/runs/43058643708) | `f6006fd52` | Pass | 9m55s | [7m51s](https://github.com/stranske/Workflows/actions/runs/43058643708/job/130655297466) | 7m06s |
+| [November 11 implementation on matching CPU model](https://github.com/stranske/Workflows/actions/runs/43061809454) | `5a28822cb` | Pass | 6m26s | [4m48s](https://github.com/stranske/Workflows/actions/runs/43061809454/job/130666485333) | 4m09s |
 
 The November 9 baseline predates the grammar partition. The November 11
 control provides a closer comparison for the fixture change. The scheduler
@@ -40,45 +41,50 @@ fixture in the existing scripts test configuration. The
 [PR description](https://github.com/stranske/Workflows/pull/4647) carries
 the implementation head's hosted timing receipt, also recorded above.
 
-### Acceptance recheck, November 11 (keepalive round 9)
+### Acceptance recheck, November 11
 
-Outcome: **A2 remains unverified for this PR's change; A3 is unmet.**
-The implementation run is 17m21s (63.6%) shorter for Gate and 6m11s
-(44.1%) shorter for Python 3.14 than the issue's November 9 baseline.
-However, that baseline predates the grammar partition already on main.
-Against the partitioned control, this PR's implementation run is **2m22s
-longer for Gate and 2m54s longer for Python 3.14**. The earlier local
-test-file speedup therefore does not establish a hosted Gate/job speedup
-attributable to this change. Keep A2 unchecked pending such evidence.
+**A2 is met for the observed comparison. A3 is unmet.** Against the
+partitioned control, run `43061809454` reduced Gate elapsed by **1m07s**
+(14.8%), Python 3.14 job elapsed by **9s** (3.0%), and pytest elapsed by
+**11s** (4.2%). Commit `5a28822cb` differs from `f6006fd52` only in this
+evidence file. The November 9 issue baseline predates the grammar partition,
+so the reductions above use the partitioned control.
 
-Live Actions API readback confirmed the completed implementation run used
-`f6006fd521907733694542fd980e45f1e5018aa4` and
+The control and faster implementation run both reported AMD EPYC 9V45
+CPUs, four xdist workers, and hits for the uv, pytest, and CI artifact caches.
+Their Python 3.14 JUnit reports matched all 15,841 testcase identities and
+outcomes. Across the 262 deliberate-break cases, aggregate testcase time
+fell from 90.9s to 26.6s. The other implementation run used an AMD EPYC
+7763 and took 2m22s longer for Gate and 2m54s longer for Python 3.14 than
+the control. These observations establish a measured reduction on the
+matched pair. The size and repeatability of the overall gain remain uncertain.
+
+Live Actions API readback confirmed that the faster run used
+`5a28822cbf1a3c88235f5bc58b0c3dec4561b01b` and
 `.github/workflows/pr-00-gate.yml`, with conclusion `success`:
 
 | Measurement | Start (UTC, 2026-11-11) | End (UTC, 2026-11-11) | Elapsed |
 | --- | --- | --- | ---: |
-| Gate (`created_at` to `updated_at`) | 16:28:17 | 16:38:12 | 9m55s |
-| Python 3.14 job | 16:29:06 | 16:36:57 | 7m51s |
-| Pytest step | 16:29:38 | 16:36:44 | 7m06s |
+| Gate (`created_at` to `updated_at`) | 16:47:42 | 16:54:08 | 6m26s |
+| Python 3.14 job | 16:48:26 | 16:53:14 | 4m48s |
+| Pytest step | 16:48:51 | 16:53:00 | 4m09s |
 
 The Python 3.14 coverage-minimum step and the
-[`summary` job](https://github.com/stranske/Workflows/actions/runs/43058643708/job/130660144605)
+[`summary` job](https://github.com/stranske/Workflows/actions/runs/43061809454/job/130669416968)
 both succeeded. The partitioned control's Gate timestamps were 13:54:53
 to 14:02:26, and its Python 3.14 job timestamps were 13:55:39 to 14:00:36.
-These are single-run observations, not a controlled estimate of causality.
 
 Reproduce the timing readback with the following commands for run IDs
-`43058643708` (implementation) and `43033459165` (partitioned control):
+`43061809454` (implementation) and `43033459165` (partitioned control).
 
 ```bash
-gh api repos/stranske/Workflows/actions/runs/43058643708 \
+gh api repos/stranske/Workflows/actions/runs/43061809454 \
   --jq '{head_sha,path,status,conclusion,created_at,updated_at,html_url}'
-gh api repos/stranske/Workflows/actions/runs/43058643708/jobs --paginate \
+gh api repos/stranske/Workflows/actions/runs/43061809454/jobs --paginate \
   --jq '.jobs[] | select(.name == "python ci / python 3.14" or .name == "summary") | {name,conclusion,started_at,completed_at,steps}'
 ```
 
-This round changes evidence only. It neither changes validation nor claims
-that the implementation run tested this subsequent documentation commit.
+The run IDs above identify the tested revisions for the comparison.
 
 ## Focused validation on November 11
 
