@@ -235,6 +235,11 @@ The following workflows were decommissioned during the CI consolidation effort. 
 
 ## Verifier Workflow
 
+The [exact #4509 retained-capture investigation](analysis/verifier-4509-capture-recovery.md)
+records authenticated archive/member hashes, the reproduced extraction boundary,
+provider-free recovery refusal and actual zero-provider coverage. It retains a
+non-PASS disposition; successful transport or local tests do not establish recovery.
+
 Repeat evaluations use the same collector and evaluator as initial verification.
 See the [verification-event identity and evidence contract](keepalive/VERIFICATION_EVENTS.md)
 for repaired delivery binding, necessary-evidence selectors, deduplication and

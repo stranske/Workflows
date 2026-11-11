@@ -255,8 +255,9 @@ def test_authored_compare_parser_receipt_and_unified_share_authority(tmp_path, c
     )
 
 
+@pytest.mark.parametrize("case", ["valid", "status", "decision_available", "no_provider_output"])
 def test_comparison_admission_preserves_producer_classification_after_ephemeral_key_retirement(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, case
 ):
     from tests.workflows.test_verifier_expanded_comparison import _arms
 
@@ -297,6 +298,28 @@ def test_comparison_admission_preserves_producer_classification_after_ephemeral_
         payload, receipt, IDENTITY, mode="compare", ci_failed="false"
     )
     assert result and result["verdict"] == "PASS"
+    if case == "valid":
+        return
+
+    receipt_data = json.loads(receipt.read_bytes())
+    if case == "status":
+        receipt_data["status"] = "result_unavailable"
+    elif case == "decision_available":
+        receipt_data["decision_available"] = False
+    else:
+        comparison = json.loads(payload.read_bytes())
+        for row in comparison["results"]:
+            row["used_llm"] = False
+        raw = json.dumps(comparison).encode()
+        payload.write_bytes(raw)
+        receipt_data["outputs"]["comparison.json"].update(
+            sha256=hashlib.sha256(raw).hexdigest(), bytes=len(raw)
+        )
+    receipt.write_text(json.dumps(receipt_data))
+    assert (
+        admission.admitted_decision(payload, receipt, IDENTITY, mode="compare", ci_failed="false")
+        is None
+    )
 
 
 def test_unrepresentable_aggregate_floor_does_not_publish_false_pass(tmp_path):

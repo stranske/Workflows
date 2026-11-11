@@ -1,0 +1,578 @@
+{
+  "description": "Authenticated GET and archive downloads on 2026-11-10. Original ZIP bytes are unchanged; metadata is a selected observation, not a provider verdict.",
+  "capture": {
+    "id": 13556839741,
+    "node_id": "MDg6QXJ0aWZhY3QxMzU1NjgzOTc0MQ==",
+    "name": "comparison-results-42330898168",
+    "size_in_bytes": 18725,
+    "url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13556839741",
+    "archive_download_url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13556839741/zip",
+    "expired": false,
+    "digest": "sha256:539f5843e83cda38afc9944d7f2a705f1105fc9a53c93380885a9e6a9407de82",
+    "created_at": "2026-11-07T02:48:32Z",
+    "updated_at": "2026-11-07T02:48:32Z",
+    "expires_at": "2026-11-14T02:48:31Z",
+    "workflow_run": {
+      "id": 42330898168,
+      "repository_id": 1117447156,
+      "head_repository_id": 1117447156,
+      "head_branch": "local/ci-history-redef",
+      "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1"
+    }
+  },
+  "first_failing_artifact": {
+    "id": 13556090021,
+    "node_id": "MDg6QXJ0aWZhY3QxMzU1NjA5MDAyMQ==",
+    "name": "selftest-autofix-3.13",
+    "size_in_bytes": 532746,
+    "url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13556090021",
+    "archive_download_url": "https://api.github.com/repos/stranske/Workflows/actions/artifacts/13556090021/zip",
+    "expired": false,
+    "digest": "sha256:6ba8c5ffd5985b5d5cb45e74412abb7f7fddcfe282b3b57158c635293a56de2b",
+    "created_at": "2026-11-07T01:51:39Z",
+    "updated_at": "2026-11-07T01:51:39Z",
+    "expires_at": "2026-12-07T01:51:38Z",
+    "workflow_run": {
+      "id": 42326161711,
+      "repository_id": 1117447156,
+      "head_repository_id": 1117447156,
+      "head_branch": "local/ci-history-redef",
+      "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1"
+    }
+  },
+  "original_diagnostics": {
+    "counters": {
+      "comment_pages": 3,
+      "comment_records": 3,
+      "comment_chars": 6939,
+      "body_chars": 2373,
+      "artifact_chars": 9030,
+      "run_pages": 4,
+      "run_records": 4,
+      "artifact_pages": 4,
+      "artifact_records": 8,
+      "archive_bytes": 3163514,
+      "extracted_bytes": 1132585,
+      "entries": 27,
+      "unsupported_payloads": 0,
+      "provenance_failures": 1
+    },
+    "failures": [
+      {
+        "channel": "artifacts",
+        "kind": "provenance",
+        "detail": "workflow run provenance failed for referenced run 42327976097: Not Found - https://docs.github.com/rest/actions/workflow-runs#get-a-workflow-run"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_byte",
+        "detail": "artifact 13556090021"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_byte",
+        "detail": "artifact 13556090021"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_incomplete",
+        "detail": "artifact 13556090021"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_byte",
+        "detail": "artifact 13555815325"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_byte",
+        "detail": "artifact 13555815325"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_incomplete",
+        "detail": "artifact 13555815325"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "character",
+        "detail": "artifact 13556432562"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_incomplete",
+        "detail": "artifact 13556432562"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_byte",
+        "detail": "artifact 13555867095"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_byte",
+        "detail": "artifact 13555867095"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_incomplete",
+        "detail": "artifact 13555867095"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_byte",
+        "detail": "artifact 13555456977"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_byte",
+        "detail": "artifact 13555456977"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_incomplete",
+        "detail": "artifact 13555456977"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "character",
+        "detail": "artifact 13555184662"
+      },
+      {
+        "channel": "artifacts",
+        "kind": "extraction_incomplete",
+        "detail": "artifact 13555184662"
+      }
+    ],
+    "required_comments": [],
+    "references": {
+      "requested_run_ids": [
+        42327976097
+      ],
+      "explicit_run_ids": [],
+      "selected_run_ids": [
+        42327976097
+      ],
+      "reference_sources_complete": true
+    },
+    "archive_inventory": [
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 42326161691,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "artifact_id": 13555395421,
+        "name": "pr-source-context",
+        "status": "rendered",
+        "members": [
+          {
+            "name": "pr-source-context.json",
+            "occurrence": 0,
+            "status": "included",
+            "raw_bytes": 1053,
+            "raw_sha256": "bff314d013c79a6a691d4649dfdbf991dec92edad241707937df3072731195be",
+            "encoding": "utf-8"
+          },
+          {
+            "name": "pr-source-context.md",
+            "occurrence": 1,
+            "status": "included",
+            "raw_bytes": 228,
+            "raw_sha256": "a7d40764b63962780b6b233c16ac34fb61a137bbdbd6055265048ad4eaa3d7ad",
+            "encoding": "utf-8"
+          }
+        ],
+        "archive_sha256": "fd39502a31999a1dc378356214e2d136d36fd80517095d9f204c77e03332e9bd",
+        "archive_bytes": 955,
+        "member_count": 2,
+        "member_inventory_complete": true,
+        "listing_sha256": "ef40c321e6e2f00790d071575fcd5ed2f5ee2d20c8501bb9a7aec72a0293426d",
+        "member_inventory_status": "recorded"
+      },
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 42326161711,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "artifact_id": 13556090021,
+        "name": "selftest-autofix-3.13",
+        "status": "incomplete",
+        "members": [
+          {
+            "name": "pytest-junit.xml",
+            "occurrence": 0,
+            "status": "included",
+            "raw_bytes": 1679,
+            "raw_sha256": "a0b0e0999af2ea2b229bda1605ced9e2b3d6f032acee3fb0321006917e88c7c2",
+            "encoding": "utf-8"
+          },
+          {
+            "name": "coverage.xml",
+            "occurrence": 1,
+            "status": "unavailable",
+            "reason": "extraction_byte"
+          },
+          {
+            "name": "coverage.json",
+            "occurrence": 2,
+            "status": "unavailable",
+            "reason": "extraction_byte"
+          }
+        ],
+        "archive_sha256": "6ba8c5ffd5985b5d5cb45e74412abb7f7fddcfe282b3b57158c635293a56de2b",
+        "archive_bytes": 532746,
+        "member_count": 3,
+        "member_inventory_complete": true,
+        "listing_sha256": "708415d03d7be26b17fb565a89b7296fc786cf29ef76c1d2cea9b0c1ca98206d",
+        "member_inventory_status": "recorded"
+      },
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 42326161711,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "artifact_id": 13555815325,
+        "name": "selftest-autofix-3.14",
+        "status": "incomplete",
+        "members": [
+          {
+            "name": "pytest-junit.xml",
+            "occurrence": 0,
+            "status": "included",
+            "raw_bytes": 1679,
+            "raw_sha256": "c5a6bf3b431d018e73ad6c28f7af7d63d92e1572816f12c759dbc577df9c06a9",
+            "encoding": "utf-8"
+          },
+          {
+            "name": "coverage.xml",
+            "occurrence": 1,
+            "status": "unavailable",
+            "reason": "extraction_byte"
+          },
+          {
+            "name": "coverage.json",
+            "occurrence": 2,
+            "status": "unavailable",
+            "reason": "extraction_byte"
+          }
+        ],
+        "archive_sha256": "5d24350bca5ac35e29b36dbb36785fc8017beea7c61c58fcad276de98e292112",
+        "archive_bytes": 532745,
+        "member_count": 3,
+        "member_inventory_complete": true,
+        "listing_sha256": "708415d03d7be26b17fb565a89b7296fc786cf29ef76c1d2cea9b0c1ca98206d",
+        "member_inventory_status": "recorded"
+      },
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 42327185179,
+        "head_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+        "artifact_id": 13555742216,
+        "name": "pr-source-context",
+        "status": "rendered",
+        "members": [
+          {
+            "name": "pr-source-context.json",
+            "occurrence": 0,
+            "status": "included",
+            "raw_bytes": 724,
+            "raw_sha256": "36a7411ddecbe0fac0eb54e434f5d270ff02d53587ed20833a6e8874db4c3657",
+            "encoding": "utf-8"
+          },
+          {
+            "name": "pr-source-context.md",
+            "occurrence": 1,
+            "status": "included",
+            "raw_bytes": 113,
+            "raw_sha256": "a79aa79e52a52125000cef60a30a0ee9a9d47feab3cf38af161bf95de45012ff",
+            "encoding": "utf-8"
+          }
+        ],
+        "archive_sha256": "5baa4ad086d003a007d42d42256307aab139850e1e1ee926b906cffcc6506a6a",
+        "archive_bytes": 751,
+        "member_count": 2,
+        "member_inventory_complete": true,
+        "listing_sha256": "ef40c321e6e2f00790d071575fcd5ed2f5ee2d20c8501bb9a7aec72a0293426d",
+        "member_inventory_status": "recorded"
+      },
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 42327185276,
+        "head_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+        "artifact_id": 13556432562,
+        "name": "selftest-coverage-3.13-1",
+        "status": "incomplete",
+        "members": [
+          {
+            "name": "index.ndjson",
+            "occurrence": 0,
+            "status": "render_omitted",
+            "raw_bytes": 102351,
+            "raw_sha256": "f13ce68b86014cdb3970da1f7df5ef6e5403f29df2d22374f413c228b7d30df1",
+            "encoding": "utf-8",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.13/pytest-resources.json",
+            "occurrence": 1,
+            "status": "unavailable",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.13/coverage.json",
+            "occurrence": 2,
+            "status": "unavailable",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.13/summary.json",
+            "occurrence": 3,
+            "status": "unavailable",
+            "reason": "character"
+          }
+        ],
+        "archive_sha256": "bcf7b3c5576277f7b23e7e627306621fc4218eda9ccf091a5bd6e44d4a7bb7a7",
+        "archive_bytes": 23871,
+        "member_count": 4,
+        "member_inventory_complete": true,
+        "listing_sha256": "cf23b14e5d2574c5674aef0588155546c425692dc1b06b2c1f8081d378b7c785",
+        "member_inventory_status": "recorded"
+      },
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 42327185276,
+        "head_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+        "artifact_id": 13555867095,
+        "name": "selftest-autofix-3.13",
+        "status": "incomplete",
+        "members": [
+          {
+            "name": "pytest-junit.xml",
+            "occurrence": 0,
+            "status": "included",
+            "raw_bytes": 1679,
+            "raw_sha256": "4a56713ae7f27b95b2b4e87738b23c1c85306945f33c67eaae67c8ade5c4ffe1",
+            "encoding": "utf-8"
+          },
+          {
+            "name": "coverage.xml",
+            "occurrence": 1,
+            "status": "unavailable",
+            "reason": "extraction_byte"
+          },
+          {
+            "name": "coverage.json",
+            "occurrence": 2,
+            "status": "unavailable",
+            "reason": "extraction_byte"
+          }
+        ],
+        "archive_sha256": "2af1d0fd96172df9c17e762ce1d38952d256d3f4c1870dd51b53e6dca51f16f6",
+        "archive_bytes": 532744,
+        "member_count": 3,
+        "member_inventory_complete": true,
+        "listing_sha256": "708415d03d7be26b17fb565a89b7296fc786cf29ef76c1d2cea9b0c1ca98206d",
+        "member_inventory_status": "recorded"
+      },
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 42327185276,
+        "head_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+        "artifact_id": 13555456977,
+        "name": "selftest-autofix-3.14",
+        "status": "incomplete",
+        "members": [
+          {
+            "name": "pytest-junit.xml",
+            "occurrence": 0,
+            "status": "included",
+            "raw_bytes": 1679,
+            "raw_sha256": "e92aabd68f16455abe158830698e829a595697e5f586acc97ff69ae78d184d47",
+            "encoding": "utf-8"
+          },
+          {
+            "name": "coverage.xml",
+            "occurrence": 1,
+            "status": "unavailable",
+            "reason": "extraction_byte"
+          },
+          {
+            "name": "coverage.json",
+            "occurrence": 2,
+            "status": "unavailable",
+            "reason": "extraction_byte"
+          }
+        ],
+        "archive_sha256": "5b49ce4cb3dea823f348ab3783c5d750fbe54715f786eb17de32fe603f478b68",
+        "archive_bytes": 532734,
+        "member_count": 3,
+        "member_inventory_complete": true,
+        "listing_sha256": "708415d03d7be26b17fb565a89b7296fc786cf29ef76c1d2cea9b0c1ca98206d",
+        "member_inventory_status": "recorded"
+      },
+      {
+        "repository": "stranske/Workflows",
+        "run_id": 42327185276,
+        "head_sha": "37e230009cdba04743376410c9f72356b85fb64f",
+        "artifact_id": 13555184662,
+        "name": "selftest-coverage-3.14-1",
+        "status": "incomplete",
+        "members": [
+          {
+            "name": "index.ndjson",
+            "occurrence": 0,
+            "status": "render_omitted",
+            "raw_bytes": 68116,
+            "raw_sha256": "0938f76ddb70308dcf20c8ca64465b7a807bb8ad0b8fa0c0c0cd4a83df856fbb",
+            "encoding": "utf-8",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.14/coverage.json",
+            "occurrence": 1,
+            "status": "unavailable",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.14/coverage.xml",
+            "occurrence": 2,
+            "status": "unavailable",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.14/pytest-collection.json",
+            "occurrence": 3,
+            "status": "unavailable",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.14/pytest-junit.xml",
+            "occurrence": 4,
+            "status": "unavailable",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.14/pytest-resources.json",
+            "occurrence": 5,
+            "status": "unavailable",
+            "reason": "character"
+          },
+          {
+            "name": "runtimes/3.14/summary.json",
+            "occurrence": 6,
+            "status": "unavailable",
+            "reason": "character"
+          }
+        ],
+        "archive_sha256": "06461421d85a14e891dc65b39b1947b3efa821947f2b462922cb4b1b16a72272",
+        "archive_bytes": 1006968,
+        "member_count": 7,
+        "member_inventory_complete": true,
+        "listing_sha256": "86060b0c91061a123c68987a2bc9c22bc0aa10a91501f4754c8e9cbe82aff3a9",
+        "member_inventory_status": "recorded"
+      }
+    ],
+    "manual_target_bindings": []
+  },
+  "recovery_validation": {
+    "status": "NON_PASS",
+    "stage": "acquireRetainedExecution",
+    "error": "Retained helper/workflow revision is not canonical merged source",
+    "current_run_id_is_local_sequence_only": true,
+    "provider_calls": 0,
+    "calls": [
+      "repos/stranske/workflows/actions/runs/42330898168",
+      "repos/stranske/workflows/actions/runs/42330898168/attempts/1",
+      "repos/stranske/workflows",
+      "repos/stranske/workflows/commits/main",
+      "repos/stranske/workflows/compare/aa7fe9537cb9c448a50b51ff6eb5da162fd819b1...e99195408b0d916c14c2c2f34a4b7a0a91ef8fb9"
+    ]
+  },
+  "first_archive_members": [
+    {
+      "name": "pytest-junit.xml",
+      "bytes": 1679,
+      "sha256": "a0b0e0999af2ea2b229bda1605ced9e2b3d6f032acee3fb0321006917e88c7c2"
+    },
+    {
+      "name": "coverage.xml",
+      "bytes": 2551782,
+      "sha256": "cf5f412e919487acf8b1249884174c3f4b69906419a60d681ce436fddcbe799e"
+    },
+    {
+      "name": "coverage.json",
+      "bytes": 3899648,
+      "sha256": "e161e4423ef2eb296c6ec58eb2885ceaa785f3b28faf746583bc72f52e3d6c54"
+    }
+  ],
+  "authenticated_gets": [
+    {
+      "endpoint": "repos/stranske/trip-planner/actions/runs/42327976097",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-10T20:07:43.225147+00:00",
+      "data": {
+        "id": 42327976097,
+        "head_sha": "948406465cf7cd65d1ac92206b4514aaad455443",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "path": ".github/workflows/ci.yml",
+        "created_at": "2026-11-07T02:11:32Z",
+        "updated_at": "2026-11-07T02:16:25Z",
+        "event": "pull_request",
+        "referenced_workflows": [
+          {
+            "path": "stranske/Workflows/.github/workflows/reusable-10-ci-python.yml@main",
+            "sha": "37e230009cdba04743376410c9f72356b85fb64f",
+            "ref": "refs/heads/main"
+          }
+        ],
+        "repository": {
+          "id": 993784438,
+          "full_name": "stranske/trip-planner"
+        },
+        "head_repository": {
+          "id": 993784438,
+          "full_name": "stranske/trip-planner"
+        }
+      }
+    },
+    {
+      "endpoint": "repos/stranske/Workflows/actions/runs/42327976097",
+      "http_status": 404,
+      "observed_at_utc": "2026-11-10T20:07:43.610480+00:00",
+      "data": {
+        "status": "404"
+      },
+      "authoritative_for_consumer": false
+    },
+    {
+      "endpoint": "repos/stranske/Workflows/actions/runs/42330898168",
+      "http_status": 200,
+      "observed_at_utc": "2026-11-10T20:07:44.004352+00:00",
+      "data": {
+        "id": 42330898168,
+        "head_sha": "aa7fe9537cb9c448a50b51ff6eb5da162fd819b1",
+        "status": "completed",
+        "conclusion": "success",
+        "run_attempt": 1,
+        "path": ".github/workflows/agents-verifier.yml",
+        "created_at": "2026-11-07T02:46:48Z",
+        "updated_at": "2026-11-07T02:49:20Z",
+        "event": "pull_request_target",
+        "referenced_workflows": [
+          {
+            "path": "stranske/Workflows/.github/workflows/reusable-agents-verifier.yml@main",
+            "sha": "dfa7743b1c22a648a49e3500c084efaf5a9880c9",
+            "ref": "refs/heads/main"
+          }
+        ],
+        "repository": {
+          "id": 1117447156,
+          "full_name": "stranske/Workflows"
+        },
+        "head_repository": {
+          "id": 1117447156,
+          "full_name": "stranske/Workflows"
+        }
+      }
+    }
+  ]
+}

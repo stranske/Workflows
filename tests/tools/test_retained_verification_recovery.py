@@ -5,13 +5,29 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
 import pytest
 import yaml
-from tools.verifier_corpus_evidence import admitted_decision
-from tools.verifier_event_recovery import revalidate_retained, verify_revalidation_admission
+from tools import verifier_event_recovery
+from tools.verifier_artifact_capture import load_artifact_capture
+from tools.verifier_capture_obligation_manifest import (
+    build_capture_obligation_manifest,
+    parse_context_source_coverage,
+    record_capture_obligations,
+    validate_capture_byte_inventory,
+)
+from tools.verifier_corpus_evidence import admitted_decision, event_metadata, validated_payload
+from tools.verifier_event_recovery import (
+    incomplete_cause,
+    original_final_projection,
+    revalidate_retained,
+    verify_revalidation_admission,
+)
 
 
 def encoded(value):
@@ -20,6 +36,582 @@ def encoded(value):
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+@pytest.mark.parametrize("revalidate", [False, True], ids=["classify", "revalidate"])
+def test_exact_4509_operational_cli_preserves_capture_and_publication_output(
+    tmp_path, monkeypatch, revalidate
+):
+    checkout = Path(__file__).resolve().parents[2]
+    fixtures = checkout / ".github/scripts/__tests__/fixtures"
+    capture = fixtures / "verifier-4509-capture.zip"
+    original = capture.read_bytes()
+    identity = json.loads((fixtures / "verifier-4509-capture-identity.json").read_bytes())
+    assert f"sha256:{sha(original)}" == identity["capture"]["digest"]
+    with zipfile.ZipFile(io.BytesIO(original)) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    for name, raw in files.items():
+        assert Path(name).name == name
+        (tmp_path / name).write_bytes(raw)
+    # Replay the installed module entry point, rather than replacing sys.argv
+    # and calling main in this process. A zero classifier exit is not recovery.
+    source = tmp_path / "verification-recovery-source.zip"
+    source.write_bytes(original)
+    output = tmp_path / "actions-output"
+    output.write_bytes(b"existing_output=preserved\n")
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+    monkeypatch.setenv("PYTHONPATH", str(checkout))
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    for name in ("VERIFIER_MODEL", "VERIFIER_MODEL2", "LANGCHAIN_MODEL", "LANGCHAIN_SLOT_CONFIG"):
+        monkeypatch.delenv(name, raising=False)
+    args = (
+        ["--revalidate-retained"]
+        if revalidate
+        else ["--manifest", "verification-event-manifest.json", "--step-outcome", "success"]
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "tools.verifier_event_recovery", *args],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if revalidate:
+        assert result.returncode == 1
+        assert result.stdout == ""
+        assert "FileNotFoundError" in result.stderr
+        assert "verification-recovery-origin.json" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        assert result.stderr == ""
+        assert json.loads(result.stdout) == {
+            "retry_kind": "known_no_evaluation",
+            "retryable": True,
+            "failure_cause": "validated_no_evaluation",
+        }
+    # Neither CLI mode may replace historical inputs, emit an accepting Actions
+    # verdict, or manufacture the missing origin/revalidation receipt.
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+    assert capture.read_bytes() == original
+    manifest = json.loads(files["verification-event-manifest.json"])
+    assert (
+        manifest["verification_event"]["event_id"]
+        == "872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c"
+    )
+    obligations = build_capture_obligation_manifest(
+        files["verifier-context.md"].decode(), full_diff_bytes=files["verifier-pr-diff.patch"]
+    )
+    assert obligations["sufficient"] is False
+    assert len(obligations["gaps"]) == 6
+    rows, verdict, available = validated_payload(
+        json.loads(files["comparison.json"]), mode="compare"
+    )
+    assert verdict == "UNVERIFIABLE_INPUT" and available is False
+    assert len(rows) == 2
+    assert all(
+        row["used_llm"] is False
+        and row["files_reviewed"] is None
+        and row["files_not_reviewed"]
+        == ["scripts/ci_history.py", "tests/scripts/test_ci_history.py"]
+        for row in rows
+    )
+
+
+@pytest.mark.parametrize(
+    "mismatched_member",
+    [
+        None,
+        "verification-event-manifest.json",
+        "verifier-context.md",
+        "verifier-pr-diff.patch",
+        "comparison.json",
+        "comparison-stderr.log",
+    ],
+)
+def test_exact_4509_archive_authentication_does_not_establish_admission(mismatched_member):
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    identity = json.loads((fixtures / "verifier-4509-capture-identity.json").read_bytes())
+    capture = fixtures / "verifier-4509-capture.zip"
+    original = capture.read_bytes()
+    digest = identity["capture"]["digest"].removeprefix("sha256:")
+    assert sha(original) == digest
+    assert len(original) == identity["capture"]["size_in_bytes"]
+    with zipfile.ZipFile(io.BytesIO(original)) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    claims = [{"path": name, "raw_sha256": sha(raw)} for name, raw in files.items()]
+    assert len(claims) == 9
+    assert files["comparison-stderr.log"] == b""
+    if mismatched_member is not None:
+        claim = next(row for row in claims if row["path"] == mismatched_member)
+        claim["raw_sha256"] = "0" * 64
+
+    # Exercise the recovery classifier's existing digest/member validator with
+    # the pinned original ZIP, including its empty diagnostic member. A valid
+    # archive digest must not suppress a conflicting member claim.
+    result = verifier_event_recovery.inspect_digest_bound_archive(original, digest, claims)
+    assert result["available"] is True
+    assert result["sha256"] == digest
+    assert result["authenticated"] is (mismatched_member is None)
+    assert result["reason"] == (
+        "digest_match" if mismatched_member is None else "member_digest_mismatch"
+    )
+    assert result["members"] == [
+        {"path": name, "match": name != mismatched_member} for name in files
+    ]
+    # Archive authentication and native admission are separate. Neither changes
+    # the exact capture's required gaps or supplies a missing provider review.
+    obligations = build_capture_obligation_manifest(
+        files["verifier-context.md"].decode(), full_diff_bytes=files["verifier-pr-diff.patch"]
+    )
+    assert obligations["sufficient"] is False
+    assert len(obligations["gaps"]) == 6
+    rows, verdict, available = validated_payload(
+        json.loads(files["comparison.json"]), mode="compare"
+    )
+    assert verdict == "UNVERIFIABLE_INPUT"
+    assert available is False
+    assert len(rows) == 2
+    assert all(row["used_llm"] is False and row["files_reviewed"] is None for row in rows)
+    assert capture.read_bytes() == original
+
+
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+def test_exact_4509_without_provider_output_cannot_recover_a_review(
+    tmp_path, monkeypatch, capsys, profile
+):
+    from scripts.langchain import pr_verifier
+    from tools.verifier_corpus_evidence import settled_verdict
+
+    def unexpected_evaluation(*args, **kwargs):
+        pytest.fail("No provider output exists to invoke or parse during retained recovery")
+
+    for name in (
+        "get_llm_client",
+        "get_llm_clients",
+        "_get_llm_client",
+        "_get_llm_clients",
+        "_build_semantic_clients",
+        "_invoke_llm",
+        "_parse_semantic_evaluation_payload",
+    ):
+        monkeypatch.setattr(pr_verifier, name, unexpected_evaluation)
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", profile)
+    # Use the retained configured pair, independent of runner model overrides.
+    for name in ("VERIFIER_MODEL", "VERIFIER_MODEL2", "LANGCHAIN_MODEL", "LANGCHAIN_SLOT_CONFIG"):
+        monkeypatch.delenv(name, raising=False)
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    capture_path = fixtures / "verifier-4509-capture.zip"
+    original = capture_path.read_bytes()
+    with zipfile.ZipFile(io.BytesIO(original)) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    for name, raw in files.items():
+        assert Path(name).name == name
+        (tmp_path / name).write_bytes(raw)
+    manifest = json.loads(files["verification-event-manifest.json"])
+    payload = json.loads(files["comparison.json"])
+    metadata = event_metadata(tmp_path / "verification-event-manifest.json")
+    rows, verdict, available = validated_payload(payload, mode="compare")
+    assert available is False
+    assert verdict != "PASS"
+    assert len(rows) == 2
+    for row in rows:
+        assert row["used_llm"] is False
+        assert row["raw_content"] is None
+        assert row["files_reviewed"] is None
+        assert row["files_not_reviewed"] == [
+            "scripts/ci_history.py",
+            "tests/scripts/test_ci_history.py",
+        ]
+    cause = incomplete_cause(manifest, directory=tmp_path, step_outcome="success")
+    assert cause["retry_kind"] == "known_no_evaluation"
+    assert cause["failure_cause"] == "validated_no_evaluation"
+    # The operational CLI may succeed at classification while recovery remains
+    # inadmissible. Its retry hint is not an accepted review or provider authority.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "verifier_event_recovery.py",
+            "--manifest",
+            str(tmp_path / "verification-event-manifest.json"),
+            "--step-outcome",
+            "success",
+        ],
+    )
+    assert verifier_event_recovery.main() == 0
+    output = capsys.readouterr()
+    assert output.err == ""
+    assert json.loads(output.out) == {
+        "retry_kind": "known_no_evaluation",
+        "retryable": True,
+        "failure_cause": "validated_no_evaluation",
+    }
+    identity = {
+        key: metadata["verification_event"][key]
+        for key in ("repo", "pr", "head_sha", "evaluated_sha")
+    }
+    identity.update(run_id="42330898168", run_attempt="1")
+    decision = admitted_decision(
+        tmp_path / "comparison.json",
+        tmp_path / "comparison-execution.json",
+        identity,
+        mode="compare",
+        ci_failed="false",
+    )
+    assert decision is None
+    assert settled_verdict(decision) == "UNVERIFIABLE_INPUT"
+
+    # Even the supported historical parser cannot project a nonexistent final.
+    # This digest selects a parser compatibility case only; it is NOT an origin
+    # claim for #4509 and supplies no native recovery/publication authority.
+    with pytest.raises(ValueError, match="^No audited original parse failure to project$"):
+        original_final_projection(
+            payload,
+            mode="compare",
+            validator_sha256="5e8f7a842231f16d8f5ba3ae1a48ed7625afa2feafe774963cdba066196fd0b8",
+            assessment=metadata["assessment_identity"],
+        )
+    assert payload == json.loads(files["comparison.json"])
+    assert capture_path.read_bytes() == original
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == files
+
+
+@pytest.mark.parametrize("profile", ["standard", "expanded"])
+def test_exact_4509_capture_validation_preserves_gaps_event_and_zero_provider_coverage(
+    tmp_path, monkeypatch, capsys, profile
+):
+    from scripts.langchain import pr_verifier
+
+    def unexpected_provider(*args, **kwargs):
+        pytest.fail("Retained input validation must never construct a provider client")
+
+    for name in (
+        "get_llm_client",
+        "get_llm_clients",
+        "_get_llm_client",
+        "_get_llm_clients",
+        "_build_semantic_clients",
+        "_invoke_llm",
+        "_parse_semantic_evaluation_payload",
+    ):
+        monkeypatch.setattr(pr_verifier, name, unexpected_provider)
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", profile)
+    monkeypatch.setenv("VERIFICATION_MATERIAL", "[]")
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "0")
+    monkeypatch.delenv("VERIFIER_EVIDENCE_CAPTURE_DIR", raising=False)
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    identity = json.loads((fixtures / "verifier-4509-capture-identity.json").read_bytes())
+    archive_path = fixtures / "verifier-4509-capture.zip"
+    original = archive_path.read_bytes()
+    assert f"sha256:{sha(original)}" == identity["capture"]["digest"]
+    assert len(original) == identity["capture"]["size_in_bytes"]
+    with zipfile.ZipFile(io.BytesIO(original)) as archive:
+        # Read exact members, without executing or trusting archive-provided code.
+        files = {name: archive.read(name) for name in archive.namelist()}
+    for name, raw in files.items():
+        assert Path(name).name == name
+        (tmp_path / name).write_bytes(raw)
+    snapshot = json.loads(files["verifier-input-manifest.json"])
+    manifest = json.loads(files["verification-event-manifest.json"])
+    comparison = json.loads(files["comparison.json"])
+    context, diff = files["verifier-context.md"], files["verifier-pr-diff.patch"]
+    validate_capture_byte_inventory(
+        snapshot["capture_byte_inventory"], {"context": context, "diff": diff}
+    )
+    obligations = build_capture_obligation_manifest(context.decode(), full_diff_bytes=diff)
+    assert obligations["sufficient"] is False
+    assert obligations["gaps"] == snapshot["capture_obligations"]["gaps"]
+    assert "acceptance_evidence:artifacts:unavailable" in obligations["gaps"]
+    # Replay the production recorder against the unchanged snapshot, rather
+    # than only rebuilding obligations in memory. Its emitted contracts must
+    # retain all six gaps and exactly bind the original context/diff ranges.
+    recorded = record_capture_obligations(
+        tmp_path / "verifier-context.md", diff_path=tmp_path / "verifier-pr-diff.patch"
+    )
+    assert recorded == obligations
+    assert len(recorded["gaps"]) == 6
+    sidecars = {
+        "verifier-capture-obligation-manifest.json": "capture_obligations",
+        "verifier-capture-byte-inventory.json": "capture_byte_inventory",
+        "verifier-capture-reassembly-contract.json": "capture_reassembly_contract",
+    }
+    for name, field in sidecars.items():
+        assert json.loads((tmp_path / name).read_bytes()) == snapshot[field]
+    contract = json.loads((tmp_path / "verifier-capture-reassembly-contract.json").read_bytes())
+    assert contract["sufficient"] is False
+    assert [gap["value"] for gap in contract["gaps"]] == recorded["gaps"]
+    metadata = event_metadata(tmp_path / "verification-event-manifest.json")
+    assert metadata["verification_event"] == manifest["verification_event"]
+    assert metadata["assessment_identity"] == manifest["assessment_identity"]
+    assert (
+        metadata["verification_event"]["event_id"]
+        == "872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c"
+    )
+    rows, verdict, available = validated_payload(comparison, mode="compare")
+    assert verdict == "UNVERIFIABLE_INPUT"
+    assert available is False
+    assert len(rows) == 2
+    for row, retained in zip(rows, comparison["results"], strict=True):
+        assert (row["provider_used"], row["model"]) == (
+            retained["provider_used"],
+            retained["model"],
+        )
+        assert row["used_llm"] is False
+        assert row["verdict"] == "UNVERIFIABLE_INPUT"
+        assert row["files_reviewed"] is None
+        assert row["files_not_reviewed"] == [
+            "scripts/ci_history.py",
+            "tests/scripts/test_ci_history.py",
+        ]
+    # Exercise the admission path with the exact original inputs, not the
+    # separately derived partial raw capture below. Recording valid byte ranges
+    # cannot make this incomplete capture eligible for either evidence profile.
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "1")
+    monkeypatch.setenv("PR_HEAD_SHA", metadata["verification_event"]["head_sha"])
+    monkeypatch.delenv("VERIFIER_SEMANTIC_KEY_PATH", raising=False)
+    blocked = pr_verifier.evaluate_pr_multiple(context.decode(), diff.decode())
+    assert len(blocked) == 1
+    assert blocked[0].used_llm is False
+    assert blocked[0].verdict != "PASS"
+    assert "complete capture is unavailable" in blocked[0].error
+    admission = blocked.semantic_acceptance
+    assert admission["capture"]["manifest"] == recorded
+    assert admission["capture"]["resource_admitted"] is False
+    assert set(recorded["gaps"]) <= set(admission["capture"]["gaps"])
+    assert admission["capture"]["raw_inputs"] == {"context": sha(context), "diff": sha(diff)}
+    assert admission["admission"]["verdict"] == "CONCERNS"
+    assert "execution" not in admission
+    # The exact local archive cannot supply the native origin refused by the JS
+    # collector. Exercise recovery without manufacturing that missing authority.
+    source = tmp_path / "verification-recovery-source.zip"
+    source.write_bytes(original)
+    with pytest.raises(FileNotFoundError, match="verification-recovery-origin.json"):
+        revalidate_retained(directory=tmp_path)
+    # The operational revalidation CLI must fail before publishing any verdict
+    # to Actions, even after its separate recorder successfully emitted files.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["verifier_event_recovery.py", "--revalidate-retained"])
+    output_path = tmp_path / "actions-output"
+    original_output = "existing_output=preserved\n"
+    output_path.write_text(original_output)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+    with pytest.raises(FileNotFoundError, match="verification-recovery-origin.json"):
+        verifier_event_recovery.main()
+    output = capsys.readouterr()
+    assert output.out == output.err == ""
+    assert output_path.read_text() == original_output
+    assert not (tmp_path / "verification-revalidation-receipt.json").exists()
+    assert not (tmp_path / "retained-source").exists()
+    assert {entry.name for entry in tmp_path.iterdir()} == (
+        set(files) | set(sidecars) | {source.name, output_path.name}
+    )
+    assert all((tmp_path / name).read_bytes() == raw for name, raw in files.items())
+    assert source.read_bytes() == original
+    assert archive_path.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [None, "missing_archive", "archive_tampered", "missing_member", "tampered", "occurrence"],
+)
+def test_exact_4509_raw_archive_admission_clears_only_its_own_gap(tmp_path, monkeypatch, defect):
+    from scripts.langchain import pr_verifier
+
+    def unexpected_provider(*args, **kwargs):
+        pytest.fail("Raw capture admission must never construct a provider client")
+
+    for name in ("get_llm_client", "get_llm_clients", "_get_llm_client", "_get_llm_clients"):
+        monkeypatch.setattr(pr_verifier, name, unexpected_provider)
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "0")
+    monkeypatch.delenv("VERIFIER_EVIDENCE_CAPTURE_DIR", raising=False)
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    capture_path = fixtures / "verifier-4509-capture.zip"
+    original_capture = capture_path.read_bytes()
+    with zipfile.ZipFile(io.BytesIO(original_capture)) as retained:
+        context = retained.read("verifier-context.md").decode()
+        diff = retained.read("verifier-pr-diff.patch")
+        event = retained.read("verification-event-manifest.json")
+        comparison = retained.read("comparison.json")
+    baseline = build_capture_obligation_manifest(context, full_diff_bytes=diff)
+    coverage = parse_context_source_coverage(context)
+    record = next(
+        row for row in coverage["artifact_capture_inventory"] if row["artifact_id"] == 13556090021
+    )
+    assert record["status"] == "incomplete"
+    artifact_path = fixtures / "verifier-4509-selftest-autofix-3.13.zip"
+    archive = artifact_path.read_bytes()
+    assert sha(archive) == record["archive_sha256"]
+    assert len(archive) == record["archive_bytes"]
+    archive_sidecar = tmp_path / f"{sha(archive)}.zip"
+    archive_sidecar.write_bytes(archive)
+    identity = json.loads((fixtures / "verifier-4509-capture-identity.json").read_bytes())
+    expected_inputs = {}
+    with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
+        assert zipped.namelist() == [row["name"] for row in identity["first_archive_members"]]
+        record["members"] = []
+        for index, expected in enumerate(identity["first_archive_members"]):
+            raw = zipped.read(expected["name"])
+            assert len(raw) == expected["bytes"]
+            assert sha(raw) == expected["sha256"]
+            (tmp_path / f"{sha(raw)}.txt").write_bytes(raw)
+            record["members"].append(
+                {
+                    "name": expected["name"],
+                    "occurrence": index,
+                    "status": "captured",
+                    "raw_bytes": len(raw),
+                    "raw_sha256": sha(raw),
+                    "encoding": "utf-8",
+                }
+            )
+            expected_inputs[f"artifact:{record['run_id']}:{record['artifact_id']}:{index}"] = raw
+    record["status"] = "captured"
+    member_sidecar = tmp_path / f"{record['members'][1]['raw_sha256']}.txt"
+    if defect == "missing_archive":
+        archive_sidecar.unlink()
+    elif defect == "archive_tampered":
+        # Keep both the ZIP readable and its length unchanged. Metadata and
+        # member hashes cannot replace authentication of the original archive.
+        changed_archive = bytearray(archive)
+        changed_archive[10] ^= 1  # Local-header timestamp, outside member data.
+        with zipfile.ZipFile(io.BytesIO(changed_archive)) as zipped:
+            assert zipped.testzip() is None
+        archive_sidecar.write_bytes(changed_archive)
+    elif defect == "missing_member":
+        member_sidecar.unlink()
+    elif defect == "tampered":
+        member_sidecar.write_bytes(b"x" * record["members"][1]["raw_bytes"])
+    elif defect == "occurrence":
+        record["members"][1]["occurrence"] = 0
+
+    # A local derived inventory tests raw-byte admission only. It is never
+    # written over the retained context, event or native recovery origin.
+    block = re.search(r"## Context source coverage\n.*?```json\n(.*?)\n```", context, re.S)
+    derived_context = context[: block.start(1)] + json.dumps(coverage) + context[block.end(1) :]
+    assert build_capture_obligation_manifest(derived_context, full_diff_bytes=diff) == baseline
+    monkeypatch.setenv("VERIFIER_EVIDENCE_CAPTURE_DIR", str(tmp_path))
+    monkeypatch.setenv("VERIFIER_SEMANTIC_MODE", "1")
+    result = build_capture_obligation_manifest(derived_context, full_diff_bytes=diff)
+    assert result["sufficient"] is False
+    if defect is None:
+        inputs, recovered = load_artifact_capture(coverage, tmp_path)
+        assert inputs == expected_inputs
+        assert recovered == {"Run 42326161711: selftest-autofix-3.13"}
+        recovered_gap = "acceptance_evidence:Run 42326161711: selftest-autofix-3.13:truncated"
+        assert result["gaps"] == [gap for gap in baseline["gaps"] if gap != recovered_gap]
+    else:
+        with pytest.raises((OSError, ValueError)):
+            load_artifact_capture(coverage, tmp_path)
+        assert set(baseline["gaps"]) <= set(result["gaps"])
+        assert any(gap.startswith("artifact_raw_capture:") for gap in result["gaps"])
+
+    # Exercise the real semantic comparison preflight, beyond the raw loader.
+    # Partial byte recovery must never reach client construction or generation.
+    monkeypatch.setattr(pr_verifier, "_build_semantic_clients", unexpected_provider)
+    monkeypatch.setattr(pr_verifier, "_invoke_llm", unexpected_provider)
+    monkeypatch.setenv("PR_HEAD_SHA", record["head_sha"])
+    monkeypatch.delenv("VERIFIER_SEMANTIC_KEY_PATH", raising=False)
+    semantic = pr_verifier._semantic_capture(derived_context, diff.decode())
+    assert semantic["manifest"] == result
+    assert semantic["resource_admitted"] is False
+    assert set(result["gaps"]) <= set(semantic["gaps"])
+    expected_hashes = {"context": sha(derived_context.encode()), "diff": sha(diff)}
+    if defect is None:
+        expected_hashes.update({name: sha(raw) for name, raw in expected_inputs.items()})
+    assert semantic["raw_inputs"] == expected_hashes
+    blocked = pr_verifier.evaluate_pr_multiple(derived_context, diff.decode())
+    assert len(blocked) == 1
+    assert blocked[0].used_llm is False
+    assert blocked[0].verdict != "PASS"
+    assert "complete capture is unavailable" in blocked[0].error
+    assert blocked.semantic_acceptance["capture"] == semantic
+    assert blocked.semantic_acceptance["admission"]["verdict"] == "CONCERNS"
+    assert "execution" not in blocked.semantic_acceptance
+
+    # Persist the derived capture through the existing provider-free recorder.
+    # Its byte ranges must bind the recovered members without clearing other
+    # required gaps or allowing the original snapshot to be silently replaced.
+    derived = tmp_path / "derived"
+    derived.mkdir()
+    context_path = derived / "verifier-context.md"
+    context_path.write_bytes(derived_context.encode())
+    diff_path = derived / "verifier-pr-diff.patch"
+    diff_path.write_bytes(diff)
+    snapshot_path = derived / "verifier-input-manifest.json"
+    with zipfile.ZipFile(capture_path) as retained:
+        original_snapshot = retained.read("verifier-input-manifest.json")
+    snapshot_path.write_bytes(original_snapshot)
+    with pytest.raises(ValueError, match="context does not match the verifier input snapshot"):
+        record_capture_obligations(context_path, diff_path=diff_path)
+    assert snapshot_path.read_bytes() == original_snapshot
+    assert {path.name for path in derived.iterdir()} == {
+        context_path.name,
+        diff_path.name,
+        snapshot_path.name,
+    }
+    snapshot_path.unlink()
+    recorded = record_capture_obligations(context_path, diff_path=diff_path)
+    assert recorded == result
+    assert (
+        json.loads((derived / "verifier-capture-obligation-manifest.json").read_bytes()) == result
+    )
+    inventory = json.loads((derived / "verifier-capture-byte-inventory.json").read_bytes())
+    admitted_inputs = {"context": derived_context.encode(), "diff": diff}
+    if defect is None:
+        admitted_inputs.update(expected_inputs)
+    validate_capture_byte_inventory(inventory, admitted_inputs)
+    if defect is None:
+        # The real coverage sidecar spans many inventory ranges. Reassembly
+        # must reject an omitted or same-length substituted recovered member,
+        # even though the context/diff and all other members still match.
+        coverage_input = f"artifact:{record['run_id']}:{record['artifact_id']}:2"
+        raw_coverage = expected_inputs[coverage_input]
+        entry = next(row for row in inventory["inputs"] if row["input"] == coverage_input)
+        assert len(entry["ranges"]) > 1
+        omitted = {name: raw for name, raw in admitted_inputs.items() if name != coverage_input}
+        replaced = {**admitted_inputs, coverage_input: b" " + raw_coverage[1:]}
+        assert len(replaced[coverage_input]) == len(raw_coverage)
+        for candidate in (omitted, replaced):
+            with pytest.raises(ValueError, match="capture byte inventory does not match"):
+                validate_capture_byte_inventory(inventory, candidate)
+
+        # Archived test execution coverage is evidence, not provider review.
+        # This exact selftest ran none of ci_history.py's 96 statements and
+        # contains no coverage entry for the requested test file.
+        file_coverage = json.loads(raw_coverage)["files"]
+        summary = file_coverage["scripts/ci_history.py"]["summary"]
+        assert (summary["covered_lines"], summary["num_statements"]) == (0, 96)
+        assert summary["percent_covered"] == 0.0
+        assert "tests/scripts/test_ci_history.py" not in file_coverage
+        rows, verdict, available = validated_payload(json.loads(comparison), mode="compare")
+        assert verdict == "UNVERIFIABLE_INPUT" and available is False
+        assert len(rows) == 2
+        assert all(
+            row["used_llm"] is False
+            and row["files_not_reviewed"]
+            == ["scripts/ci_history.py", "tests/scripts/test_ci_history.py"]
+            for row in rows
+        )
+    contract = json.loads((derived / "verifier-capture-reassembly-contract.json").read_bytes())
+    assert contract["sufficient"] is False
+    assert [gap["value"] for gap in contract["gaps"]] == result["gaps"]
+    assert contract["required_range_ids"] == [
+        part["id"] for entry in inventory["inputs"] for part in entry["ranges"]
+    ]
+    assert context_path.read_bytes() == derived_context.encode()
+    assert diff_path.read_bytes() == diff
+    assert not snapshot_path.exists()
+
+    # No original event or provider verdict is upgraded by this partial recovery.
+    with zipfile.ZipFile(capture_path) as retained:
+        assert retained.read("verification-event-manifest.json") == event
+        assert retained.read("comparison.json") == comparison
+        assert retained.read("verifier-context.md").decode() == context
+    assert capture_path.read_bytes() == original_capture
+    assert artifact_path.read_bytes() == archive
+    assert not (tmp_path / "verification-recovery-origin.json").exists()
+    assert not (tmp_path / "verification-revalidation-receipt.json").exists()
 
 
 def setup_case(tmp_path, monkeypatch, *, mode="evaluate"):

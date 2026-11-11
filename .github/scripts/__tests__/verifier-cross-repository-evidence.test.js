@@ -4,7 +4,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {createHash} = require('crypto');
 const {execFileSync} = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const {acquireRetainedExecution, readRetainedArchive} = require('../verifier_pending_execution');
+const {validateEvent} = require('../verification_event');
 const native = require('./fixtures/verifier-4509-run-identity.json');
+const retained = require('./fixtures/verifier-4509-capture-identity.json');
 const modules = [
   require('../agents_verifier_context'),
   require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context'),
@@ -15,6 +21,221 @@ const RUN = native.consumer.data.id;
 const URL = native.consumer.data.html_url;
 const payload = Buffer.from('bounded archive transport fixture');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+
+// These are the unchanged authenticated production ZIPs, not synthetic stand-ins.
+const originalCapture = fs.readFileSync(path.join(__dirname, 'fixtures/verifier-4509-capture.zip'));
+const originalAutofix = fs.readFileSync(path.join(__dirname, 'fixtures/verifier-4509-selftest-autofix-3.13.zip'));
+
+test('exact #4509 retained capture preserves event, extraction gaps and zero provider coverage', () => {
+  assert.equal(`sha256:${sha256(originalCapture)}`, retained.capture.digest);
+  assert.equal(originalCapture.length, retained.capture.size_in_bytes);
+  const files = readRetainedArchive(originalCapture);
+  const snapshot = JSON.parse(files.get('verifier-input-manifest.json'));
+  const manifest = JSON.parse(files.get('verification-event-manifest.json'));
+  const comparison = JSON.parse(files.get('comparison.json'));
+  const receipt = JSON.parse(files.get('comparison-execution.json'));
+  const event = validateEvent(manifest.verification_event);
+  assert.equal(event.event_id, '872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c');
+  assert.equal(event.evaluated_sha, MERGE);
+  const [consumer, wrongRepository, verifier] = retained.authenticated_gets;
+  assert.equal(consumer.http_status, 200);
+  assert.deepEqual(consumer.data.repository, {id: 993784438, full_name: 'stranske/trip-planner'});
+  assert.equal(consumer.data.head_sha, native.consumer.data.head_sha);
+  assert.equal(consumer.data.status, 'completed');
+  assert.equal(consumer.data.conclusion, 'success');
+  assert.equal(consumer.data.referenced_workflows[0].sha, MERGE);
+  assert.equal(wrongRepository.http_status, 404);
+  assert.equal(wrongRepository.authoritative_for_consumer, false);
+  assert.equal(verifier.data.id, retained.capture.workflow_run.id);
+  assert.equal(verifier.data.head_sha, event.head_sha);
+  assert.equal(verifier.data.run_attempt, 1);
+  assert.equal(snapshot.pr, 4509);
+  assert.equal(snapshot.source_run_id, '42330898168');
+  for (const [name, field] of [['verifier-context.md', 'context_sha256'],
+    ['verifier-pr-diff.patch', 'diff_sha256'], ['verifier-diff-summary.md', 'diff_summary_sha256']]) {
+    assert.equal(sha256(files.get(name)), snapshot[field]);
+  }
+  assert.equal(sha256(files.get('comparison.json')), receipt.outputs['comparison.json'].sha256);
+  const context = files.get('verifier-context.md').toString('utf8');
+  const diagnostics = JSON.parse(context.match(/### Retrieval diagnostics\n\n```json\n([\s\S]*?)\n```/)[1]);
+  assert.deepEqual(diagnostics, retained.original_diagnostics);
+  const first = diagnostics.archive_inventory.find(archive => archive.status === 'incomplete');
+  assert.equal(first.repository, 'stranske/Workflows');
+  assert.equal(first.run_id, 42326161711);
+  assert.equal(first.artifact_id, 13556090021);
+  assert.deepEqual(first.members.find(member => member.status === 'unavailable'), {
+    name: 'coverage.xml', occurrence: 1, status: 'unavailable', reason: 'extraction_byte',
+  });
+  assert.equal(snapshot.capture_obligations.sufficient, false);
+  assert.equal(snapshot.capture_reassembly_contract.sufficient, false);
+  assert.equal(comparison.results.length, 2);
+  for (const result of comparison.results) {
+    assert.equal(result.used_llm, false);
+    assert.equal(result.verdict, 'UNVERIFIABLE_INPUT');
+    assert.deepEqual(result.files_not_reviewed, ['scripts/ci_history.py', 'tests/scripts/test_ci_history.py']);
+    assert.equal(result.files_reviewed, null);
+  }
+});
+
+test('exact #4509 replay refuses noncanonical origin before acquiring recovery authority', {timeout: 10000}, async () => {
+  const files = readRetainedArchive(originalCapture);
+  const manifest = JSON.parse(files.get('verification-event-manifest.json'));
+  const run = retained.authenticated_gets[2].data;
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-4509-origin-'));
+  const calls = [];
+  const respond = (endpoint, data) => {
+    calls.push(endpoint);
+    return Promise.resolve({data: structuredClone(data)});
+  };
+  // Replay the selected native observations documented in the evidence report.
+  // This adapter has no provider, artifact-download, or publication capability.
+  const canonicalHead = 'e99195408b0d916c14c2c2f34a4b7a0a91ef8fb9';
+  const github = {rest: {
+    actions: {
+      getWorkflowRun: ({owner, repo, run_id}) =>
+        respond(`repos/${owner}/${repo}/actions/runs/${run_id}`, run),
+      getWorkflowRunAttempt: ({owner, repo, run_id, attempt_number}) =>
+        respond(`repos/${owner}/${repo}/actions/runs/${run_id}/attempts/${attempt_number}`, run),
+    },
+    repos: {
+      get: ({owner, repo}) => respond(`repos/${owner}/${repo}`,
+        {full_name: 'stranske/Workflows', default_branch: 'main'}),
+      getCommit: ({owner, repo, ref}) => respond(`repos/${owner}/${repo}/commits/${ref}`,
+        {sha: canonicalHead}),
+      compareCommitsWithBasehead: ({owner, repo, basehead}) =>
+        respond(`repos/${owner}/${repo}/compare/${basehead}`, {status: 'diverged',
+          base_commit: {sha: HEAD},
+          merge_base_commit: {sha: '75d4c8360c7a31db51366ca08d736cf4be1bc894'},
+        }),
+    },
+  }};
+  try {
+    await assert.rejects(acquireRetainedExecution({github,
+      event: manifest.verification_event, assessment: manifest.assessment_identity,
+      selector: {run_id: run.id, run_attempt: run.run_attempt, artifact_id: retained.capture.id},
+      // A local ordering sentinel, never a claim of an authenticated Actions job.
+      currentRun: run.id + 1, directory,
+    }), {message: retained.recovery_validation.error});
+    assert.deepEqual(calls, retained.recovery_validation.calls);
+    assert.deepEqual(fs.readdirSync(directory), []);
+    assert.equal(`sha256:${sha256(originalCapture)}`, retained.capture.digest);
+  } finally {
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
+});
+
+for (const [index, collector] of modules.entries()) {
+  for (const observation of retained.authenticated_gets) {
+    test(`source/template ${index}: retained native GET ${observation.endpoint} cannot clear missing capture`, async () => {
+      const calls = [];
+      const empty = async () => ({data: [], headers: {}});
+      const unavailable = async () => {
+        throw new Error('No retained artifact-list or discovery observation; completeness is unknown');
+      };
+      const github = {rest: {
+        issues: {listComments: empty},
+        pulls: {listReviewComments: empty, listReviews: empty},
+        actions: {
+          getWorkflowRun: async ({owner, repo, run_id}) => {
+            const endpoint = `repos/${owner}/${repo}/actions/runs/${run_id}`;
+            calls.push(endpoint);
+            assert.equal(endpoint, observation.endpoint);
+            if (observation.http_status !== 200) {
+              throw Object.assign(new Error('Not Found'), {status: observation.http_status});
+            }
+            return {data: structuredClone(observation.data)};
+          },
+          listWorkflowRunArtifacts: unavailable,
+          listWorkflowRunsForRepo: unavailable,
+          downloadArtifact: async () => assert.fail('GET identity cannot supply missing archive bytes'),
+        },
+      }};
+      // Replay only recorded GET observations. Unknown artifact/discovery responses
+      // stay unavailable rather than inventing an empty, complete evidence set.
+      const evidence = await collector.fetchVerifierEvidence({github,
+        owner: 'stranske', repo: 'Workflows', pullNumber: 4509,
+        pullRequestBody: `Evidence: https://github.com/${observation.endpoint.replace('repos/', '')}`,
+        associatedCommitShas: [HEAD, MERGE], evaluatedSha: MERGE,
+      });
+      assert.deepEqual(calls, [observation.endpoint]);
+      const [lookup] = evidence.diagnostics.references.run_lookups;
+      const [, owner, repo, , , runId] = observation.endpoint.split('/');
+      assert.equal(lookup.repository, `${owner}/${repo}`);
+      assert.equal(lookup.run_id, Number(runId));
+      if (observation.http_status === 200) {
+        assert.equal(lookup.status, 'authenticated');
+        assert.equal(lookup.head_sha, observation.data.head_sha);
+        assert.equal(lookup.run_attempt, observation.data.run_attempt);
+        assert.equal(lookup.conclusion, observation.data.conclusion);
+        if (repo === 'trip-planner') {
+          assert.equal(lookup.evidence_role, 'downstream-evidence');
+          assert.equal(lookup.downstream_binding.status, observation.data.status);
+          assert.equal(lookup.downstream_binding.repository_id, observation.data.repository.id);
+          assert.deepEqual(lookup.downstream_binding.referenced_workflows, observation.data.referenced_workflows);
+          assert.equal(lookup.downstream_binding.current_head_proof, false);
+        } else {
+          assert.equal(lookup.evidence_role, 'exact-source');
+          assert.equal(lookup.downstream_binding, undefined);
+        }
+      } else {
+        assert.equal(lookup.status, 'unavailable');
+        assert.equal(lookup.http_status, 404);
+        assert.equal(observation.authoritative_for_consumer, false);
+      }
+      assert.equal(evidence.artifacts.complete, false);
+      assert.equal(evidence.artifacts.status, 'unavailable');
+      assert.deepEqual(evidence.artifacts.records, []);
+      const coverage = collector.buildContextSourceCoverage({planSources: [], diffText: '', evidence});
+      assert.ok(coverage.acceptance_evidence_sources.some(source =>
+        source.channel === 'artifacts' && source.status === 'unavailable'));
+    });
+  }
+
+  test(`source/template ${index}: exact #4509 archive reproduces first extraction gap`, {timeout: 10000}, () => {
+    const artifact = retained.first_failing_artifact;
+    assert.equal(`sha256:${sha256(originalAutofix)}`, artifact.digest);
+    assert.equal(originalAutofix.length, artifact.size_in_bytes);
+    const extracted = collector.extractArtifactArchiveText({archiveBuffer: originalAutofix,
+      maxEntries: 20, maxChars: 60000, maxBytes: 240000,
+      execFile: (command, argv, settings) => execFileSync(command, argv,
+        {...settings, stdio: ['ignore', 'pipe', 'pipe']}),
+    });
+    const original = retained.original_diagnostics.archive_inventory.find(row => row.artifact_id === artifact.id);
+    assert.equal(extracted.archiveSha256, original.archive_sha256);
+    assert.equal(extracted.listingSha256, original.listing_sha256);
+    assert.deepEqual(extracted.members, original.members);
+    assert.equal(extracted.memberInventoryComplete, true);
+    assert.equal(extracted.rawCaptureComplete, false);
+    assert.equal(extracted.truncated, true);
+    assert.ok(extracted.failures.includes('extraction_byte'));
+    assert.equal(retained.first_archive_members[1].bytes, 2551782);
+    assert.ok(retained.first_archive_members[1].bytes > 240000);
+  });
+
+  test(`source/template ${index}: existing raw capture retains exact #4509 members without claiming rendered completeness`, {timeout: 10000}, () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-4509-'));
+    try {
+      const extracted = collector.extractArtifactArchiveText({archiveBuffer: originalAutofix,
+        maxEntries: 20, maxChars: 60000, maxBytes: 67108864, captureDirectory: directory,
+        execFile: (command, argv, settings) => execFileSync(command, argv,
+          {...settings, stdio: ['ignore', 'pipe', 'pipe']}),
+      });
+      assert.equal(extracted.rawCaptureComplete, true);
+      // Recoverable raw bytes do not upgrade the immutable original capture or render budget.
+      assert.equal(extracted.truncated, true);
+      assert.ok(extracted.failures.includes('character'));
+      for (const [index, member] of extracted.members.entries()) {
+        const expected = retained.first_archive_members[index];
+        assert.equal(member.name, expected.name);
+        assert.equal(member.raw_bytes, expected.bytes);
+        assert.equal(member.raw_sha256, expected.sha256);
+        assert.equal(sha256(fs.readFileSync(path.join(directory, `${expected.sha256}.txt`))), expected.sha256);
+      }
+    } finally {
+      fs.rmSync(directory, {recursive: true, force: true});
+    }
+  });
+}
 
 // Synthetic archive bytes exercise the real extractor; only the API identity
 // comes from the native observation. This is not the exact #4509 input capture.
