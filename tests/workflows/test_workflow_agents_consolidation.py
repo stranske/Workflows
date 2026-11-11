@@ -1947,7 +1947,9 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
 
         if path == WORKFLOWS_DIR / "agents-keepalive-loop.yml":
             assert preflight_env.get("HAS_CURSOR_AUTH") == ("${{ secrets.CURSOR_API_KEY != '' }}")
-            assert preflight_env.get("HAS_GEMINI_AUTH") == ("${{ secrets.GEMINI_OAUTH_CREDS != '' }}")
+            assert preflight_env.get("HAS_GEMINI_AUTH") == (
+                "${{ secrets.GEMINI_OAUTH_CREDS != '' }}"
+            )
 
     root_text = workflow_paths[0].read_text(encoding="utf-8")
     assert 'missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"' in root_text
@@ -1973,7 +1975,7 @@ def test_hosted_gemini_runs_on_subscription_login_never_api_key():
 
     preflight = steps[names.index("Preflight auth")]
     assert preflight["env"]["GEMINI_OAUTH_CREDS"] == "${{ secrets.GEMINI_OAUTH_CREDS || '' }}"
-    assert '$HOME/.gemini' in preflight["run"]
+    assert "$HOME/.gemini" in preflight["run"]
     assert "Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret" in preflight["run"]
 
     run = steps[names.index("Run Gemini")]
