@@ -15,7 +15,9 @@ from scripts.runner_lib.acceptance_gate import Command, extract_commands, run
 def gate_venv_is_test_python(monkeypatch):
     """Tests that stub run() need no real virtualenv; keep PATH changes test-local."""
     monkeypatch.setattr(
-        acceptance_gate, "make_gate_venv", lambda: (Path(sys.executable), f"{sys.executable} -m pip")
+        acceptance_gate,
+        "make_gate_venv",
+        lambda: (Path(sys.executable), f"{sys.executable} -m pip"),
     )
     monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
     monkeypatch.delenv("VIRTUAL_ENV", raising=False)
@@ -244,7 +246,9 @@ def test_workflow_isolates_pr_commands_from_privileged_mark_running():
     assert "overwrite" not in upload["with"]
 
 
-def test_failed_preparation_keeps_aggregate_output_bounded(tmp_path, monkeypatch, gate_venv_is_test_python):
+def test_failed_preparation_keeps_aggregate_output_bounded(
+    tmp_path, monkeypatch, gate_venv_is_test_python
+):
     monkeypatch.setattr(
         acceptance_gate,
         "run",
@@ -259,7 +263,9 @@ def test_failed_preparation_keeps_aggregate_output_bounded(tmp_path, monkeypatch
     )
 
 
-def test_lock_only_preparation_installs_and_runs_gate(tmp_path, monkeypatch, capsys, gate_venv_is_test_python):
+def test_lock_only_preparation_installs_and_runs_gate(
+    tmp_path, monkeypatch, capsys, gate_venv_is_test_python
+):
     import zipfile
 
     wheel = tmp_path / "gate_fixture-1.0-py3-none-any.whl"
@@ -304,7 +310,9 @@ def test_lock_only_preparation_installs_and_runs_gate(tmp_path, monkeypatch, cap
     assert "Gate install source: requirements requirements.lock" in capsys.readouterr().out
 
 
-def test_prepare_uses_declared_extras_lock_and_cov_like_ci(tmp_path, monkeypatch, capsys, gate_venv_is_test_python):
+def test_prepare_uses_declared_extras_lock_and_cov_like_ci(
+    tmp_path, monkeypatch, capsys, gate_venv_is_test_python
+):
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname="fixture"\nversion="1"\n'
         "[project.optional-dependencies]\ndev=[]\ntest=[]\n"
@@ -325,7 +333,9 @@ def test_prepare_uses_declared_extras_lock_and_cov_like_ci(tmp_path, monkeypatch
     assert "editable project .[dev,test]" in capsys.readouterr().out
 
 
-def test_prepare_warns_on_malformed_pyproject_and_keeps_requirements(tmp_path, monkeypatch, capsys, gate_venv_is_test_python):
+def test_prepare_warns_on_malformed_pyproject_and_keeps_requirements(
+    tmp_path, monkeypatch, capsys, gate_venv_is_test_python
+):
     (tmp_path / "pyproject.toml").write_text("[project\n")
     (tmp_path / "requirements.lock").write_text("fixture\n")
     calls = []
@@ -363,9 +373,7 @@ def test_python_gates_install_and_run_in_an_isolated_gate_venv(tmp_path, monkeyp
     assert installs and all(
         call.startswith(str(venv_root)) or f"--python {venv_root}" in call for call in installs
     ), installs
-    probe = real_run(
-        [Command(0, "python -c 'import sys; print(sys.prefix)'")], tmp_path
-    )[0]
+    probe = real_run([Command(0, "python -c 'import sys; print(sys.prefix)'")], tmp_path)[0]
     assert probe.exit_code == 0, probe.output
     assert Path(probe.output.strip()).resolve() == venv_root.resolve()
     assert Path(sys.prefix).resolve() != venv_root.resolve()
