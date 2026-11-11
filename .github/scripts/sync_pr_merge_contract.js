@@ -2126,7 +2126,51 @@ function buildMarkdownSummary(report) {
   return `${lines.join('\n')}\n`;
 }
 
+// Campaign no-change evidence pins each repository's default-branch head, and a busy consumer's main moves
+// faster than evidence reaches the merge (2026-11-11: Orchestrator main moved 41x/24h, median gap 8 min; two
+// campaign passes failed target_missing on the same stale pin while four sync PRs sat CLEAN). Maint 68's
+// no-change verdict reads the consumer only at the plan's managed paths (entry targets, removals, the full-plan
+// .gitignore block), so the verdict carries from the evidence head to a newer head when the newer head strictly
+// descends from it and no commit in between touches a managed path. Anything unknown refuses (old behaviour).
+const NO_CHANGE_CARRY_MAX_FILES = 300; // GitHub's compare API lists at most 300 files
+
+function noChangeCarriesToHead({ comparison, managed, fromSha = '', toSha = '' } = {}) {
+  const from = String(fromSha || '').toLowerCase();
+  const to = String(toSha || '').toLowerCase();
+  if (!managed || !Array.isArray(managed.paths) || !Array.isArray(managed.directories)) {
+    return { ok: false, reason: 'plan_paths_unavailable' };
+  }
+  if (!/^[0-9a-f]{40}$/.test(from) || !/^[0-9a-f]{40}$/.test(to)) {
+    return { ok: false, reason: 'head_invalid' };
+  }
+  if (!comparison || comparison.status !== 'ahead') {
+    return { ok: false, reason: `history_${comparison?.status || 'unknown'}` };
+  }
+  if (String(comparison.merge_base_commit?.sha || '').toLowerCase() !== from) {
+    return { ok: false, reason: 'merge_base_mismatch' };
+  }
+  const files = comparison.files;
+  if (!Array.isArray(files) || files.length >= NO_CHANGE_CARRY_MAX_FILES) {
+    return { ok: false, reason: 'diff_unbounded' };
+  }
+  const directories = managed.directories
+    .map((dir) => String(dir || '').replace(/\/+$/, ''))
+    .filter(Boolean);
+  const exact = new Set([...managed.paths.map(String), ...directories]);
+  const prefixes = directories.map((dir) => `${dir}/`);
+  for (const file of files) {
+    for (const name of [file?.filename, file?.previous_filename].filter(Boolean).map(String)) {
+      if (exact.has(name) || prefixes.some((prefix) => name.startsWith(prefix))) {
+        return { ok: false, reason: `managed_path_changed:${name}` };
+      }
+    }
+  }
+  return { ok: true, reason: 'no_managed_path_changed', files_checked: files.length };
+}
+
 module.exports = {
+  NO_CHANGE_CARRY_MAX_FILES,
+  noChangeCarriesToHead,
   FINDING_DISPOSITION_SCHEMA,
   SYNC_FINDING_DISPOSITION_ACTORS,
   syncFindingFingerprint,

@@ -485,6 +485,43 @@ jobs:
           }
           NODE
 
+      # Campaign no-change evidence pins each consumer's default-branch head. These two steps let the merge step
+      # carry a no-change verdict to a newer head that touched no plan-managed path (sync_pr_merge_contract.js
+      # noChangeCarriesToHead). Any failure here only disables the carry-over: the exact-head rule then applies.
+      - name: Check out campaign plan source
+        id: campaign_plan_source
+        if: >-
+          ${{
+            always() &&
+            steps.candidate_mode.outputs.campaign == 'true' &&
+            steps.handoff.outputs.expected_source_commit != ''
+          }}
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.handoff.outputs.expected_source_commit }}
+          path: .campaign-plan-source
+          persist-credentials: false
+          # A source-delta plan is scoped from the base..source diff, which needs history.
+          fetch-depth: ${{ steps.handoff.outputs.expected_plan_scope == 'source-delta' && '0' || '1' }}
+
+      - name: Compile campaign plan managed paths
+        if: ${{ always() && steps.campaign_plan_source.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          EXPECTED_PLAN_ID: ${{ steps.handoff.outputs.expected_plan_id }}
+          EXPECTED_SOURCE_COMMIT: ${{ steps.handoff.outputs.expected_source_commit }}
+          EXPECTED_PLAN_SCOPE: ${{ steps.handoff.outputs.expected_plan_scope }}
+          EXPECTED_SCOPE_BASE_SHA: ${{ steps.handoff.outputs.expected_scope_base_sha }}
+        run: |
+          python scripts/campaign_plan_managed_paths.py \
+            --source-root .campaign-plan-source \
+            --expected-plan-id "$EXPECTED_PLAN_ID" \
+            --source-commit "$EXPECTED_SOURCE_COMMIT" \
+            --plan-scope "${EXPECTED_PLAN_SCOPE:-full}" \
+            --scope-base-sha "$EXPECTED_SCOPE_BASE_SHA" \
+            --output "$RUNNER_TEMP/campaign-plan-managed-paths.json"
+
       - name: Check and merge sync PRs
         id: merge
         if: >-
@@ -511,6 +548,7 @@ jobs:
           EXPECTED_SOURCE_COMMIT_INPUT: ${{ steps.handoff.outputs.expected_source_commit }}
           CANARY_BASELINE_EVIDENCE_JSON: ${{ inputs.canary_baseline_evidence_json || github.event.client_payload.canary_baseline_evidence_json || '' }}
           CAMPAIGN_NO_CHANGE_EVIDENCE_JSON: ${{ inputs.campaign_no_change_evidence_json || github.event.client_payload.campaign_no_change_evidence_json || '' }}
+          CAMPAIGN_PLAN_MANAGED_PATHS_FILE: ${{ runner.temp }}/campaign-plan-managed-paths.json
           CANDIDATE_EVIDENCE_AUTHORIZED: ${{ steps.candidate_evidence_validation.outputs.authorized || 'false' }}
           CANDIDATE_ARTIFACT_RESULT: ${{ steps.candidate_artifact.outcome }}
           PREPARE_ONLY_INPUT: ${{ steps.candidate_mode.outputs.candidate == 'true' || steps.candidate_mode.outputs.campaign == 'true' }}

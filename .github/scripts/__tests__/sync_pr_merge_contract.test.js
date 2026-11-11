@@ -4459,3 +4459,37 @@ test('Maint71 rejects incomplete GraphQL inventories and skips foreign closed he
   await assert.rejects(listMaint71PullRequests({owner:'stranske',repo:'Ready',withRetry:fn=>fn(client)}));
   assert.equal(calls,2);
 });
+
+test('noChangeCarriesToHead carries a no-change verdict only across commits that touch no plan-managed path', () => {
+  const { noChangeCarriesToHead, NO_CHANGE_CARRY_MAX_FILES } = require('../sync_pr_merge_contract');
+  const from = '8596b89df6b24f799915832aabc1ef444e3340c6';
+  const to = 'c9f120cce4444fd0a71f912b11bbf3e408cd7cf9';
+  const managed = { paths: ['.github/workflows/pr-00-gate.yml', '.gitignore', 'tools/requirements-llm.txt'],
+    directories: ['scripts/runner_lib', '.github/actions/setup-api-client/'] };
+  const compare = (files, extra = {}) => ({ status: 'ahead', merge_base_commit: { sha: from }, files, ...extra });
+  // The live Orchestrator move of 2026-11-11: four unmanaged files.
+  const live = compare(['.verify-floor.json', 'ARCHITECTURE.md', 'src/experiment_producer.py',
+    'tests/test_experiment_producer.py'].map(filename => ({ filename })));
+  assert.deepEqual(noChangeCarriesToHead({ comparison: live, managed, fromSha: from, toSha: to }),
+    { ok: true, reason: 'no_managed_path_changed', files_checked: 4 });
+  const refuse = (comparison, reason, m = managed) =>
+    assert.equal(noChangeCarriesToHead({ comparison, managed: m, fromSha: from, toSha: to }).reason, reason);
+  refuse(compare([{ filename: '.gitignore' }]), 'managed_path_changed:.gitignore');
+  refuse(compare([{ filename: 'scripts/runner_lib/x.py' }]), 'managed_path_changed:scripts/runner_lib/x.py');
+  refuse(compare([{ filename: '.github/actions/setup-api-client/action.yml' }]),
+    'managed_path_changed:.github/actions/setup-api-client/action.yml');
+  refuse(compare([{ filename: 'scripts/runner_lib' }]), 'managed_path_changed:scripts/runner_lib');
+  refuse(compare([{ filename: 'new.txt', previous_filename: 'tools/requirements-llm.txt' }]),
+    'managed_path_changed:tools/requirements-llm.txt');
+  assert.equal(noChangeCarriesToHead({ comparison: compare([{ filename: 'scripts/runner_lib_other.py' }]),
+    managed, fromSha: from, toSha: to }).ok, true);           // a sibling prefix is not inside the directory
+  refuse(compare([], { status: 'diverged' }), 'history_diverged');
+  refuse(compare([], { status: 'behind' }), 'history_behind');
+  refuse(compare([], { merge_base_commit: { sha: 'f'.repeat(40) } }), 'merge_base_mismatch');
+  refuse(compare(Array.from({ length: NO_CHANGE_CARRY_MAX_FILES }, (_, i) => ({ filename: `f${i}` }))),
+    'diff_unbounded');
+  refuse(compare(undefined), 'diff_unbounded');
+  refuse(live, 'plan_paths_unavailable', null);
+  refuse(null, 'history_unknown');
+  assert.equal(noChangeCarriesToHead({ comparison: live, managed, fromSha: 'short', toSha: to }).reason, 'head_invalid');
+});
