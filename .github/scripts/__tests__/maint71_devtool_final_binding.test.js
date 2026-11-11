@@ -145,6 +145,10 @@ test('Maint 71 accounts for closed dev-tool candidates when no generated PR is o
   });
   assert.match(summary, /stranske\/Trend_Model_Project.*dev-tool:.*#6189 merged.*#6186 closed unmerged/);
   assert.match(logs.join('\n'), /dev-tool:.*#6189 merged.*#6186 closed unmerged/);
+  const persistedSummary = fs.readFileSync(path.join(dir, 'sync-pr-merge-summary.md'), 'utf8');
+  assert.match(persistedSummary, /stranske\/Trend_Model_Project.*dev-tool:.*#6189 merged.*#6186 closed unmerged/,
+    'the rendered job summary is persisted beside the report for artifact verification');
+  assert.ok(summary.includes(persistedSummary), 'persisted summary is the exact text sent to the job summary');
   const report = JSON.parse(fs.readFileSync(env.SYNC_PR_MERGE_REPORT_JSON, 'utf8'));
   assert.deepEqual(report.results, [{ owner: 'stranske', repo: 'Trend_Model_Project', status: 'no_prs' }]);
   assert.equal(report.summary.merged || 0, 0, 'historical merges must not count as this run merging');

@@ -80,8 +80,9 @@ A live read of that query returned 58 candidates, `hasNextPage=false`, including
 #6189 merged and #6186 closed unmerged. This is API-read evidence, not a deployed
 Maint 71 acceptance run.
 
-**A2 remains pending:** after this source change ships, the native production
-owner must obtain a new unscoped/dev-tool report and record its run id. The issue's
+**A2 (pending at this 2026-11-10 writing; satisfied by run 42966520283 on
+2026-11-11, see the final sections below):** after this source change ships, the
+native production owner must obtain a new unscoped/dev-tool report and record its run id. The issue's
 acceptance command must print both candidate numbers:
 
 ```bash
@@ -569,9 +570,10 @@ run report as specified above.
   `stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged,
   #6187 closed unmerged, #6186 closed unmerged, ...`; the job summary is rendered
   from the same formatter line. Sync-core round `20261108T054334Z` retained above.
-- **A3: verified.** This handoff records the local sync-core round id and result,
-  distinguishes the hosted campaign run, and explicitly marks production report
-  acceptance pending. Status IDs here match the current issue #4612 instructions.
+- **A3: verified.** This handoff records the qualifying run id, event and source
+  head (final section below), retains sync-core round `20261108T054334Z` and its
+  delivered result, distinguishes the hosted campaign run, and each A1–A4 status
+  here matches the evidence cited beside it.
 - **A4 (scope-only reference): observed locally.** The retained post-merge round
   and exact delivered head are recorded above; this does not certify a hosted
   sync-core workflow run or future recurrence prevention.
@@ -611,7 +613,7 @@ A browser-authenticated reader can confirm the rendered summary on the job
 page; this seat records it as formatter-derived, not directly observed.
 A final attempt from this seat (no browser installed; the job page requires a
 cookie-based GitHub web session that the `gh` token cannot provide) could not
-render it either, so A1's log half stands as the directly verified evidence
+render it either, so A2's log half stands as the directly verified evidence
 and the summary half remains formatter-derived pending an authenticated read.
 
 Reconciled status: **T1 done** (qualifying native run obtained and inspected);
@@ -619,3 +621,25 @@ Reconciled status: **T1 done** (qualifying native run obtained and inspected);
 42966520283 (log directly verified; summary formatter-derived as noted);
 **A3 verified**; **A4 observed locally** as scoped above. Sync-core round
 `20261108T054334Z` and its delivered result remain retained above.
+
+## Summary-artifact persistence (follow-up repair)
+
+Independent re-verification this round (public API, second route): PR #4629's
+merge commit `e0cff78a8537be83e296761536fbda3038b4ca2d` (2026-11-10T22:17:49Z,
+after #4612 opened 2026-11-10T03:08:47Z) is an ancestor of run 42966520283's
+head `c1f27d82180b10b7213aea099f8feec30c3e15b1`; that run's API record shows
+event `schedule`, name `Merge Sync PRs [unscoped]`, conclusion `success`,
+created 2026-11-11T05:33:19Z. T1 therefore remains done.
+
+The one evidence gap above was that run 42966520283's rendered job summary
+could only be inferred from the formatter, because Maint 71 wrote it solely
+via `core.summary`. Maint 71 now also writes the exact rendered text to
+`artifacts/sync-pr-merge-summary.md` beside `sync-pr-merge-report.json`, and
+`maint-71-merge-sync-prs.yml` uploads it in the existing
+`sync-pr-merge-and-canary-evidence` artifact. The end-to-end dev-tool test in
+`maint71_devtool_final_binding.test.js` asserts the persisted file carries
+`stranske/Trend_Model_Project ... #6189 merged ... #6186 closed unmerged` and
+is the exact text sent to the job summary. From the next native run onward,
+the summary half of A2 is directly readable from the artifact; for run
+42966520283 itself it remains formatter-derived as recorded above, and no
+status changes on that basis.

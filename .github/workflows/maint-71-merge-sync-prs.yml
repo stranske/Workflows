@@ -894,6 +894,7 @@ jobs:
           name: sync-pr-merge-and-canary-evidence
           path: |
             artifacts/sync-pr-merge-report.json
+            artifacts/sync-pr-merge-summary.md
             artifacts/sync-canary-evidence.json
             artifacts/sync-campaign-commit-authorization.json
           if-no-files-found: warn
