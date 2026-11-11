@@ -1,5 +1,186 @@
 # Exact #4509 retained-capture investigation
 
+## PR #4650 continuation — 2026-11-11 UTC
+
+Authenticated admission and revalidation succeeded for the original #4509
+capture. The historical receipt still has six required gaps and reports
+`NON_PASS` / `UNVERIFIABLE_INPUT` with `decision_available=false`. A separate
+byte-admission check recovered four truncation gaps and isolated two remaining
+gaps to the same missing historical acquisition record.
+
+In a fresh directory, the original `verification-event-manifest.json` came from
+the retained ZIP. The repository's Octokit client setup used `@octokit/rest@20.0.2`
+and authenticated read access. The local invocation supplied the verified
+[PR #4650 Gate run 43092787380](https://github.com/stranske/Workflows/actions/runs/43092787380)
+as its real Actions sequence identity, attempt 1, with
+`GITHUB_REPOSITORY=stranske/Workflows`. The commands executed locally. The first
+invocation acquired the ZIP and origin, then stopped at
+`KeyError: 'GITHUB_REPOSITORY'` during revalidation. The fresh-directory retry
+supplied the repository identity. No source change was needed.
+
+```sh
+export VERIFICATION_RECOVERY='{"run_id":42330898168,"run_attempt":1,"artifact_id":13556839741}'
+/opt/anaconda3/bin/python3 -m tools.verifier_event_recovery --admit-retained
+/opt/anaconda3/bin/python3 -m tools.verifier_event_recovery --revalidate-retained
+```
+
+Both retry commands exited **0** and emitted identical JSON (stdout SHA-256
+`dcab46827e4bc535a0399a338da3c580244442095ee34ad51fe0f7295f6cedfc`).
+The authenticated ZIP matched the checked-in ZIP digest below and all nine
+members were retained. The event remained
+`872cfa6b5cc9d664566f1aa1ecb5dbeaf303b27bd5a96288414318455a343e9c`.
+The `gpt-6.1-sol` and `claude-sonnet-5-5` rows each retained zero review
+coverage of `scripts/ci_history.py` and `tests/scripts/test_ci_history.py`.
+The commands made zero provider calls.
+
+Authenticated metadata and ZIP downloads for all eight originally listed
+Workflows archives matched their recorded run, head, archive digest, length
+and member order. All recorded member hashes matched. The separate
+`build_capture_obligation_manifest` invocation used 27 verified raw member
+sidecars and the original diff. It returned `sufficient=false` after clearing
+the four source-level truncation gaps in the derived view:
+
+| Original source gap | Artifact ID | Previously unavailable members verified in the downloaded ZIP |
+| --- | ---: | --- |
+| Run 42326161711, selftest-autofix-3.13 | 13556090021 | `coverage.xml`, `coverage.json` |
+| Run 42326161711, selftest-autofix-3.14 | 13555815325 | `coverage.xml`, `coverage.json` |
+| Run 42327185276, selftest-autofix-3.13 | 13555867095 | `coverage.xml`, `coverage.json` |
+| Run 42327185276, selftest-autofix-3.14 | 13555456977 | `coverage.xml`, `coverage.json` |
+
+The member tables below also identify the recoverable character-limit
+omissions from artifacts `13556432562` and `13555184662`. The two remaining
+required gaps, `acceptance_evidence:artifacts:integrity_failure_or_unknown_kind`
+and `acceptance_evidence:artifacts:unavailable`, both point to the original
+provenance and inventory acquisition for run `42327976097`. Its lookup under
+`stranske/Workflows` returned 404 and produced no consumer artifact ID,
+member identity, or digest. The missing acquisition record was never created
+by that run. Fresh authenticated lookup under `stranske/trip-planner`
+returned the completed run at head
+`948406465cf7cd65d1ac92206b4514aaad455443` and a complete four-artifact listing:
+
+| Artifact ID | Current recovered member bytes |
+| ---: | --- |
+| 13556069067 | `index.ndjson` and six files under `runtimes/3.14/` |
+| 13555934284 | `index.ndjson` and six files under `runtimes/3.13/` |
+| 13555933617 | `product-probe.json` |
+| 13555839362 | `langsmith-fleet.ndjson` |
+
+Both runtime folders contain `coverage.json`, `coverage.xml`,
+`pytest-collection.json`, `pytest-junit.xml`, `pytest-resources.json`, and
+`summary.json`. All four archives were unexpired, their downloaded digests
+matched the authenticated API, and all 16 members were read and hashed.
+Those bytes are recoverable. The fresh inventory cannot supply the missing
+contemporaneous acquisition record. No artifact or member was established
+as permanently lost, and the zero-gap or unrecoverable-artifact acceptance
+criterion remains open.
+
+The [Semgrep thread](https://github.com/stranske/Workflows/pull/4650#discussion_r4542394433)
+was resolved using the existing exact-head analysis. The CLI passes its
+working directory and writes a fixed basename. Retained input cannot supply
+either path component.
+
+The acceptance transcript below was captured at
+`1373bd34fc5bc4194cf37453234f5c3b94a6c3de`, the implementation parent of
+the report-only commit introducing this section. The final PR head is the
+commit introducing this section, identifiable with
+`git log -1 --format=%H -- docs/analysis/verifier-4509-capture-recovery.md`
+at the continuation tip. Repeat measurements are recorded in the
+[PR validation note](https://github.com/stranske/Workflows/pull/4650#continuation-validation).
+
+```sh
+PATH=/opt/anaconda3/bin:$PATH node --test .github/scripts/__tests__/agents-verifier-context.test.js .github/scripts/__tests__/verifier-cross-repository-evidence.test.js
+# exit 0; tests 332; pass 332; fail 0; duration_ms 5275.845333; wall 5.33 s
+/opt/anaconda3/bin/python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q -o asyncio_default_fixture_loop_scope=function
+# exit 0; 27 passed, 25 deselected in 2.63s
+```
+
+## Provider-free admission implementation — #4635
+
+`python3 -m tools.verifier_event_recovery --admit-retained` now acquires
+`verification-recovery-origin.json` through the existing native Actions API
+collector. Run it in a dedicated recovery directory containing the original
+`verification-event-manifest.json`, with the real current Actions run identity
+and `VERIFICATION_RECOVERY` selecting run `42330898168`, attempt `1`, artifact
+`13556839741`. It requires the installed GitHub API client dependencies and
+authenticated read access. It makes no provider call and publishes no comment.
+
+The command uses the existing opt-in `pull_request_target` witness: the exact
+merged PR subject must match, its evaluated squash merge must be canonical,
+and helper/reusable ancestry and checkout-log checks still apply. Offline
+fixtures cannot supply native authority. `--revalidate-retained` remains the
+entry point when the trusted collector already produced the origin and ZIP.
+
+For the retained no-evaluation result, revalidation now exits zero with a
+separate `retained-unevaluated-capture/v1` record. Its status is `NON_PASS`,
+verdict is `UNVERIFIABLE_INPUT`, and `decision_available` is false. It records
+the original six required capture gaps and the exact historical artifact
+inventory, including artifact/run/member identities and recorded extraction
+failures. It does not classify unavailable members as irretrievably lost
+without historical acquisition evidence. Both provider rows explicitly retain
+zero review coverage of `scripts/ci_history.py` and
+`tests/scripts/test_ci_history.py`.
+
+Every original ZIP member, the origin, and the capture record are preserved
+under `retained-source/<archive-sha256>/`. Repeated admission rejects changed
+history. A subsequent evaluation can write new workspace result files without
+replacing the historical comparison, execution receipt, event or coverage
+record. Revalidation classifies the archive's original bytes even when later
+workspace outputs exist. The new record cannot pass the existing retained
+decision admission check or publish a terminal corpus decision.
+
+Validation in this managed runner:
+
+- Focused exact-capture tests: **22 passed** with the available Python 3.14.10;
+  the absolute `/opt/anaconda3/bin/python3` executable is absent. Its requested
+  asyncio configuration override is unsupported by the installed pytest plugins.
+- Native origin bridge and retained recovery Node tests: **19 passed**, using mocked
+  authenticated transport; this does not establish live admission.
+- Full Python recovery suite: **41 passed, 6 failed**. All six authored lifecycle
+  failures also reproduce with the unchanged recovery module from `HEAD`.
+- Required Node acceptance command: exit 1 in under five seconds. Direct test
+  execution identifies sandbox `spawnSync` failures with `EPERM` for Python,
+  git, zip and unzip; the cross-repository suite exits zero.
+- CI-history targeted coverage: **31 passed**, `scripts/ci_history.py`
+  **73.55%**. Test execution coverage is separate from provider review coverage.
+- Required repository-wide Black check: exit 0, **1,002 files unchanged**;
+  Ruff and diff whitespace checks also pass. Black first checked all files
+  serially to populate its cache because sandbox worker scheduling stalled.
+
+A live `--admit-retained` attempt using this run's real identity failed during
+native acquisition before an origin was written. Native operational admission
+and the exact unrecoverable-artifact/zero-gap acceptance condition remain
+unverified, so the remaining task and acceptance checkboxes stay open.
+
+The unevaluated-capture admission now recomputes the native bridge's recovery
+key from the original event, assessment and exact run/attempt/artifact selector.
+Missing, malformed or mismatched keys refuse admission before writing history
+or a revalidation receipt. The immutable capture record includes the verified
+key and source selector alongside the original provider review coverage.
+
+A cross-language regression passes the exact #4509 archive through the real
+native collector and admission bridge with mocked authenticated transport, then
+runs the Python revalidation CLI as a child process. It verifies the resulting
+origin, all retained members, both zero-coverage provider rows and all six gaps.
+It also replaces the workspace comparison to simulate a later evaluation and
+confirms revalidation leaves both that output and every historical byte intact.
+This validates the collector-to-revalidator integration without claiming live
+API admission. The shell's GitHub API connection remains unavailable in this
+runner; the PR is open and ready for review, as observed through the connector.
+
+All 27 exact-capture tests pass with the available Python executable; the native
+origin/recovery suite passes all 20 tests. The broader Python recovery suite
+still has the same six authored lifecycle failures observed before these edits.
+The CI-history tests pass all 31 cases with 73.55% execution coverage; this is
+separate from the immutable record's zero provider review coverage.
+The repository-wide Black check passes with 1,002 files unchanged after a serial
+check populated its cache; the sandbox blocks Black's process-pool startup.
+Ruff and diff whitespace checks also pass.
+Commit handoff is blocked in this run: local Git cannot create `.git/index.lock`
+because `.git` is read-only. The connected GitHub tree-write tool also refuses
+commit preparation because it requires approval and the run's approval policy
+is `never`. The tested four-file change remains uncommitted in the workspace;
+no remote branch update occurred and no task checkbox was changed.
+
 Checked 2026-11-10 UTC for #4630. **Outcome: 0 accepted recoveries; NON_PASS
 (`UNVERIFIABLE_INPUT`).** This report recovers the exact retained inputs and
 reproduces the demonstrated archive failure. It does **not** certify a complete
@@ -185,6 +366,64 @@ print(event['verification_event']['event_id'])
 Exit 0; printed `False UNVERIFIABLE_INPUT False` and the unchanged original event
 ID. Byte inventory validation succeeded; required capture integrity did not.
 These functions parse retained evidence and construct no provider clients.
+
+## #4635 origin trace (2026-11-11 UTC)
+
+The first #4635 task is verified: the existing opt-in
+`acquireRetainedExecution(..., pullRequestTargetOrigin: true)` can bind this
+specific squash-merged subject through its canonical merge without relaxing
+the independent helper/reusable ancestry checks. The ordinary recovery caller
+still omits that option and refuses the diverged run head. This investigation
+does not change that production contract or claim native recovery admission.
+
+Fresh authenticated GitHub connector GETs supplied the selected observations in
+[the origin fixture](../../.github/scripts/__tests__/fixtures/verifier-4509-origin-trace.json):
+
+| Native source | Origin binding |
+| --- | --- |
+| [Run and attempt 1](https://api.github.com/repos/stranske/Workflows/actions/runs/42330898168/attempts/1) | Completed `pull_request_target`; created `2026-11-07T02:46:48Z`; same repository/head repository ID `1117447156` and original head `aa7fe9537cb9c448a50b51ff6eb5da162fd819b1` |
+| [PR #4509](https://api.github.com/repos/stranske/Workflows/pulls/4509) | Merged `2026-11-07T02:02:27Z`, before the run; exact original head and evaluated merge `37e230009cdba04743376410c9f72356b85fb64f`; base `stranske/Workflows:main` |
+| Repository metadata and `commits/main` | Default branch `main`, observed head `40a103f20968e85cba79a12ac5cebf1b7731e1dc` |
+| [PR head comparison](https://api.github.com/repos/stranske/Workflows/compare/aa7fe9537cb9c448a50b51ff6eb5da162fd819b1...40a103f20968e85cba79a12ac5cebf1b7731e1dc) | `diverged`; merge base remains `75d4c8360c7a31db51366ca08d736cf4be1bc894` |
+| [Evaluated merge comparison](https://api.github.com/repos/stranske/Workflows/compare/37e230009cdba04743376410c9f72356b85fb64f...40a103f20968e85cba79a12ac5cebf1b7731e1dc) | `ahead`; both base and merge base equal the evaluated merge |
+| [Attempt jobs](https://api.github.com/repos/stranske/Workflows/actions/runs/42330898168/attempts/1/jobs?per_page=100) and authenticated job `128276983461` log | Exactly one verifier candidate among five jobs; successful checkout/pending/comparison/upload steps numbered 7/12/36/44 |
+| Checkout log in `02:47:17Z`–`02:47:21Z` | `stranske/Workflows`, `.workflows-lib`; `git log -1 --format=%H` reports `dfa7743b1c22a648a49e3500c084efaf5a9880c9`, equal to the run's reusable revision |
+| [Helper/reusable comparison](https://api.github.com/repos/stranske/Workflows/compare/dfa7743b1c22a648a49e3500c084efaf5a9880c9...40a103f20968e85cba79a12ac5cebf1b7731e1dc) | `ahead`; both base and merge base equal that executed revision |
+| [Run artifacts](https://api.github.com/repos/stranske/Workflows/actions/runs/42330898168/artifacts?per_page=100) | Artifact `13556839741` remains unexpired; size/digest match the unchanged 18,725-byte retained ZIP |
+
+The regression in
+[`test_verifier_retained_recovery.js`](../../tests/scripts/test_verifier_retained_recovery.js)
+passes that unchanged ZIP and selected native records through the actual
+acquisition function using mocked transport. Its current-run sentinel and
+inert validator-source response are explicitly test inputs. The fixture stores
+only selected checkout lines and job steps; the generated origin file and its
+inventory/log/source hashes are test results, never publication authority.
+
+The default call fails before writing either recovery file. The opt-in call
+writes a test origin that retains the actual diverged `source_run_head_sha`
+and original event while comparing the evaluated merge and executed helper
+against `main`. Thirteen negative mutations reject unmerged/changed subjects,
+foreign/non-default bases, missing or pre-merge timestamps, dispatch events,
+diverged merge/helper/reusable revisions and incorrect merge-base proof. Each
+refusal leaves the output directory empty. Both original provider rows remain
+`used_llm=false`, `UNVERIFIABLE_INPUT`, with neither changed file reviewed.
+
+Validation: `node tests/scripts/test_verifier_retained_recovery.js` passed all
+18 tests; `node --test tests/scripts/test_verifier_retained_recovery.js` exited
+zero. The related input-repair provenance suite passed 49 tests with its one
+existing skip. The requested broader Node acceptance command exited 1 in under
+five seconds in this sandbox: subprocess-backed context tests report
+`spawnSync git/python3 EPERM`; cross-repository evidence passed. The specified
+`/opt/anaconda3/bin/python3` is absent; the installed Python rejects the requested
+`asyncio_default_fixture_loop_scope` option because `pytest-asyncio` is absent.
+These environment failures do not establish acceptance and remain unchecked.
+The equivalent available-interpreter command without that unsupported option,
+`python3 -m pytest tests/tools/test_retained_verification_recovery.py -k exact_4509 -m 'not slow' --no-cov -q`,
+passed all 18 selected tests (25 deselected) in 3.06 seconds.
+
+Remaining work: map the exact required capture gaps, then integrate authenticated
+provider-free admission while retaining immutable history. Enabling a witness
+alone cannot clear those gaps or manufacture provider review coverage.
 
 ## Actual provider coverage and remaining acceptance
 

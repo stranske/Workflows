@@ -9,6 +9,8 @@ import io
 import json
 import os
 import re
+import subprocess
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -480,6 +482,10 @@ def revalidate_retained(*, directory: Path) -> dict[str, Any]:
         raise ValueError("Retained diff differs from authenticated event")
     payload = json.loads(raw)
     rows, verdict, available = validated_payload(payload, mode=mode)
+    if not available and _retained_cause(original_event, blobs) == "validated_no_evaluation":
+        # Admission authenticates historical capture, not a provider review. Keep
+        # every original member before a later authorized evaluation can run.
+        return _record_unevaluated_capture(directory, origin, origin_raw, blobs, rows)
     projection = None
     if not available:
         payload, projection = original_final_projection(
@@ -501,18 +507,7 @@ def revalidate_retained(*, directory: Path) -> dict[str, Any]:
             raise ValueError("Retained served reviewer differs from requested assessment")
     if not available or verdict not in {"PASS", "CONCERNS", "FAIL"}:
         raise ValueError("Retained output does not contain a complete usable evaluation")
-    retained = directory / "retained-source" / origin["archive_sha256"]
-    if (directory / "retained-source").is_symlink() or retained.is_symlink():
-        raise ValueError("Retained source path is not owned")
-    retained.mkdir(parents=True, exist_ok=True)
-    if not retained.resolve().is_relative_to(directory.resolve()):
-        raise ValueError("Retained source path escapes recovery workspace")
-    for name, content in blobs.items():
-        target = retained / name
-        if target.is_symlink() or (target.exists() and target.read_bytes() != content):
-            raise ValueError("Immutable retained source collision")
-        if not target.exists():
-            target.write_bytes(content)
+    _retained_inputs(directory, origin, blobs)
     provenance = {
         "schema": "retained-revalidation/v2" if projection else "retained-revalidation/v1",
         "recovery_key": origin["recovery_key"],
@@ -579,6 +574,133 @@ def revalidate_retained(*, directory: Path) -> dict[str, Any]:
         json.dumps(receipt, indent=2) + "\n"
     )
     return receipt
+
+
+def _retained_cause(manifest: dict[str, Any], blobs: dict[str, bytes]) -> str:
+    """Classify the archive's inputs, never a later workspace evaluation."""
+    with tempfile.TemporaryDirectory(prefix="retained-classification-") as temporary:
+        directory = Path(temporary)
+        for name, content in blobs.items():
+            (directory / name).write_bytes(content)
+        return incomplete_cause(manifest, directory=directory, step_outcome="success")[
+            "failure_cause"
+        ]
+
+
+def _retained_inputs(directory: Path, origin: dict, blobs: dict[str, bytes]) -> Path:
+    retained = directory / "retained-source" / origin["archive_sha256"]
+    if (directory / "retained-source").is_symlink() or retained.is_symlink():
+        raise ValueError("Retained source path is not owned")
+    retained.mkdir(parents=True, exist_ok=True)
+    if not retained.resolve().is_relative_to(directory.resolve()):
+        raise ValueError("Retained source path escapes recovery workspace")
+    # Check all collisions before adding any member to an existing history.
+    for name, content in blobs.items():
+        target = retained / name
+        if target.is_symlink() or (target.exists() and target.read_bytes() != content):
+            raise ValueError("Immutable retained source collision")
+    for name, content in blobs.items():
+        target = retained / name
+        if not target.exists():
+            with target.open("xb") as stream:
+                stream.write(content)
+    return retained
+
+
+def _record_unevaluated_capture(directory, origin, origin_raw, blobs, rows):
+    from tools.verifier_capture_obligation_manifest import (
+        build_capture_obligation_manifest,
+        parse_context_source_coverage,
+    )
+
+    # This is a capture admission, not the legacy retained-decision path. Bind
+    # its new historical record to the same selector key the native bridge emits.
+    selector = {
+        "run_id": int(origin["source_run_id"]),
+        "run_attempt": int(origin["source_run_attempt"]),
+        "artifact_id": origin["artifact_id"],
+    }
+    recovery_key = _sha(
+        _canonical(
+            {
+                "schema": "retained-revalidation-key/v1",
+                "event_id": origin["verification_event"]["event_id"],
+                "assessment": origin["assessment_identity"],
+                "selector": selector,
+            }
+        )
+    )
+    if origin.get("recovery_key") != recovery_key:
+        raise ValueError("Retained capture recovery key does not bind authenticated origin")
+    snapshot = json.loads(blobs["verifier-input-manifest.json"])
+    obligations = snapshot.get("capture_obligations")
+    if not isinstance(obligations, dict):
+        obligations = build_capture_obligation_manifest(
+            blobs["verifier-context.md"].decode("utf-8"),
+            full_diff_bytes=blobs["verifier-pr-diff.patch"],
+        )
+    event = origin["verification_event"]
+    coverage = parse_context_source_coverage(blobs["verifier-context.md"].decode("utf-8")) or {}
+    # Include both changed paths even when a historical row omitted its file
+    # counts. No provider call means no provider review of any changed path.
+    paths = sorted(
+        {
+            path
+            for row in rows
+            for path in (row.get("files_reviewed") or []) + (row.get("files_not_reviewed") or [])
+        }
+        | {
+            row["source"]
+            for row in coverage.get("changed_code_sources", [])
+            if isinstance(row.get("source"), str)
+        }
+    )
+    record = {
+        "schema": "retained-unevaluated-capture/v1",
+        "status": "NON_PASS",
+        "verdict": "UNVERIFIABLE_INPUT",
+        "decision_available": False,
+        "provider_generation_performed": False,
+        "recovery_key": recovery_key,
+        "source_selector": selector,
+        "verification_event": event,
+        "assessment_identity": origin["assessment_identity"],
+        "archive_sha256": origin["archive_sha256"],
+        "origin_sha256": _sha(origin_raw),
+        "capture_obligations": obligations,
+        "historical_artifact_inventory": coverage.get("artifact_capture_inventory", []),
+        "provider_review_coverage": [
+            {
+                "provider": row.get("provider_used"),
+                "model": row.get("model"),
+                "used_llm": False,
+                "files_reviewed": [],
+                "files_not_reviewed": paths,
+            }
+            for row in rows
+        ],
+        "members": {name: {"sha256": _sha(raw), "bytes": len(raw)} for name, raw in blobs.items()},
+    }
+    retained = _retained_inputs(directory, origin, {**blobs, "recovery-origin.json": origin_raw})
+    history = retained / "unevaluated-capture.json"
+    raw = _canonical(record)
+    if history.is_symlink() or (history.exists() and history.read_bytes() != raw):
+        raise ValueError("Immutable retained capture record collision")
+    if not history.exists():
+        with history.open("xb") as stream:
+            stream.write(raw)
+    (directory / "verification-revalidation-receipt.json").write_bytes(raw)
+    return record
+
+
+def admit_retained_origin(*, directory: Path) -> None:
+    """Collect native origin with the existing trusted, read-only API collector."""
+    bridge = Path(__file__).with_name("verifier_retained_origin.js")
+    result = subprocess.run(
+        ["node", str(bridge)], cwd=directory, capture_output=True, timeout=300, check=False
+    )
+    if result.returncode:
+        raise ValueError("Authenticated retained origin acquisition failed")
 
 
 def _verify_original_projection(proof, origin, source, directory, stem):
@@ -700,6 +822,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--revalidate-retained", action="store_true")
+    parser.add_argument("--admit-retained", action="store_true")
     parser.add_argument("--step-outcome", default="")
     parser.add_argument("--publication-outcome", default="")
     parser.add_argument("--publication-effect", default="")
@@ -711,6 +834,7 @@ def main() -> int:
     # before any recovery execution or file writes.
     mode_args = [
         ("revalidate-retained", args.revalidate_retained),
+        ("admit-retained", args.admit_retained),
         ("manifest", args.manifest is not None),
         ("classify-retained-artifact", args.classify_retained_artifact is not None),
     ]
@@ -718,7 +842,9 @@ def main() -> int:
     if len(active_modes) > 1:
         parser.error(f"mutually exclusive modes: {' and '.join(active_modes)}")
 
-    if args.revalidate_retained:
+    if args.admit_retained:
+        admit_retained_origin(directory=Path.cwd())
+    if args.revalidate_retained or args.admit_retained:
         result = revalidate_retained(directory=Path.cwd())
         if os.environ.get("GITHUB_OUTPUT"):
             with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
