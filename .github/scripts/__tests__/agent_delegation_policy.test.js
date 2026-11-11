@@ -48,7 +48,7 @@ const mockRegistry = {
       capabilities: { pr_keepalive: true },
     },
     gemini: {
-      required_secrets: ['GEMINI_API_KEY'],
+      required_secrets: ['GEMINI_OAUTH_CREDS'],
       runner_workflow: '.github/workflows/reusable-gemini-run.yml',
       capabilities: { pr_keepalive: true },
     },
@@ -59,7 +59,7 @@ const mockSecrets = {
   CODEX_AUTH_JSON: true,
   CLAUDE_CODE_OAUTH_TOKEN: true,
   CURSOR_API_KEY: true,
-  GEMINI_API_KEY: true,
+  GEMINI_OAUTH_CREDS: true,
 };
 
 const stalledStateCodex = {
@@ -790,7 +790,7 @@ test('exploration retains the ranking pick when the challenger is ineligible or 
   const cases = [
     { name: 'reserved by task type', reserve: { implement: [{ agent: 'gemini' }] } },
     { name: 'reserved by legacy list', reserve: ['GEMINI'] },
-    { name: 'missing prerequisites', secrets: { ...mockSecrets, GEMINI_API_KEY: false } },
+    { name: 'missing prerequisites', secrets: { ...mockSecrets, GEMINI_OAUTH_CREDS: false } },
     { name: 'runner absent from current tree', runnableAgents: ['codex', 'claude', 'cursor'] },
     { name: 'disabled in registry', agentConfig: { enabled: false } },
     { name: 'no runner workflow', agentConfig: { runner_workflow: '' } },

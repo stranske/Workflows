@@ -70,7 +70,7 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
     expose = expose_step["run"]
     assert '>> "$GITHUB_PATH"' in expose, filename
 
-    if agent != "muse":
+    if agent not in ("muse", "gemini"):
         inputs = (workflow.get("on") or workflow[True])["workflow_call"]["inputs"]
         default = inputs[f"{agent}_cli_version"]["default"]
         assert default and default not in ("latest", "stable"), filename
@@ -102,6 +102,19 @@ def test_cli_cache_tracks_installed_version_and_path(agent: str) -> None:
         else:
             assert "${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" in install["run"]
             assert 'tar --strip-components=1 -xzf - -C "$cli_dir"' in install["run"]
+    elif agent == "gemini":
+        # Hosted gemini runs agy (Antigravity CLI) since 2026-11-11: no npm package and no
+        # version pin, so like Muse the job resolves the release manifest's version first and
+        # keys the cache on it; the install verifies the manifest's SHA-512.
+        resolve = _step(job, "Resolve Gemini CLI version")
+        assert job["steps"].index(resolve) < job["steps"].index(cache)
+        assert "/manifests/${platform}.json" in resolve["run"]
+        assert 'echo "GEMINI_CLI_VERSION=$version"' in resolve["run"]
+        assert job["env"]["AGY_CLI_DISABLE_AUTO_UPDATE"] == "true"
+        assert cache["with"]["path"] == "${{ runner.temp }}/agent-cli/gemini"
+        assert '!= "$AGY_SHA512"' in install["run"]
+        assert '= "$GEMINI_CLI_VERSION"' in install["run"]
+        assert "command -v agy" in install["run"]
     else:
         resolve = _step(job, "Resolve Muse CLI version")
         assert job["steps"].index(resolve) < job["steps"].index(cache)
@@ -251,7 +264,7 @@ def test_cli_cache_deletion_fails_pytest_and_recovers(
     assert codex_path.read_bytes() == original_source, "Protected workflow source was modified"
 
 
-@pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
+@pytest.mark.parametrize("agent", ("codex", "claude"))
 @pytest.mark.parametrize("version", ("next", "^1.0.0", "~1.0.0", "*"))
 def test_cli_cache_contract_rejects_floating_npm_defaults(
     agent: str, version: str, monkeypatch: pytest.MonkeyPatch
@@ -272,7 +285,7 @@ def test_cli_cache_contract_rejects_floating_npm_defaults(
         test_cli_cache_tracks_installed_version_and_path(agent)
 
 
-@pytest.mark.parametrize("agent", ("codex", "claude", "cursor", "gemini"))
+@pytest.mark.parametrize("agent", ("codex", "claude", "cursor"))
 def test_cli_cache_contract_rejects_different_version_fallback(
     agent: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -460,7 +473,7 @@ def test_progress_review_pip_cache_contract_rejects_regressions(
         test_progress_review_caches_pip_before_dependency_install()
 
 
-@pytest.mark.parametrize("agent", ("codex", "claude", "gemini"))
+@pytest.mark.parametrize("agent", ("codex", "claude"))
 def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Path) -> None:
     """Run the actual install shell with a fake npm, then restore into a fresh prefix."""
     workflow, job = _runner(agent)
@@ -488,7 +501,6 @@ def test_npm_prefix_survives_restore_without_reinstall(agent: str, tmp_path: Pat
     package = {
         "codex": "@openai/codex",
         "claude": "@anthropic-ai/claude-code",
-        "gemini": "@google/gemini-cli",
     }[agent]
     env = {
         **os.environ,

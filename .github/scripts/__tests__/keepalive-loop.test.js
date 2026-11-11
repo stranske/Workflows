@@ -4812,7 +4812,7 @@ test('authority evidence persists only an allowlisted safe projection', () => {
       agentType: 'cursor',
     }),
     buildAuthorityChallengeEvidence({
-      agentSummary: 'Missing Gemini auth: set the GEMINI_API_KEY secret',
+      agentSummary: 'Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret',
       agentType: 'gemini',
     }),
   ];

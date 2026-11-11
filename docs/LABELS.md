@@ -235,7 +235,7 @@ recurrence across repos and reconciled by `issue_readiness.reconcile_durable`.
 3. Branch prefix `gemini/issue-<number>` is reserved for Gemini work
 
 **Prerequisites:**
-- Repository has a valid `GEMINI_API_KEY` secret (per `.github/agents/registry.yml`)
+- Repository has a valid `GEMINI_OAUTH_CREDS` secret, the owner's Gemini subscription login (per `.github/agents/registry.yml`); hosted gemini never uses an API key
 
 **Workflow:** `agents-81-gate-followups.yml` dispatches `reusable-gemini-run.yml` after registry-backed routing and secret preflight succeed.
 

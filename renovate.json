@@ -24,34 +24,9 @@
         "python"
       ],
       "allowedVersions": "<3.15"
-    },
-    {
-      "description": "Hosted Gemini CLI gets its own PR so a CLI regression is attributable to one bump. Every release is a 0.x bump; dependencyDashboardApproval false makes sure even a release Renovate grades as major opens a PR instead of waiting on the dashboard (a parked bump would stop the weekly update with nothing reporting it). Minor/patch automerge on green via the fleet rule; the preset's 3-day minimumReleaseAge applies.",
-      "matchPackageNames": [
-        "@google/gemini-cli"
-      ],
-      "groupName": "gemini-cli",
-      "dependencyDashboardApproval": false
     }
   ],
   "ignorePaths": [
     "config/verify_paired/**"
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "description": "Hosted Gemini CLI pin: reusable-gemini-run.yml writes the version twice (the gemini_cli_version input default and the GEMINI_CLI_VERSION env fallback); both match, so one PR moves both. Owner 2026-11-09: keep the CLI current as releases arrive.",
-      "managerFilePatterns": [
-        "/^\\.github/workflows/reusable-gemini-run\\.yml$/"
-      ],
-      "matchStrings": [
-        "gemini_cli_version:\\s*\\n(?:\\s+[a-z_]+:.*\\n)*?\\s+default: '(?<currentValue>\\d+\\.\\d+\\.\\d+)'",
-        "inputs\\.gemini_cli_version \\|\\| '(?<currentValue>\\d+\\.\\d+\\.\\d+)'"
-      ],
-      "matchStringsStrategy": "any",
-      "datasourceTemplate": "npm",
-      "depNameTemplate": "@google/gemini-cli",
-      "versioningTemplate": "npm"
-    }
   ]
 }

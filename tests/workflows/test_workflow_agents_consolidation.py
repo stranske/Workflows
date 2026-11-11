@@ -1947,11 +1947,89 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
 
         if path == WORKFLOWS_DIR / "agents-keepalive-loop.yml":
             assert preflight_env.get("HAS_CURSOR_AUTH") == ("${{ secrets.CURSOR_API_KEY != '' }}")
-            assert preflight_env.get("HAS_GEMINI_AUTH") == ("${{ secrets.GEMINI_API_KEY != '' }}")
+            assert preflight_env.get("HAS_GEMINI_AUTH") == (
+                "${{ secrets.GEMINI_OAUTH_CREDS != '' }}"
+            )
 
     root_text = workflow_paths[0].read_text(encoding="utf-8")
     assert 'missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"' in root_text
-    assert 'missing_msg="Missing Gemini auth: set the GEMINI_API_KEY secret"' in root_text
+    assert 'missing_msg="Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret"' in root_text
+
+
+def test_hosted_gemini_runs_on_subscription_login_never_api_key():
+    """Owner decision 2026-11-11: the Gemini API key belongs to the verify workflows only.
+
+    Google refuses subscription logins from @google/gemini-cli (UNSUPPORTED_CLIENT), so hosted
+    keepalive gemini runs agy (Antigravity CLI) on the owner's sign-in file restored from
+    GEMINI_OAUTH_CREDS; no step may hand it an API key or run the gemini-cli binary.
+    """
+    runner_path = WORKFLOWS_DIR / "reusable-gemini-run.yml"
+    runner = yaml.safe_load(runner_path.read_text(encoding="utf-8"))
+    call = runner.get("on", runner.get(True))["workflow_call"]
+    assert "GEMINI_OAUTH_CREDS" in call["secrets"]
+    steps = runner["jobs"]["gemini"]["steps"]
+    names = [step.get("name") for step in steps]
+    for step in steps:
+        rendered = yaml.safe_dump(step)
+        assert "secrets.GEMINI_API_KEY" not in rendered, step.get("name")
+        assert "GEMINI_API_KEY" not in (step.get("env") or {}), step.get("name")
+        assert 'npm install -g "@google/gemini-cli' not in rendered, step.get("name")
+
+    token_path = "$HOME/.gemini/antigravity-cli/antigravity-oauth-token"
+    preflight = steps[names.index("Preflight auth")]
+    assert preflight["env"]["GEMINI_OAUTH_CREDS"] == "${{ secrets.GEMINI_OAUTH_CREDS || '' }}"
+    assert 'creds_dir="$HOME/.gemini/antigravity-cli"' in preflight["run"]
+    assert 'creds_file="$creds_dir/antigravity-oauth-token"' in preflight["run"]
+    assert "Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret" in preflight["run"]
+
+    signin = steps[names.index("Check Gemini subscription sign-in")]
+    assert signin["id"] == "signin"
+    assert signin["env"]["SSH_CONNECTION"]
+    assert "agy models" in signin["run"]
+    assert "Using file-based token storage" in signin["run"]
+    assert "OAuth: authenticated successfully" in signin["run"]
+
+    run = steps[names.index("Run Gemini")]
+    assert run["env"]["SSH_CONNECTION"] == signin["env"]["SSH_CONNECTION"]
+    assert "steps.signin.outputs.failed" in run["env"]["PREFLIGHT_MISSING"]
+    assert 'agy -p "$prompt_content"' in run["run"]
+    assert '--add-dir "${GITHUB_WORKSPACE}"' in run["run"]
+    assert "gemini -p" not in run["run"]
+    assert runner["jobs"]["gemini"]["env"]["AGY_CLI_DISABLE_AUTO_UPDATE"] == "true"
+
+    order = [
+        names.index(n)
+        for n in (
+            "Preflight auth",
+            "Ensure Gemini CLI",
+            "Check Gemini subscription sign-in",
+            "Run Gemini",
+            "Remove Gemini login",
+            "Commit and push changes",
+        )
+    ]
+    assert order == sorted(order)
+    remove = steps[names.index("Remove Gemini login")]
+    assert remove["if"] == "always()"
+    assert token_path in remove["run"]
+
+    callers = [
+        WORKFLOWS_DIR / "agents-keepalive-loop.yml",
+        WORKFLOWS_DIR / "agents-auto-pilot.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"),
+        Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml"),
+    ]
+    for path in callers:
+        text = path.read_text(encoding="utf-8")
+        assert "secrets.GEMINI_API_KEY" not in text, path
+        assert "secrets.GEMINI_OAUTH_CREDS" in text, path
+
+    for registry_path in (
+        Path(".github/agents/registry.yml"),
+        Path("templates/consumer-repo/.github/agents/registry.yml"),
+    ):
+        registry = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+        assert registry["agents"]["gemini"]["required_secrets"] == ["GEMINI_OAUTH_CREDS"]
 
 
 def test_reusable_agent_runners_export_actual_execution_start():

@@ -50,10 +50,20 @@ test('classifyError recognizes routed runner missing-auth summaries', () => {
   const messages = [
     'Missing Claude auth: set CLAUDE_CODE_OAUTH_TOKEN',
     'Missing Cursor auth: set the CURSOR_API_KEY secret',
-    'Missing Gemini auth: set the GEMINI_API_KEY secret',
+    'Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret',
   ];
   for (const message of messages) {
     assert.equal(classifyError({ message }).category, ERROR_CATEGORIES.auth);
+  }
+});
+
+test('classifyError treats subscription quota windows as transient, not unknown', () => {
+  const messages = [
+    'AGY_ERROR: {"short_error":"RESOURCE_EXHAUSTED (code 429): Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 7m59s."}',
+    'error: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 6m25s.',
+  ];
+  for (const message of messages) {
+    assert.equal(classifyError({ message }).category, ERROR_CATEGORIES.transient);
   }
 });
 

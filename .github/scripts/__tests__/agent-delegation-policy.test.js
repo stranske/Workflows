@@ -70,9 +70,9 @@ test('checkPrerequisites returns available=false when agent disabled', () => {
     agent: 'gemini',
     agentConfig: {
       enabled: false,
-      required_secrets: ['GEMINI_API_KEY'],
+      required_secrets: ['GEMINI_OAUTH_CREDS'],
     },
-    secrets: { GEMINI_API_KEY: 'present' },
+    secrets: { GEMINI_OAUTH_CREDS: 'present' },
   });
 
   assert.equal(result.available, false);
@@ -561,7 +561,7 @@ test('decideNextAgent respects the runners declared by the current workflow tree
     agents: {
       codex: mockRegistry.agents.codex,
       gemini: {
-        required_secrets: ['GEMINI_API_KEY'],
+        required_secrets: ['GEMINI_OAUTH_CREDS'],
         runner_workflow: '.github/workflows/reusable-gemini-run.yml',
         capabilities: { pr_keepalive: true },
       },
@@ -570,7 +570,7 @@ test('decideNextAgent respects the runners declared by the current workflow tree
   const result = decideNextAgent({
     state: {},
     labels: ['agent:auto'],
-    secrets: { CODEX_AUTH_JSON: 'present', GEMINI_API_KEY: 'present' },
+    secrets: { CODEX_AUTH_JSON: 'present', GEMINI_OAUTH_CREDS: 'present' },
     registry,
     runnableAgents: ['codex'],
   });

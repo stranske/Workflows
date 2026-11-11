@@ -398,7 +398,7 @@ fires where” without diving into the full tables:
   - **Claude entry point.** `reusable-claude-run.yml` provides the same prompt-file entry surface for Claude CLI runs so callers can reuse consistent preflight, output capture, and artifact handling.
   - **Cursor entry point.** `reusable-cursor-run.yml` provides the same prompt-file entry surface for `cursor-agent` CLI runs (API-key auth via `CURSOR_API_KEY`), reusing the shared preflight, output capture, commit/push, and artifact handling.
   - **Muse entry point.** `reusable-muse-run.yml` provides the same prompt-file entry surface for `muse exec` runs (auth via `META_API_KEY`, the console key from the Muse Code subscription login), keeping the Muse sandbox on and failing closed when bubblewrap cannot start.
-  - **Gemini entry point.** `reusable-gemini-run.yml` provides the same prompt-file entry surface for Google `gemini` CLI runs (API-key auth via `GEMINI_API_KEY`), reusing the shared preflight, output capture, commit/push, and artifact handling.
+  - **Gemini entry point.** `reusable-gemini-run.yml` provides the same prompt-file entry surface for Google Antigravity CLI (`agy`) runs (subscription sign-in file restored from `GEMINI_OAUTH_CREDS`; never an API key), reusing the shared preflight, output capture, commit/push, and artifact handling.
   - **Where to inspect logs.** Reusable Python CI:
     [workflow history](https://github.com/stranske/Workflows/actions/workflows/reusable-10-ci-python.yml).
     Docker CI:
