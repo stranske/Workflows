@@ -149,16 +149,25 @@ jobs:
               poolState: 'static',
               delegationSource: 'static',
             };
+            let routeWeightsLine = 'route-weights: not consulted (DEFAULT_AGENT preset)';
             if (!(process.env.DEFAULT_AGENT || '').trim()) {
               try {
                 const { loadAgentRegistry } = require(registryPath);
-                const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
+                const {
+                  loadRouteWeightsWithStatus,
+                  formatRouteWeightsStatus,
+                  chooseAgentForIntake,
+                } = require(policyPath);
                 const registry = loadAgentRegistry();
-                const routeWeights = await fetchRouteWeights();
-                if (!routeWeights) {
-                  throw new Error('Route-weights export unavailable or stale');
+                // The status line is built in the policy module, not here: github-script echoes
+                // this source into every log, so a literal here would match every run's log.
+                const routeWeightsLoad = await loadRouteWeightsWithStatus();
+                routeWeightsLine = formatRouteWeightsStatus(routeWeightsLoad);
+                if (!routeWeightsLoad.document) {
+                  throw new Error(routeWeightsLine);
                 }
-                intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+                core.info(routeWeightsLine);
+                intakeChoice = chooseAgentForIntake('implement', routeWeightsLoad.document, registry.agents);
               } catch (error) {
                 core.warning(`Intake agent chooser failed; using static default codex: ${error.message}`);
               }
@@ -175,6 +184,7 @@ jobs:
                   { data: 'Posterior', header: true },
                   { data: 'Pool State', header: true },
                   { data: 'Default Agent', header: true },
+                  { data: 'Route Weights', header: true },
                 ],
                 [
                   String(intakeChoice?.agent || defaultAgent),
@@ -183,6 +193,7 @@ jobs:
                     : 'n/a',
                   String(intakeChoice?.poolState || intakeChoice?.pool_state || 'static'),
                   defaultAgent,
+                  routeWeightsLine,
                 ],
               ])
               .write();
