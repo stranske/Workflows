@@ -35,12 +35,11 @@ source.
   route-weights snapshot. Therefore it cannot establish that Codex was not
   the top posterior or was shed.
 
-The workflow writes those values through `core.summary`, not to the ordinary
-step log. Both job-summary URLs above are the authoritative locations, but the
-GitHub check-runs API exposes a null summary for each. This is exact
-unavailability evidence, not evidence of a non-Codex route. Do not close the
-issue until a readable genuine summary and contemporaneous condition establish
-A3.
+The workflow writes those values through `core.summary`. GitHub displays job
+summaries on the [workflow run summary page](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary).
+The job links above identify the exact executions. The check-runs API exposes
+a null summary for each. Closure requires a readable genuine summary and
+contemporaneous evidence of the routing condition.
 
 ## Issue #4587 round 2 A3 retrieval — 2026-11-11 UTC
 
@@ -105,6 +104,37 @@ Codex's ranking and pool state unverified. Resuming acceptance requires the
 actual preflight summary and contemporaneous evidence of either the posterior
 ordering or Codex's shed state from the same execution. T2, A1 and A2 remain
 unchecked.
+
+## Issue #4587 round 4 A3 retrieval — 2026-11-11 UTC
+
+**Outcome A3: UNKNOWN (0 qualifying executions); closure withheld.** The
+evidence pass was bounded to three production candidates or 20 minutes.
+Acceptance remains blocked on the actual summary and routing condition from
+the same execution. Existing runs and evidence availability can still be
+checked while closure is withheld.
+
+- The [historical run summary](https://github.com/stranske/Workflows/actions/runs/42353296252)
+  and the [latest successful source intake run summary](https://github.com/stranske/Workflows/actions/runs/43083618531)
+  both returned HTTP 200 with `Sign in to view logs` and no `Intake Agent
+  Selection` table. The connected browser inventory returned `native pipe
+  closed before response`. The check-run API again returned null
+  `output.summary` and `output.text` for jobs 128345864413 and 130742465381.
+  Run 43083618531 still has zero downloadable artifacts.
+- `gh run view 42353296252 --repo stranske/Workflows --log` and
+  `gh run view 43083618531 --repo stranske/Workflows --log` returned HTTP 502
+  from their jobs endpoints in this pass. The earlier successful retrievals
+  remain in the round 2 receipts. The source intake listing on `main` returned
+  zero runs created at or after #4653 merged at 2026-11-11T19:10:34Z.
+- A separate [Template consumer intake run](https://github.com/stranske/Template/actions/runs/42734719220)
+  succeeded on the `issues` event at 2026-11-10T01:17:25Z. Its exact workflow
+  revision contains the chooser and summary write. Its jobs endpoint returned
+  HTTP 502 and the run has zero downloadable artifacts. The actual input,
+  summary, and routing condition were unverified.
+
+T2, A1, and A2 remain unchecked. No production workflow was dispatched or
+rerun. A qualifying record needs the run's actual non-Codex default and either
+Codex's contemporaneous posterior rank or its shed state, along with the log
+retrieval specified in A2.
 
 ## Current continuation disposition — 2026-11-09
 
