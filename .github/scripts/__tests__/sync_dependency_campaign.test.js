@@ -2029,3 +2029,65 @@ test('refreshed delivery handoff re-pins the continuation\'s immutable handoff',
   assert.equal(planMaint71Continuations([stale], { now: '2026-11-06T01:06:00Z' })[0]
     .immutable_handoff.source_commit, 'e'.repeat(40));
 });
+
+test('planMaint71Continuations re-plans a checks_failed handoff whose checks recovered on the same head', async () => {
+  // Live shape of Ready#677 / Trend_Model_Project#6217 on 2026-11-10 (Maint 82 run 42943287705).
+  const failed = {
+    schema: 'workflows-generated-delivery-handoff/v1', repository: 'stranske/Ready', pr: 677,
+    branch: 'sync/workflows-delivery', head_sha: 'a'.repeat(40), delivery_generation: '000b98a46343',
+    lane: 'sync', plan_id: 'sha256:plan', plan_scope: 'full', source_commit: 'b'.repeat(40),
+    disposition: 'repo-local-failure', blocker_owner: 'maint-71', next_command: 'repair-required-checks',
+    check_state: 'checks_failed', review_state: 'clear',
+    continuation: { class: 'actionable', lane: 'delivery', reason: 'checks_failed', resume_after: '',
+      key: '7887e177aafaa4700dcf' },
+    observed_at: '2026-11-10T05:38:48.098Z',
+  };
+  const now = '2026-11-11T02:30:00.000Z';
+  const reconcile = async (records, pr) => {
+    const client = { rest: { pulls: { get: async () => ({ data: pr }) } } };
+    return reconcileClosedDeliveryHandoffs(records, [], client, (operation) => operation(client), now);
+  };
+  const greenPr = { state: 'open', draft: false, mergeable_state: 'clean',
+    head: { sha: failed.head_sha, ref: failed.branch } };
+
+  // Before: an actionable checks_failed handoff plans nothing.
+  assert.deepEqual(planMaint71Continuations([failed], { now }), []);
+
+  // Recovered on the same head: one delivery continuation.
+  const observed = await reconcile([failed], greenPr);
+  assert.deepEqual(observed.errors, []);
+  assert.equal(observed.records.length, 1);
+  const state = mergeDeliveryHandoffs([failed], observed.records, now);
+  const planned = planMaint71Continuations(state, { now });
+  assert.equal(planned.length, 1);
+  assert.equal(planned[0].lane, 'delivery');
+  assert.equal(planned[0].reason, 'checks_recovered');
+  assert.equal(planned[0].repository, 'stranske/Ready');
+  assert.equal(planned[0].head_sha, failed.head_sha);
+  assert.match(planned[0].continuation_key, /^recovered-[0-9a-f]{20}$/);
+
+  // An acknowledged run for that key suppresses a repeat.
+  assert.deepEqual(planMaint71Continuations(state, { now, acknowledgments: [
+    { lane: 'delivery', key: planned[0].continuation_key, run_id: 42 }] }), []);
+
+  // Head changed, or checks still failing: nothing is re-planned.
+  const moved = await reconcile([failed], { ...greenPr, head: { sha: 'c'.repeat(40), ref: failed.branch } });
+  assert.equal(moved.records.length, 0);
+  for (const mergeableState of ['blocked', 'unstable', 'unknown', 'behind']) {
+    const stillRed = await reconcile([failed], { ...greenPr, mergeable_state: mergeableState });
+    assert.equal(stillRed.records.length, 0, mergeableState);
+  }
+
+  // Maint 71 answers the recovery run with checks_failed again on the same head: the mark is carried
+  // over and the head is not re-planned, so the queue cannot loop every ten minutes.
+  const again = { ...failed, continuation: { ...failed.continuation }, observed_at: '2026-11-11T02:40:00.000Z' };
+  const afterRun = mergeDeliveryHandoffs(state, [again], '2026-11-11T02:40:00.000Z');
+  assert.equal(afterRun[0].continuation.class, 'actionable');
+  assert.equal(afterRun[0].checks_recovery_head, failed.head_sha);
+  assert.equal((await reconcile(afterRun, greenPr)).records.length, 0);
+
+  // A new head is a new attempt and drops the mark.
+  const newHead = { ...again, head_sha: 'd'.repeat(40), observed_at: '2026-11-11T02:50:00.000Z' };
+  const afterPush = mergeDeliveryHandoffs(afterRun, [newHead], '2026-11-11T02:50:00.000Z');
+  assert.equal(afterPush[0].checks_recovery_head, undefined);
+});
