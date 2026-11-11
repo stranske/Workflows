@@ -2097,3 +2097,55 @@ test('planMaint71Continuations re-plans a checks_failed handoff whose checks rec
   const afterPush = mergeDeliveryHandoffs(afterRun, [newHead], '2026-11-11T02:50:00.000Z');
   assert.equal(afterPush[0].checks_recovery_head, undefined);
 });
+
+test('planMaint71Continuations wakes the campaign commit once a plan\'s candidates are prepared and its deliveries are done', () => {
+  // 2026-11-11: all 13 deliveries of plan 1f1233 merged one by one; PAEM#2493, TPP#1739 and trip-planner#2024 sat
+  // campaign_prepared (terminal) and nothing planned the campaign commit.
+  const base = {
+    schema: 'workflows-generated-delivery-handoff/v1', delivery_generation: '1f1233f7dfe1',
+    lane: 'sync', plan_id: 'sha256:plan', plan_scope: 'full', scope_base_sha: '', source_commit: 'a'.repeat(40),
+    review_state: 'clear', check_state: 'ready', observed_at: '2026-11-11T05:53:13.084Z',
+  };
+  const candidate = (repository, pr, head) => ({ ...base, repository, pr, branch: 'sync/workflows-candidate',
+    head_sha: head, disposition: 'current', blocker_owner: 'maint-71', next_command: 'merge-current-delivery',
+    continuation: { class: 'terminal', lane: 'candidate', reason: 'campaign_prepared', resume_after: '', key: `k${pr}` } });
+  const delivery = (repository, pr, cls, reason) => ({ ...base, repository, pr, branch: 'sync/workflows-delivery',
+    head_sha: 'd'.repeat(40), disposition: reason === 'merged' ? 'merged' : 'awaiting', blocker_owner: 'ci',
+    next_command: reason === 'merged' ? 'none' : 'rerun-after-generated-delivery-seal-gate',
+    continuation: { class: cls, lane: 'delivery', reason, resume_after: '2026-11-11T05:40:00.000Z', key: `d${pr}` } });
+  const candidates = [candidate('stranske/Portable-Alpha-Extension-Model', 2493, 'b'.repeat(40)),
+    candidate('stranske/Travel-Plan-Permission', 1739, 'c'.repeat(40)), candidate('stranske/trip-planner', 2024, 'e'.repeat(40))];
+  const merged = [delivery('stranske/Ready', 677, 'terminal', 'merged'), delivery('stranske/Counter_Risk', 1244, 'terminal', 'merged')];
+  const now = '2026-11-11T13:20:00.000Z';
+
+  const planned = planMaint71Continuations([...candidates, ...merged], { now });
+  assert.equal(planned.length, 1);
+  assert.equal(planned[0].lane, 'campaign');
+  assert.equal(planned[0].reason, 'candidate_commit_ready');
+  assert.match(planned[0].continuation_key, /^cand-[0-9a-f]{20}$/);
+  assert.deepEqual(planned[0].immutable_handoff, { plan_id: 'sha256:plan', plan_scope: 'full', scope_base_sha: '',
+    source_commit: 'a'.repeat(40) });
+
+  // A delivery of the plan still in flight: its own continuation runs; no campaign commit yet.
+  const inFlight = planMaint71Continuations([...candidates, ...merged,
+    delivery('stranske/Pension-Data', 1026, 'transient', 'delivery_sealed_checks_pending')], { now });
+  assert.deepEqual(inFlight.map((row) => row.lane), ['delivery']);
+  // A candidate that is not prepared (fell behind its base): no campaign commit.
+  const behind = { ...candidates[2], next_command: 'rerun-after-maint-68-canary-refresh',
+    continuation: { class: 'actionable', lane: 'candidate', reason: 'stable_base_refresh_required', resume_after: '', key: 'kb' } };
+  assert.deepEqual(planMaint71Continuations([candidates[0], candidates[1], behind, ...merged], { now })
+    .filter((row) => row.reason === 'candidate_commit_ready'), []);
+  // Acknowledged: not repeated while the candidates' heads are unchanged.
+  assert.deepEqual(planMaint71Continuations([...candidates, ...merged], { now, acknowledgments: [
+    { lane: 'campaign', key: planned[0].continuation_key, run_id: 7 }] }), []);
+  // A new candidate head is a new commit attempt.
+  const moved = planMaint71Continuations([candidates[0], candidates[1],
+    { ...candidates[2], head_sha: 'f'.repeat(40) }, ...merged], { now });
+  assert.notEqual(moved[0].continuation_key, planned[0].continuation_key);
+  // The intent stays queued, so its success receipt survives a Maint 82 run with no new Maint 71 runs.
+  const { queuedMaint71Intents, mergeContinuationAcknowledgments } = require('../sync_dependency_campaign.js');
+  const receipt = { lane: 'campaign', key: planned[0].continuation_key, run_id: 7, run_attempt: 1,
+    completed_at: '2026-11-11T13:25:00Z' };
+  assert.deepEqual(mergeContinuationAcknowledgments([receipt], [],
+    queuedMaint71Intents([...candidates, ...merged])), [receipt]);
+});

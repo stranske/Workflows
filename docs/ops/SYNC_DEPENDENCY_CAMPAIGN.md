@@ -83,6 +83,20 @@ once: `checks_recovery_head` marks it, and the mark carries onto Maint 71's
 next report for that head. If Maint 71 fails the PR again, the PR keeps its
 named owner instead of looping. A new head clears the mark.
 
+Candidate PRs merge only in a campaign commit. A delivery handoff at
+`campaign_prepared` wakes the campaign selector, but candidate preparation
+is terminal: it is evidence for that commit. So when every delivery of a
+plan merged on its own (the delivery lane or the scheduled pass), nothing
+woke the commit, and the prepared candidates waited for a manual campaign
+dispatch (2026-11-08 to 2026-11-11). Maint 82 now plans one `campaign`
+continuation, reason `candidate_commit_ready`, once two things are true:
+every candidate handoff of a plan is `campaign_prepared` with
+`merge-current-delivery`, and no delivery handoff of that plan is still in
+flight. Its key binds the candidates' exact heads. An acknowledged run is
+therefore not repeated until a head changes. If the commit is held, for
+example because a candidate fell behind its base, Maint 71 reclassifies that
+candidate and its own transient path takes over.
+
 Every transient classification has a non-zero retry delay and becomes eligible
 only after that due time has passed. Dev-tool wakes use the explicit `dev-tool`
 selector, which reconciles the newest dev-tool PR per registered non-admin repo
