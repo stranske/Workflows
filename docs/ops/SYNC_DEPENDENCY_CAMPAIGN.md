@@ -71,6 +71,17 @@ expiration and lost/delayed events. Pending checks and review windows therefore
 advance automatically, while failed checks and review findings keep their named
 owner instead of being disguised as timer retries.
 
+One exception (#4636): an `actionable` handoff whose reason is
+`checks_failed` returns to Maint 71 once its checks pass on the same head.
+Maint 82 already reads each retained handoff's PR. When that PR is still open
+on the recorded head and GitHub reports `mergeable_state: clean`, Maint 82
+re-plans the handoff as a transient `checks_recovered` continuation. Before
+this, checks that finished after a Maint 71 pass left the PR waiting for the
+daily schedule (2026-11-10: about 20 hours). Each head is re-planned at most
+once: `checks_recovery_head` marks it, and the mark carries onto Maint 71's
+next report for that head. If Maint 71 fails the PR again, the PR keeps its
+named owner instead of looping. A new head clears the mark.
+
 Every transient classification has a non-zero retry delay and becomes eligible
 only after that due time has passed. Dev-tool wakes use the explicit `dev-tool`
 selector, which reconciles the newest dev-tool PR per registered non-admin repo

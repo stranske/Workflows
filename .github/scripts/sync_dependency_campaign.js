@@ -492,6 +492,9 @@ function normalizeDeliveryHandoff(record = {}, observedAt = '') {
     ...(cleanString(record.closure_observed_head_sha)
       ? { closure_observed_head_sha: cleanString(record.closure_observed_head_sha) }
       : {}),
+    ...(cleanString(record.checks_recovery_head)
+      ? { checks_recovery_head: cleanString(record.checks_recovery_head) }
+      : {}),
     // Preserve Maint 71's source observation time across the campaign reducer.
     // Replacing it with this run's time would make a delayed old handoff look new.
     observed_at: cleanString(record.observed_at || observedAt),
@@ -744,6 +747,12 @@ function mergeDeliveryHandoffs(previous = [], incoming = [], observedAt = '', li
       && normalized.continuation.class !== 'terminal'
       && sameIdentity
       && !newerThanTerminal) continue;
+    // A head already re-planned once after its checks recovered stays marked when Maint 71 reports on it
+    // again, so a repeated checks_failed verdict on that head cannot re-plan it every ten minutes.
+    if (retained?.checks_recovery_head && retained.checks_recovery_head === normalized.head_sha
+      && !normalized.checks_recovery_head) {
+      normalized.checks_recovery_head = retained.checks_recovery_head;
+    }
     byKey.set(key, normalized);
   }
   return [...byKey.values()]
@@ -780,6 +789,40 @@ function mergeHandoffReassessments(previous = [], incoming = [], blockedKeys = [
     if (blocked.has(key)) requests.set(key, normalized);
   }
   return [...requests.values()];
+}
+
+// Maint 71 classifies `checks_failed` as actionable (sync_pr_merge_contract.js classifyDeliveryContinuation), and
+// planMaint71Continuations plans transient handoffs only, so a PR whose required checks fail during a Maint 71
+// pass and then pass on the SAME head was never sent back: it waited for the daily schedule (2026-11-10: Ready#677
+// and Trend_Model_Project#6217, about 20 hours; Trend merged 2 minutes after a manual pass). GitHub's
+// `mergeable_state: clean` on that unchanged head is the recovery signal. Each head is re-planned at most once:
+// `checks_recovery_head` marks it, and mergeDeliveryHandoffs carries the mark onto Maint 71's next report.
+const CHECKS_RECOVERY_REASON = 'checks_failed';
+
+function checksRecoveredHandoff(retained = {}, pr = {}, now = '') {
+  const continuation = retained.continuation || {};
+  if (continuation.class !== 'actionable' || continuation.reason !== CHECKS_RECOVERY_REASON) return null;
+  if (!['candidate', 'campaign', 'delivery', 'dev-tool'].includes(continuation.lane)) return null;
+  if (pr.state !== 'open' || pr.draft === true || pr.mergeable_state !== 'clean') return null;
+  if (pr.head?.sha !== retained.head_sha || pr.head?.ref !== retained.branch) return null;
+  if (retained.checks_recovery_head === retained.head_sha) return null;
+  const observedAt = cleanString(now) || new Date().toISOString();
+  const key = `recovered-${crypto.createHash('sha256').update(JSON.stringify([
+    retained.repository, retained.pr, retained.head_sha, continuation.key,
+  ])).digest('hex').slice(0, 20)}`;
+  return {
+    ...retained,
+    check_state: 'ready',
+    continuation: {
+      class: 'transient',
+      lane: continuation.lane,
+      reason: 'checks_recovered',
+      resume_after: observedAt,
+      key,
+    },
+    checks_recovery_head: retained.head_sha,
+    observed_at: observedAt,
+  };
 }
 
 async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api, withRetry, now = '') {
@@ -821,7 +864,10 @@ async function reconcileClosedDeliveryHandoffs(previous = [], incoming = [], api
               lane: 'dev-tool', reassessment: true });
             if (request) reassessments.push(request);
           }
+          continue;
         }
+        const recovered = checksRecoveredHandoff(retained, pr, now);
+        if (recovered) records.push(recovered);
         continue;
       }
       if (pr.state !== 'closed') {
