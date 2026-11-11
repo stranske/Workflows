@@ -2201,7 +2201,20 @@ already terminal evidence and needs no PR mutation. Promotion-produced
 `no-change-delivery` evidence carries an explicit exact-tree validation marker;
 Maint 71 rechecks its immutable plan/source binding and recorded default-branch
 head, then treats it as terminal without dispatching a redundant Gate for an
-unchanged repository. Canary no-change evidence retains the live required-check
+unchanged repository. When that recorded head is no longer current, the
+evidence may carry over to the live head under one condition. The live head
+must strictly descend from the recorded one (compare status `ahead`, merge base
+equal to the recorded head). The compare must list fewer than 300 files. No
+changed file, including a rename's old name, may be one the exact plan manages:
+an entry target, a file under a directory target, a removal, a `requires` path,
+or `.gitignore`. That path set is compiled from the plan's own source commit
+and must hash to the expected plan id
+(`scripts/campaign_plan_managed_paths.py`). Maint 68 reads a consumer only at
+those paths, so the no-change verdict still holds. The row records
+`no_change_carried_from`. Any refusal keeps `target_missing` and names its
+`carry_over_refusal`. Before this rule, a consumer whose main moved every few
+minutes held every campaign merge (2026-11-11: Orchestrator, two failed passes
+while four sync PRs sat CLEAN). Canary no-change evidence retains the live required-check
 revalidation that authorized promotion. If a required PR-only context is absent
 from the current default commit, Maint 71 can use its actual merged PR's checked
 head only after native reads prove the exact merge SHA, same repository/base,

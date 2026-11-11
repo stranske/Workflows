@@ -4165,6 +4165,23 @@ async function run({ github, context, core }) {
   const rawCampaignNoChangeEvidence = String(
     process.env.CAMPAIGN_NO_CHANGE_EVIDENCE_JSON || '',
   ).trim();
+  // Managed paths of the exact campaign plan, compiled at its source commit by the workflow step
+  // "Compile campaign plan managed paths". Absent, unreadable or for another plan: null, and a moved
+  // no-change head keeps failing target_missing as before.
+  const campaignPlanManagedPaths = (() => {
+    const file = String(process.env.CAMPAIGN_PLAN_MANAGED_PATHS_FILE || '').trim();
+    if (requestedSyncHash !== 'campaign' || !file) return null;
+    try {
+      const parsed = JSON.parse(require('fs').readFileSync(file, 'utf8'));
+      if (parsed?.schema !== 'workflows.consumer-sync-plan-managed-paths/v1'
+        || parsed?.plan_id !== expectedPlanId
+        || String(parsed?.source_commit || '').toLowerCase() !== expectedSourceCommit) return null;
+      return parsed;
+    } catch (error) {
+      console.log(`Campaign plan managed paths unreadable: ${error.message}`);
+      return null;
+    }
+  })();
   const campaignNoChangeEvidenceByRepo = parseNoChangeEvidenceDocument(
     requestedSyncHash === 'campaign' ? rawCampaignNoChangeEvidence : '',
     {
@@ -4826,16 +4843,44 @@ async function run({ github, context, core }) {
           ref: `heads/${repositoryState.default_branch}`,
         }));
         const liveHeadSha = String(defaultRef?.object?.sha || '').trim().toLowerCase();
+        let noChangeCarriedFrom = '';
         if (liveHeadSha !== campaignNoChangeEvidence.head_sha) {
-          results.push({
-            owner,
-            repo,
-            status: 'target_missing',
-            expected_head_sha: campaignNoChangeEvidence.head_sha,
-            observed_head_sha: liveHeadSha,
-            reason: 'campaign_no_change_head_changed',
-          });
-          continue;
+          let carry = { ok: false, reason: 'plan_paths_unavailable' };
+          if (campaignPlanManagedPaths) {
+            try {
+              const { data: comparison } = await withRetry((client) => client.rest.repos
+                .compareCommitsWithBasehead({
+                  owner,
+                  repo,
+                  basehead: `${campaignNoChangeEvidence.head_sha}...${liveHeadSha}`,
+                  per_page: 100,
+                }));
+              carry = require('./sync_pr_merge_contract.js').noChangeCarriesToHead({
+                comparison,
+                managed: campaignPlanManagedPaths,
+                fromSha: campaignNoChangeEvidence.head_sha,
+                toSha: liveHeadSha,
+              });
+            } catch (compareErr) {
+              rethrowPrimaryRateLimit(compareErr);
+              carry = { ok: false, reason: `compare_failed:${compareErr.status || compareErr.message}` };
+            }
+          }
+          if (!carry.ok) {
+            results.push({
+              owner,
+              repo,
+              status: 'target_missing',
+              expected_head_sha: campaignNoChangeEvidence.head_sha,
+              observed_head_sha: liveHeadSha,
+              reason: 'campaign_no_change_head_changed',
+              carry_over_refusal: carry.reason,
+            });
+            continue;
+          }
+          noChangeCarriedFrom = campaignNoChangeEvidence.head_sha;
+          console.log(`✓ Campaign no-change evidence carried from ${noChangeCarriedFrom} to ${liveHeadSha} `
+            + `(${carry.files_checked} changed files, none plan-managed)`);
         }
         let noChangeCheckProvenance;
         if (campaignNoChangeRequiresLiveGate(campaignNoChangeEvidence)) {
@@ -4869,6 +4914,7 @@ async function run({ github, context, core }) {
           repo,
           status: 'campaign_no_change_verified',
           ...(noChangeCheckProvenance ? { check_provenance: noChangeCheckProvenance } : {}),
+          ...(noChangeCarriedFrom ? { no_change_carried_from: noChangeCarriedFrom } : {}),
           observed_head_sha: liveHeadSha,
           plan_id: campaignNoChangeEvidence.plan_id,
           source_commit: campaignNoChangeEvidence.source_commit,
