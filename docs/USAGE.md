@@ -57,7 +57,6 @@ must exist in `.github/workflows/reusable-10-ci-python.yml`.
 | `python-version` | No | `""` | Explicit single runtime override; omitted selects Python 3.13 and 3.14 |
 | `python-versions` | No | `"[]"` | JSON array of Python versions to execute (takes precedence when non-empty) |
 | `pytest-workers` | No | `"auto"` | xdist workers; first-party Gate explicitly uses four |
-| `pytest-dist` | No | `"loadgroup"` | pytest-xdist distribution strategy (e.g., load, loadgroup, worksteal) |
 | `working-directory` | No | `"."` | Relative working directory (`.` for repo root) |
 | `lint` | No | `true` | Toggle Ruff lint execution |
 | `format_check` | No | `true` | Toggle Black format check execution |
