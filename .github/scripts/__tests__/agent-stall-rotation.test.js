@@ -26,7 +26,7 @@ const REGISTRY = {
       capabilities: { belt: true, pr_keepalive: true },
     },
     cursor: { required_secrets: ['CURSOR_API_KEY'], capabilities: { pr_keepalive: true, belt: false } },
-    gemini: { enabled: true, required_secrets: ['GEMINI_API_KEY'], capabilities: { pr_keepalive: true } },
+    gemini: { enabled: true, required_secrets: ['GEMINI_OAUTH_CREDS'], capabilities: { pr_keepalive: true } },
     aider: { enabled: false, required_secrets: ['OPENAI_API_KEY'], capabilities: {} },
   },
 };
@@ -44,7 +44,7 @@ test('eligibleAgents is capability-gated and skips disabled agents', () => {
 });
 
 test('eligibleAgents honors required secrets (all vs any)', () => {
-  const secrets = { CODEX_AUTH_JSON: '1', CLAUDE_AUTH_JSON: '1', GEMINI_API_KEY: '1' };
+  const secrets = { CODEX_AUTH_JSON: '1', CLAUDE_AUTH_JSON: '1', GEMINI_OAUTH_CREDS: '1' };
   // cursor excluded (no CURSOR_API_KEY); claude included via "any" mode.
   assert.deepEqual(
     eligibleAgents({ registry: REGISTRY, capability: 'pr_keepalive', secrets }),

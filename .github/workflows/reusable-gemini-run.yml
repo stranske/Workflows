@@ -130,10 +130,20 @@ on:
         default: ''
         type: string
     secrets:
+      GEMINI_OAUTH_CREDS:
+        description: >-
+          Contents of a gemini-cli ~/.gemini/oauth_creds.json written by a "Sign in with Google"
+          login, so hosted runs spend the owner's Gemini SUBSCRIPTION capacity (owner decision
+          2026-11-11). Restored to $HOME/.gemini/oauth_creds.json (0600) for the run step only and
+          deleted right after it. The CLI refreshes the hour-long access token from the stored
+          refresh_token, which Google does not rotate, so nothing is written back to the secret.
+        required: false
       GEMINI_API_KEY:
         description: >-
-          API key for the gemini CLI (headless auth). Passed to the run step's own
-          env as GEMINI_API_KEY (never exported through GITHUB_ENV) so the CLI picks it up.
+          DEPRECATED and IGNORED. Hosted gemini never runs on an API key (owner decision
+          2026-11-11: the Gemini API key belongs to the verify workflows only, as
+          VERIFIER_GEMINI_API_KEY). Still declared so consumer callers synced before the switch,
+          which pass this name, keep parsing instead of failing at workflow start.
         required: false
       WORKFLOWS_APP_ID:
         required: false
@@ -808,23 +818,48 @@ jobs:
       - name: Preflight auth
         id: preflight
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || '' }}
+          GEMINI_OAUTH_CREDS: ${{ secrets.GEMINI_OAUTH_CREDS || '' }}
         run: |
           set -euo pipefail
 
-          # The gemini CLI authenticates headlessly via the GEMINI_API_KEY env var.
-          # If it is missing, mark preflight failed so the run step short-circuits
-          # with an auth error (mirrors the Claude runner's missing-auth path).
-          if [ -n "$GEMINI_API_KEY" ]; then
-            echo "auth-method=api-key" >> "$GITHUB_OUTPUT"
-            echo "missing=false" >> "$GITHUB_OUTPUT"
-            # The key is passed to the run step through that step's own env; it is deliberately
-            # NOT exported through GITHUB_ENV, which would expose it to every later step.
-          else
+          # Subscription auth only (owner decision 2026-11-11). gemini-cli 0.67.0 with
+          # GOOGLE_GENAI_USE_GCA=true selects "oauth-personal" in non-interactive mode and loads
+          # cached credentials from $HOME/.gemini/oauth_creds.json (code_assist/oauth2.js
+          # fetchCachedCredentialsList). With no valid cached login it fails fast in CI with
+          # "Manual authorization is required but the current session is non-interactive".
+          # A missing or malformed secret marks preflight failed so the run step short-circuits
+          # with an auth error (mirrors the Claude runner's missing-auth path). Nothing below
+          # prints the secret; only presence and shape are reported.
+          creds_dir="$HOME/.gemini"
+          creds_file="$creds_dir/oauth_creds.json"
+          if [ -z "$GEMINI_OAUTH_CREDS" ]; then
             echo "missing=true" >> "$GITHUB_OUTPUT"
-            echo "error=Missing Gemini auth: set the GEMINI_API_KEY secret" >> "$GITHUB_OUTPUT"
+            echo "error=Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          umask 077
+          mkdir -p "$creds_dir"
+          chmod 700 "$creds_dir"
+          printf '%s' "$GEMINI_OAUTH_CREDS" > "$creds_file"
+          chmod 600 "$creds_file"
+          if ! python3 -I - "$creds_file" <<'PY'
+          import json, sys
+          try:
+              with open(sys.argv[1], encoding="utf-8") as handle:
+                  creds = json.load(handle)
+          except (OSError, ValueError):
+              sys.exit(1)
+          token = creds.get("refresh_token") if isinstance(creds, dict) else None
+          sys.exit(0 if isinstance(token, str) and token else 1)
+          PY
+          then
+            rm -f "$creds_file"
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            echo "error=Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret to a gemini-cli oauth_creds.json (the current value has no refresh_token)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "auth-method=oauth-personal" >> "$GITHUB_OUTPUT"
+          echo "missing=false" >> "$GITHUB_OUTPUT"
 
       - name: Ensure Gemini CLI
         if: steps.preflight.outputs.missing != 'true'
@@ -902,7 +937,10 @@ jobs:
           EXTRA_ARGS_RAW: ${{ inputs.gemini_cli_args }}
           PR_NUMBER: ${{ inputs.pr_number }}
           SKIP_PERMISSIONS: ${{ inputs.skip_permissions }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || '' }}
+          # Subscription login restored by Preflight auth; never an API key (owner decision 2026-11-11).
+          GOOGLE_GENAI_USE_GCA: 'true'
+          # Keep the plain-file credential path the preflight restored (no keychain on the runner).
+          GEMINI_FORCE_ENCRYPTED_FILE_STORAGE: 'false'
           PR_REF: ${{ inputs.pr_ref }}
           MODEL: ${{ steps.model_table.outputs.model }}
           MODEL_EFFORT: ${{ steps.model_table.outputs.reasoning_effort }}
@@ -1052,6 +1090,12 @@ jobs:
           if [ "$status" -ne 0 ]; then
             exit "$status"
           fi
+
+      - name: Remove Gemini login
+        # The restored subscription login is needed by the Run Gemini step only. Delete it before
+        # commit/push, analysis and diagnostics steps run, whatever the run's outcome.
+        if: always()
+        run: rm -f "$HOME/.gemini/oauth_creds.json"
 
       - name: Commit and push changes
         id: commit

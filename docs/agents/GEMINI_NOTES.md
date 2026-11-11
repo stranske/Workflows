@@ -7,9 +7,11 @@ Short reference for operators and maintainers running the Gemini agent via
 
 ## Prerequisites
 
-Consumer repos need a repository secret named `GEMINI_API_KEY` before
-`agent:gemini` can run. The Workflows repo uses the same secret name; see
-`.github/agents/registry.yml` for the registry entry.
+A repo needs a repository secret named `GEMINI_OAUTH_CREDS` before
+`agent:gemini` can run hosted; see `.github/agents/registry.yml` for the registry
+entry. Hosted gemini runs on the owner's Gemini **subscription** login, never on an
+API key (owner decision 2026-11-11): the Gemini API key belongs to the verify
+workflows only, as `VERIFIER_GEMINI_API_KEY`.
 
 ---
 
@@ -40,14 +42,45 @@ selects a different cache key; an empty input does not request automatic upgrade
 
 ## Authentication
 
-The Gemini CLI authenticates headlessly via the `GEMINI_API_KEY` environment
-variable. The workflow:
+Hosted runs use a cached "Sign in with Google" login, the way codex restores its
+ChatGPT login from `CODEX_AUTH_JSON`. The workflow:
 
-1. Reads `secrets.GEMINI_API_KEY` during **Preflight auth**.
-2. Exports it to `GEMINI_API_KEY` for the run step.
-3. Fails fast with an auth error if the secret is missing.
+1. **Preflight auth** writes `secrets.GEMINI_OAUTH_CREDS` to
+   `$HOME/.gemini/oauth_creds.json` (directory 0700, file 0600) and checks that it is a
+   JSON object with a `refresh_token`, printing neither. A missing or malformed secret
+   fails fast with `Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret`.
+2. **Run Gemini** sets `GOOGLE_GENAI_USE_GCA=true`, which makes the CLI select the
+   `oauth-personal` auth type in non-interactive mode, and
+   `GEMINI_FORCE_ENCRYPTED_FILE_STORAGE=false`, which keeps it on the plain-file path.
+3. **Remove Gemini login** deletes the file right after the run (`if: always()`), before
+   commit/push, analysis and diagnostics.
 
-No interactive login or OAuth flow is required in CI.
+Verified against gemini-cli 0.67.0 (`packages/core/src/code_assist/oauth2.ts`
+`fetchCachedCredentialsList` / `cacheCredentials`, `packages/core/src/core/contentGenerator.ts`
+`getAuthTypeFromEnv`): with no usable cached login the CLI exits 41 with "Manual
+authorization is required but the current session is non-interactive" instead of
+waiting for a browser.
+
+**Token refresh.** The access token lasts an hour; the CLI refreshes it from the stored
+`refresh_token` with google-auth-library, which keeps the existing refresh token
+(Google does not rotate it). So, unlike `CODEX_AUTH_JSON`, nothing is written back to
+the secret. The secret only needs replacing if the login is revoked or signed out.
+
+**Creating the secret (one-off, owner).** On a machine with a browser, sign in with an
+isolated home so no other gemini/agy state is touched, then load the file straight into
+the secret without displaying it:
+
+```bash
+HOME="$HOME/.codex/gemini-hosted-login" gemini   # choose "Sign in with Google", then /quit
+gh secret set GEMINI_OAUTH_CREDS --repo stranske/Workflows < "$HOME/.codex/gemini-hosted-login/.gemini/oauth_creds.json"
+```
+
+**Quota.** Runs spend the same personal subscription quota as other sessions on that
+Google account; a 429 "quota reached" is a capacity failure, not an auth failure.
+
+**Exposure.** The agent runs with `--approval-mode yolo` in the job that holds the file,
+so the agent process can read the login while it runs, the same exposure codex has to
+`~/.codex/auth.json`.
 
 ---
 
@@ -93,7 +126,7 @@ the cursor/claude text contract (not Codex's JSONL stream).
 | File | Purpose |
 |------|---------|
 | `.github/workflows/reusable-gemini-run.yml` | Reusable runner workflow |
-| `.github/agents/registry.yml` | Agent registration and `GEMINI_API_KEY` requirement |
+| `.github/agents/registry.yml` | Agent registration and `GEMINI_OAUTH_CREDS` requirement |
 | `agents-keepalive-loop.yml` | Keepalive dispatch for `agent:gemini` PRs |
 | `docs/LABELS.md` | `agent:gemini` label behavior |
 | `docs/ci/WORKFLOW_OUTPUTS.md` | Runner output contract |

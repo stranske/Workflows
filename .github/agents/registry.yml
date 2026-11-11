@@ -271,8 +271,10 @@ agents:
   gemini:
     enabled: true
     runner_workflow: .github/workflows/reusable-gemini-run.yml
+    # Subscription login (gemini-cli "Sign in with Google" oauth_creds.json), never an API key:
+    # owner decision 2026-11-11. The Gemini API key is reserved for the verify workflows.
     required_secrets:
-      - GEMINI_API_KEY
+      - GEMINI_OAUTH_CREDS
     branch_prefix: gemini/issue-
     capacity:
       window: daily

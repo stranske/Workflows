@@ -313,7 +313,7 @@ jobs:
           HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
           HAS_CURSOR_AUTH: ${{ secrets.CURSOR_API_KEY != '' }}
           HAS_MUSE_AUTH: ${{ secrets.META_API_KEY != '' }}
-          HAS_GEMINI_AUTH: ${{ secrets.GEMINI_API_KEY != '' }}
+          HAS_GEMINI_AUTH: ${{ secrets.GEMINI_OAUTH_CREDS != '' }}
           ROUTE_WEIGHTS_URL: ${{ vars.ROUTE_WEIGHTS_URL }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -466,7 +466,7 @@ jobs:
           HAS_CLAUDE_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
           HAS_CURSOR_AUTH: ${{ secrets.CURSOR_API_KEY != '' }}
           HAS_MUSE_AUTH: ${{ secrets.META_API_KEY != '' }}
-          HAS_GEMINI_AUTH: ${{ secrets.GEMINI_API_KEY != '' }}
+          HAS_GEMINI_AUTH: ${{ secrets.GEMINI_OAUTH_CREDS != '' }}
           AGENT_TYPE: ${{ needs.evaluate.outputs.agent_type || 'codex' }}
           HAS_APP_ID: >-
             ${{ secrets.KEEPALIVE_APP_ID != '' ||
@@ -480,7 +480,7 @@ jobs:
           echo "CLAUDE_CODE_OAUTH_TOKEN present: $HAS_CLAUDE_OAUTH"
           echo "CURSOR_API_KEY present: $HAS_CURSOR_AUTH"
           echo "META_API_KEY present: $HAS_MUSE_AUTH"
-          echo "GEMINI_API_KEY present: $HAS_GEMINI_AUTH"
+          echo "GEMINI_OAUTH_CREDS present: $HAS_GEMINI_AUTH"
           echo "KEEPALIVE_APP or WORKFLOWS_APP present: $HAS_APP_ID"
           echo "WORKFLOWS_APP_PRIVATE_KEY present: $HAS_APP_KEY"
           case "$AGENT_TYPE" in
@@ -514,7 +514,7 @@ jobs:
                 missing_msg="Missing Muse auth: set the META_API_KEY secret"
                 ;;
               gemini)
-                missing_msg="Missing Gemini auth: set the GEMINI_API_KEY secret"
+                missing_msg="Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret"
                 ;;
               *)
                 missing_msg="Missing ${AGENT_TYPE} auth: set the routed agent credential"
@@ -950,7 +950,7 @@ jobs:
        needs.evaluate.outputs.action == 'conflict')
     uses: stranske/Workflows/.github/workflows/reusable-gemini-run.yml@main
     secrets:
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_OAUTH_CREDS: ${{ secrets.GEMINI_OAUTH_CREDS }}
       WORKFLOWS_APP_ID: >-
         ${{ secrets.KEEPALIVE_APP_ID || secrets.WORKFLOWS_APP_ID }}
       WORKFLOWS_APP_PRIVATE_KEY: >-

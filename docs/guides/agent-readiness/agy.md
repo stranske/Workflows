@@ -19,9 +19,11 @@ router: `agy models` currently lists Gemini 4 Argon, Gemini 3.8 Flash, Claude Op
 5.5, and GPT-OSS 120B, each in low/medium/high tiers (R, 2026-10-17, a non-billing server call that
 also proves the local sign-in is valid).
 
-In Workflows the existing `gemini` agent uses the older `@google/gemini-cli` with a `GEMINI_API_KEY`
-secret (W). That runner is the closest precedent for how `agy` would run in CI, and it is the
-API-key path in section 2, row 1.
+In Workflows the existing `gemini` agent uses the older `@google/gemini-cli`. Until 2026-11-11 it
+ran on a `GEMINI_API_KEY` secret (W); since then it runs on the owner's subscription login
+restored from `GEMINI_OAUTH_CREDS` (see `docs/agents/GEMINI_NOTES.md`), because the Gemini API key
+is reserved for the verify workflows. That runner is the closest precedent for how `agy` would run
+in CI.
 
 ## 2. Stage 0 questions
 

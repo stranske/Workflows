@@ -1947,11 +1947,62 @@ def test_keepalive_preflight_auth_failures_reach_root_and_consumer_summaries():
 
         if path == WORKFLOWS_DIR / "agents-keepalive-loop.yml":
             assert preflight_env.get("HAS_CURSOR_AUTH") == ("${{ secrets.CURSOR_API_KEY != '' }}")
-            assert preflight_env.get("HAS_GEMINI_AUTH") == ("${{ secrets.GEMINI_API_KEY != '' }}")
+            assert preflight_env.get("HAS_GEMINI_AUTH") == ("${{ secrets.GEMINI_OAUTH_CREDS != '' }}")
 
     root_text = workflow_paths[0].read_text(encoding="utf-8")
     assert 'missing_msg="Missing Cursor auth: set the CURSOR_API_KEY secret"' in root_text
-    assert 'missing_msg="Missing Gemini auth: set the GEMINI_API_KEY secret"' in root_text
+    assert 'missing_msg="Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret"' in root_text
+
+
+def test_hosted_gemini_runs_on_subscription_login_never_api_key():
+    """Owner decision 2026-11-11: the Gemini API key belongs to the verify workflows only.
+
+    Hosted keepalive gemini restores the GEMINI_OAUTH_CREDS subscription login (gemini-cli
+    oauth_creds.json) and selects it with GOOGLE_GENAI_USE_GCA; no step may hand it an API key.
+    """
+    runner_path = WORKFLOWS_DIR / "reusable-gemini-run.yml"
+    runner = yaml.safe_load(runner_path.read_text(encoding="utf-8"))
+    call = runner.get("on", runner.get(True))["workflow_call"]
+    assert "GEMINI_OAUTH_CREDS" in call["secrets"]
+    steps = runner["jobs"]["gemini"]["steps"]
+    names = [step.get("name") for step in steps]
+    for step in steps:
+        rendered = yaml.safe_dump(step)
+        assert "secrets.GEMINI_API_KEY" not in rendered, step.get("name")
+        assert "GEMINI_API_KEY" not in (step.get("env") or {}), step.get("name")
+
+    preflight = steps[names.index("Preflight auth")]
+    assert preflight["env"]["GEMINI_OAUTH_CREDS"] == "${{ secrets.GEMINI_OAUTH_CREDS || '' }}"
+    assert '$HOME/.gemini' in preflight["run"]
+    assert "Missing Gemini auth: set the GEMINI_OAUTH_CREDS secret" in preflight["run"]
+
+    run = steps[names.index("Run Gemini")]
+    assert run["env"]["GOOGLE_GENAI_USE_GCA"] == "true"
+    assert run["env"]["GEMINI_FORCE_ENCRYPTED_FILE_STORAGE"] == "false"
+
+    remove = steps[names.index("Remove Gemini login")]
+    assert remove["if"] == "always()"
+    assert "oauth_creds.json" in remove["run"]
+    assert names.index("Run Gemini") < names.index("Remove Gemini login")
+    assert names.index("Remove Gemini login") < names.index("Commit and push changes")
+
+    callers = [
+        WORKFLOWS_DIR / "agents-keepalive-loop.yml",
+        WORKFLOWS_DIR / "agents-auto-pilot.yml",
+        Path("templates/consumer-repo/.github/workflows/agents-81-gate-followups.yml"),
+        Path("templates/consumer-repo/.github/workflows/agents-auto-pilot.yml"),
+    ]
+    for path in callers:
+        text = path.read_text(encoding="utf-8")
+        assert "secrets.GEMINI_API_KEY" not in text, path
+        assert "secrets.GEMINI_OAUTH_CREDS" in text, path
+
+    for registry_path in (
+        Path(".github/agents/registry.yml"),
+        Path("templates/consumer-repo/.github/agents/registry.yml"),
+    ):
+        registry = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+        assert registry["agents"]["gemini"]["required_secrets"] == ["GEMINI_OAUTH_CREDS"]
 
 
 def test_reusable_agent_runners_export_actual_execution_start():
