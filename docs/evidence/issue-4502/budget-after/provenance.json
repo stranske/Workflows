@@ -1,0 +1,33 @@
+{
+  "checked_out_head": "c416ee365d13c7d87490ef4f6cd2442d1e58f175",
+  "main_at_preflight": "49a88b3776e7cc60d13c670d52c81b8303dfec0a",
+  "working_tree_sources": {
+    "scripts/aggregate_agent_metrics.py": "e03bd53293d5627de350405f9dcfdda966b9071c7954c59241ced4cbf12bd1df",
+    "scripts/check_consumer_sync_drift.py": "4a339397f54b680719432f7d2a4fd136d7bdd40b2ad3dd267170c61c7eeb26c5",
+    "scripts/validate_run_contract.py": "5b769c2ea3d9edb526b0ffd706e9611cf7b086140c65bae639f5b58088e36efa",
+    "tests/scripts/test_aggregate_agent_metrics.py": "7f0ed2ab64b0bb4da9d6d15415c3a5d697b813aae29e9465d3db58f9817390a9",
+    "tests/scripts/test_check_consumer_sync_drift.py": "c2ebca0325a0c8cee7ee2dd4977f4706707a1493393664fb1d685826513f0c51",
+    "tests/scripts/test_validate_run_contract.py": "ea58c883404a95632f471e305eec9c88f9b1fcecbb309fa3e9db161655142d63",
+    "docs/evidence/issue-4001/extract_target_coverage.py": "f2d2b9c8de02855fa6bc5413b842c9fee2585abcad4f458984a2014976869a95",
+    "tests/scripts/test_issue_4001_target_coverage.py": "2f2b60e928b903ec2d25b9ba944be45904d95d2393b61b2e9af76c4e1ebb321f"
+  },
+  "target_sources_and_tests_match_head": true,
+  "budget": 46,
+  "extractor_cases_passed": 56,
+  "target_cases_passed": 268,
+  "combined_target_missing_units": 0,
+  "black_exit_code": 0,
+  "black_files_unchanged": 1009,
+  "commit_blocker": ".git/index.lock: Read-only file system",
+  "publication_blocker": "GitHub connector requires approval; approval policy is never",
+  "gate_exit_code": 1,
+  "gate_result": {
+    "failed": 83,
+    "passed": 15804,
+    "skipped": 25,
+    "xfailed": 3,
+    "seconds": 399.38
+  },
+  "new_failure_nodes": [],
+  "resolved_failure_nodes": []
+}

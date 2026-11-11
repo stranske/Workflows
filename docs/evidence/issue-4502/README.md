@@ -1,5 +1,13 @@
 # Three-module coverage evidence
 
+The bounded acceptance continuation adds `--max-missing` to the extractor.
+It returns exit 1 when validated missing statements plus branches exceed the
+inclusive limit, and exit 2 for invalid reports or limits. The planned command
+and baseline are recorded before test edits in
+[round3-preflight.md](round3-preflight.md). Results, complete reports and
+deliberate-break transcripts are recorded in
+[round3-results.md](round3-results.md) and [budget-after/](budget-after/).
+
 The continuation adds direct gzip input and an optional `--xml` count cross-check
 to the recovered extractor, with focused tests of the CLI and all four retained
 report pairs. See [round2-preflight.md](round2-preflight.md) for the commands

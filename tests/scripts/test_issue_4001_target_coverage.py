@@ -77,6 +77,58 @@ def test_original_json_only_cli_remains_supported(reports):
     assert set(json.loads(result.stdout)) == set(extractor.TARGETS)
 
 
+@pytest.mark.parametrize("limit,expected_status", [(0, 1), (8, 1), (9, 0), (10, 0)])
+def test_cli_enforces_inclusive_missing_unit_budget(reports, limit, expected_status):
+    json_path, xml_path = reports
+    result = cli(json_path, "--xml", xml_path, "--max-missing", limit)
+    assert result.returncode == expected_status, result.stderr
+    assert json.loads(result.stdout) == {
+        target: {"missing_lines": 1, "missing_branches": 2, "percent_covered": 25.0}
+        for target in extractor.TARGETS
+    }
+    expected_error = "combined_missing_units=9\n"
+    if expected_status:
+        expected_error += f"coverage budget exceeded: 9 > {limit}\n"
+    assert result.stderr == expected_error
+
+
+@pytest.mark.parametrize("limit", ["-1", "1.5", "unbounded"])
+def test_cli_rejects_invalid_missing_unit_budget(reports, limit):
+    result = cli(reports[0], "--max-missing", limit)
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "--max-missing" in result.stderr
+    assert "combined_missing_units" not in result.stderr
+
+
+def test_budget_does_not_accept_inconsistent_report_pair(reports):
+    json_path, xml_path = reports
+    xml_path.write_text(xml_path.read_text().replace("(0/2)", "(1/2)"))
+    result = cli(json_path, "--xml", xml_path, "--max-missing", 46)
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "XML missing counts (1, 1) differ from JSON (1, 2)" in result.stderr
+    assert "combined_missing_units" not in result.stderr
+
+
+@pytest.mark.parametrize("limit", [0, 46])
+def test_retained_gate_replay_meets_missing_unit_budget(limit):
+    phase = EVIDENCE / "replay-after"
+    result = cli(
+        phase / "coverage.json.gz",
+        "--xml",
+        phase / "coverage.xml.gz",
+        "--max-missing",
+        limit,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        target: {"missing_lines": 0, "missing_branches": 0, "percent_covered": 100.0}
+        for target in extractor.TARGETS
+    }
+    assert result.stderr == "combined_missing_units=0\n"
+
+
 @pytest.mark.parametrize("prefix", ["", "/checkout/", "C:\\checkout\\"])
 def test_json_target_resolution_accepts_platform_paths(reports, prefix):
     path, _ = reports

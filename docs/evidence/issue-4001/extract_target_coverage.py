@@ -107,7 +107,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("coverage_json", type=Path, help="coverage.json[.gz]")
     parser.add_argument("--xml", type=Path, help="cross-check coverage.xml[.gz] missing counts")
+    parser.add_argument(
+        "--max-missing", type=int, help="maximum accepted combined missing statements and branches"
+    )
     args = parser.parse_args()
+    if args.max_missing is not None and args.max_missing < 0:
+        parser.error("--max-missing must be a nonnegative integer")
     try:
         stats = load_file_stats(args.coverage_json)
         if args.xml is not None:
@@ -118,6 +123,9 @@ def main() -> int:
     print(json.dumps(stats, indent=2, sort_keys=True))
     total_missing = sum(stats[t]["missing_lines"] + stats[t]["missing_branches"] for t in TARGETS)
     print(f"combined_missing_units={total_missing}", file=sys.stderr)
+    if args.max_missing is not None and total_missing > args.max_missing:
+        print(f"coverage budget exceeded: {total_missing} > {args.max_missing}", file=sys.stderr)
+        return 1
     return 0
 
 
