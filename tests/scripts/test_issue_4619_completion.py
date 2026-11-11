@@ -114,7 +114,10 @@ def test_retained_issue_view_leaves_4619_completion_unreconciled() -> None:
     gate = _load(GATE)
     report = _load(BUDGET)
     decision = reconcile_completion(issue, gate, report, checked_on="2026-11-10")
-    assert decision == _load(DECISION)
+    assert decision["failures"] == [
+        *_load(DECISION)["failures"],
+        "missing published Health 85 evidence (--published-budget)",
+    ]
     assert decision["issue"] == 4619
     assert decision["state"] == "OPEN"
     assert decision["gate_run_id"] == DEFAULT_POST_CHANGE_RUN_ID
@@ -129,15 +132,17 @@ def test_retained_issue_view_leaves_4619_completion_unreconciled() -> None:
     assert "- [ ] Health 85 reports" in issue["body"]
 
 
-def test_qualifying_series_can_be_reconciled_when_issue_4619_matches() -> None:
+def test_qualifying_series_without_published_budget_cannot_complete() -> None:
     report = _qualifying_report()
     decision = reconcile_completion(_issue_for(report), _load(GATE), report)
-    assert decision["completion_reconciled"] is True
-    assert decision["action"] == "mark_complete"
-    assert decision["both_gates_supported"] is True
-    assert decision["sustained_performance_criterion"] == "complete"
-    assert decision["issue_mutation"] == "none"
-    assert decision["failures"] == []
+
+    assert decision["gate_run_supported"] is True
+    assert decision["sustained_series_supported"] is True
+    assert decision["observations_match_issue"] is True
+    assert decision["action"] == "leave_incomplete"
+    assert decision["completion_reconciled"] is False
+    assert decision["sustained_performance_criterion"] == "incomplete"
+    assert decision["failures"] == ["missing published Health 85 evidence (--published-budget)"]
 
 
 def test_checked_health85_box_without_evidence_is_recorded() -> None:
@@ -185,7 +190,9 @@ def test_main_writes_the_retained_4619_decision(tmp_path: Path) -> None:
         ]
     )
     assert code == 0
-    assert json.loads(output.read_text(encoding="utf-8")) == _load(DECISION)
+    assert json.loads(output.read_text(encoding="utf-8")) == reconcile_completion(
+        _load(ISSUE_VIEW), _load(GATE), _load(BUDGET), checked_on="2026-11-10"
+    )
 
 
 def test_before_after_gate_runs_demonstrate_measured_reduction() -> None:
@@ -454,7 +461,14 @@ def test_reconcile_completion_and_main_with_published_budget(tmp_path: Path) -> 
         published_budget=published_ok,
     )
     assert decision["published_budget_aligned"] is True
+    assert decision["native_observations_match"] is True
+    assert decision["native_series_qualifying"] is True
     assert decision["completion_reconciled"] is True
+    assert decision["action"] == "mark_complete"
+    assert decision["both_gates_supported"] is True
+    assert decision["sustained_performance_criterion"] == "complete"
+    assert decision["issue_mutation"] == "none"
+    assert decision["failures"] == []
 
     published_without_native = {"stranske/Workflows": {"p50_series": report["p50_series_minutes"]}}
     decision_bad = reconcile_completion(

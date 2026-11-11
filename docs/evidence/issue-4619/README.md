@@ -38,20 +38,17 @@ A one-byte change to the synced `pr_verifier.py` failed its parity test at the d
 
 ## Live Gate Before / After Comparison
 
-**Timing Notes:** All durations are calculated from `gh run view` timestamps. Job duration = `completedAt - startedAt` for the job. Pytest step duration = `completedAt - startedAt` for the "Pytest (unit tests with coverage)" step. The workflow-level duration includes all jobs and setup; the critical path is the python ci jobs.
+Gate elapsed time uses `updatedAt - createdAt` for each run, including queue and setup time. Job and `Pytest (unit tests with coverage)` step durations each use `completedAt - startedAt` at their respective levels.
 
-- **Pre-change Run (41771220527):**
-  - Head: `9784a90013c9cc9ce5a0269d781ed3ab16e6ffed` (PR #4438)
-  - `python ci / python 3.13`: 38m 24s job duration (2,304s), 37m 43s pytest step (2,263s)
-  - Result: failed, including the raw-byte parity assertion
-- **Post-change Run (42820421600):**
-  - Head: `2c5e646cf6c2f7425997c4e4d7c2001dafe385b1`
-  - `python ci / python 3.13`: 5m 49s job duration (349s), 4m 58s pytest step (298s) — **84.8% shorter observed job duration, 86.8% shorter observed pytest step**
-  - `python ci grammar / python 3.14`: 2m 04s job duration (124s), 1m 42s pytest step (102s)
-  - Gate total duration: 7m 44s (464s) — **below 10 min target**
-  - Result: success across all 44 jobs
+| Gate run | Head SHA | Result | Gate interval (UTC) | Gate elapsed | Python 3.13 job | Pytest step |
+| --- | --- | --- | --- | ---: | ---: | ---: |
+| [Before, PR #4438](https://github.com/stranske/Workflows/actions/runs/41771220527) | `9784a90013c9cc9ce5a0269d781ed3ab16e6ffed` | failure | 2026-11-04 04:07:02–04:48:23 | 41m 21s (2,481s) | 38m 24s (2,304s) | 37m 43s (2,263s) |
+| [Earlier PR #4620 head](https://github.com/stranske/Workflows/actions/runs/42820421600) | `2c5e646cf6c2f7425997c4e4d7c2001dafe385b1` | success | 2026-11-10 12:59:18–13:07:02 | 7m 44s (464s) | 5m 49s (349s) | 4m 58s (298s) |
+| [Final PR #4620 head](https://github.com/stranske/Workflows/actions/runs/42919756227) | `253bcabf8789815e06f972a03adc6dc484d860ce` | success | 2026-11-10 23:01:19–23:11:28 | 10m 09s (609s) | 7m 13s (433s) | 6m 32s (392s) |
 
-The pre-change run on PR #4438 stalled and then reported a failed raw-byte parity assertion. The large failure diff points to assertion rendering as the cause of the stall. The log gives the pytest step duration and the progress gap, while time spent inside individual diff calls remains unmeasured. The digest-first guard makes that mismatch fail quickly. The successful run was on a different commit, and the comparison does not establish identical workload or coverage. The 84.8% figure is the observed difference between the failed and successful job durations. These runs cannot isolate how much of the difference came from the guard. Run 42820421600 covers an earlier PR #4620 head. Its retained JSON records that historical run.
+Verified November 10 with `gh run view 42919756227 --repo stranske/Workflows --json headSha,conclusion,jobs,createdAt,updatedAt`. GitHub returned 24 successful jobs and four skipped jobs. The final-head `python ci / python 3.14` job also succeeded in 5m 30s (330s). Compared with the baseline, final-head Gate elapsed time was 75.5% shorter, the Python 3.13 job was 81.2% shorter, and its pytest step was 82.7% shorter.
+
+The baseline stalled and then reported a failed raw-byte parity assertion. The large failure diff points to assertion rendering, and time inside individual diff calls remains unmeasured. The successful runs used different commits and may have run different workloads or coverage. The observed reductions cannot isolate the effect of the digest-first guard. The retained Gate JSON covers the earlier PR #4620 head.
 
 ## Health 85 Daily Observations Series (2026-11-04 to 2026-11-10)
 Health 85 is workflow id `387854305` (`Health 85 CI Time Budget`, `.github/workflows/health-85-ci-time-budget.yml`).
@@ -85,15 +82,24 @@ python -m scripts.health85_budget_observations \
   --checked-on 2026-11-10
 ```
 
-Reconcile completion status:
+Download the published source used for this historical check and pass it to the reconciler:
 ```bash
+gh api -H 'Accept: application/vnd.github.raw+json' \
+  'repos/stranske/Workflows/contents/docs/reports/ci-budget.json?ref=06b72b2ff4226c3dda82c693ff435a29b93d5d6f' \
+  > /tmp/issue-4619-published-budget.json
+
 python -m scripts.issue_4619_completion \
   --issue-view docs/evidence/issue-4619/issue-view-4619.json \
   --gate-evidence docs/evidence/issue-4619/gate-run-42820421600.json \
   --budget docs/evidence/issue-4619/ci-budget-report.json \
-  --output docs/evidence/issue-4619/completion-reconciliation.json \
+  --published-budget /tmp/issue-4619-published-budget.json \
+  --output /tmp/issue-4619-completion-reconciliation.json \
   --checked-on 2026-11-10
 ```
 
+Historical runs can omit `--published-budget` and will report `leave_incomplete` with a missing-source failure.
+
 ### Status of Sustained Gate (A4)
 Current trailing-7-day Gate p50 is 11.13 min (668.0s, down from 11.24 min / 674.5s earlier on 2026-11-10). The retained series lacks valid measurements for 2026-11-05 through 2026-11-09. `completion-reconciliation.json` records `action=leave_incomplete` and leaves the sustained-performance acceptance criterion unchecked until Health 85 reports seven consecutive daily measurements <= 10 min.
+
+The issue was reopened and verified `OPEN` on November 10 with `gh issue view 4619 --repo stranske/Workflows --json state,body,comments`. Before closing it, record the seven qualifying dates, p50 values, and source runs on the issue.
