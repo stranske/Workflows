@@ -65,9 +65,10 @@ def records_for_repo(repo: str, since: str, limit: int) -> list[dict[str, Any]]:
     found = []
     for run in runs:
         run_id = run["databaseId"]
-        artifacts = _gh(["api", f"repos/{repo}/actions/runs/{run_id}/artifacts"]) or {}
+        name = f"comparison-results-{run_id}"
+        artifacts = _gh(["api", f"repos/{repo}/actions/runs/{run_id}/artifacts?name={name}"]) or {}
         for artifact in artifacts.get("artifacts", []):
-            if artifact.get("name") != f"comparison-results-{run_id}" or artifact.get("expired"):
+            if artifact.get("name") != name or artifact.get("expired"):
                 continue
             blob = _gh(["api", f"repos/{repo}/actions/artifacts/{artifact['id']}/zip"], binary=True)
             with zipfile.ZipFile(io.BytesIO(blob)) as archive:
@@ -109,11 +110,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     records: list[dict[str, Any]] = []
+    unreadable = []
     for repo in args.repos:
         try:
             records += records_for_repo(repo, args.since, args.limit)
         except subprocess.CalledProcessError as exc:
+            unreadable.append(repo)
             print(f"{repo}: unreadable ({exc.returncode})", file=sys.stderr)
+    if unreadable:
+        # A partial read must not look like "no samples yet".
+        print(f"readout incomplete: {len(unreadable)} repositories unreadable", file=sys.stderr)
+        return 1
     rows = summarise(records)
     if args.json:
         print(json.dumps({"records": len(records), "backups": rows}, indent=2))

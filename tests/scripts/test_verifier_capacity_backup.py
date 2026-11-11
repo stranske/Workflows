@@ -1055,13 +1055,26 @@ def test_a_failing_experiment_never_changes_the_counted_results(monkeypatch, cha
     def boom(*a, **k):
         raise RuntimeError("experiment exploded")
 
+    two = pv.ComparisonRunner(
+        context="ctx",
+        diff=None,
+        prompt="p",
+        clients=[(object(), "openai", "gpt-6.1-sol"), (object(), "anthropic", "s")],
+        coverage=None,
+    )
     monkeypatch.setattr(pv, "third_reviewer_experiment", boom)
     monkeypatch.setattr(
-        pv.ComparisonRunner, "from_environment", classmethod(lambda cls, *a, **k: runner())
+        pv.ComparisonRunner, "from_environment", classmethod(lambda cls, *a, **k: two)
     )
     monkeypatch.setattr(pv, "_validate_comparison_clients", lambda clients: (True, ""))
     monkeypatch.setattr(pv, "_semantic_mode", lambda: False)
+    monkeypatch.setattr(pv, "_classify_change_type", lambda diff: "application")
+    monkeypatch.setattr(
+        pv.ComparisonRunner, "run_single", lambda self, c, provider, model: judged(provider, model)
+    )
     out = pv.evaluate_pr_multiple("ctx")
+    assert [r.provider_used for r in out] == ["openai", "anthropic"]
+    assert pv.comparison_verdict(out) == "PASS"
     assert out.third_reviewer == {
         "schema": "verifier-third-reviewer/v1",
         "usable": False,
@@ -1082,3 +1095,93 @@ def test_the_comment_note_says_the_third_review_is_not_counted():
         }
     )
     assert "not counted" in note and "gemini-api/gemini-4-carbon" in note and "20%" in note
+
+
+def test_the_cursor_client_is_admitted_on_the_standard_route(monkeypatch):
+    monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    assert pv._legacy_capacity_route(pv.CursorCliBackupClient(model="composer-2.5"))
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    assert not pv._legacy_capacity_route(pv.CursorCliBackupClient(model="composer-2.5"))
+
+
+def test_disagreeing_verdict_objects_are_refused():
+    text = '{"verdict": "FAIL", "concerns": ["x"]} for example {"verdict": "PASS"}'
+    with pytest.raises(RuntimeError, match="ambiguous"):
+        pv.last_verdict_object_text(text)
+    same = 'note {"verdict": "PASS"} final {"verdict": "PASS", "summary": "ok"}'
+    assert pv.last_verdict_object_text(same) == '{"verdict": "PASS", "summary": "ok"}'
+
+
+def test_disabling_the_primary_backup_turns_the_whole_pool_off(monkeypatch, tmp_path, chain_keys):
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    shipped["capacity_backup"]["enabled"] = False
+    path = tmp_path / "slots.json"
+    path.write_text(json.dumps(shipped))
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    assert pv.capacity_backups(seed="s") == []
+    del shipped["capacity_backup"]
+    path.write_text(json.dumps(shipped))
+    assert pv.capacity_backups(seed="s") == []
+
+
+def test_a_backup_finding_survives_a_later_chunk_error(monkeypatch, chain_keys):
+    calls = []
+
+    def run_single(self, client, provider, model):
+        calls.append(provider)
+        result = judged(provider, model, "CONCERNS", "chunk 3 failed")
+        result.used_llm = True
+        result.chunk_reviews = [{"result": {"used_llm": True, "verdict": "FAIL"}}]
+        return result
+
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    third, earlier = pv._try_backups(runner(), pv.capacity_backups(seed="s"))
+    assert len(calls) == 1 and earlier == []
+    assert third.chunk_reviews[0]["result"]["verdict"] == "FAIL"
+
+
+def test_an_unverifiable_backup_answer_moves_to_the_next_backup(monkeypatch, chain_keys):
+    calls = []
+
+    def run_single(self, client, provider, model):
+        calls.append(provider)
+        verdict = "UNVERIFIABLE_INPUT" if len(calls) == 1 else "PASS"
+        return judged(provider, model, verdict)
+
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    third, earlier = pv._try_backups(runner(), pv.capacity_backups(seed="s"))
+    assert len(calls) == 2 and third.verdict == "PASS"
+    assert "verdict UNVERIFIABLE_INPUT" in earlier[0]
+
+
+@pytest.mark.parametrize("rate", ["NaN", float("nan"), float("inf"), -0.1, 1.5, "0.2", True, None])
+def test_invalid_experiment_rates_turn_the_experiment_off(monkeypatch, tmp_path, chain_keys, rate):
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    shipped["capacity_backup_experiment"]["rate"] = rate
+    path = tmp_path / "slots.json"
+    path.write_text(json.dumps(shipped, allow_nan=True))
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    calls = []
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: calls.append(provider) or judged(provider, model),
+    )
+    assert pv.third_reviewer_experiment(runner(), _pair(), seed="any") is None
+    assert calls == []
+
+
+def test_a_sample_runs_only_the_drawn_backup_and_records_its_failure(monkeypatch, chain_keys):
+    calls = []
+
+    def run_single(self, client, provider, model):
+        calls.append(provider)
+        return judged(provider, model, "CONCERNS", "capacity backup HTTP 500")
+
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    seed = _sampled_seed(0.2, True)
+    drawn = pv.capacity_backups(seed=seed + ":order")[0][1]
+    record = pv.third_reviewer_experiment(runner(), _pair(), seed=seed)
+    assert calls == [drawn]
+    assert record["provider"] == drawn and record["usable"] is False
+    assert record["changes_conclusion"] is False

@@ -16,6 +16,7 @@ import hmac
 import io
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -7274,7 +7275,7 @@ def _legacy_capacity_route(client: object) -> bool:
     """
     if _legacy_github_chat(client):
         return True
-    if isinstance(client, CapacityBackupClient):
+    if isinstance(client, (CapacityBackupClient, CursorCliBackupClient)):
         # Same standing as a registered standard route without native count facts; expanded never.
         return os.environ.get("VERIFIER_EVIDENCE_PROFILE") != "expanded"
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
@@ -8855,23 +8856,32 @@ class CursorCliBackupClient:
 
 
 def last_verdict_object_text(text: str) -> str:
-    """The last JSON object in ``text`` that carries a ``verdict``, byte for byte; else ``text``.
+    """The verdict JSON object in ``text``, byte for byte; else ``text`` unchanged.
 
     The agent CLI prepends a progress note ("I'll evaluate the diff...") to the model's answer, which
-    the production parser would otherwise have to skip.
+    the production parser would otherwise have to skip. An answer carrying verdict objects that
+    disagree (a real verdict plus a quoted example, say) is ambiguous and is refused rather than
+    resolved by position.
     """
     decoder = json.JSONDecoder()
-    found = None
-    for start, char in enumerate(text):
-        if char != "{":
-            continue
+    found: list[tuple[str, str]] = []
+    start = 0
+    while (start := text.find("{", start)) != -1:
         try:
             value, end = decoder.raw_decode(text, start)
         except ValueError:
+            start += 1
             continue
         if isinstance(value, dict) and "verdict" in value:
-            found = text[start:end]
-    return found if found is not None else text
+            found.append((str(value["verdict"]), text[start:end]))
+            start = end
+        else:
+            start += 1
+    if not found:
+        return text
+    if len({verdict for verdict, _ in found}) > 1:
+        raise RuntimeError("capacity backup gave an ambiguous answer (verdict objects disagree)")
+    return found[-1][1]
 
 
 BackupClient = CapacityBackupClient | CursorCliBackupClient
@@ -8945,8 +8955,11 @@ def capacity_backups(seed: str | None = None) -> list[tuple[BackupClient, str, s
     payload = _backup_config()
     if payload is None:
         return []
+    primary = payload.get("capacity_backup")
+    if not isinstance(primary, dict) or primary.get("enabled") is not True:
+        return []  # omitting or disabling `capacity_backup` turns the whole pool off
     chain = payload.get("capacity_backup_chain")
-    blocks = [payload.get("capacity_backup"), *(chain if isinstance(chain, list) else [])]
+    blocks = [primary, *(chain if isinstance(chain, list) else [])]
     entries = [entry for entry in map(_backup_entry, blocks) if entry is not None]
     random.Random(seed if seed is not None else _run_seed("capacity-backup")).shuffle(entries)
     return entries
@@ -8955,16 +8968,34 @@ def capacity_backups(seed: str | None = None) -> list[tuple[BackupClient, str, s
 def _try_backups(
     runner: ComparisonRunner, backups: list[tuple[BackupClient, str, str]]
 ) -> tuple[EvaluationResult, list[str]]:
-    """Run backups in order until one gives a usable verdict; the last failure stands otherwise."""
+    """Run backups in order until one gives a decisive answer; the last answer stands otherwise.
+
+    Decisive: a clean PASS/CONCERNS/FAIL, or any recorded finding even if a later chunk then errored
+    (a backup's FAIL must never be discarded for the next backup's PASS). An UNVERIFIABLE_INPUT or
+    an error with no finding moves on to the next backup.
+    """
     earlier: list[str] = []
     for position, (client, provider, model) in enumerate(backups):
         result = runner.run_single(client, provider, model)
-        if (result.used_llm and not result.error) or position == len(backups) - 1:
+        if _decisive_backup_answer(result) or position == len(backups) - 1:
             return result, earlier
-        earlier.append(
-            f"{provider}/{model}: {_compact_text(result.error or 'no usable verdict', 120)}"
-        )
+        reason = result.error or f"verdict {result.verdict}"
+        earlier.append(f"{provider}/{model}: {_compact_text(reason, 120)}")
     raise ValueError("no backups to try")
+
+
+def _decisive_backup_answer(result: EvaluationResult) -> bool:
+    if not result.used_llm:
+        return False
+    reviews = [result.model_dump(mode="json")] + [
+        record.get("result") or {} for record in result.chunk_reviews
+    ]
+    if any(
+        review.get("used_llm") and review.get("verdict") in ("FAIL", "CONCERNS")
+        for review in reviews
+    ):
+        return True
+    return not result.error and result.verdict != "UNVERIFIABLE_INPUT"
 
 
 def _with_capacity_backup(
@@ -9015,9 +9046,11 @@ def third_reviewer_experiment(
     block = None if payload is None else payload.get("capacity_backup_experiment")
     if not isinstance(block, dict) or block.get("enabled") is not True:
         return None
-    try:
-        rate = float(block.get("rate", 0))
-    except (TypeError, ValueError):
+    rate = block.get("rate")
+    if isinstance(rate, bool) or not isinstance(rate, (int, float)):
+        return None
+    rate = float(rate)
+    if not math.isfinite(rate) or not 0.0 <= rate <= 1.0:
         return None
     if len(results) != 2 or not all(
         r.used_llm and not r.error and not r.capacity_backup_for for r in results
@@ -9029,9 +9062,12 @@ def third_reviewer_experiment(
     backups = capacity_backups(seed=(seed or _run_seed("third-reviewer")) + ":order")
     if not backups:
         return None
-    third, earlier = _try_backups(runner, backups)
+    # Exactly one backup per sample, with no fall-through, so each record measures the backup
+    # that was drawn (its failures included) rather than whichever answered last.
+    client, provider, model = backups[0]
+    third = runner.run_single(client, provider, model)
     pair = comparison_verdict(results)
-    counted = comparison_verdict([*results, third]) if third.used_llm and not third.error else pair
+    counted = comparison_verdict([*results, third]) if _decisive_backup_answer(third) else pair
     classes = [_verdict_class(r.verdict) for r in [*results, third]]
     majority = (
         max(set(classes), key=classes.count)
@@ -9042,12 +9078,12 @@ def third_reviewer_experiment(
         "schema": "verifier-third-reviewer/v1",
         "rate": rate,
         "draw": round(draw, 6),
-        "provider": third.provider_used,
-        "model": third.model,
-        "usable": bool(third.used_llm and not third.error),
+        "provider": provider,
+        "model": model,
+        "usable": _decisive_backup_answer(third),
         "verdict": third.verdict,
         "error": _compact_text(third.error or "", 200) or None,
-        "earlier_backups_failed": earlier,
+        "pool_size": len(backups),
         "pair_verdict": pair,
         "verdict_if_counted": counted,
         "changes_conclusion": counted != pair,
