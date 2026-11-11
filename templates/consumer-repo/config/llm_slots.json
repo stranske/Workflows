@@ -40,5 +40,11 @@
       "decided_at": "2026-11-11",
       "why": "Owner decision 2026-11-11: Cursor was never excluded as unreliable (18 of 18 usable answers after the 2026-10-30 parser fix; it passed 4 of 7 known defects alone against Muse's 3), so it is the last backup. Cursor CLI in read-only ask mode on CURSOR_API_KEY, billed to the Cursor account; Composer per owner policy 2026-08-08 (never auto or a frontier model)."
     }
-  ]
+  ],
+  "capacity_backup_experiment": {
+    "enabled": true,
+    "rate": 0.2,
+    "decided_at": "2026-11-11",
+    "why": "Owner decision 2026-11-11: on a sampled share of standard compare runs where both production judges answered, one backup drawn at random from the pool judges as a third reviewer. It is recorded in comparison.json and noted in the PR comment, never counted. Purpose: test the backups on live work and see how a third reviewer would move the conclusion. Rate 0.2 of about 130 verifier runs a week (fleet, 2026-11-04..11) is about 26 third reviews a week, about 9 per backup. Readout: tools/verifier_third_reviewer_readout.py. Set enabled to false to stop it."
+  }
 }

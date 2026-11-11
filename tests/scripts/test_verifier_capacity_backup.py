@@ -842,14 +842,14 @@ def chain_keys(monkeypatch):
     monkeypatch.setattr(pv.CursorCliBackupClient, "available", lambda self: True)
 
 
-def test_the_shipped_chain_is_muse_then_gemini_carbon_then_cursor(chain_keys):
-    order = [(provider, model) for _, provider, model in pv.capacity_backups()]
-    assert order == [
+def test_the_shipped_pool_is_muse_gemini_carbon_and_cursor(chain_keys):
+    pool = {(provider, model) for _, provider, model in pv.capacity_backups(seed="s")}
+    assert pool == {
         ("muse-api", "muse-spark-1.3"),
         ("gemini-api", "gemini-4-carbon"),
         ("cursor-cli", "composer-2.5"),
-    ]
-    gemini = pv.capacity_backups()[1][0]
+    }
+    gemini = next(c for c, p, _ in pv.capacity_backups(seed="s") if p == "gemini-api")
     # Its own secret name, so hosted Gemini implementation (GEMINI_API_KEY) never reads it.
     assert gemini.key_env == "VERIFIER_GEMINI_API_KEY"
     shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
@@ -871,9 +871,11 @@ def test_a_failed_backup_falls_through_to_the_next_one(monkeypatch, chain_keys):
         judged("openai", "gpt-6.1-sol", "PASS"),
         judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
     ]
+    muse_first = sorted(pv.capacity_backups(seed="fixed"), key=lambda e: e[1] != "muse-api")
+    monkeypatch.setattr(pv, "capacity_backups", lambda seed=None: list(muse_first))
     out = pv._with_capacity_backup(runner(), results, "application")
-    assert calls == ["muse-api", "gemini-api"]
-    assert (out[1].provider_used, out[1].model) == ("gemini-api", "gemini-4-carbon")
+    assert calls[0] == "muse-api" and len(calls) == 2
+    assert out[1].provider_used == calls[1]
     assert out[1].capacity_backup_for.startswith("anthropic/claude-sonnet-5-5: ")
     assert "earlier backups failed: muse-api/muse-spark-1.3: capacity backup HTTP 429" in (
         out[1].capacity_backup_for
@@ -894,7 +896,9 @@ def test_when_every_backup_fails_the_last_failure_stands_and_nothing_passes(
         judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
     ]
     out = pv._with_capacity_backup(runner(), results, "application")
-    assert out[1].provider_used == "cursor-cli"
+    assert out[1].provider_used in {"muse-api", "gemini-api", "cursor-cli"}
+    assert out[1].error == "unavailable"
+    assert "earlier backups failed" in out[1].capacity_backup_for
     assert pv.comparison_verdict(out) != "PASS"
 
 
@@ -902,7 +906,7 @@ def test_unkeyed_or_uninstalled_backups_are_skipped(monkeypatch, chain_keys):
     monkeypatch.delenv("VERIFIER_GEMINI_API_KEY")
     monkeypatch.setenv("GEMINI_API_KEY", "the-implementation-key-must-not-be-used")
     monkeypatch.setattr(pv.CursorCliBackupClient, "available", lambda self: False)
-    assert [p for _, p, _ in pv.capacity_backups()] == ["muse-api"]
+    assert [p for _, p, _ in pv.capacity_backups(seed="s")] == ["muse-api"]
 
 
 def test_the_strict_paths_use_no_backup_chain(monkeypatch, chain_keys):
@@ -948,3 +952,133 @@ def test_cursor_backup_errors_never_carry_the_key(monkeypatch, chain_keys):
     with pytest.raises(RuntimeError) as caught:
         pv.CursorCliBackupClient(model="composer-2.5").invoke("p")
     assert "test-key-not-real" not in str(caught.value)
+
+
+def test_the_backup_order_is_random_per_head_and_reproducible(chain_keys):
+    orders = {
+        tuple(p for _, p, _ in pv.capacity_backups(seed=f"repo@{head}:capacity-backup"))
+        for head in range(60)
+    }
+    assert len(orders) > 1, "the order must vary between runs"
+    firsts = {order[0] for order in orders}
+    assert firsts == {"muse-api", "gemini-api", "cursor-cli"}, "each backup must be drawn first"
+    again = [p for _, p, _ in pv.capacity_backups(seed="repo@abc:capacity-backup")]
+    assert again == [p for _, p, _ in pv.capacity_backups(seed="repo@abc:capacity-backup")]
+
+
+def test_the_seed_comes_from_the_pr_head(monkeypatch):
+    monkeypatch.setenv("PR_HEAD_SHA", "abc123")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Example")
+    assert pv._run_seed("x") == "stranske/Example@abc123:x"
+
+
+# ---------------------------------------------------------------- third-reviewer experiment
+
+
+def _pair(verdict_a="PASS", verdict_b="PASS"):
+    return [judged("openai", "gpt-6.1-sol", verdict_a), judged("anthropic", "s", verdict_b)]
+
+
+def _sampled_seed(rate: float, inside: bool) -> str:
+    for n in range(10_000):
+        seed = f"seed-{n}"
+        if (pv._seed_fraction(seed) < rate) == inside:
+            return seed
+    raise AssertionError("no seed found")
+
+
+def test_the_shipped_experiment_samples_a_fifth_of_runs():
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    block = shipped["capacity_backup_experiment"]
+    assert block["enabled"] is True and block["rate"] == 0.2
+    hits = sum(pv._seed_fraction(f"r@{n}:third-reviewer") < 0.2 for n in range(5000))
+    assert 900 < hits < 1100
+
+
+def test_a_sampled_run_records_a_third_review_that_is_never_counted(monkeypatch, chain_keys):
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: judged(provider, model, "CONCERNS"),
+    )
+    pair = _pair()
+    record = pv.third_reviewer_experiment(runner(), pair, seed=_sampled_seed(0.2, True))
+    assert record is not None and record["usable"] is True
+    assert record["pair_verdict"] == "PASS"
+    assert record["verdict"] == "CONCERNS"
+    assert record["verdict_if_counted"] == "CONCERNS"
+    assert record["changes_conclusion"] is True
+    assert record["majority_of_three"] == "PASS"
+    assert pv.comparison_verdict(pair) == "PASS", "the counted verdict stays the pair's"
+
+
+def test_an_unsampled_run_calls_no_backup(monkeypatch, chain_keys):
+    calls = []
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: calls.append(provider) or judged(provider, model),
+    )
+    assert pv.third_reviewer_experiment(runner(), _pair(), seed=_sampled_seed(0.2, False)) is None
+    assert calls == []
+
+
+def test_no_third_review_when_a_production_judge_did_not_answer(monkeypatch, chain_keys):
+    calls = []
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: calls.append(provider) or judged(provider, model),
+    )
+    pair = [judged("openai", "m"), judged("anthropic", "s", "CONCERNS", ANTHROPIC_CAP)]
+    assert pv.third_reviewer_experiment(runner(), pair, seed=_sampled_seed(0.2, True)) is None
+    assert calls == []
+
+
+def test_the_experiment_is_off_when_disabled(monkeypatch, tmp_path, chain_keys):
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    shipped["capacity_backup_experiment"]["enabled"] = False
+    path = tmp_path / "slots.json"
+    path.write_text(json.dumps(shipped))
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    assert pv.third_reviewer_experiment(runner(), _pair(), seed=_sampled_seed(0.2, True)) is None
+
+
+def test_no_third_review_after_a_capacity_stand_in(monkeypatch, chain_keys):
+    stand_in = judged("muse-api", "muse-spark-1.3")
+    stand_in.capacity_backup_for = "anthropic/s: cap"
+    pair = [judged("openai", "m"), stand_in]
+    assert pv.third_reviewer_experiment(runner(), pair, seed=_sampled_seed(0.2, True)) is None
+
+
+def test_a_failing_experiment_never_changes_the_counted_results(monkeypatch, chain_keys):
+    def boom(*a, **k):
+        raise RuntimeError("experiment exploded")
+
+    monkeypatch.setattr(pv, "third_reviewer_experiment", boom)
+    monkeypatch.setattr(
+        pv.ComparisonRunner, "from_environment", classmethod(lambda cls, *a, **k: runner())
+    )
+    monkeypatch.setattr(pv, "_validate_comparison_clients", lambda clients: (True, ""))
+    monkeypatch.setattr(pv, "_semantic_mode", lambda: False)
+    out = pv.evaluate_pr_multiple("ctx")
+    assert out.third_reviewer == {
+        "schema": "verifier-third-reviewer/v1",
+        "usable": False,
+        "error": "experiment failed: RuntimeError",
+    }
+
+
+def test_the_comment_note_says_the_third_review_is_not_counted():
+    note = pv.format_third_reviewer_note(
+        {
+            "usable": True,
+            "provider": "gemini-api",
+            "model": "gemini-4-carbon",
+            "verdict": "PASS",
+            "verdict_if_counted": "PASS",
+            "pair_verdict": "PASS",
+            "rate": 0.2,
+        }
+    )
+    assert "not counted" in note and "gemini-api/gemini-4-carbon" in note and "20%" in note
