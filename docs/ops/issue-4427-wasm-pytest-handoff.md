@@ -610,38 +610,6 @@ receipt again confirm `20261108T054334Z` delivered #6189 at head
 `ad09728581df4a27d421f272f9e307efaa581e63`, with five files, zero mismatches
 and no handoffs. The earlier A1–A4 statuses above refer to #4612.
 
-## Summary-artifact persistence (follow-up repair)
-
-Independent re-verification this round (public API, second route): PR #4629's
-merge commit `e0cff78a8537be83e296761536fbda3038b4ca2d` (2026-11-10T22:17:49Z,
-after #4612 opened 2026-11-10T03:08:47Z) is an ancestor of run 42966520283's
-head `c1f27d82180b10b7213aea099f8feec30c3e15b1`; that run's API record shows
-event `schedule`, name `Merge Sync PRs [unscoped]`, conclusion `success`,
-created 2026-11-11T05:33:19Z. T1 therefore remains done.
-
-The one evidence gap above was that run 42966520283's rendered job summary
-could only be inferred from the formatter, because Maint 71 wrote it solely
-via `core.summary`. Maint 71 now also writes the exact rendered text to
-`artifacts/sync-pr-merge-summary.md` beside `sync-pr-merge-report.json`, and
-`maint-71-merge-sync-prs.yml` uploads it in the existing
-`sync-pr-merge-and-canary-evidence` artifact. The end-to-end dev-tool test in
-`maint71_devtool_final_binding.test.js` asserts the persisted file carries
-`stranske/Trend_Model_Project ... #6189 merged ... #6186 closed unmerged` and
-is the exact text sent to the job summary. A native run from a head containing
-this change can expose the summary text through the artifact. Round 7 read the
-rendered summary of run 42966520283 directly in GitHub Actions, as recorded above.
-
-That persistence is now fail-closed: a `Verify merge summary artifact` step
-runs after a successful merge step and before the artifact upload, requiring
-a non-empty `artifacts/sync-pr-merge-report.json` and
-`artifacts/sync-pr-merge-summary.md` carrying the `### Sync PR Merge Summary`
-header. A successful merge that leaves either file missing now fails the job
-instead of succeeding with only the log half of the report.
-`tests/workflows/test_sync_delivery_liveness.py::test_maint71_fails_closed_when_successful_merge_leaves_no_summary_artifact`
-pins the executor write, the upload path, the gate condition and the step
-order.
-
-
 ## Historical keepalive round 6 evidence readback for #4632 (2026-11-11)
 
 The round 7 browser readback in “Production evidence for #4632” supersedes
@@ -671,8 +639,7 @@ Summary retrieval results:
 - `gh run download 42966520283 --repo stranske/Workflows --name
   sync-pr-merge-and-canary-evidence --dir /tmp/4656-artifact` succeeded.
   Artifact `13831632530` contains `sync-pr-merge-report.json` and
-  `sync-canary-evidence.json`, but no summary Markdown. This run predates
-  the summary persistence repair above.
+  `sync-canary-evidence.json`, but no summary Markdown.
 - `gh api repos/stranske/Workflows/check-runs/130345550700 --jq '.output'`
   returned `summary: null`, `text: null`, `title: null`. Check output is not
   a readback of the Actions job summary.
@@ -697,6 +664,5 @@ change was made. Blocking/drainable pair: direct summary retrieval is blocked
 by the unavailable browser route; log, metadata, artifact and local-receipt
 readback and this documentation update are drainable. Next evidence needed:
 read the `merge_sync_prs` job summary on the linked native run and confirm both
-repository-qualified dispositions, or inspect a later qualifying native run's
-log and persisted summary after that repair is deployed. No repeated dispatch
-attempt is needed from this seat.
+repository-qualified dispositions. No repeated dispatch attempt is needed
+from this seat.

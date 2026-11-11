@@ -6654,11 +6654,6 @@ async function run({ github, context, core }) {
     );
   }
   const markdownSummary = buildMarkdownSummary(report);
-  // Persist the exact rendered summary beside the report so the job-summary
-  // half of a run is verifiable from the uploaded artifact, not only from
-  // the authenticated Actions web page.
-  const summaryPath = path.join(path.dirname(reportPath), 'sync-pr-merge-summary.md');
-  fs.writeFileSync(summaryPath, markdownSummary, 'utf8');
   console.log(markdownSummary);
   await core.summary.addRaw(markdownSummary).write();
   if (!dryRun && !evidenceOnly && report.handoff_records.length > 0) {
