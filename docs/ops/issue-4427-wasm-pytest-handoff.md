@@ -598,6 +598,20 @@ both dispositions qualified by `stranske/Trend_Model_Project`:
 and its delivered result (head `ad09728581df4a27d421f272f9e307efaa581e63`) are
 retained above.
 
+Job-summary half (checked 2026-11-11): `merge_sync_prs` job `130345550700`
+concluded `success`. Direct summary retrieval was attempted via the Actions
+job API (no summary field in its response) and an authenticated web fetch of
+the job page (returned the unauthenticated shell; `/summary` fragment 404), so
+the rendered summary bytes are not directly observable from this headless
+seat. The summary is not independent evidence here: the workflow writes the
+job summary from the same formatter line verified in the log above
+(`#6189 merged`, `#6186 closed unmerged` for `stranske/Trend_Model_Project`),
+and the log line itself was re-grepped from the full run log this round.
+A browser-authenticated reader can confirm the rendered summary on the job
+page; this seat records it as formatter-derived, not directly observed.
+
 Reconciled status: **T1 done** (qualifying native run obtained and inspected);
 **A1 verified** (246-test Node command, see above); **A2 satisfied** by run
-42966520283; **A3 verified**; **A4 observed locally** as scoped above.
+42966520283 (log directly verified; summary formatter-derived as noted);
+**A3 verified**; **A4 observed locally** as scoped above. Sync-core round
+`20261108T054334Z` and its delivered result remain retained above.
