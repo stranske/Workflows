@@ -412,7 +412,9 @@ jobs:
           #    running at the deadline and the child process it is waiting on.
           #  - Step timeout-minutes is the last backstop.
           deadline=180
-          node --test --test-timeout=60000 .github/scripts/__tests__/*.test.js &
+          # setsid: the runner leads its own process group, so cleanup also
+          # reaches descendants re-parented away from it (an orphaned unzip).
+          setsid node --test --test-timeout=60000 .github/scripts/__tests__/*.test.js &
           runner=$!
           SECONDS=0
           while kill -0 "$runner" 2>/dev/null && [ "$SECONDS" -lt "$deadline" ]; do sleep 1; done
@@ -422,12 +424,13 @@ jobs:
           fi
           echo "::error title=github scripts tests exceeded ${deadline}s::the test files still running are named below"
           for child in $(pgrep -P "$runner"); do
-            file=$(tr '\0' '\n' < "/proc/$child/cmdline" | tail -n 1)
+            file=$(tr '\0' '\n' < "/proc/$child/cmdline" 2>/dev/null | tail -n 1)
+            [ -n "$file" ] || continue
             waiting=$(pgrep -a -P "$child" | cut -d' ' -f2- | tr '\n' ';')
             echo "::error file=${file}::${file} still running after ${deadline}s; waiting on: ${waiting:-no child process (async wait)}"
           done
           kill_tree() { local p; for p in $(pgrep -P "$1"); do kill_tree "$p"; done; kill -KILL "$1" 2>/dev/null; }
-          kill_tree "$runner"
+          kill -KILL -- "-$runner" 2>/dev/null || kill_tree "$runner"
           exit 1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         if: ${{ steps.script_tests.outputs.python_tests == 'true' }}

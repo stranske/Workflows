@@ -6108,6 +6108,9 @@ test('a hung unzip child is killed on its time bound and fails closed instead of
  process.env.PATH=`${bin}${path.delimiter}${original.PATH}`;
  try {
   for(const extract of [extractArtifactArchiveText,require('../../../templates/consumer-repo/.github/scripts/agents_verifier_context.js').extractArtifactArchiveText]) {
+   for(const unzipTimeoutMs of [0,-1,0.5,Number.NaN,'1000']) {
+    assert.throws(()=>extract({archiveBuffer:archive,maxEntries:4,maxChars:500,unzipTimeoutMs}),RangeError);
+   }
    process.env.HUNG_UNZIP_MODE='read';
    let started=Date.now();
    const result=extract({archiveBuffer:archive,maxEntries:4,maxChars:500,unzipTimeoutMs:1000});

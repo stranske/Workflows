@@ -879,6 +879,10 @@ function checkCoverageSqlite(value, tempDir, ordinal, execFile) {
 // timed-out read fails closed as extraction_byte_or_read (never a byte bound).
 const ARTIFACT_UNZIP_TIMEOUT_MS = 15000;
 function extractArtifactArchiveText({ archiveBuffer, maxEntries, maxChars, maxBytes = maxChars * 4, captureDirectory, selectedMembers, execFile = execFileSync, unzipTimeoutMs = ARTIFACT_UNZIP_TIMEOUT_MS }) {
+  // Zero would disable the bound; non-integers make execFileSync throw.
+  if (!Number.isInteger(unzipTimeoutMs) || unzipTimeoutMs <= 0) {
+    throw new RangeError('unzipTimeoutMs must be a positive integer');
+  }
   const unzipBound = { timeout: unzipTimeoutMs, killSignal: 'SIGKILL' };
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'verifier-evidence-'));
   const archivePath = path.join(tempDir, 'artifact.zip');
