@@ -38,6 +38,141 @@ def sha(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+def exact_4509_admitted_case(directory, monkeypatch):
+    """Collector output is a test input here, never live origin authority."""
+    fixtures = Path(__file__).resolve().parents[2] / ".github/scripts/__tests__/fixtures"
+    archive = (fixtures / "verifier-4509-capture.zip").read_bytes()
+    with zipfile.ZipFile(io.BytesIO(archive)) as opened:
+        blobs = {name: opened.read(name) for name in opened.namelist()}
+    manifest = json.loads(blobs["verification-event-manifest.json"])
+    selector = {"run_id": 42330898168, "run_attempt": 1, "artifact_id": 13556839741}
+    key = {
+        "schema": "retained-revalidation-key/v1",
+        "event_id": manifest["verification_event"]["event_id"],
+        "assessment": manifest["assessment_identity"],
+        "selector": selector,
+    }
+    origin = {
+        "schema": "workflows-retained-origin/v1",
+        "repository": "stranske/workflows",
+        "current_run_id": "42330898169",
+        "source_run_id": "42330898168",
+        "source_run_attempt": "1",
+        "artifact_id": selector["artifact_id"],
+        "archive_sha256": sha(archive),
+        "archive_bytes": len(archive),
+        "verification_event": manifest["verification_event"],
+        "assessment_identity": manifest["assessment_identity"],
+        "recovery_key": sha(encoded(key)),
+    }
+    for name, raw in blobs.items():
+        (directory / name).write_bytes(raw)
+    (directory / "verification-recovery-source.zip").write_bytes(archive)
+    (directory / "verification-recovery-origin.json").write_bytes(encoded(origin))
+    for name, value in {
+        "GITHUB_REPOSITORY": "stranske/Workflows",
+        "GITHUB_RUN_ID": origin["current_run_id"],
+        "GITHUB_RUN_ATTEMPT": "1",
+        "VERIFICATION_RECOVERY": json.dumps(selector),
+    }.items():
+        monkeypatch.setenv(name, value)
+    for name in ("VERIFIER_MODEL", "VERIFIER_MODEL2", "LANGCHAIN_MODEL", "LANGCHAIN_SLOT_CONFIG"):
+        monkeypatch.delenv(name, raising=False)
+    return origin, blobs
+
+
+def test_exact_4509_admitted_capture_keeps_non_pass_and_immutable_review_history(
+    tmp_path, monkeypatch
+):
+    from scripts.langchain import pr_verifier
+
+    def unexpected_provider(*args, **kwargs):
+        pytest.fail("Capture admission must not construct or invoke a provider")
+
+    for name in ("get_llm_client", "get_llm_clients", "_invoke_llm"):
+        monkeypatch.setattr(pr_verifier, name, unexpected_provider)
+    origin, blobs = exact_4509_admitted_case(tmp_path, monkeypatch)
+    result = revalidate_retained(directory=tmp_path)
+    assert result["schema"] == "retained-unevaluated-capture/v1"
+    assert result["status"] == "NON_PASS"
+    assert result["verdict"] == "UNVERIFIABLE_INPUT"
+    assert result["decision_available"] is False
+    assert result["provider_generation_performed"] is False
+    assert result["verification_event"] == origin["verification_event"]
+    assert len(result["capture_obligations"]["gaps"]) == 6
+    assert len(result["provider_review_coverage"]) == 2
+    for row in result["provider_review_coverage"]:
+        assert row["used_llm"] is False
+        assert row["files_reviewed"] == []
+        assert row["files_not_reviewed"] == [
+            "scripts/ci_history.py",
+            "tests/scripts/test_ci_history.py",
+        ]
+    assert not verify_revalidation_admission(result, directory=tmp_path)
+    retained = tmp_path / "retained-source" / origin["archive_sha256"]
+    for name, raw in blobs.items():
+        assert (retained / name).read_bytes() == raw
+        assert (tmp_path / name).read_bytes() == raw
+    history = (retained / "unevaluated-capture.json").read_bytes()
+    assert json.loads(history) == result
+    # A subsequent evaluation may replace workspace outputs. Revalidation must
+    # classify the retained archive, and must preserve its original zero review.
+    (tmp_path / "comparison.json").write_bytes(b'{"later_evaluation":true}')
+    (tmp_path / "comparison-execution.json").write_bytes(b'{"later_receipt":true}')
+    assert revalidate_retained(directory=tmp_path) == result
+    assert (tmp_path / "comparison.json").read_bytes() == b'{"later_evaluation":true}'
+    assert (retained / "unevaluated-capture.json").read_bytes() == history
+    (retained / "comparison.json").write_bytes(b"changed history")
+    with pytest.raises(ValueError, match="Immutable retained source collision"):
+        revalidate_retained(directory=tmp_path)
+    assert (retained / "unevaluated-capture.json").read_bytes() == history
+
+
+def test_exact_4509_admitted_capture_cli_records_non_pass(tmp_path, monkeypatch):
+    exact_4509_admitted_case(tmp_path, monkeypatch)
+    output = tmp_path / "actions-output"
+    output.write_text("existing_output=preserved\n")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[2]))
+    result = subprocess.run(
+        [sys.executable, "-m", "tools.verifier_event_recovery", "--revalidate-retained"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["status"] == "NON_PASS"
+    assert output.read_text() == "existing_output=preserved\nverdict=UNVERIFIABLE_INPUT\n"
+
+
+def test_exact_4509_admission_cli_acquires_before_revalidation(tmp_path, monkeypatch, capsys):
+    def collect(*, directory):
+        assert directory == tmp_path
+        exact_4509_admitted_case(directory, monkeypatch)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(verifier_event_recovery, "admit_retained_origin", collect)
+    monkeypatch.setattr(sys, "argv", ["verifier_event_recovery", "--admit-retained"])
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    assert verifier_event_recovery.main() == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "NON_PASS"
+
+
+def test_exact_4509_admission_conflicting_modes_fail_before_acquisition(tmp_path, monkeypatch):
+    def unexpected_acquisition(**kwargs):
+        pytest.fail("Conflicting CLI modes must fail before API acquisition")
+
+    monkeypatch.setattr(verifier_event_recovery, "admit_retained_origin", unexpected_acquisition)
+    monkeypatch.setattr(
+        sys, "argv", ["verifier_event_recovery", "--admit-retained", "--revalidate-retained"]
+    )
+    with pytest.raises(SystemExit) as error:
+        verifier_event_recovery.main()
+    assert error.value.code == 2
+
+
 @pytest.mark.parametrize("revalidate", [False, True], ids=["classify", "revalidate"])
 def test_exact_4509_operational_cli_preserves_capture_and_publication_output(
     tmp_path, monkeypatch, revalidate

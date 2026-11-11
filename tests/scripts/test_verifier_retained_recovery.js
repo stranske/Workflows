@@ -105,6 +105,20 @@ test('exact #4509 origin witness authenticates the squash merge while retaining 
  }
 }));
 
+test('exact #4509 admission bridge produces a keyed native origin through the witness', async () => inDirectory(async dir => {
+ const {admitOrigin} = require('../../tools/verifier_retained_origin');
+ const w = exact4509OriginFixture();
+ const proof = await admitOrigin({github:w.github, manifest:w.manifest,
+  selector:w.args.selector, currentRun:w.args.currentRun, directory:dir});
+ const {digest} = require('../../.github/scripts/verification_event');
+ assert.equal(proof.recovery_key, digest({schema:'retained-revalidation-key/v1',
+  event_id:w.manifest.verification_event.event_id,
+  assessment:w.manifest.assessment_identity, selector:w.args.selector}));
+ assert.deepEqual(w.comparisons, [w.manifest.verification_event.evaluated_sha, proof.helper_sha]);
+ assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'verification-recovery-origin.json'))), proof);
+ assert.deepEqual(fs.readFileSync(path.join(dir, 'verification-recovery-source.zip')), w.archive);
+}));
+
 test('exact #4509 witness refuses changed subjects, noncanonical code and missing origin bindings', async () => {
  const changes = [
   d => {d.pull.merged = false;},

@@ -1,5 +1,62 @@
 # Exact #4509 retained-capture investigation
 
+## Provider-free admission implementation — #4635
+
+`python3 -m tools.verifier_event_recovery --admit-retained` now acquires
+`verification-recovery-origin.json` through the existing native Actions API
+collector. Run it in a dedicated recovery directory containing the original
+`verification-event-manifest.json`, with the real current Actions run identity
+and `VERIFICATION_RECOVERY` selecting run `42330898168`, attempt `1`, artifact
+`13556839741`. It requires the installed GitHub API client dependencies and
+authenticated read access. It makes no provider call and publishes no comment.
+
+The command uses the existing opt-in `pull_request_target` witness: the exact
+merged PR subject must match, its evaluated squash merge must be canonical,
+and helper/reusable ancestry and checkout-log checks still apply. Offline
+fixtures cannot supply native authority. `--revalidate-retained` remains the
+entry point when the trusted collector already produced the origin and ZIP.
+
+For the retained no-evaluation result, revalidation now exits zero with a
+separate `retained-unevaluated-capture/v1` record. Its status is `NON_PASS`,
+verdict is `UNVERIFIABLE_INPUT`, and `decision_available` is false. It records
+the original six required capture gaps and the exact historical artifact
+inventory, including artifact/run/member identities and recorded extraction
+failures. It does not classify unavailable members as irretrievably lost
+without historical acquisition evidence. Both provider rows explicitly retain
+zero review coverage of `scripts/ci_history.py` and
+`tests/scripts/test_ci_history.py`.
+
+Every original ZIP member, the origin, and the capture record are preserved
+under `retained-source/<archive-sha256>/`. Repeated admission rejects changed
+history. A subsequent evaluation can write new workspace result files without
+replacing the historical comparison, execution receipt, event or coverage
+record. Revalidation classifies the archive's original bytes even when later
+workspace outputs exist. The new record cannot pass the existing retained
+decision admission check or publish a terminal corpus decision.
+
+Validation in this managed runner:
+
+- Focused exact-capture tests: **22 passed** with the available Python 3.14.10;
+  the absolute `/opt/anaconda3/bin/python3` executable is absent. Its requested
+  asyncio configuration override is unsupported by the installed pytest plugins.
+- Native origin bridge and retained recovery Node tests: **19 passed**, using mocked
+  authenticated transport; this does not establish live admission.
+- Full Python recovery suite: **41 passed, 6 failed**. All six authored lifecycle
+  failures also reproduce with the unchanged recovery module from `HEAD`.
+- Required Node acceptance command: exit 1 in under five seconds. Direct test
+  execution identifies sandbox `spawnSync` failures with `EPERM` for Python,
+  git, zip and unzip; the cross-repository suite exits zero.
+- CI-history targeted coverage: **31 passed**, `scripts/ci_history.py`
+  **73.55%**. Test execution coverage is separate from provider review coverage.
+- Required repository-wide Black check: exit 0, **1,002 files unchanged**;
+  Ruff and diff whitespace checks also pass. Black first checked all files
+  serially to populate its cache because sandbox worker scheduling stalled.
+
+A live `--admit-retained` attempt using this run's real identity failed during
+native acquisition before an origin was written. Native operational admission
+and the exact unrecoverable-artifact/zero-gap acceptance condition remain
+unverified, so the remaining task and acceptance checkboxes stay open.
+
 Checked 2026-11-10 UTC for #4630. **Outcome: 0 accepted recoveries; NON_PASS
 (`UNVERIFIABLE_INPUT`).** This report recovers the exact retained inputs and
 reproduces the demonstrated archive failure. It does **not** certify a complete
