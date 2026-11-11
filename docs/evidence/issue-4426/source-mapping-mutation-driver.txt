@@ -1,0 +1,44 @@
+"""Retain named deliberate-break failures and restored passes for the mapper."""
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[3]
+source = root / "scripts/compare_gate_coverage.py"
+test = "tests/scripts/test_reconcile_issue_4426_coverage.py"
+original = source.read_text()
+cases = [
+    ("shifted_lines", "if mapping.get(line) in after_lines", "if line in after_lines", "test_source_mapping_tracks_shifted_lines_and_negative_function_exits"),
+    ("function_exit_sign", "(1 if endpoint > 0 else -1)", "1", "test_source_mapping_tracks_shifted_lines_and_negative_function_exits"),
+    ("removed_arcs", "if mapped in after_arcs:", "if True:", "test_source_mapping_does_not_credit_changed_removed_or_excluded_units"),
+    ("regression_count", 'len(lines["newly_missing"]) + len(arcs["newly_missing"])', "0", "test_source_mapping_keeps_regressions_separate_from_gains"),
+    ("inventory_validation", '_validate_inventory(row[f"{prefix}_lines"], row[f"{prefix}_branches"], prefix)', "pass", "test_source_mapping_rejects_invalid_units and (duplicate or boolean)"),
+    ("overlap_validation", "if missing_lines & lines or missing_arcs & arcs:", "if False:", "test_source_mapping_rejects_invalid_units and overlap"),
+    ("source_bounds", "if any(position > len(text) for position in positions):", "if False:", "test_source_mapping_rejects_invalid_units and out_of_bounds"),
+    ("false_attribution", '"attributable_round_reduction": None', '"attributable_round_reduction": 0', "test_six_target_comparison_binds_digests_but_does_not_claim_tested_checkout"),
+    ("input_bounds", "if len(data) > MAX_BYTES:", "if False:", "test_source_comparison_bounds_plain_and_expanded_coverage"),
+]
+
+def run(selection):
+    command = [sys.executable, "-m", "pytest", "-q", test, "-m", "not slow", "-k", selection, "--tb=short"]
+    result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=110)
+    return {"command": command, "exit_code": result.returncode, "output": result.stdout + result.stderr}
+
+receipts = []
+try:
+    for name, needle, replacement, selection in cases:
+        assert needle in original, name
+        source.write_text(original.replace(needle, replacement))
+        red = run(selection)
+        source.write_text(original)
+        green = run(selection)
+        receipts.append({"name": name, "needle": needle, "replacement": replacement, "red": red, "restored_green": green})
+        assert red["exit_code"] == 1 and "FAILED " in red["output"], name
+        assert green["exit_code"] == 0 and "passed" in green["output"], name
+finally:
+    source.write_text(original)
+    output = {"schema": "workflows.issue-4663-source-mapping-mutations/v1", "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(), "test_sha256": hashlib.sha256((root / test).read_bytes()).hexdigest(), "cases": receipts}
+    (Path(__file__).parent / "source-mapping-mutations.json").write_text(json.dumps(output, indent=2) + "\n")
+print(f"{len(receipts)} named deliberate breaks failed and restored selections passed")
