@@ -29,8 +29,13 @@ def fake_gh(tmp_path: Path, missing_calls: int, final: str, final_rc: int) -> Pa
 
 def run(tmp_path: Path, appear: int = 5) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"}
-    return subprocess.run(["bash", str(SCRIPT), "4133", str(appear), "5", "0"], capture_output=True,
-                          text=True, env=env, timeout=30)
+    return subprocess.run(
+        ["bash", str(SCRIPT), "4133", str(appear), "5", "0"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
 
 
 def test_a_check_that_reports_late_is_waited_for(tmp_path: Path) -> None:
