@@ -288,7 +288,7 @@ jobs:
       coverage-min: '70'
       # The verifier grammar suites run in python-ci-grammar below; the two
       # calls together discover the full suite (tests/test_ci_gate_budget.py).
-      pytest_args: "-n auto --dist load --ignore=tests/scripts/test_pr_verifier_delivery_destinations.py --ignore=tests/scripts/test_pr_verifier_prompt_coverage.py --ignore=tests/scripts/test_pr_verifier_body_overall_integration.py"
+      pytest_args: "-n auto --ignore=tests/scripts/test_pr_verifier_delivery_destinations.py --ignore=tests/scripts/test_pr_verifier_prompt_coverage.py --ignore=tests/scripts/test_pr_verifier_body_overall_integration.py"
       pytest-dist: 'worksteal'
       cache: ${{ needs.detect.outputs.cache == 'true' }}
       enable-soft-gate: ${{ needs.detect.outputs.coverage == 'true' }}
@@ -332,7 +332,7 @@ jobs:
       typecheck: false
       run-mypy: false
       coverage: false
-      pytest_args: "-n auto --dist load tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_prompt_coverage.py tests/scripts/test_pr_verifier_body_overall_integration.py"
+      pytest_args: "-n auto tests/scripts/test_pr_verifier_delivery_destinations.py tests/scripts/test_pr_verifier_prompt_coverage.py tests/scripts/test_pr_verifier_body_overall_integration.py"
       pytest-dist: 'worksteal'
       # Its own artifact cache would share python-ci's cache key.
       cache: false
