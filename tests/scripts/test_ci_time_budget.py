@@ -18,7 +18,11 @@ class FakeGitHub:
     def pages(self, path, key=None, **params):
         assert path.endswith("/issues")
         assert params == {"state": "open", "labels": "ci-budget"}
-        return [issue for issue in self.issues if issue.get("state", "open") == "open"]
+        return [
+            issue
+            for issue in self.issues
+            if issue.get("state", "open") == "open" and "ci-budget" in issue.get("labels", [])
+        ]
 
     def optional(self, path):
         return {"name": path.rsplit("/", 1)[-1]}
@@ -108,6 +112,71 @@ def test_recurrence_starts_new_filing_clock():
     row = budget.observation(previous, metrics(), NOW + timedelta(days=20))
     assert row["first_over_target_at"] == (NOW + timedelta(days=20)).isoformat()
     assert "drained_at" not in row
+
+
+@pytest.mark.parametrize("interruption", [None, 11, "missing"])
+def test_owner_reopened_budget_issue_is_reused_until_uninterrupted_recovery(
+    monkeypatch, interruption
+):
+    api = FakeGitHub()
+    issue = {
+        "number": 4642,
+        "state": "closed",
+        "created_at": NOW.isoformat(),
+        "labels": ["ci-budget", "priority:high"],
+        "body": "- [x] Reduce Gate duration\n- [ ] Verify seven daily measurements",
+    }
+    api.issues.append(issue)
+    original = json.loads(json.dumps(issue))
+    row = budget.observation({}, metrics(8), NOW)
+    budget.reconcile(api, budget.SOURCE_REPO, row)
+    assert row["issue_numbers"] == []
+    assert api.calls == []
+    assert issue == original
+
+    # Reopening belongs to the authorized owner; reconciliation discovers open labels.
+    issue["state"] = "open"
+    monkeypatch.setenv("GITHUB_REPOSITORY", budget.SOURCE_REPO)
+    monkeypatch.setenv("GITHUB_RUN_ATTEMPT", "1")
+    for offset in range(11):
+        if offset == 3 and interruption == "missing":
+            continue
+        now = NOW + timedelta(days=offset)
+        monkeypatch.setenv("GITHUB_RUN_ID", str(1000 + offset))
+        value = 11 if offset == 0 else 8
+        if offset == 3:
+            value = interruption
+        row = budget.observation(row, metrics(value) if value is not None else None, now)
+        budget.reconcile(api, budget.SOURCE_REPO, row)
+        assert row["issue_numbers"] == ([4642] if offset < 10 else [])
+        assert issue["state"] == ("open" if offset < 10 else "closed")
+        assert issue["labels"] == original["labels"]
+        assert issue["body"] == original["body"]
+        if offset < 10:
+            assert row["drainable_in"] > 0
+            assert all(
+                method == "POST" and path.endswith("/comments") for method, path, _ in api.calls
+            )
+
+    # The same issue gets the seven dated values before the automation closes it.
+    assert api.issues == [issue]
+    closing_comment, closing_patch = api.calls[-2:]
+    assert closing_comment[:2] == (
+        "POST",
+        f"/repos/{budget.SOURCE_REPO}/issues/4642/comments",
+    )
+    for offset in range(4, 11):
+        day = (NOW + timedelta(days=offset)).date().isoformat()
+        assert f"{day}: 8.00 min" in closing_comment[2]["body"]
+        assert row["daily_observations"][day]["source_run_url"] == (
+            f"https://github.com/{budget.SOURCE_REPO}/actions/runs/{1000 + offset}"
+        )
+    assert closing_patch == (
+        "PATCH",
+        f"/repos/{budget.SOURCE_REPO}/issues/4642",
+        {"state": "closed"},
+    )
+    assert row["drainable_in"] == 0
 
 
 @pytest.mark.parametrize("interruption", [None, 11, "missing"])
