@@ -538,6 +538,59 @@ function preparedDeliveryContinuation(record = {}) {
   return continuation;
 }
 
+// Candidate PRs merge only in a campaign commit, and Maint 82 woke the campaign selector only from a *delivery*
+// handoff at campaign_prepared. When every delivery of a plan merged on its own (delivery lane, scheduled pass), the
+// prepared candidates were terminal with nothing left to wake the commit: 3 of the 4 candidate batches from
+// 2026-11-08 to 2026-11-10 needed a manual campaign dispatch, and on 2026-11-11 PAEM#2493, TPP#1739 and
+// trip-planner#2024 sat prepared after all 13 deliveries had merged. This plans ONE campaign continuation per plan
+// once every candidate record of the plan is prepared and no delivery record of the plan is still in flight. Its key
+// binds the candidates' exact heads, so an acknowledged run is not repeated until a head changes.
+function candidateCommitContinuations(handoffs = []) {
+  const planKey = (record) => [record.plan_id, record.plan_scope, record.scope_base_sha, record.source_commit]
+    .join('\u0000');
+  const isCandidate = (record) => record.branch === 'sync/workflows-candidate'
+    || record.continuation?.lane === 'candidate';
+  const groups = new Map();
+  for (const record of handoffs) {
+    if (!isCandidate(record) || !record.plan_id || !record.source_commit) continue;
+    const key = planKey(record);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(record);
+  }
+  const out = [];
+  for (const [key, candidates] of groups) {
+    const prepared = candidates.every((record) => record.continuation?.class === 'terminal'
+      && record.continuation?.reason === 'campaign_prepared'
+      && record.next_command === 'merge-current-delivery');
+    if (!prepared) continue;
+    const deliveryInFlight = handoffs.some((record) => !isCandidate(record)
+      && planKey(record) === key
+      && record.continuation?.lane === 'delivery'
+      && record.continuation?.class !== 'terminal');
+    if (deliveryInFlight) continue;
+    const ordered = [...candidates].sort((a, b) => `${a.repository}#${a.pr}`.localeCompare(`${b.repository}#${b.pr}`));
+    const latest = ordered.map((record) => record.observed_at).filter(Boolean).sort().at(-1) || '';
+    const commitKey = `cand-${crypto.createHash('sha256').update(JSON.stringify([
+      ordered[0].plan_id, ordered[0].source_commit,
+      ...ordered.map((record) => `${record.repository}#${record.pr}@${record.head_sha}`),
+    ])).digest('hex').slice(0, 20)}`;
+    // Any candidate's branch-cleanup opt-out holds for the whole commit (review on #4645).
+    const cleanupOptOut = ordered.some((record) => record.cleanup_branches === false);
+    out.push({
+      ...ordered[0],
+      ...(cleanupOptOut ? { cleanup_branches: false } : {}),
+      continuation: {
+        class: 'transient',
+        lane: 'campaign',
+        reason: 'candidate_commit_ready',
+        resume_after: latest,
+        key: commitKey,
+      },
+    });
+  }
+  return out;
+}
+
 function hasContinuationAcknowledgment(acknowledgments = [], intent = {}) {
   return cleanArray(acknowledgments).some(ack => ack.lane === intent.lane
     && ack.key === intent.continuation_key && cleanInteger(ack.run_id));
@@ -569,7 +622,8 @@ function mergeContinuationAcknowledgments(previous = [], runs = [], intents = []
 }
 
 function queuedMaint71Intents(records = []) {
-  return excludeOwnerBlockedRecords(records).map(normalizeDeliveryHandoff).filter(Boolean)
+  const handoffs = excludeOwnerBlockedRecords(records).map(normalizeDeliveryHandoff).filter(Boolean);
+  return [...handoffs, ...candidateCommitContinuations(handoffs)]
     .map(record => preparedDeliveryContinuation(record))
     .filter(next => next.class === 'transient')
     .map(next => ({ lane: next.lane, continuation_key: next.key }));
@@ -597,9 +651,10 @@ async function observeMaint71Runs({ read, owner, repo, workflowRun, completionRu
 function planMaint71Continuations(records = [], { now = new Date().toISOString(), acknowledgments = [] } = {}) {
   const nowMs = Date.parse(now);
   if (!Number.isFinite(nowMs)) throw new Error(`invalid continuation time: ${now}`);
-  const handoffs = excludeOwnerBlockedRecords(records)
+  const normalized = excludeOwnerBlockedRecords(records)
     .map((record) => normalizeDeliveryHandoff(record))
     .filter(Boolean);
+  const handoffs = [...normalized, ...candidateCommitContinuations(normalized)];
   const deliveryActive = handoffs.some((record) => {
     const continuation = preparedDeliveryContinuation(record);
     return continuation.lane === 'delivery' && continuation.class === 'transient';
@@ -2425,6 +2480,7 @@ module.exports = {
   mergeHandoffReassessments,
   hasContinuationAcknowledgment,
   mergeContinuationAcknowledgments,
+  queuedMaint71Intents,
   observeMaint71Runs,
   CAMPAIGN_SCHEMA,
   CAMPAIGN_MARKER,
