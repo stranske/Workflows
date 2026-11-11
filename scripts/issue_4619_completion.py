@@ -5,8 +5,8 @@ The check consumes ``gh issue view 4619 --json state,body,comments`` together
 with the retained post-change Gate-run evidence (run 42820421600) and the
 evaluated Health 85 report (``docs/evidence/issue-4619/ci-budget-report.json``).
 Completion is reconciled only when the named Python jobs finished within 600
-seconds and the retained Health 85 series has seven consecutive daily
-measurements at or below 600 seconds (10 minutes).
+seconds and published Health 85 daily observations corroborate the retained
+series of seven consecutive measurements at or below 600 seconds (10 minutes).
 """
 
 from __future__ import annotations
@@ -432,7 +432,7 @@ def reconcile_completion(
     pub_ok, pub_failures = (
         verify_published_ci_budget_alignment(published_budget, report)
         if published_budget is not None
-        else (True, [])
+        else (False, ["missing published Health 85 evidence (--published-budget)"])
     )
 
     if published_budget is not None:
