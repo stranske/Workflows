@@ -3,9 +3,11 @@ import json
 import os
 import subprocess
 import sys
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from scripts import check_consumer_sync_drift
@@ -16,6 +18,100 @@ from scripts.sync_manifest_compiler import (
     SkipRepo,
     compile_manifest,
 )
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [
+        check_consumer_sync_drift.requests.ConnectionError,
+        check_consumer_sync_drift.requests.Timeout,
+    ],
+)
+@pytest.mark.parametrize("failed_stage", ["repo", "tree"])
+def test_remote_tree_transport_failure_preserves_unknown(error_type, failed_stage) -> None:
+    session = Mock()
+    session.get.side_effect = [
+        SimpleNamespace(status_code=200, json=lambda: {"default_branch": "release"}),
+        error_type("private transport details"),
+    ]
+    if failed_stage == "repo":
+        session.get.side_effect = [error_type("private transport details")]
+    operation = "repository access preflight" if failed_stage == "repo" else "repository tree fetch"
+
+    assert check_consumer_sync_drift.fetch_remote_tree(session, "owner/repo") == (
+        None,
+        f"owner/repo: {operation} failed (requests.{error_type.__name__})",
+    )
+    expected_urls = [
+        "https://api.github.com/repos/owner/repo",
+        "https://api.github.com/repos/owner/repo/git/trees/release?recursive=1",
+    ]
+    assert [call.args[0] for call in session.get.call_args_list] == (
+        expected_urls[:1] if failed_stage == "repo" else expected_urls
+    )
+
+
+def test_main_caches_failed_blob_reads_by_repo_and_sha(tmp_path, monkeypatch) -> None:
+    """A cached None is a completed read, including when Gate reuses that blob."""
+    source = tmp_path / "managed.yml"
+    source.write_text("on:\n  pull_request:\n    types: [opened, synchronize]\n")
+    entries = tuple(_make_entry(source=str(source), target=path) for path in ("a.yml", "b.yml"))
+    gate = _make_entry(
+        source=str(source),
+        target=".github/workflows/pr-00-gate.yml",
+        sync_mode="create_only",
+    )
+    compiled = SimpleNamespace(
+        to_plan=lambda: {"plan_id": "sha256:" + "a" * 64},
+        section=lambda section: (*entries, gate) if section == "workflows" else (),
+        removals=(),
+    )
+    manifest = tmp_path / "manifest.yml"
+    manifest.write_text("version: 1\n")
+    report_path = tmp_path / "nested" / "report.json"
+    summary_path = tmp_path / "nested" / "summary.md"
+    repos = ["owner/first", "owner/second"]
+    args = SimpleNamespace(
+        repos=",".join(repos),
+        manifest=str(manifest),
+        canaries="unused.json",
+        report_json=str(report_path),
+        summary=str(summary_path),
+    )
+    session = object()
+    read_blob = Mock(return_value=None)
+    monkeypatch.setattr(check_consumer_sync_drift, "parse_args", lambda: args)
+    monkeypatch.setattr(check_consumer_sync_drift, "compile_manifest", lambda _: compiled)
+    monkeypatch.setattr(check_consumer_sync_drift, "resolve_candidate_repos", lambda *_: set())
+    monkeypatch.setattr(check_consumer_sync_drift, "token_candidates", lambda: [])
+    monkeypatch.setattr(check_consumer_sync_drift, "select_read_token", lambda **_: (session, {}))
+    monkeypatch.setattr(check_consumer_sync_drift, "fetch_open_sync_prs", lambda *_: ([], None))
+    monkeypatch.setattr(
+        check_consumer_sync_drift,
+        "fetch_remote_tree",
+        lambda *_: (
+            {entry.target: {"type": "blob", "sha": "unreadable-sha"} for entry in (*entries, gate)},
+            None,
+        ),
+    )
+    monkeypatch.setattr(check_consumer_sync_drift, "remote_blob_text", read_blob)
+
+    assert check_consumer_sync_drift.main() == 1
+    assert Counter(call.args for call in read_blob.call_args_list) == Counter(
+        {(session, repo, "unreadable-sha"): 1 for repo in repos}
+    )
+    report = json.loads(report_path.read_text())
+    expected_drift = [f"{repo}: {entry.target}" for repo in repos for entry in entries]
+    expected_gate = [f"gate triggers: {repo} unknown (Gate unreadable)" for repo in repos]
+    assert {key: report[key] for key in ("drift", "missing", "errors", "gate_triggers")} == {
+        "drift": expected_drift,
+        "missing": [],
+        "errors": [],
+        "gate_triggers": expected_gate,
+    }
+    summary = summary_path.read_text()
+    for item in (*expected_drift, *expected_gate):
+        assert item in summary
 
 
 def test_registered_gate_cli_preserves_unknowns_without_read_access(tmp_path: Path) -> None:
