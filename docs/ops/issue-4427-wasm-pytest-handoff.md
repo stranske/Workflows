@@ -609,6 +609,10 @@ job summary from the same formatter line verified in the log above
 and the log line itself was re-grepped from the full run log this round.
 A browser-authenticated reader can confirm the rendered summary on the job
 page; this seat records it as formatter-derived, not directly observed.
+A final attempt from this seat (no browser installed; the job page requires a
+cookie-based GitHub web session that the `gh` token cannot provide) could not
+render it either, so A1's log half stands as the directly verified evidence
+and the summary half remains formatter-derived pending an authenticated read.
 
 Reconciled status: **T1 done** (qualifying native run obtained and inspected);
 **A1 verified** (246-test Node command, see above); **A2 satisfied** by run
