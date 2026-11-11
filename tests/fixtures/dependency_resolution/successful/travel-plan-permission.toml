@@ -1,0 +1,35 @@
+# Dependency metadata snapshot for the offline cross-repo pin regression.
+# Source: https://github.com/stranske/Travel-Plan-Permission/blob/b56d92b389736c70370aa9134f379ac8cd1f3ad1/pyproject.toml
+# Preserve the producer requirements verbatim; refresh from the new commit
+# when TPP_PINNED_REF changes. The live checkout check remains authoritative.
+
+[project]
+dependencies = [
+    "fastapi>=0.115.0",
+    "httpx>=0.28.1",
+    "PyJWT[crypto]>=2.8.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0.2",
+    "openpyxl>=3.1.5",
+    "jinja2>=3.1.4",
+    "reportlab>=4.4.10",
+    "uvicorn[standard]>=0.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.2.0",
+    "pytest-cov==7.1.0",
+    "cryptography",
+    "ruff==0.17.3",
+    "black==26.10.1",
+    "mypy==2.4.1",
+    "types-PyYAML>=6.0.12",
+    "numpy>=1.24.0",
+    "packaging>=23.0",
+    "pandas>=2.0.0",
+    "pyarrow>=23.0.1",
+    "hypothesis>=6.0.0",
+    "langgraph>=0.2.0",
+    "pytest-regressions",
+]
