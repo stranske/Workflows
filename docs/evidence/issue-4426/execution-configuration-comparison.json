@@ -1,0 +1,394 @@
+{
+  "schema": "workflows.issue-4426-execution-comparison/v1",
+  "source": "gate-execution-inputs.json",
+  "source_sha256": "67cb772aca252bac4e27b186b8c3b59d0f9b193ea3787f15524222656c380599",
+  "baseline_checkout": "682c12c02f24e2b8ee8d69da0d54dae28a87977d",
+  "final_checkout": "e4e584ea61852751c55749ab9ed6539fa10c9a31",
+  "final_settings": {
+    "python": "3.14.10",
+    "pytest": "9.2.0",
+    "coverage_version": "7.17.2",
+    "plugins": [
+      "anyio-4.15.1",
+      "cov-7.1.0",
+      "hypothesis-6.161.5",
+      "langsmith-0.10.10",
+      "xdist-3.8.0"
+    ],
+    "marker": "not quarantine and not slow",
+    "extra_args": [
+      "-n",
+      "auto",
+      "--dist",
+      "load"
+    ],
+    "entrypoint": "pytest -p ci_test_growth",
+    "workers_observed": 4,
+    "coverage": {
+      "run": {
+        "branch": true,
+        "parallel": true,
+        "source": [
+          "scripts",
+          "tools",
+          "src"
+        ],
+        "omit": [
+          "*/tests/*",
+          "*/test_*.py",
+          "*/.venv/*",
+          "archive/*",
+          ".extraction/*",
+          "src/trend_analysis/*"
+        ]
+      },
+      "report": {
+        "precision": 2,
+        "show_missing": true,
+        "skip_covered": false,
+        "exclude_also": [
+          "if __name__ == .__main__.:"
+        ]
+      }
+    },
+    "pytest_ini": {
+      "minversion": "7.0",
+      "testpaths": [
+        "tests",
+        ".github/scripts/__tests__"
+      ],
+      "python_files": [
+        "test_*.py",
+        "*_test.py"
+      ],
+      "python_classes": [
+        "Test*"
+      ],
+      "python_functions": [
+        "test_*"
+      ],
+      "addopts": [
+        "-ra",
+        "--strict-markers",
+        "--strict-config"
+      ],
+      "markers": [
+        "integration: marks tests as integration tests (may require external resources)",
+        "cosmetic: marks tests for cosmetic/formatting changes",
+        "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+        "quarantine: tests isolated from the canonical suite by explicit maintenance policy",
+        "serial: marks tests that must run serially",
+        "xdist_group: marks tests that must share a single xdist worker"
+      ],
+      "filterwarnings": [
+        "error",
+        "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning"
+      ]
+    }
+  },
+  "baselines_by_runtime": {
+    "3.12": {
+      "settings": {
+        "python": "3.12.15",
+        "pytest": "9.1.1",
+        "coverage_version": "7.16.2",
+        "plugins": [
+          "anyio-4.14.2",
+          "cov-7.1.0",
+          "hypothesis-6.161.5",
+          "langsmith-0.10.10",
+          "xdist-3.8.0"
+        ],
+        "marker": "not quarantine and not slow",
+        "extra_args": [],
+        "entrypoint": "pytest",
+        "workers_observed": 4,
+        "coverage": {
+          "run": {
+            "branch": true,
+            "parallel": true,
+            "source": [
+              "scripts",
+              "tools",
+              "src"
+            ],
+            "omit": [
+              "*/tests/*",
+              "*/test_*.py",
+              "*/.venv/*",
+              "archive/*",
+              ".extraction/*",
+              "src/trend_analysis/*"
+            ]
+          },
+          "report": {
+            "precision": 2,
+            "show_missing": true,
+            "skip_covered": false
+          }
+        },
+        "pytest_ini": {
+          "minversion": "7.0",
+          "testpaths": [
+            "tests",
+            ".github/scripts/__tests__"
+          ],
+          "python_files": [
+            "test_*.py",
+            "*_test.py"
+          ],
+          "python_classes": [
+            "Test*"
+          ],
+          "python_functions": [
+            "test_*"
+          ],
+          "addopts": [
+            "-ra",
+            "--strict-markers",
+            "--strict-config"
+          ],
+          "markers": [
+            "integration: marks tests as integration tests (may require external resources)",
+            "cosmetic: marks tests for cosmetic/formatting changes",
+            "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+            "serial: marks tests that must run serially",
+            "xdist_group: marks tests that must share a single xdist worker"
+          ],
+          "filterwarnings": [
+            "error"
+          ]
+        }
+      },
+      "differences_from_final": {
+        "coverage.report.exclude_also": {
+          "baseline": null,
+          "final": [
+            "if __name__ == .__main__.:"
+          ]
+        },
+        "coverage_version": {
+          "baseline": "7.16.2",
+          "final": "7.17.2"
+        },
+        "entrypoint": {
+          "baseline": "pytest",
+          "final": "pytest -p ci_test_growth"
+        },
+        "extra_args": {
+          "baseline": [],
+          "final": [
+            "-n",
+            "auto",
+            "--dist",
+            "load"
+          ]
+        },
+        "plugins": {
+          "baseline": [
+            "anyio-4.14.2",
+            "cov-7.1.0",
+            "hypothesis-6.161.5",
+            "langsmith-0.10.10",
+            "xdist-3.8.0"
+          ],
+          "final": [
+            "anyio-4.15.1",
+            "cov-7.1.0",
+            "hypothesis-6.161.5",
+            "langsmith-0.10.10",
+            "xdist-3.8.0"
+          ]
+        },
+        "pytest": {
+          "baseline": "9.1.1",
+          "final": "9.2.0"
+        },
+        "pytest_ini.filterwarnings": {
+          "baseline": [
+            "error"
+          ],
+          "final": [
+            "error",
+            "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning"
+          ]
+        },
+        "pytest_ini.markers": {
+          "baseline": [
+            "integration: marks tests as integration tests (may require external resources)",
+            "cosmetic: marks tests for cosmetic/formatting changes",
+            "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+            "serial: marks tests that must run serially",
+            "xdist_group: marks tests that must share a single xdist worker"
+          ],
+          "final": [
+            "integration: marks tests as integration tests (may require external resources)",
+            "cosmetic: marks tests for cosmetic/formatting changes",
+            "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+            "quarantine: tests isolated from the canonical suite by explicit maintenance policy",
+            "serial: marks tests that must run serially",
+            "xdist_group: marks tests that must share a single xdist worker"
+          ]
+        },
+        "python": {
+          "baseline": "3.12.15",
+          "final": "3.14.10"
+        }
+      },
+      "settings_equal": false
+    },
+    "3.13": {
+      "settings": {
+        "python": "3.13.16",
+        "pytest": "9.1.1",
+        "coverage_version": "7.16.2",
+        "plugins": [
+          "anyio-4.14.2",
+          "cov-7.1.0",
+          "hypothesis-6.161.5",
+          "langsmith-0.10.10",
+          "xdist-3.8.0"
+        ],
+        "marker": "not quarantine and not slow",
+        "extra_args": [],
+        "entrypoint": "pytest",
+        "workers_observed": 4,
+        "coverage": {
+          "run": {
+            "branch": true,
+            "parallel": true,
+            "source": [
+              "scripts",
+              "tools",
+              "src"
+            ],
+            "omit": [
+              "*/tests/*",
+              "*/test_*.py",
+              "*/.venv/*",
+              "archive/*",
+              ".extraction/*",
+              "src/trend_analysis/*"
+            ]
+          },
+          "report": {
+            "precision": 2,
+            "show_missing": true,
+            "skip_covered": false
+          }
+        },
+        "pytest_ini": {
+          "minversion": "7.0",
+          "testpaths": [
+            "tests",
+            ".github/scripts/__tests__"
+          ],
+          "python_files": [
+            "test_*.py",
+            "*_test.py"
+          ],
+          "python_classes": [
+            "Test*"
+          ],
+          "python_functions": [
+            "test_*"
+          ],
+          "addopts": [
+            "-ra",
+            "--strict-markers",
+            "--strict-config"
+          ],
+          "markers": [
+            "integration: marks tests as integration tests (may require external resources)",
+            "cosmetic: marks tests for cosmetic/formatting changes",
+            "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+            "serial: marks tests that must run serially",
+            "xdist_group: marks tests that must share a single xdist worker"
+          ],
+          "filterwarnings": [
+            "error"
+          ]
+        }
+      },
+      "differences_from_final": {
+        "coverage.report.exclude_also": {
+          "baseline": null,
+          "final": [
+            "if __name__ == .__main__.:"
+          ]
+        },
+        "coverage_version": {
+          "baseline": "7.16.2",
+          "final": "7.17.2"
+        },
+        "entrypoint": {
+          "baseline": "pytest",
+          "final": "pytest -p ci_test_growth"
+        },
+        "extra_args": {
+          "baseline": [],
+          "final": [
+            "-n",
+            "auto",
+            "--dist",
+            "load"
+          ]
+        },
+        "plugins": {
+          "baseline": [
+            "anyio-4.14.2",
+            "cov-7.1.0",
+            "hypothesis-6.161.5",
+            "langsmith-0.10.10",
+            "xdist-3.8.0"
+          ],
+          "final": [
+            "anyio-4.15.1",
+            "cov-7.1.0",
+            "hypothesis-6.161.5",
+            "langsmith-0.10.10",
+            "xdist-3.8.0"
+          ]
+        },
+        "pytest": {
+          "baseline": "9.1.1",
+          "final": "9.2.0"
+        },
+        "pytest_ini.filterwarnings": {
+          "baseline": [
+            "error"
+          ],
+          "final": [
+            "error",
+            "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning"
+          ]
+        },
+        "pytest_ini.markers": {
+          "baseline": [
+            "integration: marks tests as integration tests (may require external resources)",
+            "cosmetic: marks tests for cosmetic/formatting changes",
+            "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+            "serial: marks tests that must run serially",
+            "xdist_group: marks tests that must share a single xdist worker"
+          ],
+          "final": [
+            "integration: marks tests as integration tests (may require external resources)",
+            "cosmetic: marks tests for cosmetic/formatting changes",
+            "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+            "quarantine: tests isolated from the canonical suite by explicit maintenance policy",
+            "serial: marks tests that must run serially",
+            "xdist_group: marks tests that must share a single xdist worker"
+          ]
+        },
+        "python": {
+          "baseline": "3.13.16",
+          "final": "3.14.10"
+        }
+      },
+      "settings_equal": false
+    }
+  },
+  "comparable_execution_configuration": false,
+  "source_and_test_equivalence_verified": false,
+  "attributable_round_reduction": null
+}

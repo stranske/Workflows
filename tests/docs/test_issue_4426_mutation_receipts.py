@@ -1,17 +1,15 @@
 """Lock deliberate-break receipts for the tests added in this round.
 
 Each receipt names one production symbol, one pytest node, a red failure, and
-the restored-source pass. Historical verifier receipts bind their frozen checked
-bytes; their named current functions must still match those checked functions.
-Prior #4000 and #4405 transcripts are recorded as unavailable
-and are not treated as these runs.
+the restored-source pass. Immutable recorded source snapshots contain the
+restored bytes; current production may evolve independently. Prior #4000 and
+#4405 transcripts are recorded as unavailable and are not treated as these runs.
 """
 
 from __future__ import annotations
 
 import ast
 import copy
-import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -22,11 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = ROOT / "docs/evidence/issue-4426"
 RECEIPTS_PATH = EVIDENCE / "mutation-receipts.json"
 RECEIPTS_MD = EVIDENCE / "mutation-receipts.md"
-EXPANDED = ROOT / "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py"
-VERIFIER_TESTS = ROOT / "tests/scripts/test_verifier_config.py"
-FROZEN_VERIFIER = EVIDENCE / (
-    "frozen/pr_verifier-" "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478.py.gz"
-)
+EXPANDED = "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py"
+VERIFIER_TESTS = "tests/scripts/test_verifier_config.py"
 
 # Assertion line captured while the mutant was in the tree. The unreadable-key
 # case escapes as IsADirectoryError, so its named failure is the exception.
@@ -69,32 +64,29 @@ def _load() -> dict:
     return json.loads(RECEIPTS_PATH.read_text(encoding="utf-8"))
 
 
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(_source_bytes(path)).hexdigest()
+def _recorded_source(path: str) -> str:
+    """Read a receipt-era snapshot, independent of checkout history and live files."""
+    entry = _load()["recorded_source"]["files"][path]
+    snapshot = (EVIDENCE / entry["path"]).resolve()
+    if not snapshot.is_relative_to((EVIDENCE / "recorded-source").resolve()):
+        raise ValueError("recorded source path escapes its evidence directory")
+    data = snapshot.read_bytes()
+    if hashlib.sha256(data).hexdigest() != entry["sha256"]:
+        raise ValueError("recorded source digest mismatch")
+    return data.decode("utf-8")
 
 
-def _source_bytes(path: Path) -> bytes:
-    if path.suffix == ".gz":
-        with gzip.open(path, "rb") as stream:
-            source = stream.read(2 * 1024 * 1024 + 1)
-        if len(source) > 2 * 1024 * 1024:
-            raise ValueError("frozen source exceeds its bound")
-        return source
-    return path.read_bytes()
-
-
-def _function_text(path: Path, name: str) -> str:
-    source = _source_bytes(path).decode("utf-8")
+def _function_text(source: str, name: str) -> str:
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == name:
             lines = source.splitlines()[node.lineno - 1 : node.end_lineno]
             return "\n".join(lines) + "\n"
-    raise ValueError(f"{name} is not defined in {path}")
+    raise ValueError(f"{name} is not defined in the recorded source")
 
 
-def _test_names(path: Path) -> list[str]:
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+def _test_names(source: str) -> list[str]:
+    tree = ast.parse(source)
     return [
         node.name
         for node in tree.body
@@ -125,15 +117,12 @@ def validate_receipt(receipt: dict, source: str, *, source_sha256: str) -> None:
         raise ValueError("mutant snippet remains in the source")
     if source.count(receipt["original_snippet"]) != 1:
         raise ValueError("restored source must contain the original snippet once")
-    if receipt["original_snippet"] not in _function_text(
-        ROOT / receipt["source"], receipt["symbol"]
-    ):
+    if receipt["original_snippet"] not in _function_text(source, receipt["symbol"]):
         raise ValueError("original snippet is outside the named symbol")
-    if receipt["source"] == "scripts/langchain/pr_verifier.py" and _function_text(
-        ROOT / receipt["source"], receipt["symbol"]
-    ) != _function_text(FROZEN_VERIFIER, receipt["symbol"]):
-        raise ValueError("named production symbol changed; a current receipt is required")
-    if source_sha256 != receipt["restored_sha256"]:
+    if (
+        hashlib.sha256(source.encode()).hexdigest() != source_sha256
+        or source_sha256 != receipt["restored_sha256"]
+    ):
         raise ValueError("restored sha256 does not match the source")
     if receipt["mutant_sha256"] == receipt["restored_sha256"]:
         raise ValueError("mutation did not change the source bytes")
@@ -159,11 +148,11 @@ def test_every_added_comparison_test_has_one_restored_receipt() -> None:
         if item["source"] == "scripts/langchain/pr_verifier.py"
         and item["symbol"] == "expanded_comparison_verdict"
     ]
-    names = _test_names(EXPANDED)
+    names = _test_names(_recorded_source(EXPANDED))
     assert len(names) == 13
     assert [item["nodeid"].split("::", 1)[1] for item in comparison] == names
-    source = _source_bytes(FROZEN_VERIFIER).decode("utf-8")
-    digest = _sha256(FROZEN_VERIFIER)
+    source = _recorded_source("scripts/langchain/pr_verifier.py")
+    digest = hashlib.sha256(source.encode()).hexdigest()
     for item in comparison:
         validate_receipt(item, source, source_sha256=digest)
         start = source.count("\n", 0, source.index(item["original_snippet"])) + 1
@@ -172,9 +161,8 @@ def test_every_added_comparison_test_has_one_restored_receipt() -> None:
 
 def test_landed_verifier_config_receipts_cover_coercion_lists_and_verdicts() -> None:
     record = _load()
-    source_path = ROOT / "scripts/langchain/verifier_config.py"
-    source = source_path.read_text(encoding="utf-8")
-    digest = _sha256(source_path)
+    source = _recorded_source("scripts/langchain/verifier_config.py")
+    digest = hashlib.sha256(source.encode()).hexdigest()
     selected = {
         item["id"]: item
         for item in record["receipts"]
@@ -201,7 +189,7 @@ def test_landed_verifier_config_receipts_cover_coercion_lists_and_verdicts() -> 
     assert selected["duplicate-verdicts"]["nodeid"].endswith(
         "test_artifact_text_without_report_marker_and_duplicate_verdicts"
     )
-    config_lines = VERIFIER_TESTS.read_text(encoding="utf-8").splitlines()
+    config_lines = _recorded_source(VERIFIER_TESTS).splitlines()
     assert '[{"verdict": "PASS"}, {"verdict": "ERROR"}]' in config_lines[138]
     assert '{"payload": {"verdict": "PASS"}}' in config_lines[141]
     assert "Dumpable()" in config_lines[153]
@@ -235,15 +223,12 @@ def test_cache_miss_receipts_name_a_restored_failure() -> None:
     record = _load()
     by_id = {item["id"]: item for item in record["receipts"]}
     assert set(CACHE_MISS_IDS) <= set(by_id)
-    client = ROOT / "tools/langchain_client.py"
-    verifier = FROZEN_VERIFIER
-    digests = {
-        "tools/langchain_client.py": _sha256(client),
-        "scripts/langchain/pr_verifier.py": _sha256(verifier),
-    }
     sources = {
-        "tools/langchain_client.py": client.read_text(encoding="utf-8"),
-        "scripts/langchain/pr_verifier.py": _source_bytes(verifier).decode("utf-8"),
+        path: _recorded_source(path)
+        for path in ("tools/langchain_client.py", "scripts/langchain/pr_verifier.py")
+    }
+    digests = {
+        path: hashlib.sha256(source.encode()).hexdigest() for path, source in sources.items()
     }
     assert digests["tools/langchain_client.py"] == (
         "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174"
@@ -281,9 +266,9 @@ def test_prior_mutation_transcripts_stay_unavailable() -> None:
     assert "18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7" in prose
 
 
-def test_validator_rejects_a_mutant_that_does_not_fail(tmp_path, monkeypatch) -> None:
+def test_validator_rejects_a_mutant_that_does_not_fail() -> None:
     record = _load()
-    source = (ROOT / "scripts/langchain/pr_verifier.py").read_text(encoding="utf-8")
+    source = _recorded_source("scripts/langchain/pr_verifier.py")
     receipt = copy.deepcopy(record["receipts"][0])
     receipt["red"]["exit_code"] = 0
     with pytest.raises(ValueError, match="red exit"):
@@ -294,24 +279,99 @@ def test_validator_rejects_a_mutant_that_does_not_fail(tmp_path, monkeypatch) ->
     with pytest.raises(ValueError, match="mutant snippet"):
         validate_receipt(unrestored, mutated, source_sha256=unrestored["restored_sha256"])
 
-    # A historical snapshot cannot authorize changed current production code.
-    current = ROOT / "scripts/langchain/pr_verifier.py"
-    current_source = current.read_text(encoding="utf-8")
-    node = next(
-        node
-        for node in ast.walk(ast.parse(current_source))
-        if isinstance(node, ast.FunctionDef) and node.name == receipt["symbol"]
-    )
-    lines = current_source.splitlines(keepends=True)
-    lines.insert(node.body[0].lineno - 1, "    return 'unearned'\n")
-    changed = tmp_path / receipt["source"]
-    changed.parent.mkdir(parents=True)
-    changed.write_text("".join(lines), encoding="utf-8")
+
+def test_historical_receipts_do_not_read_live_production(monkeypatch, tmp_path: Path) -> None:
+    # A future checkout can move symbols and tests without rewriting old receipts.
     monkeypatch.setitem(globals(), "ROOT", tmp_path)
-    original = record["receipts"][0]
-    with pytest.raises(ValueError, match="named production symbol changed"):
-        validate_receipt(
-            original,
-            _source_bytes(FROZEN_VERIFIER).decode("utf-8"),
-            source_sha256=original["restored_sha256"],
+    for receipt in _load()["receipts"]:
+        source = _recorded_source(receipt["source"])
+        validate_receipt(receipt, source, source_sha256=receipt["restored_sha256"])
+
+
+def test_validator_rejects_forged_source_or_unchanged_mutant() -> None:
+    receipt = copy.deepcopy(_load()["receipts"][0])
+    source = _recorded_source(receipt["source"])
+    with pytest.raises(ValueError, match="restored sha256"):
+        validate_receipt(receipt, source + "\n", source_sha256=receipt["restored_sha256"])
+    receipt["mutant_sha256"] = receipt["restored_sha256"]
+    with pytest.raises(ValueError, match="mutation did not change"):
+        validate_receipt(receipt, source, source_sha256=receipt["restored_sha256"])
+
+
+def test_follow_up_receipts_bind_final_tests_and_both_client_implementations() -> None:
+    record = _load()
+    sources = {}
+    for path, entry in record["follow_up_recorded_source"]["files"].items():
+        data = (EVIDENCE / entry["path"]).read_bytes()
+        assert hashlib.sha256(data).hexdigest() == entry["sha256"]
+        sources[path] = data.decode()
+    receipts = record["follow_up_receipts"]
+    assert len(receipts) == 14
+    assert len({item["id"] for item in receipts}) == 14
+    assert record["follow_up_production_restored"] is True
+    for receipt in receipts:
+        source = sources[receipt["source"]]
+        assert hashlib.sha256(source.encode()).hexdigest() == receipt["restored_sha256"]
+        assert source.count(receipt["original_snippet"]) == 1
+        assert receipt["mutant_snippet"] not in source, "mutant snippet remains"
+        mutated = source.replace(receipt["original_snippet"], receipt["mutant_snippet"], 1)
+        assert hashlib.sha256(mutated.encode()).hexdigest() == receipt["mutant_sha256"]
+        test_path = receipt["nodeid"].split("::")[0]
+        assert hashlib.sha256(sources[test_path].encode()).hexdigest() == receipt["test_sha256"]
+        for phase, exit_code, summary in (("red", 1, "1 failed"), ("green", 0, "1 passed")):
+            run = receipt[phase]
+            assert run["exit_code"] == exit_code
+            assert run["elapsed_seconds"] < 120
+            assert summary in run["output"]
+            assert receipt["nodeid"] in run["command"]
+            assert any(
+                run["command"][i : i + 2] == ["-m", "not slow"]
+                for i in range(len(run["command"]) - 1)
+            ), "missing not slow marker"
+        assert receipt["nodeid"] in receipt["red_named_failure"]
+        assert receipt["red_named_failure"] in receipt["red"]["output"], "fabricated named failure"
+
+    regressions = record["follow_up_regressions"]
+    assert {item["source"] for item in regressions} == {
+        "tools/langchain_client.py",
+        "templates/consumer-repo/tools/langchain_client.py",
+    }
+    for item in regressions:
+        original = (EVIDENCE / item["original_snapshot"]).read_bytes()
+        assert (
+            hashlib.sha256(original).hexdigest() == item["original_sha256"]
+        ), "original snapshot digest"
+        for phase in ("red", "green"):
+            command = item[phase]["command"]
+            assert any(
+                command[i : i + 2] == ["-m", "not slow"] for i in range(len(command) - 1)
+            ), "missing not slow marker"
+        assert f"FAILED {item['nodeid']}" in item["red"]["output"], "fabricated regression failure"
+        assert item["red"]["exit_code"] == 1
+        assert item["green"]["exit_code"] == 0
+        assert item["nodeid"] in item["red"]["output"]
+        assert item["original_sha256"] != item["fixed_sha256"]
+        assert hashlib.sha256(sources[item["source"]].encode()).hexdigest() == item["fixed_sha256"]
+
+
+@pytest.mark.parametrize("corruption", ["snapshot", "failure", "marker"])
+def test_follow_up_rejects_corrupted_evidence(monkeypatch, corruption) -> None:
+    record = copy.deepcopy(_load())
+    if corruption == "snapshot":
+        snapshot = EVIDENCE / record["follow_up_regressions"][0]["original_snapshot"]
+        read_bytes = Path.read_bytes
+        monkeypatch.setattr(
+            Path,
+            "read_bytes",
+            lambda path: read_bytes(path) + b"corrupt" if path == snapshot else read_bytes(path),
         )
+        message = "original snapshot digest"
+    elif corruption == "failure":
+        record["follow_up_receipts"][0]["red_named_failure"] += " fabricated"
+        message = "fabricated named failure"
+    else:
+        record["follow_up_receipts"][0]["red"]["command"].remove("not slow")
+        message = "missing not slow marker"
+    monkeypatch.setitem(globals(), "_load", lambda: record)
+    with pytest.raises(AssertionError, match=message):
+        test_follow_up_receipts_bind_final_tests_and_both_client_implementations()

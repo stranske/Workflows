@@ -1464,5 +1464,879 @@
       },
       "red_named_failure": "FAILED tests/scripts/test_pr_verifier_evidence_cache_miss.py::test_empty_evidence_option_result_is_a_cache_hit - assert 0 == (0 + 1)"
     }
-  ]
+  ],
+  "follow_up_precheck": {
+    "checked_on": "2026-11-07",
+    "checkout": "cdfeb6b78fd5db3a06596fa505220dfe31545f31",
+    "command": "python -m pytest -q tests/docs/test_issue_4426_contract_record.py tests/docs/test_issue_4426_pr_inventory.py -m 'not slow' --tb=line",
+    "exit_code": 0,
+    "outcome": "6 passed in 1.04s",
+    "stop_rule": {
+      "failed_check_attempts": 2,
+      "command_minutes": 10,
+      "step_minutes": 20,
+      "focused_seconds": 120
+    },
+    "blocked_tasks": [
+      1,
+      2
+    ],
+    "reason": "Coverage archive local download fails DNS; no comparable original-round per-target branch outcomes recovered."
+  },
+  "recorded_source": {
+    "checkout": "cdfeb6b78fd5db3a06596fa505220dfe31545f31",
+    "note": "Immutable source/test bytes matching the original receipt digests; historical line positions refer only to these snapshots.",
+    "files": {
+      "scripts/langchain/pr_verifier.py": {
+        "path": "recorded-source/scripts/langchain/pr_verifier.py.txt",
+        "sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478"
+      },
+      "scripts/langchain/verifier_config.py": {
+        "path": "recorded-source/scripts/langchain/verifier_config.py.txt",
+        "sha256": "18d6a89ee9894496342d22385fae79019d36a4f5ca67940b9b44c49d43d22ff7"
+      },
+      "tests/scripts/test_pr_verifier_evidence_cache_miss.py": {
+        "path": "recorded-source/tests/scripts/test_pr_verifier_evidence_cache_miss.py.txt",
+        "sha256": "41b820b4017902a334f6f535a74e4fc63a33ef981eb646106b217ac239c3b503"
+      },
+      "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py": {
+        "path": "recorded-source/tests/scripts/test_pr_verifier_expanded_comparison_verdict.py.txt",
+        "sha256": "123722013183027dd2f51ff04809802c984d56958a62290730048fd8cf959772"
+      },
+      "tests/scripts/test_verifier_config.py": {
+        "path": "recorded-source/tests/scripts/test_verifier_config.py.txt",
+        "sha256": "59206b6c26c8abaa737b020c62e2ffa47173378b2a81c0fb8dc4e04b7a4d51cf"
+      },
+      "tests/tools/test_langchain_client.py": {
+        "path": "recorded-source/tests/tools/test_langchain_client.py.txt",
+        "sha256": "e432e7033a5a0427363ad69291a7c0440936934439b48f22267649519c25b1cb"
+      },
+      "tools/langchain_client.py": {
+        "path": "recorded-source/tools/langchain_client.py.txt",
+        "sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174"
+      }
+    }
+  },
+  "follow_up_receipts": [
+    {
+      "id": "repair-no-repair",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "_build_verifier_repair_callback._repair",
+      "nodeid": "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[no-repair]",
+      "original_snippet": "        if not repaired:\n            return None\n",
+      "mutant_snippet": "        if not repaired:\n            return \"mutant accepted an absent repair\"\n",
+      "test_sha256": "c6b493b5008dd1e6431e57473ded7f59a35d5878c88b771c1f2121ab26921dd8",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+      "mutant_sha256": "6322c943504ea1efce83227af185cb69758e6971846daa84df70f9c0cf9130ac",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[no-repair]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 3.067,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_schema_repair_returns_only_usable_response_text[no-repair] ________\ntests/scripts/test_pr_verifier_ranked_remainder.py:39: in test_schema_repair_returns_only_usable_response_text\n    assert result == expected\nE   AssertionError: assert 'mutant accepted an absent repair' == None\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[no-repair] - AssertionError: assert 'mutant accepted an absent repair' == None\n1 failed in 0.94s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[no-repair]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 3.016,
+        "output": ".                                                                        [100%]\n1 passed in 0.90s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[no-repair] - AssertionError: assert 'mutant accepted an absent repair' == None"
+    },
+    {
+      "id": "repair-metadata-only",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "_build_verifier_repair_callback._repair",
+      "nodeid": "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[metadata-only]",
+      "original_snippet": "        if text is None or not text.strip():\n            return None\n",
+      "mutant_snippet": "        if text is None or not text.strip():\n            return repaired\n",
+      "test_sha256": "c6b493b5008dd1e6431e57473ded7f59a35d5878c88b771c1f2121ab26921dd8",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+      "mutant_sha256": "bd6a8a5718d383c288549f2ef931a8286dbb2b3cddd0e2ad5d9ba70b74eeeea3",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[metadata-only]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 3.064,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_schema_repair_returns_only_usable_response_text[metadata-only] ______\ntests/scripts/test_pr_verifier_ranked_remainder.py:39: in test_schema_repair_returns_only_usable_response_text\n    assert result == expected\nE   AssertionError: assert [{'type': 'thinking', 'thinking': 'metadata'}] == None\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[metadata-only] - AssertionError: assert [{'type': 'thinking', 'thinking': 'metadata'}] == None\n1 failed in 0.94s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[metadata-only]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 3.073,
+        "output": ".                                                                        [100%]\n1 passed in 0.91s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[metadata-only] - AssertionError: assert [{'type': 'thinking', 'thinking': 'metadata'}] == None"
+    },
+    {
+      "id": "repair-blank-text",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "_build_verifier_repair_callback._repair",
+      "nodeid": "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[blank-text]",
+      "original_snippet": "        if text is None or not text.strip():\n            return None\n",
+      "mutant_snippet": "        if text is None or not text.strip():\n            return repaired\n",
+      "test_sha256": "c6b493b5008dd1e6431e57473ded7f59a35d5878c88b771c1f2121ab26921dd8",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+      "mutant_sha256": "bd6a8a5718d383c288549f2ef931a8286dbb2b3cddd0e2ad5d9ba70b74eeeea3",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[blank-text]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 3.046,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_schema_repair_returns_only_usable_response_text[blank-text] _______\ntests/scripts/test_pr_verifier_ranked_remainder.py:39: in test_schema_repair_returns_only_usable_response_text\n    assert result == expected\nE   AssertionError: assert [{'type': 'text', 'text': '   '}] == None\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[blank-text] - AssertionError: assert [{'type': 'text', 'text': '   '}] == None\n1 failed in 0.94s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[blank-text]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.97,
+        "output": ".                                                                        [100%]\n1 passed in 0.87s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[blank-text] - AssertionError: assert [{'type': 'text', 'text': '   '}] == None"
+    },
+    {
+      "id": "repair-text-blocks",
+      "source": "scripts/langchain/pr_verifier.py",
+      "symbol": "_build_verifier_repair_callback._repair",
+      "nodeid": "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[text-blocks]",
+      "original_snippet": "        return text\n\n    return _repair\n",
+      "mutant_snippet": "        return repaired\n\n    return _repair\n",
+      "test_sha256": "c6b493b5008dd1e6431e57473ded7f59a35d5878c88b771c1f2121ab26921dd8",
+      "restored_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+      "mutant_sha256": "4232cb8832faae228e145238f8f946048217a490e66fac88c38c933e571d120c",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[text-blocks]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 3.066,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______ test_schema_repair_returns_only_usable_response_text[text-blocks] _______\ntests/scripts/test_pr_verifier_ranked_remainder.py:39: in test_schema_repair_returns_only_usable_response_text\n    assert result == expected\nE   assert [{'type': 'thinking', 'thinking': 'private metadata'}, {'type': 'text', 'text': '{\"verdict\":'}, {'type': 'text', 'text': '\"PASS\"}'}] == '{\"verdict\":\"PASS\"}'\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[text-blocks] - assert [{'type': 'thinking', 'thinking': 'private metadata'}, {'type': 'text', 'text': '{\"verdict\":'}, {'type': 'text', 'text': '\"PASS\"}'}] == '{\"verdict\":\"PASS\"}'\n1 failed in 0.94s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[text-blocks]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.987,
+        "output": ".                                                                        [100%]\n1 passed in 0.88s\n"
+      },
+      "red_named_failure": "FAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_schema_repair_returns_only_usable_response_text[text-blocks] - assert [{'type': 'thinking', 'thinking': 'private metadata'}, {'type': 'text', 'text': '{\"verdict\":'}, {'type': 'text', 'text': '\"PASS\"}'}] == '{\"verdict\":\"PASS\"}'"
+    },
+    {
+      "id": "root-blocked-override-not-retried",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root]",
+      "original_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, requested)\n            used_override = True\n            requested = None\n",
+      "mutant_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, requested)\n            requested = None\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "aa0e03a83c3811b24dc4cf3db65a866d417220aa7846c8d80dc0cf18ee1443a9",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.913,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_paired_auto_select_does_not_retry_a_blocked_override[root] ________\ntests/tools/test_langchain_client.py:1446: in test_paired_auto_select_does_not_retry_a_blocked_override\n    assert [(client.provider, client.model) for client in clients] == [\nE   AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]\nE     \nE     At index 1 diff: ('anthropic', 'gpt-blocked') != ('anthropic', 'claude-safe')\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           (\nE               'openai',\nE               'gpt-safe',\nE           ),\nE           (\nE               'anthropic',\nE     -         'claude-safe',\nE     +         'gpt-blocked',\nE           ),\nE       ]\n------------------------------ Captured log call -------------------------------\nWARNING  tools.langchain_client:langchain_client.py:587 Skipping blocked LLM model override: openai/gpt-blocked\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root] - AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]\n  \n  At index 1 diff: ('anthropic', 'gpt-blocked') != ('anthropic', 'claude-safe')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-safe',\n        ),\n        (\n            'anthropic',\n  -         'claude-safe',\n  +         'gpt-blocked',\n        ),\n    ]\n1 failed in 0.93s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.835,
+        "output": ".                                                                        [100%]\n1 passed in 0.85s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root] - AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]"
+    },
+    {
+      "id": "root-unblocked-model1-shared",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[root]",
+      "original_snippet": "            requested = model1\n",
+      "mutant_snippet": "            requested = None  # mutant-drops-shared-model1\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "ed8f0dbb681e60468c5df11a1298a0e9840bfccdcd2a8fe547b3868093de9062",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.879,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_unblocked_model1_still_fills_both_auto_selected_slots[root] _______\ntests/tools/test_langchain_client.py:1470: in test_unblocked_model1_still_fills_both_auto_selected_slots\n    assert [(client.provider, client.model) for client in clients] == [\nE   AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]\nE     \nE     At index 1 diff: ('anthropic', 'claude-sonnet-5-5') != ('anthropic', 'gpt-shared-override')\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           (\nE               'openai',\nE               'gpt-shared-override',\nE           ),\nE           (\nE               'anthropic',\nE     -         'gpt-shared-override',\nE     +         'claude-sonnet-5-5',\nE           ),\nE       ]\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[root] - AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]\n  \n  At index 1 diff: ('anthropic', 'claude-sonnet-5-5') != ('anthropic', 'gpt-shared-override')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-shared-override',\n        ),\n        (\n            'anthropic',\n  -         'gpt-shared-override',\n  +         'claude-sonnet-5-5',\n        ),\n    ]\n1 failed in 0.93s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.866,
+        "output": ".                                                                        [100%]\n1 passed in 0.87s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[root] - AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]"
+    },
+    {
+      "id": "root-explicit-model2",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[root]",
+      "original_snippet": "            requested = model2\n",
+      "mutant_snippet": "            requested = model1  # mutant-copies-model1-over-model2\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "f4ddfa18425fc1001a5065955554176c5b409e5701e89eedb488e84101269651",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.928,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n______ test_explicit_model2_stays_on_the_second_auto_selected_slot[root] _______\ntests/tools/test_langchain_client.py:1493: in test_explicit_model2_stays_on_the_second_auto_selected_slot\n    assert [(client.provider, client.model) for client in clients] == [\nE   AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]\nE     \nE     At index 1 diff: ('anthropic', 'gpt-first-override') != ('anthropic', 'claude-second-override')\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           (\nE               'openai',\nE               'gpt-first-override',\nE           ),\nE           (\nE               'anthropic',\nE     -         'claude-second-override',\nE     +         'gpt-first-override',\nE           ),\nE       ]\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[root] - AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]\n  \n  At index 1 diff: ('anthropic', 'gpt-first-override') != ('anthropic', 'claude-second-override')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-first-override',\n        ),\n        (\n            'anthropic',\n  -         'claude-second-override',\n  +         'gpt-first-override',\n        ),\n    ]\n1 failed in 0.94s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.827,
+        "output": ".                                                                        [100%]\n1 passed in 0.85s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[root] - AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]"
+    },
+    {
+      "id": "root-github-constructor-is-reached",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[root]",
+      "original_snippet": "        if slot.provider == PROVIDER_GITHUB and github_token and chat_openai_cls:\n            with contextlib.suppress(Exception):\n                client = _build_github_client(\n",
+      "mutant_snippet": "        if False and slot.provider == PROVIDER_GITHUB and github_token and chat_openai_cls:\n            with contextlib.suppress(Exception):\n                client = _build_github_client(\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "d5c2cabd64651d3d141e216f86132a14d998361bd053503fd21240990b233ccf",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.992,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n________ test_github_slot_constructor_miss_selects_the_next_slot[root] _________\ntests/tools/test_langchain_client.py:1596: in test_github_slot_constructor_miss_selects_the_next_slot\n    assert len(calls) == 1\nE   assert 0 == 1\nE    +  where 0 = len([])\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[root] - assert 0 == 1\n +  where 0 = len([])\n1 failed in 0.94s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.924,
+        "output": ".                                                                        [100%]\n1 passed in 0.87s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[root] - assert 0 == 1"
+    },
+    {
+      "id": "root-single-override-consumed",
+      "source": "tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[root]",
+      "original_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, slot_model)\n            used_override = True\n            slot_model = slot.model\n",
+      "mutant_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, slot_model)\n            slot_model = slot.model\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "mutant_sha256": "c5e74bcd13f31f228762d1a0a8e3ad9d296529ca993bf27ba456310e15de5c5c",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.91,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_single_blocked_override_is_consumed_before_next_provider[root] ______\ntests/tools/test_langchain_client.py:1693: in test_single_blocked_override_is_consumed_before_next_provider\n    assert (resolved.provider, resolved.model) == (client.PROVIDER_ANTHROPIC, \"claude-safe\")\nE   AssertionError: assert ('anthropic', 'gpt-blocked') == ('anthropic', 'claude-safe')\nE     \nE     At index 1 diff: 'gpt-blocked' != 'claude-safe'\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       (\nE           'anthropic',\nE     -     'claude-safe',\nE     +     'gpt-blocked',\nE       )\n------------------------------ Captured log call -------------------------------\nWARNING  tools.langchain_client:langchain_client.py:354 Skipping blocked LLM model override: openai/gpt-blocked\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[root] - AssertionError: assert ('anthropic', 'gpt-blocked') == ('anthropic', 'claude-safe')\n  \n  At index 1 diff: 'gpt-blocked' != 'claude-safe'\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    (\n        'anthropic',\n  -     'claude-safe',\n  +     'gpt-blocked',\n    )\n1 failed in 0.91s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.838,
+        "output": ".                                                                        [100%]\n1 passed in 0.86s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[root] - AssertionError: assert ('anthropic', 'gpt-blocked') == ('anthropic', 'claude-safe')"
+    },
+    {
+      "id": "consumer-template-blocked-override-not-retried",
+      "source": "templates/consumer-repo/tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template]",
+      "original_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, requested)\n            used_override = True\n            requested = None\n",
+      "mutant_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, requested)\n            requested = None\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "350e8ba6d312cdf4d6d111c0da1ad4d1b58d17cfbd3341c5625a2cc74c05518e",
+      "mutant_sha256": "8d369f06f300644dbee9127b40462b038475f9239e1d7ab314fc5799339eabb3",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.944,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template] _\ntests/tools/test_langchain_client.py:1446: in test_paired_auto_select_does_not_retry_a_blocked_override\n    assert [(client.provider, client.model) for client in clients] == [\nE   AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]\nE     \nE     At index 1 diff: ('anthropic', 'gpt-blocked') != ('anthropic', 'claude-safe')\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           (\nE               'openai',\nE               'gpt-safe',\nE           ),\nE           (\nE               'anthropic',\nE     -         'claude-safe',\nE     +         'gpt-blocked',\nE           ),\nE       ]\n------------------------------ Captured log call -------------------------------\nWARNING  _issue_4426_consumer_langchain_client:langchain_client.py:553 Skipping blocked LLM model override: openai/gpt-blocked\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template] - AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]\n  \n  At index 1 diff: ('anthropic', 'gpt-blocked') != ('anthropic', 'claude-safe')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-safe',\n        ),\n        (\n            'anthropic',\n  -         'claude-safe',\n  +         'gpt-blocked',\n        ),\n    ]\n1 failed in 0.98s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.694,
+        "output": ".                                                                        [100%]\n1 passed in 0.81s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template] - AssertionError: assert [('openai', '...gpt-blocked')] == [('openai', '...claude-safe')]"
+    },
+    {
+      "id": "consumer-template-unblocked-model1-shared",
+      "source": "templates/consumer-repo/tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[consumer-template]",
+      "original_snippet": "            requested = model1\n",
+      "mutant_snippet": "            requested = None  # mutant-drops-shared-model1\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "350e8ba6d312cdf4d6d111c0da1ad4d1b58d17cfbd3341c5625a2cc74c05518e",
+      "mutant_sha256": "9da3a046bef59805907c3f4d9f1a5feff68ea8b728491a83184322ceb97c1217",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.959,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_unblocked_model1_still_fills_both_auto_selected_slots[consumer-template] _\ntests/tools/test_langchain_client.py:1470: in test_unblocked_model1_still_fills_both_auto_selected_slots\n    assert [(client.provider, client.model) for client in clients] == [\nE   AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]\nE     \nE     At index 1 diff: ('anthropic', 'claude-sonnet-5-5') != ('anthropic', 'gpt-shared-override')\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           (\nE               'openai',\nE               'gpt-shared-override',\nE           ),\nE           (\nE               'anthropic',\nE     -         'gpt-shared-override',\nE     +         'claude-sonnet-5-5',\nE           ),\nE       ]\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[consumer-template] - AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]\n  \n  At index 1 diff: ('anthropic', 'claude-sonnet-5-5') != ('anthropic', 'gpt-shared-override')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-shared-override',\n        ),\n        (\n            'anthropic',\n  -         'gpt-shared-override',\n  +         'claude-sonnet-5-5',\n        ),\n    ]\n1 failed in 0.91s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.733,
+        "output": ".                                                                        [100%]\n1 passed in 0.80s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_unblocked_model1_still_fills_both_auto_selected_slots[consumer-template] - AssertionError: assert [('openai', '...-sonnet-5-5')] == [('openai', '...ed-override')]"
+    },
+    {
+      "id": "consumer-template-explicit-model2",
+      "source": "templates/consumer-repo/tools/langchain_client.py",
+      "symbol": "build_chat_clients",
+      "nodeid": "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[consumer-template]",
+      "original_snippet": "            requested = model2\n",
+      "mutant_snippet": "            requested = model1  # mutant-copies-model1-over-model2\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "350e8ba6d312cdf4d6d111c0da1ad4d1b58d17cfbd3341c5625a2cc74c05518e",
+      "mutant_sha256": "c3df6ea6750dc1424825e5bfff5964fcf11426371a4b21a1154d5fd763283c91",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.765,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_explicit_model2_stays_on_the_second_auto_selected_slot[consumer-template] _\ntests/tools/test_langchain_client.py:1493: in test_explicit_model2_stays_on_the_second_auto_selected_slot\n    assert [(client.provider, client.model) for client in clients] == [\nE   AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]\nE     \nE     At index 1 diff: ('anthropic', 'gpt-first-override') != ('anthropic', 'claude-second-override')\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           (\nE               'openai',\nE               'gpt-first-override',\nE           ),\nE           (\nE               'anthropic',\nE     -         'claude-second-override',\nE     +         'gpt-first-override',\nE           ),\nE       ]\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[consumer-template] - AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]\n  \n  At index 1 diff: ('anthropic', 'gpt-first-override') != ('anthropic', 'claude-second-override')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n            'openai',\n            'gpt-first-override',\n        ),\n        (\n            'anthropic',\n  -         'claude-second-override',\n  +         'gpt-first-override',\n        ),\n    ]\n1 failed in 0.87s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.579,
+        "output": ".                                                                        [100%]\n1 passed in 0.78s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_explicit_model2_stays_on_the_second_auto_selected_slot[consumer-template] - AssertionError: assert [('openai', '...st-override')] == [('openai', '...nd-override')]"
+    },
+    {
+      "id": "consumer-template-github-constructor-is-reached",
+      "source": "templates/consumer-repo/tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[consumer-template]",
+      "original_snippet": "        if slot.provider == PROVIDER_GITHUB and github_token:\n            with contextlib.suppress(Exception):\n                client = _build_github_client(\n",
+      "mutant_snippet": "        if False and slot.provider == PROVIDER_GITHUB and github_token:\n            with contextlib.suppress(Exception):\n                client = _build_github_client(\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "350e8ba6d312cdf4d6d111c0da1ad4d1b58d17cfbd3341c5625a2cc74c05518e",
+      "mutant_sha256": "b9ec555a09d88fdd2d772dc721fb0e81cdc6253b424e29b0302f80e446bf326f",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.674,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n__ test_github_slot_constructor_miss_selects_the_next_slot[consumer-template] __\ntests/tools/test_langchain_client.py:1596: in test_github_slot_constructor_miss_selects_the_next_slot\n    assert len(calls) == 1\nE   assert 0 == 1\nE    +  where 0 = len([])\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[consumer-template] - assert 0 == 1\n +  where 0 = len([])\n1 failed in 0.87s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.755,
+        "output": ".                                                                        [100%]\n1 passed in 0.82s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_github_slot_constructor_miss_selects_the_next_slot[consumer-template] - assert 0 == 1"
+    },
+    {
+      "id": "consumer-template-single-override-consumed",
+      "source": "templates/consumer-repo/tools/langchain_client.py",
+      "symbol": "build_chat_client",
+      "nodeid": "tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[consumer-template]",
+      "original_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, slot_model)\n            used_override = True\n            slot_model = slot.model\n",
+      "mutant_snippet": "            logger.warning(\"Skipping blocked LLM model override: %s/%s\", slot.provider, slot_model)\n            slot_model = slot.model\n",
+      "test_sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49",
+      "restored_sha256": "350e8ba6d312cdf4d6d111c0da1ad4d1b58d17cfbd3341c5625a2cc74c05518e",
+      "mutant_sha256": "7233a074090dd512e406870a53488e18e7ae87ff93fd6a8ea4c0e097dc55bd4c",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.828,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_single_blocked_override_is_consumed_before_next_provider[consumer-template] _\ntests/tools/test_langchain_client.py:1693: in test_single_blocked_override_is_consumed_before_next_provider\n    assert (resolved.provider, resolved.model) == (client.PROVIDER_ANTHROPIC, \"claude-safe\")\nE   AssertionError: assert ('anthropic', 'gpt-blocked') == ('anthropic', 'claude-safe')\nE     \nE     At index 1 diff: 'gpt-blocked' != 'claude-safe'\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       (\nE           'anthropic',\nE     -     'claude-safe',\nE     +     'gpt-blocked',\nE       )\n------------------------------ Captured log call -------------------------------\nWARNING  _issue_4426_consumer_langchain_client:langchain_client.py:330 Skipping blocked LLM model override: openai/gpt-blocked\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[consumer-template] - AssertionError: assert ('anthropic', 'gpt-blocked') == ('anthropic', 'claude-safe')\n  \n  At index 1 diff: 'gpt-blocked' != 'claude-safe'\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    (\n        'anthropic',\n  -     'claude-safe',\n  +     'gpt-blocked',\n    )\n1 failed in 0.92s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.683,
+        "output": ".                                                                        [100%]\n1 passed in 0.82s\n"
+      },
+      "red_named_failure": "FAILED tests/tools/test_langchain_client.py::test_single_blocked_override_is_consumed_before_next_provider[consumer-template] - AssertionError: assert ('anthropic', 'gpt-blocked') == ('anthropic', 'claude-safe')"
+    }
+  ],
+  "follow_up_regressions": [
+    {
+      "source": "tools/langchain_client.py",
+      "original_snapshot": "follow-up-source/original/tools/langchain_client.py.txt",
+      "original_revision": "408651629f027292c94f38f2c5aa0c1d3e24fe79",
+      "original_sha256": "b15270cac1e7c26c027ff9ef84e7030bfa3623adf0987726dda286ae151f247d",
+      "fixed_sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174",
+      "nodeid": "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root]",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.808,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_______ test_paired_auto_select_does_not_retry_a_blocked_override[root] ________\ntests/tools/test_langchain_client.py:1446: in test_paired_auto_select_does_not_retry_a_blocked_override\n    assert [(client.provider, client.model) for client in clients] == [\nE   AssertionError: assert [('anthropic', 'gpt-blocked')] == [('openai', '...claude-safe')]\nE     \nE     At index 0 diff: ('anthropic', 'gpt-blocked') != ('openai', 'gpt-safe')\nE     Right contains one more item: ('anthropic', 'claude-safe')\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           (\nE     -         'openai',\nE     -         'gpt-safe',\nE     -     ),\nE     -     (\nE               'anthropic',\nE     -         'claude-safe',\nE     +         'gpt-blocked',\nE           ),\nE       ]\n------------------------------ Captured log call -------------------------------\nWARNING  tools.langchain_client:langchain_client.py:581 Skipping blocked LLM model override: openai/gpt-blocked\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root] - AssertionError: assert [('anthropic', 'gpt-blocked')] == [('openai', '...claude-safe')]\n  \n  At index 0 diff: ('anthropic', 'gpt-blocked') != ('openai', 'gpt-safe')\n  Right contains one more item: ('anthropic', 'claude-safe')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n  -         'openai',\n  -         'gpt-safe',\n  -     ),\n  -     (\n            'anthropic',\n  -         'claude-safe',\n  +         'gpt-blocked',\n        ),\n    ]\n1 failed in 0.90s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[root]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.746,
+        "output": ".                                                                        [100%]\n1 passed in 0.82s\n"
+      }
+    },
+    {
+      "source": "templates/consumer-repo/tools/langchain_client.py",
+      "original_snapshot": "follow-up-source/original/templates/consumer-repo/tools/langchain_client.py.txt",
+      "original_revision": "408651629f027292c94f38f2c5aa0c1d3e24fe79",
+      "original_sha256": "5fc3cbc739cf2da885a5f26d9f167f4543e7665ef6707a40fef04621c7eb9ec8",
+      "fixed_sha256": "350e8ba6d312cdf4d6d111c0da1ad4d1b58d17cfbd3341c5625a2cc74c05518e",
+      "nodeid": "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template]",
+      "red": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.694,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template] _\ntests/tools/test_langchain_client.py:1446: in test_paired_auto_select_does_not_retry_a_blocked_override\n    assert [(client.provider, client.model) for client in clients] == [\nE   AssertionError: assert [('anthropic', 'gpt-blocked')] == [('openai', '...claude-safe')]\nE     \nE     At index 0 diff: ('anthropic', 'gpt-blocked') != ('openai', 'gpt-safe')\nE     Right contains one more item: ('anthropic', 'claude-safe')\nE     \nE     Full diff: (-: missing in left side, +: extra in left side)\nE       [\nE           (\nE     -         'openai',\nE     -         'gpt-safe',\nE     -     ),\nE     -     (\nE               'anthropic',\nE     -         'claude-safe',\nE     +         'gpt-blocked',\nE           ),\nE       ]\n------------------------------ Captured log call -------------------------------\nWARNING  _issue_4426_consumer_langchain_client:langchain_client.py:544 Skipping blocked LLM model override: openai/gpt-blocked\n=========================== short test summary info ============================\nFAILED tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template] - AssertionError: assert [('anthropic', 'gpt-blocked')] == [('openai', '...claude-safe')]\n  \n  At index 0 diff: ('anthropic', 'gpt-blocked') != ('openai', 'gpt-safe')\n  Right contains one more item: ('anthropic', 'claude-safe')\n  \n  Full diff: (-: missing in left side, +: extra in left side)\n    [\n        (\n  -         'openai',\n  -         'gpt-safe',\n  -     ),\n  -     (\n            'anthropic',\n  -         'claude-safe',\n  +         'gpt-blocked',\n        ),\n    ]\n1 failed in 0.86s\n"
+      },
+      "green": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/tools/test_langchain_client.py::test_paired_auto_select_does_not_retry_a_blocked_override[consumer-template]",
+          "-m",
+          "not slow",
+          "--tb=short",
+          "-p",
+          "no:cacheprovider"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.579,
+        "output": ".                                                                        [100%]\n1 passed in 0.79s\n"
+      }
+    }
+  ],
+  "follow_up_production_restored": true,
+  "follow_up_recorded_source": {
+    "checked_on": "2026-11-07",
+    "files": {
+      "scripts/langchain/pr_verifier.py": {
+        "path": "recorded-source/scripts/langchain/pr_verifier.py.txt",
+        "sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478"
+      },
+      "templates/consumer-repo/tools/langchain_client.py": {
+        "path": "follow-up-source/templates/consumer-repo/tools/langchain_client.py.txt",
+        "sha256": "350e8ba6d312cdf4d6d111c0da1ad4d1b58d17cfbd3341c5625a2cc74c05518e"
+      },
+      "tests/scripts/test_pr_verifier_ranked_remainder.py": {
+        "path": "follow-up-source/tests/scripts/test_pr_verifier_ranked_remainder.py.txt",
+        "sha256": "c6b493b5008dd1e6431e57473ded7f59a35d5878c88b771c1f2121ab26921dd8"
+      },
+      "tests/tools/test_langchain_client.py": {
+        "path": "follow-up-source/tests/tools/test_langchain_client.py.txt",
+        "sha256": "b4ef8804b3120ce5dbc0437a9c67f014d76627a5f28a20553728fa3a734aef49"
+      },
+      "tools/langchain_client.py": {
+        "path": "recorded-source/tools/langchain_client.py.txt",
+        "sha256": "dbe98ec39a46841bcd18969ca7e56637f0ba38ffcaae80195071f9247a7e7174"
+      }
+    }
+  },
+  "target_accounting_follow_up": {
+    "checked_on": "2026-11-07",
+    "receipts": "target-accounting-mutations.json",
+    "driver": "target-accounting-mutation-driver.txt",
+    "scope": "Evidence accounting and rendering; historical behavioral receipts remain separate",
+    "named_failures": 6,
+    "restored_passes": 6,
+    "source_restored": true
+  },
+  "chunk_failure_receipts_record": "chunk-failure-mutations.json",
+  "chunk_failure_production_restored": true,
+  "bounded_review_receipts_record": "bounded-review-mutations.json",
+  "bounded_review_validation_record": "bounded-review-validation.json",
+  "bounded_review_reproduction": "python docs/evidence/issue-4426/bounded-review-mutation-driver.txt",
+  "archive_reconciliation": {
+    "receipt_record": "archive-reconciliation-mutations.json",
+    "validation_record": "archive-reconciliation-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/archive-reconciliation-mutation-driver.txt",
+    "source_restored": true,
+    "real_final_artifact_available": false,
+    "scope": "offline ingestion only; synthetic fixtures do not establish comparable artifacts or attributable reduction"
+  },
+  "native_slot_follow_up": {
+    "checked_on": "2026-11-07",
+    "receipt_record": "native-slot-mutations.json",
+    "validation_record": "native-slot-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/native-slot-mutation-driver.txt",
+    "named_mutations": 6,
+    "restored_passes": 6,
+    "source_restored": true,
+    "local_incremental_missing_unit_reduction": 34,
+    "attributable_original_round_reduction": null,
+    "scope": "native slot admission and reviewed package prompts; no original-round credit"
+  },
+  "term_report_reconciliation": {
+    "checked_on": "2026-11-07",
+    "receipt_record": "term-report-mutations.json",
+    "validation_record": "term-report-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/term-report-validation-driver.txt",
+    "named_mutations": 9,
+    "restored_passes": 9,
+    "source_restored": true,
+    "real_final_artifact_available": false,
+    "attributable_original_round_reduction": null,
+    "scope": "regeneration from pinned real term reports; no original-round credit"
+  },
+  "diagnostic_trace_follow_up": {
+    "record": "diagnostic-trace-validation.json",
+    "reproduction": "python docs/evidence/issue-4426/diagnostic-trace-driver.txt",
+    "named_mutation_failures_and_restored_passes": 3,
+    "production_restored": true,
+    "local_missing_unit_reduction": 9,
+    "attributable_original_round_reduction": null
+  },
+  "execution_configuration_reconciliation": {
+    "checked_on": "2026-11-07",
+    "receipt_record": "execution-configuration-mutations.json",
+    "validation_record": "execution-configuration-validation.json",
+    "reproduction_command": "python docs/evidence/issue-4426/execution-configuration-mutation-driver.txt",
+    "named_mutants": 5,
+    "named_failing_parameter_cases": 6,
+    "source_restored": true,
+    "attributable_round_reduction": null
+  }
 }

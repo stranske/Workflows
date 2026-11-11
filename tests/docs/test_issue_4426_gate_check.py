@@ -95,3 +95,32 @@ def test_gate_workflow_matches_recorded_coverage_command() -> None:
         "6 passed in 0.30s",
         "exit 0",
     )
+
+
+def test_documented_observer_extracts_generated_workflow_hooks(tmp_path, monkeypatch, capsys):
+    import ast
+
+    import yaml
+
+    evidence = EVIDENCE.read_text()
+    command = evidence.split(
+        "growth_plugin_dir=\"$(/opt/anaconda3/bin/python3 - <<'PYOBSERVER'\n", 1
+    )[1].split("\nPYOBSERVER", 1)[0]
+    workflow_path = tmp_path / ".github/workflows/reusable-10-ci-python.yml"
+    workflow_path.parent.mkdir(parents=True)
+    workflow_path.write_bytes(REUSABLE.read_bytes())
+    monkeypatch.chdir(tmp_path)
+    exec(compile(command, "<documented-observer>", "exec"), {})
+    generated = Path(capsys.readouterr().out.strip()) / "ci_test_growth.py"
+    observer = generated.read_text()
+    ast.parse(observer)
+    assert "def pytest_collection_finish" in observer
+    assert "def pytest_sessionfinish" in observer
+    workflow = yaml.safe_load(REUSABLE.read_text())
+    step = next(
+        step
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if 'cat > "${growth_plugin_dir}/ci_test_growth.py"' in step.get("run", "")
+    )
+    assert observer.rstrip() in step["run"]

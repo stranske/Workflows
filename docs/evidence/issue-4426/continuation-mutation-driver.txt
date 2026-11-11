@@ -1,0 +1,52 @@
+"""Run bounded adversarial evidence probes; restore every file in finally."""
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / 'docs/evidence/issue-4426'
+receipts_path = evidence / 'mutation-receipts.json'
+record = json.loads(receipts_path.read_bytes())
+snapshot = evidence / record['follow_up_regressions'][0]['original_snapshot']
+ranking = evidence / 'ranking.md'
+node = 'tests/docs/test_issue_4426_mutation_receipts.py::test_follow_up_receipts_bind_final_tests_and_both_client_implementations'
+probes = [('corrupted-original-snapshot', snapshot, node),
+          ('fabricated-named-failure', receipts_path, node),
+          ('missing-not-slow-marker', receipts_path, node),
+          ('stale-rendered-accounting', ranking, 'tests/docs/test_issue_4426_ranking.py::test_committed_ranking_record_matches_the_regeneration')]
+results = []
+for name, path, nodeid in probes:
+    original = path.read_bytes()
+    if name == 'corrupted-original-snapshot':
+        mutated = original + b'\n# corrupt snapshot\n'
+    elif name == 'stale-rendered-accounting':
+        mutated = original.replace(b'Totals are 402 / 402', b'Totals are 999 / 999')
+    else:
+        data = json.loads(original)
+        if name == 'fabricated-named-failure':
+            data['follow_up_receipts'][0]['red_named_failure'] += ' fabricated'
+        else:
+            data['follow_up_receipts'][0]['red']['command'].remove('not slow')
+        mutated = (json.dumps(data, indent=2) + '\n').encode()
+    assert mutated != original
+    command = [sys.executable, '-m', 'pytest', '-q', nodeid, '-m', 'not slow', '--tb=short']
+    receipt = {'id': name, 'nodeid': nodeid, 'original_sha256': hashlib.sha256(original).hexdigest()}
+    try:
+        path.write_bytes(mutated)
+        start = time.monotonic()
+        red = subprocess.run(command, capture_output=True, text=True, timeout=110)
+        receipt['red'] = {'command': command, 'exit_code': red.returncode, 'output': red.stdout + red.stderr, 'elapsed_seconds': time.monotonic() - start}
+        assert red.returncode == 1 and f'FAILED {nodeid}' in receipt['red']['output']
+    finally:
+        path.write_bytes(original)
+    start = time.monotonic()
+    green = subprocess.run(command, capture_output=True, text=True, timeout=110)
+    receipt['green'] = {'command': command, 'exit_code': green.returncode, 'output': green.stdout + green.stderr, 'elapsed_seconds': time.monotonic() - start}
+    assert green.returncode == 0
+    assert path.read_bytes() == original
+    results.append(receipt)
+    print(name, 'named failure:', red.returncode, 'restored:', green.returncode)
+(evidence / 'continuation-mutations.json').write_text(json.dumps({'checked_on':'2026-11-07', 'receipts': results, 'all_restored': True}, indent=2) + '\n')

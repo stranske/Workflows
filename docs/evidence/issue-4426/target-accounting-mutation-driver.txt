@@ -1,0 +1,92 @@
+"""Record named accounting failures and restored passes using only local files."""
+
+import ast
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / "docs/evidence/issue-4426"
+measurement = "tests/docs/test_issue_4426_coverage_measurement.py"
+ranking = "tests/docs/test_issue_4426_ranking.py"
+accounting_test = "test_per_target_accounting_preserves_both_runtimes_and_unknown_attribution"
+zero_test = "test_per_target_accounting_keeps_zero_difference_distinct_from_zero_improvement"
+ranking_test = "test_final_target_accounting_does_not_overwrite_historical_rankings"
+cases = [
+    ("omit-final-branch-outcomes", measurement,
+     'final_units = final["missing_lines"] + final["missing_branches"]',
+     'final_units = final["missing_lines"]', accounting_test),
+    ("omit-baseline-branch-denominator", measurement,
+     'version: final_denominator - row["num_statements"] - row["num_branches"]',
+     'version: final_denominator - row["num_statements"]', accounting_test),
+    ("collapse-baseline-runtimes", measurement,
+     '"baseline_missing_units_by_runtime": baseline_units,',
+     '"baseline_missing_units_by_runtime": {"3.12": baseline_units["3.12"]},', accounting_test),
+    ("claim-zero-attribution", measurement,
+     '                "attributable_round_reduction": None,',
+     '                "attributable_round_reduction": 0,', zero_test),
+    ("use-summary-instead-of-targets", ranking,
+     '"target_snapshot_comparison": measurement["target_snapshot_comparison"],',
+     '"target_snapshot_comparison": measurement["final_head_reconciliation"],', ranking_test),
+    ("render-baseline-as-final", ranking,
+     "f\"{row['final_missing_units']} | {difference['3.12']} / {difference['3.13']} | \"",
+     "f\"{row['baseline_missing_units_by_runtime']['3.12']} | {difference['3.12']} / {difference['3.13']} | \"",
+     ranking_test),
+]
+originals = {path: (root / path).read_bytes() for path in (measurement, ranking)}
+
+
+def run(path, name):
+    command = [sys.executable, "-m", "pytest", "-v", f"{path}::{name}",
+               "-m", "not slow", "--tb=short"]
+    result = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=110)
+    return {"command": command, "exit_code": result.returncode,
+            "output": result.stdout + result.stderr}
+
+
+receipts = []
+try:
+    for name, path, old, new, test in cases:
+        source = originals[path].decode()
+        assert source.count(old) == 1, (name, source.count(old))
+        mutant = source.replace(old, new)
+        try:
+            (root / path).write_text(mutant)
+            red = run(path, test)
+        finally:
+            (root / path).write_bytes(originals[path])
+        green = run(path, test)
+        assert red["exit_code"] == 1 and f"::{test} FAILED" in red["output"], red
+        assert green["exit_code"] == 0 and f"::{test} PASSED" in green["output"], green
+        receipts.append({"id": name, "source_path": path, "test": test,
+                         "original_snippet": old, "replacement": new,
+                         "mutant_sha256": hashlib.sha256(mutant.encode()).hexdigest(),
+                         "red": red, "green": green})
+        print(name, "named failure: 1; restored pass: 0", flush=True)
+finally:
+    for path, data in originals.items():
+        (root / path).write_bytes(data)
+
+# Preserve immutable symbol/test evidence without duplicating entire modules.
+symbols = {
+    measurement: {"compare_target_snapshots", accounting_test, zero_test},
+    ranking: {"build_ranking_record", "render_ranking_markdown", ranking_test},
+}
+source_evidence = {}
+for path, data in originals.items():
+    source = data.decode()
+    fragments = {node.name: ast.get_source_segment(source, node)
+                 for node in ast.parse(source).body
+                 if isinstance(node, ast.FunctionDef) and node.name in symbols[path]}
+    assert set(fragments) == symbols[path]
+    source_evidence[path] = {"sha256": hashlib.sha256(data).hexdigest(),
+                             "recorded_symbols": fragments}
+record = {"checked_on": "2026-11-07", "scope": "per-target evidence accounting only",
+          "source_evidence": source_evidence,
+          "source_restored": all((root / path).read_bytes() == data
+                                 for path, data in originals.items()),
+          "receipts": receipts}
+assert record["source_restored"]
+(evidence / "target-accounting-mutations.json").write_text(json.dumps(record, indent=2) + "\n")

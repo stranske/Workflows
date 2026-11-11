@@ -1,11 +1,10 @@
 """Lock the #4000 and #4405 inventory against this branch and the evidence files.
 
-#4000's three verifier tests are already in the tree. #4405 was closed unmerged
-(its Gate run failed lint while pytest passed); its pr_verifier tests were
-carried into the tree by #4602, and its langchain_client tests were dropped as
-duplicates of tests already on main. The inventory itself is a 2026-11-06
-snapshot, so its fields still say OPEN. Coverage arithmetic uses the recovered
-3.14 counters and keeps the original about-180 rule intact.
+#4000's three verifier tests are already in the tree. #4405's added tests were
+absent at the recorded observation; #4602 later carried its verifier tests into
+the tree and dropped duplicate client tests. Its Gate run failed lint while
+pytest passed. Coverage arithmetic uses
+the recovered 3.14 counters and keeps the original about-180 rule intact.
 """
 
 from __future__ import annotations
@@ -86,21 +85,25 @@ CARRIED_4405_FILES = (
 NOT_CARRIED_4405_TESTS = frozenset({"test_slot_config_wrappers_delegate_to_registry"})
 
 
-def test_pr_4405_snapshot_and_carried_tests() -> None:
+def test_pr_4405_carried_tests_remain_available() -> None:
+    record = _inventory()["pull_requests"]["4405"]
+    carried = "".join((ROOT / path).read_text(encoding="utf-8") for path in CARRIED_4405_FILES)
+    for path in CARRIED_4405_FILES:
+        for name in record["added_tests"][path]:
+            if name not in NOT_CARRIED_4405_TESTS:
+                assert f"def {name}" in carried
+
+
+def test_pr_4405_tests_were_absent_at_the_recorded_observation() -> None:
     record = _inventory()["pull_requests"]["4405"]
     # The 2026-11-06 snapshot, unchanged.
     assert record["state"] == "OPEN"
     assert record["merge_commit"] is None
     assert record["head_on_observed_main"] is False
     assert record["added_tests_on_observed_main"] is False
-
-    # Every #4405 test in a carried file is now in the tree. One name already
-    # existed in test_verifier_config.py, so #4602 kept that copy instead.
-    carried = "".join((ROOT / path).read_text(encoding="utf-8") for path in CARRIED_4405_FILES)
-    for path in CARRIED_4405_FILES:
-        for name in record["added_tests"][path]:
-            if name not in NOT_CARRIED_4405_TESTS:
-                assert f"def {name}" in carried
+    # These flags describe the pinned historical main, not today's checkout.
+    assert record["added_tests"]
+    assert all(names for names in record["added_tests"].values())
 
     body = (ROOT / record["body_path"]).read_text(encoding="utf-8")
     assert hashlib.sha256(body.encode()).hexdigest() == record["body_sha256"]

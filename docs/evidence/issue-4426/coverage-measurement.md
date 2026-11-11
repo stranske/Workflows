@@ -1,5 +1,37 @@
 # Issue #4426 repository coverage measurements
 
+## Per-target snapshot accounting, 2026-11-07
+
+`target_snapshot_comparison` in `coverage-measurement.json` now retains the
+six targets' original and final counters together. The same computed record
+and a rendered table are included in `ranking.json` and `ranking.md` without
+overwriting either historical ranking. Reproduce the records with
+`compare_target_snapshots` in `tests/docs/test_issue_4426_coverage_measurement.py`
+and `build_ranking_record` in `tests/docs/test_issue_4426_ranking.py`.
+
+Both original runtimes give the same per-target baseline units. In the
+preserved issue order, the baseline/final/difference values are:
+
+| Target | Baseline units | Final units | Unattributed difference | Denominator change |
+| --- | ---: | ---: | ---: | ---: |
+| `scripts/sync_test_dependencies.py` | 6 | 6 | 0 | +51 |
+| `scripts/langchain/issue_pr_context.py` | 30 | 19 | 11 | +28 |
+| `scripts/langchain/verifier_config.py` | 16 | 2 | 14 | +17 |
+| `tools/langchain_client.py` | 29 | 5 | 24 | +17 |
+| `scripts/langchain/task_validator.py` | 38 | 6 | 32 | -4 |
+| `scripts/langchain/pr_verifier.py` | 283 | 200 | 83 | +874 |
+
+Units mean missing lines plus missing branch outcomes. Denominator change
+means final statements plus branches minus original statements plus branches.
+Every target's denominator changed. Equal missing-unit counts for
+`sync_test_dependencies.py` establish a zero snapshot difference, not zero
+attributable improvement. The original Python 3.12/3.13 Gate configuration
+and final Python 3.14 configuration are described below; these counters
+remain uniquely recovered term reports, not comparable coverage artifacts.
+Each target retains `requires_comparable_execution`, unknown attributable
+reduction and no exclusion. The 164-unit snapshot difference cannot satisfy
+the approximately 180 attributable-unit requirement.
+
 Checked 2026-11-06. Machine-readable fields are in `coverage-measurement.json`.
 The accounting is coverage.py's branch `percent_covered`: covered statements
 plus covered branches, divided by statements plus branches. `pyproject.toml`
@@ -102,3 +134,94 @@ blended coverage is 91.08%, measured after the round opened. Later tasks still
 owe a target-level remainder against the original numerical rule. The same-artifact
 target counters are stored beside the repository totals for that later ranking;
 they are not themselves the round-wide reduction.
+
+## Later log reconciliation, 2026-11-07
+
+The historical records above remain unchanged. `gate-report-inputs.json` pins
+bounded per-target log excerpts from original Gate jobs 117244209085 (3.12)
+and 117244209133 (3.13), plus final-head job 128131232558 (3.14). Selected
+REST metadata binds run 42287174423 and artifact 13537639987 to PR #4481 head
+`97fa3cdd6b198623db4adc86f16f0b3788320794`. The actual tested checkout is
+`e4e584ea61852751c55749ab9ed6539fa10c9a31`, tree
+`c9e0d5158f0dd4bc8166c3667439219b7e943fd9`; its parents are base
+`d216eaafb02c97ed5f1da16a10d46d9a967c616f` and that PR head.
+
+Each small target report permits exactly one integer missing-branch count
+under coverage.py's precision-two display. The evidence test enumerates every
+valid missing-branch count, requires a unique match, and rejects ambiguous
+totals, impossible counters, missing/duplicate targets, or mismatched identities.
+It does not use partial branches as missing branch outcomes. The original
+Python 3.12 and 3.13 target counters agree:
+
+| Target | Original missing lines | Original missing branches | Final missing lines | Final missing branches |
+| --- | ---: | ---: | ---: | ---: |
+| `scripts/sync_test_dependencies.py` | 1 | 5 | 1 | 5 |
+| `scripts/langchain/issue_pr_context.py` | 17 | 13 | 13 | 6 |
+| `scripts/langchain/verifier_config.py` | 7 | 9 | 1 | 1 |
+| `tools/langchain_client.py` | 21 | 8 | 3 | 2 |
+| `scripts/langchain/task_validator.py` | 25 | 13 | 3 | 3 |
+| `scripts/langchain/pr_verifier.py` | 169 | 114 | 107 | 93 |
+
+Original log-derived missing units total **402**; final log-derived missing
+units total **238**. Their difference, **164**, is an unattributed snapshot
+difference, not an attributable round-wide reduction. The issue-listed 398
+units and the earlier downloaded Gate's 327 units remain separate snapshots.
+No target exclusions are claimed and no units are credited toward acceptance.
+
+These are reconstructed counters from the recorded Gate configurations, not
+comparable downloaded artifacts or branch arcs. Original Gate used Python
+3.12/3.13, `pytest`, and automatic workers; final Gate used Python 3.14,
+`pytest -p ci_test_growth`, and four workers. Source and test inventories also
+changed (for example, verifier statements grew from 2586 to 3188). The current
+coverage configuration alone does not establish equivalent execution.
+The repository-wide final TOTAL has several possible missing-branch counts
+at its rounded percentage; no exact total is inferred. The final archive URL
+still fails local DNS resolution. `attributable_round_reduction` and the
+**comparable** original-round baseline remain null. Task 1 stays incomplete
+until comparable artifacts establish attribution against the about-180 rule.
+
+Reproduce the offline counter and identity checks:
+
+```bash
+python -m pytest -q tests/docs/test_issue_4426_coverage_measurement.py tests/docs/test_issue_4426_ranking.py -m 'not slow'
+```
+
+
+## Offline archive ingestion
+
+`scripts/reconcile_issue_4426_coverage.py` can ingest the final artifact once
+its ZIP bytes are accessible locally:
+
+```bash
+python scripts/reconcile_issue_4426_coverage.py /tmp/issue-4426-final-gate.zip > /tmp/issue-4426-final-gate-reconciled.json
+```
+
+The command verifies the pinned metadata and archive SHA-256, selects exactly
+`runtimes/3.14/coverage.json` from the recorded workflow layout, and checks
+JSON counters and percentages against the final Gate term reports. It emits
+the original missing-line and missing-branch inventories and their combined
+counts, plus the coverage JSON hash and the tested merge identity. It leaves
+the historical measurement and ranking snapshots untouched. Comparable
+original-round execution and attributable reduction remain unknown even after
+a final archive is successfully reconciled.
+
+Tests use explicitly synthetic archives and cannot establish real artifact
+availability. A fresh download attempt on 2026-11-07 still failed DNS resolution.
+This implementation advances artifact ingestion; it does not complete task 1
+or either remaining acceptance criterion.
+
+## Reproduce the real term-report accounting offline
+
+`python scripts/reconcile_issue_4426_coverage.py --reports-only` regenerates
+`term-report-reconciled.json` from the digest-pinned Gate log record. It emits
+both original runtimes separately, the final counters for all six targets,
+and each target's denominator changes. It agrees with the retained
+`target_snapshot_comparison` records in coverage-measurement.json and
+ranking.json. This mode requires no artifact ZIP, Git history or network.
+
+The original total is 402 missing units on each runtime; the final total is
+238. The 164-unit snapshot difference remains unattributed. A zero difference
+for one target remains distinct from measured zero improvement. The command
+rejects ambiguous rounded branch counts and marks archive verification,
+comparable execution and branch-arc recovery false. It grants no exclusions.
+The archive-based command still requires the exact digest-matching bytes.

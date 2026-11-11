@@ -1,0 +1,49 @@
+"""Exercise the evidence validators; every temporary test-helper change is restored."""
+
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+source_path = root / 'tests/docs/test_issue_4426_coverage_measurement.py'
+original = source_path.read_bytes()
+source = original.decode()
+base = 'tests/docs/test_issue_4426_coverage_measurement.py::'
+cases = [
+    ('wrong-recovered-count', 'recover_missing_branches', 'return candidates[0]', 'return candidates[0] + 1', ['test_log_reconciliation_recovers_counts_without_claiming_attribution']),
+    ('ignore-final-identity', 'reconcile_gate_reports', 'raise ValueError("final Gate identity mismatch")', 'pass', ['test_reconciliation_rejects_mismatched_final_identity', 'test_reconciliation_rejects_artifact_or_log_from_another_run']),
+    ('ignore-duplicate-target', 'recover_report_targets', 'if path in targets:', 'if False:', ['test_report_recovery_rejects_incomplete_duplicate_or_unbounded_excerpts']),
+    ('accept-ambiguous-count', 'recover_missing_branches', 'if len(candidates) != 1:', 'if not candidates:', ['test_branch_recovery_rejects_ambiguous_totals_and_impossible_counters']),
+]
+
+def run(names):
+    command = [sys.executable, '-m', 'pytest', '-q'] + [base + name for name in names] + ['-m', 'not slow', '--tb=short']
+    start = time.monotonic()
+    result = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=110)
+    return {'command': command, 'exit_code': result.returncode, 'elapsed_seconds': round(time.monotonic()-start, 3), 'output': result.stdout + result.stderr}
+
+receipts = []
+try:
+    for name, symbol, old, new, tests in cases:
+        assert source.count(old) == 1
+        mutant = source.replace(old, new)
+        try:
+            source_path.write_text(mutant)
+            red = run(tests)
+        finally:
+            source_path.write_bytes(original)
+        green = run(tests)
+        assert red['exit_code'] == 1 and all(test in red['output'] for test in tests), red
+        assert green['exit_code'] == 0, green
+        receipts.append({'id': name, 'symbol': symbol, 'original_snippet': old, 'mutant_snippet': new, 'source_sha256': hashlib.sha256(original).hexdigest(), 'mutant_sha256': hashlib.sha256(mutant.encode()).hexdigest(), 'red': red, 'green': green})
+        print(name, 'mutant:', red['exit_code'], 'restored:', green['exit_code'], flush=True)
+finally:
+    source_path.write_bytes(original)
+
+snapshot = root / 'docs/evidence/issue-4426/reconciliation-source.py.txt'
+snapshot.write_bytes(original)
+record = {'checked_on': '2026-11-07', 'scope': 'evidence validator helpers only; prior production behavioral receipts remain unchanged', 'source': str(source_path.relative_to(root)), 'source_evidence': {'path': snapshot.name, 'sha256': hashlib.sha256(original).hexdigest()}, 'production_modified': False, 'source_restored': source_path.read_bytes() == original, 'receipts': receipts}
+(root / 'docs/evidence/issue-4426/reconciliation-mutations.json').write_text(json.dumps(record, indent=2) + '\n')

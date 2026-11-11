@@ -1,0 +1,86 @@
+"""Measure the bounded native-slot increment; do not claim original-round credit."""
+
+import gzip
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / "docs/evidence/issue-4426"
+test_path = root / "tests/scripts/test_pr_verifier_ranked_remainder.py"
+source_path = root / "scripts/langchain/pr_verifier.py"
+final_tests = test_path.read_bytes()
+source_before = source_path.read_bytes()
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+def run(command):
+    start = time.monotonic()
+    result = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=110)
+    record = {"command": command, "exit_code": result.returncode,
+              "elapsed_seconds": round(time.monotonic() - start, 3),
+              "output": result.stdout + result.stderr}
+    assert result.returncode == 0, record
+    return record
+
+records = {}
+reports = {}
+try:
+    for phase, tests in [("before", (evidence / "native-slot-tests-before.py.txt").read_bytes()),
+                         ("after", final_tests)]:
+        test_path.write_bytes(tests)
+        output = Path("/tmp/issue4426-native-slot-" + phase + ".json")
+        command = [sys.executable, "-m", "pytest", "-q", str(test_path.relative_to(root)),
+                   "tests/scripts/test_pr_verifier_semantic_integration.py",
+                   "--cov=scripts.langchain.pr_verifier", "--cov-branch",
+                   "--cov-report=json:" + str(output), "--cov-report=term", "-m", "not slow"]
+        records[phase] = run(command)
+        raw = output.read_bytes()
+        artifact = "native-slot-" + phase + ".coverage.json.gz"
+        packed = gzip.compress(raw, mtime=0)
+        (evidence / artifact).write_bytes(packed)
+        row = json.loads(raw)["files"][str(source_path.relative_to(root))]
+        reports[phase] = row
+        records[phase].update({"test_sha256": sha(tests), "coverage_artifact": artifact,
+                              "coverage_json_sha256": sha(raw), "gzip_sha256": sha(packed),
+                              "summary": row["summary"]})
+finally:
+    test_path.write_bytes(final_tests)
+
+before, after = reports["before"], reports["after"]
+def arcs(row):
+    return set(map(tuple, row["missing_branches"]))
+
+new_lines = sorted(set(before["missing_lines"]) - set(after["missing_lines"]))
+new_arcs = sorted(arcs(before) - arcs(after))
+assert not set(after["missing_lines"]) - set(before["missing_lines"])
+assert not arcs(after) - arcs(before)
+for key in ("num_statements", "num_branches"):
+    assert before["summary"][key] == after["summary"][key]
+assert source_path.read_bytes() == source_before
+records["focused_acceptance"] = run([
+    sys.executable, "-m", "pytest", "-q",
+    "tests/scripts/test_pr_verifier_ranked_remainder.py",
+    "tests/scripts/test_pr_verifier_expanded_comparison_verdict.py",
+    "tests/scripts/test_pr_verifier_evidence_cache_miss.py",
+    "tests/tools/test_langchain_client.py", "-m", "not slow",
+])
+record = {
+    "checked_on": "2026-11-07", "scope": "two-module local increment only",
+    "runs": records,
+    "source_sha256": sha(source_before),
+    "pyproject_sha256": sha((root / "pyproject.toml").read_bytes()),
+    "semantic_integration_test_sha256": sha((root / "tests/scripts/test_pr_verifier_semantic_integration.py").read_bytes()),
+    "newly_covered_lines": new_lines, "newly_covered_branches": new_arcs,
+    "local_missing_unit_reduction": len(new_lines) + len(new_arcs),
+    "lost_covered_units": 0, "attributable_original_round_reduction": None,
+    "source_unchanged": True, "final_tests_restored": test_path.read_bytes() == final_tests,
+}
+(evidence / "native-slot-validation.json").write_text(json.dumps(record, indent=2) + "\n")
+for name, result in records.items():
+    print(name, "exit:", result["exit_code"], "seconds:", result["elapsed_seconds"])
+print("Local increment:", record["local_missing_unit_reduction"])

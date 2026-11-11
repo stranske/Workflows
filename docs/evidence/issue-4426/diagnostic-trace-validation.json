@@ -1,0 +1,240 @@
+{
+  "checked_on": "2026-11-07",
+  "scope": "five-module local increment only",
+  "source_sha256": "f2f0993b3b909d2317bad6a751886c38a0956efb1859d085415f67e3da72f478",
+  "pyproject_sha256": "4134d7160838d2c4196e94173f7a64a22eb2b26668c574e14e80cf512dd0411b",
+  "python": "3.14.10 (main, Oct 26 2026, 14:17:03) [GCC 15.2.0]",
+  "baseline_test_sha256": "19b273f8469a0cea07f8468ba4df9d051cbe137b9a0f32134ef8736dbea0d2b3",
+  "final_test_sha256": "5c65f96ac78135ba563ff7a96d2e15c6aa68e90dce355571c074464c7ce2eb78",
+  "new_test_source": "\n@pytest.fixture\ndef diagnostic_review(monkeypatch):\n    \"\"\"Simulate admission boundaries while exercising recovery and response parsing.\"\"\"\n    monkeypatch.setenv(\"VERIFIER_EVIDENCE_PROFILE\", \"expanded\")\n    monkeypatch.setenv(\"VERIFIER_PARTITION_RECOVERY\", \"diagnostic\")\n    plan = {\n        \"acceptance_sufficient\": False,\n        \"ranges\": [{\"capacity\": {\"request_sha256\": \"planned-request\"}} for _ in range(3)],\n        \"results\": [],\n    }\n    client = SimpleNamespace(invoke=Mock())\n    monkeypatch.setattr(verifier, \"_prepare_capacity_client\", lambda value: value)\n    monkeypatch.setattr(\n        verifier, \"_plan_diagnostic_partitions\", Mock(return_value=(plan, [\"a\", \"b\", \"c\"]))\n    )\n    preflight = Mock(return_value={\"request_sha256\": \"planned-request\", \"status\": \"PASS\"})\n    monkeypatch.setattr(verifier, \"_preflight_input_capacity\", preflight)\n    overflow = verifier.InputCapacityError(\n        \"whole request too large\", receipt={\"status\": \"overflow\"}\n    )\n    return SimpleNamespace(client=client, plan=plan, preflight=preflight, overflow=overflow)\n\n\ndef test_diagnostic_changed_request_blocks_generation_and_retains_capacity(diagnostic_review):\n    review = diagnostic_review\n    changed = {\"request_sha256\": \"changed-request\", \"status\": \"PASS\"}\n    review.preflight.return_value = changed\n\n    result = verifier._maybe_recover_partition_diagnostics(\n        review.overflow, review.client, \"context\", None, \"openai\", \"model\"\n    )\n\n    review.client.invoke.assert_not_called()\n    review.preflight.assert_called_once_with(review.client, \"a\")\n    assert result.verdict == \"CONCERNS\" and result.used_llm is False\n    assert result.error == \"diagnostic request changed after planning\"\n    assert result.partition_recovery[\"status\"] == \"diagnostic_incomplete\"\n    assert result.partition_recovery[\"acceptance_sufficient\"] is False\n    assert result.partition_recovery[\"overflow\"] == {\"status\": \"overflow\"}\n    assert result.partition_recovery[\"results\"] == [\n        {\"range_index\": 0, \"error\": result.error, \"capacity\": changed}\n    ]\n\n\ndef test_diagnostic_sparse_failure_survives_multiple_malformed_responses(diagnostic_review):\n    review = diagnostic_review\n    # Plain string responses exercise the real response fallback and parser.\n    raw = ['{\"verdict\":\"FAIL\",\"concerns\":[\"confirmed defect\"]}', \"invalid one\", \"invalid two\"]\n    review.client.invoke.side_effect = raw\n\n    result = verifier._maybe_recover_partition_diagnostics(\n        review.overflow, review.client, \"context\", None, \"openai\", \"model\"\n    )\n\n    assert review.client.invoke.call_count == review.preflight.call_count == 3\n    assert [call.args[0] for call in review.client.invoke.call_args_list] == [\"a\", \"b\", \"c\"]\n    assert result.verdict == \"FAIL\" and result.used_llm is True\n    assert result.raw_content == \"\\n\\n\".join(raw)\n    assert result.summary == (\n        \"Cross-range obligations remain unresolved; diagnostic partition review cannot grant PASS.\"\n    )\n    parse_error = \"Failed to parse JSON response: JSONDecodeError\"\n    assert result.error == f\"{parse_error}; {parse_error}\"\n    assert result.concerns[1:] == [\n        \"confirmed defect\",\n        f\"Diagnostic range 1: {parse_error}\",\n        f\"Diagnostic range 2: {parse_error}\",\n    ]\n    assert result.partition_recovery[\"status\"] == \"diagnostic_incomplete\"\n    assert result.partition_recovery[\"acceptance_sufficient\"] is False\n    assert [row[\"raw_content\"] for row in result.partition_recovery[\"results\"]] == raw\n\n\ndef test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent():\n    results = [\n        verifier.EvaluationResult(verdict=\"PASS\", provider_used=\"openai\", used_llm=True),\n        verifier.EvaluationResult(\n            verdict=\"CONCERNS\",\n            provider_used=\"anthropic\",\n            used_llm=True,\n            langsmith_trace_url=\"https://smith.langchain.com/r/second-trace\",\n        ),\n        verifier.EvaluationResult(\n            verdict=\"FAIL\",\n            used_llm=True,\n            langsmith_trace_url=\"https://smith.langchain.com/r/third-trace\",\n        ),\n    ]\n\n    report = verifier.format_comparison_report(results)\n\n    assert report.split(\"### \ud83d\udd0d LangSmith Traces\\n\", 1)[1] == (\n        \"- [anthropic](https://smith.langchain.com/r/second-trace)\\n\"\n        \"- [provider-3](https://smith.langchain.com/r/third-trace)\\n\"\n    )\n",
+  "unchanged_suite_sha256": {
+    "tests/scripts/test_pr_verifier_partition_recovery.py": "21cdeed5d89c06d916e63222bd6134aea5f0a280eb667f396cdb1018a2e85031",
+    "tests/scripts/test_pr_verifier_compare.py": "517c77bcf82acb6415ab1dc704f0c9d7cda51fa7d7ff190a72ec19051e1e4f91",
+    "tests/scripts/test_pr_verifier_comparison_report.py": "51fa27a9f4ad600ca7f71e2106430c54ca69d2a1ca7781483fd6ab9b24cd1f8a",
+    "tests/scripts/test_pr_verifier_config_and_report.py": "026476cd752961444de1700ced0c59fccd675e82070b85e0a714d7ac8f9b3670"
+  },
+  "runs": {
+    "before": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_pr_verifier_partition_recovery.py",
+        "tests/scripts/test_pr_verifier_compare.py",
+        "tests/scripts/test_pr_verifier_comparison_report.py",
+        "tests/scripts/test_pr_verifier_config_and_report.py",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "--cov=scripts.langchain.pr_verifier",
+        "--cov-branch",
+        "--cov-report=json:/tmp/issue4426-diagnostic-trace-before.json",
+        "--cov-report=term",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 11.257,
+      "output": "........................................................................ [ 43%]\n........................................................................ [ 86%]\n......................                                                   [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart   Cover   Missing\n-------------------------------------------------------------------------------\nscripts/langchain/pr_verifier.py    3188   1207   1288    179  57.55%   378, 452->449, 456->449, 458->449, 462, 478, 481, 493-494, 603-607, 617, 655, 695->705, 729->731, 734, 735->737, 743->740, 751->753, 753->755, 760-803, 808, 810-813, 830-846, 868, 869->852, 874, 875->852, 877-881, 897, 902-910, 912, 916-917, 919, 920->891, 933, 955, 966, 975, 980-981, 992-996, 998, 1030, 1032-1033, 1055-1060, 1072-1090, 1094-1111, 1123-1153, 1194-1209, 1223-1224, 1244, 1248-1267, 1357, 1606-1675, 1844-1888, 2314-2325, 2359-2389, 2665, 2681, 2682->2662, 2692, 2758-2811, 2976-3026, 3084-3108, 3289-3349, 3442-3453, 3566-3637, 3795, 3804-3969, 3974-3992, 3998-4013, 4028-4288, 4501-4502, 4663-4702, 4716-4778, 4793-4805, 4818-4819, 4825-4844, 4866, 4891-4900, 5015, 5047-5056, 5085-5803, 5911-5956, 5964->5962, 5974-5975, 6019-6020, 6021->6012, 6050-6073, 6088-6091, 6097->6096, 6104, 6115-6195, 6211, 6216, 6218, 6226-6227, 6259, 6274, 6294->6297, 6345-6359, 6363, 6367, 6378-6384, 6386-6394, 6408-6409, 6416-6417, 6426-6429, 6440, 6445, 6456, 6507, 6519, 6533, 6543-6544, 6545->6538, 6654-6655, 6663, 6715, 6737, 6751-6752, 6756, 6778, 6800-6815, 6868-6869, 6882->6782, 6907, 6957-6959, 6973-7007, 7014, 7019, 7029, 7044, 7081-7089, 7096-7100, 7109-7112, 7125, 7131, 7134, 7215-7216, 7231-7232, 7251, 7254, 7259-7260, 7263-7264, 7272, 7281, 7287-7290, 7302-7303, 7307->7309, 7321-7322, 7325-7326, 7340, 7358, 7360-7361, 7368, 7375, 7377, 7382, 7400, 7409, 7464, 7466, 7474, 7486, 7488, 7493, 7495, 7501, 7504, 7507, 7510, 7512, 7514, 7550, 7552, 7571, 7575, 7579, 7582, 7603-7607, 7836, 7859->7861, 7879-7884, 7927->7939, 7947-7952, 7962-7967, 7973-7975, 7992-8020, 8025, 8035-8063, 8068-8069, 8107, 8113-8114, 8131-8133, 8139, 8145-8153, 8226-8229, 8254, 8262, 8339-8344, 8353-8359, 8363-8383, 8388-8412, 8440, 8486-8493, 8523-8692, 8715-8718, 8728, 8736-8767, 8772-8791, 8800-8811, 8818, 8832, 8855-8938, 9002, 9021, 9037, 9190-9193, 9204, 9208-9211, 9265-9299, 9304, 9306-9313, 9337->9342\n-------------------------------------------------------------------------------\nTOTAL                               3188   1207   1288    179  57.55%\nCoverage JSON written to file /tmp/issue4426-diagnostic-trace-before.json\n166 passed in 8.13s\n",
+      "artifact": "diagnostic-trace-before.coverage.json.gz",
+      "archive_sha256": "8df05c61be68bc392d3c2160d8be974a30e5f48ac98cb67c2074511915a9b1f3",
+      "coverage_json_sha256": "b2b4a5582d3be839b528fc962d85dc75206c07fce6848bb0013feb056579427e",
+      "summary": {
+        "covered_lines": 1981,
+        "num_statements": 3188,
+        "percent_covered": 57.55138516532618,
+        "percent_covered_display": "57.55",
+        "missing_lines": 1207,
+        "excluded_lines": 35,
+        "percent_statements_covered": 62.13927227101631,
+        "percent_statements_covered_display": "62.14",
+        "num_branches": 1288,
+        "num_partial_branches": 179,
+        "covered_branches": 595,
+        "missing_branches": 693,
+        "percent_branches_covered": 46.19565217391305,
+        "percent_branches_covered_display": "46.20"
+      }
+    },
+    "after": {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/scripts/test_pr_verifier_partition_recovery.py",
+        "tests/scripts/test_pr_verifier_compare.py",
+        "tests/scripts/test_pr_verifier_comparison_report.py",
+        "tests/scripts/test_pr_verifier_config_and_report.py",
+        "tests/scripts/test_pr_verifier_ranked_remainder.py",
+        "--cov=scripts.langchain.pr_verifier",
+        "--cov-branch",
+        "--cov-report=json:/tmp/issue4426-diagnostic-trace-after.json",
+        "--cov-report=term",
+        "-m",
+        "not slow"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 11.436,
+      "output": "........................................................................ [ 42%]\n........................................................................ [ 85%]\n.........................                                                [100%]\n================================ tests coverage ================================\n_______________ coverage: platform linux, python 3.14.10-final-0 _______________\n\nName                               Stmts   Miss Branch BrPart   Cover   Missing\n-------------------------------------------------------------------------------\nscripts/langchain/pr_verifier.py    3188   1202   1288    177  57.75%   378, 452->449, 456->449, 458->449, 462, 478, 481, 493-494, 603-607, 617, 655, 695->705, 729->731, 734, 735->737, 743->740, 751->753, 753->755, 760-803, 808, 810-813, 830-846, 868, 869->852, 874, 875->852, 877-881, 897, 902-910, 912, 916-917, 919, 920->891, 933, 955, 966, 975, 980-981, 992-996, 998, 1030, 1032-1033, 1055-1060, 1072-1090, 1094-1111, 1123-1153, 1194-1209, 1223-1224, 1244, 1248-1267, 1357, 1606-1675, 1844-1888, 2314-2325, 2359-2389, 2665, 2681, 2682->2662, 2692, 2758-2811, 2976-3026, 3084-3108, 3289-3349, 3442-3453, 3566-3637, 3795, 3804-3969, 3974-3992, 3998-4013, 4028-4288, 4501-4502, 4663-4702, 4716-4778, 4793-4805, 4818-4819, 4825-4844, 4866, 4891-4900, 5015, 5047-5056, 5085-5803, 5911-5956, 5964->5962, 5974-5975, 6019-6020, 6021->6012, 6050-6073, 6088-6091, 6097->6096, 6104, 6115-6195, 6211, 6216, 6218, 6226-6227, 6259, 6274, 6294->6297, 6345-6359, 6363, 6367, 6378-6384, 6386-6394, 6408-6409, 6416-6417, 6426-6429, 6440, 6445, 6456, 6507, 6519, 6533, 6543-6544, 6545->6538, 6654-6655, 6663, 6715, 6737, 6751-6752, 6756, 6778, 6800-6815, 6868-6869, 6882->6782, 6907, 6957-6959, 6973-7007, 7014, 7019, 7029, 7044, 7081-7089, 7096-7100, 7109-7112, 7125, 7131, 7134, 7215-7216, 7231-7232, 7251, 7254, 7259-7260, 7263-7264, 7272, 7281, 7287-7290, 7302-7303, 7307->7309, 7321-7322, 7325-7326, 7340, 7358, 7360-7361, 7368, 7375, 7377, 7382, 7400, 7409, 7464, 7466, 7474, 7486, 7488, 7493, 7495, 7501, 7504, 7507, 7510, 7512, 7514, 7550, 7552, 7571, 7575, 7579, 7582, 7603-7607, 7859->7861, 7879-7884, 7927->7939, 7947-7952, 7962-7967, 7973-7975, 7992-8020, 8025, 8035-8063, 8068-8069, 8107, 8113-8114, 8131-8133, 8139, 8145-8153, 8226-8229, 8254, 8262, 8339-8344, 8353-8359, 8363-8383, 8388-8412, 8440, 8486-8493, 8523-8692, 8715-8718, 8728, 8736-8767, 8772-8791, 8800-8811, 8818, 8832, 8855-8938, 9002, 9021, 9037, 9204, 9208-9211, 9265-9299, 9304, 9306-9313, 9337->9342\n-------------------------------------------------------------------------------\nTOTAL                               3188   1202   1288    177  57.75%\nCoverage JSON written to file /tmp/issue4426-diagnostic-trace-after.json\n169 passed in 8.35s\n",
+      "artifact": "diagnostic-trace-after.coverage.json.gz",
+      "archive_sha256": "75921618b8eb29979a7f4c9f884e1c4b5e5bf7d909d8c5abc3e1935fa5190166",
+      "coverage_json_sha256": "3cdad4e60642c2d64afb02a6542862517f27f3ed1832c97145fdf21514813e35",
+      "summary": {
+        "covered_lines": 1986,
+        "num_statements": 3188,
+        "percent_covered": 57.75245755138516,
+        "percent_covered_display": "57.75",
+        "missing_lines": 1202,
+        "excluded_lines": 35,
+        "percent_statements_covered": 62.2961104140527,
+        "percent_statements_covered_display": "62.30",
+        "num_branches": 1288,
+        "num_partial_branches": 177,
+        "covered_branches": 599,
+        "missing_branches": 689,
+        "percent_branches_covered": 46.506211180124225,
+        "percent_branches_covered_display": "46.51"
+      }
+    }
+  },
+  "mutations": [
+    {
+      "test": "test_diagnostic_changed_request_blocks_generation_and_retains_capacity",
+      "old": "if capacity[\"request_sha256\"] != plan[\"ranges\"][index][\"capacity\"][\"request_sha256\"]:",
+      "new": "if capacity[\"request_sha256\"] == plan[\"ranges\"][index][\"capacity\"][\"request_sha256\"]:",
+      "mutated_source_sha256": "04e1a30f1d84cc168875d489ace07b7db9c68a7f27343d59accd282cedcb1a4f",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_diagnostic_changed_request_blocks_generation_and_retains_capacity",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.828,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n____ test_diagnostic_changed_request_blocks_generation_and_retains_capacity ____\ntests/scripts/test_pr_verifier_ranked_remainder.py:372: in test_diagnostic_changed_request_blocks_generation_and_retains_capacity\n    review.client.invoke.assert_not_called()\n/opt/hostedtoolcache/Python/3.14.10/x64/lib/python3.14/unittest/mock.py:947: in assert_not_called\n    raise AssertionError(msg)\nE   AssertionError: Expected 'mock' to not have been called. Called 3 times.\nE   Calls: [call('a', config={'metadata': {'repo': 'stranske/Workflows', 'run_id': '42374523113', 'issue_or_pr_number': 'unknown', 'operation': 'verifier_partition_diagnostic', 'pr_number': None, 'issue_number': None}, 'tags': ['workflows-agents', 'operation:verifier_partition_diagnostic', 'repo:stranske/Workflows', 'issue_or_pr:unknown', 'run_id:42374523113']}),\nE    call('b', config={'metadata': {'repo': 'stranske/Workflows', 'run_id': '42374523113', 'issue_or_pr_number': 'unknown', 'operation': 'verifier_partition_diagnostic', 'pr_number': None, 'issue_number': None}, 'tags': ['workflows-agents', 'operation:verifier_partition_diagnostic', 'repo:stranske/Workflows', 'issue_or_pr:unknown', 'run_id:42374523113']}),\nE    call('c', config={'metadata': {'repo': 'stranske/Workflows', 'run_id': '42374523113', 'issue_or_pr_number': 'unknown', 'operation': 'verifier_partition_diagnostic', 'pr_number': None, 'issue_number': None}, 'tags': ['workflows-agents', 'operation:verifier_partition_diagnostic', 'repo:stranske/Workflows', 'issue_or_pr:unknown', 'run_id:42374523113']})].\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_diagnostic_changed_request_blocks_generation_and_retains_capacity - AssertionError: Expected 'mock' to not have been called. Called 3 times.\nCalls: [call('a', config={'metadata': {'repo': 'stranske/Workflows', 'run_id': '42374523113', 'issue_or_pr_number': 'unknown', 'operation': 'verifier_partition_diagnostic', 'pr_number': None, 'issue_number': None}, 'tags': ['workflows-agents', 'operation:verifier_partition_diagnostic', 'repo:stranske/Workflows', 'issue_or_pr:unknown', 'run_id:42374523113']}),\n call('b', config={'metadata': {'repo': 'stranske/Workflows', 'run_id': '42374523113', 'issue_or_pr_number': 'unknown', 'operation': 'verifier_partition_diagnostic', 'pr_number': None, 'issue_number': None}, 'tags': ['workflows-agents', 'operation:verifier_partition_diagnostic', 'repo:stranske/Workflows', 'issue_or_pr:unknown', 'run_id:42374523113']}),\n call('c', config={'metadata': {'repo': 'stranske/Workflows', 'run_id': '42374523113', 'issue_or_pr_number': 'unknown', 'operation': 'verifier_partition_diagnostic', 'pr_number': None, 'issue_number': None}, 'tags': ['workflows-agents', 'operation:verifier_partition_diagnostic', 'repo:stranske/Workflows', 'issue_or_pr:unknown', 'run_id:42374523113']})].\n1 failed in 0.80s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_diagnostic_changed_request_blocks_generation_and_retains_capacity",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.651,
+        "output": ".                                                                        [100%]\n1 passed in 0.69s\n"
+      }
+    },
+    {
+      "test": "test_diagnostic_sparse_failure_survives_multiple_malformed_responses",
+      "old": "result.error = part.error if not result.error else result.error + \"; \" + part.error",
+      "new": "result.error = part.error",
+      "mutated_source_sha256": "283b943377ac92da793096fb0fd060bd3145dbb96fc03056fbefcf3090f50b60",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_diagnostic_sparse_failure_survives_multiple_malformed_responses",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.755,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_____ test_diagnostic_sparse_failure_survives_multiple_malformed_responses _____\ntests/scripts/test_pr_verifier_ranked_remainder.py:402: in test_diagnostic_sparse_failure_survives_multiple_malformed_responses\n    assert result.error == f\"{parse_error}; {parse_error}\"\nE   AssertionError: assert 'Failed to pa...ONDecodeError' == 'Failed to pa...ONDecodeError'\nE     \nE     Skipping 35 identical leading characters in diff, use -v to show\nE     - DecodeError; Failed to parse JSON response: JSONDecodeError\nE     + DecodeError\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_diagnostic_sparse_failure_survives_multiple_malformed_responses - AssertionError: assert 'Failed to pa...ONDecodeError' == 'Failed to pa...ONDecodeError'\n  \n  Skipping 35 identical leading characters in diff, use -v to show\n  - DecodeError; Failed to parse JSON response: JSONDecodeError\n  + DecodeError\n1 failed in 0.74s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_diagnostic_sparse_failure_survives_multiple_malformed_responses",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.525,
+        "output": ".                                                                        [100%]\n1 passed in 0.68s\n"
+      }
+    },
+    {
+      "test": "test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent",
+      "old": "(labels[i], result.langsmith_trace_url)",
+      "new": "(labels[0], result.langsmith_trace_url)",
+      "mutated_source_sha256": "48251ccaa7ece22012b4268c04ef3cebd55171e77e40479be29811bf9e698f77",
+      "failure": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 1,
+        "elapsed_seconds": 2.525,
+        "output": "F                                                                        [100%]\n=================================== FAILURES ===================================\n_ test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent _\ntests/scripts/test_pr_verifier_ranked_remainder.py:431: in test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent\n    assert report.split(\"### \ud83d\udd0d LangSmith Traces\\n\", 1)[1] == (\nE   AssertionError: assert '- [openai](h...hird-trace)\\n' == '- [anthropic...hird-trace)\\n'\nE     \nE     - - [anthropic](https://smith.langchain.com/r/second-trace)\nE     ?    -----   -\nE     + - [openai](https://smith.langchain.com/r/second-trace)\nE     ?      +++\nE     - - [provider-3](https://smith.langchain.com/r/third-trace)\nE     ?     ^^^ -----\nE     + - [openai](https://smith.langchain.com/r/third-trace)\nE     ?    + ^^^\n=========================== short test summary info ============================\nFAILED tests/scripts/test_pr_verifier_ranked_remainder.py::test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent - AssertionError: assert '- [openai](h...hird-trace)\\n' == '- [anthropic...hird-trace)\\n'\n  \n  - - [anthropic](https://smith.langchain.com/r/second-trace)\n  ?    -----   -\n  + - [openai](https://smith.langchain.com/r/second-trace)\n  ?      +++\n  - - [provider-3](https://smith.langchain.com/r/third-trace)\n  ?     ^^^ -----\n  + - [openai](https://smith.langchain.com/r/third-trace)\n  ?    + ^^^\n1 failed in 0.71s\n"
+      },
+      "restored": {
+        "command": [
+          "/opt/hostedtoolcache/Python/3.14.10/x64/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/scripts/test_pr_verifier_ranked_remainder.py::test_comparison_trace_links_keep_provider_labels_when_an_earlier_trace_is_absent",
+          "-m",
+          "not slow",
+          "--tb=short"
+        ],
+        "exit_code": 0,
+        "elapsed_seconds": 2.43,
+        "output": ".                                                                        [100%]\n1 passed in 0.66s\n"
+      }
+    }
+  ],
+  "attributable_original_round_reduction": null,
+  "newly_covered_lines": [
+    7836,
+    9190,
+    9191,
+    9192,
+    9193
+  ],
+  "newly_covered_branches": [
+    [
+      7835,
+      7836
+    ],
+    [
+      9189,
+      9190
+    ],
+    [
+      9191,
+      9192
+    ],
+    [
+      9191,
+      9193
+    ]
+  ],
+  "local_missing_unit_reduction": 9,
+  "source_restored": true,
+  "final_tests_restored": true,
+  "lost_covered_units": 0
+}

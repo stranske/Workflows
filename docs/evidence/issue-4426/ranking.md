@@ -49,6 +49,8 @@ The original numerical rule remains about 180 uncovered statements and branches.
 The pre-round 90% close-without-a-PR exception is inactive: recovered coverage was below 90% when the round opened.
 Counted landed reduction from #4000 and #4405: 0.
 Unmerged #4405 units are not added to the #4000 gap and are not subtracted from the current Gate remainder. The issue-snapshot difference is recorded separately and is not assigned to either pull request.
+Counted credit is not actual improvement: #4000 attribution is unknown, not a measured zero. See final-head-gate.json for the verified later #4481 run and the unresolved comparable artifact recovery.
+Log-derived final-head target units: 238. Original-round log-derived units and the unattributed difference are recorded separately in coverage-measurement.json. These counters do not replace the historical downloaded Gate snapshot or establish attribution.
 Issue-listed units: 398. Current Gate units: 327. Unattributed snapshot difference: 71. That difference is not a #4000 measurement and is not added to the unmerged #4405 counters.
 Lines plus partial branches on the current Gate artifact: 287. This alternate total is not the remainder.
 Remainder on the current Gate artifact: 327 uncovered statements and branches across the six targets.
@@ -64,3 +66,20 @@ The counted reduction of 0 leaves the about-180 rule unmet.
 | `scripts/langchain/pr_verifier.py` | 281 | 273 | 8 | 274 | 0 |
 
 Unmerged #4405 target units sum to 312 and stay outside the remainder.
+
+## Original-round and final-head target accounting
+
+Run 38980711116 (Python 3.12 and 3.13) versus run 42287174423 (Python 3.14), artifact metadata 13537639987. Counters come from uniquely recovered term reports; archive bytes and branch arcs remain unavailable. The two baseline runtimes agree for these targets. Denominator changes are final minus baseline statements plus branches. Every target still requires comparable execution; no target exclusion is claimed. This table preserves the historical rankings above.
+
+| Target | Baseline units (3.12 / 3.13) | Final units | Unattributed difference (3.12 / 3.13) | Denominator change (3.12 / 3.13) | Attributable reduction |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `scripts/sync_test_dependencies.py` | 6 / 6 | 6 | 0 / 0 | +51 / +51 | unknown |
+| `scripts/langchain/issue_pr_context.py` | 30 / 30 | 19 | 11 / 11 | +28 / +28 | unknown |
+| `scripts/langchain/verifier_config.py` | 16 / 16 | 2 | 14 / 14 | +17 / +17 | unknown |
+| `tools/langchain_client.py` | 29 / 29 | 5 | 24 / 24 | +17 / +17 | unknown |
+| `scripts/langchain/task_validator.py` | 38 / 38 | 6 | 32 / 32 | -4 / -4 | unknown |
+| `scripts/langchain/pr_verifier.py` | 283 / 283 | 200 | 83 / 83 | +874 / +874 | unknown |
+
+Totals are 402 / 402 baseline units, 238 final units, and an unattributed snapshot difference of 164 / 164 (Python 3.12 / 3.13).
+The zero snapshot difference for `scripts/sync_test_dependencies.py` does not establish measured zero improvement.
+Attributable round-wide reduction remains unknown.

@@ -1,0 +1,91 @@
+"""Record bounded-review mutations; always restore the production source."""
+
+import ast
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / "docs/evidence/issue-4426"
+source_path = root / "scripts/langchain/pr_verifier.py"
+test_path = root / "tests/scripts/test_pr_verifier_ranked_remainder.py"
+original = source_path.read_bytes()
+source = original.decode()
+test_source = test_path.read_text()
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def fragment(text, name):
+    node = next(n for n in ast.parse(text).body
+                if isinstance(n, ast.FunctionDef) and n.name == name)
+    return ast.get_source_segment(text, node)
+
+
+def run(node):
+    command = [sys.executable, "-m", "pytest", "-q", node,
+               "-m", "not slow", "--tb=short", "-p", "no:cacheprovider"]
+    result = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=110)
+    return {"command": command, "exit_code": result.returncode,
+            "output": result.stdout + result.stderr}
+
+
+cases = [
+    ("lost-unknown-file-disposition", "_evaluate_chunked",
+     "test_oversized_unparseable_diff_withholds_unknown_file_review",
+     'files_not_reviewed=["(unknown changed files)"],', 'files_not_reviewed=[],') ,
+    ("oversized-files-bypass-request-cap", "_evaluate_chunked",
+     "test_oversized_file_request_cap_preserves_unreviewed_tail",
+     '            if len(chunks) < MAX_REVIEW_CHUNKS:\n', '            if True:\n'),
+    ("comparison-chunks-use-evaluate-operation", "_evaluate_chunked",
+     "test_comparison_chunks_use_comparison_operation_and_reconcile",
+     'operation="evaluate_pr_chunk" if evaluate_minimum else "evaluate_pr_compare_chunk",',
+     'operation="evaluate_pr_chunk",'),
+    ("swallowed-fallback-memory-exhaustion", "_coerce_response_content",
+     "test_response_fallback_propagates_second_string_conversion_memory_error",
+     '        except MemoryError:\n            raise\n',
+     '        except MemoryError:\n            return "memory failure hidden"\n'),
+]
+symbols = {name: fragment(source, name) for _, name, *_ in cases}
+receipts = []
+try:
+    for name, symbol_name, test, old, new in cases:
+        symbol = symbols[symbol_name]
+        assert symbol.count(old) == 1, (name, symbol.count(old))
+        mutated_symbol = symbol.replace(old, new, 1)
+        mutated = source.replace(symbol, mutated_symbol, 1)
+        node = str(test_path.relative_to(root)) + "::" + test
+        try:
+            source_path.write_text(mutated)
+            red = run(node)
+        finally:
+            source_path.write_bytes(original)
+        green = run(node)
+        failures = [line for line in red["output"].splitlines() if line.startswith("FAILED ")]
+        assert red["exit_code"] == 1 and "1 failed" in red["output"], red
+        assert any(node in line for line in failures), red
+        assert green["exit_code"] == 0 and "1 passed" in green["output"], green
+        receipts.append({"id": name, "symbol": symbol_name, "nodeid": node,
+                         "original_snippet": old, "mutant_snippet": new,
+                         "mutant_sha256": sha(mutated.encode()),
+                         "mutant_symbol_sha256": sha(mutated_symbol.encode()),
+                         "red_named_failure": failures, "red": red, "green": green})
+        print(name, "red=1 restored=0", flush=True)
+finally:
+    source_path.write_bytes(original)
+
+record = {
+    "checked_on": "2026-11-07", "source_path": str(source_path.relative_to(root)),
+    "source_restored": source_path.read_bytes() == original,
+    "source_sha256": sha(original), "recorded_symbols": symbols,
+    "symbol_sha256": {name: sha(text.encode()) for name, text in symbols.items()},
+    "test_path": str(test_path.relative_to(root)),
+    "test_sha256": sha(test_path.read_bytes()), "recorded_test_source": test_source,
+    "receipts": receipts,
+}
+assert record["source_restored"]
+(evidence / "bounded-review-mutations.json").write_text(json.dumps(record, indent=2) + "\n")

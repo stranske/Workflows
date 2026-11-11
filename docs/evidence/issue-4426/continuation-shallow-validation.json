@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/opt/anaconda3/bin/python3",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/docs/test_issue_4426_contract_record.py",
+    "tests/docs/test_issue_4426_coverage_measurement.py",
+    "tests/docs/test_issue_4426_gate_check.py",
+    "tests/docs/test_issue_4426_mutation_receipts.py",
+    "tests/docs/test_issue_4426_pr_inventory.py",
+    "tests/docs/test_issue_4426_ranking.py",
+    "-m",
+    "not slow",
+    "-p",
+    "issue4426_offline",
+    "--tb=short"
+  ],
+  "is_shallow": true,
+  "network_guard": true,
+  "credential_copying": false,
+  "checkout": "/Users/teacher/.codex/orchestrator/agent-runtime/codex/tmp/issue-4426-offline-u3fa15wr/checkout",
+  "exit_code": 0,
+  "elapsed_seconds": 3.841,
+  "output": "........................................................................ [ 98%]\n.                                                                        [100%]\n73 passed in 2.57s\n"
+}

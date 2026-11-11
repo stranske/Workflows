@@ -1,0 +1,105 @@
+"""Verify the pinned Gate identity guards, restoring the validator after each mutant."""
+
+import hashlib
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+root = Path.cwd()
+evidence = root / "docs/evidence/issue-4426"
+path = root / "tests/docs/test_issue_4426_coverage_measurement.py"
+original = path.read_bytes()
+source = original.decode()
+baseline_tests = [
+    "test_reconciliation_rejects_substituted_baseline",
+    "test_reconciliation_requires_both_baseline_runtime_jobs",
+]
+coordinated_test = "test_reconciliation_rejects_coordinated_head_and_log_substitution"
+cases = [
+    (
+        "ignore-pinned-baseline",
+        ['raise ValueError("pre-round Gate identity mismatch")'],
+        baseline_tests,
+    ),
+    (
+        "ignore-final-provenance",
+        ['raise ValueError("final Gate identity mismatch")'],
+        ["test_reconciliation_rejects_substituted_final_provenance"],
+    ),
+    (
+        "trust-coordinated-substitution",
+        [
+            'raise ValueError("pre-round Gate identity mismatch")',
+            'raise ValueError("final Gate identity mismatch")',
+        ],
+        [coordinated_test],
+    ),
+    (
+        "ignore-log-merge-identity",
+        ['raise ValueError("log checkout identity mismatch")'],
+        ["test_reconciliation_checks_every_log_merge_parent"],
+    ),
+]
+
+
+def run(names):
+    command = [sys.executable, "-m", "pytest", "-v"] + [
+        f"tests/docs/test_issue_4426_coverage_measurement.py::{name}" for name in names
+    ] + ["-m", "not slow", "--tb=short"]
+    start = time.monotonic()
+    result = subprocess.run(command, cwd=root, text=True, capture_output=True, timeout=110)
+    return {
+        "command": command,
+        "exit_code": result.returncode,
+        "elapsed_seconds": round(time.monotonic() - start, 3),
+        "output": result.stdout + result.stderr,
+    }
+
+
+receipts = []
+try:
+    for name, snippets, tests in cases:
+        mutant = source
+        for snippet in snippets:
+            assert mutant.count(snippet) == 1
+            mutant = mutant.replace(snippet, "pass")
+        try:
+            path.write_text(mutant)
+            red = run(tests)
+        finally:
+            path.write_bytes(original)
+        green = run(tests)
+        assert red["exit_code"] == 1, red
+        assert green["exit_code"] == 0, green
+        # Require each parameter case to fail, rather than one failure per test function.
+        failed = [line for line in red["output"].splitlines() if " FAILED" in line]
+        passed = [line for line in green["output"].splitlines() if " PASSED" in line]
+        assert failed and len(failed) == len(passed), (red, green)
+        assert all(any(test in line for line in failed) for test in tests), red
+        receipts.append({
+            "id": name,
+            "symbol": "reconcile_gate_reports",
+            "original_snippets": snippets,
+            "replacement": "pass",
+            "source_sha256": hashlib.sha256(original).hexdigest(),
+            "mutant_sha256": hashlib.sha256(mutant.encode()).hexdigest(),
+            "red": red,
+            "green": green,
+        })
+        print(name, "failed cases:", len(failed), "restored:", len(passed), flush=True)
+finally:
+    path.write_bytes(original)
+
+snapshot = evidence / "identity-validation-source.py.txt"
+snapshot.write_bytes(original)
+record = {
+    "checked_on": "2026-11-07",
+    "scope": "pinned Gate identity evidence validator; no production changes",
+    "source": str(path.relative_to(root)),
+    "source_evidence": {"path": snapshot.name, "sha256": hashlib.sha256(original).hexdigest()},
+    "source_restored": path.read_bytes() == original,
+    "receipts": receipts,
+}
+(evidence / "identity-validation-mutations.json").write_text(json.dumps(record, indent=2) + "\n")
