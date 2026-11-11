@@ -530,13 +530,13 @@
     "distance": 0.050000000000000044,
     "drainable_in": 7,
     "filed_under_24h": false,
-    "filing_latency_hours": 336.4841666666667,
+    "filing_latency_hours": 360.08194444444445,
     "first_over_target_at": "2026-10-27T11:44:41+00:00",
-    "issue_filed_at": "2026-11-10T12:13:44Z",
+    "issue_filed_at": "2026-11-11T11:49:36Z",
     "issue_numbers": [
-      4619
+      4642
     ],
-    "issue_updated_on": "2026-11-10",
+    "issue_updated_on": "2026-11-11",
     "longest_job": {
       "minutes": 14.033333333333333,
       "name": "python ci / python 3.14",
