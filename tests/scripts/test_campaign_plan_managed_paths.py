@@ -21,17 +21,29 @@ def test_managed_paths_cover_targets_directories_removals_requires_and_gitignore
         "removals": [{"target": ".github/workflows/dependabot-automerge.yml"}],
     }
     got = cpmp.managed_paths(plan)
-    assert got["paths"] == sorted(
-        [
-            ".gitignore",
-            ".github/workflows/pr-00-gate.yml",
-            "tools/requirements-llm.txt",
-            ".github/workflows/dependabot-automerge.yml",
-        ]
-    )
-    assert got["directories"] == sorted(
-        ["scripts/runner_lib", ".github/workflows/dependabot-automerge.yml"]
-    )
+    assert got["paths"] == [
+        ".github/workflows/dependabot-automerge.yml",
+        ".github/workflows/pr-00-gate.yml",
+        ".gitignore",
+        "tools/requirements-llm.txt",
+    ]
+    assert got["directories"] == [
+        ".github/workflows/dependabot-automerge.yml",
+        "scripts/runner_lib",
+    ]
+
+
+def _args(tmp_path: Path, plan_id: str, out: Path) -> list[str]:
+    return [
+        "--source-root",
+        str(tmp_path),
+        "--expected-plan-id",
+        plan_id,
+        "--source-commit",
+        "c" * 40,
+        "--output",
+        str(out),
+    ]
 
 
 def test_a_plan_id_mismatch_or_compile_failure_writes_nothing(tmp_path: Path, monkeypatch):
@@ -41,40 +53,14 @@ def test_a_plan_id_mismatch_or_compile_failure_writes_nothing(tmp_path: Path, mo
         return None, "compiled plan sha256:a is not the expected sha256:b"
 
     monkeypatch.setattr(cpmp, "build", fake_build)
-    assert (
-        cpmp.main(
-            [
-                "--source-root",
-                str(tmp_path),
-                "--expected-plan-id",
-                "sha256:b",
-                "--source-commit",
-                "c" * 40,
-                "--output",
-                str(out),
-            ]
-        )
-        == 0
-    )
-    assert not out.exists()
+    rc = cpmp.main(_args(tmp_path, "sha256:b", out))
+    assert rc == 0
+    assert out.exists() is False
     # A source root with no compiler fails closed too (no file, exit 0).
     monkeypatch.undo()
-    assert (
-        cpmp.main(
-            [
-                "--source-root",
-                str(tmp_path),
-                "--expected-plan-id",
-                "sha256:b",
-                "--source-commit",
-                "c" * 40,
-                "--output",
-                str(out),
-            ]
-        )
-        == 0
-    )
-    assert not out.exists()
+    rc = cpmp.main(_args(tmp_path, "sha256:b", out))
+    assert rc == 0
+    assert out.exists() is False
 
 
 def test_a_matching_plan_is_written_with_its_identity(tmp_path: Path, monkeypatch):
@@ -87,19 +73,9 @@ def test_a_matching_plan_is_written_with_its_identity(tmp_path: Path, monkeypatc
         "directories": [],
     }
     monkeypatch.setattr(cpmp, "build", lambda *a: (doc, "ok"))
-    assert (
-        cpmp.main(
-            [
-                "--source-root",
-                str(tmp_path),
-                "--expected-plan-id",
-                "sha256:p",
-                "--source-commit",
-                "c" * 40,
-                "--output",
-                str(out),
-            ]
-        )
-        == 0
-    )
-    assert json.loads(out.read_text()) == doc
+    rc = cpmp.main(_args(tmp_path, "sha256:p", out))
+    assert rc == 0
+    written = json.loads(out.read_text())
+    assert written["schema"] == "workflows.consumer-sync-plan-managed-paths/v1"
+    assert written["plan_id"] == "sha256:p"
+    assert written["paths"] == [".gitignore"]
