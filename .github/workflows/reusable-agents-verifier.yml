@@ -111,6 +111,12 @@ on:
       MUSE_API_KEY:
         required: false
         description: 'Meta Muse API key for the slot-3 capacity backup in compare mode (optional)'
+      VERIFIER_GEMINI_API_KEY:
+        required: false
+        description: 'Gemini API key used ONLY by the slot-3 capacity backup chain (optional; per-token billing)'
+      CURSOR_API_KEY:
+        required: false
+        description: 'Cursor API key for the Cursor CLI in the slot-3 capacity backup chain (optional)'
       LANGSMITH_API_KEY:
         required: false
         description: 'LangSmith API key for tracing LLM calls (optional)'
@@ -1726,6 +1732,35 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r .workflows-lib/tools/requirements-llm.txt
 
+      # The Cursor CLI is the last backup in config/llm_slots.json `capacity_backup_chain`. Installing
+      # it never blocks the review: on any failure the chain skips Cursor (no `cursor-agent` on PATH).
+      - name: Install the Cursor CLI (capacity backup chain)
+        if: >-
+          ${{
+            steps.context.outputs.should_run == 'true' &&
+            inputs.mode == 'compare'
+          }}
+        continue-on-error: true
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CURSOR_CLI_VERSION: 2026.10.16-e3cb207
+        run: |
+          set -euo pipefail
+          if [ -z "${CURSOR_API_KEY:-}" ]; then
+            echo "CURSOR_API_KEY not set: the backup chain skips Cursor."
+            exit 0
+          fi
+          case "$(uname -m)" in
+            x86_64|amd64) arch=x64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "Unsupported Cursor architecture: the backup chain skips Cursor."; exit 0 ;;
+          esac
+          cli_dir="$RUNNER_TEMP/cursor"
+          mkdir -p "$cli_dir"
+          curl -fsSL "https://downloads.cursor.com/lab/${CURSOR_CLI_VERSION}/linux/${arch}/agent-cli-package.tar.gz" \
+            | tar --strip-components=1 -xzf - -C "$cli_dir"
+          echo "$cli_dir" >> "$GITHUB_PATH"
+
       - name: Run multi-provider comparison
         id: llm_compare
         if: >-
@@ -1748,6 +1783,8 @@ jobs:
           PR_HEAD_SHA: ${{ steps.context.outputs.pr_head_sha }}
           # Slot-3 capacity backup (config/llm_slots.json): used only when one judge's budget is spent.
           MUSE_API_KEY: ${{ secrets.MUSE_API_KEY }}
+          VERIFIER_GEMINI_API_KEY: ${{ secrets.VERIFIER_GEMINI_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
         run: |
           set -euo pipefail
           context_file="$VERIFIER_CONTEXT_PATH"

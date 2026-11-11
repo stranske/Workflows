@@ -16,6 +16,7 @@ import hmac
 import io
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -7274,7 +7275,7 @@ def _legacy_capacity_route(client: object) -> bool:
     """
     if _legacy_github_chat(client):
         return True
-    if isinstance(client, CapacityBackupClient):
+    if isinstance(client, (CapacityBackupClient, CursorCliBackupClient)):
         # Same standing as a registered standard route without native count facts; expanded never.
         return os.environ.get("VERIFIER_EVIDENCE_PROFILE") != "expanded"
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded":
@@ -8792,8 +8793,123 @@ class CapacityBackupClient:
             raise RuntimeError("capacity backup returned an unexpected body") from None
 
 
-def capacity_backup() -> tuple[CapacityBackupClient, str, str] | None:
-    """The configured backup judge, or None when it is off, unkeyed or the path is strict."""
+class CursorCliBackupClient:
+    """The Cursor CLI in read-only ``ask`` mode as a capacity backup judge (invoke only).
+
+    The CLI bills the Cursor account behind ``CURSOR_API_KEY``. It runs in an empty scratch
+    directory with only PATH/HOME/locale and the key in its environment, so it sees the prompt and
+    nothing else on the runner.
+    """
+
+    key_env = "CURSOR_API_KEY"
+
+    def __init__(self, *, model: str, cursor: str = "cursor-agent", timeout: int = 420) -> None:
+        self.model, self.cursor, self.timeout = model, cursor, timeout
+
+    def available(self) -> bool:
+        import shutil
+
+        return shutil.which(self.cursor) is not None
+
+    def invoke(self, prompt: str, config: Any = None, **_: Any) -> Any:
+        del config  # the CLI takes no LangChain run config
+        import subprocess
+        import tempfile
+        from types import SimpleNamespace
+
+        key = os.environ.get(self.key_env, "")
+        if not key:
+            raise RuntimeError(f"{self.key_env} is not set")
+        command = [self.cursor, "-p", "--output-format", "json", "--mode", "ask", "--trust"]
+        command += ["--model", self.model]
+        env = {
+            k: os.environ[k]
+            for k in ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR")
+            if k in os.environ
+        }
+        env[self.key_env] = key
+        with tempfile.TemporaryDirectory(prefix="verifier-cursor-") as scratch:
+            try:
+                response = subprocess.run(  # noqa: S603 - fixed argv, prompt on stdin
+                    command,
+                    input=prompt,
+                    capture_output=True,
+                    text=True,
+                    cwd=scratch,
+                    timeout=self.timeout,
+                    check=False,
+                    env=env,
+                )
+            except subprocess.TimeoutExpired:
+                raise RuntimeError("capacity backup unavailable: Cursor CLI timed out") from None
+            except OSError as exc:
+                raise RuntimeError(f"capacity backup unavailable: {type(exc).__name__}") from None
+        try:
+            envelope = json.loads(response.stdout)
+        except ValueError:
+            raise RuntimeError(
+                f"capacity backup returned an unexpected body (rc {response.returncode})"
+            ) from None
+        if response.returncode or not isinstance(envelope, dict) or envelope.get("is_error"):
+            raise RuntimeError(f"capacity backup Cursor CLI error (rc {response.returncode})")
+        return SimpleNamespace(content=last_verdict_object_text(str(envelope.get("result") or "")))
+
+
+def last_verdict_object_text(text: str) -> str:
+    """The verdict JSON object in ``text``, byte for byte; else ``text`` unchanged.
+
+    The agent CLI prepends a progress note ("I'll evaluate the diff...") to the model's answer, which
+    the production parser would otherwise have to skip. An answer carrying verdict objects that
+    disagree (a real verdict plus a quoted example, say) is ambiguous and is refused rather than
+    resolved by position.
+    """
+    decoder = json.JSONDecoder()
+    found: list[tuple[str, str]] = []
+    start = 0
+    while (start := text.find("{", start)) != -1:
+        try:
+            value, end = decoder.raw_decode(text, start)
+        except ValueError:
+            start += 1
+            continue
+        if isinstance(value, dict) and "verdict" in value:
+            found.append((str(value["verdict"]), text[start:end]))
+            start = end
+        else:
+            start += 1
+    if not found:
+        return text
+    if len({verdict for verdict, _ in found}) > 1:
+        raise RuntimeError("capacity backup gave an ambiguous answer (verdict objects disagree)")
+    return found[-1][1]
+
+
+BackupClient = CapacityBackupClient | CursorCliBackupClient
+
+
+def _backup_entry(block: Any) -> tuple[BackupClient, str, str] | None:
+    """One declared backup that is on, keyed, and runnable here; otherwise None."""
+    if not isinstance(block, dict) or block.get("enabled") is not True:
+        return None
+    try:
+        provider, model = str(block["provider"]), str(block["model"])
+        client: BackupClient
+        if block.get("transport", "chat_api") == "cursor_cli":
+            client = CursorCliBackupClient(model=model)
+            if not client.available():
+                return None
+        else:
+            client = CapacityBackupClient(
+                model=model, base_url=str(block["base_url"]), key_env=str(block["key_env"])
+            )
+    except KeyError:
+        return None
+    if not os.environ.get(client.key_env):
+        return None
+    return client, provider, model
+
+
+def _backup_config() -> dict | None:
     if os.environ.get("VERIFIER_EVIDENCE_PROFILE") == "expanded" or _semantic_mode():
         return None
     # The backup shares the primary clients' execution allowlist. `_load_object`
@@ -8801,19 +8917,85 @@ def capacity_backup() -> tuple[CapacityBackupClient, str, str] | None:
     # that explicit file is empty or unavailable, so the bundled file is never
     # a fallback.
     payload = _load_object(_slot_path(), label="slot config")
-    block = None if payload is None else payload.get("capacity_backup")
-    if not isinstance(block, dict) or block.get("enabled") is not True:
-        return None
-    try:
-        provider, model = str(block["provider"]), str(block["model"])
-        client = CapacityBackupClient(
-            model=model, base_url=str(block["base_url"]), key_env=str(block["key_env"])
-        )
-    except KeyError:
-        return None
-    if not os.environ.get(client.key_env):
-        return None
-    return client, provider, model
+    return payload if isinstance(payload, dict) else None
+
+
+def capacity_backup() -> tuple[BackupClient, str, str] | None:
+    """The primary configured backup judge, or None when it is off, unkeyed or the path is strict."""
+    payload = _backup_config()
+    return None if payload is None else _backup_entry(payload.get("capacity_backup"))
+
+
+def _run_seed(salt: str) -> str:
+    """A per-run seed: the same PR head always draws the same order, different heads differ."""
+    head = os.environ.get("PR_HEAD_SHA", "").strip()
+    repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    if not head:
+        import secrets
+
+        head = secrets.token_hex(16)
+    return f"{repo}@{head}:{salt}"
+
+
+def _seed_fraction(seed: str) -> float:
+    """A uniform number in [0, 1) derived from ``seed``."""
+    digest = hashlib.sha256(seed.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") / 2**64
+
+
+def capacity_backups(seed: str | None = None) -> list[tuple[BackupClient, str, str]]:
+    """Every usable backup, in a random order drawn per run (owner decision 2026-11-11).
+
+    The pool is `capacity_backup` plus `capacity_backup_chain`. A backup that is off, has no key on
+    this runner, or (Cursor) has no CLI installed is skipped, so a consumer without a key simply has
+    a smaller pool. The order is seeded from the PR head, so a rerun of the same head reproduces it.
+    """
+    import random
+
+    payload = _backup_config()
+    if payload is None:
+        return []
+    primary = payload.get("capacity_backup")
+    if not isinstance(primary, dict) or primary.get("enabled") is not True:
+        return []  # omitting or disabling `capacity_backup` turns the whole pool off
+    chain = payload.get("capacity_backup_chain")
+    blocks = [primary, *(chain if isinstance(chain, list) else [])]
+    entries = [entry for entry in map(_backup_entry, blocks) if entry is not None]
+    random.Random(seed if seed is not None else _run_seed("capacity-backup")).shuffle(entries)
+    return entries
+
+
+def _try_backups(
+    runner: ComparisonRunner, backups: list[tuple[BackupClient, str, str]]
+) -> tuple[EvaluationResult, list[str]]:
+    """Run backups in order until one gives a decisive answer; the last answer stands otherwise.
+
+    Decisive: a clean PASS/CONCERNS/FAIL, or any recorded finding even if a later chunk then errored
+    (a backup's FAIL must never be discarded for the next backup's PASS). An UNVERIFIABLE_INPUT or
+    an error with no finding moves on to the next backup.
+    """
+    earlier: list[str] = []
+    for position, (client, provider, model) in enumerate(backups):
+        result = runner.run_single(client, provider, model)
+        if _decisive_backup_answer(result) or position == len(backups) - 1:
+            return result, earlier
+        reason = result.error or f"verdict {result.verdict}"
+        earlier.append(f"{provider}/{model}: {_compact_text(reason, 120)}")
+    raise ValueError("no backups to try")
+
+
+def _decisive_backup_answer(result: EvaluationResult) -> bool:
+    if not result.used_llm:
+        return False
+    reviews = [result.model_dump(mode="json")] + [
+        record.get("result") or {} for record in result.chunk_reviews
+    ]
+    if any(
+        review.get("used_llm") and review.get("verdict") in ("FAIL", "CONCERNS")
+        for review in reviews
+    ):
+        return True
+    return not result.error and result.verdict != "UNVERIFIABLE_INPUT"
 
 
 def _with_capacity_backup(
@@ -8822,18 +9004,92 @@ def _with_capacity_backup(
     exhausted = [index for index, result in enumerate(results) if capacity_exhausted(result)]
     if len(exhausted) != 1 or len(results) != 2:
         return results
-    backup = capacity_backup()
-    if backup is None:
+    backups = capacity_backups()
+    if not backups:
         return results
-    client, provider, model = backup
     index = exhausted[0]
     failed = results[index]
-    result = runner.run_single(client, provider, model)
+    result, earlier = _try_backups(runner, backups)
     result.change_type = change_type
-    result.capacity_backup_for = (
-        f"{failed.provider_used}/{failed.model}: {_compact_text(failed.error or '', 200)}"
-    )
+    note = f"{failed.provider_used}/{failed.model}: {_compact_text(failed.error or '', 200)}"
+    if earlier:
+        note += " | earlier backups failed: " + "; ".join(earlier)
+    result.capacity_backup_for = note
     return [*results[:index], result, *results[index + 1 :]]
+
+
+class StandardComparisonResults(list):
+    """The two counted judges, plus the third-reviewer experiment record when this run was sampled."""
+
+    third_reviewer: dict[str, Any] | None = None
+
+
+def _verdict_class(verdict: str) -> str:
+    return (
+        "PASS"
+        if verdict == "PASS"
+        else "UNVERIFIABLE" if verdict == "UNVERIFIABLE_INPUT" else "FINDING"
+    )
+
+
+def third_reviewer_experiment(
+    runner: ComparisonRunner, results: list[EvaluationResult], seed: str | None = None
+) -> dict[str, Any] | None:
+    """Owner decision 2026-11-11: on a sampled share of runs, one backup judges as a third reviewer.
+
+    It tests the backups on live work and shows how a third reviewer would move the conclusion. It
+    is recorded, never counted: the gate's verdict is the production pair's. Runs only when both
+    production judges answered (a capacity stand-in already exercises a backup) and only on the
+    standard compare path.
+    """
+    payload = _backup_config()
+    block = None if payload is None else payload.get("capacity_backup_experiment")
+    if not isinstance(block, dict) or block.get("enabled") is not True:
+        return None
+    rate = block.get("rate")
+    if isinstance(rate, bool) or not isinstance(rate, (int, float)):
+        return None
+    rate = float(rate)
+    if not math.isfinite(rate) or not 0.0 <= rate <= 1.0:
+        return None
+    if len(results) != 2 or not all(
+        r.used_llm and not r.error and not r.capacity_backup_for for r in results
+    ):
+        return None
+    draw = _seed_fraction(seed if seed is not None else _run_seed("third-reviewer"))
+    if draw >= rate:
+        return None
+    backups = capacity_backups(seed=(seed or _run_seed("third-reviewer")) + ":order")
+    if not backups:
+        return None
+    # Exactly one backup per sample, with no fall-through, so each record measures the backup
+    # that was drawn (its failures included) rather than whichever answered last.
+    client, provider, model = backups[0]
+    third = runner.run_single(client, provider, model)
+    pair = comparison_verdict(results)
+    counted = comparison_verdict([*results, third]) if _decisive_backup_answer(third) else pair
+    classes = [_verdict_class(r.verdict) for r in [*results, third]]
+    majority = (
+        max(set(classes), key=classes.count)
+        if classes.count(max(set(classes), key=classes.count)) >= 2
+        else "SPLIT"
+    )
+    return {
+        "schema": "verifier-third-reviewer/v1",
+        "rate": rate,
+        "draw": round(draw, 6),
+        "provider": provider,
+        "model": model,
+        "usable": _decisive_backup_answer(third),
+        "verdict": third.verdict,
+        "error": _compact_text(third.error or "", 200) or None,
+        "pool_size": len(backups),
+        "pair_verdict": pair,
+        "verdict_if_counted": counted,
+        "changes_conclusion": counted != pair,
+        "majority_of_three": majority,
+        "result": third.model_dump(mode="json"),
+    }
 
 
 def evaluate_pr_multiple(
@@ -8864,7 +9120,16 @@ def evaluate_pr_multiple(
             result = runner.run_single(client, provider, model)
         result.change_type = change_type
         results.append(result)
-    return _with_capacity_backup(runner, results, change_type)
+    counted = StandardComparisonResults(_with_capacity_backup(runner, results, change_type))
+    try:
+        counted.third_reviewer = third_reviewer_experiment(runner, counted)
+    except Exception as exc:  # the experiment must never disturb the counted verdict
+        counted.third_reviewer = {
+            "schema": "verifier-third-reviewer/v1",
+            "usable": False,
+            "error": f"experiment failed: {type(exc).__name__}",
+        }
+    return counted
 
 
 def expanded_comparison_verdict(
@@ -9071,6 +9336,23 @@ def _unique_concerns(results: list[EvaluationResult]) -> dict[int, list[str]]:
                 unique_concerns.append(concern)
         unique[index] = unique_concerns
     return unique
+
+
+def format_third_reviewer_note(record: dict[str, Any]) -> str:
+    """A short, clearly uncounted note for the PR comment (the full record is in comparison.json)."""
+    if not record.get("usable"):
+        status = f"no usable answer ({record.get('error') or 'unknown error'})"
+    else:
+        status = (
+            f"`{record.get('verdict')}`; counted with the pair it would give "
+            f"`{record.get('verdict_if_counted')}` against the pair's `{record.get('pair_verdict')}`"
+        )
+    who = f"{record.get('provider') or 'backup'}/{record.get('model') or 'unknown'}"
+    return (
+        "\n\n<details><summary>Experiment: third reviewer (not counted)</summary>\n\n"
+        f"{who}: {status}. Sampled on {record.get('rate', 0):.0%} of runs to test the capacity "
+        "backups on live work; the verdict above is the production pair's.\n\n</details>\n"
+    )
 
 
 def format_comparison_report(results: list[EvaluationResult]) -> str:
@@ -9325,6 +9607,9 @@ def main() -> None:
     if args.compare:
         results = evaluate_pr_multiple(context, diff=diff, model1=args.model, model2=args.model2)
         report = format_comparison_report(results)
+        third = getattr(results, "third_reviewer", None)
+        if third is not None:
+            report += format_third_reviewer_note(third)
         if args.output_file:
             Path(args.output_file).write_text(report, encoding="utf-8")
         if args.json:
@@ -9335,6 +9620,9 @@ def main() -> None:
             semantic = getattr(results, "semantic_acceptance", None)
             if semantic is not None:
                 payload["semantic_acceptance"] = semantic
+            third = getattr(results, "third_reviewer", None)
+            if third is not None:
+                payload["third_reviewer"] = third
             print(json.dumps(payload, ensure_ascii=True))
         else:
             print(report)

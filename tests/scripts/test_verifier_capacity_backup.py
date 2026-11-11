@@ -826,3 +826,362 @@ def test_backup_transport_refuses_a_non_https_base_url(monkeypatch):
     client = pv.CapacityBackupClient(model="m", base_url="file:///etc", key_env="MUSE_API_KEY")
     with pytest.raises(RuntimeError, match="must be https"):
         client.invoke("p")
+
+
+# ---------------------------------------------------------------- the ordered backup chain
+
+
+@pytest.fixture
+def chain_keys(monkeypatch):
+    monkeypatch.setenv("MUSE_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("VERIFIER_GEMINI_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("CURSOR_API_KEY", "test-key-not-real")
+    monkeypatch.delenv("LANGCHAIN_SLOT_CONFIG", raising=False)
+    monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    monkeypatch.delenv("VERIFIER_SEMANTIC_MODE", raising=False)
+    monkeypatch.setattr(pv.CursorCliBackupClient, "available", lambda self: True)
+
+
+def test_the_shipped_pool_is_muse_gemini_carbon_and_cursor(chain_keys):
+    pool = {(provider, model) for _, provider, model in pv.capacity_backups(seed="s")}
+    assert pool == {
+        ("muse-api", "muse-spark-1.3"),
+        ("gemini-api", "gemini-4-carbon"),
+        ("cursor-cli", "composer-2.5"),
+    }
+    gemini = next(c for c, p, _ in pv.capacity_backups(seed="s") if p == "gemini-api")
+    # Its own secret name, so hosted Gemini implementation (GEMINI_API_KEY) never reads it.
+    assert gemini.key_env == "VERIFIER_GEMINI_API_KEY"
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    template = json.loads((ROOT / "templates/consumer-repo/config/llm_slots.json").read_text())
+    assert shipped["capacity_backup_chain"] == template["capacity_backup_chain"]
+
+
+def test_a_failed_backup_falls_through_to_the_next_one(monkeypatch, chain_keys):
+    calls = []
+
+    def run_single(self, client, provider, model):
+        calls.append(provider)
+        if provider == "muse-api":
+            return judged(provider, model, "CONCERNS", "capacity backup HTTP 429")
+        return judged(provider, model, "PASS")
+
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    results = [
+        judged("openai", "gpt-6.1-sol", "PASS"),
+        judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
+    ]
+    muse_first = sorted(pv.capacity_backups(seed="fixed"), key=lambda e: e[1] != "muse-api")
+    monkeypatch.setattr(pv, "capacity_backups", lambda seed=None: list(muse_first))
+    out = pv._with_capacity_backup(runner(), results, "application")
+    assert calls[0] == "muse-api" and len(calls) == 2
+    assert out[1].provider_used == calls[1]
+    assert out[1].capacity_backup_for.startswith("anthropic/claude-sonnet-5-5: ")
+    assert "earlier backups failed: muse-api/muse-spark-1.3: capacity backup HTTP 429" in (
+        out[1].capacity_backup_for
+    )
+    assert pv.comparison_verdict(out) == "PASS"
+
+
+def test_when_every_backup_fails_the_last_failure_stands_and_nothing_passes(
+    monkeypatch, chain_keys
+):
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: judged(provider, model, "CONCERNS", "unavailable"),
+    )
+    results = [
+        judged("openai", "gpt-6.1-sol", "PASS"),
+        judged("anthropic", "claude-sonnet-5-5", "CONCERNS", ANTHROPIC_CAP),
+    ]
+    out = pv._with_capacity_backup(runner(), results, "application")
+    assert out[1].provider_used in {"muse-api", "gemini-api", "cursor-cli"}
+    assert out[1].error == "unavailable"
+    assert "earlier backups failed" in out[1].capacity_backup_for
+    assert pv.comparison_verdict(out) != "PASS"
+
+
+def test_unkeyed_or_uninstalled_backups_are_skipped(monkeypatch, chain_keys):
+    monkeypatch.delenv("VERIFIER_GEMINI_API_KEY")
+    monkeypatch.setenv("GEMINI_API_KEY", "the-implementation-key-must-not-be-used")
+    monkeypatch.setattr(pv.CursorCliBackupClient, "available", lambda self: False)
+    assert [p for _, p, _ in pv.capacity_backups(seed="s")] == ["muse-api"]
+
+
+def test_the_strict_paths_use_no_backup_chain(monkeypatch, chain_keys):
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    assert pv.capacity_backups() == []
+
+
+def test_cursor_answer_keeps_only_the_verdict_object():
+    text = 'I will evaluate the diff now.\n{"note": 1}\n{"verdict": "PASS", "scores": {"a": 1}}'
+    assert pv.last_verdict_object_text(text) == '{"verdict": "PASS", "scores": {"a": 1}}'
+    assert pv.last_verdict_object_text("no json here") == "no json here"
+
+
+def test_cursor_backup_runs_read_only_with_a_minimal_environment(monkeypatch, chain_keys):
+    import subprocess
+
+    monkeypatch.setenv("OPENAI_API_KEY", "must-not-leak")
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"], seen["env"], seen["input"] = command, kwargs["env"], kwargs["input"]
+        body = {"result": 'Reviewing.\n{"verdict": "CONCERNS"}', "is_error": False}
+        return subprocess.CompletedProcess(command, 0, stdout=json.dumps(body), stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    answer = pv.CursorCliBackupClient(model="composer-2.5").invoke("the prompt")
+    assert answer.content == '{"verdict": "CONCERNS"}'
+    assert seen["command"][:6] == ["cursor-agent", "-p", "--output-format", "json", "--mode", "ask"]
+    assert seen["command"][-2:] == ["--model", "composer-2.5"]
+    assert seen["input"] == "the prompt"
+    assert "OPENAI_API_KEY" not in seen["env"]
+    assert seen["env"]["CURSOR_API_KEY"] == "test-key-not-real"
+
+
+def test_cursor_backup_errors_never_carry_the_key(monkeypatch, chain_keys):
+    import subprocess
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **kw: subprocess.CompletedProcess(command, 3, stdout="oops", stderr=""),
+    )
+    with pytest.raises(RuntimeError) as caught:
+        pv.CursorCliBackupClient(model="composer-2.5").invoke("p")
+    assert "test-key-not-real" not in str(caught.value)
+
+
+def test_the_backup_order_is_random_per_head_and_reproducible(chain_keys):
+    orders = {
+        tuple(p for _, p, _ in pv.capacity_backups(seed=f"repo@{head}:capacity-backup"))
+        for head in range(60)
+    }
+    assert len(orders) > 1, "the order must vary between runs"
+    firsts = {order[0] for order in orders}
+    assert firsts == {"muse-api", "gemini-api", "cursor-cli"}, "each backup must be drawn first"
+    again = [p for _, p, _ in pv.capacity_backups(seed="repo@abc:capacity-backup")]
+    assert again == [p for _, p, _ in pv.capacity_backups(seed="repo@abc:capacity-backup")]
+
+
+def test_the_seed_comes_from_the_pr_head(monkeypatch):
+    monkeypatch.setenv("PR_HEAD_SHA", "abc123")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "stranske/Example")
+    assert pv._run_seed("x") == "stranske/Example@abc123:x"
+
+
+# ---------------------------------------------------------------- third-reviewer experiment
+
+
+def _pair(verdict_a="PASS", verdict_b="PASS"):
+    return [judged("openai", "gpt-6.1-sol", verdict_a), judged("anthropic", "s", verdict_b)]
+
+
+def _sampled_seed(rate: float, inside: bool) -> str:
+    for n in range(10_000):
+        seed = f"seed-{n}"
+        if (pv._seed_fraction(seed) < rate) == inside:
+            return seed
+    raise AssertionError("no seed found")
+
+
+def test_the_shipped_experiment_samples_a_fifth_of_runs():
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    block = shipped["capacity_backup_experiment"]
+    assert block["enabled"] is True and block["rate"] == 0.2
+    hits = sum(pv._seed_fraction(f"r@{n}:third-reviewer") < 0.2 for n in range(5000))
+    assert 900 < hits < 1100
+
+
+def test_a_sampled_run_records_a_third_review_that_is_never_counted(monkeypatch, chain_keys):
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: judged(provider, model, "CONCERNS"),
+    )
+    pair = _pair()
+    record = pv.third_reviewer_experiment(runner(), pair, seed=_sampled_seed(0.2, True))
+    assert record is not None and record["usable"] is True
+    assert record["pair_verdict"] == "PASS"
+    assert record["verdict"] == "CONCERNS"
+    assert record["verdict_if_counted"] == "CONCERNS"
+    assert record["changes_conclusion"] is True
+    assert record["majority_of_three"] == "PASS"
+    assert pv.comparison_verdict(pair) == "PASS", "the counted verdict stays the pair's"
+
+
+def test_an_unsampled_run_calls_no_backup(monkeypatch, chain_keys):
+    calls = []
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: calls.append(provider) or judged(provider, model),
+    )
+    assert pv.third_reviewer_experiment(runner(), _pair(), seed=_sampled_seed(0.2, False)) is None
+    assert calls == []
+
+
+def test_no_third_review_when_a_production_judge_did_not_answer(monkeypatch, chain_keys):
+    calls = []
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: calls.append(provider) or judged(provider, model),
+    )
+    pair = [judged("openai", "m"), judged("anthropic", "s", "CONCERNS", ANTHROPIC_CAP)]
+    assert pv.third_reviewer_experiment(runner(), pair, seed=_sampled_seed(0.2, True)) is None
+    assert calls == []
+
+
+def test_the_experiment_is_off_when_disabled(monkeypatch, tmp_path, chain_keys):
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    shipped["capacity_backup_experiment"]["enabled"] = False
+    path = tmp_path / "slots.json"
+    path.write_text(json.dumps(shipped))
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    assert pv.third_reviewer_experiment(runner(), _pair(), seed=_sampled_seed(0.2, True)) is None
+
+
+def test_no_third_review_after_a_capacity_stand_in(monkeypatch, chain_keys):
+    stand_in = judged("muse-api", "muse-spark-1.3")
+    stand_in.capacity_backup_for = "anthropic/s: cap"
+    pair = [judged("openai", "m"), stand_in]
+    assert pv.third_reviewer_experiment(runner(), pair, seed=_sampled_seed(0.2, True)) is None
+
+
+def test_a_failing_experiment_never_changes_the_counted_results(monkeypatch, chain_keys):
+    def boom(*a, **k):
+        raise RuntimeError("experiment exploded")
+
+    two = pv.ComparisonRunner(
+        context="ctx",
+        diff=None,
+        prompt="p",
+        clients=[(object(), "openai", "gpt-6.1-sol"), (object(), "anthropic", "s")],
+        coverage=None,
+    )
+    monkeypatch.setattr(pv, "third_reviewer_experiment", boom)
+    monkeypatch.setattr(
+        pv.ComparisonRunner, "from_environment", classmethod(lambda cls, *a, **k: two)
+    )
+    monkeypatch.setattr(pv, "_validate_comparison_clients", lambda clients: (True, ""))
+    monkeypatch.setattr(pv, "_semantic_mode", lambda: False)
+    monkeypatch.setattr(pv, "_classify_change_type", lambda diff: "application")
+    monkeypatch.setattr(
+        pv.ComparisonRunner, "run_single", lambda self, c, provider, model: judged(provider, model)
+    )
+    out = pv.evaluate_pr_multiple("ctx")
+    assert [r.provider_used for r in out] == ["openai", "anthropic"]
+    assert pv.comparison_verdict(out) == "PASS"
+    assert out.third_reviewer == {
+        "schema": "verifier-third-reviewer/v1",
+        "usable": False,
+        "error": "experiment failed: RuntimeError",
+    }
+
+
+def test_the_comment_note_says_the_third_review_is_not_counted():
+    note = pv.format_third_reviewer_note(
+        {
+            "usable": True,
+            "provider": "gemini-api",
+            "model": "gemini-4-carbon",
+            "verdict": "PASS",
+            "verdict_if_counted": "PASS",
+            "pair_verdict": "PASS",
+            "rate": 0.2,
+        }
+    )
+    assert "not counted" in note and "gemini-api/gemini-4-carbon" in note and "20%" in note
+
+
+def test_the_cursor_client_is_admitted_on_the_standard_route(monkeypatch):
+    monkeypatch.delenv("VERIFIER_EVIDENCE_PROFILE", raising=False)
+    assert pv._legacy_capacity_route(pv.CursorCliBackupClient(model="composer-2.5"))
+    monkeypatch.setenv("VERIFIER_EVIDENCE_PROFILE", "expanded")
+    assert not pv._legacy_capacity_route(pv.CursorCliBackupClient(model="composer-2.5"))
+
+
+def test_disagreeing_verdict_objects_are_refused():
+    text = '{"verdict": "FAIL", "concerns": ["x"]} for example {"verdict": "PASS"}'
+    with pytest.raises(RuntimeError, match="ambiguous"):
+        pv.last_verdict_object_text(text)
+    same = 'note {"verdict": "PASS"} final {"verdict": "PASS", "summary": "ok"}'
+    assert pv.last_verdict_object_text(same) == '{"verdict": "PASS", "summary": "ok"}'
+
+
+def test_disabling_the_primary_backup_turns_the_whole_pool_off(monkeypatch, tmp_path, chain_keys):
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    shipped["capacity_backup"]["enabled"] = False
+    path = tmp_path / "slots.json"
+    path.write_text(json.dumps(shipped))
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    assert pv.capacity_backups(seed="s") == []
+    del shipped["capacity_backup"]
+    path.write_text(json.dumps(shipped))
+    assert pv.capacity_backups(seed="s") == []
+
+
+def test_a_backup_finding_survives_a_later_chunk_error(monkeypatch, chain_keys):
+    calls = []
+
+    def run_single(self, client, provider, model):
+        calls.append(provider)
+        result = judged(provider, model, "CONCERNS", "chunk 3 failed")
+        result.used_llm = True
+        result.chunk_reviews = [{"result": {"used_llm": True, "verdict": "FAIL"}}]
+        return result
+
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    third, earlier = pv._try_backups(runner(), pv.capacity_backups(seed="s"))
+    assert len(calls) == 1 and earlier == []
+    assert third.chunk_reviews[0]["result"]["verdict"] == "FAIL"
+
+
+def test_an_unverifiable_backup_answer_moves_to_the_next_backup(monkeypatch, chain_keys):
+    calls = []
+
+    def run_single(self, client, provider, model):
+        calls.append(provider)
+        verdict = "UNVERIFIABLE_INPUT" if len(calls) == 1 else "PASS"
+        return judged(provider, model, verdict)
+
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    third, earlier = pv._try_backups(runner(), pv.capacity_backups(seed="s"))
+    assert len(calls) == 2 and third.verdict == "PASS"
+    assert "verdict UNVERIFIABLE_INPUT" in earlier[0]
+
+
+@pytest.mark.parametrize("rate", ["NaN", float("nan"), float("inf"), -0.1, 1.5, "0.2", True, None])
+def test_invalid_experiment_rates_turn_the_experiment_off(monkeypatch, tmp_path, chain_keys, rate):
+    shipped = json.loads((ROOT / "config/llm_slots.json").read_text())
+    shipped["capacity_backup_experiment"]["rate"] = rate
+    path = tmp_path / "slots.json"
+    path.write_text(json.dumps(shipped, allow_nan=True))
+    monkeypatch.setenv("LANGCHAIN_SLOT_CONFIG", str(path))
+    calls = []
+    monkeypatch.setattr(
+        pv.ComparisonRunner,
+        "run_single",
+        lambda self, c, provider, model: calls.append(provider) or judged(provider, model),
+    )
+    assert pv.third_reviewer_experiment(runner(), _pair(), seed="any") is None
+    assert calls == []
+
+
+def test_a_sample_runs_only_the_drawn_backup_and_records_its_failure(monkeypatch, chain_keys):
+    calls = []
+
+    def run_single(self, client, provider, model):
+        calls.append(provider)
+        return judged(provider, model, "CONCERNS", "capacity backup HTTP 500")
+
+    monkeypatch.setattr(pv.ComparisonRunner, "run_single", run_single)
+    seed = _sampled_seed(0.2, True)
+    drawn = pv.capacity_backups(seed=seed + ":order")[0][1]
+    record = pv.third_reviewer_experiment(runner(), _pair(), seed=seed)
+    assert calls == [drawn]
+    assert record["provider"] == drawn and record["usable"] is False
+    assert record["changes_conclusion"] is False
