@@ -57,6 +57,36 @@ native acquisition before an origin was written. Native operational admission
 and the exact unrecoverable-artifact/zero-gap acceptance condition remain
 unverified, so the remaining task and acceptance checkboxes stay open.
 
+The unevaluated-capture admission now recomputes the native bridge's recovery
+key from the original event, assessment and exact run/attempt/artifact selector.
+Missing, malformed or mismatched keys refuse admission before writing history
+or a revalidation receipt. The immutable capture record includes the verified
+key and source selector alongside the original provider review coverage.
+
+A cross-language regression passes the exact #4509 archive through the real
+native collector and admission bridge with mocked authenticated transport, then
+runs the Python revalidation CLI as a child process. It verifies the resulting
+origin, all retained members, both zero-coverage provider rows and all six gaps.
+It also replaces the workspace comparison to simulate a later evaluation and
+confirms revalidation leaves both that output and every historical byte intact.
+This validates the collector-to-revalidator integration without claiming live
+API admission. The shell's GitHub API connection remains unavailable in this
+runner; the PR is open and ready for review, as observed through the connector.
+
+All 27 exact-capture tests pass with the available Python executable; the native
+origin/recovery suite passes all 20 tests. The broader Python recovery suite
+still has the same six authored lifecycle failures observed before these edits.
+The CI-history tests pass all 31 cases with 73.55% execution coverage; this is
+separate from the immutable record's zero provider review coverage.
+The repository-wide Black check passes with 1,002 files unchanged after a serial
+check populated its cache; the sandbox blocks Black's process-pool startup.
+Ruff and diff whitespace checks also pass.
+Commit handoff is blocked in this run: local Git cannot create `.git/index.lock`
+because `.git` is read-only. The connected GitHub tree-write tool also refuses
+commit preparation because it requires approval and the run's approval policy
+is `never`. The tested four-file change remains uncommitted in the workspace;
+no remote branch update occurred and no task checkbox was changed.
+
 Checked 2026-11-10 UTC for #4630. **Outcome: 0 accepted recoveries; NON_PASS
 (`UNVERIFIABLE_INPUT`).** This report recovers the exact retained inputs and
 reproduces the demonstrated archive failure. It does **not** certify a complete

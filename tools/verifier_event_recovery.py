@@ -613,6 +613,25 @@ def _record_unevaluated_capture(directory, origin, origin_raw, blobs, rows):
         parse_context_source_coverage,
     )
 
+    # This is a capture admission, not the legacy retained-decision path. Bind
+    # its new historical record to the same selector key the native bridge emits.
+    selector = {
+        "run_id": int(origin["source_run_id"]),
+        "run_attempt": int(origin["source_run_attempt"]),
+        "artifact_id": origin["artifact_id"],
+    }
+    recovery_key = _sha(
+        _canonical(
+            {
+                "schema": "retained-revalidation-key/v1",
+                "event_id": origin["verification_event"]["event_id"],
+                "assessment": origin["assessment_identity"],
+                "selector": selector,
+            }
+        )
+    )
+    if origin.get("recovery_key") != recovery_key:
+        raise ValueError("Retained capture recovery key does not bind authenticated origin")
     snapshot = json.loads(blobs["verifier-input-manifest.json"])
     obligations = snapshot.get("capture_obligations")
     if not isinstance(obligations, dict):
@@ -642,6 +661,8 @@ def _record_unevaluated_capture(directory, origin, origin_raw, blobs, rows):
         "verdict": "UNVERIFIABLE_INPUT",
         "decision_available": False,
         "provider_generation_performed": False,
+        "recovery_key": recovery_key,
+        "source_selector": selector,
         "verification_event": event,
         "assessment_identity": origin["assessment_identity"],
         "archive_sha256": origin["archive_sha256"],

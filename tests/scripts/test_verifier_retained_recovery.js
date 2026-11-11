@@ -119,6 +119,58 @@ test('exact #4509 admission bridge produces a keyed native origin through the wi
  assert.deepEqual(fs.readFileSync(path.join(dir, 'verification-recovery-source.zip')), w.archive);
 }));
 
+test('exact #4509 native origin feeds Python admission and preserves later evaluation history', {timeout:30000}, async () => inDirectory(async dir => {
+ const {admitOrigin} = require('../../tools/verifier_retained_origin');
+ const {spawn} = require('child_process');
+ const w = exact4509OriginFixture();
+ fs.writeFileSync(path.join(dir, 'verification-event-manifest.json'),
+  w.members.get('verification-event-manifest.json'));
+ const proof = await admitOrigin({github:w.github, manifest:w.manifest,
+  selector:w.args.selector, currentRun:w.args.currentRun, directory:dir});
+ const env = {...process.env, PYTHONPATH:path.resolve(__dirname, '../..'),
+  GITHUB_REPOSITORY:'stranske/Workflows', GITHUB_RUN_ID:String(w.args.currentRun),
+  GITHUB_RUN_ATTEMPT:'1', VERIFICATION_RECOVERY:JSON.stringify(w.args.selector)};
+ for (const name of ['VERIFIER_MODEL','VERIFIER_MODEL2','LANGCHAIN_MODEL','LANGCHAIN_SLOT_CONFIG','GITHUB_OUTPUT']) delete env[name];
+ const revalidate = () => new Promise((resolve, reject) => {
+  const child = spawn('python3', ['-m','tools.verifier_event_recovery','--revalidate-retained'], {cwd:dir, env});
+  let stdout = '', stderr = '';
+  child.stdout.on('data', data => {stdout += data;});
+  child.stderr.on('data', data => {stderr += data;});
+  child.on('error', reject);
+  child.on('close', code => {
+   if (code !== 0) return reject(new Error(`Revalidation exit ${code}: ${stderr}`));
+   try {resolve(JSON.parse(stdout));} catch (error) {reject(error);}
+  });
+ });
+ const record = await revalidate();
+ assert.equal(record.status, 'NON_PASS');
+ assert.equal(record.verdict, 'UNVERIFIABLE_INPUT');
+ assert.equal(record.decision_available, false);
+ assert.equal(record.provider_generation_performed, false);
+ assert.equal(record.recovery_key, proof.recovery_key);
+ assert.deepEqual(record.source_selector, w.args.selector);
+ assert.deepEqual(record.verification_event, w.manifest.verification_event);
+ assert.equal(record.capture_obligations.gaps.length, 6);
+ assert.equal(record.provider_review_coverage.length, 2);
+ for (const row of record.provider_review_coverage) {
+  assert.equal(row.used_llm, false);
+  assert.deepEqual(row.files_reviewed, []);
+  assert.deepEqual(row.files_not_reviewed, ['scripts/ci_history.py','tests/scripts/test_ci_history.py']);
+ }
+ const retained = path.join(dir, 'retained-source', proof.archive_sha256);
+ const before = new Map(fs.readdirSync(retained).map(name => [name, fs.readFileSync(path.join(retained, name))]));
+ for (const [name, bytes] of w.members) assert.deepEqual(before.get(name), bytes);
+ assert.deepEqual(JSON.parse(before.get('recovery-origin.json')), proof);
+ assert.deepEqual(JSON.parse(before.get('unevaluated-capture.json')), record);
+ // Later workspace results cannot turn historical zero coverage into a review.
+ const later = Buffer.from('{"subsequent_evaluation":true}');
+ fs.writeFileSync(path.join(dir, 'comparison.json'), later);
+ assert.deepEqual(await revalidate(), record);
+ assert.deepEqual(fs.readFileSync(path.join(dir, 'comparison.json')), later);
+ for (const [name, bytes] of before) assert.deepEqual(fs.readFileSync(path.join(retained, name)), bytes);
+ assert.deepEqual(fs.readFileSync(path.join(dir, 'verification-recovery-source.zip')), w.archive);
+}));
+
 test('exact #4509 witness refuses changed subjects, noncanonical code and missing origin bindings', async () => {
  const changes = [
   d => {d.pull.merged = false;},

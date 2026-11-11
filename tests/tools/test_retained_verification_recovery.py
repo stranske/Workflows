@@ -98,6 +98,12 @@ def test_exact_4509_admitted_capture_keeps_non_pass_and_immutable_review_history
     assert result["verdict"] == "UNVERIFIABLE_INPUT"
     assert result["decision_available"] is False
     assert result["provider_generation_performed"] is False
+    assert result["recovery_key"] == origin["recovery_key"]
+    assert result["source_selector"] == {
+        "run_id": 42330898168,
+        "run_attempt": 1,
+        "artifact_id": 13556839741,
+    }
     assert result["verification_event"] == origin["verification_event"]
     assert len(result["capture_obligations"]["gaps"]) == 6
     assert len(result["provider_review_coverage"]) == 2
@@ -145,6 +151,38 @@ def test_exact_4509_admitted_capture_cli_records_non_pass(tmp_path, monkeypatch)
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["status"] == "NON_PASS"
     assert output.read_text() == "existing_output=preserved\nverdict=UNVERIFIABLE_INPUT\n"
+
+
+@pytest.mark.parametrize(
+    "key_source", ["missing", "malformed", "other_event", "other_artifact", "other_assessment"]
+)
+def test_exact_4509_capture_requires_key_bound_to_native_origin(tmp_path, monkeypatch, key_source):
+    origin, blobs = exact_4509_admitted_case(tmp_path, monkeypatch)
+    origin_path = tmp_path / "verification-recovery-origin.json"
+    if key_source == "missing":
+        del origin["recovery_key"]
+    elif key_source == "malformed":
+        origin["recovery_key"] = "not-a-recovery-key"
+    else:
+        key = {
+            "schema": "retained-revalidation-key/v1",
+            "event_id": origin["verification_event"]["event_id"],
+            "assessment": origin["assessment_identity"],
+            "selector": {"run_id": 42330898168, "run_attempt": 1, "artifact_id": 13556839741},
+        }
+        if key_source == "other_event":
+            key["event_id"] = "0" * 64
+        elif key_source == "other_artifact":
+            key["selector"]["artifact_id"] += 1
+        else:
+            key["assessment"] = {**key["assessment"], "model": "different-model"}
+        origin["recovery_key"] = sha(encoded(key))
+    origin_path.write_bytes(encoded(origin))
+    with pytest.raises(ValueError, match="recovery key does not bind authenticated origin"):
+        revalidate_retained(directory=tmp_path)
+    assert not (tmp_path / "retained-source").exists()
+    assert not (tmp_path / "verification-revalidation-receipt.json").exists()
+    assert all((tmp_path / name).read_bytes() == raw for name, raw in blobs.items())
 
 
 def test_exact_4509_admission_cli_acquires_before_revalidation(tmp_path, monkeypatch, capsys):
