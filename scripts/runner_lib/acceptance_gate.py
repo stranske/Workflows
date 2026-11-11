@@ -16,7 +16,14 @@ import tomllib
 import venv
 from pathlib import Path
 
-COMMAND_PREFIX = re.compile(r"^(?:pytest|python -m pytest|npm test|npm run|ruff|mypy|make)(?:\s|$)")
+# `node --test` is how Workflows' own JS suites are named (10 of 25 gate commands in the source
+# issues of keepalive PRs merged 10-28..11-11), and `python3 -m pytest` 8 more; both were
+# silently dropped, so those rounds printed "0/0" and checked nothing. A bare node id is still
+# not a gate (#4260): an issue must name the runnable command.
+PYTEST_PREFIXES = ("pytest", "python -m pytest", "python3 -m pytest")
+COMMAND_PREFIX = re.compile(
+    r"^(?:pytest|python3? -m pytest|node --test|npm test|npm run|ruff|mypy|make)(?:\s|$)"
+)
 TIMEOUT_SECONDS = 300
 OUTPUT_BYTES = 2048
 TOTAL_OUTPUT_BYTES = 8192
@@ -162,10 +169,7 @@ def _activate(python: Path) -> None:
 def prepare(commands: list[Command], cwd: Path) -> list[Result]:
     """Prepare Python gates from project metadata or CI-style requirements, in a gate venv."""
     setup = []
-    if any(
-        command.command.startswith(("pytest", "python -m pytest", "ruff", "mypy"))
-        for command in commands
-    ):
+    if any(command.command.startswith((*PYTEST_PREFIXES, "ruff", "mypy")) for command in commands):
         try:
             gate_python, pip = make_gate_venv()
         except (OSError, subprocess.SubprocessError) as error:

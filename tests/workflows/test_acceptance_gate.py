@@ -389,3 +389,29 @@ def test_unbuildable_gate_venv_fails_every_gate_with_the_reason(tmp_path, monkey
     results = acceptance_gate.prepare([Command(0, "pytest a"), Command(1, "ruff check")], tmp_path)
     assert [result.exit_code for result in results] == [127, 127]
     assert all("could not create a virtualenv: ensurepip" in result.output for result in results)
+
+
+def test_node_test_and_python3_pytest_are_gates_but_node_ids_are_not():
+    markdown = """
+## Acceptance Criteria
+- [ ] `node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js` passes.
+- [ ] `python3 -m pytest tests/workflows/test_acceptance_gate.py -q` passes.
+- [ ] `tests/workflows/test_acceptance_gate.py::test_run` is named but is not runnable.
+- [ ] `node scripts/build.js` is a script, not a test runner.
+"""
+    assert extract_commands(markdown) == [
+        Command(0, "node --test .github/scripts/__tests__/maint71_merge_sync_prs.test.js"),
+        Command(1, "python3 -m pytest tests/workflows/test_acceptance_gate.py -q"),
+    ]
+
+
+def test_python3_pytest_gate_gets_the_gate_venv(tmp_path, monkeypatch, gate_venv_is_test_python):
+    calls = []
+
+    def capture(commands, cwd):
+        calls.extend(command.command for command in commands)
+        return [acceptance_gate.Result(-1, commands[0].command, 0, "")]
+
+    monkeypatch.setattr(acceptance_gate, "run", capture)
+    assert acceptance_gate.prepare([Command(0, "python3 -m pytest tests")], tmp_path) == []
+    assert any(call.endswith("install pytest ruff mypy") for call in calls), calls
