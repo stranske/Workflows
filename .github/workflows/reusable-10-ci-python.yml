@@ -168,6 +168,11 @@ on:
         required: false
         default: 'gate-'
         type: string
+      pytest-dist:
+        description: pytest-xdist distribution strategy (e.g., load, loadgroup, worksteal).
+        required: false
+        default: 'loadgroup'
+        type: string
     secrets:
       pypi-token:
         description: Optional token for private dependencies.
@@ -2162,6 +2167,7 @@ jobs:
             }}
           PYTEST_ARGS: ${{ inputs['pytest_args'] || '' }}
           PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
+          PYTEST_DIST: ${{ inputs['pytest-dist'] || 'loadgroup' }}
           COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
           RESOURCE_UV_CACHE_HIT: ${{ steps.resource-uv-cache.outputs.cache-hit }}
           RESOURCE_PYTEST_CACHE_HIT: ${{ steps.resource-pytest-cache.outputs.cache-hit }}
@@ -2204,8 +2210,8 @@ jobs:
           # PYTEST_WORKERS is supplied by this step's env, alongside PYTEST_MARKERS.
           # shellcheck disable=SC2153
           if python -c "import xdist" 2>/dev/null; then
-            args+=("-n" "${PYTEST_WORKERS}" "--dist=loadgroup")
-            echo "Running tests in parallel with pytest-xdist (loadgroup scheduler)..."
+            args+=("-n" "${PYTEST_WORKERS}" "--dist=${PYTEST_DIST}")
+            echo "Running tests in parallel with pytest-xdist (${PYTEST_DIST} scheduler)..."
           elif [ "${PYTEST_WORKERS}" != auto ]; then
             echo "Explicit pytest-workers requires pytest-xdist; refusing serial fallback." >&2
             exit 1
