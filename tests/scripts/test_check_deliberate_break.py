@@ -19,13 +19,6 @@ from scripts.check_deliberate_break import (
 )
 
 
-@pytest.fixture(autouse=True)
-def isolate_child_pytest_plugins(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The synthetic repositories supply their own conftests. Skip loading the
-    # outer environment's entry-point plugins in each head/base subprocess.
-    monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
-
-
 def _run(repo: Path, *args: str) -> None:
     subprocess.run(args, cwd=repo, check=True, text=True, capture_output=True)
 

@@ -9,11 +9,13 @@ On the passing November 11 partitioned control, the deliberate-break file
 was the largest remaining file by aggregate testcase duration at 90.9 seconds.
 
 The deliberate-break file builds synthetic repositories and launches real
-pytest subprocesses for head and base. Its test fixture disables third-party
-entry-point plugin autoload in those child processes. Pytest's built-in plugins,
-the synthetic repositories' conftests, and the existing verdict assertions still
-run. Both Gate partitions retain the existing scheduler, test selection,
-Python matrix, and coverage settings.
+pytest subprocesses for head and base. A fixture in `tests/scripts/conftest.py`
+disables third-party entry-point plugin autoload in those child processes
+when the file runs on an xdist worker. Pytest's built-in plugins, the
+synthetic repositories' conftests, and the existing verdict assertions still
+run. The archived serial comparison retains its plugin environment and the
+test file retains its original hash. Both Gate partitions retain the existing
+scheduler, test selection, Python matrix, and coverage settings.
 
 ## Gate measurements
 
@@ -26,16 +28,21 @@ testcase seconds can overlap across workers.
 | [November 9 issue baseline](https://github.com/stranske/Workflows/actions/runs/42538564663) | `c3eed332a` | Pass | 27m16s | [14m02s](https://github.com/stranske/Workflows/actions/runs/42538564663/job/128910700729) | 13m19s |
 | [November 11 partitioned control](https://github.com/stranske/Workflows/actions/runs/43033459165) | `0aad55c39` | Pass | 7m33s | [4m57s](https://github.com/stranske/Workflows/actions/runs/43033459165/job/130566504739) | 4m20s |
 | [November 11 scheduler trial](https://github.com/stranske/Workflows/actions/runs/43049167125) | `0a4e9dbaf` | Fail | 13m38s | [5m10s](https://github.com/stranske/Workflows/actions/runs/43049167125/job/130624948089) | 4m28s |
+| [November 11 fixture trial](https://github.com/stranske/Workflows/actions/runs/43057239997) | `8602e65ed` | Fail | 7m25s | [5m49s](https://github.com/stranske/Workflows/actions/runs/43057239997/job/130650270755) | 5m14s |
 
 The November 9 baseline predates the grammar partition. The November 11
 control provides a closer comparison for the fixture change. The scheduler
-trial failed 13 workflow contract tests.
+trial failed 13 workflow contract tests. The initial fixture trial failed
+five tests that validate the original deliberate-break file's hash. The
+current implementation keeps that file byte-identical and defines the
+fixture in the existing scripts test configuration. The
+[PR description](https://github.com/stranske/Workflows/pull/4647) carries
+the final head's hosted timing receipt.
 
 ## Focused validation on November 11
 
-The same 262 cases passed in 26.82s before the fixture and 8.69s with it,
-using four local xdist workers. The five slowest calls took 2.12–2.15s before
-and 0.53–0.57s after.
+The same 262 cases passed in 26.82s without the fixture and 10.16s with the
+scoped fixture, using four local xdist workers.
 
 ```bash
 /opt/anaconda3/bin/python3 -m pytest -q -o asyncio_default_fixture_loop_scope=function \
@@ -44,6 +51,8 @@ and 0.53–0.57s after.
 ```
 
 The focused Gate scheduling and coverage contracts passed 30 cases in 3.21s.
+The target module plus both archive-binding test files passed 290 cases
+in 12.79s with the relocated fixture.
 
 ## Health 85
 
