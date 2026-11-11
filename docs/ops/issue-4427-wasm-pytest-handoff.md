@@ -570,3 +570,29 @@ run report as specified above.
 - **A4 (scope-only reference): observed locally.** The retained post-merge round
   and exact delivered head are recorded above; this does not certify a hosted
   sync-core workflow run or future recurrence prevention.
+
+## Production acceptance for #4632 (2026-11-11)
+
+Qualifying run: [42966520283](https://github.com/stranske/Workflows/actions/runs/42966520283),
+event `schedule` (`[unscoped]`), created 2026-11-11T05:33:19Z, conclusion `success`,
+Workflows head `c1f27d82180b10b7213aea099f8feec30c3e15b1` (descendant of PR #4629
+merge commit `e0cff78a8537be83e296761536fbda3038b4ca2d`; PR #4629 state `MERGED`,
+merged 2026-11-10T22:17:49Z, after #4612 opened 2026-11-10T03:08:47Z).
+Run started by the native scheduler, not by this seat.
+
+Acceptance command result:
+
+```bash
+gh run view 42966520283 --repo stranske/Workflows --log | grep -E '6189|6186'
+# stranske/Trend_Model_Project dev-tool: none open; #6213 merged, #6189 merged, #6187 closed unmerged, #6186 closed unmerged, ...
+```
+
+The log line and the job-summary text generated from the same formatter show
+both dispositions qualified by `stranske/Trend_Model_Project`:
+`#6189 merged` and `#6186 closed unmerged`. Sync-core round `20261108T054334Z`
+and its delivered result (head `ad09728581df4a27d421f272f9e307efaa581e63`) are
+retained above.
+
+Reconciled status: **T1 done** (qualifying native run obtained and inspected);
+**A1 verified** (246-test Node command, see above); **A2 satisfied** by run
+42966520283; **A3 verified**; **A4 observed locally** as scoped above.
