@@ -1,0 +1,247 @@
+{
+  "checked_at": "2026-11-11T19:17:13.701185+00:00",
+  "browser": {
+    "url": "https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413",
+    "error": "The browser access host is unavailable"
+  },
+  "runs": [
+    {
+      "run": 42353296252,
+      "job": 128345864413,
+      "log": {
+        "command": [
+          "gh",
+          "run",
+          "view",
+          "42353296252",
+          "--repo",
+          "stranske/Workflows",
+          "--log"
+        ],
+        "exit_code": 0,
+        "stdout": {
+          "full_log_sha256": "ed07797a48e29633953b44e6394c1a6533b606d1bf8bc18cc5a264b1b6e12128",
+          "full_log_bytes": 256565,
+          "target_job_log": "round2-42353296252-intake.log",
+          "target_job_lines": 348
+        },
+        "stderr": ""
+      },
+      "metadata": {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Workflows/actions/runs/42353296252"
+        ],
+        "exit_code": 0,
+        "stdout": {
+          "id": 42353296252,
+          "event": "issues",
+          "path": ".github/workflows/agents-63-issue-intake.yml",
+          "head_sha": "d2106cc83e060d0063f63dd08ea94bbaa4104fbf",
+          "created_at": "2026-11-07T07:55:49Z",
+          "conclusion": "success",
+          "html_url": "https://github.com/stranske/Workflows/actions/runs/42353296252"
+        },
+        "stderr": ""
+      },
+      "summary": {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Workflows/check-runs/128345864413"
+        ],
+        "exit_code": 0,
+        "stdout": {
+          "id": 128345864413,
+          "name": "Validate Codex issue labels",
+          "html_url": "https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413",
+          "conclusion": "success",
+          "started_at": "2026-11-07T07:55:57Z",
+          "output": {
+            "title": null,
+            "summary": null,
+            "text": null,
+            "annotations_count": 1,
+            "annotations_url": "https://api.github.com/repos/stranske/Workflows/check-runs/128345864413/annotations"
+          }
+        },
+        "stderr": ""
+      },
+      "artifacts": {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Workflows/actions/runs/42353296252/artifacts"
+        ],
+        "exit_code": 0,
+        "stdout": {
+          "total_count": 0,
+          "artifacts": []
+        },
+        "stderr": ""
+      }
+    },
+    {
+      "run": 43083618531,
+      "job": 130742465381,
+      "log": {
+        "command": [
+          "gh",
+          "run",
+          "view",
+          "43083618531",
+          "--repo",
+          "stranske/Workflows",
+          "--log"
+        ],
+        "exit_code": 0,
+        "stdout": {
+          "full_log_sha256": "542d3a6097e9c6c5bac53522baef521cd678d8e221ded1193287293b54719e71",
+          "full_log_bytes": 262749,
+          "target_job_log": "round2-43083618531-intake.log",
+          "target_job_lines": 347
+        },
+        "stderr": ""
+      },
+      "metadata": {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Workflows/actions/runs/43083618531"
+        ],
+        "exit_code": 0,
+        "stdout": {
+          "id": 43083618531,
+          "event": "issues",
+          "path": ".github/workflows/agents-63-issue-intake.yml",
+          "head_sha": "40a103f20968e85cba79a12ac5cebf1b7731e1dc",
+          "created_at": "2026-11-11T19:03:39Z",
+          "conclusion": "success",
+          "html_url": "https://github.com/stranske/Workflows/actions/runs/43083618531"
+        },
+        "stderr": ""
+      },
+      "summary": {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Workflows/check-runs/130742465381"
+        ],
+        "exit_code": 0,
+        "stdout": {
+          "id": 130742465381,
+          "name": "Validate Codex issue labels",
+          "html_url": "https://github.com/stranske/Workflows/actions/runs/43083618531/job/130742465381",
+          "conclusion": "success",
+          "started_at": "2026-11-11T19:04:34Z",
+          "output": {
+            "title": null,
+            "summary": null,
+            "text": null,
+            "annotations_count": 1,
+            "annotations_url": "https://api.github.com/repos/stranske/Workflows/check-runs/130742465381/annotations"
+          }
+        },
+        "stderr": ""
+      },
+      "artifacts": {
+        "command": [
+          "gh",
+          "api",
+          "repos/stranske/Workflows/actions/runs/43083618531/artifacts"
+        ],
+        "exit_code": 0,
+        "stdout": {
+          "total_count": 0,
+          "artifacts": []
+        },
+        "stderr": ""
+      }
+    }
+  ],
+  "reported_failures": {
+    "command": [
+      "gh",
+      "run",
+      "view",
+      "43083213093",
+      "--repo",
+      "stranske/Workflows",
+      "--json",
+      "status,conclusion,jobs"
+    ],
+    "exit_code": 0,
+    "stdout": {
+      "conclusion": "cancelled",
+      "jobs": [
+        {
+          "completedAt": "2026-11-11T19:01:23Z",
+          "conclusion": "cancelled",
+          "databaseId": 130740855230,
+          "name": "Resolve Context",
+          "startedAt": "2026-11-11T19:01:08Z",
+          "status": "completed",
+          "steps": [],
+          "url": "https://github.com/stranske/Workflows/actions/runs/43083213093/job/130740855230"
+        },
+        {
+          "completedAt": "2026-11-11T19:01:23Z",
+          "conclusion": "skipped",
+          "databaseId": 130741004215,
+          "name": "autofix",
+          "startedAt": "2026-11-11T19:01:24Z",
+          "status": "completed",
+          "steps": [],
+          "url": "https://github.com/stranske/Workflows/actions/runs/43083213093/job/130741004215"
+        },
+        {
+          "completedAt": "2026-11-11T19:01:24Z",
+          "conclusion": "cancelled",
+          "databaseId": 130741005415,
+          "name": "Record autofix dispatch completion",
+          "startedAt": "2026-11-11T19:01:24Z",
+          "status": "completed",
+          "steps": [],
+          "url": "https://github.com/stranske/Workflows/actions/runs/43083213093/job/130741005415"
+        }
+      ],
+      "status": "completed"
+    },
+    "stderr": ""
+  },
+  "historical_export_candidate": {
+    "command": [
+      "gh",
+      "api",
+      "repos/stranske/Orchestrator/contents/config/route-weights.json?ref=2145116d6046609f5b9e5068a7c226642303ccaf",
+      "-H",
+      "Accept: application/vnd.github.raw+json"
+    ],
+    "exit_code": 0,
+    "stdout": {
+      "file": "round2-historical-export-candidate.json",
+      "sha256": "b3c21808095ccdb046239df3a8766db743ba430da15d1a8de8f2bff424c16d62",
+      "limitation": "Historical branch revision candidate; not proof of bytes served to intake."
+    },
+    "stderr": ""
+  },
+  "historical_export_lookup": {
+    "command": [
+      "gh",
+      "api",
+      "repos/stranske/Orchestrator/commits?sha=exports%2Froute-weights&path=config%2Froute-weights.json&until=2026-11-07T07%3A55%3A59Z&per_page=1",
+      "--jq",
+      "map({sha,date:.commit.committer.date,html_url})"
+    ],
+    "exit_code": 0,
+    "stdout": [
+      {
+        "date": "2026-10-24T12:52:52Z",
+        "html_url": "https://github.com/stranske/Orchestrator/commit/2145116d6046609f5b9e5068a7c226642303ccaf",
+        "sha": "2145116d6046609f5b9e5068a7c226642303ccaf"
+      }
+    ],
+    "stderr": ""
+  }
+}

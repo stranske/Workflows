@@ -42,6 +42,43 @@ unavailability evidence, not evidence of a non-Codex route. Do not close the
 issue until a readable genuine summary and contemporaneous condition establish
 A3.
 
+## Issue #4587 round 2 A3 retrieval — 2026-11-11 UTC
+
+**Outcome A3: UNKNOWN (0 qualifying executions); closure withheld.** Real-input
+check: `gh run view 42353296252 --repo stranske/Workflows --log` (exit 0).
+Stop rule: three candidate/source retrieval passes or 25 minutes. Blocking/drainable
+pair: missing production summary/condition blocks closure; source retrieval and
+A3-only evidence documentation can drain. No routing or workflow repair is justified.
+
+- Historical run/job [42353296252 / 128345864413](https://github.com/stranske/Workflows/actions/runs/42353296252/job/128345864413):
+  the full run log is retrievable; the [retained target-job log](round2-42353296252-intake.log)
+  shows empty input `DEFAULT_AGENT` and the Cursor-to-Claude label override.
+  Its check-run `output.summary` and `output.text` are null, its run has zero
+  downloadable artifacts, and browser retrieval returned exactly
+  `The browser access host is unavailable`. The actual summary remains unavailable.
+- A historical export candidate was retrieved at [Orchestrator revision
+  2145116d6046609f5b9e5068a7c226642303ccaf](https://github.com/stranske/Orchestrator/blob/2145116d6046609f5b9e5068a7c226642303ccaf/config/route-weights.json),
+  the latest export-file commit returned before 2026-11-07T07:55:59Z.
+  [Saved bytes](round2-historical-export-candidate.json) are a historical revision,
+  **not a verified contemporaneous snapshot fetched by that job**: the execution
+  records no export revision or content digest. They cannot establish its actual
+  posterior ordering or Codex shed state; current weights were not substituted.
+- Another genuine post-merge intake [43083618531 / 130742465381](https://github.com/stranske/Workflows/actions/runs/43083618531/job/130742465381)
+  ran on `40a103f20968e85cba79a12ac5cebf1b7731e1dc` with event `issues`.
+  `gh run view 43083618531 --repo stranske/Workflows --log` exits 0;
+  its [retained target-job log](round2-43083618531-intake.log) records issue 4651
+  and empty input `DEFAULT_AGENT`. Its actual check-run summary/text are also
+  null and it has zero downloadable artifacts. No actual selection table or
+  contemporaneous export identity is exposed, so this does not complete T2/A1/A2.
+
+[Retrieval receipt](round2-a3-retrieval.json) retains commands, exit codes,
+full-log hashes, check-run outputs, artifact inventories and export lookup provenance.
+It also records that the two reported CI failures in run 43083213093 are actually
+**cancelled**, with zero executed steps; the intervening autofix job was skipped.
+No failing code step was observed. T1's exact-unavailability record and T3's
+A3-only disposition are complete; T2 and qualifying production evidence remain
+unverified. Original mutation receipts and the 48-hour observation are unchanged.
+
 ## Current continuation disposition — 2026-11-09
 
 Outcome 1: **A4 PASS**, unchanged **17/51 = 33.33%**, complete coverage.

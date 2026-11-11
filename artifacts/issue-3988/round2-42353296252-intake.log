@@ -1,0 +1,348 @@
+Validate Codex issue labels	UNKNOWN STEP	﻿2026-11-07T07:55:57.8460870Z Current runner version: '2.338.2'
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8490658Z ##[group]Runner Image Provisioner
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8492079Z Hosted Compute Agent
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8492885Z Version: 20261028.624
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8493746Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8494752Z Build Date: 2026-10-28T21:51:42Z
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8495680Z Worker ID: {3be65fb2-0fb0-48cd-b5ff-edff7b8ca974}
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8496646Z Region: eastus2
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8497401Z Cloud: Azure
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8498736Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8500434Z ##[group]Operating System
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8501200Z Ubuntu
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8501985Z 26.04.1
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8502739Z LTS
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8503396Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8504126Z ##[group]Runner Image
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8504933Z Image: ubuntu-26.04
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8505616Z Version: 20261101.186.1
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8507315Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261101.186/images/ubuntu/Ubuntu2604-Readme.md
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8509205Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261101.186
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8510481Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8512425Z ##[group]GITHUB_TOKEN Permissions
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8514896Z Contents: read
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8515583Z Issues: read
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8516381Z Metadata: read
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8517097Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8519439Z Secret source: Actions
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8520623Z Cache mode: read
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8521949Z Prepare workflow directory
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8898531Z Prepare all required actions
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:57.8956179Z Getting action download info
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.0532515Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.1909173Z Download action repository 'actions/github-script@v9' (SHA:3a2844b7e9c422d3c10d287c895573f7108da1b3)
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.4321566Z Complete job name: Validate Codex issue labels
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5040379Z ##[group]Run actions/checkout@v7
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5041051Z with:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5041423Z   persist-credentials: false
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5043521Z   sparse-checkout: .github/actions/setup-api-client
+Validate Codex issue labels	UNKNOWN STEP	.github/agents/registry.yml
+Validate Codex issue labels	UNKNOWN STEP	.github/scripts/agent_delegation_policy.js
+Validate Codex issue labels	UNKNOWN STEP	.github/scripts/rate_limit_receipt.js
+Validate Codex issue labels	UNKNOWN STEP	.github/scripts/rate_limit_receipt.json
+Validate Codex issue labels	UNKNOWN STEP	.github/scripts/agent_registry.js
+Validate Codex issue labels	UNKNOWN STEP	.github/scripts/error_classifier.js
+Validate Codex issue labels	UNKNOWN STEP	.github/scripts/github-api-with-retry.js
+Validate Codex issue labels	UNKNOWN STEP	.github/scripts/token_load_balancer.js
+Validate Codex issue labels	UNKNOWN STEP	config/model_registry.json
+Validate Codex issue labels	UNKNOWN STEP	
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5045514Z   sparse-checkout-cone-mode: false
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5045975Z   repository: stranske/Workflows
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5049247Z   token: ***
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5049609Z   ssh-strict: true
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5049973Z   ssh-user: git
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5050323Z   clean: true
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5050676Z   fetch-depth: 1
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5051032Z   fetch-tags: false
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5051398Z   show-progress: true
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5052184Z   lfs: false
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5052573Z   submodules: false
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5052966Z   set-safe-directory: true
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5053392Z   allow-unsafe-pr-checkout: false
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.5053989Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7157657Z Syncing repository: stranske/Workflows
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7159274Z ##[group]Getting Git version info
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7159978Z Working directory is '/home/runner/work/Workflows/Workflows'
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7160993Z [command]/usr/bin/git version
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7163525Z git version 2.56.0
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7178787Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7187222Z Temporarily overriding HOME='/home/runner/work/_temp/252fc0a3-f00d-46ca-81d2-be6fcfebdc65' before making global git config changes
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7189162Z Adding repository directory to the temporary git global config as a safe directory
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7191149Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7239913Z Deleting the contents of '/home/runner/work/Workflows/Workflows'
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7242400Z ##[group]Determining repository object format
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7243711Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7244369Z ##[group]Initializing the repository
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7247082Z [command]/usr/bin/git init /home/runner/work/Workflows/Workflows
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7319133Z hint: Using 'master' as the name for the initial branch. This default branch name
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7320463Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7321260Z hint: to use in all of your new repositories, which will suppress this warning,
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7322364Z hint: call:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7322738Z hint:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7323332Z hint: 	git config --global init.defaultBranch <name>
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7323888Z hint:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7324511Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7325547Z hint: 'development'. The just-created branch can be renamed via this command:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7326646Z hint:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7327253Z hint: 	git branch -m <name>
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7327980Z hint:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7328821Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7329826Z Initialized empty Git repository in /home/runner/work/Workflows/Workflows/.git/
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7336152Z [command]/usr/bin/git remote add origin https://github.com/stranske/Workflows
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7376393Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7377253Z ##[group]Disabling automatic garbage collection
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7378330Z [command]/usr/bin/git config --local gc.auto 0
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7407263Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7408278Z ##[group]Setting up auth
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7408762Z Removing SSH command configuration
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7411135Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7439817Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7769772Z Removing HTTP extra header
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7775242Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.7806452Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8045478Z Removing includeIf entries pointing to credentials config files
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8046942Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8083023Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8334453Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8368061Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/.git.path /home/runner/work/_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8397546Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8430623Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8462479Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8493394Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8494700Z ##[group]Fetching the repository
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:58.8500812Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --filter=blob:none --depth=1 origin +d2106cc83e060d0063f63dd08ea94bbaa4104fbf:refs/remotes/origin/main
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0454393Z From https://github.com/stranske/Workflows
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0455287Z  * [new ref]         d2106cc83e060d0063f63dd08ea94bbaa4104fbf -> origin/main
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0461913Z [command]/usr/bin/git branch --list --remote origin/main
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0486917Z   origin/main
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0493905Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0515867Z d2106cc83e060d0063f63dd08ea94bbaa4104fbf
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0519372Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0520330Z ##[group]Determining the checkout info
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0521139Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0521997Z ##[group]Setting up sparse checkout
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0523476Z [command]/usr/bin/git config core.sparseCheckout true
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0551288Z [command]/usr/bin/git rev-parse --git-path info/sparse-checkout
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0570621Z .git/info/sparse-checkout
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0576845Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0577593Z ##[group]Checking out the ref
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.0580140Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.3981061Z Switched to a new branch 'main'
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.3982455Z branch 'main' set up to track 'origin/main'.
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.3985482Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4025098Z [command]/usr/bin/git log -1 --format=%H
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4047569Z d2106cc83e060d0063f63dd08ea94bbaa4104fbf
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4056082Z ##[group]Removing auth
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4056968Z Removing SSH command configuration
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4058411Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4087345Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4326035Z Removing HTTP extra header
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4328481Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4355638Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4588353Z Removing includeIf entries pointing to credentials config files
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4590851Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4615718Z includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4618652Z includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4621307Z includeif.gitdir:/github/workspace/.git.path
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4623712Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4627484Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4647428Z /home/runner/work/_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4658116Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-951f2638\-fe1e\-4d6a\-ad83\-f370dc8724d9\.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4690238Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4710383Z /home/runner/work/_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4720320Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Workflows/Workflows/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-951f2638\-fe1e\-4d6a\-ad83\-f370dc8724d9\.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4757619Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4779753Z /github/runner_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4788632Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-951f2638\-fe1e\-4d6a\-ad83\-f370dc8724d9\.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4818625Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4839327Z /github/runner_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4847042Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-951f2638\-fe1e\-4d6a\-ad83\-f370dc8724d9\.config
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.4877646Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5121586Z Removing credentials config '/home/runner/work/_temp/git-credentials-951f2638-fe1e-4d6a-ad83-f370dc8724d9.config'
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5128909Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5435346Z ##[group]Run actions/github-script@v9
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5436358Z with:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5484665Z   script: const manual = (process.env.INPUT_ISSUE || '').trim();
+Validate Codex issue labels	UNKNOWN STEP	const fs = require('fs');
+Validate Codex issue labels	UNKNOWN STEP	const registryPath = './.github/scripts/agent_registry.js';
+Validate Codex issue labels	UNKNOWN STEP	const policyPath = './.github/scripts/agent_delegation_policy.js';
+Validate Codex issue labels	UNKNOWN STEP	let intakeChoice = {
+Validate Codex issue labels	UNKNOWN STEP	  agent: 'codex',
+Validate Codex issue labels	UNKNOWN STEP	  posterior: null,
+Validate Codex issue labels	UNKNOWN STEP	  poolState: 'static',
+Validate Codex issue labels	UNKNOWN STEP	  delegationSource: 'static',
+Validate Codex issue labels	UNKNOWN STEP	};
+Validate Codex issue labels	UNKNOWN STEP	if (!(process.env.DEFAULT_AGENT || '').trim()) {
+Validate Codex issue labels	UNKNOWN STEP	  try {
+Validate Codex issue labels	UNKNOWN STEP	    const { loadAgentRegistry } = require(registryPath);
+Validate Codex issue labels	UNKNOWN STEP	    const { fetchRouteWeights, chooseAgentForIntake } = require(policyPath);
+Validate Codex issue labels	UNKNOWN STEP	    const registry = loadAgentRegistry();
+Validate Codex issue labels	UNKNOWN STEP	    const routeWeights = await fetchRouteWeights();
+Validate Codex issue labels	UNKNOWN STEP	    if (!routeWeights) {
+Validate Codex issue labels	UNKNOWN STEP	      throw new Error('Route-weights export unavailable or stale');
+Validate Codex issue labels	UNKNOWN STEP	    }
+Validate Codex issue labels	UNKNOWN STEP	    intakeChoice = chooseAgentForIntake('implement', routeWeights, registry.agents);
+Validate Codex issue labels	UNKNOWN STEP	  } catch (error) {
+Validate Codex issue labels	UNKNOWN STEP	    core.warning(`Intake agent chooser failed; using static default codex: ${error.message}`);
+Validate Codex issue labels	UNKNOWN STEP	  }
+Validate Codex issue labels	UNKNOWN STEP	}
+Validate Codex issue labels	UNKNOWN STEP	if (!(process.env.DEFAULT_AGENT || '').trim() && intakeChoice?.agent) {
+Validate Codex issue labels	UNKNOWN STEP	  process.env.DEFAULT_AGENT = intakeChoice.agent;
+Validate Codex issue labels	UNKNOWN STEP	}
+Validate Codex issue labels	UNKNOWN STEP	const defaultAgent = (process.env.DEFAULT_AGENT || 'codex').trim() || 'codex';
+Validate Codex issue labels	UNKNOWN STEP	await core.summary
+Validate Codex issue labels	UNKNOWN STEP	  .addHeading('Intake Agent Selection', 3)
+Validate Codex issue labels	UNKNOWN STEP	  .addTable([
+Validate Codex issue labels	UNKNOWN STEP	    [
+Validate Codex issue labels	UNKNOWN STEP	      { data: 'Chosen Agent', header: true },
+Validate Codex issue labels	UNKNOWN STEP	      { data: 'Posterior', header: true },
+Validate Codex issue labels	UNKNOWN STEP	      { data: 'Pool State', header: true },
+Validate Codex issue labels	UNKNOWN STEP	      { data: 'Default Agent', header: true },
+Validate Codex issue labels	UNKNOWN STEP	    ],
+Validate Codex issue labels	UNKNOWN STEP	    [
+Validate Codex issue labels	UNKNOWN STEP	      String(intakeChoice?.agent || defaultAgent),
+Validate Codex issue labels	UNKNOWN STEP	      intakeChoice?.posterior !== null && intakeChoice?.posterior !== undefined
+Validate Codex issue labels	UNKNOWN STEP	        ? String(intakeChoice.posterior)
+Validate Codex issue labels	UNKNOWN STEP	        : 'n/a',
+Validate Codex issue labels	UNKNOWN STEP	      String(intakeChoice?.poolState || intakeChoice?.pool_state || 'static'),
+Validate Codex issue labels	UNKNOWN STEP	      defaultAgent,
+Validate Codex issue labels	UNKNOWN STEP	    ],
+Validate Codex issue labels	UNKNOWN STEP	  ])
+Validate Codex issue labels	UNKNOWN STEP	  .write();
+Validate Codex issue labels	UNKNOWN STEP	const eventIssue =
+Validate Codex issue labels	UNKNOWN STEP	  context.payload.issue && context.payload.issue.number
+Validate Codex issue labels	UNKNOWN STEP	    ? String(context.payload.issue.number)
+Validate Codex issue labels	UNKNOWN STEP	    : '';
+Validate Codex issue labels	UNKNOWN STEP	const issueNumber = manual || eventIssue;
+Validate Codex issue labels	UNKNOWN STEP	if (!issueNumber) {
+Validate Codex issue labels	UNKNOWN STEP	  core.info('No issue number resolved; skipping label enforcement.');
+Validate Codex issue labels	UNKNOWN STEP	  core.setOutput('issue_number', '');
+Validate Codex issue labels	UNKNOWN STEP	  core.setOutput('agent_key', defaultAgent);
+Validate Codex issue labels	UNKNOWN STEP	  return;
+Validate Codex issue labels	UNKNOWN STEP	}
+Validate Codex issue labels	UNKNOWN STEP	const { owner, repo } = context.repo;
+Validate Codex issue labels	UNKNOWN STEP	const num = Number(issueNumber);
+Validate Codex issue labels	UNKNOWN STEP	const retryHelperPath = './.github/scripts/github-api-with-retry.js';
+Validate Codex issue labels	UNKNOWN STEP	const retryHelpers = fs.existsSync(retryHelperPath)
+Validate Codex issue labels	UNKNOWN STEP	  ? require(retryHelperPath)
+Validate Codex issue labels	UNKNOWN STEP	  : {
+Validate Codex issue labels	UNKNOWN STEP	      withRetry: (fn) => fn(),
+Validate Codex issue labels	UNKNOWN STEP	      paginateWithRetry: (githubInstance, method, params) =>
+Validate Codex issue labels	UNKNOWN STEP	        githubInstance.paginate(method, params),
+Validate Codex issue labels	UNKNOWN STEP	    };
+Validate Codex issue labels	UNKNOWN STEP	const { withRetry } = retryHelpers;
+Validate Codex issue labels	UNKNOWN STEP	
+Validate Codex issue labels	UNKNOWN STEP	// Use event payload labels if available.
+Validate Codex issue labels	UNKNOWN STEP	// Avoids API call + reduces rate limiting.
+Validate Codex issue labels	UNKNOWN STEP	let labels;
+Validate Codex issue labels	UNKNOWN STEP	const payloadLabels = context.payload.issue?.labels;
+Validate Codex issue labels	UNKNOWN STEP	// Only use labels from event payload if the issue number matches.
+Validate Codex issue labels	UNKNOWN STEP	// This workflow can be triggered manually (workflow_dispatch) or by issue events.
+Validate Codex issue labels	UNKNOWN STEP	// When triggered manually, INPUT_ISSUE may refer to a different issue.
+Validate Codex issue labels	UNKNOWN STEP	// Fetch labels via API to avoid using labels from the wrong issue.
+Validate Codex issue labels	UNKNOWN STEP	if (
+Validate Codex issue labels	UNKNOWN STEP	  payloadLabels &&
+Validate Codex issue labels	UNKNOWN STEP	  Array.isArray(payloadLabels) &&
+Validate Codex issue labels	UNKNOWN STEP	  String(context.payload.issue?.number) === String(num)
+Validate Codex issue labels	UNKNOWN STEP	) {
+Validate Codex issue labels	UNKNOWN STEP	  core.info('Using labels from event payload (no API call needed).');
+Validate Codex issue labels	UNKNOWN STEP	  labels = payloadLabels
+Validate Codex issue labels	UNKNOWN STEP	    .map((label) =>
+Validate Codex issue labels	UNKNOWN STEP	      typeof label === 'string' ? label : label.name || '',
+Validate Codex issue labels	UNKNOWN STEP	    )
+Validate Codex issue labels	UNKNOWN STEP	    .filter(Boolean)
+Validate Codex issue labels	UNKNOWN STEP	    .map((name) => name.toLowerCase());
+Validate Codex issue labels	UNKNOWN STEP	} else {
+Validate Codex issue labels	UNKNOWN STEP	  // Fallback to API call for manual dispatch or mismatched issue numbers
+Validate Codex issue labels	UNKNOWN STEP	  core.info('Fetching labels via API (event payload not available or issue mismatch).');
+Validate Codex issue labels	UNKNOWN STEP	  const { data: issue } = await withRetry(() =>
+Validate Codex issue labels	UNKNOWN STEP	    github.rest.issues.get({
+Validate Codex issue labels	UNKNOWN STEP	      owner,
+Validate Codex issue labels	UNKNOWN STEP	      repo,
+Validate Codex issue labels	UNKNOWN STEP	      issue_number: num,
+Validate Codex issue labels	UNKNOWN STEP	    })
+Validate Codex issue labels	UNKNOWN STEP	  );
+Validate Codex issue labels	UNKNOWN STEP	  labels = (issue.labels || [])
+Validate Codex issue labels	UNKNOWN STEP	    .map((label) =>
+Validate Codex issue labels	UNKNOWN STEP	      typeof label === 'string' ? label : label.name || '',
+Validate Codex issue labels	UNKNOWN STEP	    )
+Validate Codex issue labels	UNKNOWN STEP	    .filter(Boolean)
+Validate Codex issue labels	UNKNOWN STEP	    .map((name) => name.toLowerCase());
+Validate Codex issue labels	UNKNOWN STEP	}
+Validate Codex issue labels	UNKNOWN STEP	// Control labels that should not be counted as agent assignments
+Validate Codex issue labels	UNKNOWN STEP	const controlLabelSuffixes = [
+Validate Codex issue labels	UNKNOWN STEP	  'keepalive',
+Validate Codex issue labels	UNKNOWN STEP	  'formatted',
+Validate Codex issue labels	UNKNOWN STEP	  'optimize',
+Validate Codex issue labels	UNKNOWN STEP	  'allow-change',
+Validate Codex issue labels	UNKNOWN STEP	  'apply-suggestions',
+Validate Codex issue labels	UNKNOWN STEP	  'debug',
+Validate Codex issue labels	UNKNOWN STEP	  'format',
+Validate Codex issue labels	UNKNOWN STEP	  'sync-failed',
+Validate Codex issue labels	UNKNOWN STEP	  'sync-required',
+Validate Codex issue labels	UNKNOWN STEP	  'auto-pilot',
+Validate Codex issue labels	UNKNOWN STEP	  'auto-pilot-pause',
+Validate Codex issue labels	UNKNOWN STEP	  'auto-pilot-failed',
+Validate Codex issue labels	UNKNOWN STEP	  'activated',
+Validate Codex issue labels	UNKNOWN STEP	  'decompose',
+Validate Codex issue labels	UNKNOWN STEP	  'paused',
+Validate Codex issue labels	UNKNOWN STEP	  'needs-attention',
+Validate Codex issue labels	UNKNOWN STEP	  'rate-limited',
+Validate Codex issue labels	UNKNOWN STEP	  'retry',
+Validate Codex issue labels	UNKNOWN STEP	];
+Validate Codex issue labels	UNKNOWN STEP	const codexGuardLabels = ['agent:codex', 'agents:codex'];
+Validate Codex issue labels	UNKNOWN STEP	const agentLabels = labels
+Validate Codex issue labels	UNKNOWN STEP	  .filter((name) => /^agents?:[a-z0-9-]+$/.test(name))
+Validate Codex issue labels	UNKNOWN STEP	  .filter((name) => {
+Validate Codex issue labels	UNKNOWN STEP	    const suffix = name.replace(/^agents?:/, '');
+Validate Codex issue labels	UNKNOWN STEP	    return !controlLabelSuffixes.includes(suffix);
+Validate Codex issue labels	UNKNOWN STEP	  });
+Validate Codex issue labels	UNKNOWN STEP	if (agentLabels.length !== 1) {
+Validate Codex issue labels	UNKNOWN STEP	  const found = agentLabels.join(', ');
+Validate Codex issue labels	UNKNOWN STEP	  core.setFailed(
+Validate Codex issue labels	UNKNOWN STEP	    `Expected exactly one agent:* label; found ${agentLabels.length}: ${found}`,
+Validate Codex issue labels	UNKNOWN STEP	  );
+Validate Codex issue labels	UNKNOWN STEP	  return;
+Validate Codex issue labels	UNKNOWN STEP	}
+Validate Codex issue labels	UNKNOWN STEP	const agentLabel = agentLabels[0];
+Validate Codex issue labels	UNKNOWN STEP	const agentKey = agentLabel.replace(/^agents?:/, '');
+Validate Codex issue labels	UNKNOWN STEP	const normalizedDefault = defaultAgent.toLowerCase();
+Validate Codex issue labels	UNKNOWN STEP	if (normalizedDefault && normalizedDefault !== agentKey) {
+Validate Codex issue labels	UNKNOWN STEP	  core.info(
+Validate Codex issue labels	UNKNOWN STEP	    `Overriding bridge agent '${normalizedDefault}' with '${agentKey}' from labels.`,
+Validate Codex issue labels	UNKNOWN STEP	  );
+Validate Codex issue labels	UNKNOWN STEP	}
+Validate Codex issue labels	UNKNOWN STEP	core.setOutput('issue_number', String(num));
+Validate Codex issue labels	UNKNOWN STEP	core.setOutput('agent_key', agentKey);
+Validate Codex issue labels	UNKNOWN STEP	
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5548468Z   github-token: ***
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5549254Z   debug: false
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5550025Z   user-agent: actions/github-script
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5550960Z   result-encoding: json
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5551849Z   retries: 0
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5552666Z   retry-exempt-status-codes: 400,401,403,404,422
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5553668Z env:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5554356Z   INPUT_ISSUE: 4523
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5555106Z   DEFAULT_AGENT: 
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.5555837Z ##[endgroup]
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.7111192Z Using labels from event payload (no API call needed).
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.7123093Z Overriding bridge agent 'cursor' with 'claude' from labels.
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.7795137Z Post job cleanup.
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8552084Z [command]/usr/bin/git version
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8586773Z git version 2.56.0
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8616900Z Temporarily overriding HOME='/home/runner/work/_temp/4dad4acf-2256-4ac7-8f66-45db9754659e' before making global git config changes
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8620043Z Adding repository directory to the temporary git global config as a safe directory
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8623031Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Workflows/Workflows
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8652934Z Removing SSH command configuration
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8657757Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8691984Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8940576Z Removing HTTP extra header
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8945287Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.8976123Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.9223395Z Removing includeIf entries pointing to credentials config files
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.9228640Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.9260236Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.9657611Z Evaluate and set job outputs
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.9664692Z Set output 'issue_number'
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.9666930Z Set output 'agent_key'
+Validate Codex issue labels	UNKNOWN STEP	2026-11-07T07:55:59.9668792Z Cleaning up orphan processes

@@ -1,0 +1,373 @@
+{
+  "capacity": {
+    "aider": {
+      "observed_at": 1792846370,
+      "state": "ok",
+      "window": "daily"
+    },
+    "claude": {
+      "observed_at": 1792846370,
+      "pacing": {
+        "allowed_fraction": 0.7685190654911652,
+        "burn_per_day": 0.0,
+        "burn_rate_per_day": 0.0,
+        "effective_reserve": 0.15,
+        "fyi": [],
+        "measurement": "measured",
+        "period_end": 1792904340.0,
+        "period_start": 1792299540.0,
+        "projected_fraction": 0.62,
+        "reason": "claude: \u0169=0.62 vs 1-r_eff=0.85; span_h=6.000; ok; w_p_prev\u2192w_p=1.000\u21921.000; clears in fresh flat samples or on reset",
+        "reset_expiries": [],
+        "resets_available": 0,
+        "routing_weight": 1.0,
+        "source": "claude-cli:/usage",
+        "stale": false,
+        "state": "ok",
+        "ts": 1792846110.0,
+        "used_fraction": 0.62
+      },
+      "state": "ok",
+      "window": "5h+weekly"
+    },
+    "codex": {
+      "observed_at": 1792846370,
+      "pacing": {
+        "allowed_fraction": 0.11427235218070488,
+        "burn_per_day": null,
+        "burn_rate_per_day": null,
+        "effective_reserve": 0.0,
+        "fyi": [
+          "pool codex: would consume oldest-expiring reset expires=1793299636 (expiry source=codex-app-server)"
+        ],
+        "measurement": "measured",
+        "period_end": 1793382052.0,
+        "period_start": 1792777252.0,
+        "projected_fraction": null,
+        "reason": "codex: u=0.19 vs g(e)+\u03b4=0.21; \u0169=unmeasured; span_h=6.000; ok; w_p_prev\u2192w_p=1.000\u21921.000; clears in fresh samples or schedule advancing or on reset",
+        "reset_expiries": [
+          1793299636,
+          1794007196
+        ],
+        "resets_available": 2,
+        "routing_weight": 1.0,
+        "source": "codex-app-server:account/rateLimits/read",
+        "stale": false,
+        "state": "ok",
+        "ts": 1792846105.0,
+        "used_fraction": 0.19
+      },
+      "state": "ok",
+      "window": "5h"
+    },
+    "cursor": {
+      "observed_at": 1792846370,
+      "state": "ok",
+      "window": "monthly"
+    },
+    "gemini": {
+      "observed_at": 1792846370,
+      "state": "ok",
+      "window": "5h+weekly"
+    },
+    "muse": {
+      "observed_at": 1792846370,
+      "state": "ok",
+      "window": "5h+weekly"
+    },
+    "vibe": {
+      "observed_at": 1792846370,
+      "state": "ok",
+      "window": "subscription"
+    }
+  },
+  "capacity_schema": "orchestrator.route-weights-capacity/v1",
+  "comparative": {
+    "assignment": {
+      "implement": {
+        "claude": 58.39170138888889
+      },
+      "review": {
+        "claude": 32.64757688492063
+      }
+    },
+    "inputs": {
+      "budget": {
+        "claude": 0.22999999999999998,
+        "codex": 0.81,
+        "cursor": null,
+        "gemini": null,
+        "vibe": null
+      },
+      "cost": {
+        "claude": {
+          "implement": 0.0,
+          "review": 0.0
+        },
+        "codex": {
+          "implement": null,
+          "review": null,
+          "testgen": null
+        },
+        "cursor": {
+          "implement": null,
+          "review": null
+        },
+        "gemini": {
+          "implement": null,
+          "review": null
+        },
+        "vibe": {
+          "implement": null,
+          "review": null,
+          "testgen": null
+        }
+      },
+      "cost_source_by_agent": {
+        "claude": {
+          "allowed_fraction": 0.7685190654911652,
+          "imputed": [],
+          "over_reserve": false,
+          "reason": null,
+          "source": "agents[claude].pacing.burn_rate_per_day / runs_per_day; local token ratio (1.0 if imputed)"
+        },
+        "codex": {
+          "allowed_fraction": 0.11427235218070488,
+          "imputed": [],
+          "over_reserve": false,
+          "reason": "agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid",
+          "source": null
+        },
+        "cursor": {
+          "imputed": [],
+          "reason": "pools[cursor-subscription].pacing missing: pacing unmeasured",
+          "source": null
+        },
+        "gemini": {
+          "imputed": [],
+          "reason": "pools[gemini-prepaid].pacing missing: pacing unmeasured",
+          "source": null
+        },
+        "vibe": {
+          "imputed": [],
+          "reason": "pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "source": null
+        }
+      },
+      "demand": {
+        "implement": 58.39170138888889,
+        "review": 32.64757688492063,
+        "testgen": 6.088461474867725
+      },
+      "pacing_observed_at": 1792846370.0,
+      "period_end": 1792904340.0,
+      "period_end_source": "earliest fully measured agent period_end",
+      "pool_by_agent": {
+        "claude": "claude",
+        "codex": "codex",
+        "cursor": "cursor-subscription",
+        "gemini": "gemini-prepaid",
+        "vibe": "vibe-subscription"
+      },
+      "price": {
+        "claude": 0.0,
+        "codex": null,
+        "cursor": null,
+        "gemini": null,
+        "vibe": null
+      },
+      "seconds_left": 57989.0
+    },
+    "iterations": 2,
+    "lambda": {
+      "claude": 0.0,
+      "codex": null,
+      "cursor": null,
+      "gemini": null,
+      "vibe": null
+    },
+    "mu": {
+      "implement": 0.7664395676598946,
+      "review": 0.5496094111338601
+    },
+    "objective": 62.69712587409432,
+    "reasons": [
+      "codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid",
+      "cursor: pools[cursor-subscription].pacing missing: pacing unmeasured",
+      "gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured",
+      "vibe: pools[vibe-subscription].pacing missing: pacing unmeasured"
+    ],
+    "schema": "orchestrator.route-weights-comparative/v1",
+    "status": "partial",
+    "unmet_demand": {
+      "implement": 0.0,
+      "review": 0.0
+    },
+    "usage": {
+      "claude": 0.0
+    },
+    "window_days": 14
+  },
+  "exploration": {
+    "challengers": {
+      "codemod": "gemini",
+      "cross_repo": "gemini",
+      "implement": "gemini",
+      "mechanical": "codex",
+      "review": "gemini",
+      "testgen": "gemini"
+    },
+    "mode": "epsilon-greedy",
+    "policy_version": "route-exploration/v1:06b49532f7d4592b9701363215dd16882504bb3568f1c6fce27a9594aaf7e717",
+    "rate": 0.2,
+    "rate_source": "env",
+    "week_start": 1792627200
+  },
+  "generated_at": "2026-10-24T12:52:31Z",
+  "min_observations": 20,
+  "reserve": {
+    "implement": [
+      {
+        "agent": "claude",
+        "comparative_rank": null,
+        "comparative_reason": "codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+        "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+        "n_obs": 466,
+        "posterior": 0.7664395676598946,
+        "success_rate": 0.7731330767119748
+      }
+    ],
+    "review": [
+      {
+        "agent": "claude",
+        "comparative_rank": null,
+        "comparative_reason": "codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+        "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+        "n_obs": 153,
+        "posterior": 0.5496094111338601,
+        "success_rate": 0.5710239621642846
+      }
+    ]
+  },
+  "schema": "orchestrator.route-weights/v1",
+  "source_version": 69,
+  "task_types": {
+    "codemod": {
+      "evidence_ok": false,
+      "ranking": []
+    },
+    "cross_repo": {
+      "evidence_ok": false,
+      "ranking": []
+    },
+    "implement": {
+      "evidence_ok": true,
+      "ranking": [
+        {
+          "agent": "cursor",
+          "comparative_rank": null,
+          "comparative_reason": "pools[cursor-subscription].pacing missing: pacing unmeasured",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 446,
+          "posterior": 0.775924985819305,
+          "success_rate": 0.7871209678005147
+        },
+        {
+          "agent": "vibe",
+          "comparative_rank": null,
+          "comparative_reason": "pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 137,
+          "posterior": 0.640674870008807,
+          "success_rate": 0.6857522900191689
+        },
+        {
+          "agent": "codex",
+          "comparative_rank": null,
+          "comparative_reason": "agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 1308,
+          "posterior": 0.6121883108767668,
+          "success_rate": 0.6116975352519018
+        },
+        {
+          "agent": "gemini",
+          "comparative_rank": null,
+          "comparative_reason": "pools[gemini-prepaid].pacing missing: pacing unmeasured",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 101,
+          "posterior": 0.5611841907919384,
+          "success_rate": 0.5518718781117873
+        }
+      ]
+    },
+    "mechanical": {
+      "evidence_ok": false,
+      "ranking": []
+    },
+    "review": {
+      "evidence_ok": true,
+      "ranking": [
+        {
+          "agent": "cursor",
+          "comparative_rank": null,
+          "comparative_reason": "pools[cursor-subscription].pacing missing: pacing unmeasured",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 341,
+          "posterior": 0.7375084930788876,
+          "success_rate": 0.744345971054454
+        },
+        {
+          "agent": "codex",
+          "comparative_rank": null,
+          "comparative_reason": "agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 287,
+          "posterior": 0.6991112709250091,
+          "success_rate": 0.7166518830682396
+        },
+        {
+          "agent": "vibe",
+          "comparative_rank": null,
+          "comparative_reason": "pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 145,
+          "posterior": 0.6322635215096435,
+          "success_rate": 0.6406744328403172
+        },
+        {
+          "agent": "gemini",
+          "comparative_rank": null,
+          "comparative_reason": "pools[gemini-prepaid].pacing missing: pacing unmeasured",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 120,
+          "posterior": 0.5506220515096579,
+          "success_rate": 0.5509433043830991
+        }
+      ]
+    },
+    "testgen": {
+      "evidence_ok": true,
+      "ranking": [
+        {
+          "agent": "codex",
+          "comparative_rank": null,
+          "comparative_reason": "agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 58,
+          "posterior": 0.8184288638786945,
+          "success_rate": 0.9210440890806938
+        },
+        {
+          "agent": "vibe",
+          "comparative_rank": null,
+          "comparative_reason": "pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "comparative_status": "partial: codex: agents[codex].pacing: burn_effective_per_hour/burn_rate_per_day/burn_per_day unmeasured or invalid; cursor: pools[cursor-subscription].pacing missing: pacing unmeasured; gemini: pools[gemini-prepaid].pacing missing: pacing unmeasured; vibe: pools[vibe-subscription].pacing missing: pacing unmeasured",
+          "n_obs": 20,
+          "posterior": 0.6610371059026164,
+          "success_rate": 0.9783333333333333
+        }
+      ]
+    }
+  }
+}
