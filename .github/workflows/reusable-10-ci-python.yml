@@ -63,6 +63,21 @@ on:
         required: false
         default: 'auto'
         type: string
+      tests-timeout-minutes:
+        description: >-
+          Job timeout for the tests job. Without it GitHub's 6-hour default applied: on 2026-11-11
+          a Trend_Model_Project test hung at 99% and held a runner for 6 hours. The longest
+          legitimate test job measured across the fleet that week was 27.6 minutes.
+        required: false
+        default: 60
+        type: number
+      pytest-faulthandler-timeout:
+        description: >-
+          Seconds a single test may run before pytest dumps every thread's stack (faulthandler,
+          built into pytest; it does not fail the test). Names the test a hang is stuck in. 0 disables.
+        required: false
+        default: 600
+        type: number
       coverage-min:
         description: Minimum coverage percentage required to pass.
         required: false
@@ -1616,6 +1631,7 @@ jobs:
       - validate-inputs
       - select-scope
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs['tests-timeout-minutes'] }}
     permissions:
       contents: read
     outputs:
@@ -2162,6 +2178,7 @@ jobs:
             }}
           PYTEST_ARGS: ${{ inputs['pytest_args'] || '' }}
           PYTEST_WORKERS: ${{ inputs['pytest-workers'] || 'auto' }}
+          PYTEST_FAULTHANDLER_TIMEOUT: ${{ inputs['pytest-faulthandler-timeout'] }}
           COVERAGE_ENABLED: ${{ (inputs.coverage && (inputs['coverage-python-version'] == '' || inputs['coverage-python-version'] == matrix.python-version)) }}
           RESOURCE_UV_CACHE_HIT: ${{ steps.resource-uv-cache.outputs.cache-hit }}
           RESOURCE_PYTEST_CACHE_HIT: ${{ steps.resource-pytest-cache.outputs.cache-hit }}
@@ -2191,6 +2208,10 @@ jobs:
           fi
           if [ -n "${PYTEST_MARKERS}" ]; then
             args=("-m" "${PYTEST_MARKERS}" "${args[@]}")
+          fi
+          # A hung test dumps every thread's stack after this many seconds (built into pytest).
+          if [ "${PYTEST_FAULTHANDLER_TIMEOUT:-0}" -gt 0 ] 2>/dev/null; then
+            args+=("-o" "faulthandler_timeout=${PYTEST_FAULTHANDLER_TIMEOUT}")
           fi
           if [ -n "${PYTEST_ARGS}" ]; then
             mapfile -t extra_args < <(
